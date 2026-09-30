@@ -25,3 +25,21 @@ value is in open-source strategy/sandbox games, not clones.
 ## Takeaway
 
 Don't hunt 1:1 clones — they barely exist. Pull from: open-war (TW battle logic), myeu (EU2 systems), Ur-Quan Masters (completed open-source game architecture), OpenHistoria/Open-Doctrines (browser strategy), and the MIT-licensed TotalWarSimulator formation math from the web research. GPL/AGPL items are reference-only unless we reimplement.
+
+## Web-search additions (2026-09-30) — the finds GitHub search missed
+
+| Project | URL | License | What it is | Reusable | Verdict |
+|---|---|---|---|---|---|
+| **WebBand** (srknzl) | github.com/srknzl/webband — playable at serkanozel.me/webband | **AGPL-3.0** | Single-page Mount & Blade: Warband-style RPG, entirely in browser. Campaign map, towns, battles (PixiJS), no build step, no server | Whole genre in a browser: campaign structure, town UI, battle flow | **Reference only** — AGPL is viral for web games. Study the design, reimplement |
+| WebBand proto (teknesyum) | github.com/teknesyum/webband | Archived | Browser M&B Warband strategy-layer prototype, vanilla JS | Strategy-layer prototype patterns | Reference — archived |
+| **OpenMB** (cookgreen) | github.com/lfp163/openmb | **GPL-3.0** | Open-source RPG engine for Mount&Blade series, C#/Ogre3D, world map, physics, mod system, in-game editor | Engine architecture: world map, item types, script/GUI systems | **Reference only** — GPL. Architecture study |
+| PMCCompany (mb2lord) | github.com/mb2lord/pmccompany | Open (check) | Open-source Bannerlord campaign mod: HQ, reserves, contracts, logistics, spy network | Campaign systems design (needs Bannerlord to run) | Reference — campaign design |
+| **0 A.D.** | play0ad.com / gitea.wildfiregames.com | Open | 3D RTS like Age of Empires II | RTS architecture, pathfinding, formation movement | Reference — big, mature |
+| **Beyond All Reason + Spring engine** | github.com/beyond-all-reason/Beyond-All-Reason, github.com/spring/spring | Open | Massive-scale RTS on the Spring engine — THE open-source engine for thousand-unit battles | Engine that solves large battle sim; sim/render split | **Reference** — study how Spring handles scale |
+| **OpenRA** | github.com/OpenRA/OpenRA | GPL-3.0 | C&C/Dune/Red Alert rebuild for modern era | Deterministic netcode, replay system | Reference — netcode/replay |
+| **Unciv** | github.com/yairm210/Unciv | **MPL-2.0** (permissive) | Civ V open-source clone, 11.3k stars, actively maintained | 4X systems: cities, tech, diplomacy, AI — MPL allows reuse with attribution | **Worth pulling** — permissive license, huge codebase |
+| Freeciv / Openage / Mindustry | various | GPL | Classic 4X / AoE2 engine / factory-tower-defense | Systems reference | Reference |
+
+## Mainland / Vorticone — final answer
+
+Web-searched both names. **Neither exists** as an Indian Mount & Blade-like passion project — not on GitHub, not on the web. "Project Mainland" hits are a Minecraft Jurassic Park addon; "Vorticone" appears only as a forum username. If these are real projects, they're not indexed under those names.
