@@ -3,11 +3,9 @@ package formation
 import (
 	"fmt"
 	"math"
-	"os"
-	"path/filepath"
-	"sort"
-	"strconv"
 	"strings"
+
+	"mbclone/simulation/internal/config"
 )
 
 // Config holds every tunable number the formation code uses. All of them come
@@ -17,6 +15,20 @@ import (
 // the exact failure that rule exists to prevent. A caller that wants different
 // spacing or different speeds edits the file and the change is logged in
 // CHANGELOG.md with the runs that motivated it.
+//
+// The values arrive through FromCentral, which copies them out of the one
+// loader the simulation uses. This package used to parse the [formation] section
+// itself, and that is what made the balance file unloadable: internal/config
+// rejects a balance file containing a key no caller claimed, so a section
+// read by a second private parser either stopped the campaign runner from
+// starting or had to be claimed in internal/config without ever being read.
+// One file, one loader, one table of keys.
+//
+// Reading a constant is not a system calling another system
+// (CONSTITUTION.md section 2.1). internal/config is the loader for the whole
+// simulation, not one of the systems in CAUSE_EFFECT.md section 3, and
+// internal/battle reads its own constants the same way. What this package owns
+// is what these numbers mean and how a body of men is arranged from them.
 type Config struct {
 	// FrontSpacing is the metres between two men abreast in the same rank, for
 	// line, column, and wedge. It is the shoulder-to-shoulder gap of troops
@@ -135,10 +147,15 @@ type Config struct {
 	FlankSweepRateDeg float64
 }
 
-// requiredFormationKeys lists every key the [formation] section must define,
-// in the order Validate reports them missing. It is the contract between this
-// package and the balance file, written out in full so that a missing key is
-// named rather than left at zero.
+// requiredFormationKeys lists every key the [formation] section defines, in
+// balance-file key order. It is the order String prints them in, so a test that
+// reports which constants produced an unexpected run reads in the same order
+// the file lists them.
+//
+// It is no longer a list of keys this package fetches: internal/config fetches
+// them, and it names a key the file lacks in a MissingError and a key in the
+// file that nobody claimed in finish(). Drift between this list and the loader's
+// table therefore still fails at load, naming the key.
 var requiredFormationKeys = []string{
 	"front_spacing",
 	"rank_spacing",
@@ -169,52 +186,6 @@ var requiredFormationKeys = []string{
 	"flank_sweep_rate_deg",
 }
 
-// bound is a required range for one key. Validate applies these, so a typo in
-// the balance file that produces a nonsensical shape is caught at load time
-// rather than as a formation that stretches to the horizon.
-type bound struct {
-	key string
-	lo  float64
-	hi  float64
-}
-
-// configBounds are the ranges this package enforces. They are the same ranges
-// the balance file's comments quote, and they are enforced in code because a
-// comment does not stop anyone typing a value.
-//
-// loose_seed is deliberately absent: it has no range, because any integer is a
-// legal seed and clamping one would be inventing a rule. Where a range starts
-// at zero, zero is a legal value and means what the balance file's comment
-// says it means, not that the key is missing.
-var configBounds = []bound{
-	{"front_spacing", 0.3, 10},
-	{"rank_spacing", 0.3, 50},
-	{"line_front_width", 1, 60},
-	{"column_front_width", 1, 30},
-	{"wedge_tip_units", 1, 9},
-	{"wedge_row_growth", 1, 12},
-	{"loose_spacing", 1, 60},
-	{"loose_jitter_fraction", 0, 0.45},
-	{"min_separation", 0.1, 20},
-	{"separation_iterations", 0, 16},
-	{"separation_push_fraction", 0, 0.5},
-	{"separation_push_max", 0.01, 5},
-	{"hold_speed", 0.05, 8},
-	{"advance_speed", 0.05, 8},
-	{"charge_speed", 0.05, 12},
-	{"flank_speed", 0.05, 10},
-	{"retreat_speed", 0.05, 10},
-	{"turn_rate", 0.05, 12},
-	{"face_turn_rate_scale", 0.05, 6},
-	{"face_enemy_weight", 0, 1},
-	{"advance_standoff", 0, 2000},
-	{"charge_standoff", 0, 500},
-	{"retreat_distance", 0, 5000},
-	{"flank_standoff", 0, 2000},
-	{"flank_sweep_deg", 1, 180},
-	{"flank_sweep_rate_deg", 0.1, 90},
-}
-
 // LooseSeedInt returns the loose-order scatter seed as an integer. The
 // balance file stores every value as a number, so the seed arrives as a float
 // and is converted once, here, rather than being cast at every use site.
@@ -222,9 +193,8 @@ func (c Config) LooseSeedInt() int64 { return int64(c.LooseSeed) }
 
 // values returns every key this package reads, keyed exactly as the balance
 // file spells them. It is the single mapping from key name to field, so the
-// loader, the validator, and the printer cannot disagree about what a key is
-// called — a mapping written out three times is a mapping that will be wrong
-// once.
+// printer and the checks below cannot disagree about what a key is called — a
+// mapping written out twice is a mapping that will be wrong once.
 func (c Config) values() map[string]float64 {
 	return map[string]float64{
 		"front_spacing":            c.FrontSpacing,
@@ -257,42 +227,96 @@ func (c Config) values() map[string]float64 {
 	}
 }
 
-// Validate reports every value outside the range the balance file documents.
+// FromCentral copies the twenty-seven [formation] constants out of the loaded
+// balance config into this package's own Config.
 //
-// It deliberately does not try to tell a missing key from a zero value. Load
-// does that, and it does it exactly, because Load can see which keys the file
-// actually wrote. Eight of these keys have a documented minimum of zero — a
-// jitter of 0 is a clean lattice, a separation pass of 0 is switched off, a
-// standoff of 0 is "walk right in", a face weight of 0 is "face the way you
-// march" — so a zero is a legal answer to a question, not evidence of an
-// absent one. A Config that has never been filled in at all is still refused
-// here, because a spacing, a width, or a speed of zero is outside its own
-// range.
+// It is a field-by-field copy rather than a type conversion so that the two
+// structs can diverge without a silent reinterpretation: adding a knob here
+// means adding it there, and forgetting leaves it at zero, which the checks
+// below refuse rather than accept.
+//
+// The central loader has already enforced the documented range of every key
+// that has one, and has already refused a file missing any of them, so this
+// function does not repeat that work. What it does do is refuse a Config that
+// was never filled in at all, because a spacing, a width, or a speed of zero is
+// outside its own range and would otherwise produce a formation that stands
+// nowhere and moves at nothing. A Config that fails Validate is refused, not
+// returned half-built.
+func FromCentral(c *config.Config) (Config, error) {
+	out := Config{
+		FrontSpacing:           c.Formation.FrontSpacing,
+		RankSpacing:            c.Formation.RankSpacing,
+		LineFrontWidth:         c.Formation.LineFrontWidth,
+		ColumnFrontWidth:       c.Formation.ColumnFrontWidth,
+		WedgeTipUnits:          c.Formation.WedgeTipUnits,
+		WedgeRowGrowth:         c.Formation.WedgeRowGrowth,
+		LooseSpacing:           c.Formation.LooseSpacing,
+		LooseJitterFraction:    c.Formation.LooseJitterFraction,
+		LooseSeed:              c.Formation.LooseSeed,
+		MinSeparation:          c.Formation.MinSeparation,
+		SeparationIterations:   c.Formation.SeparationIterations,
+		SeparationPushFraction: c.Formation.SeparationPushFraction,
+		SeparationPushMax:      c.Formation.SeparationPushMax,
+		HoldSpeed:              c.Formation.HoldSpeed,
+		AdvanceSpeed:           c.Formation.AdvanceSpeed,
+		ChargeSpeed:            c.Formation.ChargeSpeed,
+		FlankSpeed:             c.Formation.FlankSpeed,
+		RetreatSpeed:           c.Formation.RetreatSpeed,
+		TurnRate:               c.Formation.TurnRate,
+		FaceTurnRateScale:      c.Formation.FaceTurnRateScale,
+		FaceEnemyWeight:        c.Formation.FaceEnemyWeight,
+		AdvanceStandoff:        c.Formation.AdvanceStandoff,
+		ChargeStandoff:         c.Formation.ChargeStandoff,
+		RetreatDistance:        c.Formation.RetreatDistance,
+		FlankStandoff:          c.Formation.FlankStandoff,
+		FlankSweepDeg:          c.Formation.FlankSweepDeg,
+		FlankSweepRateDeg:      c.Formation.FlankSweepRateDeg,
+	}
+	return out, out.Validate()
+}
+
+// Validate refuses a Config that was never filled in from the balance file.
+//
+// Every entry point in this package calls it first, because the failure it
+// catches is the one CONSTITUTION.md section 1.2 exists to prevent: a constant
+// nobody set, quietly read as zero, producing a formation whose men stand on top
+// of each other and never move. A spacing, a width, and a speed are all non-zero
+// in any balance file, so an all-zero table means the file was never read.
+//
+// It deliberately does NOT repeat the per-key ranges. Those live in exactly one
+// place — internal/config's validate, which enforces the bounds documented
+// beside each key in balance.toml — and a second copy of twenty-six bounds in
+// this package is a second opinion about the same numbers, which is how a
+// balance file ends up legal in one loader and refused in the other.
+//
+// It also does not try to tell a missing key from a zero value, because that is
+// no longer its business: internal/config names a key the file lacks in a
+// MissingError, before a Config is ever built. Nine of these keys document zero
+// as a legal setting — a jitter of 0 is a clean lattice, a separation pass of 0
+// is switched off, a standoff of 0 is "walk right in", a face weight of 0 is
+// "face the way you march" — so a zero is an answer to a question, not evidence
+// of an absent one.
 func (c Config) Validate() error {
 	present := c.values()
-	for _, b := range configBounds {
-		v := present[b.key]
+	set := 0
+	for _, key := range requiredFormationKeys {
+		v := present[key]
 		if math.IsNaN(v) || math.IsInf(v, 0) {
-			return errorf("Validate", b.key, "%v is not a finite number this package can use", v)
+			return errorf("Validate", key, "%v is not a finite number this package can use", v)
 		}
-		if v < b.lo || v > b.hi {
-			return errorf("Validate", b.key, "%g is outside its documented range [%g, %g]",
-				v, b.lo, b.hi)
+		if v != 0 {
+			set++
 		}
 	}
-	// loose_seed is the one key with no range, because every integer is a legal
-	// seed. It is still checked for being a number, since a non-finite seed
-	// converted to an integer is a nonsense scatter rather than a different
-	// scatter.
-	if math.IsNaN(c.LooseSeed) || math.IsInf(c.LooseSeed, 0) {
-		return errorf("Validate", "loose_seed", "%v is not a finite number this package can use", c.LooseSeed)
+	if set == 0 {
+		return errorf("Validate", "[formation]",
+			"every one of the %d formation constants is zero, so no balance file was read; "+
+				"load config/balance.toml and pass it through FromCentral", len(requiredFormationKeys))
 	}
-	// min_separation is the gap the spacing pass defends. If it is larger than
-	// the gap the shapes actually use, the pass would spend every tick shoving
-	// men off the slot they are trying to reach, and the formation would never
-	// form up. The tightest gap a shape produces is the smaller of the abreast
-	// spacing and the rank spacing, or in loose order the lattice spacing less
-	// the scatter from both sides.
+	// min_separation is the gap the spacing pass defends. internal/config
+	// refuses a file where it exceeds the tightest gap any shape produces; it
+	// is repeated here so a Config edited in code after loading cannot spend
+	// every tick shoving men off the slot they are trying to reach.
 	tightest := math.Min(c.FrontSpacing, c.RankSpacing)
 	tightest = math.Min(tightest, c.LooseSpacing*(1-2*c.LooseJitterFraction))
 	if c.MinSeparation > tightest {
@@ -301,178 +325,6 @@ func (c Config) Validate() error {
 			c.MinSeparation, tightest)
 	}
 	return nil
-}
-
-// Load reads the [formation] section of a balance file.
-//
-// It reads only that section and deliberately does not import
-// internal/config. Importing another internal package is the coupling
-// CONSTITUTION.md section 2.1 forbids, and it would drag the whole world model
-// into a package that only needs twenty-seven numbers.
-//
-// The consequence, which is not hidden: internal/config refuses to start if
-// the balance file contains a key no system claims, so the [formation] keys
-// must also be declared there before the campaign runner will run. That
-// declaration is a name in a table, not a call: the two loaders stay
-// independent, each file section has one owner, and either loader fails loudly
-// rather than inventing a value for a key it cannot find.
-func Load(path string) (Config, error) {
-	values, err := readSection(path, "formation")
-	if err != nil {
-		return Config{}, err
-	}
-	var missing []string
-	get := func(key string) float64 {
-		v, ok := values[key]
-		if !ok {
-			missing = append(missing, key)
-			return 0
-		}
-		return v
-	}
-	c := Config{
-		FrontSpacing:           get("front_spacing"),
-		RankSpacing:            get("rank_spacing"),
-		LineFrontWidth:         get("line_front_width"),
-		ColumnFrontWidth:       get("column_front_width"),
-		WedgeTipUnits:          get("wedge_tip_units"),
-		WedgeRowGrowth:         get("wedge_row_growth"),
-		LooseSpacing:           get("loose_spacing"),
-		LooseJitterFraction:    get("loose_jitter_fraction"),
-		LooseSeed:              get("loose_seed"),
-		MinSeparation:          get("min_separation"),
-		SeparationIterations:   get("separation_iterations"),
-		SeparationPushFraction: get("separation_push_fraction"),
-		SeparationPushMax:      get("separation_push_max"),
-		HoldSpeed:              get("hold_speed"),
-		AdvanceSpeed:           get("advance_speed"),
-		ChargeSpeed:            get("charge_speed"),
-		FlankSpeed:             get("flank_speed"),
-		RetreatSpeed:           get("retreat_speed"),
-		TurnRate:               get("turn_rate"),
-		FaceTurnRateScale:      get("face_turn_rate_scale"),
-		FaceEnemyWeight:        get("face_enemy_weight"),
-		AdvanceStandoff:        get("advance_standoff"),
-		ChargeStandoff:         get("charge_standoff"),
-		RetreatDistance:        get("retreat_distance"),
-		FlankStandoff:          get("flank_standoff"),
-		FlankSweepDeg:          get("flank_sweep_deg"),
-		FlankSweepRateDeg:      get("flank_sweep_rate_deg"),
-	}
-	if len(missing) > 0 {
-		sort.Strings(missing)
-		return Config{}, errorf("Load", "[formation]", "%s is missing required keys: %s",
-			path, strings.Join(missing, ", "))
-	}
-	// A stray key in the section is nearly always a typo, and a typo means the
-	// constant the designer meant to change is not being read at all.
-	var extra []string
-	for k := range values {
-		if !isRequiredKey(k) {
-			extra = append(extra, k)
-		}
-	}
-	if len(extra) > 0 {
-		sort.Strings(extra)
-		return Config{}, errorf("Load", "[formation]", "%s has keys no code reads (typo or dead constant): %s",
-			path, strings.Join(extra, ", "))
-	}
-	if err := c.Validate(); err != nil {
-		return Config{}, errorf("Load", path, "%v", err)
-	}
-	return c, nil
-}
-
-// LoadDefault reads the balance file that ships with the simulation, from the
-// config directory beside the service. It is the path the runner and the tests
-// use, so a battle reads the same constants a campaign does.
-func LoadDefault() (Config, error) {
-	return Load(filepath.Join("config", "balance.toml"))
-}
-
-func isRequiredKey(key string) bool {
-	for _, k := range requiredFormationKeys {
-		if k == key {
-			return true
-		}
-	}
-	return false
-}
-
-// readSection parses one [section] of a balance file into its key/value pairs.
-//
-// The grammar is the same deliberately boring subset internal/config uses —
-// comments with #, [section] headers, key = number — parsed here rather than
-// pulled from a library because the simulation carries no third-party
-// dependencies. Sections other than the one asked for are skipped, not
-// interpreted: this package has no business reading the price of wheat, and
-// reading it would only give it a second opinion about numbers it does not
-// own.
-func readSection(path, want string) (map[string]float64, error) {
-	raw, err := os.ReadFile(path)
-	if err != nil {
-		return nil, errorf("readSection", path, "cannot read the balance file: %v", err)
-	}
-	values := map[string]float64{}
-	lines := map[string]int{}
-	inSection := false
-	found := false
-	for i, line := range strings.Split(string(raw), "\n") {
-		lineno := i + 1
-		text := strings.TrimSpace(line)
-		if text == "" || strings.HasPrefix(text, "#") {
-			continue
-		}
-		if strings.HasPrefix(text, "[") {
-			if !strings.HasSuffix(text, "]") {
-				return nil, errorf("readSection", path, "line %d: unterminated section header %q", lineno, text)
-			}
-			inSection = strings.TrimSpace(text[1:len(text)-1]) == want
-			found = found || inSection
-			continue
-		}
-		if !inSection {
-			continue
-		}
-		eq := strings.Index(text, "=")
-		if eq < 0 {
-			return nil, errorf("readSection", path, "line %d: expected key = value, got %q", lineno, text)
-		}
-		key := strings.TrimSpace(text[:eq])
-		val := strings.TrimSpace(stripComment(text[eq+1:]))
-		if key == "" {
-			return nil, errorf("readSection", path, "line %d: empty key", lineno)
-		}
-		if _, dup := values[key]; dup {
-			return nil, errorf("readSection", path, "line %d: duplicate key %q", lineno, key)
-		}
-		n, err := strconv.ParseFloat(val, 64)
-		if err != nil {
-			return nil, errorf("readSection", path, "line %d: %q is not a number for key %q", lineno, val, key)
-		}
-		values[key] = n
-		lines[key] = lineno
-	}
-	if !found {
-		return nil, errorf("readSection", path, "no [%s] section, so the formation constants are nowhere to be found", want)
-	}
-	return values, nil
-}
-
-// stripComment removes a trailing # comment that is not inside quotes.
-func stripComment(s string) string {
-	inQuote := false
-	for i := 0; i < len(s); i++ {
-		switch s[i] {
-		case '"':
-			inQuote = !inQuote
-		case '#':
-			if !inQuote {
-				return strings.TrimSpace(s[:i])
-			}
-		}
-	}
-	return strings.TrimSpace(s)
 }
 
 // speedFor returns the movement speed, in metres per second, an order uses. It
