@@ -45,6 +45,8 @@ type Config struct {
 	Election  Election
 	Construction Construction
 	Taxation  Taxation
+	Battle    Battle
+	Formation Formation
 }
 
 // World controls world generation.
@@ -1479,6 +1481,436 @@ type Campaign struct {
 	// FortifyMoraleBonus is the morale a town gains from being fortified, which
 	// is small and real: walls make a garrison feel safer.
 	FortifyMoraleBonus float64
+}
+
+// Battle configures the headless field battle, which is internal/battle.
+//
+// It is a separate struct from the campaign systems because the battle layer is
+// not one of them: it is a short-lived scene that runs to a conclusion and
+// hands its result back, rather than a daily system writing to world state
+// (SPEC.md section 1, layers 1 and 3).
+//
+// Battle size is a knob and nothing more. MaxUnitsPerSide is a validation
+// limit that produces an explicit error when exceeded, never an allocation
+// size: every array and grid in the engine is sized from the forces actually
+// supplied, and no part of it assumes a fixed unit count. See the size and
+// time block below and COMBAT.md section 13.
+type Battle struct {
+	// --- size and time ---
+	// MaxUnitsPerSide is the ceiling on how many units one side may field.
+	// Exceeding it is an error, not a silent truncation.
+	MaxUnitsPerSide float64
+	// TickSeconds is how much simulated time one tick covers.
+	TickSeconds float64
+	// MaxTicks bounds the battle. Reaching it with neither side decided is a
+	// stalemate and is reported as a Draw rather than looping forever.
+	MaxTicks float64
+	// GridCellSize is the width in metres of one cell of the uniform spatial
+	// hash. It must be at least MeleeRange.
+	GridCellSize float64
+	// RangedGridCellSize is the cell width of the second, coarser hash used
+	// for aimed fire, because the two queries have opposite shapes.
+	RangedGridCellSize float64
+
+	// --- unit generation ---
+	// RosterHPBase is the mean hit points of a generated unit before skill.
+	RosterHPBase float64
+	// RosterHPSkillWeight is the hit points per point of melee skill above the
+	// generated mean: better troops are harder to kill as well as better at
+	// killing.
+	RosterHPSkillWeight float64
+	// RosterSpeedBase is an average generated unit's speed in metres/second.
+	RosterSpeedBase float64
+	// RosterSpeedSkillWeight is the speed per point of melee skill, kept small
+	// so that skill never outruns a soldier.
+	RosterSpeedSkillWeight float64
+	// RosterRangedShare is the share of a generated force that carries a
+	// ranged weapon. The rest are melee troops.
+	RosterRangedShare float64
+	// RosterMeleeSkillMean and RosterMeleeSkillSpread set generated melee
+	// skill on a 0-1 scale. The spread is what stops troop quality from being
+	// a constant.
+	RosterMeleeSkillMean   float64
+	RosterMeleeSkillSpread float64
+	// RosterRangedSkillMean and RosterRangedSkillSpread do the same for
+	// ranged skill.
+	RosterRangedSkillMean   float64
+	RosterRangedSkillSpread float64
+	// RosterMoraleStart is the morale every generated unit starts at.
+	RosterMoraleStart float64
+	// RosterMoraleSpread is its standard deviation.
+	RosterMoraleSpread float64
+	// RosterTroopsPerUnit is how many bodies one generated unit represents. A
+	// squad-based force sets this above one, which is how "500 against 500
+	// troops" can be fifty squads of ten (COMBAT.md section 7). Every casualty
+	// figure in the result follows it.
+	RosterTroopsPerUnit float64
+	// RosterFrontage is the metres of front one unit occupies, which sets how
+	// wide a formation is and therefore how many enemies can reach it at once.
+	RosterFrontage float64
+	// RosterStartDistance is how far apart the two sides start, in metres,
+	// along the x axis.
+	RosterStartDistance float64
+	// RosterFormationDepth is the metres of depth behind a side's front line,
+	// which sets how deep the crowd is and how many units a volley passes
+	// through.
+	RosterFormationDepth float64
+
+	// --- melee ---
+	// MeleeRange is the reach of a swing in metres, and the smallest
+	// engagement range in the game.
+	MeleeRange float64
+	// MeleeSwingSeconds is the seconds between one unit's swings: one attack
+	// opportunity, not one animation.
+	MeleeSwingSeconds float64
+	// MeleeDamageBase is the mean damage of a connecting blow before skill,
+	// armour, and momentum, in hit points.
+	MeleeDamageBase float64
+	// MeleeDamageSkillWeight is the damage per point of attacker skill.
+	MeleeDamageSkillWeight float64
+	// MeleeDamageSpeedWeight is the damage per metre/second of attacker speed
+	// advantage over the target, which is what makes a charge a decision.
+	MeleeDamageSpeedWeight float64
+	// MeleeArmorReduction is the share of incoming melee damage the target's
+	// armour removes before the cap.
+	MeleeArmorReduction float64
+	// MeleeArmorReductionCap is the ceiling on that share, so armour past a
+	// point is wasted.
+	MeleeArmorReductionCap float64
+	// MeleeDamageVariance is the standard deviation of melee damage around
+	// its mean, as a fraction of the mean.
+	MeleeDamageVariance float64
+	// MeleeFatiguePerDamage is the exhaustion added per point of melee damage
+	// actually dealt, which lands on the attacker and on the target alike.
+	MeleeFatiguePerDamage float64
+	// MeleeRoutedEffectiveness and MeleeBrokenEffectiveness scale a routed
+	// and a broken unit's melee damage, which is why routing is worth so much.
+	MeleeRoutedEffectiveness float64
+	MeleeBrokenEffectiveness float64
+
+	// --- ranged ---
+	// RangedRange is the effective reach of a shot in metres.
+	RangedRange float64
+	// RangedMinRange is the range below which a shot cannot be taken, so a
+	// shooter is not superhuman in a brawl.
+	RangedMinRange float64
+	// RangedFireInterval is the seconds between one unit's shots.
+	RangedFireInterval float64
+	// RangedDamageBase is the mean damage of one connecting shot.
+	RangedDamageBase float64
+	// RangedDamageSkillWeight is the damage per point of attacker ranged skill.
+	RangedDamageSkillWeight float64
+	// RangedDamageVariance is the standard deviation of shot damage around its
+	// mean, as a fraction of the mean.
+	RangedDamageVariance float64
+	// RangedSuppressionShare is the share of hits that add suppression rather
+	// than injury. A near miss is nearly as useful as a hit, which is what
+	// COMBAT.md section 6 is about.
+	RangedSuppressionShare float64
+	// RangedSuppressionPerHit is the suppression one connecting shot adds to
+	// the target.
+	RangedSuppressionPerHit float64
+	// RosterAmmoPerUnit is the ammunition one ranged unit carries. Running
+	// out matters (COMBAT.md section 4).
+	RosterAmmoPerUnit float64
+
+	// --- suppression ---
+	// SuppressionCap is the ceiling on suppression; above one a unit is
+	// pinned rather than merely shaken.
+	SuppressionCap float64
+	// SuppressionDecay is the suppression recovered per second, slow enough
+	// that it accumulates through a firefight and recovers in a lull.
+	SuppressionDecay float64
+	// SuppressionMeleePenalty and SuppressionRangedPenalty are the shares of
+	// incoming damage removed at full suppression. A pinned unit fights badly
+	// because it cannot get its head up.
+	SuppressionMeleePenalty  float64
+	SuppressionRangedPenalty float64
+	// RoutedExposure is the share extra melee damage a routed unit suffers,
+	// because men running toward the enemy's flank get shot in the back.
+	RoutedExposure float64
+
+	// --- morale ---
+	// MoraleCasualtyHit is the morale lost per tick per casualty suffered
+	// inside MoraleNeighbourhood. This is the largest single morale term.
+	MoraleCasualtyHit float64
+	// MoraleNeighbourhood is the reference radius in metres over which a
+	// nearby casualty frightens a unit. A formation breaks because of what it
+	// can see.
+	MoraleNeighbourhood float64
+	// MoraleCasualtyFalloff is the share of a neighbouring casualty's effect
+	// that still reaches a unit at the edge of the neighbourhood.
+	MoraleCasualtyFalloff float64
+	// MoraleSuppressionHit is the morale lost per tick at full suppression.
+	MoraleSuppressionHit float64
+	// MoraleRatioNeutral is the friendly-to-enemy weight ratio at which local
+	// pressure is neutral, which is the SPEC.md section 5.2 requirement that
+	// morale comes from the local ratio.
+	MoraleRatioNeutral float64
+	// MoraleRatioWeight is how hard the local ratio moves morale per tick, per
+	// unit of ratio away from neutral. The largest lever on when a flank folds.
+	MoraleRatioWeight float64
+	// MoraleRecovery is the morale gained per tick by a healthy, unopposed,
+	// supplied unit. Under fire nobody recovers.
+	MoraleRecovery float64
+	// MoraleUnarmedHit is the morale lost per tick by a unit that is out of
+	// ammunition and cannot fight back.
+	MoraleUnarmedHit float64
+	// MoraleLeaderBonus is the morale added per tick per leader inside
+	// MoraleLeaderRadius, scaled by that leader's influence.
+	MoraleLeaderBonus float64
+	// MoraleLeaderRadius is that radius in metres.
+	MoraleLeaderRadius float64
+	// MoraleLeaderInfluenceReference is the influence at which a leader's
+	// steadying is complete.
+	MoraleLeaderInfluenceReference float64
+	// MoraleBreakThreshold is the morale below which a unit breaks: it stops
+	// advancing and fights at reduced effect. Broken is not routed.
+	MoraleBreakThreshold float64
+	// MoraleRoutThreshold is the morale below which a unit routs. It is below
+	// the break threshold always, because breaking precedes running.
+	MoraleRoutThreshold float64
+	// MoraleFloor is the morale a living unit cannot go below.
+	MoraleFloor float64
+	// RallyChance and RallyMoraleGain are the per-tick chance a broken unit
+	// rallies and the morale it gains. A rally is a decision by an officer,
+	// not passive regeneration.
+	RallyChance       float64
+	RallyMoraleGain   float64
+	RallyRoutedChance float64
+	// RallyLeaderMultiplier scales RallyRoutedChance when a leader is present.
+	// Somebody shouting can turn a panic; nobody cannot.
+	RallyLeaderMultiplier float64
+	// MoralePanicSpread is the morale lost per tick for each routed unit
+	// inside MoraleNeighbourhood. Panic spreads (SPEC.md section 5.2).
+	MoralePanicSpread float64
+	// SurrenderMoraleReport is the morale a surrendered unit is reported at,
+	// kept so the aftermath can say what broke.
+	SurrenderMoraleReport float64
+
+	// --- movement ---
+	// ApproachSpeedScale, ChargeSpeedScale, WithdrawSpeedScale, and
+	// RoutSpeedScale are the multipliers on a unit's speed in each of the four
+	// states it can be in.
+	ApproachSpeedScale float64
+	ChargeSpeedScale   float64
+	WithdrawSpeedScale float64
+	RoutSpeedScale     float64
+	// StandoffDistance is the distance in metres a unit with no target tries
+	// to hold from the enemy front, so a line does not collapse to a point.
+	StandoffDistance float64
+	// RoutFleeRadius is the range at which a routed or withdrawing unit looks
+	// for the enemy it is running from. Small on purpose, because a wide
+	// neighbour scan for every routed unit on the field is expensive and a man
+	// fleeing an enemy he cannot see is running from nothing in particular.
+	RoutFleeRadius float64
+	// ChargeDistance is the gap beyond which a melee unit closes at
+	// ChargeSpeedScale rather than ApproachSpeedScale. Below it a charge is not
+	// worth the sprint, because there is no time left for the extra speed to
+	// matter.
+	ChargeDistance float64
+	// MaxStepPerTick is the hard bound on metres moved in one tick, so no
+	// combination of multipliers can teleport a unit across the field.
+	MaxStepPerTick float64
+	// LateralDrift is the sideways metres a unit drifts per tick when it has
+	// a target, so a formation converges on its enemy rather than on a point.
+	LateralDrift float64
+
+	// --- targeting ---
+	// MeleeMaxTargets is the most enemies one unit strikes per tick.
+	MeleeMaxTargets float64
+	// MaxAttackersPerTarget is the most units that may engage one defender in
+	// the same tick. This is the concentration limit: without it every unit on
+	// the field would hit the same two enemies and the casualty count would be
+	// an artefact of iteration order rather than of the fight.
+	MaxAttackersPerTarget float64
+	// RangedMaxTargets is the most enemies one ranged unit shoots per tick.
+	RangedMaxTargets float64
+	// TargetCasualtyWeight is the weight given to the nearest enemy against a
+	// wounded one when picking a target, so a unit finishes off a hurt enemy
+	// rather than switching to a slightly closer healthy one.
+	TargetCasualtyWeight float64
+
+	// --- death and casualties ---
+	// FatalHPFraction is the fraction of a unit's hit points below which it is
+	// destroyed. Below one, so a wounded unit keeps fighting at reduced effect
+	// instead of dying from one lucky shot.
+	FatalHPFraction float64
+	// DeadShare is the share of a destroyed unit's bodies that are dead rather
+	// than wounded. Wounded leave the field and do not rejoin this battle.
+	DeadShare float64
+	// FinishingBlowScale is the damage multiplier on a unit already below
+	// FatalHPFraction. At one a finishing blow is decisive.
+	FinishingBlowScale float64
+
+	// --- exhaustion ---
+	// ExhaustionCap is the ceiling on exhaustion.
+	ExhaustionCap float64
+	// ExhaustionPerAttack is the exhaustion gained per tick per attack made.
+	ExhaustionPerAttack float64
+	// ExhaustionPerMetre is the exhaustion gained per tick per metre moved.
+	ExhaustionPerMetre float64
+	// ExhaustionRecovery is the exhaustion recovered per tick. Combat is a
+	// sprint, not a march.
+	ExhaustionRecovery float64
+	// ExhaustionDamagePenalty and ExhaustionSpeedPenalty are the shares of
+	// damage and speed lost at full exhaustion.
+	ExhaustionDamagePenalty float64
+	ExhaustionSpeedPenalty  float64
+
+	// --- ending the battle ---
+	// SurrenderStrengthFraction is the share of a side's starting strength at
+	// or below which it yields.
+	SurrenderStrengthFraction float64
+	// RoutStrengthFraction is the share of a side's starting strength made of
+	// routed units at which the side is treated as routed and yields. A battle
+	// is lost when the crowd stops fighting, which is earlier and more often
+	// than when it dies.
+	RoutStrengthFraction float64
+	// SurrenderRange is the range within which a routed unit with nothing left
+	// to fight may surrender, in metres. One that still has an enemy on its
+	// heels keeps running.
+	SurrenderRange float64
+	// SurrenderChance is the per-tick chance an eligible routed unit actually
+	// surrenders, below one so it is a decision rather than a switch.
+	SurrenderChance float64
+}
+
+// Formation holds every tunable number the formation code uses. All of them
+// come from the [formation] section of config/balance.toml — CONSTITUTION.md
+// section 1.2, no number hides in code. There are no defaults: a key that is
+// absent from the file is an error, because a silently defaulted constant is
+// the exact failure that rule exists to prevent. A caller that wants different
+// spacing or different speeds edits the file and the change is logged in
+// CHANGELOG.md with the runs that motivated it.
+//
+// This struct exists here rather than in internal/formation because internal/
+// config is the one loader that reads the whole balance file, and it refuses to
+// start on a key no caller claimed. Leaving the [formation] keys to a second,
+// private parser meant the campaign runner rejected the balance file the battle
+// package ships with. One loader, one file, one table of keys.
+//
+// internal/formation still owns what these numbers MEAN. It takes this struct
+// through FromCentral and applies its own geometry, spacing, and range rules to
+// it. Loading a constant is not a system calling another system: internal/config
+// is a loader for the whole simulation, not one of the systems in CAUSE_EFFECT.md
+// section 3, and internal/battle reads the same table this way.
+type Formation struct {
+	// FrontSpacing is the metres between two men abreast in the same rank, for
+	// line, column, and wedge. It is the shoulder-to-shoulder gap of troops
+	// standing side by side, not the distance a man can shoot past his
+	// neighbour.
+	FrontSpacing float64
+	// RankSpacing is the metres of depth between one rank and the next, shared
+	// by line, column, and wedge. It is the room a rank needs to form up and
+	// move off. A formation with a real-world reason to be deeper (a wedge
+	// driving through a gap, say) can be given its own knob here.
+	RankSpacing float64
+
+	// LineFrontWidth is how many men stand abreast in one rank of a line. The
+	// rest of the line goes into further ranks behind, so a bigger number is a
+	// wider and shallower line, which fires more but arrives less deep.
+	LineFrontWidth float64
+	// ColumnFrontWidth is how many men stand abreast in a column. A column is
+	// narrow and deep: fast to move, and able to use a road, at the cost of
+	// almost no firepower to the front.
+	ColumnFrontWidth float64
+	// WedgeTipUnits is how many men form the point of a wedge. One is a true
+	// point, which is what a wedge is for; more than one is a blunt nose, and
+	// is honest about being blunt.
+	WedgeTipUnits float64
+	// WedgeRowGrowth is how many men are added to each side of the wedge for
+	// every rank back from the point. Two gives a 45-degree wedge, one a
+	// narrow column of a shape, and five a very broad, slow arrow.
+	WedgeRowGrowth float64
+
+	// LooseSpacing is the metres between neighbours in loose order. It is
+	// much larger than front spacing: the whole point of loose order is that
+	// one burst cannot hit ten men standing in a file.
+	LooseSpacing float64
+	// LooseJitterFraction is how far a man may be pushed off his loose-order
+	// lattice point, as a fraction of loose spacing. The scatter is what makes
+	// loose order look loose instead of like a grid with holes. It is bounded
+	// below 0.5 because past that, neighbours can collide.
+	LooseJitterFraction float64
+	// LooseSeed is the seed for the deterministic scatter of loose order. It
+	// is data, not state: the same seed and the same men always produce the
+	// same scatter, so a recorded battle replays exactly and no RNG state has
+	// to travel with the snapshot.
+	LooseSeed float64
+
+	// MinSeparation is the smallest gap the spacing pass will allow between
+	// any two men in a formation. Below it they are pushed apart. It is what
+	// keeps a formation a formation after men have been shoved, pushed, or
+	// run through by the fighting.
+	MinSeparation float64
+	// SeparationIterations is how many passes the spacing pass makes per tick.
+	// One pass resolves a single pair; a crowd needs more. Zero disables the
+	// pass, which is only honest if nothing can push men into each other.
+	SeparationIterations float64
+	// SeparationPushFraction is the share of an overlap resolved per pass.
+	// Half or less is stable: resolving more than half of an overlap in one go
+	// overshoots and the formation oscillates.
+	SeparationPushFraction float64
+	// SeparationPushMax caps how far one pass may move one man, in metres.
+	// Without the cap, a heavy overlap in a single tick would fire men across
+	// the field, which looks like teleportation and is not what a man does.
+	SeparationPushMax float64
+
+	// HoldSpeed is the walking speed, in metres per second, a formation uses
+	// to walk back into its slots while holding. It is a shuffle, not a march.
+	HoldSpeed float64
+	// AdvanceSpeed is the closing speed for an advance. An adult walking
+	// unloaded covers roughly 1.4 m/s, and a formation that could not hold
+	// that pace could not cross a field.
+	AdvanceSpeed float64
+	// ChargeSpeed is the closing speed for a charge. This is a run, and the
+	// whole difference between an advance and a charge is here and in the
+	// standoff they stop at.
+	ChargeSpeed float64
+	// FlankSpeed is the speed of a flanking move: faster than an advance,
+	// because the whole value of a flank is arriving before they are ready,
+	// and slower than a charge, because men running to a flank arrive as a
+	// mob rather than a formation.
+	FlankSpeed float64
+	// RetreatSpeed is the speed of a withdrawal. It is faster than a march,
+	// because nobody is waiting for anyone.
+	RetreatSpeed float64
+	// TurnRate is the radians per second a nominal man turns at agility 1.0.
+	TurnRate float64
+	// FaceTurnRateScale scales turn rate when a man is squaring up to the
+	// enemy rather than following his march order. A man pivots on the spot
+	// far faster than he changes direction on the move.
+	FaceTurnRateScale float64
+	// FaceEnemyWeight is how strongly a man faces the enemy rather than the
+	// way he is walking, from 0 (follow the march) to 1 (square up). At 1 a
+	// man retreating still has his front on the enemy.
+	FaceEnemyWeight float64
+
+	// AdvanceStandoff is the distance from the enemy, in metres, at which an
+	// advancing formation stops closing and waits. It is a firing distance:
+	// the line arrives in order and then shoots, instead of arriving as a
+	// crowd and shooting from wherever it stopped.
+	AdvanceStandoff float64
+	// ChargeStandoff is the distance at which a charge stops closing, in
+	// metres. Small, because a charge ends with men in contact.
+	ChargeStandoff float64
+	// RetreatDistance is how far back, in metres, a fall-back order pulls the
+	// formation. It is re-evaluated every tick, so a formation that is still
+	// ordered to fall back keeps falling back as the enemy advances.
+	RetreatDistance float64
+	// FlankStandoff is the clearance, in metres, beyond the enemy's own depth
+	// that a flanking formation stands off at before turning in. Turning in
+	// from inside the enemy's depth is not a flank, it is a collision.
+	FlankStandoff float64
+	// FlankSweepDeg is how far around the enemy's front, in degrees, a flank
+	// order swings before the formation turns in and attacks.
+	FlankSweepDeg float64
+	// FlankSweepRateDeg is how fast that swing happens, in degrees per second
+	// of simulated time. The sweep is therefore a rate, not a jump: a
+	// formation walks the arc around the enemy and arrives at the flank having
+	// gone round, which is what a flanking march looks like from above.
+	FlankSweepRateDeg float64
 }
 
 // Cause configures the cause log itself.

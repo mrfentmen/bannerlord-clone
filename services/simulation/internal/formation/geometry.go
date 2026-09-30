@@ -9,23 +9,28 @@
 // thing, and a man is 1.4 m/s and turns at a few radians a second.
 //
 // DECOUPLING (CONSTITUTION.md section 2.1). This package imports nothing from
-// the rest of the simulation: not the state model, not the config loader, not
-// the RNG, not the cause log. It is a set of pure functions over plain data —
-// Vec, Unit, Enemy, Order, Formation, Config — that read a snapshot and return
-// a new snapshot. Two systems that both want formation positions read this
-// package's output from shared state; neither calls the other, and neither
-// calls this. It also means it can be unit-tested against hand-written
-// numbers and run in a scenario without a world.
+// the rest of the simulation that computes anything: not the state model, not
+// the RNG, not the cause log, not the battle engine. It is a set of pure
+// functions over plain data — Vec, Unit, Enemy, Order, Formation, Config — that
+// read a snapshot and return a new snapshot. Two systems that both want
+// formation positions read this package's output from shared state; neither
+// calls the other, and neither calls this. It also means it can be unit-tested
+// against hand-written numbers and run in a scenario without a world.
+//
+// THE ONE IMPORT. internal/config, for its Config type and nothing else. That
+// is the loader for the whole simulation, not one of the systems in
+// CAUSE_EFFECT.md section 3, and internal/battle reads its constants the same
+// way. This package used to parse the [formation] section of balance.toml
+// itself, and that is what made the balance file unloadable: internal/config
+// rejects a file containing a key no caller claimed, so a section owned by a
+// second private parser either stopped the campaign runner from starting at all
+// or had to be claimed in internal/config without ever being read. One file, one
+// loader. See FromCentral in config.go.
 //
 // THE SHARED CONFIG FILE. Its constants live in the [formation] section of
 // config/balance.toml, per CONSTITUTION.md section 1.2: no number hides in
-// code. It reads that section itself rather than importing internal/config,
-// because importing another internal package is exactly the coupling section
-// 2.1 forbids. The consequence is stated plainly in config.go: internal/config
-// rejects a key in balance.toml that no system claims, so the [formation]
-// section also has to be declared in internal/config before the campaign
-// runner will start. That is a declaration, not a dependency — the two
-// loaders stay independent, and each fails loudly rather than defaulting.
+// code. What this package owns is what those numbers MEAN — the geometry, the
+// spacing, and the ranges — not how they were parsed out of a file.
 //
 // DETERMINISM. Same input, same output, byte for byte, on any machine. There
 // is no global RNG, no map iteration, no wall clock, and no float shortcut
