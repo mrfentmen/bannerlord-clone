@@ -100,9 +100,11 @@ Data sources for state profiles: census population, agricultural cropland data, 
 - Batch at world creation, log token spend per run in CHANGELOG.md.
 - Prompts include specific real data (place names, populations, neighbors, current state) so output differs by place without asking the model to be more creative.
 
-## 9. HOSTING DECISION (needs to be made)
+## 9. HOSTING DECISION (decided 2026-09-30 — boss: Cloudflare)
 
-Go does not run natively on Cloudflare Pages or Workers. Options:
+**Decision: Cloudflare.** del (Rowan) deployed a Cloudflare worker; the hosting call is Cloudflare. Implementation details (which option below the worker realizes) to be verified against del's branch when it lands for review.
+
+Go does not run natively on Cloudflare Pages or Workers. Options considered:
 
 1. **Simulation runs in the browser** (a Web Worker in TypeScript, or the Go simulation compiled to WASM), saves to IndexedDB, no server cost. Best fit for a near-zero budget and single-player. Postgres would only be used for optional cloud saves.
 2. **Go server on a small VPS or container** with Postgres, fronted by Cloudflare. Needed if the world should keep running when the player is offline or if multiplayer is planned later.
