@@ -13,6 +13,7 @@ import {
   Color4,
   DefaultRenderingPipeline,
   DirectionalLight,
+  DynamicTexture,
   Effect,
   Engine,
   HemisphericLight,
@@ -40,6 +41,19 @@ import type { Projection, WorldData } from "../world/types.js";
 /** 1 unit = 1 metre (ART_DIRECTION.md section 7). */
 export const VERTICAL_SCALE = 1.6;
 const LIFT = 6;
+
+/**
+ * The party pin, in screen pixels and world metres.
+ *
+ * The convoy below is about 12 m tall. At the default campaign zoom, 30 km out on a
+ * 68 km wide region, one pixel is roughly 35 m, so the convoy covers a third of a pixel
+ * and the player cannot find their own party. The pin holds a legible size at that
+ * distance instead of having a fixed world size, and it is capped below a city marker
+ * so it never shouts louder than a settlement.
+ */
+const PARTY_PIN_PIXELS = 20;
+const PARTY_PIN_MIN_M = 30;
+const PARTY_PIN_MAX_M = 900;
 
 export interface SceneOptions {
   canvas: HTMLCanvasElement;
@@ -154,6 +168,15 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
   flagMat.specularColor = new Color3(0, 0, 0);
   for (const part of [lead, second, mast]) part.material = bodyMat;
   pennant.material = flagMat;
+
+  // The campaign-zoom pin: a pennant in the player's stamp-blue, drawn on its own
+  // texture and billboarded, so it reads as the player's party from any angle and at
+  // any zoom. Shape rather than colour carries it, since the party is not a status.
+  const pin = buildPartyPin(scene);
+  pin.parent = partyRoot;
+  pin.position.set(0, 26, 0);
+  pin.isPickable = false;
+
   partyRoot.position.set(projection.width / 2, 0, projection.depth / 2);
 
   // -- the planned route ----------------------------------------------------
@@ -187,6 +210,7 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
 
   engine.runRenderLoop(() => {
     if (grain) grain.tick(engine.getDeltaTime());
+    sizePartyPin(pin, camera.radius, engine.getRenderHeight());
     scene.render();
   });
 
@@ -316,6 +340,84 @@ function eraWarmth(year: number): number {
   if (year < 1980) return 0.03;
   if (year < 1990) return 0.01;
   return 0;
+}
+
+/**
+ * The player's own marker, as a pennant rather than a town diamond.
+ *
+ * A town marker is a diamond on a stem because that is a settlement; the party is a
+ * moving thing, so it is a pennant. Both are drawn from `ART_DIRECTION.md` section 6's
+ * motif list and use only locked tokens.
+ */
+function buildPartyPin(scene: Scene): Mesh {
+  const size = 256;
+  const texture = new DynamicTexture("party-pin-tex", { width: size, height: size }, scene, true);
+  texture.hasAlpha = true;
+  const ctx = texture.getContext() as CanvasRenderingContext2D;
+  ctx.clearRect(0, 0, size, size);
+
+  const ink = tokens.paper[0];
+  const body = tokens.accent.primary;
+  const stroke = Math.max(4, size * 0.05);
+  const cx = size * 0.46;
+  const top = size * 0.2;
+  const bottom = size * 0.72;
+
+  // Pennant: a swallow-tailed flag on a short staff, so it reads as something moving.
+  ctx.beginPath();
+  ctx.moveTo(size * 0.24, top);
+  ctx.lineTo(size * 0.74, top + size * 0.09);
+  ctx.lineTo(size * 0.74, bottom - size * 0.09);
+  ctx.lineTo(cx, bottom);
+  ctx.lineTo(size * 0.24, bottom);
+  ctx.closePath();
+  ctx.fillStyle = body;
+  ctx.fill();
+  ctx.lineWidth = stroke;
+  ctx.strokeStyle = ink;
+  ctx.stroke();
+
+  // The staff, down to the ground of the marker.
+  ctx.beginPath();
+  ctx.moveTo(size * 0.24, top - size * 0.04);
+  ctx.lineTo(size * 0.24, size * 0.92);
+  ctx.lineWidth = stroke;
+  ctx.strokeStyle = ink;
+  ctx.stroke();
+
+  texture.update();
+
+  const material = new StandardMaterial("party-pin-mat", scene);
+  material.diffuseTexture = texture;
+  material.opacityTexture = texture;
+  material.emissiveColor = new Color3(1, 1, 1);
+  material.diffuseColor = new Color3(0, 0, 0);
+  material.specularColor = new Color3(0, 0, 0);
+  material.backFaceCulling = false;
+  material.disableLighting = true;
+
+  // A unit plane, scaled per frame to the metres that hold PARTY_PIN_PIXELS at the
+  // current camera distance.
+  const plane = MeshBuilder.CreatePlane("party-pin", { size: 1 }, scene);
+  plane.material = material;
+  plane.billboardMode = Mesh.BILLBOARDMODE_ALL;
+  plane.renderingGroupId = 1;
+  return plane;
+}
+
+/**
+ * Size the pin so it holds a fixed apparent size, the way a map symbol should.
+ *
+ * The conversion is the same one the projection itself rests on: world metres visible
+ * across the viewport is `2 * radius * tan(fov / 2)`, so metres-per-pixel follows and
+ * the pin can be solved for directly. Clamped at both ends, because at the closest zoom
+ * a fixed-width pin swallows the convoy, and without a ceiling it would out-shout a city.
+ */
+export function sizePartyPin(pin: Mesh, radius: number, viewportHeightPx: number, fov = 0.8): number {
+  const metresPerPixel = (2 * radius * Math.tan(fov / 2)) / Math.max(1, viewportHeightPx);
+  const metres = Math.min(PARTY_PIN_MAX_M, Math.max(PARTY_PIN_MIN_M, PARTY_PIN_PIXELS * metresPerPixel));
+  pin.scaling.setAll(metres);
+  return metres;
 }
 
 /**

@@ -502,6 +502,7 @@
   justify-content: center;
   padding: var(--space-2) var(--space-4);
   border-right: 1px solid var(--paper-300);
+  flex: 0 0 auto;
   min-width: 0;
 }
 
@@ -524,45 +525,171 @@
   padding: var(--space-2) var(--space-3);
   border-right: 1px solid var(--paper-300);
   white-space: nowrap;
+  flex: 0 0 auto;
 }
 
+/* Motif 6, typewriter labels: mono, uppercase, 0.09em. The `data-sm` class carries
+   the family and the size; the key adds the tracking and the case. */
 .res__key {
-  font-size: var(--type-caption-size);
   letter-spacing: 0.09em;
   text-transform: uppercase;
-  color: var(--ink-500);
 }
 
 .res__value { display: flex; align-items: baseline; gap: var(--space-1); }
+.res__figure { line-height: var(--type-data-lg-line); }
 .res__trend { font-size: var(--type-caption-size); }
-.res__trend[data-trend="up"] { color: var(--status-critical); }
-.res__trend[data-trend="down"] { color: var(--status-good); }
+.res__trend[data-trend="up"] { color: var(--status-good); }
+.res__trend[data-trend="down"] { color: var(--status-critical); }
 .res__trend[data-trend="flat"] { color: var(--ink-300); }
 .res[data-status="critical"] { background: var(--status-critical-fill); color: var(--status-critical-ink); }
-.res[data-status="critical"] .res__key { color: var(--status-critical-ink); opacity: 0.85; }
+.res[data-status="critical"] .res__key,
+.res[data-status="critical"] .res__note { color: var(--status-critical-ink); }
+.res[data-status="critical"] .res__trend[data-trend="flat"] { color: var(--status-critical-ink); opacity: 0.7; }
 .res[data-status="warning"] { background: var(--paper-0); }
 .res__note { font-size: var(--type-caption-size); color: var(--ink-500); }
 
-/* Time controls are a rotary dial, not three pill buttons (ART_DIRECTION.md §6.8). */
-.dial { display: flex; align-items: center; padding: var(--space-2) var(--space-3); gap: var(--space-1); }
+/* ---------- text size ----------
+ *
+ * The 90 / 100 / 115 / 130 percent setting from ART_DIRECTION.md section 12. It is a
+ * field on the form, not a gear icon, because a setting with no label is a setting
+ * nobody changes.
+ */
 
-.dial__btn {
-  width: 34px;
-  height: 34px;
-  border: 1px solid var(--paper-300);
-  background: var(--paper-0);
-  color: var(--ink-700);
-  display: inline-flex;
+.uiscale {
+  display: flex;
   align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-1);
-  font-family: var(--font-mono);
-  font-size: var(--type-caption-size);
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-left: 1px solid var(--paper-300);
+  flex: 0 0 auto;
 }
 
-.dial__btn[aria-pressed="true"] { background: var(--accent-primary); color: var(--accent-primary-ink); border-color: var(--accent-primary-deep); }
-.dial__ticks { display: flex; flex-direction: column; gap: 2px; padding-left: 2px; }
-.dial__tick { width: 3px; height: 3px; background: var(--paper-400); }
+.uiscale__label {
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+}
+
+.uiscale__select {
+  width: auto;
+  min-width: var(--space-8);
+  padding-right: var(--space-1);
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+}
+
+/* ---------- the time dial ----------
+ *
+ * ART_DIRECTION.md section 6.8: time controls are a rotary selector with detent
+ * ticks, not three pill buttons. So there is a drawn face with a pointer that swings
+ * to the live detent, three tick marks around its rim, and a printed scale of typed
+ * labels beside it. Nothing here is a rounded pill: the detents are square and sit on
+ * a form rule, because this is a document.
+ *
+ * The one circle in this stylesheet is the dial face. Section 4 bans 50% circles
+ * "except for literal map pins and gauges", and a rotary selector is a gauge; the
+ * motif cannot be drawn at all without it.
+ */
+
+.dial {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-left: 1px solid var(--paper-300);
+  flex: 0 0 auto;
+}
+
+/* The pointer angle lives in CSS, keyed off the live position, so no component
+   invents a number to describe a drawing. */
+.dial[data-position="paused"] { --dial-angle: -60deg; }
+.dial[data-position="normal"] { --dial-angle: 0deg; }
+.dial[data-position="fast"] { --dial-angle: 60deg; }
+
+.dial__face {
+  position: relative;
+  width: var(--space-7);
+  height: var(--space-7);
+  flex: 0 0 auto;
+  border: 1px solid var(--paper-400);
+  border-radius: 50%;
+  background: var(--paper-0);
+}
+
+/* A detent tick on the rim. Static rotation, never animated: `prefers-reduced-motion`
+   and the no-spinning rule are both satisfied by the pointer simply jumping. */
+.dial__detent {
+  position: absolute;
+  top: var(--space-1);
+  left: 50%;
+  width: 1px;
+  height: var(--space-2);
+  margin-left: -0.5px;
+  background: var(--paper-400);
+  /* 0.5px, 20px puts the pivot at the centre of the 48px face. */
+  transform-origin: 0.5px 20px;
+  transform: rotate(-60deg);
+}
+.dial__detent[data-detent="normal"] { transform: rotate(0deg); }
+.dial__detent[data-detent="fast"] { transform: rotate(60deg); }
+.dial__detent[data-on="true"] { background: var(--accent-primary); }
+
+.dial__pointer {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 2px;
+  height: var(--space-5);
+  margin-left: -1px;
+  background: var(--ink-900);
+  transform-origin: 50% 100%;
+  transform: translateY(-100%) rotate(var(--dial-angle, -60deg));
+  transition: transform 160ms ease-out;
+}
+
+/* The printed scale. The buttons are the real controls; the face above is a drawing
+   of where they point, so a control is never a picture. */
+.dial__scale {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.dial__detent-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: var(--space-7);
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: var(--radius-0);
+  background: transparent;
+  color: var(--ink-700);
+  /* Motif 6: typed onto the form, so mono, uppercase, widely tracked. */
+  font-family: var(--font-mono);
+  font-size: var(--type-data-sm-size);
+  line-height: var(--type-data-sm-line);
+  letter-spacing: var(--type-section-tracking);
+  text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+
+.dial__detent-btn:hover { background: var(--paper-200); }
+
+.dial__detent-btn[aria-checked="true"] {
+  color: var(--accent-primary);
+  background: var(--paper-200);
+  border-color: var(--paper-300);
+}
+
+.dial__tick { width: 1px; height: var(--space-3); flex: 0 0 auto; background: var(--paper-400); }
+.dial__detent-btn[aria-checked="true"] .dial__tick { background: var(--accent-primary); }
+.dial__glyph { font-family: var(--font-mono); }
+
+@media (prefers-reduced-motion: reduce) {
+  .dial__pointer { transition: none; }
+}
 
 /* ---------- left rail ---------- */
 
@@ -594,6 +721,18 @@
 .notice[data-priority="critical"] { border-left-color: var(--status-critical); }
 .notice[data-priority="important"] { border-left-color: var(--status-warning); }
 .notice[data-priority="informational"] { border-left-color: var(--accent-info); }
+
+/* The priority glyph, from the redundant shapes of ART_DIRECTION.md section 5.3. The
+   coloured edge alone would be the only carrier of priority, which the shape rule
+   forbids, so the glyph is always rendered and the word follows it for a reader. */
+.notice__priority {
+  flex: 0 0 auto;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-body-line);
+}
+.notice__priority[data-priority="critical"] { color: var(--status-critical); }
+.notice__priority[data-priority="important"] { color: var(--status-warning); }
+.notice__priority[data-priority="informational"] { color: var(--accent-info); }
 
 .notice__text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
 .notice__day { flex: 0 0 auto; }
@@ -801,6 +940,36 @@
 .ledger__item[data-sign="negative"] .ledger__amount { color: var(--status-critical); }
 .ledger__item[data-sign="positive"] .ledger__amount { color: var(--status-good); }
 
+/* ---------- touch targets ----------
+ *
+ * ART_DIRECTION.md section 13 asks for 44 x 44 minimum "at every width", but the only
+ * rule for it was scoped to `max-width: 599px`. A tablet in portrait at 768 x 1024 is
+ * a touch device and was getting 36px buttons, so the minimum is keyed off the input
+ * device instead of the viewport, and the width rule stays for narrow desktop windows.
+ */
+
+@media (pointer: coarse) {
+  .btn,
+  .panel__close,
+  .field__input,
+  .notice,
+  .warning { min-height: 44px; }
+
+  /* Height alone is not enough: a two-character button like "Why?" comes out 31px
+     wide at the label size, which is a miss even though it is 44px tall. */
+  .btn,
+  .panel__close,
+  .field__input { min-width: 44px; }
+
+  /* A bare text toggle still has to be hittable, so it gets the height without
+     inheriting a button's box. */
+  .why__disclose {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+  }
+}
+
 /* ---------- responsive ---------- */
 
 /* CONSTITUTION.md section 3.4: small screens are checked before UI is called done.
@@ -822,7 +991,37 @@
   .start__inner { padding: var(--space-4) var(--space-3) var(--space-7); }
   .res { padding: var(--space-1) var(--space-2); }
   .btn { min-height: 44px; }
-  .dial__btn { width: 44px; height: 44px; }
+
+  /* ART_DIRECTION.md section 13 asks for a two-row sticky header at this width. A grid
+     places it deterministically: the clock, the scrolling resource chips and the text
+     size share the first row, and the dial takes a full row of its own. Left as a
+     wrapping flex row the clock and the dial would not both fit on one line and the
+     header would silently become three rows, and the text size would fall into a fourth
+     implicit one. */
+  .topbar {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    grid-template-areas: "clock resources uiscale" "dial dial dial";
+  }
+  .topbar__clock { grid-area: clock; padding-left: 0; }
+  .topbar__resources { grid-area: resources; }
+  /* Not worth its own row at 390px, so it drops its visible label and keeps its
+     accessible name, which is what a screen reader announces either way. */
+  .uiscale {
+    grid-area: uiscale;
+    border-left: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .uiscale__label { display: none; }
+  .uiscale__select { min-width: var(--space-7); }
+  .dial {
+    grid-area: dial;
+    justify-content: center;
+    border-left: 0;
+    border-top: 1px solid var(--paper-300);
+  }
+  .dial__scale { justify-content: center; }
 }
 
 @media (max-width: 360px) {
@@ -924,4 +1123,438 @@
   .costs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .why__link[data-depth="3"] { margin-left: var(--space-4); }
   .why__link[data-depth="4"] { margin-left: var(--space-5); }
+}
+
+/* ---------- town, market and party panels ----------
+ *
+ * Additive block for the three context panels. Everything here is a new selector or a
+ * new shape: no existing rule above is edited or overridden, so the panels already in
+ * the client are unaffected. The requirements are ART_DIRECTION.md sections 11 and 13
+ * and CONSTITUTION.md section 3.4.
+ *
+ * Two things live here that could not live in a component: the breakpoints, because a
+ * stylesheet cannot be assembled from a TypeScript module at runtime; and the measured
+ * heights the skeletons are drawn at, which are properties of this stylesheet's own
+ * metrics rather than of any one panel.
+ */
+
+/* A panel that is the bottom sheet at the narrow breakpoints, rather than a column
+   beside the map. The class is set by src/ui/panels/narrow.ts. */
+.panel--sheet { min-width: 0; }
+
+@media (max-width: 899px) {
+  /* The sheet is anchored to the bottom of the context region and is the full width of
+     it. Drag-resizable, because a town panel at 45% of a tablet is unreadable and at
+     88% hides the map. `overflow: hidden` is what makes resize legal, and the panel
+     body keeps its own scroll. */
+  .hud__right .panel--sheet { width: 100%; overflow: hidden; resize: vertical; min-height: 30%; }
+}
+
+@media (max-width: 599px) {
+  /* Full-height sheet, 88%, per the locked direction. */
+  .hud__right .panel--sheet { max-height: 88%; }
+  .hud__right .panel--sheet .panel__body { max-height: none; flex: 1 1 auto; }
+}
+
+/* A wide table at 390px: each cell becomes its own line with the column heading
+   beside it. Applied by `stackable()` in src/ui/panels/narrow.ts, which writes
+   data-label onto every cell, because CSS cannot know a column's heading.
+   No horizontal scroll, and nothing clipped off the right edge. */
+@media (max-width: 599px) {
+  .table--stack,
+  .table--stack tbody,
+  .table--stack tr,
+  .table--stack td { display: block; width: 100%; }
+
+  /* Clipped rather than removed, so the headings are still announced. */
+  .table--stack thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  .table--stack tbody tr { padding: var(--space-2) 0; }
+  .table--stack tbody tr + tbody tr { border-top: 1px solid var(--paper-300); }
+
+  .table--stack td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--space-3);
+    border-bottom: 0;
+    padding: var(--space-1) 0;
+  }
+
+  .table--stack td::before {
+    content: attr(data-label);
+    flex: 0 0 auto;
+    color: var(--ink-500);
+    font-size: var(--type-caption-size);
+    text-transform: uppercase;
+    letter-spacing: 0.09em;
+  }
+
+  /* Right-aligned numerals read as a column; stacked they must read as a pair. */
+  .table--stack .table__td--numeric { text-align: left; }
+  .table--stack .sparkline { margin-left: auto; }
+  .table--stack .market__row-actions { justify-content: flex-start; }
+}
+
+/* ---------- the town, market and party skeletons ----------
+ *
+ * ART_DIRECTION.md section 11: a skeleton is shaped like the content that is coming,
+ * because the shape is what stops the layout jumping when the data lands. The heights
+ * below are measured from the rules above them, not guessed: a gauge is 64px of label,
+ * value, fill and note; a label and value row is 26px; a section header and its
+ * hairline rule is 33px; a button is 36px; a table row is 30px.
+ *
+ * The wash is the one animation in the client that repeats, and it animates opacity
+ * only. It never rotates, and nothing travels across it.
+ */
+
+.skeleton__section { margin: 0 0 var(--space-3); }
+.skeleton__section:last-child { margin-bottom: 0; }
+.skeleton__head-block { display: grid; gap: var(--space-2); margin: 0 0 var(--space-3); }
+.skeleton__actions { display: flex; gap: var(--space-2); margin-top: var(--space-4); }
+
+.skeleton__block.skeleton__sectionhead { height: 20px; }
+.skeleton__block.skeleton__rule { height: 1px; background: var(--paper-300); border: 0; margin: var(--space-2) 0 var(--space-3); }
+.skeleton__block.skeleton__row { height: 26px; }
+.skeleton__block.skeleton__gauge { height: 64px; }
+.skeleton__block.skeleton__action { height: 36px; flex: 1 1 0; }
+.skeleton__block.skeleton__titlebar { height: 24px; width: 9em; max-width: 60%; }
+.skeleton__block.skeleton__stub { height: 26px; }
+
+.skeleton__table { margin: 0 0 var(--space-3); }
+.skeleton__block.skeleton__tablehead { height: 30px; border-bottom: 1px solid var(--paper-300); }
+.skeleton__tr { display: flex; gap: var(--space-2); padding: var(--space-1) 0; }
+.skeleton__tr > .skeleton__block { flex: 1 1 0; }
+.skeleton__tr > .skeleton__block:first-child { flex: 2 1 0; }
+
+/* ---------- party warnings ----------
+ *
+ * Each warning is a chip (glyph, colour and the word) over its arithmetic, with its own
+ * Why affordance. The chip is the status; the border colour repeats it. Neither is the
+ * only carrier, and the glyph is enough on its own.
+ */
+.party__warnings { margin: 0; }
+.party__warning-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: var(--space-2); align-items: start; }
+.party__warning-item .warning { min-width: 0; }
+.party__warning-item .why__disclose { margin-top: var(--space-2); }
+
+@media (max-width: 599px) {
+  .party__warning-item { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* ---------- why chain, ledger, march, rulers and the start screen ----------
+ *
+ * Additive block for the five panels that are not the context-region town, market and
+ * party panels. Nothing above is edited or overridden; every selector here is new, and
+ * every value is a token from src/design/tokens.css (CONSTITUTION.md section 3.4). The
+ * requirements are ART_DIRECTION.md sections 5.3, 6.4, 11, 12 and 13.
+ */
+
+/* ---------- why chain ----------
+ *
+ * The chain is the panel the project exists for, so it gets the most attention here.
+ * Three things the stylesheet has to do that a plain list could not:
+ *
+ *  1. Indent by depth, so the shape of the cascade is visible before a word is read.
+ *     Four steps, then the fifth and beyond hold at the last step, because a chain
+ *     eight deep must not run off the side of a 390px screen (section 13).
+ *  2. Print the cause ids in mono. `code` is styled here rather than relying on the
+ *     browser default, so a cause id is unmistakably an identifier.
+ *  3. Give the expandable detail a recessed well, so an expanded line reads as pressed
+ *     into the sheet rather than floating on it.
+ */
+.why__head-block { margin: 0 0 var(--space-3); }
+.why__item { list-style: none; }
+
+.why__link {
+  border-left: 2px solid var(--paper-300);
+  padding: 0 0 0 var(--space-2);
+}
+
+.why__link[data-depth="1"] { margin-left: var(--space-3); }
+.why__link[data-depth="2"] { margin-left: var(--space-4); }
+.why__link[data-depth="3"] { margin-left: var(--space-5); }
+.why__link[data-depth="4"] { margin-left: var(--space-6); }
+
+.why__arrow {
+  color: var(--ink-500);
+  font-family: var(--font-mono);
+  margin-right: var(--space-1);
+}
+
+/* A cause id, printed verbatim in mono. The quotation marks are the typographic ones
+   in the source text's own tradition of citing a record number, and they are drawn as
+   ::before/::after rather than typed into the content so the text a test reads is the
+   id and nothing else. */
+.why__id {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  background: var(--paper-200);
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-1);
+}
+.why__id::before { content: "\201C"; color: var(--ink-500); }
+.why__id::after { content: "\201D"; color: var(--ink-500); }
+.why__idline { margin: 0; display: flex; align-items: baseline; gap: var(--space-1); }
+.why__causedby { margin: 0; }
+.why__repeat { margin: var(--space-1) 0 0; }
+
+.why__fieldline {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+.why__change {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--type-data-weight);
+}
+.why__before { color: var(--ink-500); }
+.why__after { color: var(--ink-900); }
+.why__arrow-plain { color: var(--ink-500); }
+
+.why__drill { width: 100%; }
+
+.why__detail-slot { display: none; }
+
+/* ---------- ledger ---------- */
+
+.ledger__warning { align-items: flex-start; }
+.ledger__warning-main { flex: 1 1 auto; min-width: 0; display: grid; gap: var(--space-1); justify-items: start; }
+.ledger__warning-detail { margin: 0; }
+.ledger__warning-days { margin: 0; }
+.ledger__warning-why { flex: 0 0 auto; }
+
+.ledger__amount[data-sign="negative"] { color: var(--status-critical); }
+.ledger__amount[data-sign="positive"] { color: var(--status-good); }
+.ledger__amount[data-sign="flat"] { color: var(--ink-500); }
+
+.ledger__item-label { flex: 1 1 auto; min-width: 0; }
+.ledger__ref { flex: 0 0 auto; }
+.ledger__group { min-width: 0; }
+
+/* The dog-ear, motif 3: the bottom-right corner of a long panel is cut at 10px with a
+   1px rule and a fold, because the cause log and the ledger are printed sheets. */
+.dogear { position: relative; }
+.dogear::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 10px;
+  height: 10px;
+  background: var(--paper-200);
+  border-left: 1px solid var(--paper-300);
+  border-top: 1px solid var(--paper-300);
+  pointer-events: none;
+}
+
+/* ---------- march planner ---------- */
+
+.march__warning { align-items: flex-start; }
+.march__warning .chip { flex: 0 0 auto; }
+.march__warning-text { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+
+.march__supply {
+  margin-top: var(--space-2);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--paper-200);
+  display: grid;
+  gap: var(--space-1);
+}
+.march__supply-note { margin: 0; }
+
+/* The confirm step. A sheet of paper laid over the plan, because the player is being
+   asked to sign something and should not be signing the pricing screen. */
+.march__confirm { margin-top: var(--space-3); }
+.march__confirm .section-header { margin-bottom: var(--space-2); }
+.march__action { width: 100%; }
+
+.march__bill {
+  background: var(--paper-0);
+  border: 1px solid var(--paper-300);
+  border-radius: var(--radius-1);
+  padding: var(--space-2);
+  box-shadow: var(--well-inset);
+}
+.march__bill-route { margin: 0 0 var(--space-2); }
+.march__bill-list { list-style: none; margin: 0; padding: 0; }
+.march__actions { margin-top: var(--space-3); }
+
+/* ---------- rulers ---------- */
+
+.roster__filters { margin-bottom: var(--space-2); }
+.roster__filter { flex: 1 1 8rem; min-width: 0; }
+.roster__search { flex: 1 1 10rem; }
+.roster__count { margin: 0 0 var(--space-2); }
+
+.ruler__foot {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  justify-content: space-between;
+}
+
+.ruler-card__head { margin-bottom: var(--space-3); }
+.ruler-card__id { flex: 1 1 auto; min-width: 0; }
+.ruler-card__line { margin: 0 0 var(--space-1); }
+.ruler-card__note { margin: 0 0 var(--space-1); }
+
+.trait { grid-template-columns: 5.5em 1fr 2.4em 5.5em; }
+.trait__label { color: var(--ink-500); }
+.trait__value { text-align: right; }
+.trait__reading { color: var(--ink-500); }
+.trait__centre {
+  position: absolute;
+  top: -1px;
+  bottom: -1px;
+  left: 50%;
+  width: 1px;
+  background: var(--ink-500);
+}
+.trait__fill { position: absolute; top: 0; bottom: 0; left: 50%; background: var(--accent-influence); }
+
+.row__inline { display: inline-flex; align-items: baseline; gap: var(--space-2); flex-wrap: wrap; justify-content: flex-end; }
+
+/* ---------- start screen ---------- */
+
+.start__head { margin-bottom: var(--space-5); }
+.start__step { margin: 0; }
+.start__note { margin: 0 0 var(--space-3); max-width: 62ch; }
+.start__nav { margin-top: var(--space-5); }
+.start__subhead { margin: 0 0 var(--space-1); }
+
+.side__danger-key, .role__starts-key, .start__confirm-danger .label { display: block; margin-bottom: var(--space-1); }
+.side__danger-text { margin: 0; }
+.role__desc { min-height: 0; }
+.role__starts { display: block; }
+
+.state__pop { display: block; }
+.state__summary { display: block; }
+.state__ratings { margin-top: var(--space-1); }
+
+.rating__label { min-width: 0; }
+.rating__value { text-align: right; }
+
+.start__summary { padding: var(--space-4); max-width: var(--space-8); }
+.start__facts { margin: var(--space-2) 0 0; display: grid; gap: 0; }
+.start__fact {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--paper-200);
+}
+.start__fact-value { margin: 0; text-align: right; overflow-wrap: anywhere; }
+.start__confirm-danger { margin-top: var(--space-3); }
+.start__confirm-role { margin-top: var(--space-2); }
+
+.step:disabled { color: var(--ink-300); background: var(--paper-200); border-color: var(--paper-300); cursor: not-allowed; }
+
+/* ---------- the five skeletons ----------
+ *
+ * Heights are measured from the rules above: a label and value row is 26px, a gauge is
+ * 64px, a table row is 30px, a button is 36px, a full-width card is 132px, and a
+ * warning with three lines of text is 78px. The wash animates opacity only; nothing
+ * rotates and nothing travels across it.
+ */
+.skeleton--why-chain { display: grid; gap: var(--space-2); }
+.skeleton__chain { display: grid; gap: var(--space-1); }
+.skeleton__chain .skeleton__link { height: 44px; }
+.skeleton__chain .skeleton__link[data-depth="1"] { margin-left: var(--space-3); }
+.skeleton__chain .skeleton__link[data-depth="2"] { margin-left: var(--space-4); }
+.skeleton__chain .skeleton__link[data-depth="3"] { margin-left: var(--space-5); }
+.skeleton__chain .skeleton__link[data-depth="4"] { margin-left: var(--space-6); }
+.skeleton__block.skeleton__headline { height: 30px; }
+.skeleton--why-chain .skeleton__wide { height: 132px; }
+
+.skeleton--ledger-book { display: grid; }
+.skeleton--ledger-book .skeleton__cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-4); }
+.skeleton--ledger-book .skeleton__row { height: 26px; }
+
+.skeleton--march-plan { display: grid; gap: var(--space-2); }
+.skeleton--march-plan .skeleton__costs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+.skeleton--march-plan .skeleton__cell { height: 74px; }
+
+.skeleton--ruler-roster { display: grid; gap: var(--space-2); }
+.skeleton--ruler-roster .skeleton__filters { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-2); }
+.skeleton--ruler-roster .skeleton__list { display: grid; gap: var(--space-2); }
+.skeleton--ruler-roster .skeleton__wide { height: 62px; }
+
+.skeleton--ruler-card { display: grid; }
+.skeleton--ruler-card .skeleton__section { margin: 0 0 var(--space-3); }
+.skeleton--ruler-card .skeleton__gauge { height: 26px; }
+
+.skeleton--start-sides { display: grid; }
+.skeleton--start-sides .skeleton__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
+.skeleton--start-sides .skeleton__grid--narrow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.skeleton--start-sides .skeleton__wide { height: 132px; }
+
+/* ---------- responsive (ART_DIRECTION.md section 13) ----------
+ *
+ * Checked at 390 x 844 and 768 x 1024. No horizontal page scroll, no clipped text, and
+ * the Why chain readable at full width: the indent steps shrink at each breakpoint
+ * rather than being removed, because the depth is the information.
+ */
+@media (max-width: 1199px) {
+  .skeleton--start-sides .skeleton__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .skeleton--ruler-roster .skeleton__filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+@media (max-width: 899px) {
+  /* 768 x 1024, tablet portrait. The ledger's two columns and the march's three cost
+     cells both go to one column of full-width cells, and the ruler's four filters go to
+     two. */
+  .skeleton--ledger-book .skeleton__cols { grid-template-columns: minmax(0, 1fr); }
+  .skeleton--march-plan .skeleton__costs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ledger__cols { grid-template-columns: minmax(0, 1fr); }
+  .start__summary { max-width: none; }
+}
+
+@media (max-width: 599px) {
+  /* 390 x 844. The chain still indents, in smaller steps, because the depth is the
+     point of the panel. Everything else is one column. */
+  .why__link[data-depth="1"] { margin-left: var(--space-2); }
+  .why__link[data-depth="2"] { margin-left: var(--space-3); }
+  .why__link[data-depth="3"] { margin-left: var(--space-4); }
+  .why__link[data-depth="4"] { margin-left: var(--space-5); }
+
+  .skeleton__chain .skeleton__link[data-depth="1"] { margin-left: var(--space-2); }
+  .skeleton__chain .skeleton__link[data-depth="2"] { margin-left: var(--space-3); }
+  .skeleton__chain .skeleton__link[data-depth="3"] { margin-left: var(--space-4); }
+  .skeleton__chain .skeleton__link[data-depth="4"] { margin-left: var(--space-5); }
+
+  .skeleton--start-sides .skeleton__grid,
+  .skeleton--start-sides .skeleton__grid--narrow { grid-template-columns: minmax(0, 1fr); }
+  .skeleton--ruler-roster .skeleton__filters { grid-template-columns: minmax(0, 1fr); }
+  .skeleton--march-plan .skeleton__costs { grid-template-columns: minmax(0, 1fr); }
+
+  .costs { grid-template-columns: minmax(0, 1fr); }
+  .trait { grid-template-columns: 4.5em 1fr 2.4em; }
+  .trait__reading { grid-column: 1 / -1; }
+  .start__fact { flex-direction: column; align-items: flex-start; gap: 0; }
+  .start__fact-value { text-align: left; }
+  .ruler-card__head { flex-direction: column; align-items: flex-start; }
+  .march__actions .btn { flex: 1 1 var(--space-7); }
+}
+
+/* A pointer-coarse device gets 44px targets. The bare Why disclosures on the chain and
+   the roster are the controls most at risk of being a strip of underlined text. */
+@media (pointer: coarse) {
+  .why__toggle,
+  .why__drill,
+  .ledger__ref { min-height: 44px; }
 }

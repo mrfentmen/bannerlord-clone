@@ -148,8 +148,11 @@ describe("player-visible copy (CONSTITUTION.md section 3.3)", () => {
       provider: failing,
       onError: () => {},
     }).root;
+    // Asking for a market it does not have means asking the simulation for one, so the
+    // message only appears once that request has actually failed.
+    await new Promise((r) => setTimeout(r, 10));
     const text = visibleText(panel).join(" ");
-    expect(text).toMatch(/did not load/i);
+    expect(text).toMatch(/could not be read|refused/i);
     expect(panel.querySelector("[data-testid='market-error-retry']")).not.toBeNull();
   });
 });
@@ -171,11 +174,19 @@ describe("skeletons, not spinners (section 3.2)", () => {
       provider: slow,
       onError: () => {},
     }).root;
-    // The skeleton is up on the first frame, before the request resolves.
-    const sk = panel.querySelector("[data-testid='market-error']");
+    // The skeleton is up on the first frame, before the request resolves, and it is
+    // the market's own shape rather than one grey block.
+    const sk = panel.querySelector("[data-testid='market-skeleton']");
     expect(sk).not.toBeNull();
+    expect(sk!.getAttribute("aria-busy")).toBe("true");
+    expect(sk!.querySelectorAll(".skeleton__tr").length).toBeGreaterThanOrEqual(2);
+    // Nothing that looks like a spinner, and no complaint about data still in flight.
+    expect(panel.querySelector("[data-testid='market-error']")).toBeNull();
+
     resolve(snapshot);
-    void panel;
+    await new Promise((r) => setTimeout(r, 10));
+    expect(panel.querySelector("[data-testid='market-skeleton']")).toBeNull();
+    expect(panel.querySelector("[data-testid='market-table']")).not.toBeNull();
   });
 
   it("uses aria-busy on skeletons so a screen reader knows the region is loading", () => {

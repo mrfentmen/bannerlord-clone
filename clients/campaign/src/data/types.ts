@@ -2,12 +2,18 @@
  * Simulation state as the client consumes it. Contract B, proposed.
  *
  * Field names follow `CAUSE_EFFECT.md` sections 2 and 8 and `SPEC.md` section 3, so
- * the mapping is checkable against the design docs. Agent 2's export is
- * authoritative; see `src/data/contractB.md`.
+ * the mapping is checkable against the design docs. Agent 2's export is authoritative;
+ * the boundary itself is `SimulationProvider` at the bottom of this file and
+ * `HttpSimulationProvider` in `src/data/provider.ts`.
  *
  * Nothing in this file is invented by the client. Every value here arrives from the
  * provider. The client computes no balances, prices or rates of its own — that would
  * be a second, competing simulation, which is the one thing this client must not be.
+ *
+ * These types are the shape the client *requires*, not a promise about what any server
+ * will send. An HTTP response is untrusted, so `src/data/provider.ts` checks the fields
+ * the client dereferences before casting to these types, and refuses the payload with
+ * a readable sentence if they are not there.
  */
 
 import type { TownClassName } from "../design/tokens.js";

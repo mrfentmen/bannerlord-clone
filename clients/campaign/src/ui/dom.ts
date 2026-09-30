@@ -32,7 +32,11 @@ export function h<K extends keyof HTMLElementTagNameMap>(
     } else if (key === "text") {
       el.textContent = String(value);
     } else if (value === true) {
-      el.setAttribute(key, "");
+      // An ARIA attribute takes the *string* "true". Setting the empty string, which is
+      // what a bare boolean would produce, is not a valid token, and an assistive tech
+      // reading `aria-hidden=""` is not reliably told the element is hidden. Boolean
+      // ARIA is common enough in this codebase to be worth getting right in one place.
+      el.setAttribute(key, key.startsWith("aria-") ? "true" : "");
     } else {
       el.setAttribute(key, String(value));
     }

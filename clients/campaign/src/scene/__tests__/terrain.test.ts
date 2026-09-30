@@ -13,6 +13,7 @@ import { Scene } from "@babylonjs/core";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { buildTerrain } from "../terrain.js";
 import { makeProjection } from "../../world/load.js";
+import { terrainBands } from "../../design/tokens.js";
 import type { Heightfield, RegionFile } from "../../world/types.js";
 
 const region: RegionFile = {
@@ -81,6 +82,47 @@ describe("terrain mesh", () => {
       expect(colors[i + 1]!).toBeGreaterThan(0.05);
       expect(colors[i + 2]!).toBeGreaterThan(0.05);
       expect(colors[i + 3]!).toBe(1);
+    }
+  });
+
+  it("keeps every vertex colour inside the locked ramp's envelope", () => {
+    // NullEngine: a real Scene with no GPU behind it, which is all the geometry
+  // builder needs.
+    // The ramp plus rock and snow are the only colours a terrain vertex can hold, because
+    // the slope mix and the snow mix both lerp between members of that same set. So the
+    // per-channel minimum and maximum across the ramp bound every vertex. A white vertex
+    // means something reached for a colour outside the locked palette.
+    const scene = newScene();
+    const { mesh } = buildTerrain({ scene, heightfield: hf, projection, samples: 48 });
+    const colors = mesh.getVerticesData("color")!;
+
+    const floor = [1, 1, 1];
+    const ceiling = [0, 0, 0];
+    for (const band of terrainBands) {
+      const hex = band.color;
+      for (let c = 0; c < 3; c += 1) {
+        const v = parseInt(hex.slice(1 + c * 2, 3 + c * 2), 16) / 255;
+        floor[c] = Math.min(floor[c]!, v);
+        ceiling[c] = Math.max(ceiling[c]!, v);
+      }
+    }
+
+    // Snow is the lightest band at 201/255, forest the darkest at 47/255. Neither end of
+    // the envelope is black and neither is white, which is the property under test.
+    expect(Math.max(...ceiling)).toBeLessThan(0.85);
+    expect(Math.min(...floor)).toBeGreaterThan(0.1);
+
+    const slack = 0.02;
+    for (let i = 0; i < colors.length; i += 4) {
+      for (let c = 0; c < 3; c += 1) {
+        const v = colors[i + c]!;
+        expect(v, `channel ${c} of vertex ${i / 4} is ${v}, outside the ramp`).toBeGreaterThanOrEqual(
+          floor[c]! - slack,
+        );
+        expect(v, `channel ${c} of vertex ${i / 4} is ${v}, outside the ramp`).toBeLessThanOrEqual(
+          ceiling[c]! + slack,
+        );
+      }
     }
   });
 
