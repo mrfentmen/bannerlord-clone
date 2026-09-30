@@ -2,24 +2,31 @@ package formation
 
 import (
 	"math"
-	"os"
-	"path/filepath"
 	"sort"
-	"strconv"
-	"strings"
 	"testing"
+
+	"mbclone/simulation/internal/config"
 )
 
 // balancePath is the shipped balance file, relative to this package. The tests
 // read the same file the service does rather than a hand-built Config, so a
 // test cannot pass against constants that no longer exist at runtime.
+//
+// The file is read through internal/config, which is the one loader the whole
+// simulation uses, and then handed to FromCentral. This package used to parse
+// the [formation] section itself; that second parser is gone, and the reasons
+// are in config.go.
 const balancePath = "../../config/balance.toml"
 
 func testConfig(t *testing.T) Config {
 	t.Helper()
-	c, err := Load(balancePath)
+	central, err := config.Load(balancePath)
 	if err != nil {
 		t.Fatalf("loading %s: %v", balancePath, err)
+	}
+	c, err := FromCentral(central)
+	if err != nil {
+		t.Fatalf("formation constants from %s: %v", balancePath, err)
 	}
 	return c
 }
@@ -32,7 +39,7 @@ func ids(n int) []int {
 	return out
 }
 
-func TestLoadBalanceFile(t *testing.T) {
+func TestShippedBalanceFileSuppliesEveryFormationConstant(t *testing.T) {
 	c := testConfig(t)
 	if err := c.Validate(); err != nil {
 		t.Fatalf("shipped config does not validate: %v", err)
@@ -40,70 +47,120 @@ func TestLoadBalanceFile(t *testing.T) {
 	t.Logf("loaded: %s", c)
 }
 
-func TestLoadRefusesMissingSection(t *testing.T) {
-	dir := t.TempDir()
-	path := filepath.Join(dir, "balance.toml")
-	if err := os.WriteFile(path, []byte("[world]\nyears = 5.0\n"), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := Load(path); err == nil {
-		t.Fatal("a balance file with no [formation] section loaded anyway, so a missing constant would be a silent zero")
-	} else {
-		t.Logf("missing section: %v", err)
-	}
-}
+// TestFromCentralCopiesEveryField is the check on FromCentral itself. It is a
+// field-by-field copy so that the two structs cannot drift by reinterpretation,
+// and a copy that quietly dropped a field would leave that knob at zero and
+// produce a formation nobody asked for. Every field is set to a distinct value
+// here, so a dropped field shows up as a zero rather than as a coincidence.
+func TestFromCentralCopiesEveryField(t *testing.T) {
+	var central config.Config
+	set := &central.Formation
+	v := 1.0
+	next := func() float64 { v++; return v }
+	set.FrontSpacing = next()
+	set.RankSpacing = next()
+	set.LineFrontWidth = next()
+	set.ColumnFrontWidth = next()
+	set.WedgeTipUnits = next()
+	set.WedgeRowGrowth = next()
+	set.LooseSpacing = next()
+	set.AdvanceStandoff = next()
+	set.ChargeStandoff = next()
+	set.RetreatDistance = next()
+	set.FlankStandoff = next()
+	set.FlankSweepDeg = next()
+	set.FlankSweepRateDeg = next()
+	set.HoldSpeed = next()
+	set.AdvanceSpeed = next()
+	set.ChargeSpeed = next()
+	set.FlankSpeed = next()
+	set.RetreatSpeed = next()
+	set.TurnRate = next()
+	set.FaceTurnRateScale = next()
+	set.FaceEnemyWeight = next()
+	set.MinSeparation = 0.9
+	set.SeparationIterations = next()
+	set.SeparationPushFraction = next()
+	set.SeparationPushMax = next()
+	// LooseJitterFraction and LooseSeed are set by hand rather than by next():
+	// the first is a fraction and Validate reads it against the loose lattice,
+	// and the second documents no range at all. Both are still distinct from
+	// every other field, which is the point of the test.
+	set.LooseJitterFraction = 0.11
+	set.LooseSeed = 20260930
 
-func TestLoadRefusesMissingKey(t *testing.T) {
-	c := testConfig(t)
-	dir := t.TempDir()
-	path := filepath.Join(dir, "balance.toml")
-	body := "[formation]\n"
-	for _, k := range requiredFormationKeys {
-		if k == "turn_rate" {
-			continue // the one key left out
+	got, err := FromCentral(&central)
+	if err != nil {
+		t.Fatalf("FromCentral on a filled config: %v", err)
+	}
+	want := map[string]float64{
+		"front_spacing":            set.FrontSpacing,
+		"rank_spacing":             set.RankSpacing,
+		"line_front_width":         set.LineFrontWidth,
+		"column_front_width":       set.ColumnFrontWidth,
+		"wedge_tip_units":          set.WedgeTipUnits,
+		"wedge_row_growth":         set.WedgeRowGrowth,
+		"loose_spacing":            set.LooseSpacing,
+		"loose_jitter_fraction":    set.LooseJitterFraction,
+		"loose_seed":               set.LooseSeed,
+		"min_separation":           set.MinSeparation,
+		"separation_iterations":    set.SeparationIterations,
+		"separation_push_fraction": set.SeparationPushFraction,
+		"separation_push_max":      set.SeparationPushMax,
+		"hold_speed":               set.HoldSpeed,
+		"advance_speed":            set.AdvanceSpeed,
+		"charge_speed":             set.ChargeSpeed,
+		"flank_speed":              set.FlankSpeed,
+		"retreat_speed":            set.RetreatSpeed,
+		"turn_rate":                set.TurnRate,
+		"face_turn_rate_scale":     set.FaceTurnRateScale,
+		"face_enemy_weight":        set.FaceEnemyWeight,
+		"advance_standoff":         set.AdvanceStandoff,
+		"charge_standoff":          set.ChargeStandoff,
+		"retreat_distance":         set.RetreatDistance,
+		"flank_standoff":           set.FlankStandoff,
+		"flank_sweep_deg":          set.FlankSweepDeg,
+		"flank_sweep_rate_deg":     set.FlankSweepRateDeg,
+	}
+	have := got.values()
+	if len(have) != len(requiredFormationKeys) {
+		t.Fatalf("FromCentral produced %d keys, the section defines %d", len(have), len(requiredFormationKeys))
+	}
+	for key, w := range want {
+		if have[key] != w {
+			t.Errorf("%s came back as %g, the central config holds %g", key, have[key], w)
 		}
-		body += k + " = " + formatFloat(c.values()[k]) + "\n"
-	}
-	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := Load(path); err == nil {
-		t.Fatal("a [formation] section missing turn_rate loaded anyway, so a missing speed would be a silent zero")
-	} else {
-		t.Logf("missing key: %v", err)
 	}
 }
 
-func TestLoadRefusesUnreadKey(t *testing.T) {
-	c := testConfig(t)
-	dir := t.TempDir()
-	path := filepath.Join(dir, "balance.toml")
-	body := "[formation]\n"
-	for _, k := range requiredFormationKeys {
-		body += k + " = " + formatFloat(c.values()[k]) + "\n"
-	}
-	body += "line_front_widht = 16.0\n" // the typo this check exists for
-	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := Load(path); err == nil {
-		t.Fatal("a misspelled key loaded anyway, so the constant the designer meant to change is not being read")
+// TestZeroConfigIsRefused is the no-silent-stub guard. Every entry point in
+// this package calls Validate first, and the failure it catches is a constant
+// nobody set: an all-zero Config stands nowhere and moves at nothing.
+func TestZeroConfigIsRefused(t *testing.T) {
+	var zero Config
+	if err := zero.Validate(); err == nil {
+		t.Fatal("an empty Config validated, so a caller could hand-build one and get zeroes everywhere")
 	} else {
-		t.Logf("unread key: %v", err)
+		t.Logf("zero config: %v", err)
 	}
 }
 
-func TestValidateRefusesOutOfRange(t *testing.T) {
-	c := testConfig(t)
-	bad := c
-	bad.AdvanceSpeed = 40 // faster than a man can run
-	if err := bad.Validate(); err == nil {
-		t.Fatal("a 40 m/s advance speed validated, so the range in the balance comment is not enforced")
-	} else {
-		t.Logf("out of range: %v", err)
+func TestFromCentralRefusesAConfigThatWasNeverLoaded(t *testing.T) {
+	var central config.Config
+	got, err := FromCentral(&central)
+	if err == nil {
+		t.Fatal("an unloaded config produced a usable formation Config")
 	}
+	if got != (Config{}) {
+		t.Errorf("a refused config still returned values: %s", got)
+	}
+	t.Logf("refused: %v", err)
 }
 
+// TestValidateRefusesMinSeparationWiderThanTheShape keeps the guard on the
+// spacing pass fighting the shape. The range table itself lives in
+// internal/config now; what is checked here is that this package still refuses
+// a Config edited in code after it was loaded.
 func TestValidateRefusesMinSeparationWiderThanTheShape(t *testing.T) {
 	c := testConfig(t)
 	bad := c
@@ -115,66 +172,27 @@ func TestValidateRefusesMinSeparationWiderThanTheShape(t *testing.T) {
 	}
 }
 
-func TestZeroConfigIsRefused(t *testing.T) {
-	var zero Config
-	if err := zero.Validate(); err == nil {
-		t.Fatal("an empty Config validated, so a caller could hand-build one and get zeroes everywhere")
-	} else {
-		t.Logf("zero config: %v", err)
-	}
-}
-
-// TestLoadAcceptsDocumentedZeroValues is the check on the other side of the one
-// above. Nine keys have a documented minimum of zero, and each of those zeroes
-// is a decision a designer can make on purpose: a clean loose-order lattice, no
-// separation pass, no stand-off, face the way you march. A loader that treats
-// zero as "the key is missing" refuses a legal balance file and tells the
-// designer to invent a value they deliberately set to nothing — which is the
-// same failure as silently defaulting one, only louder and in the wrong place.
-func TestLoadAcceptsDocumentedZeroValues(t *testing.T) {
+// TestDocumentedZeroValuesStillValidate is the check on the other side of the
+// one above. Nine keys have a documented minimum of zero, and each of those
+// zeroes is a decision a designer can make on purpose: a clean loose-order
+// lattice, no separation pass, no stand-off, face the way you march. A guard
+// that refused a deliberate zero would tell the designer to invent a value they
+// set to nothing — the same failure as silently defaulting one, only louder and
+// in the wrong place.
+func TestDocumentedZeroValuesStillValidate(t *testing.T) {
 	c := testConfig(t)
-	zeroable := map[string]float64{}
-	for _, b := range configBounds {
-		if b.lo == 0 {
-			zeroable[b.key] = 0
-		}
+	zeroed := c
+	zeroed.LooseJitterFraction = 0
+	zeroed.SeparationIterations = 0
+	zeroed.SeparationPushFraction = 0
+	zeroed.FaceEnemyWeight = 0
+	zeroed.AdvanceStandoff = 0
+	zeroed.ChargeStandoff = 0
+	zeroed.RetreatDistance = 0
+	zeroed.FlankStandoff = 0
+	if err := zeroed.Validate(); err != nil {
+		t.Fatalf("a Config with every documented zero refused: %v", err)
 	}
-	// Every key that is allowed to be zero has to be covered, or this test
-	// passes while a new zero-able key is still being refused.
-	if len(zeroable) < 8 {
-		t.Fatalf("only %d keys document a minimum of zero; the shipped balance file and this test disagree about which are optional", len(zeroable))
-	}
-
-	dir := t.TempDir()
-	path := filepath.Join(dir, "balance.toml")
-	body := "[formation]\n"
-	for _, k := range requiredFormationKeys {
-		v, isZeroable := zeroable[k]
-		if !isZeroable {
-			v = c.values()[k]
-		}
-		body += k + " = " + formatFloat(v) + "\n"
-	}
-	if err := os.WriteFile(path, []byte(body), 0o644); err != nil {
-		t.Fatal(err)
-	}
-	got, err := Load(path)
-	if err != nil {
-		t.Fatalf("a balance file with every documented zero rejected: %v", err)
-	}
-	for k := range zeroable {
-		if got.values()[k] != 0 {
-			t.Errorf("%s did not come back as zero, it came back as %g", k, got.values()[k])
-		}
-	}
-	// And the same file with one of them out of range is still refused, so the
-	// fix did not turn the bounds off.
-	bad := got
-	bad.MinSeparation = 0
-	if err := bad.Validate(); err == nil {
-		t.Error("min_separation of 0 validated, but zero is not a spacing")
-	}
-	t.Logf("accepted %d documented zeroes: %s", len(zeroable), strings.Join(sortedKeys(zeroable), ", "))
 }
 
 func sortedKeys(m map[string]float64) []string {
@@ -439,12 +457,6 @@ func TestLooseScatterIsDeterministicAndDifferentPerMan(t *testing.T) {
 	lw, _ := extent(first)
 	t.Logf("loose order of 200: %.1f m square, forward extent %.1f to %.1f m, %d of %d slots unchanged by a seed change",
 		lw, minF, maxF, same, len(first))
-}
-
-// formatFloat writes a balance value back out at full precision, so a test
-// file built from the loaded config is byte-identical to the shipped one.
-func formatFloat(v float64) string {
-	return strconv.FormatFloat(v, 'g', -1, 64)
 }
 
 // extent returns a layout's width and depth in metres: how far it reaches
