@@ -13,17 +13,17 @@ Reference source: Wikipedia REST summary endpoint, `https://en.wikipedia.org/api
 
 ## Results
 
-| Settlement | State | Pipeline base 2020 | Published 2020 census | Difference | Verdict | Source |
+| Settlement | State | Pipeline base 2020 | Published census | Difference | Verdict | Source |
 |---|---|---|---|---|---|---|
-| New York city | New York | 8,804,199 | not read | - | **unverified** | no 2020 census figure found in the summary text for New_York |
+| New York city | New York | 8,804,199 | not read | - | **unverified** | see Notes |
 | Philadelphia city | Pennsylvania | 1,603,793 | 1,600,000 | 0.237% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Philadelphia,_Pennsylvania |
-| Washington city | District of Columbia | 689,548 | not read | - | **unverified** | no 2020 census figure found in the summary text for Washingt |
-| Boston city | Massachusetts | 678,617 | 125 | 542793.600% | **disagree** | https://en.wikipedia.org/api/rest_v1/page/summary/Boston,_Massachusetts |
+| Washington city | District of Columbia | 689,548 | not read | - | **unverified** | see Notes |
+| Boston city | Massachusetts | 678,617 | 675,647 | 0.440% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Boston,_Massachusetts |
 | Baltimore city | Maryland | 585,690 | 585,708 | 0.003% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Baltimore,_Maryland |
 | Virginia Beach city | Virginia | 459,476 | 459,470 | 0.001% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Virginia_Beach,_Virginia |
 | Chicago city | Illinois | 2,746,352 | 2,740,000 | 0.232% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Chicago,_Illinois |
 | Columbus city | Ohio | 905,939 | 905,748 | 0.021% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Columbus,_Ohio |
-| Indianapolis city | Indiana | 897,038 | not read | - | **unverified** | no 2020 census figure found in the summary text for Indianap |
+| Indianapolis city | Indiana | 897,038 | not read | - | **unverified** | see Notes |
 | Detroit city | Michigan | 639,475 | 639,111 | 0.057% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Detroit,_Michigan |
 | Milwaukee city | Wisconsin | 577,893 | 577,222 | 0.116% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Milwaukee,_Wisconsin |
 | Kansas City city | Missouri | 507,978 | 508,090 | 0.022% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Kansas_City,_Missouri |
@@ -31,51 +31,79 @@ Reference source: Wikipedia REST summary endpoint, `https://en.wikipedia.org/api
 | San Antonio city | Texas | 1,434,306 | 1,430,000 | 0.301% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/San_Antonio,_Texas |
 | Dallas city | Texas | 1,304,182 | 1,300,000 | 0.322% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Dallas,_Texas |
 | Austin city | Texas | 961,893 | 961,855 | 0.004% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Austin,_Texas |
-| Fort Worth city | Texas | 918,907 | not read | - | **unverified** | reference source unreachable: HTTP 429 Too Many Requests |
-| Oklahoma City city | Oklahoma | 681,091 | not read | - | **unverified** | reference source unreachable: HTTP 429 Too Many Requests |
-| Phoenix city | Arizona | 1,608,215 | not read | - | **unverified** | reference source unreachable: HTTP 429 Too Many Requests |
+| Fort Worth city | Texas | 918,907 | not read | - | **unverified** | see Notes |
+| Oklahoma City city | Oklahoma | 681,091 | 681,054 | 0.005% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Oklahoma_City,_Oklahoma |
+| Phoenix city | Arizona | 1,608,215 | 1,600,000 | 0.513% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Phoenix,_Arizona |
 | Denver city | Colorado | 715,524 | 715,522 | 0.000% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Denver,_Colorado |
 | Las Vegas city | Nevada | 644,883 | 641,903 | 0.464% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Las_Vegas,_Nevada |
-| Albuquerque city | New Mexico | 564,584 | not read | - | **unverified** | no 2020 census figure found in the summary text for Albuquer |
-| Tucson city | Arizona | 542,658 | not read | - | **unverified** | reference source unreachable: HTTP 429 Too Many Requests |
-| Mesa city | Arizona | 504,296 | not read | - | **unverified** | reference source unreachable: HTTP 429 Too Many Requests |
-| Los Angeles city | California | 3,898,841 | not read | - | **unverified** | reference source unreachable: HTTP 429 Too Many Requests |
-| San Diego city | California | 1,386,972 | not read | - | **unverified** | reference source unreachable: HTTP 429 Too Many Requests |
-| San Jose city | California | 1,013,241 | not read | - | **unverified** | no 2020 census figure found in the summary text for San_Jose |
-| San Francisco city | California | 873,950 | not read | - | **unverified** | reference source unreachable: HTTP 429 Too Many Requests |
-| Seattle city | Washington | 737,018 | not read | - | **unverified** | reference source unreachable: HTTP 429 Too Many Requests |
-| Portland city | Oregon | 652,521 | not read | - | **unverified** | reference source unreachable: HTTP 429 Too Many Requests |
-| Jacksonville city | Florida | 949,618 | not read | - | **unverified** | no 2020 census figure found in the summary text for Jacksonv |
-| Charlotte city | North Carolina | 874,629 | not read | - | **unverified** | reference source unreachable: HTTP 429 Too Many Requests |
-| Louisville/Jefferson County metro government | Kentucky | 782,964 | not read | - | **unverified** | reference source unreachable: HTTP 429 Too Many Requests |
-| Nashville-Davidson metropolitan government | Tennessee | 715,878 | not read | - | **unverified** | reference source unreachable: HTTP 429 Too Many Requests |
+| Albuquerque city | New Mexico | 564,584 | not read | - | **unverified** | see Notes |
+| Tucson city | Arizona | 542,658 | 542,630 | 0.005% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Tucson,_Arizona |
+| Mesa city | Arizona | 504,296 | 504,258 | 0.008% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Mesa,_Arizona |
+| Los Angeles city | California | 3,898,841 | not read | - | **unverified** | see Notes |
+| San Diego city | California | 1,386,972 | not read | - | **unverified** | see Notes |
+| San Jose city | California | 1,013,241 | not read | - | **unverified** | see Notes |
+| San Francisco city | California | 873,950 | not read | - | **unverified** | see Notes |
+| Seattle city | Washington | 737,018 | not read | - | **unverified** | see Notes |
+| Portland city | Oregon | 652,521 | 652,503 | 0.003% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Portland,_Oregon |
+| Jacksonville city | Florida | 949,618 | 949,611 | 0.001% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Jacksonville,_Florida |
+| Charlotte city | North Carolina | 874,629 | 874,579 | 0.006% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Charlotte,_North_Carolina |
+| Louisville/Jefferson County metro government | Kentucky | 782,964 | not read | - | **unverified** | see Notes |
+| Nashville-Davidson metropolitan government | Tennessee | 715,878 | 689,447 | 3.834% | **disagree** | https://en.wikipedia.org/api/rest_v1/page/summary/Nashville,_Tennessee |
 | Memphis city | Tennessee | 635,425 | 633,104 | 0.367% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Memphis,_Tennessee |
-| Atlanta city | Georgia | 498,736 | not read | - | **unverified** | reference source unreachable: HTTP 429 Too Many Requests |
+| Atlanta city | Georgia | 498,736 | 498,715 | 0.004% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Atlanta,_Georgia |
 
 ## Notes
 
 - Selection: the 6 largest settlements in each of the six sides, so every side is checked and the places checked are ones an independent publisher documents. Median-sized settlements were tried and dropped because no reference source covers a 500-person village.
-- Spot-check: 36 settlements checked against an independently published 2020 census figure; 15 agree within 1.00%, 1 disagree, 20 could not be verified from the reference source.
-- 20 spot-check rows have no reference figure and are marked 'unverified'. They are reported rather than dropped, because a check that silently shrinks to the rows it could satisfy is not a check.
+- Spot-check: 36 settlements checked against an independently published decennial census figure; 25 reached a verdict (24 agree within 1.00%, 1 disagree), 11 could not be verified from the reference source.
+- 11 spot-check rows have no reference figure and are marked 'unverified'. They are reported rather than dropped, because a check that silently shrinks to the rows it could satisfy is not a check.
 
-- New York city, New York: no 2020 census figure found in the summary text for New_York,_New_York
-- Washington city, District of Columbia: no 2020 census figure found in the summary text for Washington,_District_of_Columbia
-- Boston city, Massachusetts: pipeline 678,617 versus published 125, 542793.60% apart, outside the 1.00% tolerance. This is a finding to investigate, not something to smooth over.
-- Indianapolis city, Indiana: no 2020 census figure found in the summary text for Indianapolis,_Indiana
-- Fort Worth city, Texas: reference source unreachable: HTTP 429 Too Many Requests
-- Oklahoma City city, Oklahoma: reference source unreachable: HTTP 429 Too Many Requests
-- Phoenix city, Arizona: reference source unreachable: HTTP 429 Too Many Requests
-- Albuquerque city, New Mexico: no 2020 census figure found in the summary text for Albuquerque,_New_Mexico
-- Tucson city, Arizona: reference source unreachable: HTTP 429 Too Many Requests
-- Mesa city, Arizona: reference source unreachable: HTTP 429 Too Many Requests
-- Los Angeles city, California: reference source unreachable: HTTP 429 Too Many Requests
-- San Diego city, California: reference source unreachable: HTTP 429 Too Many Requests
-- San Jose city, California: no 2020 census figure found in the summary text for San_Jose,_California
-- San Francisco city, California: reference source unreachable: HTTP 429 Too Many Requests
-- Seattle city, Washington: reference source unreachable: HTTP 429 Too Many Requests
-- Portland city, Oregon: reference source unreachable: HTTP 429 Too Many Requests
-- Jacksonville city, Florida: no 2020 census figure found in the summary text for Jacksonville,_Florida
-- Charlotte city, North Carolina: reference source unreachable: HTTP 429 Too Many Requests
-- Louisville/Jefferson County metro government, Kentucky: reference source unreachable: HTTP 429 Too Many Requests
-- Nashville-Davidson metropolitan government, Tennessee: reference source unreachable: HTTP 429 Too Many Requests
-- Atlanta city, Georgia: reference source unreachable: HTTP 429 Too Many Requests
+## Findings: settlements outside tolerance
+
+- Nashville-Davidson metropolitan government, Tennessee (pipeline 715,878 against published 689,447): pipeline 715,878 versus published 689,447, 3.83% apart, outside the 1.00% tolerance. This is a finding to investigate, not something to smooth over.
+
+A row here is not a failure to be tidied away. Either the pipeline is wrong for this settlement or the two figures describe different geographies - the Census Bureau and the reference publisher do not always draw a consolidated city-county the same way. Which of the two it is has to be established against the source files, not assumed.
+
+The published figure for each verified row, quoted as the reference source states it:
+
+- Philadelphia city, Pennsylvania: "population was 1.60 million at the 2020 census"
+- Boston city, Massachusetts: "population of 675,647 as of the 2020 census"
+- Baltimore city, Maryland: "population of 585,708 at the 2020 census"
+- Virginia Beach city, Virginia: "population of 459,470 at the 2020 census"
+- Chicago city, Illinois: "population of 2.74 million at the 2020 census"
+- Columbus city, Ohio: "population of 905,748 at the 2020 census"
+- Detroit city, Michigan: "population of 639,111 at the 2020 census"
+- Milwaukee city, Wisconsin: "population of 577,222 at the 2020 census"
+- Kansas City city, Missouri: "population of 508,090 at the 2020 census"
+- Houston city, Texas: "population of 2.3 million at the 2020 census"
+- San Antonio city, Texas: "population of 1.43 million at the 2020 census"
+- Dallas city, Texas: "population of 1.3 million at the 2020 census"
+- Austin city, Texas: "population of 961,855 at the 2020 census"
+- Oklahoma City city, Oklahoma: "population of 681,054 at the 2020 census"
+- Phoenix city, Arizona: "1.6 million residents at the 2020 census"
+- Denver city, Colorado: "population of 715,522 at the 2020 census"
+- Las Vegas city, Nevada: "641,903 residents at the 2020 census"
+- Tucson city, Arizona: "population of 542,630 at the 2020 census"
+- Mesa city, Arizona: "population was 504,258 at the 2020 census"
+- Portland city, Oregon: "population of 652,503 at the 2020 census"
+- Jacksonville city, Florida: "population of 949,611 at the 2020 U.S. census"
+- Charlotte city, North Carolina: "population of 874,579 at the 2020 census"
+- Nashville-Davidson metropolitan government, Tennessee: "population of 689,447 at the 2020 census"
+- Memphis city, Tennessee: "population of 633,104 at the 2020 census"
+- Atlanta city, Georgia: "population of 498,715 at the 2020 census"
+
+Every row that could not be read, with the reason in full:
+
+- New York city, New York: no decennial census figure for this settlement in the reference source's summary text for New_York,_New_York; the settlement is reported as unverified rather than compared against a number that was not read
+- Washington city, District of Columbia: no decennial census figure for this settlement in the reference source's summary text for Washington,_District_of_Columbia; the settlement is reported as unverified rather than compared against a number that was not read
+- Indianapolis city, Indiana: no decennial census figure for this settlement in the reference source's summary text for Indianapolis,_Indiana; the settlement is reported as unverified rather than compared against a number that was not read
+- Fort Worth city, Texas: no decennial census figure for this settlement in the reference source's summary text for Fort_Worth,_Texas; the settlement is reported as unverified rather than compared against a number that was not read
+- Albuquerque city, New Mexico: no decennial census figure for this settlement in the reference source's summary text for Albuquerque,_New_Mexico; the settlement is reported as unverified rather than compared against a number that was not read
+- Los Angeles city, California: no decennial census figure for this settlement in the reference source's summary text for Los_Angeles,_California; the settlement is reported as unverified rather than compared against a number that was not read
+- San Diego city, California: no decennial census figure for this settlement in the reference source's summary text for San_Diego,_California; the settlement is reported as unverified rather than compared against a number that was not read
+- San Jose city, California: no decennial census figure for this settlement in the reference source's summary text for San_Jose,_California; the settlement is reported as unverified rather than compared against a number that was not read
+- San Francisco city, California: no decennial census figure for this settlement in the reference source's summary text for San_Francisco,_California; the settlement is reported as unverified rather than compared against a number that was not read
+- Seattle city, Washington: no decennial census figure for this settlement in the reference source's summary text for Seattle,_Washington; the settlement is reported as unverified rather than compared against a number that was not read
+- Louisville/Jefferson County metro government, Kentucky: no decennial census figure for this settlement in the reference source's summary text for Louisville,_Kentucky; the settlement is reported as unverified rather than compared against a number that was not read
+
+An 'unverified' row means the reference source's summary for that place publishes no decennial census figure. It is not a judgement that the pipeline is wrong, and it is not a row that can be made to verify by reading a number out of the surrounding prose.

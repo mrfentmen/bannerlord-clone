@@ -24,7 +24,7 @@ import pytest
 
 from worlddata import datasets as dataset_registry
 from worlddata.config import load_config
-from worlddata.errors import ConfigError, GeoError, ParseError
+from worlddata.errors import ConfigError, FetchError, GeoError, ParseError
 from worlddata.geo.polygons import (
     PolygonIndex,
     area_km2,
@@ -47,7 +47,12 @@ from worlddata.geo.wgs84 import (
 from worlddata.geo.xlsx import as_number, read_first_sheet
 from worlddata.seed import FIELD_PROVENANCE
 from worlddata.sections import DIMENSIONS, SUB_SCORE_FIELDS, _percentile
-from worlddata.spotcheck import _extract_census_population
+from worlddata.spotcheck import (
+    _candidate_title,
+    _extract_census_population,
+    _retry_delay,
+    fetch_reference_population,
+)
 from worlddata.transforms.classify import _jenks_cuts, _largest_gaps, classify, percentile
 from worlddata.transforms.geometry import load_shapefile
 from worlddata.transforms.roads import SettlementIndex
@@ -362,27 +367,187 @@ def test_classification_refuses_an_empty_distribution():
 
 
 # --------------------------------------------------------------------------
-# Spot-check extractor, against the bug it was written to prevent.
+# Spot-check extractor, against the bugs it was written to prevent.
 # --------------------------------------------------------------------------
 
-@pytest.mark.parametrize(
-    "text,expected",
-    [
-        (
-            "Columbus, city in Ohio. With a population of 905,748 at the 2020 census, it is the "
-            "14th-most populous city in the United States.",
-            905748,
-        ),
-        ("Louisville, with a population of 633,045 at the 2020 census.", 633045),
-        ("Bowling Green. Its population was 72,294 as of the 2020 census.", 72294),
-        ("Nowhere. As of the census of 2010, there were 1,200 people.", 1200),
-        ("A place that covers 2,020 square miles and ranked 2,020th.", None),
-        ("No figures here at all.", None),
-    ],
-)
-def test_spot_check_extractor(text, expected):
+# Real sentences copied verbatim from the reference source's summary endpoint,
+# so each case is a shape the source actually publishes rather than one invented
+# for the test. The expected value is the figure the sentence states.
+REAL_SUMMARY_CASES = [
+    # "with a population of N at the 2020 census" - the commonest form.
+    (
+        "Columbus is the capital and most populous city of the U.S. state of Ohio. With a population of "
+        "905,748 at the 2020 census, it is the 14th-most populous city in the U.S., second-most populous "
+        "city in the Midwest, and third-most populous U.S. state capital.",
+        905748,
+    ),
+    # "population was N" - Mesa.
+    (
+        "Mesa is a city in Maricopa County, Arizona, United States. The population was 504,258 at the "
+        "2020 census.",
+        504258,
+    ),
+    # "population of the city was N" - a longer gap between the word and the number.
+    (
+        "Boise is the capital and most populous city of the U.S. state of Idaho. The population of the "
+        "city was 235,685 at the 2020 census.",
+        235685,
+    ),
+    # "population of Honolulu was N" - the headcount word names the place.
+    (
+        "Honolulu is the capital and most populous city of the U.S. state of Hawaii, located in the "
+        "Pacific Ocean. The population of Honolulu was 350,964 at the 2020 census.",
+        350964,
+    ),
+    # Number first, headcount word second - Las Vegas.
+    (
+        "Las Vegas, colloquially shortened to Vegas, is the most populous city in the U.S. state of Nevada. "
+        "It is the 24th-most populous city in the United States, with 641,903 residents at the 2020 census.",
+        641903,
+    ),
+    # Number first, scaled - Phoenix.
+    (
+        "Phoenix is the capital and most populous city of the U.S. state of Arizona. With over 1.6 million "
+        "residents at the 2020 census, Phoenix is the fifth-most populous city in the United States.",
+        1600000,
+    ),
+    # Number first, scaled, "people" - the metro figure in the same sentence must
+    # not win, and this checks the metro rule from the other side.
+    (
+        "Detroit is the 26th-most populous city in the United States, with a population of 639,111 at the "
+        "2020 census. The Metro Detroit area, at over 4.4 million people, is the 14th-largest "
+        "metropolitan area in the nation.",
+        639111,
+    ),
+    # Scaled to two decimal places - Philadelphia.
+    (
+        "Philadelphia is the most populous city in the U.S. state of Pennsylvania. Its population was "
+        "1.60 million at the 2020 census and estimated at 1.57 million in 2025.",
+        1600000,
+    ),
+    # "at the 2020 U.S. census" - Jacksonville's wording.
+    (
+        "Jacksonville is the most populous city proper in the U.S. state of Florida. It is the "
+        "tenth-most populous U.S. city, with a population of 949,611 at the 2020 U.S. census.",
+        949611,
+    ),
+    # Two figures in one clause, one of them a later estimate. The 2020 census
+    # figure must win on the qualifier, not by being lucky about position.
+    (
+        "Atlanta is the capital and most populous city of the U.S. state of Georgia. With a population of "
+        "498,715 at the 2020 census and an estimated 529,110 in 2025, Atlanta is the eighth-most populous "
+        "city in the Southeast.",
+        498715,
+    ),
+    # An older decennial, where the source carries no 2020 figure.
+    ("Nowhere. As of the census of 2010, there were 1,200 people.", 1200),
+    # Bowling Green's small real census count still reads; the lower bound is 100,
+    # not a round 1,000.
+    ("Bowling Green. Its population was 72,294 as of the 2020 census.", 72294),
+]
+
+
+@pytest.mark.parametrize("text,expected", REAL_SUMMARY_CASES)
+def test_spot_check_extractor_reads_real_summary_sentences(text, expected):
     found = _extract_census_population(text)
-    assert (found[0] if found else None) == expected
+    assert found is not None, f"no figure read from: {text}"
+    assert found[0] == expected, f"read {found[0]} from: {text}"
+
+
+def test_spot_check_extractor_never_reads_bostons_area_as_its_population():
+    """The bug this fix exists for: Boston was recorded as a population of 125.
+
+    Boston's real summary reads "an area of 48.4 square miles (125 km2) and a
+    population of 675,647 as of the 2020 census". The previous parser accepted any
+    number with a headcount word within forty characters, and "and a population of"
+    sits inside forty characters of 125, so the square-kilometre figure was
+    reported as Boston's 2020 census population - 542,793 percent away from the
+    real one, and entirely plausible-looking in the table.
+    """
+    real = (
+        "Boston is the capital and most populous city of the U.S. state of Massachusetts. Boston has an "
+        "area of 48.4 square miles (125 km2) and a population of 675,647 as of the 2020 census, making it "
+        "the third-most populous city in the Northeastern United States after New York City and "
+        "Philadelphia."
+    )
+    found = _extract_census_population(real)
+    assert found is not None
+    assert found[0] == 675647, f"Boston must read as 675,647, got {found[0]}"
+
+
+def test_spot_check_extractor_rejects_units_independently_of_the_anchor():
+    """The unit test is a second guard, not a restatement of the anchor test.
+
+    Each of these has a headcount word somewhere in the clause, so only the
+    "followed by a unit" rule rejects them.
+    """
+    for text, unit in [
+        ("Springfield has a population of 125 km2 per the 2020 census.", "km2"),
+        ("Springfield has a population of 48.4 square miles per the 2020 census.", "square miles"),
+        ("Springfield has a population of 21.1 percent at the 2020 census.", "percent"),
+        ("Springfield has a population of 640 acres at the 2020 census.", "acres"),
+    ]:
+        found = _extract_census_population(text)
+        assert found is None, f"read {found} from a figure in {unit}: {text}"
+
+
+def test_spot_check_extractor_says_no_rather_than_guessing():
+    """A source that publishes no census figure must yield no figure at all.
+
+    These are the shapes that produced a wrong number before: an estimate for a
+    later year, a metropolitan figure, and a growth rate between two censuses.
+    """
+    for text in [
+        # Fort Worth: a 2025 estimate, no census figure at all.
+        "Fort Worth's population was estimated to be 1,028,117 in 2025, making it the 10th-most populous "
+        "city in the United States.",
+        # Los Angeles: a metro figure qualified by the 2020 census, which is not
+        # the city's figure.
+        "Greater Los Angeles, a combined statistical area, is a sprawling metropolis of over 18 million "
+        "residents according to the 2020 census.",
+        # Chicago's own metro sentence, verbatim apart from the lead-in.
+        "The Chicago metropolitan area has approximately 9.62 million residents according to the 2020 "
+        "census and is the third-largest metropolitan area in the country.",
+        # Seattle: a growth rate between two censuses.
+        "Seattle's growth rate of 21.1% between 2010 and 2020 made it one of the country's fastest-"
+        "growing large cities.",
+        # A national figure.
+        "The United States had a population of 331,449,281 at the 2020 census.",
+        # No figures at all.
+        "No figures here at all.",
+    ]:
+        found = _extract_census_population(text)
+        assert found is None, f"invented a figure {found} from: {text}"
+
+
+def test_spot_check_extractor_rejects_a_combined_statistical_area_figure():
+    """Baltimore's summary states the Washington-Baltimore area in the same sentence.
+
+    The clause holding the figure does not itself name the area - it is
+    predicated of the clause before - so the area test has to look one clause
+    back. Reading 9,970,000 as Baltimore's population would be wrong by a factor
+    of seventeen, and every other rule in the parser accepts that sentence.
+    """
+    real = (
+        "Baltimore is the most populous city in the U.S. state of Maryland. It is the 30th-most populous "
+        "U.S. city with a population of 585,708 at the 2020 census and estimated at 569,997 in 2025, while "
+        "the Baltimore metropolitan area at 2.86 million residents is the 22nd-largest metropolitan area in "
+        "the nation. The city is also part of the Washington-Baltimore combined statistical area, which had "
+        "a population of 9.97 million in 2020."
+    )
+    found = _extract_census_population(real)
+    assert found is not None
+    assert found[0] == 585708, f"got {found[0]}"
+
+
+def test_spot_check_extractor_prefers_the_target_census_year():
+    """census_year is a parameter, not an assumption baked into the parser."""
+    text = (
+        "A place with a population of 100,000 at the 2010 census and a population of 120,000 at the "
+        "2020 census."
+    )
+    assert _extract_census_population(text, census_year=2020)[0] == 120000
+    assert _extract_census_population(text, census_year=2010)[0] == 100000
 
 
 def test_spot_check_extractor_never_returns_a_year():
@@ -392,6 +557,218 @@ def test_spot_check_extractor_never_returns_a_year():
     )
     if found is not None:
         assert found[0] != 2020
+
+
+def test_spot_check_extractor_records_the_words_it_relied_on():
+    """The recorded phrase has to show which figure was read and on what authority."""
+    found = _extract_census_population(
+        "Boston has an area of 48.4 square miles (125 km2) and a population of 675,647 as of the 2020 census."
+    )
+    assert found is not None
+    assert "675,647" in found[1] and "census" in found[1]
+    assert "square" not in found[1], "the phrase must not quote the area it rejected"
+
+
+def test_spot_check_phrase_quotes_the_publisher_not_the_whole_paragraph():
+    found = _extract_census_population(
+        "Memphis is a city in Shelby County, Tennessee, United States, and its county seat. Situated along "
+        "the Mississippi River, it had a population of 633,104 at the 2020 census, making it the "
+        "second-most populous city in Tennessee."
+    )
+    assert found is not None
+    assert found[1] == "population of 633,104 at the 2020 census"
+
+
+# --------------------------------------------------------------------------
+# Spot-check article titles and the rate-limit retry.
+# --------------------------------------------------------------------------
+
+def _seed(name: str, state: str) -> SettlementSeed:
+    """A SettlementSeed with only the fields the spot check reads."""
+    from worlddata.seed import SettlementSeed
+
+    return SettlementSeed(
+        settlement_id="00-00000",
+        name=name,
+        state_fips="00",
+        state_name=state,
+        size_class="city",
+        population=1,
+        population_2020_base=1,
+        workers=1,
+        food_demand_person_days=1.0,
+        food_stock_person_days=1.0,
+        food_production_person_days=1.0,
+        food_apportionment_factor=1.0,
+        sanitation=1.0,
+        crowding=1.0,
+        unrest=0.0,
+        treasury=0.0,
+        infected=0.0,
+        loyalty=0.5,
+        prosperity=0.5,
+        tax_rate=0.0,
+        garrison=0,
+        land_area_km2=0.0,
+        longitude=None,
+        latitude=None,
+        elevation_m=None,
+        section_key=None,
+        provenance={},
+    )
+
+
+@pytest.mark.parametrize(
+    "census_name,state,expected",
+    [
+        # The ordinary cases.
+        ("Boston city", "Massachusetts", "Boston,_Massachusetts"),
+        ("Kansas City city", "Missouri", "Kansas_City,_Missouri"),
+        # Consolidated city-counties. The Census Bureau names the geography, and
+        # the reference source documents the place. Before this rule the title was
+        # "Nashville-Davidson_metropolitan_government,_Tennessee", which resolves
+        # to nothing, so the row could never be checked at all.
+        (
+            "Nashville-Davidson metropolitan government",
+            "Tennessee",
+            "Nashville,_Tennessee",
+        ),
+        (
+            "Louisville/Jefferson County metro government",
+            "Kentucky",
+            "Louisville,_Kentucky",
+        ),
+        # A hyphen that is part of the name and not a county qualifier must survive.
+        ("Winston-Salem city", "North Carolina", "Winston-Salem,_North_Carolina"),
+        ("St. Louis city", "Missouri", "St._Louis,_Missouri"),
+    ],
+)
+def test_candidate_title_strips_only_the_census_geography_form(census_name, state, expected):
+    assert _candidate_title(_seed(census_name, state)) == expected
+
+
+class _FakeResponse:
+    """Just enough of requests.Response for the retry loop to read."""
+
+    def __init__(self, status_code: int, *, body: str = "", headers: dict | None = None) -> None:
+        self.status_code = status_code
+        self.reason = "Too Many Requests" if status_code == 429 else "Not Found"
+        self.headers = headers or {}
+        self._body = body
+
+    def json(self):
+        if self._body == "not json":
+            raise ValueError("Expecting value: line 1 column 1 (char 0)")
+        return {"extract": self._body}
+
+
+def test_spot_check_retries_http_429_and_then_succeeds(monkeypatch):
+    """A rate-limited request must not become a failed check.
+
+    The last real run left Phoenix, Fort Worth, Oklahoma City, Tucson, Mesa, Los
+    Angeles, San Diego, San Francisco, Seattle, Portland, Charlotte and Atlanta
+    "unverified" purely because the endpoint answered 429. That is what the retry
+    is for.
+    """
+    slept: list[float] = []
+    monkeypatch.setattr("worlddata.spotcheck.time.sleep", slept.append)
+    responses = [_FakeResponse(429), _FakeResponse(429), _FakeResponse(
+        200, body="Phoenix with a population of 1,608,215 at the 2020 census."
+    )]
+    calls: list[str] = []
+
+    def fake_get(url, **kwargs):
+        calls.append(url)
+        return responses.pop(0)
+
+    monkeypatch.setattr("worlddata.spotcheck.requests.get", fake_get)
+    config = load_config()
+    reading = fetch_reference_population(config, _seed("Phoenix city", "Arizona"))
+    assert reading is not None
+    assert reading.population == 1608215
+    assert len(calls) == 3, "the first two 429s must be retried, not abandoned"
+    assert slept == [2.0, 4.0], f"backoff must be exponential from the configured base, got {slept}"
+
+
+def test_spot_check_backoff_doubles_and_gives_up_loudly(monkeypatch):
+    slept: list[float] = []
+    monkeypatch.setattr("worlddata.spotcheck.time.sleep", slept.append)
+    monkeypatch.setattr(
+        "worlddata.spotcheck.requests.get", lambda url, **kwargs: _FakeResponse(429)
+    )
+    config = load_config()
+    seed = _seed("Phoenix city", "Arizona")
+    with pytest.raises(FetchError) as caught:
+        fetch_reference_population(config, seed)
+    base = float(config.get("verification.spot_check_retry_backoff_seconds"))
+    cap = float(config.get("verification.spot_check_retry_backoff_cap_seconds"))
+    attempts = int(config.get("verification.spot_check_max_attempts"))
+    assert len(slept) == attempts - 1, "every attempt but the last waits"
+    assert slept == [base * 2**index for index in range(attempts - 1)], f"not exponential: {slept}"
+    assert max(slept) <= cap, f"a wait exceeded the configured cap: {slept}"
+    assert caught.value.attempts == attempts
+    assert "429" in caught.value.reason
+    assert "gave up" in caught.value.reason, "an exhausted retry must say so, not fall back silently"
+
+
+def test_retry_delay_doubles_and_stops_at_the_cap():
+    delays = [_retry_delay(None, attempt, 2.0, 10.0) for attempt in range(1, 9)]
+    assert delays[:4] == [2.0, 4.0, 8.0, 10.0], f"doubling then capping: {delays}"
+    assert all(delay <= 10.0 for delay in delays), "no wait may exceed the cap"
+
+
+def test_spot_check_honours_retry_after(monkeypatch):
+    """A Retry-After header from the endpoint beats this module's own schedule."""
+    slept: list[float] = []
+    monkeypatch.setattr("worlddata.spotcheck.time.sleep", slept.append)
+    responses = [
+        _FakeResponse(429, headers={"Retry-After": "11"}),
+        _FakeResponse(200, body="Boise with a population of 235,685 at the 2020 census."),
+    ]
+    monkeypatch.setattr(
+        "worlddata.spotcheck.requests.get", lambda url, **kwargs: responses.pop(0)
+    )
+    reading = fetch_reference_population(load_config(), _seed("Boise city", "Idaho"))
+    assert reading is not None
+    assert reading.population == 235685
+    assert slept == [11.0], f"the endpoint's Retry-After must be used verbatim: {slept}"
+
+
+def test_spot_check_does_not_retry_a_missing_article(monkeypatch):
+    """404 means the title does not resolve. Waiting cannot change that."""
+    calls: list[str] = []
+    monkeypatch.setattr("worlddata.spotcheck.time.sleep", lambda seconds: None)
+
+    def fake_get(url, **kwargs):
+        calls.append(url)
+        return _FakeResponse(404)
+
+    monkeypatch.setattr("worlddata.spotcheck.requests.get", fake_get)
+    with pytest.raises(FetchError) as caught:
+        fetch_reference_population(load_config(), _seed("Nowhere city", "Kentucky"))
+    assert len(calls) == 1, "a 404 must not be retried"
+    assert "no article" in caught.value.reason
+    assert "Nowhere,_Kentucky" in caught.value.reason, "the failed title must be reported"
+
+
+def test_spot_check_reports_a_response_that_is_not_json(monkeypatch):
+    monkeypatch.setattr("worlddata.spotcheck.time.sleep", lambda seconds: None)
+    monkeypatch.setattr(
+        "worlddata.spotcheck.requests.get", lambda url, **kwargs: _FakeResponse(200, body="not json")
+    )
+    with pytest.raises(FetchError, match="not JSON"):
+        fetch_reference_population(load_config(), _seed("Boston city", "Massachusetts"))
+
+
+def test_spot_check_returns_none_when_the_source_says_nothing_usable(monkeypatch):
+    """Reachable but silent is not an error - it is an honest 'unverified' row."""
+    monkeypatch.setattr(
+        "worlddata.spotcheck.requests.get",
+        lambda url, **kwargs: _FakeResponse(
+            200, body="Indianapolis is the capital and most populous city of Indiana."
+        ),
+    )
+    assert fetch_reference_population(load_config(), _seed("Indianapolis city", "Indiana")) is None
 
 
 # --------------------------------------------------------------------------

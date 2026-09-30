@@ -158,6 +158,34 @@ spot_check_timeout_seconds = 20.0
 # largest nationally, comfortably exceeds minimum_spot_checks and covers every
 # side. Reasonable range: 1..5
 spot_checks_per_section = 6
+# Which decennial census year the reference figures must be qualified with. The
+# reference source quotes the decennial count, so the year is named here rather
+# than assumed in the parser; when a summary carries more than one qualified
+# figure, the one qualified by this year is the one read. Change it together with
+# census_year above. Valid range: 1940..2020, in steps of 10.
+spot_check_census_year = 2020
+# Total attempts per spot-check reference request, including the first.
+# The Wikipedia REST endpoint rate-limits by client and the spot check is a burst
+# of small requests against one host, so HTTP 429 is retried rather than
+# recorded as a failed check. A run that gave up on the first 429 left Phoenix,
+# Fort Worth, Oklahoma City, Tucson, Los Angeles, San Diego, San Francisco,
+# Seattle, Portland, Charlotte, Atlanta and others "unverified" for a reason that
+# had nothing to do with the data. Reasonable range: 2..8
+spot_check_max_attempts = 6
+# First backoff wait, in seconds. Each further retry waits twice as long, capped
+# below. Exponential rather than flat because the endpoint's limit is a token
+# bucket: retrying immediately spends the tokens just refilled.
+# Reasonable range: 1..10
+spot_check_retry_backoff_seconds = 2.0
+# Ceiling on the backoff wait, in seconds. Long enough for a bucket to refill,
+# short enough that one refused request cannot stall the stage.
+# Reasonable range: 30..180
+spot_check_retry_backoff_cap_seconds = 60.0
+# Minimum pause between two consecutive reference requests, in seconds. The
+# endpoint's guidance for unauthenticated clients is to stay well under the
+# published rate limit; spacing the requests out is cheaper than being throttled.
+# Reasonable range: 0.0..5.0
+spot_check_min_request_interval_seconds = 1.0
 
 # --- Settlement seed values -------------------------------------------------
 # CAUSE_EFFECT.md section 2 lists the per-town fields the simulation reads.
