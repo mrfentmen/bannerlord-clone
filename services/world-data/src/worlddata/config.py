@@ -301,7 +301,10 @@ def load_config(path: Path | str | None = None) -> Config:
     substitutes a default for a missing required key - a silent default is a
     magic number, which CONSTITUTION.md section 1.2 forbids.
     """
-    config_path = Path(path) if path is not None else DEFAULT_CONFIG_PATH
+    # Resolve to an absolute path: export.py records config.path relative to the
+    # service root, which raises ValueError when the caller passes a relative
+    # --config path. Resolving here keeps every downstream use absolute.
+    config_path = Path(path).resolve() if path is not None else DEFAULT_CONFIG_PATH
     if not config_path.is_file():
         raise ConfigError(
             f"config file not found at {config_path}. "

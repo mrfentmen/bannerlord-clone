@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import json
 import math
+import os
 import zipfile
 from pathlib import Path
 
@@ -73,6 +74,20 @@ def test_config_loads_and_covers_the_country():
     covered = [name for section in config.sections for name in section.state_names]
     assert len(covered) == 51, "PHASES.md Phase 0 requires 50 states plus D.C."
     assert len(set(covered)) == 51, "FACTIONS.md section 1: exactly one section per state"
+
+
+def test_config_resolves_a_relative_path_to_absolute(tmp_path, monkeypatch):
+    # Regression: export.py records config.path relative to the service root,
+    # which raised ValueError when the caller passed a relative --config path.
+    service_root = Path(load_config().service_root)
+    candidate = service_root / "config" / "world_data.toml"
+    assert candidate.is_file()
+    monkeypatch.chdir(tmp_path)
+    rel = os.path.relpath(candidate, tmp_path)
+    assert not Path(rel).is_absolute()
+    config = load_config(rel)
+    assert config.path.is_absolute(), "config.path must be absolute for export.py"
+    assert config.path == candidate.resolve()
 
 
 def test_config_names_match_the_census_bureau_list():
