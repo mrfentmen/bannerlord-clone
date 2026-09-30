@@ -1,0 +1,34 @@
+{
+  "name": "campaign-client",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Phase 2 campaign map client. Babylon.js + TypeScript. Consumes Agent 1's portable world export; renders terrain, roads, towns, party movement and the panels including the Why panel.",
+  "scripts": {
+    "dev": "vite",
+    "dev:fixtures": "vite --mode fixtures",
+    "build": "tsc --noEmit && vite build && node tools/check-no-fixtures.mjs",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "lint": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:e2e": "playwright test",
+    "check:no-fixtures": "node tools/check-no-fixtures.mjs",
+    "fetch:fonts": "node tools/fetch-fonts.mjs",
+    "fetch:world": "node tools/fetch-world-data.mjs",
+    "build:e2e": "tsc --noEmit && vite build --mode fixtures",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "@babylonjs/core": "^8.0.0"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0",
+    "@types/node": "^22.20.0",
+    "jsdom": "^30.1.1",
+    "typescript": "^5.9.0",
+    "vite": "^7.1.0",
+    "vitest": "^4.0.0"
+  }
+}

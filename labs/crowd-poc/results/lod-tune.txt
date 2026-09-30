@@ -1,0 +1,3 @@
+serving /Users/dtaxk/Documents/mount and blade clone/labs/crowd-poc on http://127.0.0.1:8127/
+close 18 m  mid 35 m  median   37.2 fps  worst  36.3  [36.3-38.0]    2,399,722 tris  5 draws  close units  84  median ok  tail ok  VIABLE
+close 20 m  mid 35 m  median   34.2 fps  worst  32.0  [32.0-35.8]    2,609,866 tris  5 draws  close units 118  median ok  tail ok  VIABLE

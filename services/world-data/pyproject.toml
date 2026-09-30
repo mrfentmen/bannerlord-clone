@@ -1,0 +1,55 @@
+# Build and test configuration for the Phase 0 world data pipeline.
+#
+# Dependencies: there are none to add. Everything this pipeline needs is either
+# in the Python standard library or already installed alongside it. The shapefile
+# and DBF readers, the GeoJSON writer, the XLSX reader and the SRTM reader are
+# written here for exactly that reason; see README.md "Dependencies".
+#
+# To run the optional Postgres load, install a driver yourself:
+#   pip install 'psycopg[binary]'
+# That is a new dependency and is deliberately not a requirement of this package.
+
+[project]
+name = "worlddata"
+version = "1.0.0"
+description = "Phase 0 world data pipeline: real geography, settlements and state profiles for the game"
+requires-python = ">=3.11"
+dependencies = [
+  # Already installed and used: streaming HTTP with retry and digest recording.
+  "requests>=2.31",
+  # Already installed and used: SRTM .hgt grid decoding and Parquet output.
+  "numpy>=1.26",
+]
+
+[project.optional-dependencies]
+# Parquet export. Without it the JSON export still completes and the omission is
+# reported; see worlddata.export.write_parquet.
+parquet = ["pyarrow>=14"]
+# Postgres load. Without it the pipeline says so in one line and the portable
+# exports stand alone; see worlddata.postgres.
+postgres = ["psycopg[binary]>=3.1"]
+dev = ["pytest>=8"]
+
+[project.scripts]
+worlddata = "worlddata.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+addopts = "-q --strict-markers"
+filterwarnings = ["error::DeprecationWarning:worlddata.*"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM"]
+ignore = ["E501"]

@@ -1,0 +1,24 @@
+serving /Users/dtaxk/Documents/mount and blade clone/labs/crowd-poc on http://127.0.0.1:8127/
+=== GPU vertex-texture skinning cost, measured by difference ===
+
+1000 units, close 22 m, mid 35 m, camera 30 m
+  tiers              body/close:155 body/mid:372 weapon/close:95 weapon/mid:207 body/far:473
+  triangles          2,838,266   draw calls 5
+  with skinning      32.1 fps  (31.3-32.7)  frame 31.12 ms
+  skin matrix = I    50.4 fps  (46.3-55.3)  frame 19.83 ms
+  cost of the fetches 18.3 fps  = 11.29 ms/frame  (36% of the no-fetch frame)
+
+1000 units, close 8 m, mid 25 m, camera 30 m
+  tiers              body/mid:224 weapon/mid:128 body/far:776
+  triangles          801,552   draw calls 3
+  with skinning      60.0 fps  (59.8-60.0)  frame 16.67 ms
+  skin matrix = I    60.0 fps  (60.0-60.1)  frame 16.66 ms
+  cost of the fetches 0.0 fps  = 0.01 ms/frame  (0% of the no-fetch frame)
+
+300 units, close 22 m, mid 35 m, camera 30 m
+  tiers              body/mid:187 weapon/mid:105 body/far:113
+  triangles          666,226   draw calls 3
+  with skinning      60.0 fps  (60.0-60.0)  frame 16.67 ms
+  skin matrix = I    60.0 fps  (59.9-60.0)  frame 16.67 ms
+  cost of the fetches 0.0 fps  = 0.00 ms/frame  (0% of the no-fetch frame)
+

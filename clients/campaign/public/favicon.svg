@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- The map pin from ART_DIRECTION.md section 6: a hard diamond on a short stem, in
+     the locked stamp blue on paper. Drawn, not photographed, because nothing in this
+     game's icon set is a photograph. -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <rect width="32" height="32" fill="#E7E1D2"/>
+  <path d="M16 6 L25 15 L16 24 L7 15 Z" fill="#2B4A6F" stroke="#17140F" stroke-width="1.5" stroke-linejoin="round"/>
+  <path d="M16 24 L16 28" stroke="#17140F" stroke-width="2" stroke-linecap="round"/>
+</svg>

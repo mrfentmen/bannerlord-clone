@@ -1,0 +1,718 @@
+# BALANCE CONFIG — the single source of truth for every simulation constant.
+#
+# CONSTITUTION.md section 1.2: no number hides in code. Every value the
+# simulation uses at runtime lives in this file. If you find a number in the Go
+# source that should be tunable, it is a bug: move it here, comment it, and log
+# the change in CHANGELOG.md with the test results that motivated it.
+#
+# Every constant below carries a comment saying what it does and what a
+# reasonable range looks like. Ranges come from the systems in CAUSE_EFFECT.md
+# read as a simulation, not from any single real-world dataset. The game is
+# fictional and system-driven (CONSTITUTION.md section 6), so these are
+# designed to produce interesting chains, not to reproduce a specific country.
+#
+# FORMAT: [section] headers, key = number or key = "string", # comments.
+# Loaded by internal/config/parse.go. A key here that no system reads is a
+# startup error, and a key a system needs that is absent is also an error.
+
+
+[meta]
+# Bumped whenever constants change shape. Recorded in run metadata so a saved
+# log can be matched to the constants that produced it. Range: any string.
+version = "phase1-01"
+
+# ---------------------------------------------------------------------------
+# WORLD GENERATION
+# ---------------------------------------------------------------------------
+# How large a world is, and how it starts. RULERS.md section 1 targets 300-800
+# rulers; the generator scales to that band rather than fixing a per-town count.
+
+[world]
+years = 6                        # in-game years per default run. Range 1-20. PHASES.md wants multi-year.
+min_towns = 60                   # floor on town count. Range 20-500. Below ~40 the cause web is too sparse to see chains.
+max_towns = 180                  # ceiling on town count. Range 50-1000. Above ~300 tick cost per seed sweep becomes painful.
+towns_per_state = 3.2            # average towns per state. Range 1-10. Sets map density.
+villages_per_town = 1.8          # food villages per town. Range 0-5. Villages are the food hinterland (ECONOMY.md section 3).
+rulers_per_town = 3.0            # average named rulers per town, before clamping. Range 1-10.
+min_rulers = 320                 # RULERS.md section 1 lower bound. Range 50-800.
+max_rulers = 700                 # RULERS.md section 1 upper bound. Range 100-800.
+food_days_target = 45.0          # starting food buffer in person-days. Range 10-120. Higher is a calmer start.
+start_money_per_capita = 0.55    # starting money per resident. Range 0.1-5.0.
+start_metal_per_capita = 0.12    # starting industrial stock per resident. Range 0.01-1.0.
+town_gold_per_capita = 0.02      # starting hard reserve per resident. Range 0-0.5. A town is a poor place to keep a war reserve.
+start_gold_per_ruler = 140.0     # starting hard reserve per ruler. Range 0-2000. Buys mercenaries (ECONOMY.md section 2).
+start_sanitation = 0.62          # baseline water/waste/shelter quality. Range 0.2-0.95.
+medicine_per_capita = 0.02       # clinic doses per resident. Range 0-0.2. A city of 100k holds 2000 doses.
+garrison_per_capita = 0.0016     # peacetime troops per resident. Range 0.0002-0.01. ~160 troops in a 100k city.
+route_density = 2.4              # average connections per town. Range 1-6. Builds a sparse graph of real places, not a full mesh.
+port_fraction = 0.28             # share of towns that are ports. Range 0-0.6. Ports are what a blockade can starve (chain 8).
+terrain_speed = 0.72             # base travel-speed multiplier on an average road. Range 0.3-1.0.
+initial_war_chance = 0.22        # per-pair probability two sides start at war. Range 0-0.6. Runs must differ without a scripted opening war.
+ally_chance = 0.10               # per-pair probability two sides start allied. Range 0-0.4.
+party_troops_base = 26.0         # troops a ruler fields before influence. Range 5-200.
+party_troops_per_influence = 0.32 # troops per influence point. Range 0.05-2.0. Caps army size via renown (MARCH_AND_WAR.md section 8).
+ruler_trait_spread = 0.34        # standard deviation of generated traits, 0-1 scale. Range 0.15-0.5.
+mercenary_fraction = 0.07        # share of rulers with no land (RULERS.md section 2). Range 0-0.2.
+warlord_fraction = 0.11          # share who control one town or road. Range 0-0.3.
+birth_rate = 0.00046             # daily births per person in a healthy, fed town. Range 0.0001-0.0012. Roughly 0.17/yr, below replacement, so growth needs recovery.
+full_food_days = 30.0            # food buffer in days at which fertility is unimpaired. Range 10-90. Scales births by how well fed a town is.
+starving_birth_floor = 0.15      # share of normal births in a hand-to-mouth town. Range 0-0.5. Famine slows births, it does not stop them.
+
+# ---------------------------------------------------------------------------
+# FOOD SYSTEM — production, consumption, spoilage, trade
+# ---------------------------------------------------------------------------
+small_town_population = 1200.0    # smallest generated settlement. Range 100-10000.
+large_town_population = 2600000.0 # largest. Range 100000-20000000.
+size_exponent = 2.4               # settlement size distribution shape. Range 1-4.0. Heavy-tailed, as real sizes are.
+start_unrest_max = 0.16           # highest unrest a town starts at. Range 0-0.5. A world of perfectly content towns cannot show unrest spreading.
+port_prosperity_bonus = 0.10      # prosperity a port starts with above an inland town. Range 0-0.4.
+village_pop_share_min = 0.10      # smallest village relative to its town. Range 0.01-0.5.
+village_pop_share_max = 0.42      # largest. Range 0.1-1.0.
+village_spread = 45.0             # how far a village sits from its town, in leagues. Range 5-200.
+village_yield_share = 1.35        # food a villager produces for its town. Range 0.5-3.0. A village is the food hinterland.
+village_food_days = 30.0          # a village's starting food buffer, in days. Range 5-120.
+road_length_over_distance = 1.22  # how much longer a road is than the straight line. Range 1.0-2.0. Roads follow ground.
+route_extra_roughness = 0.22      # chance a road is rougher than either town. Range 0-0.8. Rivers and ridges.
+coastal_port_boost = 1.6          # port chance multiplier for coastal places. Range 1.0-5.0. The configured fraction averages over the whole map.
+farmland_neighbour_leagues = 190.0 # radius within which neighbours compete for hinterland. Range 30-600.
+farmland_density_scale = 26.0     # normalises local density against a settlement's own size. Range 1-200.
+farmland_crowding_penalty = 0.72  # how much local crowding reduces farmland. Range 0-1.0. The food geography.
+start_party_food_days = 22.0      # a party's starting food, in days. Range 3-90.
+party_metal_per_troop = 12.0      # starting ammunition per soldier. Range 0-200.
+party_medicine_per_troop = 0.9    # starting field medicine per soldier. Range 0-10.
+min_party_troops = 18.0           # smallest party worth creating. Range 1-200.
+min_raider_bands = 8.0            # fewest standing raider bands. Range 0-100.
+max_raider_bands = 26.0           # most. Range 0-200.
+governor_share = 0.22             # share of the non-leader roster that are governors. Range 0-0.6.
+lord_share = 0.50                 # share that are lords. Range 0-1.0.
+side_treasury_base = 900.0        # a side's treasury per money-rating point, squared. Range 0-10000.
+side_gold_base = 60.0             # a side's gold per gold-rating point, squared. Range 0-1000.
+side_metal_base = 900.0           # a side's metal per metal-rating point. Range 0-10000.
+side_food_base = 140000.0         # a side's food per food-rating point. Range 0-1000000.
+map_width_leagues = 2900.0        # real east-west extent, so distances are realistic. Range 500-8000.
+map_height_leagues = 1700.0       # real north-south extent. Range 300-6000.
+
+[food]
+person_days_per_person_day = 1.0 # food one person eats per day. Range 0.5-2.0. The unit all buffers are measured in.
+worker_food_share = 0.44         # healthy, uncrowded worker share used to size demand. Range 0.25-0.6.
+base_yield_per_worker = 1.28     # food per worker per day before modifiers. Range 0.8-2.0. Slightly above demand so a healthy town can export.
+farmland_factor = 0.00021       # hinterland multiplier per resident, before clamping. Range 0.00005-0.001.
+farmland_min = 0.30             # floor on the farmland multiplier. Range 0.05-0.8. Industrial cities sit here.
+farmland_max = 2.40             # ceiling on the farmland multiplier. Range 1.0-4.0. Rural regions sit here.
+spoilage_rate = 0.0055          # daily share of stored food lost. Range 0.001-0.03. Higher with warm, unsealed storage (ECONOMY.md section 3).
+spoilage_mod_sanitation = 0.45  # how much sanitation suppresses spoilage. Range 0-0.9.
+shock_fraction = 0.30           # share of production lost in a harvest shock. Range 0.1-0.6.
+shock_chance = 0.012            # daily probability of a harvest shock. Range 0.002-0.05. A random weather event, not a scripted event.
+stock_floor = 0.0               # lowest food_stock before total loss. Range 0.
+trade_in_rate = 0.55            # share of a town's surplus sellable abroad. Range 0.1-0.9.
+trade_out_rate = 0.62           # share of demand meetable by imports. Range 0.1-0.9. Rich-but-hungry sides need this.
+import_shortfall = 0.35         # share of demand left unmet when trade is cut. Range 0.05-0.9. Drives the blockade chain.
+max_daily_net_change = 0.25     # cap on the daily food swing as a share of demand. Range 0.05-1.0. Stops one day from zeroing a year's buffer.
+
+# ---------------------------------------------------------------------------
+# STARVATION SYSTEM — empty larder to deaths, lost workers, anger
+# ---------------------------------------------------------------------------
+
+[starvation]
+death_rate = 0.0055             # population share dying per day at full severity. Range 0.001-0.02.
+grace_days = 4.0                # days a town survives on an empty larder before deaths. Range 2-15. TESTING_AND_BALANCE.md section 4 wants weeks, not hours.
+unrest_per_day = 0.052          # unrest added per starving day. Range 0.01-0.12.
+worker_loss_rate = 0.010         # worker share lost per starving day. Range 0.002-0.03.
+sanitation_loss_per_day = 0.011  # hygiene degradation per starving day. Range 0.002-0.03. Weakened people keep towns dirtier, feeding disease.
+loyalty_loss_per_day = 0.022    # loyalty lost per starving day. Range 0.005-0.06.
+severity_at_death = 9.0         # starving days until the full death rate applies. Range 3-30. Ramps so collapse is not a cliff.
+morale_hit = 0.07               # morale lost by a garrison in a starving town. Range 0.01-0.2.
+crowding_death_weight = 0.50   # how much crowding worsens the death rate. Range 0-1.5. Packed rooms, weaker bodies, tighter competition for food.
+sanitation_death_weight = 0.20 # the weaker way filthy streets add to deaths. Range 0-0.6. Disease killing the same people the famine weakens.
+tiny_town_population = 500.0   # size above which a sub-one death rate rounds up to one death. Range 100-5000. Keeps a slow famine visible in whole-person fields.
+recovery_food_days = 18.0       # buffer that must be rebuilt before the famine flag clears. Range 5-60. Stops famine flickering on and off.
+
+# ---------------------------------------------------------------------------
+# DISEASE SYSTEM — infection, deaths, medicine consumption
+# ---------------------------------------------------------------------------
+
+[disease]
+base_contact_rate = 0.055       # daily transmission at crowding 0.5, sanitation 0.5, untreated. Range 0.01-0.15.
+crowding_weight = 0.85          # how strongly crowding raises transmission. Range 0.2-2.0.
+sanitation_weight = 0.70        # how strongly poor sanitation raises it. Range 0.2-2.0.
+recovery_rate = 0.045           # daily share of the infected who recover. Range 0.01-0.12.
+case_fatality = 0.0075          # infected share dying per day untreated. Range 0.001-0.03.
+medicine_efficacy = 0.72        # share of new infections one dose prevents. Range 0.3-0.95.
+doses_per_infected = 0.85       # doses needed to cure one infected person. Range 0.3-2.0.
+worker_loss_per_infected = 0.055 # worker share lost per day per unit infection rate. Range 0.01-0.15. Sick workers cannot work.
+unrest_per_death = 0.0055       # unrest added per disease death. Range 0.001-0.02.
+loyalty_loss_per_death = 0.0030 # loyalty lost per disease death. Range 0.0005-0.01.
+crowding_decay = 0.035          # daily relaxation of crowding with no arrivals. Range 0.005-0.1.
+unrest_per_infected = 0.030     # unrest per day per unit infection rate. Range 0.005-0.08.
+sanitation_loss_per_crowding = 0.020 # hygiene loss per unit of crowding. Range 0.005-0.05.
+immunity_floor = 0.004          # infection share below which an outbreak is over. Range 0.0005-0.01.
+medicine_decay_rate = 0.0016    # daily share of clinic stock that spoils. Range 0.0002-0.01.
+
+# ---------------------------------------------------------------------------
+# LABOR SYSTEM — people to workers, workers to output and prosperity
+# ---------------------------------------------------------------------------
+
+[labor]
+healthy_worker_share = 0.46     # working-age share of a healthy population. Range 0.3-0.6.
+max_worker_share = 0.62         # ceiling, so children and the elderly are never labour. Range 0.4-0.75.
+min_worker_share = 0.06         # floor a devastated town can reach. Range 0.02-0.2.
+worker_recovery_rate = 0.055    # daily rate sick or recovering workers return. Range 0.01-0.15. Chain 5's recovery speed.
+prosperity_from_workers = 0.55  # how strongly labour drives commerce. Range 0.2-1.0.
+prosperity_from_sanitation = 0.30 # how strongly public health drives commerce. Range 0.1-0.6.
+prosperity_decay = 0.010        # daily prosperity loss with no support. Range 0.002-0.03.
+prosperity_cap = 0.92           # ceiling from infrastructure and trade labour cannot exceed. Range 0.6-1.0.
+unrest_from_unemployment = 0.014 # unrest per day when people outnumber work. Range 0.002-0.04.
+unemployment_threshold = 0.28   # worker share above which that applies. Range 0.1-0.5.
+unemployment_max = 0.60         # worker share where the penalty is full. Range 0.35-0.85.
+
+# ---------------------------------------------------------------------------
+# MARKET SYSTEM — prices from scarcity, and the wage spiral
+# ---------------------------------------------------------------------------
+
+[market]
+base_price = 1.0                # reference food price in a well-supplied town. Range 0.5-5.0. Prices are relative to this.
+price_elasticity = 2.60         # how sharply scarcity raises price. Range 1.0-6.0.
+price_floor = 0.12              # lowest food price multiplier. Range 0.05-0.5.
+price_cap = 14.0                # highest food price multiplier. Range 4-50. Bounds a runaway loop.
+price_inertia = 0.30            # daily fraction of the gap to equilibrium price. Range 0.05-0.8. Markets move, they do not teleport.
+road_safety_weight = 0.25       # how much road safety dampens local prices. Range 0-0.6.
+wages_share = 0.55              # share of town output paid as wages. Range 0.3-0.8.
+wage_follow_rate = 0.16         # daily rate wages track prices. Range 0.02-0.6. Slow is the wage spiral of chain 1.
+scarcity_for_price = 0.85       # stock-to-demand ratio below which scarcity pricing bites. Range 0.4-1.2.
+price_unrest_weight = 0.20      # how strongly the food price drives unrest. Range 0.05-0.6.
+stock_target_days = 32.0        # days of demand a merchant aims to hold. Range 10-90. Chain 1's first link: high taxes pull this down.
+stock_target_tax_drag = 0.75    # how far tax rate 1 drags that target. Range 0.3-1.0.
+medicine_scarcity_weight = 2.20 # how sharply medical scarcity raises its price. Range 0.5-6.0.
+metal_scarcity_weight = 1.10    # how sharply industrial scarcity raises its price. Range 0.3-4.0.
+
+# ---------------------------------------------------------------------------
+# CURRENCY SYSTEM — money, gold, the exchange rate, debt
+# ---------------------------------------------------------------------------
+
+[currency]
+wages_per_troop = 0.55          # daily money cost of one soldier. Range 0.1-3.0.
+garrison_wage_share = 0.35      # share of a town's wage bill carried by its garrison. Range 0.1-0.7.
+tax_income_per_capita = 0.115   # daily tax per head at full rate and full prosperity. Range 0.02-0.4.
+tax_prosperity_weight = 0.85    # how strongly prosperity multiplies tax income. Range 0.3-1.5.
+tax_unrest_penalty = 0.70       # share of income lost at full unrest. Range 0.2-1.0.
+tax_loyalty_penalty = 0.35      # share lost when the holder is hated. Range 0-0.8.
+tax_max_rate = 0.55             # highest tax rate a ruler may set. Range 0.2-0.8.
+tax_default_rate = 0.22         # rate a ruler keeps when indifferent. Range 0.05-0.4.
+tax_harsh_unrest = 0.60         # unrest above which collection largely fails. Range 0.3-0.9.
+building_upkeep_per_capita = 0.030 # daily money to keep a town working. Range 0.005-0.1.
+market_fee_rate = 0.06          # cut of trade the town takes. Range 0-0.2.
+trade_income_per_caravan = 22.0 # daily profit per delivered caravan. Range 5-80.
+gold_per_money = 22.0           # baseline gold-to-money rate. Range 5-60.
+conversion_cost = 0.08          # share of money lost converting to gold. Range 0-0.3.
+inflation_per_deficit = 0.010   # exchange-rate drift per day of overspending, per unit of deficit. Range 0.001-0.05.
+inflation_cap = 0.55            # bound on exchange-rate drift. Range 0.1-1.5.
+inflation_unrest_weight = 0.22  # how much inflation feeds unrest. Range 0.05-0.6.
+bankruptcy_debt_floor = -2000.0 # money balance below which a ruler borrows. Range -10000 to 0.
+borrowing_per_deficit = 0.55    # debt taken per day of deficit. Range 0.1-1.0.
+interest_rate = 0.0035          # daily interest on outstanding debt. Range 0.0005-0.02.
+reserve_spend_rate = 0.045      # largest share of a gold reserve spent in one day. Range 0.01-0.3. Reserves empty over weeks, not overnight.
+metal_use_per_troop = 0.010     # metal a soldier consumes daily for ammunition and repair. Range 0.001-0.05. ECONOMY.md section 4.
+metal_make_rate = 0.55          # share of baseline industrial output at full prosperity. Range 0.1-1.5.
+side_deficit_share = 0.60       # share of a side's daily deficit that becomes debt. Range 0.1-1.0. The rest is simply unpaid.
+mercenary_gold = 220.0          # gold up front to hire a company. Range 50-1000.
+mercenary_wage = 7.5            # daily money cost of a hired company. Range 1-40.
+mercenary_value = 85.0          # value or renown a company brings. Range 10-500.
+mercenary_troop_scale = 0.40    # scales a company's per-troop wage from its price. Range 0.05-2.0. Keeps the two mercenary constants consistent when tuned.
+
+# ---------------------------------------------------------------------------
+# UNREST SYSTEM — material conditions to anger
+# ---------------------------------------------------------------------------
+
+[unrest]
+decay = 0.030                   # daily anger decay when conditions are good. Range 0.005-0.1.
+food_shortage_weight = 1.35     # how sharply a thin larder raises anger. Range 0.3-3.0.
+food_days_critical = 8.0        # food buffer in days below which shortage counts fully. Range 2-30.
+tax_weight = 0.75               # how sharply taxation raises anger. Range 0.2-2.0.
+tax_comfort_rate = 0.18         # tax rate a comfortable town accepts. Range 0.05-0.35.
+garrison_conduct_weight = 0.55  # how sharply abusive soldiers raise anger. Range 0.1-1.5.
+conduct_harsh = 0.55            # garrison conduct level above which abuse counts. Range 0.3-0.85.
+death_weight = 0.011            # anger per recent death. Range 0.002-0.04.
+death_memory_days = 25.0        # how long a death keeps provoking anger. Range 5-90.
+propagandist_weight = 0.20      # how much influence damps unrest. Range 0-0.6. FACTIONS.md: the Pacific side has better intelligence.
+propagandist_influence = 220.0  # influence at which damping is full. Range 50-600.
+unrest_cap = 0.97               # ceiling. Range 0.8-1.0.
+loyalty_floor_unrest = 0.50     # unrest above which loyalty starts falling. Range 0.2-0.8.
+
+# ---------------------------------------------------------------------------
+# LOYALTY SYSTEM — attachment to the current holder
+# ---------------------------------------------------------------------------
+
+[loyalty]
+recover_rate = 0.021            # daily loyalty recovery when conditions are good. Range 0.003-0.06. Chain 5 climbs over weeks.
+unrest_weight = 0.95            # how strongly anger erodes loyalty. Range 0.2-2.0.
+tax_weight = 0.42               # how strongly a tax rate above comfort erodes loyalty. Range 0.1-1.0.
+broken_promise_hit = 0.32       # loyalty lost when a pledge is broken. Range 0.1-0.7. Chain 9's first link.
+raid_hit = 0.075                # loyalty lost to raiding or a passing war party. Range 0.01-0.2.
+outside_offer_weight = 0.55     # how much a better offer elsewhere pulls loyalty down. Range 0.1-1.5.
+outside_offer_base = 0.0012     # constant pull of being able to leave. Range 0-0.01.
+service_gain = 0.0035           # loyalty gained per day of competent governance. Range 0.0005-0.015.
+defection_threshold = 0.16      # loyalty at which a ruler may consider leaving. Range 0.02-0.4.
+defection_loyalty_required = 0.22 # loyalty_to_leader needed before others will take them. Range 0-0.5.
+loyalty_cap = 0.95              # ceiling. Range 0.7-1.0.
+offer_range_leagues = 130.0     # how far a better-off neighbour can tempt people. Range 20-500. Distance is what makes a move costly.
+offer_gap = 0.06                # loyalty advantage a neighbour needs before it tempts anyone. Range 0.01-0.3.
+offer_proximity_weight = 0.55   # how much nearer rivals stronger the pull. Range 0-1.0. An adjacent rich town beats a distant one.
+
+# ---------------------------------------------------------------------------
+# COUNCIL SYSTEM — who holds a town
+# ---------------------------------------------------------------------------
+start_loyalty_min = 0.30          # least loyal a new vassal starts. Range 0-1.0. Not everyone is devoted.
+start_loyalty_max = 0.95          # most loyal. Range 0-1.0.
+
+[council]
+vote_threshold = 0.26           # loyalty below which a no-confidence vote can pass. Range 0.05-0.5.
+unrest_required = 0.42          # unrest a vote also requires. Range 0.1-0.8. One bad harvest must not unseat anyone.
+days_below_threshold = 11.0     # days conditions must persist before a vote. Range 3-60. What makes the chain take weeks.
+quorum_share = 0.34             # share of council that must be present. Range 0.1-0.8.
+councilor_unrest_weight = 0.55  # how each councilor's own anger turns into a vote. Range 0.1-1.5.
+councilor_loyalty_weight = 0.75 # how councilors defend the status quo. Range 0.1-2.0.
+vote_chance_base = 0.020        # daily chance a vote passes once conditions are met. Range 0.002-0.1.
+vote_chance_unrest_weight = 0.040 # how much unrest raises that chance. Range 0-0.15.
+successor_pool_size = 6.0       # how many candidate successors are considered. Range 2-20.
+instability_unrest_weight = 0.40 # how unrest destabilises a side's provinces. Range 0.1-1.0.
+instability_threshold = 0.72    # unrest above which provinces start seceding. Range 0.5-0.95.
+instability_daily_chance = 0.0035 # per-province daily secession chance. Range 0.0002-0.02.
+loyalty_drift_per_day = 0.0007  # slow daily loyalty change in a quiet town. Range 0-0.005.
+quorum_required = 0.30         # council support a vote needs to pass. Range 0.1-0.7. Stops a loud minority unseating a popular holder.
+inflection_loss_on_humiliation = 40.0 # influence a ruler loses for being voted out. Range 5-200.
+influence_gain_on_promotion = 30.0    # influence a new holder gains for being chosen. Range 5-200. Makes a vote a prize worth scheming for.
+loyalty_after_succession = 0.42  # loyalty a town starts at with a new holder. Range 0.1-0.7. A honeymoon, not a reset: the new holder inherits the problems.
+successor_range_leagues = 260.0  # how far a candidate ruler can be and still be chosen. Range 50-800. Distance limits power, not just marching.
+successor_distance_weight = 0.030 # discount to a distant candidate's standing. Range 0-0.2.
+successor_relation_weight = 0.55 # how much a liked candidate gains. Range 0-2.0. A vote can transfer power to an ally.
+mercenary_penalty = 90.0        # discount to a landless captain as a holder. Range 0-500.
+secession_loyalty_cutoff = 0.45 # loyalty_to_leader above which a province will not secede. Range 0-0.8. A ruler the leader still backs keeps their land.
+secession_range_leagues = 200.0 # how far a town looks for a better side to join. Range 20-600.
+
+# ---------------------------------------------------------------------------
+# MIGRATION SYSTEM — people, and infection, on the move
+# ---------------------------------------------------------------------------
+loyalty_start_min = 0.55          # least loyal a town starts. Range 0-1.0. Nobody is born disloyal.
+loyalty_start_max = 0.88          # most loyal. Range 0-1.0. A world starting near revolt has no room to show one.
+
+[migration]
+flee_threshold = 0.46           # unrest at which people start leaving. Range 0.2-0.8.
+flee_starvation_days = 5.0      # food buffer below which flight beats flight from mere anger. Range 1-20.
+flee_infected = 0.055           # infection rate that makes people flee a plague. Range 0.01-0.2.
+max_flee_share = 0.016          # largest share of population leaving per day. Range 0.002-0.05. Towns empty over weeks.
+flee_to_capacity_share = 0.18   # share of arrivals absorbed before crowding bites. Range 0.05-0.5. Chain 2's trigger.
+crowding_per_arrival = 0.000018 # crowding added per arrival per capita. Range 0.000002-0.0001.
+crowding_base = 0.30            # crowding of a town at designed capacity. Range 0.05-0.7.
+crowding_cap = 1.60             # crowding representing a fully packed town. Range 1.0-3.0.
+infection_carried = 0.42        # share of a fugitive's condition that arrives with them. Range 0.05-1.0. How a plague travels.
+attraction_share = 0.10         # how much a healthy, rich, calm town pulls people. Range 0-0.4.
+immigrants_per_day_cap = 0.014  # bound on inward movement. Range 0.002-0.05.
+worker_gain_per_immigrant = 0.55 # immediate labour gain from an arrival. Range 0.2-0.9. Why chain 5's recovery is possible at all.
+max_move_leagues = 220.0      # how far people will move for a better town. Range 30-1000. Bounds how far a plague travels in one wave.
+desperation_weight = 0.45    # how much a starving or diseased source pushes people out regardless of the destination. Range 0-1.5. Flight spreads the disease it flees.
+infection_repulsion = 3.0    # how strongly a known outbreak suppresses a town's pull, per unit infection. Range 0-10. People avoid a place they know is sick.
+
+# ---------------------------------------------------------------------------
+# SECURITY SYSTEM — roads, patrols, raiders
+# ---------------------------------------------------------------------------
+
+[security]
+patrol_coverage = 0.00022       # troops per league that count as adequate patrol. Range 0.00005-0.001.
+conduct_effect = 0.35           # how much abusive troops corrupt the roads they guard. Range 0-0.8. Cruel garrisons make their own area worse.
+base_road_safety = 0.82         # safety of an undefended but peaceful route. Range 0.4-1.0.
+raider_spawn_rate = 0.010       # daily rate raider bands form where law is weak. Range 0.001-0.04. Chain 4's tail.
+raider_decay_rate = 0.060       # daily dispersal rate where a route is held. Range 0.01-0.2.
+rob_chance_base = 0.42          # base chance a caravan is attacked. Range 0.1-0.8.
+rob_chance_safety_weight = 0.90 # how sharply road safety reduces that chance. Range 0.2-1.5.
+garrison_detach_share = 0.55   # share of a garrison that marches to war. Range 0.2-0.9. Chain 3's cause: troops out, roads rot.
+deserter_share = 0.40           # share of deserters that turn to raiding. Range 0-1.0.
+morale_garrison_effect = 0.25   # how much a demoralised garrison stops patrolling. Range 0-0.6. A garrison nobody pays does not patrol.
+min_garrison_for_isolated = 60.0 # garrison an isolated town needs to count as fully covered. Range 10-500. Isolated towns have no roads to patrol.
+good_conduct = 0.75             # garrison conduct above which troops are not actively harmful. Range 0.5-0.95. The reference for the conduct penalty.
+raider_growth_from_size = 0.006  # how fast a large band grows unaided. Range 0-0.05. A band that is not suppressed becomes a spreading problem.
+raider_band_min = 40.0          # size below which a band is criminals rather than a minor army. Range 5-300.
+raider_troop_per_strength = 2.2 # troops bought per unit of raider pressure. Range 0.5-8.0.
+raider_safety_drag = 0.85       # how sharply raiders cut route safety, as a divisor. Range 0.1-3.0. Saturates: enough raiders make a road impassable.
+terrain_safety_drag = 0.45      # how much rough terrain lowers route safety at full roughness. Range 0-1.0.
+
+# ---------------------------------------------------------------------------
+# LOGISTICS SYSTEM — caravans on real routes
+# ---------------------------------------------------------------------------
+start_garrison_conduct = 0.70     # baseline garrison discipline. Range 0.3-0.95. Below the good-conduct mark: no soldiery is perfect on day one.
+
+[logistics]
+speed_per_day = 62.0            # travel speed on a safe road in leagues per day. Range 10-200.
+safety_speed_weight = 0.55      # how much an unsafe road slows a caravan. Range 0.1-1.0.
+terrain_speed_weight = 0.45     # how much terrain slows a caravan. Range 0.1-1.0.
+spoilage_per_day = 0.0045       # transit loss without cold storage. Range 0.0005-0.02.
+caravan_capacity = 2600.0       # units of each good one caravan carries. Range 200-20000.
+caravan_food_need = 26.0        # what a caravan's animals and guards eat per day. Range 5-100.
+caravan_risk_death = 0.10       # share of caravan strength lost to raiders. Range 0.01-0.4.
+food_share = 0.70               # share of cargo that is food. Range 0.3-0.9.
+medicine_share = 0.18           # share of cargo that is medicine. Range 0.05-0.4. Chain 3 stops these arriving.
+metal_share = 0.12              # share of cargo that is metal. Range 0.05-0.4.
+trade_margin = 0.16             # profit per delivered unit before fees. Range 0.02-0.4.
+blockade_effect = 0.97          # how completely a blockade stops imports. Range 0.5-1.0. Chain 8 requires imports to actually stop.
+caravan_loss_unrest = 0.008     # unrest added to a town starved by lost trade. Range 0.001-0.03.
+caravan_guards = 14.0           # troops escorting a caravan. Range 2-60. Enough to deter casual bandits, not a raider band.
+caravan_food_days = 3.0         # days of food the escort carries. Range 1-15. A long road must not starve its own guards.
+dispatch_share = 0.35           # share of a town's surplus a caravan loads. Range 0.1-0.8. The town keeps the rest.
+min_surplus_for_caravan = 900.0 # smallest load worth the risk and the walk. Range 50-20000. Below it, merchants stay home.
+min_safety_to_dispatch = 0.22   # road safety below which merchants will not travel at all. Range 0-0.6. This is what makes chain 3 so damaging: trade stops, not merely loses money.
+max_caravans_per_route = 5.0    # cap on caravans per road. Range 1-20.
+
+# ---------------------------------------------------------------------------
+# MILITARY UPKEEP SYSTEM — pay troops, or lose them
+# ---------------------------------------------------------------------------
+
+[upkeep]
+morale_wages_weight = 0.030     # how unpaid wages hit morale. Range 0.01-0.1.
+morale_food_weight = 0.045      # how hunger hits morale. Range 0.01-0.15.
+morale_per_owed_day = 0.022     # morale lost per day of arrears. Range 0.005-0.06.
+wages_grace_days = 6.0          # days of arrears troops tolerate. Range 1-30.
+desertion_rate = 0.045          # daily rate troops leave once morale breaks. Range 0.005-0.15.
+desertion_morale_threshold = 0.28 # morale below which desertion starts. Range 0.05-0.5.
+desertion_max_share = 0.020     # daily cap on desertion. Range 0.002-0.08. A collapse is not instantaneous.
+morale_recovery_rate = 0.045    # how fast morale returns when paid and fed. Range 0.01-0.12.
+morale_cap = 0.92               # ceiling. Range 0.7-1.0.
+wages_owed_per_day_unpaid = 0.62 # debt per troop per day unpaid. Range 0.1-3.0.
+contract_chance = 0.055         # daily chance an unpaid ruler loses mercenaries. Range 0.01-0.2.
+militia_cost = 1.30             # daily money cost of local militia. Range 0.2-5.0.
+militia_max = 0.004             # largest militia per capita. Range 0.0005-0.02.
+militia_per_unrest = 0.002      # how much anger adds to militia willingness. Range 0-0.01.
+desertion_influence_loss = 0.02 # influence lost per deserter. Range 0-0.2.
+leadership_morale_weight = 0.05 # how much a commander's generosity and valour steady their troops. Range 0-0.3. RULERS.md section 4 made mechanical.
+min_troops_to_persist = 6.0   # size below which a party dissolves. Range 1-50. A war party of four is not a war party.
+
+# ---------------------------------------------------------------------------
+# INFLUENCE SYSTEM — political currency
+# ---------------------------------------------------------------------------
+
+[ruler]
+age_min = 24.0                    # youngest generated ruler. Range 18-40.
+age_max = 68.0                    # oldest. Range 50-90. Succession matters because of this band.
+base_influence = 30.0             # opening influence before rank and traits. Range 0-500.
+influence_per_tier = 65.0         # influence added per rank tier. Range 0-500. A realm needs a power structure, not fifty equals.
+renown_from_influence = 0.55      # opening renown as a share of influence. Range 0-1.5.
+start_money = 800.0               # a new ruler's personal treasury. Range 0-10000.
+party_keep_chance = 0.62          # share of rulers who keep a war party. Range 0.1-1.0. Most lords were not soldiers.
+max_party_troops_base = 120.0     # base cap on a party's size. Range 10-2000.
+max_party_troops_per_renown = 0.55 # extra troops allowed per renown point. Range 0-5.0. MARCH_AND_WAR.md section 8's army limit.
+party_money_share = 0.55          # share of a ruler's money committed to their party. Range 0-1.0.
+party_gold_share = 0.35           # share of a ruler's gold committed to their party. Range 0-1.0.
+mercenary_caravan_chance = 0.55   # share of mercenary captains who also run a caravan. Range 0-1.0. How they earn between contracts.
+
+[influence]
+service_per_day = 0.11          # influence gained per day of competent governance. Range 0.01-0.5.
+service_unrest_weight = 1.10    # how unrest reduces that gain. Range 0.2-2.0.
+victory_influence = 22.0        # influence from winning a field battle. Range 3-100.
+siege_influence = 1.2           # influence per day of a successful siege. Range 0.1-10.
+broken_oath_influence = 28.0    # influence lost by breaking a pledge. Range 5-150. The political half of chain 9.
+defection_influence_loss = 45.0 # influence lost when a vassal leaves. Range 10-300.
+influence_decay = 0.0075        # daily decay of unused influence. Range 0.001-0.03.
+influence_cap = 900.0           # ceiling. Range 100-3000.
+renown_per_victory = 30.0       # renown from a victory. Range 5-200.
+renown_per_raid = 6.0           # renown from a raid. Range 1-50.
+renown_per_broken_oath = 45.0   # renown lost by an atrocity. Range 10-300.
+renown_decay = 0.0065           # daily decay of renown. Range 0.001-0.03.
+renown_cap = 700.0              # ceiling. Range 100-3000.
+influence_defect_threshold = 260.0 # outside appeal a ruler needs before being poached. Range 50-1000. Chain 7's last link.
+relation_spread_share = 0.30    # how much a ruler's own relations shape who approaches them. Range 0-1.0.
+leadership_upkeep = 0.30        # daily influence a side leader consumes doing the job. Range 0-1.0. Otherwise a leader accumulates power without limit.
+loyalty_weariness_weight = 0.008 # how fast a leader's war weariness erodes vassal loyalty. Range 0-0.05.
+loyalty_treasury_weight = 0.10  # how fast a leader's debts erode vassal loyalty, per unit of relative debt. Range 0-0.5.
+loyalty_victory_weight = 0.008  # how fast a leader's stability builds vassal loyalty. Range 0-0.05.
+loyalty_own_town_weight = 0.006  # how fast a ruler's own collapsing town costs loyalty to the leader. Range 0-0.05.
+loyalty_own_town_bonus = 0.002  # loyalty gained from governing a town well. Range 0-0.02.
+
+# ---------------------------------------------------------------------------
+# MARCH SYSTEM — parties over real distance
+# ---------------------------------------------------------------------------
+leader_influence = 900.0          # a side leader's opening influence. Range 100-5000.
+leader_renown = 600.0             # a side leader's opening renown. Range 50-5000.
+
+[march]
+speed_per_day = 46.0            # travel speed on a good road in leagues per day. Range 10-150. Slower than a caravan; a column is a crowd.
+safety_speed_weight = 0.40      # how much a bad road slows a column. Range 0.1-1.0.
+terrain_speed_weight = 0.55     # how much terrain slows a column. Range 0.1-1.5.
+fatigue_per_day = 0.028         # fatigue gained per day marching. Range 0.005-0.08.
+fatigue_decay = 0.070           # fatigue recovery when halted. Range 0.01-0.2.
+fatigue_speed_weight = 0.75     # how much fatigue slows a column. Range 0.1-1.5. How a long march grinds itself down.
+size_speed_weight = 0.45        # how much a larger column moves slower. Range 0.1-1.2.
+size_reference = 220.0          # column size at which the size penalty is neutral. Range 50-1000.
+food_per_troop = 0.30           # daily food per soldier. Range 0.1-1.0.
+money_per_troop = 0.10          # daily wages per soldier. Range 0.01-0.5.
+metal_per_troop = 0.015         # daily ammunition and repair per soldier. Range 0.001-0.1.
+load_speed_weight = 0.30        # how much heavy cargo slows a column. Range 0-0.8.
+morale_march_weight = 0.009     # morale worn per day of marching. Range 0.001-0.03.
+arrival_morale_bonus = 0.05     # morale regained on reaching an objective. Range 0-0.2. A successful long march must be possible.
+terrain_fatigue_weight = 0.70   # how much rough ground adds to daily fatigue, per unit roughness. Range 0-2.0.
+stationary_food_rate = 0.75     # food a soldier eats per day not marching, relative to marching. Range 0.3-1.0. Quartering is cheaper, not free.
+min_speed = 0.35                # floor on daily speed. Range 0.05-5.0. A party can never be completely stuck, and a bug cannot freeze the sim.
+winter_severity = 0.22          # how much slower winter makes a column. Range 0-0.6.
+season_severity = 0.08          # the milder autumn effect, for contrast. Range 0-0.3.
+weather_swing = 0.14            # daily weather draw range around the seasonal factor. Range 0-0.5. A random effect, not a scripted event.
+exposure_weight = 0.35          # how much exposed ground amplifies bad weather. Range 0-1.0.
+
+# ---------------------------------------------------------------------------
+# SUPPLY SYSTEM — armies fed from friendly towns
+# ---------------------------------------------------------------------------
+
+[supply]
+resupply_fraction = 0.60        # share of a town surplus a passing army takes. Range 0.2-0.9.
+resupply_distance_weight = 0.30 # how much distance from the town cuts resupply. Range 0-0.8.
+days_of_food_starved = 7.0     # days an army goes hungry before morale breaks. Range 2-25.
+starving_morale_loss = 0.038    # morale lost per hungry day. Range 0.01-0.1.
+home_stock_reserve = 0.22      # share of town food never surrendered. Range 0.05-0.5. Towns keep something for themselves.
+blocked_resupply = 0.95         # how completely a blockade stops resupply. Range 0.5-1.0.
+supply_morale_bonus = 0.012     # morale gained by a well-supplied army. Range 0.002-0.05.
+attrition_speed_weight = 0.45   # how far from a supply point attrition bites. Range 0-1.0.
+resupply_range_leagues = 120.0  # how far an army can be from a friendly town and still draw food. Range 20-500. Beyond this, on its own: chain 6's problem.
+blockade_block_supply = 0.60   # blockade level above which a town cannot supply an army. Range 0-1.0. No food comes in by any route.
+
+# ---------------------------------------------------------------------------
+# ATTRITION SYSTEM — exhaustion and disease in the field
+# ---------------------------------------------------------------------------
+
+[attrition]
+exhaustion_rate = 0.0085        # daily casualty share from fatigue and hunger. Range 0.001-0.03.
+disease_rate = 0.0042           # daily casualty share from disease in the column. Range 0.0005-0.02.
+disease_from_crowding = 0.020   # infection growth in a marching column. Range 0.002-0.06.
+disease_from_sanitation = 0.016 # how poor field hygiene raises it. Range 0.002-0.05.
+medicine_efficacy = 0.65        # how much field medicine reduces disease losses. Range 0.2-0.95.
+fatigue_threshold = 0.55        # fatigue above which exhaustion starts. Range 0.2-0.9.
+casualty_morale_hit = 0.00028   # morale lost per casualty taken. Range 0.00005-0.002.
+casualty_cap = 0.030            # largest daily casualty share. Range 0.005-0.1.
+terrain_attrition_weight = 0.45 # how much rough terrain adds to attrition. Range 0-1.5. Mountain's defence (FACTIONS.md).
+wounded_recovery_rate = 0.020   # how fast wounded return to duty. Range 0.005-0.06.
+wounded_recovery_medical_weight = 0.55 # how much medicine speeds recovery. Range 0-1.0.
+disease_recovery_rate = 0.010    # how fast disease in a column burns out once the source is gone. Range 0.001-0.05.
+crowding_reference_troops = 300.0 # column size at which crowding stops being the main concern. Range 50-2000.
+medicine_per_troop = 0.012      # field medicine a healthy column carries per soldier. Range 0.001-0.1.
+medicine_per_death = 1.4        # medicine consumed per death from disease. Range 0.2-5.0.
+dead_share = 0.28               # share of casualties that die rather than being wounded. Range 0.05-0.8. Low makes medicine valuable, since the wounded return.
+starvation_exhaustion_weight = 1.6 # how much worse exhaustion bites a starving column. Range 0.2-4.0. Hunger makes every other hazard worse.
+supply_range_reference = 120.0  # supply distance treated as no supply at all. Range 20-500. Kept here rather than read from the supply system, which no system may import.
+min_troops_to_persist = 6.0     # size below which a party dissolves. Range 1-50. Kept here for the same reason; the two constants are tuned together.
+
+# ---------------------------------------------------------------------------
+# SIEGE SYSTEM — starve a town into opening its gates
+# ---------------------------------------------------------------------------
+
+[siege]
+food_burn_per_troop = 0.26      # besieger's daily food draw per soldier. Range 0.1-0.8.
+attrition_per_day = 0.0065     # attacker casualty share from disease in the besieging camp. Range 0.001-0.03.
+disease_per_day = 0.0090        # how fast disease grows inside a besieged town. Range 0.001-0.03. Chain 10's second link.
+sanitation_loss_per_day = 0.011 # how the crowded, unsupplied town degrades. Range 0.002-0.03.
+loyalty_loss_per_day = 0.024    # how fast the town stops trusting its ruler. Range 0.005-0.06.
+unrest_loss_per_day = 0.045     # unrest added per day under siege. Range 0.01-0.1.
+gate_open_food_days = 4.0      # food buffer at which defenders may capitulate. Range 1-20. Chain 10's outcome.
+gate_open_loyalty = 0.22        # loyalty at which they may capitulate. Range 0.05-0.5.
+gate_open_unrest = 0.62         # unrest at which they may capitulate. Range 0.3-0.95.
+gate_open_chance = 0.045        # daily chance of capitulation once conditions are met. Range 0.005-0.2. Gates open over days.
+max_days = 220.0                # bound on a siege so a war cannot stall forever. Range 60-730.
+equipment_per_breach_day = 1.5  # metal per day needed to breach walls. Range 0.2-10.
+breach_days = 26.0              # days of equipment work needed to breach. Range 5-90.
+relief_radius = 150.0           # how close a friendly army must be to lift a siege. Range 20-600.
+min_troops_to_besiege = 120.0   # smallest force that can lay siege. Range 20-2000. A lone rider cannot starve a city.
+crowding_per_day = 0.0065      # daily crowding growth in a besieged town. Range 0.001-0.03. Chain 10's crowding link.
+breach_work_per_day = 1.0       # work one unit of metal buys, in days-equivalent. Range 0.1-5.0.
+gate_patience_days = 90.0      # how long defenders last before patience runs out. Range 20-400. Gates open over days, not on the first eligible tick.
+influence_loss_on_fall = 70.0   # influence a ruler loses when a town is taken. Range 10-400.
+influence_loss_on_failed_siege = 35.0 # influence lost by failing to take a town. Range 5-200. An expensive failure costs politically too.
+loyalty_after_surrender = 0.14 # loyalty under a conqueror. Range 0-0.5. A population that surrendered under duress does not love its new master.
+renown_for_bloodless_win = 0.45 # renown for taking a town without a battle, relative to winning one. Range 0-1.0.
+
+# ---------------------------------------------------------------------------
+# RELATION SYSTEM — how rulers and sides regard each other
+# ---------------------------------------------------------------------------
+
+[relation]
+gift_relation = 0.055           # relation gained from a gift or bribe. Range 0.01-0.2.
+gift_gold_to_relation = 12.0    # gold needed to buy one relation point. Range 2-60. FACTIONS.md: the Atlantic side buys loyalty.
+battle_relation = 0.35          # relation lost by attacking someone. Range 0.05-1.0.
+raid_relation = 0.12            # relation lost by raiding. Range 0.02-0.5.
+broken_oath_relation = 0.45     # relation lost by breaking a pledge. Range 0.1-1.0. Chain 9's core.
+broken_oath_spread = 0.35       # share of the loss each ally absorbs. Range 0-1.0.
+shared_enemy_relation = 0.045   # relation gained by fighting a common enemy. Range 0-0.2.
+defection_relation = 0.28       # relation lost by a ruler who switches sides. Range 0.05-1.0.
+relation_cap = 1.0              # ceiling of the relation score. Range 0.5-1.0.
+relation_floor = -1.0           # floor of the relation score. Range -1.0 to 0.
+drift_per_day = 0.0035          # daily drift toward neutral, so grudges fade. Range 0-0.02.
+coalition_threshold = -0.28     # average relation with a side below which partners fight together. Range -0.8 to 0. Chain 9's outcome.
+coalition_spread_tolerance = 0.25 # individual opinion a ruler may differ by and still join. Range 0-0.6.
+trust_decay_per_betrayal = 0.06 # general trust lost per betrayal, making future coalitions easier. Range 0-0.3.
+ally_threshold = 0.25          # opinion above which two rulers count as allies. Range 0-0.8. Decides whose opinion a betrayal reaches.
+side_drift_share = 0.45         # side-level drift, relative to ruler-level. Range 0.1-1.0. Sides change opinion more slowly than people.
+side_inherit_rate = 0.012       # how fast a side's opinion moves toward what its rulers believe. Range 0.001-0.1.
+coalition_quorum_share = 0.60   # share of a side's rulers who must personally agree before it commits. Range 0.3-1.0.
+
+# ---------------------------------------------------------------------------
+# RULER AI — utility scoring for a daily personal choice
+# ---------------------------------------------------------------------------
+start_relation_mean = 0.0         # mean opening opinion between sides. Range -1.0 to 1.0.
+start_relation_spread = 0.22      # spread of opening opinion. Range 0.02-1.0. Some pairs hostile, some indifferent: a world, not a default.
+start_ally_relation_min = 0.20    # lowest opening opinion between rulers of one side. Range 0-1.0.
+start_ally_relation_max = 0.70    # highest. Range 0-1.0.
+allied_relation_bonus = 0.25      # how much forming an alliance improves relations. Range 0-1.0.
+
+[ruler_ai]
+attack_weight = 1.00            # attraction of attacking a weak neighbour. Range 0.2-3.0.
+target_weakness_weight = 1.35   # how much a starved, unhappy target attracts. Range 0.2-4.0.
+defend_weight = 0.85            # attraction of returning to defend home. Range 0.1-2.0.
+raid_weight = 0.45              # attraction of raiding. Range 0.05-1.5.
+aid_weight = 0.55               # attraction of sending food or medicine to a suffering ally. Range 0.05-2.0. Chain 5's recovery needs this.
+trade_weight = 0.42             # attraction of running trade. Range 0.05-1.5.
+rest_weight = 0.24              # attraction of doing nothing and recovering. Range 0.02-1.0.
+distance_penalty = 0.0032       # discount per league of travel. Range 0.0005-0.02.
+supply_check_food = 9.0         # days of food wanted before setting out. Range 3-30. MARCH_AND_WAR.md: rulers check first.
+overextension_morale = 0.24     # morale below which a ruler abandons a campaign. Range 0.05-0.5.
+trait_attack_weight = 0.85      # how much high Valor tilts a choice to attack. Range 0.1-2.0.
+trait_aid_weight = 0.70         # how much high Mercy tilts a choice to aid. Range 0.1-2.0.
+trait_trade_weight = 0.60       # how much high Calculation tilts a choice to trade. Range 0.1-2.0.
+trait_rest_weight = 0.45        # how much high Calculation or Mercy tilts a choice to rest. Range 0.1-1.5.
+trait_raid_weight = 0.55        # how much high Valor with low Mercy tilts a choice to raid. Range 0.1-2.0.
+ambition_land_weight = 0.70     # how much a land ambition raises the attack score. Range 0.1-2.0.
+ambition_wealth_weight = 0.55   # how much a wealth ambition raises the trade score. Range 0.1-2.0.
+ambition_revenge_weight = 0.85  # how much a revenge ambition raises the attack score. Range 0.1-2.5.
+ambition_security_weight = 0.75 # how much a security ambition raises the defend score. Range 0.1-2.0.
+hate_weight = 0.45              # how much a low relation raises the attack score. Range 0-1.5. Grudges become wars.
+randomness = 0.10               # seeded jitter on scores, bounded so it never overrides the state. Range 0-0.4.
+tax_raise_unrest_tolerance = 0.52 # unrest a ruler will accept to raise taxes. Range 0.2-0.9. Greed emerges from traits, not a script.
+tax_cut_loyalty_gain = 0.030    # loyalty a ruler trades for lower taxes. Range 0-0.1.
+execute_chance = 0.34           # chance a captured ruler with low Mercy and Honor is executed. Range 0-0.8. Chain 9's trigger.
+prisoner_ransom_gold = 260.0    # gold expected from ransoming a ruler. Range 20-2000.
+prisoner_ransom_relation = 0.10  # relation cost of ransoming. Range 0-0.5.
+decide_every_days = 4.0         # how often a ruler makes a decision. Range 1-30. Daily decisions make rulers twitchy.
+starving_army_penalty = 0.25    # how much a starving army cuts offensive willingness. Range 0-1.0. An army that cannot march cannot attack.
+low_supply_penalty = 0.45       # how much an army short of food cuts it. Range 0-1.0. The supply check from MARCH_AND_WAR.md section 1.
+aid_blocked_by_own_crisis = 0.20 # how much a home crisis suppresses aid. Range 0-1.0. Help is not freely given.
+starving_target_weakness = 0.55 # target weakness above which an attack is attributed to hunger. Range 0-1.0.
+grievance_hate_threshold = -0.30 # how disliked a ruler must be before an attack is a grievance. Range -1.0 to 0.
+attack_blocked_by_home_threat = 0.55 # how much a bad home position suppresses an attack. Range 0-1.0. Nobody leaves home undefended.
+defect_weight = 0.20            # attraction of leaving one's own side. Range 0-0.8. Deliberately small: needs low loyalty, a collapse, and a buyer.
+defect_leader_weariness = 0.55  # how much a leader's exhaustion pushes vassals out. Range 0-2.0.
+defect_leader_debt = 0.35       # how much a leader's debts push vassals out. Range 0-2.0.
+defect_own_collapse = 0.45      # how much a ruler's own collapse makes them look elsewhere. Range 0-2.0.
+peace_weight = 0.55             # attraction of asking for terms when exhausted. Range 0.1-2.0.
+blockade_weight = 0.50          # attraction of blockading a port instead of assaulting it. Range 0-1.5. Chain 8's mechanism: cheaper and slower.
+aid_range_leagues = 240.0       # how far a ruler will send aid. Range 30-1000.
+aid_food_threshold = 12.0       # food buffer below which a town is asking for help. Range 2-60.
+attack_range_leagues = 320.0    # how far a ruler will march to attack. Range 50-1200. Distance is the main limit on any AI here.
+target_food_days = 8.0          # food buffer in days at which a target has nothing left. Range 1-60.
+target_unrest_weight = 0.45     # how much a target's unrest adds to its weakness. Range 0-1.5.
+target_min_population_scale = 9000.0 # town size at which a target is fully worth attacking. Range 500-200000.
+intelligence_blur_max = 0.55    # worst-case relative error in a target estimate, at zero intelligence. Range 0-1.5. What makes a surprise attack possible.
+intelligence_scale = 700.0      # influence plus renown at which estimates become exact. Range 50-5000.
+raid_range_leagues = 170.0      # how far a ruler will ride to raid. Range 20-600. Shorter than a campaign: raiding is local.
+raid_food_per_capita = 40.0     # food per resident that makes a village worth raiding. Range 5-300.
+raid_memory_decay_days = 120.0  # how long a village remembers a raid. Range 20-600. How long before it is worth raiding again.
+trade_range_leagues = 200.0     # how far a ruler will trade. Range 20-800. Follows the roads.
+trade_price_sensitivity = 1.0   # how strongly a price difference becomes a margin. Range 0.1-5.0.
+blockade_import_dependency = 1.4 # how strongly a port's food-import reliance makes it worth blockading. Range 0-3.0. A region that feeds itself cannot be starved from the sea.
+blockade_target_food_days = 12.0 # food buffer above which a port is less worth blockading. Range 2-60.
+tax_capacity_from_prosperity = 0.28 # how much prosperity raises bearable tax. Range 0-0.8.
+tax_capacity_from_unrest = 0.35 # how much anger lowers bearable tax. Range 0-1.0. Pushing further is self-defeating, not merely unpopular.
+tax_generosity_weight = 0.30   # how much generosity lowers the wanted tax rate. Range 0-1.0. The most important line here: greed becomes policy without scripting.
+tax_calculation_weight = 0.14  # how much calculation shapes tax policy. Range 0-0.5. A calculating ruler optimises within what the town bears.
+tax_need_reference = 800.0     # treasury below which a ruler taxes hard regardless of nature. Range 0-20000.
+tax_need_pressure = 0.14       # how hard such a ruler taxes. Range 0-0.5.
+tax_fear_unrest_rate = 0.06     # how fast a fearful ruler pulls tax back toward bearable. Range 0-0.3.
+tax_cut_loyalty_threshold = 0.40 # loyalty below which a generous ruler cuts taxes to buy it back. Range 0-1.0.
+tax_change_rate = 0.012        # largest daily move in the tax rate. Range 0.001-0.1. A policy, not a switch.
+
+# ---------------------------------------------------------------------------
+# FACTION AI — the strategic layer for whole sides
+# ---------------------------------------------------------------------------
+
+[faction_ai]
+declare_war_weight = 0.55       # attraction of going to war. Range 0.1-2.0.
+target_weakness_weight = 0.90  # how much a soft target attracts. Range 0.1-3.0.
+resource_need_weight = 0.70     # how much a food or metal shortage motivates war. Range 0.1-2.0.
+exhaustion_peace_weight = 1.20  # attraction of making peace when tired. Range 0.2-3.0.
+treasury_peace_weight = 0.85    # attraction of making peace when broke. Range 0.1-2.5.
+offer_peace_threshold = 0.58   # exhaustion above which a side sues for peace. Range 0.2-0.9.
+war_weariness_per_day = 0.0022  # daily exhaustion from an active war. Range 0.0005-0.01.
+war_weariness_from_battle = 0.045 # extra weariness per battle fought. Range 0.01-0.2.
+tribute_share = 0.35            # share of a defeated side's treasury demanded. Range 0.1-0.8.
+vassal_tribute_rate = 0.004     # what a vassal side pays daily. Range 0.001-0.02.
+raid_threshold = -0.30          # relation below which a side starts raiding. Range -0.8 to 0.
+trade_pact_bonus_per_day = 0.0016 # daily relation gain from a trade pact. Range 0.0002-0.01.
+ally_join_threshold = 0.42      # relation at which a side joins an ally's war. Range 0-0.8. How a coalition forms.
+decide_every_days = 6.0         # how often a side takes a strategic decision. Range 1-30. Same-day decisions synchronise the world.
+overmatch_ratio = 1.55          # how much stronger a rival may be before attacking stops being considered. Range 1-5.0. Without it the strongest side eats the map.
+hostile_relation_threshold = -0.12 # relation below which sides are hostile enough to fight. Range -1.0 to 0.
+revenge_relation_threshold = -0.45 # relation below which a war is attributed to revenge. Range -1.0 to 0.
+food_need_weight = 0.60         # how much a food shortage motivates war. Range 0-2.0. ECONOMY.md section 9.
+metal_need_weight = 0.35        # how much a metal shortage motivates war. Range 0-2.0.
+food_need_war_threshold = 0.45  # food shortage above which a war is about hunger. Range 0-1.0.
+declare_war_threshold = 0.85    # score a side must reach to commit to a war. Range 0.1-3.0.
+pease_decision_threshold = 0.55 # peace score above which a side sues for peace. Range 0.1-2.0. The key name preserves its original spelling; see config.go.
+peace_weariness_relief = 0.35   # fraction of war weariness surviving peace. Range 0-1.0. Exhaustion fades but does not vanish.
+peace_relation_gain = 0.30     # how much two sides like each other after making peace. Range 0-1.0.
+intensity_per_battle = 0.20    # how much a battle raises a war's intensity. Range 0-1.0.
+vassal_strength_ratio = 1.35    # strength advantage needed to impose vassalage rather than peace. Range 1-5.0.
+vassal_strength_share = 0.45    # fraction of a vassal's strength that counts. Range 0.1-1.0. Worth having, not independent.
+vassal_chance_per_peace = 0.55  # chance a badly beaten side becomes a vassal. Range 0-1.0.
+influence_cost_of_war = 25.0    # influence declaring a war costs the leader. Range 0-200. War is not free politically.
+hostile_relation_share = 1.0    # scales the hostility term in the war score. Range 0-3.0.
+act_relation_threshold = 0.20   # relation above which sides are considered to have formal ties. Range -1.0 to 1.0.
+pact_relation_threshold = 0.45  # relation above which the trade-pact bonus accrues. Range 0-1.0.
+
+# ---------------------------------------------------------------------------
+# CAUSE LOG — thresholds for recording a change
+# ---------------------------------------------------------------------------
+
+[campaign]
+break_morale = 0.18            # morale at which a party far from home turns back. Range 0-0.6. Chain 6 ends in a withdrawal, not a rout.
+break_after_days_out = 12.0     # days away before the morale check applies. Range 1-90. A briefly unhappy party does not turn on the doorstep.
+min_days_food_to_march = 6.0   # food a party must have before setting out. Range 1-40. The supply check, enforced at issue.
+min_metal_to_besiege = 45.0     # metal needed to undertake a siege. Range 0-500. Without it a party camps outside and waits.
+raid_range_leagues = 170.0      # how far a party will ride to raid. Range 20-600.
+raid_memory_decay_days = 120.0  # how long a village remembers a raid. Range 20-600. Kept in step with ruler_ai's constant of the same name.
+aid_range_leagues = 240.0       # how far a party will carry aid. Range 30-1000.
+aid_food_threshold = 12.0       # food buffer below which a town needs aid. Range 2-60.
+aid_load_share = 0.55           # share of a party's own larder loaded for aid. Range 0.1-1.0. Aid that were free would prove nothing about chain 5.
+aid_medicine_share = 0.60        # same for field medicine. Range 0.1-1.0.
+trade_range_leagues = 200.0     # how far a trade caravan will travel. Range 20-800.
+trade_capital_share = 0.60      # share of a party's money committed to a trade run. Range 0.1-1.0.
+attack_range_leagues = 320.0    # how far a party will march to attack. Range 50-1200.
+target_food_days = 8.0          # food buffer in days at which a target is starving. Range 1-60.
+garrison_advantage = 1.4        # force ratio above which a target's garrison stops being an obstacle. Range 0.5-10.0.
+target_min_population_scale = 9000.0 # town size at which a target is worth the march. Range 500-200000.
+tax_cut_loyalty_rate = 0.10      # tax rate the caretaker profile drops to. Range 0-0.4. Buying loyalty with the town rather than taking from it.
+caretaker_medicine_stock = 2.5   # medicine buffer, as a multiple of per-capita stock, the caretaker keeps. Range 0.5-10.0.
+trader_tax_ceiling = 0.28        # tax rate above which the trader profile cuts. Range 0-0.6. A tax-struck town is a bad market.
+trade_min_road_safety = 0.45     # road safety below which no caravan goes out. Range 0-1.0.
+aid_order_share = 0.55           # share of a party's larder loaded for a player-ordered aid run. Range 0.1-1.0.
+medicine_unit_price = 0.9        # cost of one dose at a price of one. Range 0.1-10.0. Times the town's medicine price, so scarcity is priced.
+fortify_metal_per_level = 40.0   # metal one level of fortification costs. Range 5-500.
+fortify_morale_bonus = 0.03      # morale a town gains from being fortified. Range 0-0.2. Small and real.
+
+[cause]
+# A row per float operation would be unreadable; a chain that cannot be
+# explained is worse. These thresholds are small, and every crossing is a real
+# event with a real magnitude.
+min_absolute = 0.0005           # smallest absolute change that logs. Range 0.00001-0.01.
+min_relative = 0.0035           # smallest relative change that logs, for large fields. Range 0.0005-0.05.
+max_chain_links = 200.0         # bound on why-query depth, to keep it terminating. Range 20-2000.
+min_chain_links = 5.0           # depth that counts as a full explanatory chain. PHASES.md Phase 1 sets this at five.
+
+# ---------------------------------------------------------------------------
+# AUDIT — chain assertions and balance reporting
+# ---------------------------------------------------------------------------
+
+[audit]
+chain_min_fraction = 0.30       # share of seeds in which a chain must appear. Range 0.05-1.0.
+dominance_max_fraction = 0.60   # highest share of seeds one side may win. Range 0.3-0.9. FACTIONS.md balance rule.
+sample_events_per_run = 400.0   # cause rows kept per run for review. Range 50-10000.
+side_survival_threshold = 0.70 # share of starting towns a side must still hold to count as survived. Range 0.3-1.0. Measured against its own start, because the sections start unevenly.
+side_collapse_threshold = 0.30 # share below which a side counts as collapsed. Range 0-0.7. The gap between the two is "held at a cost".
+log_row_limit = 400000.0       # cause rows retained per run. Range 10000-5000000. A run that hits this reports how many rows it dropped.
+
+# ---------------------------------------------------------------------------
+# CAMPAIGN — turning a ruler's intention into a marching order
+# ---------------------------------------------------------------------------
+# The seam between the ruler AI's decision and the march system's movement.
+# Player orders and scripted-profile orders use this same path, so a headless
+# "dumb player" run exercises exactly the machinery a real player would.

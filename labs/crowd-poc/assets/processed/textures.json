@@ -1,0 +1,38 @@
+[
+  {
+    "out": "body_normal.png",
+    "source_size": [
+      2048,
+      2048
+    ],
+    "final_size": [
+      1024,
+      1024
+    ],
+    "graded": false
+  },
+  {
+    "out": "body_roughness.png",
+    "source_size": [
+      2048,
+      2048
+    ],
+    "final_size": [
+      512,
+      512
+    ],
+    "graded": false
+  },
+  {
+    "out": "body_basecolour.png",
+    "source_size": [
+      2048,
+      2048
+    ],
+    "final_size": [
+      1024,
+      1024
+    ],
+    "graded": true
+  }
+]

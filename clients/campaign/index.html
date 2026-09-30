@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en" data-ui-scale="100">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Campaign — Northern Colorado Front Range</title>
+    <meta
+      name="description"
+      content="A campaign map over real terrain, real roads and real towns. Every change traces back to a cause."
+    />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <!-- Self-hosted typefaces. No third-party request at runtime. -->
+    <link rel="preload" href="/fonts/public-sans-400-latin.woff2" as="font" type="font/woff2" crossorigin />
+    <link rel="preload" href="/fonts/ibm-plex-mono-400-latin.woff2" as="font" type="font/woff2" crossorigin />
+  </head>
+  <body>
+    <div class="app">
+      <div class="app__stage">
+        <canvas id="map" class="app__canvas" tabindex="0" aria-label="Campaign map"></canvas>
+      </div>
+    </div>
+    <div id="app"></div>
+    <div id="fixture-banner" class="fixture-banner" role="status" data-testid="fixture-banner" hidden></div>
+    <p id="boot-note" class="visually-hidden" role="status" aria-live="polite">
+      Loading the map.
+    </p>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -1,0 +1,153 @@
+{
+  "troop": "troop_rifleman",
+  "steps": {
+    "4_convert": {
+      "source_tris": 14318,
+      "merged_tris": 14318,
+      "scale": {
+        "measured_height_units": 1.819586,
+        "scale_factor_applied": 0.989236,
+        "target_height_m": 1.8,
+        "foot_offset_removed_units": -0.00951,
+        "result_height_m": 1.8,
+        "result_min_y": 0.0
+      },
+      "glb": {
+        "body_close": {
+          "file": "troop_rifleman_body_close.glb",
+          "tris": 9000,
+          "verts": 5617,
+          "bytes": 2645681
+        },
+        "weapon_close": {
+          "file": "troop_rifleman_weapon_close.glb",
+          "tris": 1256,
+          "verts": 700,
+          "bytes": 50216
+        },
+        "body_mid": {
+          "file": "troop_rifleman_body_mid.glb",
+          "tris": 3000,
+          "verts": 2116,
+          "bytes": 2405633
+        },
+        "weapon_mid": {
+          "file": "troop_rifleman_weapon_mid.glb",
+          "tris": 1000,
+          "verts": 571,
+          "bytes": 40884
+        }
+      }
+    },
+    "5_optimise": {
+      "body_close": {
+        "tris": 9000,
+        "verts": 5617
+      },
+      "body_mid": {
+        "tris": 3000,
+        "verts": 2116
+      },
+      "weapon_close": {
+        "tris": 1256,
+        "verts": 700
+      },
+      "weapon_mid": {
+        "tris": 1000,
+        "verts": 571
+      }
+    },
+    "5_bake": {
+      "width": 100,
+      "height": 135,
+      "joints": [
+        "root",
+        "pelvis",
+        "spine_01",
+        "spine_02",
+        "spine_03",
+        "neck_01",
+        "Head",
+        "clavicle_l",
+        "upperarm_l",
+        "lowerarm_l",
+        "hand_l",
+        "clavicle_r",
+        "upperarm_r",
+        "lowerarm_r",
+        "hand_r",
+        "thigh_l",
+        "calf_l",
+        "foot_l",
+        "ball_l",
+        "ball_leaf_l",
+        "thigh_r",
+        "calf_r",
+        "foot_r",
+        "ball_r",
+        "ball_leaf_r"
+      ],
+      "fps": 30,
+      "clips": {
+        "idle": {
+          "row_start": 0,
+          "row_count": 75,
+          "duration_s": 2.5,
+          "loop": true,
+          "source": "Idle_No_Loop"
+        },
+        "walk": {
+          "row_start": 75,
+          "row_count": 60,
+          "duration_s": 2.0,
+          "loop": true,
+          "source": "Walk_Carry_Loop"
+        }
+      },
+      "max_deform": 2.4430187103316507,
+      "similarity": {
+        "k": 0.9892358047082037,
+        "ty": 0.009407305675902533
+      },
+      "format": "RGBA32F, row-major 4x4 per joint, width = 4 * jointCount"
+    }
+  },
+  "textures": [
+    {
+      "out": "body_normal.png",
+      "source_size": [
+        2048,
+        2048
+      ],
+      "final_size": [
+        1024,
+        1024
+      ],
+      "graded": false
+    },
+    {
+      "out": "body_roughness.png",
+      "source_size": [
+        2048,
+        2048
+      ],
+      "final_size": [
+        512,
+        512
+      ],
+      "graded": false
+    },
+    {
+      "out": "body_basecolour.png",
+      "source_size": [
+        2048,
+        2048
+      ],
+      "final_size": [
+        1024,
+        1024
+      ],
+      "graded": true
+    }
+  ]
+}

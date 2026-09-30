@@ -1,0 +1,72 @@
+{
+  "retrieved": "2026-09-30",
+  "note": "Datasets with no real coverage in this region, per CONSTITUTION.md section 1.1. The client renders these as unknown rather than substituting a guess.",
+  "gaps": [
+    {
+      "field": "population",
+      "entity": "Evergreen",
+      "reason": "no incorporated place or Census-designated place of that name in the Census estimates file",
+      "handling": "client shows the settlement with no population and no derived class"
+    },
+    {
+      "field": "population",
+      "entity": "West Pleasant View",
+      "reason": "no incorporated place or Census-designated place of that name in the Census estimates file",
+      "handling": "client shows the settlement with no population and no derived class"
+    },
+    {
+      "field": "population",
+      "entity": "Holly Hills",
+      "reason": "no incorporated place or Census-designated place of that name in the Census estimates file",
+      "handling": "client shows the settlement with no population and no derived class"
+    },
+    {
+      "field": "population",
+      "entity": "Tolland",
+      "reason": "no incorporated place or Census-designated place of that name in the Census estimates file",
+      "handling": "client shows the settlement with no population and no derived class"
+    },
+    {
+      "field": "population",
+      "entity": "Central City",
+      "reason": "no incorporated place or Census-designated place of that name in the Census estimates file",
+      "handling": "client shows the settlement with no population and no derived class"
+    },
+    {
+      "field": "population",
+      "entity": "Leyden",
+      "reason": "no incorporated place or Census-designated place of that name in the Census estimates file",
+      "handling": "client shows the settlement with no population and no derived class"
+    },
+    {
+      "field": "population",
+      "entity": "Zuni",
+      "reason": "no incorporated place or Census-designated place of that name in the Census estimates file",
+      "handling": "client shows the settlement with no population and no derived class"
+    },
+    {
+      "field": "population",
+      "entity": "Derby",
+      "reason": "no incorporated place or Census-designated place of that name in the Census estimates file",
+      "handling": "client shows the settlement with no population and no derived class"
+    },
+    {
+      "field": "population",
+      "entity": "Western Hills",
+      "reason": "no incorporated place or Census-designated place of that name in the Census estimates file",
+      "handling": "client shows the settlement with no population and no derived class"
+    },
+    {
+      "field": "population",
+      "entity": "Gold Hill",
+      "reason": "no incorporated place or Census-designated place of that name in the Census estimates file",
+      "handling": "client shows the settlement with no population and no derived class"
+    },
+    {
+      "field": "population",
+      "entity": "Gunbarrel",
+      "reason": "no incorporated place or Census-designated place of that name in the Census estimates file",
+      "handling": "client shows the settlement with no population and no derived class"
+    }
+  ]
+}

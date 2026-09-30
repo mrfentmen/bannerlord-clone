@@ -1,0 +1,127 @@
+{
+  "note": "Client-side spot check of the settlements the client renders. Independent of the downloaded dataset: these are published 2020 Census figures transcribed by hand.",
+  "source": "U.S. Census Bureau, 2020 Census Redistricting Data (P.L. 94-171) published place counts, as quoted in Census QuickFacts",
+  "retrieved": "2026-09-30",
+  "rows": [
+    {
+      "name": "Denver",
+      "inRegion": true,
+      "ours": 715513,
+      "published": 715522,
+      "delta": -9,
+      "relativeError": -0.00001,
+      "source": "U.S. Census Bureau, 2020 Census Redistricting Data (P.L. 94-171) published place counts, as quoted in Census QuickFacts",
+      "note": "estimates-programme base vs decennial count"
+    },
+    {
+      "name": "Lakewood",
+      "inRegion": true,
+      "ours": 155999,
+      "published": 155984,
+      "delta": 15,
+      "relativeError": 0.0001,
+      "source": "U.S. Census Bureau, 2020 Census Redistricting Data (P.L. 94-171) published place counts, as quoted in Census QuickFacts",
+      "note": "estimates-programme base vs decennial count"
+    },
+    {
+      "name": "Thornton",
+      "inRegion": true,
+      "ours": 141865,
+      "published": 141867,
+      "delta": -2,
+      "relativeError": -0.00001,
+      "source": "U.S. Census Bureau, 2020 Census Redistricting Data (P.L. 94-171) published place counts, as quoted in Census QuickFacts",
+      "note": "estimates-programme base vs decennial count"
+    },
+    {
+      "name": "Arvada",
+      "inRegion": true,
+      "ours": 124354,
+      "published": 124402,
+      "delta": -48,
+      "relativeError": -0.00039,
+      "source": "U.S. Census Bureau, 2020 Census Redistricting Data (P.L. 94-171) published place counts, as quoted in Census QuickFacts",
+      "note": "estimates-programme base vs decennial count"
+    },
+    {
+      "name": "Westminster",
+      "inRegion": true,
+      "ours": 116654,
+      "published": 116317,
+      "delta": 337,
+      "relativeError": 0.0029,
+      "source": "U.S. Census Bureau, 2020 Census Redistricting Data (P.L. 94-171) published place counts, as quoted in Census QuickFacts",
+      "note": "estimates-programme base vs decennial count"
+    },
+    {
+      "name": "Boulder",
+      "inRegion": true,
+      "ours": 108556,
+      "published": 108250,
+      "delta": 306,
+      "relativeError": 0.00283,
+      "source": "U.S. Census Bureau, 2020 Census Redistricting Data (P.L. 94-171) published place counts, as quoted in Census QuickFacts",
+      "note": "estimates-programme base vs decennial count"
+    },
+    {
+      "name": "Longmont",
+      "inRegion": false,
+      "ours": null,
+      "published": 98885,
+      "delta": null,
+      "relativeError": null,
+      "source": "U.S. Census Bureau, 2020 Census Redistricting Data (P.L. 94-171) published place counts, as quoted in Census QuickFacts",
+      "note": "outside the V1 region bbox, so the client does not render it"
+    },
+    {
+      "name": "Englewood",
+      "inRegion": true,
+      "ours": 33639,
+      "published": 32453,
+      "delta": 1186,
+      "relativeError": 0.03655,
+      "source": "U.S. Census Bureau, 2020 Census Redistricting Data (P.L. 94-171) published place counts, as quoted in Census QuickFacts",
+      "note": "estimates-programme base vs decennial count"
+    },
+    {
+      "name": "Littleton",
+      "inRegion": true,
+      "ours": 45665,
+      "published": 45652,
+      "delta": 13,
+      "relativeError": 0.00028,
+      "source": "U.S. Census Bureau, 2020 Census Redistricting Data (P.L. 94-171) published place counts, as quoted in Census QuickFacts",
+      "note": "estimates-programme base vs decennial count"
+    },
+    {
+      "name": "Broomfield",
+      "inRegion": true,
+      "ours": 74106,
+      "published": 74112,
+      "delta": -6,
+      "relativeError": -0.00008,
+      "source": "U.S. Census Bureau, 2020 Census Redistricting Data (P.L. 94-171) published place counts, as quoted in Census QuickFacts",
+      "note": "estimates-programme base vs decennial count"
+    },
+    {
+      "name": "Golden",
+      "inRegion": true,
+      "ours": 20415,
+      "published": 19475,
+      "delta": 940,
+      "relativeError": 0.04827,
+      "source": "U.S. Census Bureau, 2020 Census Redistricting Data (P.L. 94-171) published place counts, as quoted in Census QuickFacts",
+      "note": "estimates-programme base vs decennial count"
+    },
+    {
+      "name": "Nederland",
+      "inRegion": true,
+      "ours": 1470,
+      "published": 1561,
+      "delta": -91,
+      "relativeError": -0.0583,
+      "source": "U.S. Census Bureau, 2020 Census Redistricting Data (P.L. 94-171) published place counts, as quoted in Census QuickFacts",
+      "note": "estimates-programme base vs decennial count"
+    }
+  ]
+}

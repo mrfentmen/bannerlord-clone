@@ -1,0 +1,17 @@
+serving /Users/dtaxk/Documents/mount and blade clone/labs/crowd-poc on http://127.0.0.1:8127/
+
+=== CPU SKINNING BASELINE (single thread, close-tier mesh) ===
+mesh troop_body: 5617 verts, 25 joints
+units        | msPerFrame   | range        | vertexXf     | impliedFps   | msPerSecAnim | %of60fpsBudget
+32           | 13.30        | 6.40-37.40   | 179,744      | 75.2         | 399          | 2394%       
+64           | 13.00        | 12.70-111.40 | 359,488      | 76.9         | 390          | 2340%       
+128          | 105.40       | 56.20-322.70 | 718,976      | 9.5          | 3162         | 18968%      
+256          | 180.10       | 89.00-237.90 | 1,437,952    | 5.6          | 5403         | 32412%      
+512          | 290.10       | 116.60-347.90 | 2,875,904    | 3.4          | 8703         | 52208%      
+1024         | 677.20       | 493.10-738.80 | 5,751,808    | 1.5          | 20316        | 121872%     
+
+checksum of last frame's output: 33385.766  (a non-zero value proves the loop was not optimised away)
+
+One CPU core spends 290.1 ms per frame skinning 512 units of the close-tier mesh (2,875,904 vertex transforms), which is 52208% of a 16.67 ms frame at the baked 30 fps. That excludes rendering, the LOD repartition and the simulation, and it is a single core: the crowd renderer is drawing the same 2,875,904 transforms on the GPU with no per-unit CPU cost at all.
+
+GPU path: 25 joints x 16 floats = one 100x135 RGBA32F texture (216,000 bytes) uploaded once, then 4 texel fetches per influence per vertex. No per-frame CPU cost scales with unit count.

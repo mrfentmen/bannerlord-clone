@@ -1,0 +1,210 @@
+#!/usr/bin/env node
+// Downloads the locked UI typefaces from Google Fonts and saves the licence texts
+// locally, per CONSTITUTION.md section 5.1 and ASSETS.md section 1.2 (licence terms
+// are saved, not just linked, because those pages change or vanish).
+//
+// This is a build-time authoring tool, not part of the shipped client.
+
+import { createWriteStream } from "node:fs";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+import { createHash } from "node:crypto";
+import { pipeline } from "node:stream/promises";
+import { Readable } from "node:stream";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const ROOT = resolve(HERE, "..");
+// Font binaries live in public/ so Vite serves them as static files with no
+// import graph involvement. The licence texts and the manifest live in assets/,
+// because they are records, not runtime files.
+const FONT_DIR = join(ROOT, "public", "fonts");
+const ASSET_DIR = join(ROOT, "assets", "fonts");
+const LICENCE_DIR = join(ASSET_DIR, "licences");
+const CSS_OUT = join(ASSET_DIR, "fonts.css");
+
+const USER_AGENT =
+  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
+  "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+
+// The locked direction (ART_DIRECTION.md section 3). Two families, no more.
+const FAMILIES = "Public+Sans:ital,wght@0,400;0,600;0,700;0,800;1,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap";
+
+// Only these subsets ship. The rest of the world's scripts are not used by this
+// game's copy, and shipping them would be dead weight in the repo.
+const KEEP_SUBSETS = new Set(["latin", "latin-ext"]);
+
+// Licence texts, fetched from the upstream repositories and stored verbatim.
+const LICENCES = [
+  {
+    file: "PublicSans-OFL.txt",
+    url: "https://raw.githubusercontent.com/uswds/public-sans/develop/LICENSE.md",
+  },
+  {
+    file: "IBMPlexMono-OFL.txt",
+    url: "https://raw.githubusercontent.com/IBM/plex/master/LICENSE.txt",
+  },
+];
+
+async function get(url, asText) {
+  const res = await fetch(url, {
+    headers: { "User-Agent": USER_AGENT },
+    signal: AbortSignal.timeout(60_000),
+  });
+  if (!res.ok) {
+    throw new Error(`GET ${url} failed: HTTP ${res.status} ${res.statusText}`);
+  }
+  if (asText) return res.text();
+  return Buffer.from(await res.arrayBuffer());
+}
+
+/** Parse @font-face blocks out of a Google Fonts stylesheet, keeping wanted subsets. */
+function parseFontFaces(css) {
+  const blocks = [...css.matchAll(/@font-face\s*\{([^}]*)\}/g)].map((m) => m[1]);
+  const out = [];
+  for (const block of blocks) {
+    const subset = (block.match(/\/\*\s*([a-z-]+)\s*\*\//) ?? [])[1] ?? block.match(/@font-face\s*\{\s*\/\*\s*([a-z-]+)/)?.[1];
+    const family = (block.match(/font-family:\s*'([^']+)'/) ?? [])[1];
+    const weight = (block.match(/font-weight:\s*([0-9]+)/) ?? [])[1];
+    const style = (block.match(/font-style:\s*(\w+)/) ?? [])[1] ?? "normal";
+    const url = (block.match(/url\((https:\/\/[^)]+)\)/) ?? [])[1];
+    const range = (block.match(/unicode-range:\s*([^;]+);/) ?? [])[1];
+    if (!family || !weight || !url) continue;
+    out.push({ family, weight, style, url, range: range?.trim(), subset });
+  }
+  return out;
+}
+
+async function main() {
+  await mkdir(LICENCE_DIR, { recursive: true });
+
+  // 1. Licence texts first. If a licence cannot be saved, the font must not ship.
+  const licenceIndex = [];
+  for (const l of LICENCES) {
+    const text = await get(l.url, true);
+    if (!/SIL OPEN FONT LICENSE/i.test(text)) {
+      throw new Error(
+        `Licence text for ${l.file} did not contain the SIL Open Font License header. ` +
+          `Refusing to record a font whose licence could not be confirmed.`,
+      );
+    }
+    await writeFile(join(LICENCE_DIR, l.file), text, "utf8");
+    licenceIndex.push({ file: l.file, source: l.url, sha256: sha(text) });
+    console.log(`licence  ${l.file}  (${text.length} bytes)`);
+  }
+
+  // 2. The stylesheet, then the font binaries it points at.
+  const css = await get(
+    `https://fonts.googleapis.com/css2?family=${FAMILIES}`,
+    true,
+  );
+  const faces = parseFontFaces(css);
+  if (faces.length === 0) {
+    throw new Error("No @font-face blocks parsed from the Google Fonts stylesheet.");
+  }
+
+  // The stylesheet marks subsets in a comment before each block; recover it by walking
+  // the raw text in order so we can tell latin from cyrillic and friends.
+  const orderedSubsets = [...css.matchAll(/\/\*\s*([a-z-]+)\s*\*\//g)].map((m) => m[1]);
+  faces.forEach((f, i) => {
+    if (!f.subset && orderedSubsets[i]) f.subset = orderedSubsets[i];
+  });
+
+  const wanted = faces.filter((f) => KEEP_SUBSETS.has(f.subset));
+  if (wanted.length === 0) {
+    throw new Error(
+      `No latin faces found. Parsed subsets: ${[...new Set(faces.map((f) => f.subset))].join(", ")}`,
+    );
+  }
+
+  const outCss = [
+    "/* Generated by tools/fetch-fonts.mjs. Do not hand-edit.",
+    " * Typefaces locked in ART_DIRECTION.md section 3.",
+    " * Self-hosted: no third-party request at runtime.",
+    " * Licences: assets/fonts/licences/ (SIL Open Font License 1.1).",
+    " */",
+    "",
+  ];
+  const manifest = [];
+  // Public Sans is a variable font: Google serves one file per weight that turns out
+  // to be byte-identical. Deduplicate on content and emit a weight range instead of
+  // shipping four copies of the same 26 KB.
+  const byContent = new Map();
+
+  for (const face of wanted) {
+    const bytes = await get(face.url, false);
+    if (bytes.length < 512) {
+      throw new Error(`Font file for ${face.family} ${face.weight} was ${bytes.length} bytes, which is not a real font.`);
+    }
+    const hash = sha(bytes);
+    const existing = byContent.get(hash);
+    if (existing) {
+      if (existing.style !== face.style) {
+        throw new Error(
+          `Font file collision for ${face.family}: identical bytes claimed for styles ` +
+            `${existing.style} and ${face.style}. Refusing to guess.`,
+        );
+      }
+      existing.weights.push(Number(face.weight));
+      console.log(`font     ${face.family} ${face.weight} ${face.subset} -> same file as ${existing.slug}, weight range extended`);
+      continue;
+    }
+
+    const slug = `${face.family.toLowerCase().replace(/\s+/g, "-")}-${face.weight}${face.style === "italic" ? "i" : ""}-${face.subset}.woff2`;
+    await writeFile(join(FONT_DIR, slug), bytes);
+    const entry = {
+      family: face.family,
+      style: face.style,
+      weights: [Number(face.weight)],
+      subset: face.subset,
+      file: `public/fonts/${slug}`,
+      bytes: bytes.length,
+      sha256: hash,
+      upstream: face.url,
+      slug,
+    };
+    byContent.set(hash, entry);
+    manifest.push(entry);
+    console.log(`font     ${slug}  (${bytes.length} bytes)`);
+  }
+
+  for (const entry of byContent.values()) {
+    const weights = [...new Set(entry.weights)].sort((a, b) => a - b);
+    outCss.push(
+      "@font-face {",
+      `  font-family: '${entry.family}';`,
+      `  font-style: ${entry.style};`,
+      `  font-weight: ${weights.length > 1 ? `${weights[0]} ${weights[weights.length - 1]}` : weights[0]};`,
+      "  font-display: swap;",
+      `  src: url('/fonts/${entry.slug}') format('woff2');`,
+      ...(entry.range ? [`  unicode-range: ${entry.range};`] : []),
+      "}",
+      "",
+    );
+  }
+
+  await writeFile(CSS_OUT, outCss.join("\n"), "utf8");
+  await writeFile(
+    join(ASSET_DIR, "FONT-MANIFEST.json"),
+    JSON.stringify(
+      {
+        lockedIn: "clients/campaign/ART_DIRECTION.md",
+        licences: licenceIndex,
+        files: manifest,
+      },
+      null,
+      2,
+    ) + "\n",
+    "utf8",
+  );
+  console.log(`\n${wanted.length} faces, ${manifest.reduce((a, f) => a + f.bytes, 0)} bytes total`);
+}
+
+function sha(input) {
+  return createHash("sha256").update(input).digest("hex");
+}
+
+main().catch((err) => {
+  console.error(`\nFONT FETCH FAILED: ${err.message}`);
+  process.exitCode = 1;
+});

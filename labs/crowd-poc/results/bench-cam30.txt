@@ -1,0 +1,33 @@
+serving /Users/dtaxk/Documents/mount and blade clone/labs/crowd-poc on http://127.0.0.1:8127/
+
+=== CROWD RENDERING BENCHMARK ===
+host        : Intel(R) Core(TM) i5-5257U CPU @ 2.70GHz x4, 8.0 GB RAM, darwin 21.6.0
+renderer    : ANGLE (Intel Inc., Intel(R) Iris(TM) Graphics 6100, OpenGL 4.1)
+gl          : WebGL 2.0 (OpenGL ES 3.0 Chromium)
+res         : 1280x720 scaling 1
+vtx tex units: 16, max tex 16384, float colour buffer true
+repeats     : 5 per count, reporting the median with the full spread
+
+units     | fps       | draws     | meshes    | triangles | inst      | frameMs   | cpuMs     | gpuMs     | tiers    
+100    60.0      3      3      227,072     135   16.60    0.463     n/a b/m:64 w/m:35 b/f:36
+300    60.0      3      3      666,226     405   16.59    0.638     n/a b/m:187 w/m:105 b/f:113
+600    59.0      5      5    1,478,682     791   16.86    0.875     n/a b/c:48 b/m:283 w/c:24 w/m:167 b/f:269
+1000    34.2      5      5    2,838,266    1302   29.16    1.325     n/a b/c:155 b/m:372 w/c:95 w/m:207 b/f:473
+1500    22.6      5      5    4,716,298    1953   44.16    2.018     n/a b/c:315 b/m:460 w/c:183 w/m:270 b/f:725
+2000    17.0      5      5    6,561,840    2604   58.50    2.449     n/a b/c:469 b/m:555 w/c:273 w/m:331 b/f:976
+
+--- spread across repeats (fps) ---
+  100   min 60.0  max 60.0   runs: [60.0, 60.0, 60.0, 60.0, 60.0]
+  300   min 59.9  max 60.0   runs: [60.0, 60.0, 60.0, 60.0, 59.9]
+  600   min 55.9  max 59.9   runs: [56.7, 59.0, 59.4, 59.9, 55.9]
+  1000  min 33.4  max 34.4   runs: [33.4, 34.4, 34.2, 34.2, 33.4]
+  1500  min 21.9  max 22.6   runs: [21.9, 22.6, 22.5, 22.6, 22.6]
+  2000  min 16.2  max 17.1   runs: [16.2, 17.0, 17.1, 16.5, 17.1]
+
+--- targets (PHASES.md Phase 3) ---
+  300 units @ 60 fps : 60.0 fps  PASS  (1.00x headroom)  (at the 60 Hz cap, so this is the refresh ceiling)  worst repeat 59.9 fps (below target)
+  1000 units @ 30 fps : 34.2 fps  PASS  (1.14x headroom)  worst repeat 33.4 fps (passes too)
+
+draw calls at 2000 units: 5 (ASSETS.md 5.3: must not grow with unit count)
+per-frame CPU instance/LOD update: 2.449 ms
+GPU frame time: not available (this browser exposes no timer query); wall-clock frame time is the measured figure

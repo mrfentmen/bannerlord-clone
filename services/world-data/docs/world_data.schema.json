@@ -1,0 +1,1479 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Mount and Blade clone - Phase 0 world data",
+  "description": "Schema of the world data produced by services/world-data. Inferred from the exported rows, so it describes what was produced rather than what was intended. Field definitions come from CAUSE_EFFECT.md section 2 for town fields and SPEC.md section 3 for the entity model.",
+  "generated_at": "2026-09-30T08:37:01Z",
+  "generated_at_iso": "2026-09-30T08:46:47.147626+00:00",
+  "pipeline_version": "1.0.0",
+  "census_year": 2020,
+  "estimates_vintage": 2023,
+  "config_file": "config/world_data.toml",
+  "type_vocabulary": {
+    "integer": "Whole number. Postgres INTEGER.",
+    "number": "Floating point. Postgres DOUBLE PRECISION.",
+    "string": "Text. Postgres TEXT.",
+    "boolean": "True or false. Postgres BOOLEAN.",
+    "null": "Always null in this run; published so the column is known to exist."
+  },
+  "conventions": {
+    "units": "Lengths and areas are kilometres and square kilometres. Money is millions of current US dollars as BEA publishes it. Cropland is hectares, converted from USDA's 1,000 acres. Elevation is metres above the EGM96 geoid, as SRTM publishes. Food is person-days. Time is in-game hours.",
+    "identifiers": "State and place identifiers are US Census FIPS codes read from the source files, never typed by hand. A settlement identifier is '<state fips>-<place fips>', or '<state fips>-nm-<name>' where the Census Bureau assigns no place FIPS, which is the case for Census-designated places.",
+    "null_means_missing": "A null is a value the source does not publish. No null in this export was filled with an invented value. docs/DATA_MANIFEST.md lists every such gap.",
+    "measurement_types": "Fields carry a source_apportionment value telling a consumer whether the number was measured, apportioned from a coarser real source, or set from a documented config constant. See docs/DATA_MANIFEST.md."
+  },
+  "tables": [
+    {
+      "table": "state_profiles",
+      "row_count": 51,
+      "column_count": 38,
+      "columns": [
+        {
+          "name": "abbreviation",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "AL",
+            "AK",
+            "AZ"
+          ]
+        },
+        {
+          "name": "ag_gva_usd_millions",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "3204.3",
+            "555.5",
+            "2773.3"
+          ]
+        },
+        {
+          "name": "cropland_ha",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "1064323.2390912",
+            "20234.282112",
+            "405495.01352448"
+          ]
+        },
+        {
+          "name": "cropland_thousand_acres",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "2630.0",
+            "50.0",
+            "1002.0"
+          ]
+        },
+        {
+          "name": "data_sources",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "{\"ag_gva_usd\": \"bea_state_gdp_by_industry\", \"cropland_ha\": \"usda_ers_major_land_",
+            "{\"ag_gva_usd\": \"bea_state_gdp_by_industry\", \"cropland_ha\": \"usda_ers_major_land_",
+            "{\"ag_gva_usd\": \"bea_state_gdp_by_industry\", \"cropland_ha\": \"usda_ers_major_land_"
+          ]
+        },
+        {
+          "name": "farm_gva_usd_millions",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "2456.7",
+            "21.1",
+            "1982.2"
+          ]
+        },
+        {
+          "name": "finance_gva_usd_millions",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "9416.1",
+            "879.7",
+            "19616.3"
+          ]
+        },
+        {
+          "name": "forest_thousand_acres",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "22979.0",
+            "91713.0",
+            "13903.0"
+          ]
+        },
+        {
+          "name": "gdp_current_usd_millions",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "309543.8",
+            "68232.7",
+            "530105.0"
+          ]
+        },
+        {
+          "name": "land_area_km2",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "131185.049346",
+            "1479016.910296",
+            "294366.106734"
+          ]
+        },
+        {
+          "name": "mine_commodities_unmatched",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "318",
+            "345",
+            "2107"
+          ]
+        },
+        {
+          "name": "mine_feature_aggregate",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "886",
+            "992",
+            "2426"
+          ]
+        },
+        {
+          "name": "mine_feature_count",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "4831",
+            "12965",
+            "12942"
+          ]
+        },
+        {
+          "name": "mine_feature_fuel",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "1",
+            "1",
+            "4"
+          ]
+        },
+        {
+          "name": "mine_feature_gold",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "289",
+            "9097",
+            "6100"
+          ]
+        },
+        {
+          "name": "mine_feature_metal",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "3422",
+            "7075",
+            "7577"
+          ]
+        },
+        {
+          "name": "mine_producer_count",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "1797",
+            "3932",
+            "7030"
+          ]
+        },
+        {
+          "name": "mine_producer_fuel",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "1",
+            "0",
+            "2"
+          ]
+        },
+        {
+          "name": "mine_producer_gold",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "187",
+            "3257",
+            "4211"
+          ]
+        },
+        {
+          "name": "mine_producer_metal",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "807",
+            "1519",
+            "4698"
+          ]
+        },
+        {
+          "name": "mine_prospect_count",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "3034",
+            "9033",
+            "5912"
+          ]
+        },
+        {
+          "name": "mining_fuel_gva_usd_millions",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "266.5",
+            "5866.9",
+            "23.2"
+          ]
+        },
+        {
+          "name": "mining_nonfuel_gva_usd_millions",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "2242.8",
+            "2195.1",
+            "6200.5"
+          ]
+        },
+        {
+          "name": "mining_total_gva_usd_millions",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "2626.2",
+            "9344.6",
+            "6406.6"
+          ]
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "Alabama",
+            "Alaska",
+            "Arizona"
+          ]
+        },
+        {
+          "name": "pasture_ha",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "1037209.30106112",
+            "275590.92236544",
+            "17644294.001664"
+          ]
+        },
+        {
+          "name": "pasture_thousand_acres",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "2563.0",
+            "681.0",
+            "43600.0"
+          ]
+        },
+        {
+          "name": "population",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "5108468",
+            "733406",
+            "7431344"
+          ]
+        },
+        {
+          "name": "population_2020_base",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "5024294",
+            "733374",
+            "7157902"
+          ]
+        },
+        {
+          "name": "port_count",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "1",
+            "7",
+            "0"
+          ]
+        },
+        {
+          "name": "port_weight",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "0.4",
+            "1.7857142857142854",
+            "0.0"
+          ]
+        },
+        {
+          "name": "section_key",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "southern_compact",
+            "pacific_compact",
+            "mountain_alliance"
+          ]
+        },
+        {
+          "name": "section_name",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "Southern Compact",
+            "Pacific Compact",
+            "Mountain Alliance"
+          ]
+        },
+        {
+          "name": "state_fips",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "01",
+            "02",
+            "04"
+          ]
+        },
+        {
+          "name": "total_land_thousand_acres",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "32414.0",
+            "365454.0",
+            "72738.0"
+          ]
+        },
+        {
+          "name": "urban_thousand_acres",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "1325.0",
+            "216.0",
+            "1383.0"
+          ]
+        },
+        {
+          "name": "water_area_km2",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "4582.326383",
+            "245347.100126",
+            "854.003932"
+          ]
+        },
+        {
+          "name": "water_transport_gva_usd_millions",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "131.6",
+            "454.5",
+            "0.2"
+          ]
+        }
+      ]
+    },
+    {
+      "table": "sections",
+      "row_count": 6,
+      "column_count": 7,
+      "columns": [
+        {
+          "name": "design_target_ratings",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "{\"food\": 2, \"gold\": 3, \"metal\": 2, \"money\": 5, \"population\": 4}",
+            "{\"food\": 2, \"gold\": 5, \"metal\": 5, \"money\": 2, \"population\": 1}",
+            "{\"food\": 5, \"gold\": 1, \"metal\": 4, \"money\": 3, \"population\": 5}"
+          ]
+        },
+        {
+          "name": "section_key",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "pacific_compact",
+            "mountain_alliance",
+            "great_lakes_union"
+          ]
+        },
+        {
+          "name": "section_name",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "Pacific Compact",
+            "Mountain Alliance",
+            "Great Lakes Union"
+          ]
+        },
+        {
+          "name": "source",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "FACTIONS.md sections 4.1-4.6, matched to Census FIPS codes at run time",
+            "FACTIONS.md sections 4.1-4.6, matched to Census FIPS codes at run time",
+            "FACTIONS.md sections 4.1-4.6, matched to Census FIPS codes at run time"
+          ]
+        },
+        {
+          "name": "state_count",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "5",
+            "8",
+            "12"
+          ]
+        },
+        {
+          "name": "state_fips",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "[\"02\", \"06\", \"15\", \"41\", \"53\"]",
+            "[\"04\", \"08\", \"16\", \"30\", \"32\", \"35\", \"49\", \"56\"]",
+            "[\"17\", \"18\", \"19\", \"20\", \"26\", \"27\", \"29\", \"31\", \"38\", \"39\", \"46\", \"55\"]"
+          ]
+        },
+        {
+          "name": "states",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "[\"Alaska\", \"California\", \"Hawaii\", \"Oregon\", \"Washington\"]",
+            "[\"Arizona\", \"Colorado\", \"Idaho\", \"Montana\", \"Nevada\", \"New Mexico\", \"Utah\", \"Wyo",
+            "[\"Illinois\", \"Indiana\", \"Iowa\", \"Kansas\", \"Michigan\", \"Minnesota\", \"Missouri\", \""
+          ]
+        }
+      ]
+    },
+    {
+      "table": "section_ratings",
+      "row_count": 30,
+      "column_count": 15,
+      "columns": [
+        {
+          "name": "agrees_with_target",
+          "type": "boolean",
+          "nullable": false,
+          "examples": [
+            "False",
+            "False",
+            "False"
+          ]
+        },
+        {
+          "name": "band_edges_share",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "[0.00338891, 0.00911067, 0.01683473, 0.03300823]",
+            "[0.00320526, 0.00875335, 0.0171883, 0.02899773]",
+            "[0.00320526, 0.00875335, 0.0171883, 0.02899773]"
+          ]
+        },
+        {
+          "name": "computed_rating",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "5",
+            "5",
+            "5"
+          ]
+        },
+        {
+          "name": "design_target_rating",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "2",
+            "3",
+            "2"
+          ]
+        },
+        {
+          "name": "difference",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "3",
+            "2",
+            "3"
+          ]
+        },
+        {
+          "name": "dimension",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "food",
+            "gold",
+            "metal"
+          ]
+        },
+        {
+          "name": "national_total",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "84126971.32892469",
+            "66686.18000000001",
+            "67359.51999999999"
+          ]
+        },
+        {
+          "name": "note",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "Computed from real data. The design target is recorded for comparison only and i",
+            "Computed from real data. The design target is recorded for comparison only and i",
+            "Computed from real data. The design target is recorded for comparison only and i"
+          ]
+        },
+        {
+          "name": "raw_total",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "4692967.773226561",
+            "9762.975",
+            "6938.1"
+          ]
+        },
+        {
+          "name": "section_key",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "pacific_compact",
+            "pacific_compact",
+            "pacific_compact"
+          ]
+        },
+        {
+          "name": "section_name",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "Pacific Compact",
+            "Pacific Compact",
+            "Pacific Compact"
+          ]
+        },
+        {
+          "name": "share_of_national",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "0.05578434239451833",
+            "0.14640177320098405",
+            "0.10300103088620587"
+          ]
+        },
+        {
+          "name": "state_coverage",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "1.0",
+            "1.0",
+            "1.0"
+          ]
+        },
+        {
+          "name": "sub_scores",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "{\"cropland\": -0.321684, \"ag_gva\": 0.275548}",
+            "{\"precious_gva\": -0.769074, \"gold_mine_features\": 0.366453}",
+            "{\"nonfuel_mining_gva\": -0.709915, \"metal_mine_features\": 0.015245}"
+          ]
+        },
+        {
+          "name": "z_score_across_sections",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "-0.5839134670775095",
+            "-0.22212738077960267",
+            "-0.6783364215433052"
+          ]
+        }
+      ]
+    },
+    {
+      "table": "settlements",
+      "row_count": 13189,
+      "column_count": 27,
+      "columns": [
+        {
+          "name": "crowding",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "0.3936535724190044",
+            "0.40963880702044925",
+            "0.45591439390436306"
+          ]
+        },
+        {
+          "name": "elevation_m",
+          "type": "number",
+          "nullable": true,
+          "examples": [
+            "293.4310832032985",
+            "293.4824799401514",
+            "293.3046676679261"
+          ]
+        },
+        {
+          "name": "food_apportionment_factor",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "0.0004653058412032727",
+            "0.0008166832013041875",
+            "0.0001305675204386129"
+          ]
+        },
+        {
+          "name": "food_demand_person_days",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "4754.0",
+            "8344.0",
+            "1334.0"
+          ]
+        },
+        {
+          "name": "food_production_person_days",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "46500.0",
+            "77500.0",
+            "0.0"
+          ]
+        },
+        {
+          "name": "food_stock_person_days",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "71310.0",
+            "125160.0",
+            "20010.0"
+          ]
+        },
+        {
+          "name": "garrison",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "0",
+            "0",
+            "0"
+          ]
+        },
+        {
+          "name": "infected",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "0.0",
+            "0.0",
+            "0.0"
+          ]
+        },
+        {
+          "name": "land_area_km2",
+          "type": "number",
+          "nullable": true,
+          "examples": [
+            "40.255361",
+            "67.897213",
+            "9.753293"
+          ]
+        },
+        {
+          "name": "latitude",
+          "type": "number",
+          "nullable": true,
+          "examples": [
+            "31.5663590028284",
+            "33.605193597851574",
+            "34.201731639621784"
+          ]
+        },
+        {
+          "name": "longitude",
+          "type": "number",
+          "nullable": true,
+          "examples": [
+            "-85.25273547700169",
+            "-86.9791140829372",
+            "-87.17649496250675"
+          ]
+        },
+        {
+          "name": "loyalty",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "0.5",
+            "0.5",
+            "0.5"
+          ]
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "Abbeville city",
+            "Adamsville city",
+            "Addison town"
+          ]
+        },
+        {
+          "name": "population",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "2377",
+            "4172",
+            "667"
+          ]
+        },
+        {
+          "name": "population_2020_base",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "2350",
+            "4372",
+            "662"
+          ]
+        },
+        {
+          "name": "prosperity",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "0.5",
+            "0.5",
+            "0.5"
+          ]
+        },
+        {
+          "name": "sanitation",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "1.0",
+            "1.0",
+            "0.61675"
+          ]
+        },
+        {
+          "name": "section_key",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "southern_compact",
+            "southern_compact",
+            "southern_compact"
+          ]
+        },
+        {
+          "name": "settlement_id",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "01-00124",
+            "01-00460",
+            "01-00484"
+          ]
+        },
+        {
+          "name": "size_class",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "village",
+            "village",
+            "village"
+          ]
+        },
+        {
+          "name": "source_apportionment",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "{\"crowding\": \"apportioned\", \"food_production\": \"apportioned\", \"population\": \"mea",
+            "{\"crowding\": \"apportioned\", \"food_production\": \"apportioned\", \"population\": \"mea",
+            "{\"crowding\": \"apportioned\", \"food_production\": \"apportioned\", \"population\": \"mea"
+          ]
+        },
+        {
+          "name": "state_fips",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "01",
+            "01",
+            "01"
+          ]
+        },
+        {
+          "name": "state_name",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "Alabama",
+            "Alabama",
+            "Alabama"
+          ]
+        },
+        {
+          "name": "tax_rate",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "0.0",
+            "0.0",
+            "0.0"
+          ]
+        },
+        {
+          "name": "treasury",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "0.0",
+            "0.0",
+            "0.0"
+          ]
+        },
+        {
+          "name": "unrest",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "0.05",
+            "0.05",
+            "0.05"
+          ]
+        },
+        {
+          "name": "workers",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "1117",
+            "1961",
+            "313"
+          ]
+        }
+      ]
+    },
+    {
+      "table": "routes",
+      "row_count": 0,
+      "column_count": 0,
+      "columns": []
+    },
+    {
+      "table": "route_segments",
+      "row_count": 137315,
+      "column_count": 14,
+      "columns": [
+        {
+          "name": "from_settlement_id",
+          "type": "null",
+          "nullable": true,
+          "examples": []
+        },
+        {
+          "name": "geometry",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "[[-89.325056, 31.379986], [-89.328259, 31.376518], [-89.33187, 31.372458], [-89.",
+            "[[-89.344658, 31.359033], [-89.343743, 31.35998], [-89.343033, 31.360754], [-89.",
+            "[[-88.499777, 43.149011], [-88.497881, 43.148767], [-88.496043, 43.148549], [-88"
+          ]
+        },
+        {
+          "name": "kind",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "road",
+            "road",
+            "road"
+          ]
+        },
+        {
+          "name": "length_km",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "3.375982750187062",
+            "3.013791041262517",
+            "0.5372332385783841"
+          ]
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "nullable": true,
+          "examples": [
+            "State Hwy 42",
+            "State Hwy 42",
+            "State Hwy 67"
+          ]
+        },
+        {
+          "name": "road_class",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "secondary",
+            "secondary",
+            "secondary"
+          ]
+        },
+        {
+          "name": "road_safety",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "0.5983120086249064",
+            "0.5984931044793688",
+            "0.5997313833807107"
+          ]
+        },
+        {
+          "name": "segment_id",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "road-1104430639695",
+            "road-1104430641961",
+            "road-1108296451323"
+          ]
+        },
+        {
+          "name": "snap_from_km",
+          "type": "null",
+          "nullable": true,
+          "examples": []
+        },
+        {
+          "name": "snap_to_km",
+          "type": "null",
+          "nullable": true,
+          "examples": []
+        },
+        {
+          "name": "speed_kmh",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "32.0",
+            "32.0",
+            "32.0"
+          ]
+        },
+        {
+          "name": "to_settlement_id",
+          "type": "null",
+          "nullable": true,
+          "examples": []
+        },
+        {
+          "name": "travel_hours",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "0.10549946094334568",
+            "0.09418097003945365",
+            "0.016788538705574504"
+          ]
+        },
+        {
+          "name": "vertex_count",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "20",
+            "27",
+            "5"
+          ]
+        }
+      ]
+    },
+    {
+      "table": "state_boundaries",
+      "row_count": 51,
+      "column_count": 7,
+      "columns": [
+        {
+          "name": "abbreviation",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "NM",
+            "SD",
+            "CA"
+          ]
+        },
+        {
+          "name": "land_area_km2",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "314198.587197",
+            "196341.525171",
+            "403673.296401"
+          ]
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "New Mexico",
+            "South Dakota",
+            "California"
+          ]
+        },
+        {
+          "name": "ring_count",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "1",
+            "1",
+            "15"
+          ]
+        },
+        {
+          "name": "state_fips",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "35",
+            "46",
+            "06"
+          ]
+        },
+        {
+          "name": "vertex_count",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "720",
+            "1774",
+            "5114"
+          ]
+        },
+        {
+          "name": "water_area_km2",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "726.463919",
+            "3387.709166",
+            "20291.770234"
+          ]
+        }
+      ]
+    },
+    {
+      "table": "place_boundaries",
+      "row_count": 32037,
+      "column_count": 11,
+      "columns": [
+        {
+          "name": "land_area_km2",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "77.809546",
+            "0.797487",
+            "627.262641"
+          ]
+        },
+        {
+          "name": "latitude",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "37.94944439861232",
+            "29.516453396712393",
+            "32.1540661725001"
+          ]
+        },
+        {
+          "name": "longitude",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "-122.33897919990827",
+            "-81.14695412393866",
+            "-110.87910021281775"
+          ]
+        },
+        {
+          "name": "lsad_code",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "25",
+            "43",
+            "25"
+          ]
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "Richmond",
+            "Beverly Beach",
+            "Tucson"
+          ]
+        },
+        {
+          "name": "name_with_type",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "Richmond city",
+            "Beverly Beach town",
+            "Tucson city"
+          ]
+        },
+        {
+          "name": "place_fips",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "60620",
+            "06100",
+            "77000"
+          ]
+        },
+        {
+          "name": "settlement_key",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "06-60620",
+            "12-06100",
+            "04-77000"
+          ]
+        },
+        {
+          "name": "size_class",
+          "type": "string",
+          "nullable": true,
+          "examples": [
+            "town",
+            "village",
+            "city"
+          ]
+        },
+        {
+          "name": "state_fips",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "06",
+            "12",
+            "04"
+          ]
+        },
+        {
+          "name": "vertex_count",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "408",
+            "8",
+            "767"
+          ]
+        }
+      ]
+    },
+    {
+      "table": "ports",
+      "row_count": 81,
+      "column_count": 7,
+      "columns": [
+        {
+          "name": "latitude",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "37.913889",
+            "39.716667",
+            "42.241389"
+          ]
+        },
+        {
+          "name": "longitude",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "-122.359011",
+            "-75.519847",
+            "-70.968963"
+          ]
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "Richmond",
+            "Wilmington",
+            "Quincy"
+          ]
+        },
+        {
+          "name": "port_id",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "1730087743",
+            "1730087745",
+            "1730087747"
+          ]
+        },
+        {
+          "name": "scale_label",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "small",
+            "small",
+            "small"
+          ]
+        },
+        {
+          "name": "scale_rank",
+          "type": "integer",
+          "nullable": false,
+          "examples": [
+            "8",
+            "8",
+            "8"
+          ]
+        },
+        {
+          "name": "state_fips",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "06",
+            "10",
+            "25"
+          ]
+        }
+      ]
+    },
+    {
+      "table": "terrain_samples",
+      "row_count": 13181,
+      "column_count": 5,
+      "columns": [
+        {
+          "name": "elevation_m",
+          "type": "number",
+          "nullable": true,
+          "examples": [
+            "293.4310832032985",
+            "293.4824799401514",
+            "293.3046676679261"
+          ]
+        },
+        {
+          "name": "in_v1_region",
+          "type": "boolean",
+          "nullable": false,
+          "examples": [
+            "False",
+            "False",
+            "False"
+          ]
+        },
+        {
+          "name": "latitude",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "31.5663590028284",
+            "33.605193597851574",
+            "34.201731639621784"
+          ]
+        },
+        {
+          "name": "longitude",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "-85.25273547700169",
+            "-86.9791140829372",
+            "-87.17649496250675"
+          ]
+        },
+        {
+          "name": "settlement_id",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "01-00124",
+            "01-00460",
+            "01-00484"
+          ]
+        }
+      ]
+    },
+    {
+      "table": "regions",
+      "row_count": 1,
+      "column_count": 10,
+      "columns": [
+        {
+          "name": "bbox_east",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "-81.6"
+          ]
+        },
+        {
+          "name": "bbox_north",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "40.6"
+          ]
+        },
+        {
+          "name": "bbox_south",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "37.1"
+          ]
+        },
+        {
+          "name": "bbox_west",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "-85.3"
+          ]
+        },
+        {
+          "name": "decision_status",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "Chosen in services/world-data/config/world_data.toml because PHASES.md Phase 0 a"
+          ]
+        },
+        {
+          "name": "elevation_tiles",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "[\"N37W085\", \"N37W084\", \"N38W085\", \"N38W084\", \"N38W083\", \"N39W085\", \"N39W084\", \"N"
+          ]
+        },
+        {
+          "name": "region_name",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "Ohio River Valley (OH/KY metro cluster)"
+          ]
+        },
+        {
+          "name": "slice_name",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "Ohio + Kentucky (Great Lakes Union / Southern Compact)"
+          ]
+        },
+        {
+          "name": "slice_states",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "[\"Ohio\", \"Kentucky\"]"
+          ]
+        },
+        {
+          "name": "vertical_exaggeration",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "1.0"
+          ]
+        }
+      ]
+    }
+  ],
+  "provenance": {
+    "run_diagnostics_count": 94
+  }
+}

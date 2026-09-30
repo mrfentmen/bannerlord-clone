@@ -1,0 +1,7 @@
+serving /Users/dtaxk/Documents/mount and blade clone/labs/crowd-poc on http://127.0.0.1:8127/
+
+=== IMPOSTOR ATLAS ===
+  2048x2048, 8 angles x 8 frames, 256px cells, clip "walk"
+  non-empty cells: 64/64
+  mean cell coverage: 11.7%
+  wrote assets/processed/impostor_atlas.png (624.6 KB)

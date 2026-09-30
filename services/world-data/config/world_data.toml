@@ -1,0 +1,432 @@
+# world_data.toml
+# ---------------------------------------------------------------------------
+# Single source of truth for every constant in the Phase 0 world data pipeline.
+# CONSTITUTION.md section 1.2: no magic numbers in logic. Every number the
+# pipeline uses is declared here with a comment saying what it does and what a
+# reasonable range is.
+#
+# This file is loaded by src/worlddata/config.py. Editing it changes behaviour.
+# Values that are DERIVED FROM DATA (classification thresholds, rating
+# breakpoints) are NOT written here - they are computed at import time and
+# written to dist/classification_report.md together with the distribution that
+# produced them, so the derivation is auditable. See docs/CLASSIFICATION.md.
+# ---------------------------------------------------------------------------
+
+# --- Census year ------------------------------------------------------------
+# Which real population vintage every population figure is taken from. Declared
+# before the first table header so it is a top-level key.
+# ERA.md section 5 says "use the census for the chosen start year, not current
+# numbers", but the era decision is still OPEN (CHANGELOG.md, Decisions table).
+# 2020 is used as the default because:
+#   * it is the most recent complete decennial census with authoritative
+#     state AND place counts (the 2020 Census is the first with that coverage),
+#   * every place figure in this pipeline is therefore a *published census
+#     figure*, which is what the Phase 0 spot-check is measured against.
+# Valid range for the decennial series: 1940..2020, in steps of 10.
+# Changing this requires a matching Census file in datasets.py to exist.
+census_year = 2020
+# Census Bureau vintage of the *sub-county population estimates* file used to
+# carry place detail. This is a post-census vintage; it still publishes the
+# 2020 Census count for every place, which is the figure we import.
+estimates_vintage = 2023
+
+[meta]
+# Free-text label for this config revision, recorded in the data manifest.
+config_version = "1.0.0"
+# Who wrote it. Recorded in the manifest so a bad export can be traced.
+config_author = "agent-1-world-data"
+
+[paths]
+# Directory holding downloaded source files. Git-ignored; regenerate, never commit.
+# These are inside the repo (CONSTITUTION: never write outside the repo).
+raw_dir = "data/raw"
+# Directory holding decoded/intermediate artefacts between stages.
+cache_dir = "data/cache"
+# Directory holding the portable exports that Agents 2 and 3 consume.
+export_dir = "dist"
+# Directory holding the written schema, manifest, and reports.
+report_dir = "docs"
+
+
+# --- Settlement classification ----------------------------------------------
+# NOT a hand-picked threshold. This declares the *method*; the resulting
+# numbers are computed and reported. See [classification] below.
+[classification]
+# Minimum population for a place to be imported as a settlement at all.
+# Below this, a place is treated as countryside with no settlement entity.
+# Census publishes ~31,000 places in the "all places" universe; 500 keeps
+# cities, towns and meaningful villages while dropping hamlets that would only
+# add map clutter and simulation cost. Reasonable range: 100..5000.
+min_population = 500
+# Number of classes. FACTIONS.md and SPEC.md section 2 name exactly three:
+# city, town, village. Changing this changes the whole scheme.
+class_count = 3
+# Human-readable class names, listed COARSEST FIRST, so ["city", "town",
+# "village"] means city is the largest band. The classifier assigns them in
+# ascending population order internally. Must match class_count.
+class_names = ["city", "town", "village"]
+# How the thresholds are derived. All three methods read the real distribution
+# of published settlement populations; none of them contains a round number.
+#
+# "density_modes" (default)
+#     Build a histogram of log10 population at bin_width_log10, smooth it, and
+#     cut at the local minima that separate local maxima - the one-dimensional
+#     density-mode split. This asks the data directly: are there natural groups,
+#     and where do they separate? When the smoothed density has fewer interior
+#     minima than classes require, that fact is reported in the classification
+#     report and quantile cuts are used instead, with the quantiles stated. A
+#     method that quietly invents structure the data does not have is worse than
+#     one that says so.
+# "largest_gap"
+#     Cut at the widest gaps between consecutive sorted log10 values.
+# "jenks_1d"
+#     One-dimensional Jenks natural breaks, minimising within-class variance.
+#
+# Known finding from the real data, recorded here because it drove the default:
+# "largest_gap" and "jenks_1d" both place their cuts at Los Angeles and New York,
+# because settlement populations are close to lognormal and the two biggest gaps
+# in the log distribution are the jumps to those two places. That produces
+# classes of "up to 3.8 million" and "up to 8.3 million", which is not a useful
+# city/town/village scheme. "density_modes" is the default because it reports
+# whether real structure exists instead of manufacturing thresholds at outliers.
+method = "density_modes"
+# Histogram bin width for "density_modes", in log10 population units.
+# 0.1 is a factor of about 1.26, finer than the density structure of this
+# distribution, so a mode is not missed for being narrow. Reasonable: 0.05..0.5
+bin_width_log10 = 0.1
+# Passes of a three-point moving average applied to the histogram before minima
+# are sought, so a single empty bin does not create a fake boundary.
+# Reasonable range: 1..5
+smoothing_passes = 2
+# Quantiles used for the fallback when the smoothed density has too few interior
+# minima. Chosen to put roughly 90 percent of settlements in the smallest class,
+# which matches the observed shape: the vast majority of US places are small.
+fallback_percentiles = [90, 99]
+# Emit a histogram + percentile table of the real population distribution into
+# the classification report so the threshold choice can be audited.
+emit_distribution_report = true
+# The Census estimates file states each place twice: once as a place total, and
+# once split by county. Those two readings must agree. Places that span counties
+# legitimately differ because the pipeline filters the "(pt.)" and "(balance)"
+# fragments, so a residual difference below this fraction is reported rather than
+# treated as a failure. Anything above it is a genuine misread and stops the run.
+# Reasonable range: 0.0..0.01
+fragment_mismatch_tolerance = 0.001
+
+# --- Cross-source verification ----------------------------------------------
+# The pipeline never claims a figure is right because one source said so. Each
+# number that has a second independent source is checked against it.
+[verification]
+# Tolerance for the BEA cross-check that compares SAGDP1 current-dollar GDP
+# against the SAGDP2 all-industry total for every state. Two BEA tables that
+# describe the same quantity should agree to within BEA's own rounding and
+# revision practice. Reasonable range: 0.0..0.01
+bea_gdp_tolerance = 0.001
+# The Census 1:500k versus Natural Earth 1:10m boundary check is geometric, not
+# an area or bounding-box equality test: for each state the interior point of
+# the Census polygon must fall inside the Natural Earth polygon. Bounding-box
+# differences are measured and reported but not enforced, because the two
+# publishers generalise coastlines very differently and assign shared waters
+# such as the Great Lakes differently.
+boundary_check = "interior_point_containment"
+# Smallest counter-clockwise ring treated as a real hole in a polygon, in square
+# degrees. Reading the 2023 Census 500k place file showed 32,606 of 32,608 places
+# are internally consistent, and the two exceptions each carry an orphan
+# counter-clockwise ring of about 5e-8 square degrees (a few hundred square
+# metres) that the 500k generalisation produced. The smallest genuine inland
+# water body inside a US place is orders of magnitude larger - one square
+# kilometre is about 8e-5 square degrees - so this threshold separates real holes
+# from generalisation slivers with a wide margin, and the exceptions are counted
+# and reported rather than silently absorbed. Reasonable range: 1e-8..1e-4
+minimum_hole_area_deg2 = 0.000001
+# Tolerance for comparing a pipeline settlement population against an
+# independently published figure. The two figures are different Census measures
+# (the estimates base versus the decennial count), so they are expected to differ
+# slightly; this bounds how much before the spot check is called a disagreement.
+# Reasonable range: 0.001..0.05
+settlement_population_tolerance = 0.01
+# How many settlements PHASES.md Phase 0 requires to be verified against real
+# published figures. The exit criterion says "at least 10"; the pipeline produces
+# more than this so a single unreadable reference cannot drop it below the bar.
+minimum_spot_checks = 10
+# Timeout for each spot-check reference request. This is a small lookup against a
+# public JSON endpoint, not a bulk download, so it gets its own short budget:
+# a hanging endpoint should fail one row, not stall the pipeline.
+# Reasonable range: 5..60
+spot_check_timeout_seconds = 20.0
+# How many settlements to check per side. Six sides times this, plus a few
+# largest nationally, comfortably exceeds minimum_spot_checks and covers every
+# side. Reasonable range: 1..5
+spot_checks_per_section = 6
+
+# --- Settlement seed values -------------------------------------------------
+# CAUSE_EFFECT.md section 2 lists the per-town fields the simulation reads.
+# Only fields that can be seeded from real data plus a documented constant are
+# seeded here. Everything else starts at its neutral value in
+# src/worlddata/seed.py. These are NOT measurements - they are per-capita
+# conversion factors, and each carries its source and range.
+[seed]
+# Food demand: person-days of food per person per in-game day.
+# Anchored on a modern adult's ~2,000 kcal/day intake against a ~2,300 kcal
+# typical USDA food supply, i.e. a mild surplus at subsistence farming.
+# Reasonable range: 1.5..3.0
+food_person_days_per_day = 2.0
+# Share of a working-age person who is counted as a "worker" at start.
+# Blended labour-force participation across agriculture, manufacturing, and
+# services, net of the unemployed. Reasonable range: 0.35..0.65
+worker_share_of_population = 0.47
+# Workers per unit of cropland needed to farm it at era-1 technology, used to
+# convert state cropland into a per-settlement food production term. A US farm
+# averages roughly 1 worker per ~150 ha of cropland at modern yields
+# (USDA NASS: ~1.95 M farms / ~155 M ha cropland). Reasonable range: 50..400
+hectares_per_worker = 155.0
+# Baseline sanitation for a settlement with no municipal sewerage, on 0..1,
+# where 1 is universal sewerage and safe drinking water. The World Bank /
+# WHO/UNICEF JMP "basic sanitation" service level is the anchor.
+# Reasonable range: 0.25..0.60
+sanitation_baseline = 0.45
+# Sanitation bonus per 1,000 population, reflecting that larger cities have
+# more infrastructure per head. Chosen so a 500k city sits ~0.25 above the
+# baseline and a 2,000-person village ~0.02 above. Reasonable range: 0.0..1.0
+sanitation_per_thousand_population = 0.25
+# Unrest every settlement starts at. The simulation grows it from conditions;
+# the pipeline must not pre-load the outcome. Reasonable range: 0.0..0.15
+unrest_initial = 0.05
+# Crowding at start, derived from real population density over land area.
+crowding_reference_people_per_km2 = 150.0
+# Treasury in currency units at start. Deliberately zero: money is earned, not
+# granted. Held here so the constant is not hidden in logic.
+treasury_initial = 0.0
+# Seasoning / preserved food carried at start, in person-days per person.
+# Era 1 stores poorly, so this is small. Reasonable range: 0..90
+food_stock_person_days_per_person = 30.0
+
+# --- Travel and routes ------------------------------------------------------
+# Speeds are in the game's era-1 band (ERA.md tier 1: 1950s), in km per
+# in-game hour. Chosen from real era-appropriate road speeds, not modern
+# motorway speeds. Reasonable ranges are given per class.
+[travel]
+# Truck/party speed on a primary road, km per in-game hour. 1950s US two-lane
+# highway design speed was 65-70 mph; a horse-drawn wagon or early truck
+# convoy is far slower. 45..70
+kmh_primary_road = 55.0
+# Speed on a secondary/other road, km per in-game hour. Reasonable: 25..45
+kmh_secondary_road = 32.0
+# Speed off-road across open country, km per in-game hour. Reasonable: 10..25
+kmh_offroad = 16.0
+# Speed of a cargo train, km per in-game hour. Rail lines are cargo-only in
+# V1. Reasonable: 30..70
+kmh_rail = 40.0
+# Road class to speed mapping.
+#
+# Reading the real TIGER/Line PRIMARYROADS file showed that every one of its
+# 17,458 rows carries MTFCC "S1100" - the layer holds primary roads only, so the
+# MTFCC code cannot distinguish road classes here. The RTTYP attribute does, and
+# is what this table keys on:
+#   I = Interstate, M = US route, S = state route, U = unknown or ramp,
+#   O = other, C = connector or ramp.
+# Speeds are the era-1 band from ERA.md section 3, not modern motorway speeds.
+# Anything not listed falls back to kmh_secondary_road, which is the
+# conservative choice: slower than a highway, so a misclassified road never
+# makes a march unrealistically fast.
+road_class_mtfcc = { I = "primary", M = "primary", S = "secondary", U = "secondary", O = "secondary", C = "secondary" }
+# A party/caravan will not path over a route segment longer than this without
+# splitting it; segments above this are flagged in the export for Agents 2/3.
+# Reasonable: 200..2000
+segment_warning_km = 800.0
+# How far from a settlement's centre a road endpoint may be and still be
+# treated as reaching that settlement. A road node rarely lands exactly on a
+# town, and an unmatched endpoint would otherwise make the town unreachable.
+# Chosen to be a few times the size of a large town's footprint while staying
+# far below the distance between neighbouring towns in the sparsely settled
+# West. Reasonable range: 5..50
+snap_radius_km = 20.0
+
+# --- Road safety ------------------------------------------------------------
+# CAUSE_EFFECT.md section 3: the Security system writes road_safety. The
+# pipeline seeds an initial value per route segment from real attributes only.
+#
+# What is deliberately NOT here: a traffic-volume term. The Census TIGER/Line
+# road file carries no AADT or traffic-count field, and no other real dataset
+# with per-segment traffic was available. Inventing one would be exactly the
+# fabricated number CONSTITUTION.md section 1.1 forbids. Safety is therefore
+# seeded from road class and length alone - a higher-class road is signed,
+# patrolled and lit better - and the Security system moves it from there.
+[road_safety]
+# Starting road_safety on an unsignalled, unlit, low-class segment.
+# Reasonable range: 0.30..0.80
+baseline = 0.60
+# Addition for a primary-class road (Interstate or US route) over a secondary one.
+# Reasonable range: 0.05..0.30
+primary_class_bonus = 0.15
+# Penalty per 100 km of segment length: a long isolated stretch has fewer places
+# to intervene. Reasonable range: 0.0..0.20
+per_100km_penalty = 0.05
+# Penalty for a rail segment relative to a road of the same length: unlit
+# crossings and no help nearby. Reasonable range: 0.0..0.15
+rail_penalty = 0.05
+# Clamp so the seeded value stays inside the 0..1 range CAUSE_EFFECT.md
+# section 2 declares. Reasonable: exactly 1.0
+clamp_max = 1.0
+
+# --- Mining commodity grouping ----------------------------------------------
+# USGS MRDS records each mine feature with one to three free-text commodity
+# strings. These keyword lists group those real strings into the four classes the
+# game cares about. They live in config rather than in logic because they are
+# data, not code, and because matching is fuzzy by nature: matching is done on
+# whole words and the actual matches are counted and reported, so an unmatched
+# commodity is visible rather than quietly falling into "other".
+[mining]
+# dev_stat values that mean the site actually produced, as opposed to being a
+# prospect, an occurrence, or a plant. USGS publishes these verbatim.
+producing_status = ["Producer", "Past Producer"]
+# dev_stat values that are mineral potential rather than production. Counted
+# separately rather than thrown away, because a state with many unexploited
+# deposits is not the same as a state with many working mines.
+prospect_status = ["Prospect", "Occurrence", "Unknown", "Plant"]
+# Keywords that mark a precious-metal commodity.
+gold_keywords = ["Gold", "Silver", "Platinum", "Palladium"]
+# Keywords that mark a non-precious metallic commodity.
+metal_keywords = [
+    "Copper", "Iron", "Lead", "Zinc", "Manganese", "Aluminum", "Aluminium", "Nickel",
+    "Cobalt", "Chromium", "Tungsten", "Titanium", "Molybdenum", "Antimony", "Bauxite",
+    "Rare earth", "Beryllium", "Cadmium", "Indium", "Tin", "Vanadium", "Zirconium",
+    "Tantalum", "Lithium", "Rhenium", "Tellurium", "Selenium", "Bismuth", "Mercury",
+]
+# Keywords that mark a fuel commodity. Excluded from the metal dimension, because
+# FACTIONS.md treats gold and metal as mining wealth and fuel as a separate thing.
+fuel_keywords = ["Coal", "Petroleum", "Oil", "Natural gas", "Gas", "Oil shale", "Bituminous", "Lignite", "Peat"]
+# Keywords that mark construction aggregate or industrial mineral. Counted and
+# reported, never used as metal.
+aggregate_keywords = [
+    "Sand and Gravel", "Stone", "Limestone", "Clay", "Shale", "Silica", "Quartz",
+    "Dimension", "Crushed/Broken", "Gypsum", "Salt", "Sulfur", "Sulphur", "Phosphate",
+    "Potash", "Barite", "Barium", "Fluorspar", "Fluorine", "Diatomite", "Peat", "Slag",
+]
+
+# --- State profile and section ratings --------------------------------------
+# FACTIONS.md section 3 ratings are 1 (weak) to 5 (strong) and are explicitly
+# to be COMPUTED from real data. These config values define how.
+[ratings]
+# Number of rating bands. FACTIONS.md section 3 uses 1..5.
+max_rating = 5
+# How the 5 rating bands are placed. This is the part that must not be forced.
+# For each rating dimension the pipeline computes each section's share of the
+# NATIONAL total, then places band edges at percentiles of the distribution of
+# the 51 individual states' shares of that national total. So band edges come
+# from the real data, and a section can legitimately score all-1s or all-5s.
+# Reasonable range: 20..40 (quintiles; other values are allowed and will be
+# reported as-is).
+state_share_percentiles = [20, 40, 60, 80]
+# A rating is computed from this many real inputs. If an input is missing for a
+# state, the pipeline records the gap and the rating is reported as incomplete
+# rather than silently imputed. See docs/DATA_MANIFEST.md.
+# Require this share of member states to have the input for a rating to count.
+# Reasonable range: 0.80..1.0
+min_state_coverage = 0.80
+# Standardisation weights for each rating dimension. Each rating is a weighted
+# mix of standardised (z-scored across the 6 sections) sub-scores. Weights are
+# normalised at load time, so they only express emphasis.
+# money  : economic output + port throughput   (FACTIONS.md: ports and trade)
+# gold   : precious-metal mining signal
+# food   : cropland + agricultural output
+# metal  : non-fuel mining output + mine-feature density
+# population : resident population
+[ratings.weights]
+money     = { gdp = 0.70, ports = 0.30 }
+gold      = { precious_gva = 0.65, gold_mine_features = 0.35 }
+food      = { cropland = 0.55, ag_gva = 0.45 }
+metal     = { nonfuel_mining_gva = 0.60, metal_mine_features = 0.40 }
+population = { population = 1.00 }
+
+
+# --- Boundaries and elevation ----------------------------------------------
+[terrain]
+# Vertical exaggeration applied by the client when rendering the DEM. The DEM
+# itself is untouched real data; this only affects display and is reported so
+# Agents 3 and 4 can both read the same number. Reasonable range: 1.0..3.0
+vertical_exaggeration = 1.0
+# How many DEM pixels to skip between exported mesh points. SRTM 1 arc-second is
+# about 30 m, so a step of 10 gives a 300 m mesh: enough for a campaign map, and
+# small enough that Agent 3 can still show terrain shape. Full resolution stays
+# available in the DEM and as per-settlement elevation_m. Reasonable range: 1..40
+mesh_sample_step_pixels = 10
+# No-data value in SRTM .hgt tiles (void fill). SRTM C uses -32768. Files are
+# rejected if more than this share of cells are void.
+# Reasonable range: 0.001..0.05
+max_void_fraction = 0.02
+
+# --- Section membership -----------------------------------------------------
+# Transcribed verbatim from FACTIONS.md sections 4.1-4.6. This is design data,
+# not measured data: FACTIONS.md decides which states belong to which side.
+# The *ratings* those sides earn are computed from real data and never listed
+# here - only the membership is.
+# Membership is stored as real state NAMES, not as hand-typed FIPS codes.
+# The pipeline resolves each name against the name/FIPS pairs published in the
+# Census Bureau state file, and a name it cannot resolve is a hard error. That
+# way no numeric identifier in this repository was typed by hand - which is the
+# point of CONSTITUTION.md section 1.1, and it also caught a real mistake:
+# an earlier draft of this file used alphabetical positions as if they were
+# FIPS codes and would have put California in the Mountain Alliance.
+[sections]
+pacific_compact = ["California", "Oregon", "Washington", "Hawaii", "Alaska"]
+mountain_alliance = ["Montana", "Idaho", "Wyoming", "Utah", "Colorado", "Nevada", "Arizona", "New Mexico"]
+great_lakes_union = ["North Dakota", "South Dakota", "Nebraska", "Kansas", "Iowa", "Minnesota", "Wisconsin", "Michigan", "Illinois", "Indiana", "Ohio", "Missouri"]
+southern_compact = ["Kentucky", "Tennessee", "Arkansas", "Louisiana", "Mississippi", "Alabama", "Georgia", "Florida", "South Carolina", "North Carolina"]
+lone_star_frontier = ["Texas", "Oklahoma"]
+atlantic_corridor = ["Maine", "New Hampshire", "Vermont", "Massachusetts", "Rhode Island", "Connecticut", "New York", "New Jersey", "Pennsylvania", "Delaware", "Maryland", "District of Columbia", "Virginia", "West Virginia"]
+# The design target ratings from FACTIONS.md section 3, kept ONLY so the
+# pipeline can report agreement or disagreement. They are never used as an
+# input to any computed value.
+[section_targets]
+pacific_compact = { money = 5, gold = 3, food = 2, metal = 2, population = 4 }
+mountain_alliance = { money = 2, gold = 5, food = 2, metal = 5, population = 1 }
+great_lakes_union = { money = 3, gold = 1, food = 5, metal = 4, population = 5 }
+southern_compact = { money = 3, gold = 1, food = 4, metal = 3, population = 4 }
+lone_star_frontier = { money = 4, gold = 2, food = 3, metal = 4, population = 3 }
+atlantic_corridor = { money = 5, gold = 4, food = 1, metal = 2, population = 5 }
+
+# --- V1 region and first playable slice -------------------------------------
+# PHASES.md Phase 0 requires choosing a V1 region and a playable slice. Both
+# decisions are still OPEN in CHANGELOG.md (Decisions table) and this agent may
+# not edit design docs, so the choice is made here, in code, and reported.
+# Region: a metro area plus the surrounding towns and countryside, defined by
+# a real bounding box so every downstream download is bounded and repeatable.
+# Slice: two adjacent states belonging to two DIFFERENT sections, so the
+# playable slice exercises more than one side.
+# bbox is [west, south, east, north] in WGS84 decimal degrees.
+[v1]
+region_name = "Ohio River Valley (OH/KY metro cluster)"
+region_bbox = [-85.30, 37.10, -81.60, 40.60]
+slice_name = "Ohio + Kentucky (Great Lakes Union / Southern Compact)"
+slice_states = ["Ohio", "Kentucky"]
+# Elevation tiles are downloaded only for this region. Countrywide SRTM is
+# ~1,000 tiles of ~7 MB each, which is not a Phase 0 cost. Agents 3 and 4 can
+# widen this list in this file; nothing else needs to change.
+elevation_tiles = ["N37W085", "N37W084", "N38W085", "N38W084", "N38W083", "N39W085", "N39W084", "N39W083", "N40W084", "N40W083", "N36W085", "N36W084"]
+
+# --- Network behaviour ------------------------------------------------------
+[network]
+# Seconds to wait between retries on a failed HTTP request. Each fetch is
+# retried this many times, and the final failure is loud (CONSTITUTION 1.3:
+# no silent fallbacks, no empty catch blocks).
+# Reasonable range: 2..10
+retry_backoff_seconds = 3.0
+# Total attempts per URL, including the first.
+max_attempts = 4
+# Per-request timeout, seconds. Bulk files here are tens of MB.
+# Reasonable range: 30..300
+timeout_seconds = 180.0
+# User-Agent sent to every host. Census and ERS return 403 to the default
+# curl/python agent, so a real one is required.
+user_agent = "world-data-pipeline/1.0 (+CONSTITUTION.md 1.1 real data only)"
+# Bytes. Downloads larger than this are refused rather than filling the disk.
+# Largest expected source today is ~37 MB. Reasonable range: 50..500
+max_download_bytes = 524288000
+# Verify SHA-256 of a dataset when a digest is published with it. When the
+# upstream digest cannot be obtained, the pipeline records the digest it
+# computed in the manifest and reports the gap - it never silently skips.
+verify_checksums = true
+# Files already present in raw_dir with a matching recorded digest are not
+# re-downloaded, which makes re-runs cheap and reproducible.
+reuse_downloads = true

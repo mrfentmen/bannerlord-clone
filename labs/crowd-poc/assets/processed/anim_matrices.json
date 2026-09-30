@@ -1,0 +1,54 @@
+{
+  "width": 100,
+  "height": 135,
+  "joints": [
+    "root",
+    "pelvis",
+    "spine_01",
+    "spine_02",
+    "spine_03",
+    "neck_01",
+    "Head",
+    "clavicle_l",
+    "upperarm_l",
+    "lowerarm_l",
+    "hand_l",
+    "clavicle_r",
+    "upperarm_r",
+    "lowerarm_r",
+    "hand_r",
+    "thigh_l",
+    "calf_l",
+    "foot_l",
+    "ball_l",
+    "ball_leaf_l",
+    "thigh_r",
+    "calf_r",
+    "foot_r",
+    "ball_r",
+    "ball_leaf_r"
+  ],
+  "fps": 30,
+  "clips": {
+    "idle": {
+      "row_start": 0,
+      "row_count": 75,
+      "duration_s": 2.5,
+      "loop": true,
+      "source": "Idle_No_Loop"
+    },
+    "walk": {
+      "row_start": 75,
+      "row_count": 60,
+      "duration_s": 2.0,
+      "loop": true,
+      "source": "Walk_Carry_Loop"
+    }
+  },
+  "max_deform": 2.4430187103316507,
+  "similarity": {
+    "k": 0.9892358047082037,
+    "ty": 0.009407305675902533
+  },
+  "format": "RGBA32F, row-major 4x4 per joint, width = 4 * jointCount"
+}

@@ -1,0 +1,504 @@
+{
+  "name": "Northern Colorado Front Range",
+  "bbox": {
+    "south": 39.6,
+    "west": -105.6,
+    "north": 40.1,
+    "east": -104.8
+  },
+  "elevation": {
+    "encoding": "terrarium",
+    "formula": "elevation_metres = R * 256 + G + B / 256 - 32768",
+    "zoom": 12,
+    "tileSize": 256,
+    "tiles": [
+      {
+        "z": 12,
+        "x": 846,
+        "y": 1549,
+        "path": "elevation/12/846/1549.png"
+      },
+      {
+        "z": 12,
+        "x": 846,
+        "y": 1550,
+        "path": "elevation/12/846/1550.png"
+      },
+      {
+        "z": 12,
+        "x": 846,
+        "y": 1551,
+        "path": "elevation/12/846/1551.png"
+      },
+      {
+        "z": 12,
+        "x": 846,
+        "y": 1552,
+        "path": "elevation/12/846/1552.png"
+      },
+      {
+        "z": 12,
+        "x": 846,
+        "y": 1553,
+        "path": "elevation/12/846/1553.png"
+      },
+      {
+        "z": 12,
+        "x": 846,
+        "y": 1554,
+        "path": "elevation/12/846/1554.png"
+      },
+      {
+        "z": 12,
+        "x": 846,
+        "y": 1555,
+        "path": "elevation/12/846/1555.png"
+      },
+      {
+        "z": 12,
+        "x": 846,
+        "y": 1556,
+        "path": "elevation/12/846/1556.png"
+      },
+      {
+        "z": 12,
+        "x": 847,
+        "y": 1549,
+        "path": "elevation/12/847/1549.png"
+      },
+      {
+        "z": 12,
+        "x": 847,
+        "y": 1550,
+        "path": "elevation/12/847/1550.png"
+      },
+      {
+        "z": 12,
+        "x": 847,
+        "y": 1551,
+        "path": "elevation/12/847/1551.png"
+      },
+      {
+        "z": 12,
+        "x": 847,
+        "y": 1552,
+        "path": "elevation/12/847/1552.png"
+      },
+      {
+        "z": 12,
+        "x": 847,
+        "y": 1553,
+        "path": "elevation/12/847/1553.png"
+      },
+      {
+        "z": 12,
+        "x": 847,
+        "y": 1554,
+        "path": "elevation/12/847/1554.png"
+      },
+      {
+        "z": 12,
+        "x": 847,
+        "y": 1555,
+        "path": "elevation/12/847/1555.png"
+      },
+      {
+        "z": 12,
+        "x": 847,
+        "y": 1556,
+        "path": "elevation/12/847/1556.png"
+      },
+      {
+        "z": 12,
+        "x": 848,
+        "y": 1549,
+        "path": "elevation/12/848/1549.png"
+      },
+      {
+        "z": 12,
+        "x": 848,
+        "y": 1550,
+        "path": "elevation/12/848/1550.png"
+      },
+      {
+        "z": 12,
+        "x": 848,
+        "y": 1551,
+        "path": "elevation/12/848/1551.png"
+      },
+      {
+        "z": 12,
+        "x": 848,
+        "y": 1552,
+        "path": "elevation/12/848/1552.png"
+      },
+      {
+        "z": 12,
+        "x": 848,
+        "y": 1553,
+        "path": "elevation/12/848/1553.png"
+      },
+      {
+        "z": 12,
+        "x": 848,
+        "y": 1554,
+        "path": "elevation/12/848/1554.png"
+      },
+      {
+        "z": 12,
+        "x": 848,
+        "y": 1555,
+        "path": "elevation/12/848/1555.png"
+      },
+      {
+        "z": 12,
+        "x": 848,
+        "y": 1556,
+        "path": "elevation/12/848/1556.png"
+      },
+      {
+        "z": 12,
+        "x": 849,
+        "y": 1549,
+        "path": "elevation/12/849/1549.png"
+      },
+      {
+        "z": 12,
+        "x": 849,
+        "y": 1550,
+        "path": "elevation/12/849/1550.png"
+      },
+      {
+        "z": 12,
+        "x": 849,
+        "y": 1551,
+        "path": "elevation/12/849/1551.png"
+      },
+      {
+        "z": 12,
+        "x": 849,
+        "y": 1552,
+        "path": "elevation/12/849/1552.png"
+      },
+      {
+        "z": 12,
+        "x": 849,
+        "y": 1553,
+        "path": "elevation/12/849/1553.png"
+      },
+      {
+        "z": 12,
+        "x": 849,
+        "y": 1554,
+        "path": "elevation/12/849/1554.png"
+      },
+      {
+        "z": 12,
+        "x": 849,
+        "y": 1555,
+        "path": "elevation/12/849/1555.png"
+      },
+      {
+        "z": 12,
+        "x": 849,
+        "y": 1556,
+        "path": "elevation/12/849/1556.png"
+      },
+      {
+        "z": 12,
+        "x": 850,
+        "y": 1549,
+        "path": "elevation/12/850/1549.png"
+      },
+      {
+        "z": 12,
+        "x": 850,
+        "y": 1550,
+        "path": "elevation/12/850/1550.png"
+      },
+      {
+        "z": 12,
+        "x": 850,
+        "y": 1551,
+        "path": "elevation/12/850/1551.png"
+      },
+      {
+        "z": 12,
+        "x": 850,
+        "y": 1552,
+        "path": "elevation/12/850/1552.png"
+      },
+      {
+        "z": 12,
+        "x": 850,
+        "y": 1553,
+        "path": "elevation/12/850/1553.png"
+      },
+      {
+        "z": 12,
+        "x": 850,
+        "y": 1554,
+        "path": "elevation/12/850/1554.png"
+      },
+      {
+        "z": 12,
+        "x": 850,
+        "y": 1555,
+        "path": "elevation/12/850/1555.png"
+      },
+      {
+        "z": 12,
+        "x": 850,
+        "y": 1556,
+        "path": "elevation/12/850/1556.png"
+      },
+      {
+        "z": 12,
+        "x": 851,
+        "y": 1549,
+        "path": "elevation/12/851/1549.png"
+      },
+      {
+        "z": 12,
+        "x": 851,
+        "y": 1550,
+        "path": "elevation/12/851/1550.png"
+      },
+      {
+        "z": 12,
+        "x": 851,
+        "y": 1551,
+        "path": "elevation/12/851/1551.png"
+      },
+      {
+        "z": 12,
+        "x": 851,
+        "y": 1552,
+        "path": "elevation/12/851/1552.png"
+      },
+      {
+        "z": 12,
+        "x": 851,
+        "y": 1553,
+        "path": "elevation/12/851/1553.png"
+      },
+      {
+        "z": 12,
+        "x": 851,
+        "y": 1554,
+        "path": "elevation/12/851/1554.png"
+      },
+      {
+        "z": 12,
+        "x": 851,
+        "y": 1555,
+        "path": "elevation/12/851/1555.png"
+      },
+      {
+        "z": 12,
+        "x": 851,
+        "y": 1556,
+        "path": "elevation/12/851/1556.png"
+      },
+      {
+        "z": 12,
+        "x": 852,
+        "y": 1549,
+        "path": "elevation/12/852/1549.png"
+      },
+      {
+        "z": 12,
+        "x": 852,
+        "y": 1550,
+        "path": "elevation/12/852/1550.png"
+      },
+      {
+        "z": 12,
+        "x": 852,
+        "y": 1551,
+        "path": "elevation/12/852/1551.png"
+      },
+      {
+        "z": 12,
+        "x": 852,
+        "y": 1552,
+        "path": "elevation/12/852/1552.png"
+      },
+      {
+        "z": 12,
+        "x": 852,
+        "y": 1553,
+        "path": "elevation/12/852/1553.png"
+      },
+      {
+        "z": 12,
+        "x": 852,
+        "y": 1554,
+        "path": "elevation/12/852/1554.png"
+      },
+      {
+        "z": 12,
+        "x": 852,
+        "y": 1555,
+        "path": "elevation/12/852/1555.png"
+      },
+      {
+        "z": 12,
+        "x": 852,
+        "y": 1556,
+        "path": "elevation/12/852/1556.png"
+      },
+      {
+        "z": 12,
+        "x": 853,
+        "y": 1549,
+        "path": "elevation/12/853/1549.png"
+      },
+      {
+        "z": 12,
+        "x": 853,
+        "y": 1550,
+        "path": "elevation/12/853/1550.png"
+      },
+      {
+        "z": 12,
+        "x": 853,
+        "y": 1551,
+        "path": "elevation/12/853/1551.png"
+      },
+      {
+        "z": 12,
+        "x": 853,
+        "y": 1552,
+        "path": "elevation/12/853/1552.png"
+      },
+      {
+        "z": 12,
+        "x": 853,
+        "y": 1553,
+        "path": "elevation/12/853/1553.png"
+      },
+      {
+        "z": 12,
+        "x": 853,
+        "y": 1554,
+        "path": "elevation/12/853/1554.png"
+      },
+      {
+        "z": 12,
+        "x": 853,
+        "y": 1555,
+        "path": "elevation/12/853/1555.png"
+      },
+      {
+        "z": 12,
+        "x": 853,
+        "y": 1556,
+        "path": "elevation/12/853/1556.png"
+      },
+      {
+        "z": 12,
+        "x": 854,
+        "y": 1549,
+        "path": "elevation/12/854/1549.png"
+      },
+      {
+        "z": 12,
+        "x": 854,
+        "y": 1550,
+        "path": "elevation/12/854/1550.png"
+      },
+      {
+        "z": 12,
+        "x": 854,
+        "y": 1551,
+        "path": "elevation/12/854/1551.png"
+      },
+      {
+        "z": 12,
+        "x": 854,
+        "y": 1552,
+        "path": "elevation/12/854/1552.png"
+      },
+      {
+        "z": 12,
+        "x": 854,
+        "y": 1553,
+        "path": "elevation/12/854/1553.png"
+      },
+      {
+        "z": 12,
+        "x": 854,
+        "y": 1554,
+        "path": "elevation/12/854/1554.png"
+      },
+      {
+        "z": 12,
+        "x": 854,
+        "y": 1555,
+        "path": "elevation/12/854/1555.png"
+      },
+      {
+        "z": 12,
+        "x": 854,
+        "y": 1556,
+        "path": "elevation/12/854/1556.png"
+      },
+      {
+        "z": 12,
+        "x": 855,
+        "y": 1549,
+        "path": "elevation/12/855/1549.png"
+      },
+      {
+        "z": 12,
+        "x": 855,
+        "y": 1550,
+        "path": "elevation/12/855/1550.png"
+      },
+      {
+        "z": 12,
+        "x": 855,
+        "y": 1551,
+        "path": "elevation/12/855/1551.png"
+      },
+      {
+        "z": 12,
+        "x": 855,
+        "y": 1552,
+        "path": "elevation/12/855/1552.png"
+      },
+      {
+        "z": 12,
+        "x": 855,
+        "y": 1553,
+        "path": "elevation/12/855/1553.png"
+      },
+      {
+        "z": 12,
+        "x": 855,
+        "y": 1554,
+        "path": "elevation/12/855/1554.png"
+      },
+      {
+        "z": 12,
+        "x": 855,
+        "y": 1555,
+        "path": "elevation/12/855/1555.png"
+      },
+      {
+        "z": 12,
+        "x": 855,
+        "y": 1556,
+        "path": "elevation/12/855/1556.png"
+      }
+    ]
+  },
+  "retrieved": "2026-09-30",
+  "stateCoverage": {
+    "region": "Colorado",
+    "regionCode": "CO",
+    "basis": "bounding box containment against the published state extent",
+    "settlementTagsPresent": 0
+  }
+}

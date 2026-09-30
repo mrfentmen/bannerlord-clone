@@ -1,0 +1,153 @@
+{
+  "lockedIn": "clients/campaign/ART_DIRECTION.md",
+  "licences": [
+    {
+      "file": "PublicSans-OFL.txt",
+      "source": "https://raw.githubusercontent.com/uswds/public-sans/develop/LICENSE.md",
+      "sha256": "82f0d3cad45f264192db156360b4a710fe7060885f6aa261e6539f13cb9eb0d9"
+    },
+    {
+      "file": "IBMPlexMono-OFL.txt",
+      "source": "https://raw.githubusercontent.com/IBM/plex/master/LICENSE.txt",
+      "sha256": "7e6b2818edbd8f6a01ae80641cc8f16a51080d08fb4e532be3a0b6f74adb07da"
+    }
+  ],
+  "files": [
+    {
+      "family": "IBM Plex Mono",
+      "style": "normal",
+      "weights": [
+        400
+      ],
+      "subset": "latin-ext",
+      "file": "public/fonts/ibm-plex-mono-400-latin-ext.woff2",
+      "bytes": 8860,
+      "sha256": "f1050dc5317b43434c0aeda599d4624c774ffc162e87a8cf204b949b6a85816d",
+      "upstream": "https://fonts.gstatic.com/s/ibmplexmono/v20/-F63fjptAgt5VM-kVkqdyU8n1iEq131nj-otFQ.woff2",
+      "slug": "ibm-plex-mono-400-latin-ext.woff2"
+    },
+    {
+      "family": "IBM Plex Mono",
+      "style": "normal",
+      "weights": [
+        400
+      ],
+      "subset": "latin",
+      "file": "public/fonts/ibm-plex-mono-400-latin.woff2",
+      "bytes": 10052,
+      "sha256": "c36f509c0a8f9f85f29cb44bc8701d8a9e0b14c499e77a884f789ead7093a7ac",
+      "upstream": "https://fonts.gstatic.com/s/ibmplexmono/v20/-F63fjptAgt5VM-kVkqdyU8n1i8q131nj-o.woff2",
+      "slug": "ibm-plex-mono-400-latin.woff2"
+    },
+    {
+      "family": "IBM Plex Mono",
+      "style": "normal",
+      "weights": [
+        500
+      ],
+      "subset": "latin-ext",
+      "file": "public/fonts/ibm-plex-mono-500-latin-ext.woff2",
+      "bytes": 8848,
+      "sha256": "77f03e26f981c582bdba3a7abed4baa2d3149211c01366bb3ab3ba7622ec4ae5",
+      "upstream": "https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3twJwl5FgsAXHNlYzg.woff2",
+      "slug": "ibm-plex-mono-500-latin-ext.woff2"
+    },
+    {
+      "family": "IBM Plex Mono",
+      "style": "normal",
+      "weights": [
+        500
+      ],
+      "subset": "latin",
+      "file": "public/fonts/ibm-plex-mono-500-latin.woff2",
+      "bytes": 10060,
+      "sha256": "a76f53ca6612e7b3828eec2311098675b7f9849ae4169a8bcef6302aec02a6c0",
+      "upstream": "https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3twJwlBFgsAXHNk.woff2",
+      "slug": "ibm-plex-mono-500-latin.woff2"
+    },
+    {
+      "family": "IBM Plex Mono",
+      "style": "normal",
+      "weights": [
+        600
+      ],
+      "subset": "latin-ext",
+      "file": "public/fonts/ibm-plex-mono-600-latin-ext.woff2",
+      "bytes": 8960,
+      "sha256": "1b6b18fd0fd240bc6d5850f4df621484722d4b5d3650ebdd1e3a8bbd81c75854",
+      "upstream": "https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3vAOwl5FgsAXHNlYzg.woff2",
+      "slug": "ibm-plex-mono-600-latin-ext.woff2"
+    },
+    {
+      "family": "IBM Plex Mono",
+      "style": "normal",
+      "weights": [
+        600
+      ],
+      "subset": "latin",
+      "file": "public/fonts/ibm-plex-mono-600-latin.woff2",
+      "bytes": 10120,
+      "sha256": "ad4580d8cb4b5f627c2d18457656732f7f7b070f7837fbc380e08054157e6f6c",
+      "upstream": "https://fonts.gstatic.com/s/ibmplexmono/v20/-F6qfjptAgt5VM-kVkqdyU8n3vAOwlBFgsAXHNk.woff2",
+      "slug": "ibm-plex-mono-600-latin.woff2"
+    },
+    {
+      "family": "Public Sans",
+      "style": "italic",
+      "weights": [
+        400
+      ],
+      "subset": "latin-ext",
+      "file": "public/fonts/public-sans-400i-latin-ext.woff2",
+      "bytes": 10992,
+      "sha256": "0c2e2d867477ce7c06e9559fae029ce42e83a7069bf79fec5ecb2b29fa1626b5",
+      "upstream": "https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673tpRgDckd1sPey7i3m4AWA.woff2",
+      "slug": "public-sans-400i-latin-ext.woff2"
+    },
+    {
+      "family": "Public Sans",
+      "style": "italic",
+      "weights": [
+        400
+      ],
+      "subset": "latin",
+      "file": "public/fonts/public-sans-400i-latin.woff2",
+      "bytes": 15684,
+      "sha256": "c99d04e392655742e958cff960b0afcb9e9d6cab430daedd20662320159e1dfe",
+      "upstream": "https://fonts.gstatic.com/s/publicsans/v21/ijwAs572Xtc6ZYQws9YVwnNDZpDyNjGolS673tpRgDcqd1sPey7i3m4.woff2",
+      "slug": "public-sans-400i-latin.woff2"
+    },
+    {
+      "family": "Public Sans",
+      "style": "normal",
+      "weights": [
+        400,
+        600,
+        700,
+        800
+      ],
+      "subset": "latin-ext",
+      "file": "public/fonts/public-sans-400-latin-ext.woff2",
+      "bytes": 35232,
+      "sha256": "c78dbd6a7ba604e9391dff7630d6b676a04d8b7be1da1baec9493ae9c8edf032",
+      "upstream": "https://fonts.gstatic.com/l/font?kit=ijw7s572Xtc6ZYQws9YVwllKVG8qX1oyOymuFpnbyC_Zh8OeeDPizid8SYJlRpb6sgI&skey=d896b51311bb3f4e&v=v21",
+      "slug": "public-sans-400-latin-ext.woff2"
+    },
+    {
+      "family": "Public Sans",
+      "style": "normal",
+      "weights": [
+        400,
+        600,
+        700,
+        800
+      ],
+      "subset": "latin",
+      "file": "public/fonts/public-sans-400-latin.woff2",
+      "bytes": 27188,
+      "sha256": "f75c333993e3212bc6d959a8d1578c048080b8691f46977666508d479ac2ec78",
+      "upstream": "https://fonts.gstatic.com/l/font?kit=ijw7s572Xtc6ZYQws9YVwllKVG8qX1oyOymuFpnbyC_Zh8OeeDPizid8SYxlRpb6sgI&skey=d896b51311bb3f4e&v=v21",
+      "slug": "public-sans-400-latin.woff2"
+    }
+  ]
+}
