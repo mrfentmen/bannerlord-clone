@@ -46,6 +46,23 @@ def main(argv: list[str] | None = None) -> int:
     subparsers.add_parser("fetch", help="download and verify every source file")
     subparsers.add_parser("schema", help="print a summary of the published schema")
 
+    wire_parser = subparsers.add_parser(
+        "wire",
+        help="build the campaign client's wire-format files (region/settlements/network.json)",
+    )
+    wire_parser.add_argument(
+        "--dist",
+        type=Path,
+        default=None,
+        help="pipeline dist/ dir (default: from config)",
+    )
+    wire_parser.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="output dir (default: <dist>/wire)",
+    )
+
     arguments = parser.parse_args(argv)
 
     try:
@@ -71,6 +88,8 @@ def main(argv: list[str] | None = None) -> int:
             return _fetch(config)
         if arguments.command == "schema":
             return _schema(config)
+        if arguments.command == "wire":
+            return _wire(config, arguments.dist, arguments.out)
     except WorldDataError as exc:
         print(f"worlddata: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
@@ -89,6 +108,22 @@ def _fetch(config) -> int:
         result = fetch(config, dataset.url, dataset.filename, expected_sha256=dataset.expected_sha256)
         state = "reused" if result.from_cache else f"downloaded ({result.attempts} attempt(s))"
         print(f"{dataset.filename:52} {result.bytes_written:>12,} B  {state}")
+    return 0
+
+
+def _wire(config, dist: Path | None, out: Path | None) -> int:
+    from .client_wire import build_wire_files
+
+    dist_dir = dist or config.path_for("export_dir")
+    out_dir = out or (dist_dir / "wire")
+    result = build_wire_files(
+        dist_dir,
+        out_dir,
+        census_year=config.census_year,
+        estimates_vintage=config.estimates_vintage,
+    )
+    for line in result.log_lines():
+        print(line)
     return 0
 
 
