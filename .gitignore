@@ -1,0 +1,40 @@
+# macOS
+.DS_Store
+._*
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Node
+node_modules/
+dist/
+build/
+.vite/
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Go
+/bin/
+*.test
+*.out
+
+# Local data / databases (regenerate, never commit)
+*.sqlite
+*.sqlite3
+*.db
+data/raw/
+data/cache/
+
+# Agent scratch
+/tmp/
+*.tmp

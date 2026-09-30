@@ -1,0 +1,47 @@
+# README.md
+
+## What this is
+
+A browser-based, full 3D (x, y, z) game in the spirit of Mount & Blade II: Bannerlord, set in the modern day on real-world geography. You start as a nobody, build a party, fight real-time battles with crowds of units, take over towns and cities, and try to keep them alive.
+
+## The one premise
+
+**Everything affects everything.** One change ripples into ten others, and the player can trace the chain afterward.
+
+You pick a side, pick a state, and play a Bannerlord-style campaign across America: build a party, march armies (which costs time, food, and money), take towns from hundreds of rulers, and keep what you take alive.
+
+- Take a city, fail to feed it, and the council votes you out.
+- A sick town with no cure delivered loses its whole population.
+- Bandits rob a medicine caravan, a clinic runs dry, an outbreak spreads, workers die, farms go unharvested, food runs short, and unrest rises until the town turns on you.
+
+No chain is scripted. Each one emerges from independent systems reading and writing shared state. See `CAUSE_EFFECT.md`.
+
+## Read these in order
+
+1. `README.md`: this file.
+2. `CONSTITUTION.md`: non-negotiable build rules. Wins any conflict.
+3. `DESIGN.md`: the game itself, from the player's point of view.
+4. `FEATURES.md`: every Bannerlord feature mapped to a 1950s to 2000s equivalent, with status and scope tier.
+5. `FACTIONS.md`: America split into six playable sides, with pros, cons, and starting state choice.
+6. `ECONOMY.md`: money, gold, food, metal, income, upkeep, and trade.
+7. `MARCH_AND_WAR.md`: marching (time and cost), supply, armies, sieges, war and peace, renown and influence.
+8. `RULERS.md`: hundreds of rulers with traits, ambitions, relations, capture, and succession.
+9. `CAUSE_EFFECT.md`: the web of systems, the heart of the game.
+10. `SPEC.md`: architecture, data model, rendering, backend.
+11. `ASSETS.md`: how free 3D models are sourced, licensed, and processed.
+12. `PHASES.md`: build order with exit criteria.
+13. `TASKS.md`: granular checklist matching the phases.
+14. `CHANGELOG.md`: created on first task, logs everything built and everything unresolved.
+
+## Tech stack (locked, see CONSTITUTION.md)
+
+- Rendering: Babylon.js
+- Backend: Go
+- Database: Postgres
+- Deployment: built locally, deployed via Cloudflare (see SPEC.md section 9 for a hosting decision that needs making)
+- 3D assets: free models from Sketchfab, CGTrader, and Free3D, tracked per ASSETS.md
+- World data: real geography and population data, never hand-typed
+
+## Current status
+
+Design docs rewritten. No code yet. Next step is Phase 0 in `PHASES.md`.
