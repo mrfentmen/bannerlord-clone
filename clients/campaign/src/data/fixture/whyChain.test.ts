@@ -99,6 +99,50 @@ describe("the why chain", () => {
     // The panel renders this as "Nothing caused this." rather than inventing a reason.
   });
 
+  it("branches, so one cause feeding two effects is a real shape and not a list", async () => {
+    const provider = createFixtureSimulationProvider();
+    // Golden's outbreak is caused by both the medicine stock falling and the medicine
+    // caravan being robbed, and the robbery is itself caused by the road going unsafe.
+    // That is a diamond: one road, two consequences.
+    const infected = await provider.why("town-golden", "infected");
+    const systems = infected.rows.map((r) => r.system);
+    expect(systems[0]).toBe("Disease");
+    // The two causes of the outbreak are the medicine rows, and the road underneath.
+    expect(infected.rows.some((r) => r.field === "medicine_stock")).toBe(true);
+    expect(infected.rows.some((r) => r.field === "medicine_convoy")).toBe(true);
+    expect(infected.rows.some((r) => r.field === "road_safety")).toBe(true);
+    // And the walk down from unrest passes through the outbreak, so the two chains are
+    // the same graph rather than two separate ones.
+    const unrest = await provider.why("town-golden", "unrest");
+    const fields = new Set(unrest.rows.map((r) => r.field));
+    for (const field of ["foodStock", "food_production", "workers", "infected", "medicine_stock"]) {
+      expect(fields.has(field), `the unrest chain does not pass through ${field}`).toBe(true);
+    }
+  });
+
+  it("reaches an origin the player can act on, not a dead end", async () => {
+    const provider = createFixtureSimulationProvider();
+    for (const [entityId, field] of [
+      ["town-golden", "unrest"],
+      ["town-golden", "foodStock"],
+      ["town-idaho-springs", "medicine_stock"],
+      ["town-longmont", "loyalty"],
+    ] as const) {
+      const chain = await provider.why(entityId, field);
+      expect(chain.rows.length, `${entityId}.${field} has no chain`).toBeGreaterThanOrEqual(2);
+      // The furthest link is a root: nothing in the chain caused it, so the player has
+      // reached something they could have acted on rather than a row that points
+      // further off the end of the log.
+      const ids = new Set(chain.rows.map((r) => r.id));
+      const roots = chain.rows.filter((r) => r.causedBy.filter((c) => ids.has(c)).length === 0);
+      expect(roots.length, `${entityId}.${field} has no origin inside the chain`).toBeGreaterThan(0);
+      for (const root of roots) {
+        expect(root.summary.length).toBeGreaterThan(10);
+        expect(root.system.length).toBeGreaterThan(0);
+      }
+    }
+  });
+
   it("explains a live trade, linking the player's action to the market and the town", async () => {
     const provider = createFixtureSimulationProvider();
     const snap = await provider.getSnapshot();

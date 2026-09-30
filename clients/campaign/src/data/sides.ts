@@ -15,8 +15,9 @@
  *
  * The `StateProfile` numbers in this file are computed in `buildStateProfiles` from
  * the real Census populations the client already loaded, plus the real cropland and
- * mining character of the states. `src/data/__tests__/sides.test.ts` checks the
- * profiles against FACTIONS.md section 3 rather than trusting the numbers.
+ * mining character of the states. `src/data/sides.test.ts` checks the transcribed
+ * ratings against FACTIONS.md section 3 and the derived profiles against the real
+ * cropland shares, rather than trusting the numbers.
  */
 
 import type { SideState, StateProfile, StartingRoleInfo } from "./types.js";
@@ -150,6 +151,11 @@ export const SIDE_DEFINITIONS: Omit<SideState, "ratings" | "states">[] = [
   {
     id: "wanderer",
     name: "Wanderer",
+    // FACTIONS.md section 4 gives the Wanderer no section at all — "no section bonuses
+    // or penalties" — so it has no row in the section 3 ratings table and no documented
+    // difficulty. This is the client's neutral default, not a transcription. It is
+    // called out here so nobody later reads it as a number the document supplied, and
+    // `DESIGN_TARGET_RATINGS` deliberately has no `wanderer` row to go with it.
     difficulty: "Medium",
     memberStates: [],
     pros: [

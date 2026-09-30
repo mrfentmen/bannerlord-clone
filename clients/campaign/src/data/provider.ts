@@ -13,7 +13,10 @@
  *     bundle at all, rather than present and unreachable.
  *  2. `tools/check-no-fixtures.mjs` scans the built output for the fixture's marker
  *     strings and fails `npm run build` if any are found.
- *  3. When the fixture provider is live, `main.ts` renders a persistent banner, so a
+ *  3. `readConfig` refuses to resolve a non-fixtures build mode to the fixture, so a
+ *     stray `VITE_SIMULATION_SOURCE=fixture` in a production environment cannot reach
+ *     this file either.
+ *  4. When the fixture provider is live, `main.ts` renders a persistent banner, so a
  *     screenshot cannot be mistaken for the real game.
  */
 
@@ -95,14 +98,19 @@ export interface ClientConfig {
 /**
  * Read configuration from the build-time environment.
  *
- * `VITE_SIMULATION_SOURCE` defaults to `http`. It only ever resolves to `fixture`
- * in a dev build, because `vite.config.ts` refuses to set it otherwise.
+ * `VITE_SIMULATION_SOURCE` defaults to `http`, and it can only resolve to `fixture` in
+ * a build mode that `vite.config.ts` also treats as a fixture build. The two lists are
+ * the same two modes on purpose: the dev server, and the fixtures build the end-to-end
+ * tests run against. Anywhere else the fixture is not in the bundle either, so asking
+ * for it would only turn a clear refusal into a confusing one, and a production bundle
+ * that somehow shipped `VITE_SIMULATION_SOURCE=fixture` would still read as live.
  */
 export function readConfig(env: Record<string, string | boolean | undefined> = import.meta.env): ClientConfig {
   const raw = typeof env.VITE_SIMULATION_SOURCE === "string" ? env.VITE_SIMULATION_SOURCE : "";
   const quality = env.VITE_QUALITY === "low" ? "low" : "high";
+  const wantsFixture = raw === "fixture" && isFixtureBuild();
   return {
-    simulationSource: raw === "fixture" ? "fixture" : "http",
+    simulationSource: wantsFixture ? "fixture" : "http",
     worldDataUrl: typeof env.VITE_WORLD_DATA_URL === "string" ? env.VITE_WORLD_DATA_URL : "/world",
     simulationHttpUrl:
       typeof env.VITE_SIMULATION_HTTP_URL === "string" ? env.VITE_SIMULATION_HTTP_URL : "http://127.0.0.1:8080",
@@ -110,6 +118,16 @@ export function readConfig(env: Record<string, string | boolean | undefined> = i
       typeof env.VITE_SIMULATION_WS_URL === "string" ? env.VITE_SIMULATION_WS_URL : "ws://127.0.0.1:8080/ws",
     quality,
   };
+}
+
+/**
+ * Whether this build keeps the real fixture, which is `vite.config.ts`'s own `isDev`.
+ * Kept as the same two modes rather than a `PROD` check, because `vite build --mode
+ * fixtures` is a real build the end-to-end suite needs, and `PROD` is true for it.
+ */
+function isFixtureBuild(): boolean {
+  const mode = typeof import.meta.env.MODE === "string" ? import.meta.env.MODE : "production";
+  return mode === "development" || mode === "fixtures";
 }
 
 export function providerFromConfig(config: ClientConfig): SimulationProvider {
@@ -150,36 +168,8 @@ export class HttpSimulationProvider implements SimulationProvider {
 
   async getSnapshot(): Promise<SimSnapshot> {
     const url = `${this.#httpUrl}/v1/snapshot`;
-    let response: Response;
-    try {
-      response = await this.#fetch(url, { headers: { accept: "application/json" } });
-    } catch (err) {
-      throw new SimulationUnavailableError(
-        "The world simulation is not answering. It may not be running.",
-        `GET ${url} threw: ${String(err)}`,
-      );
-    }
-    if (response.status === 404) {
-      throw new SimulationUnavailableError(
-        "The world simulation has not published a world yet.",
-        `GET ${url} -> HTTP 404. Agent 2's Contract B route is not implemented there yet.`,
-        false,
-      );
-    }
-    if (!response.ok) {
-      throw new SimulationUnavailableError(
-        "The world simulation returned an error.",
-        `GET ${url} -> HTTP ${response.status} ${response.statusText}`,
-      );
-    }
-    try {
-      return (await response.json()) as SimSnapshot;
-    } catch (err) {
-      throw new SimulationUnavailableError(
-        "The world simulation sent something this client cannot read.",
-        `JSON.parse of ${url} threw: ${String(err)}`,
-      );
-    }
+    const body = await this.#getJson(url, "The world simulation is not answering. It may not be running.");
+    return decodeSnapshot(body, url);
   }
 
   async trade(request: TradeRequest): Promise<TradeResult> {
@@ -196,22 +186,29 @@ export class HttpSimulationProvider implements SimulationProvider {
 
   async why(entityId: string, field: string): Promise<WhyChain> {
     const url = `${this.#httpUrl}/v1/why?entity=${encodeURIComponent(entityId)}&field=${encodeURIComponent(field)}`;
+    const body = await this.#getJson(url, "The reason behind that change could not be read.");
+    return decodeWhyChain(body, url);
+  }
+
+  /** One GET, with every failure turned into a `SimulationUnavailableError`. */
+  async #getJson(url: string, playerMessage: string): Promise<unknown> {
     let response: Response;
     try {
       response = await this.#fetch(url, { headers: { accept: "application/json" } });
     } catch (err) {
-      throw new SimulationUnavailableError(
-        "The reason behind that change could not be read.",
-        `GET ${url} threw: ${String(err)}`,
-      );
+      throw new SimulationUnavailableError(playerMessage, `GET ${url} threw: ${String(err)}`);
     }
     if (!response.ok) {
+      throw new SimulationUnavailableError(playerMessage, `GET ${url} -> HTTP ${response.status} ${response.statusText}`);
+    }
+    try {
+      return await response.json();
+    } catch (err) {
       throw new SimulationUnavailableError(
-        "The reason behind that change could not be read.",
-        `GET ${url} -> HTTP ${response.status} ${response.statusText}`,
+        "The world simulation sent something this client cannot read.",
+        `JSON.parse of ${url} threw: ${String(err)}`,
       );
     }
-    return (await response.json()) as WhyChain;
   }
 
   async #post<T>(path: string, body: unknown, playerMessage: string): Promise<T> {
@@ -230,22 +227,34 @@ export class HttpSimulationProvider implements SimulationProvider {
       // The simulation is the authority on its own state. A conflict is a real
       // answer with a reason the player should see, not a transport failure.
       let reason: string | undefined;
+      let whyUnreadable = "";
       try {
         reason = ((await response.json()) as { reason?: string }).reason;
-      } catch {
+      } catch (err) {
         // A 409 with an unreadable body. The message below covers the player either
-        // way; the developer detail still records the status.
+        // way, and the reason the body could not be read is recorded rather than
+        // dropped, because CONSTITUTION.md section 1.3 forbids an empty catch.
+        whyUnreadable = ` and the reason in the reply could not be read (${String(err)})`;
       }
       throw new SimulationUnavailableError(
         reason ?? "The world moved on before that order arrived.",
-        `POST ${url} -> HTTP 409`,
+        `POST ${url} -> HTTP 409${whyUnreadable}`,
         false,
       );
     }
     if (!response.ok) {
       throw new SimulationUnavailableError(playerMessage, `POST ${url} -> HTTP ${response.status}`);
     }
-    return (await response.json()) as T;
+    let reply: unknown;
+    try {
+      reply = await response.json();
+    } catch (err) {
+      throw new SimulationUnavailableError(
+        "The world simulation accepted that order but sent nothing this client can read.",
+        `JSON.parse of the reply to POST ${url} threw: ${String(err)}`,
+      );
+    }
+    return reply as T;
   }
 
   /**
@@ -273,8 +282,9 @@ export class HttpSimulationProvider implements SimulationProvider {
         socket.send(JSON.stringify({ type: "subscribe", channel: "ticks" }));
       };
       socket.onmessage = (ev) => {
+        let frame: unknown;
         try {
-          onTick(JSON.parse(String(ev.data)) as TickUpdate);
+          frame = JSON.parse(String(ev.data));
         } catch (err) {
           // A malformed frame is reported and skipped. Dropping the connection would
           // punish the player for a server-side formatting slip.
@@ -283,7 +293,9 @@ export class HttpSimulationProvider implements SimulationProvider {
             detail: `discarded an unreadable tick frame: ${String(err)}`,
             attempt: this.#attempt,
           });
+          return;
         }
+        this.#onFrame(onTick, onStatus, frame);
       };
       socket.onerror = (ev) => onStatus({ state: "reconnecting", detail: String(ev), attempt: this.#attempt + 1 });
       socket.onclose = (ev) => {
@@ -310,4 +322,116 @@ export class HttpSimulationProvider implements SimulationProvider {
     const delay = Math.min(30_000, 1000 * 2 ** Math.min(this.#attempt, 5));
     this.#retry = setTimeout(connect, delay);
   }
+
+  /**
+   * Tick frames get the same treatment as the snapshot, minus the hard stop: a frame
+   * that does not match is reported as degraded and skipped rather than thrown,
+   * because one bad frame should not cost the player the rest of the campaign. The
+   * channel is the one place where a silent skip is defensible, and it is not silent.
+   */
+  #onFrame(onTick: (tick: TickUpdate) => void, onStatus: (status: ConnectionStatus) => void, raw: unknown): void {
+    const problem = tickFrameProblem(raw);
+    if (problem) {
+      onStatus({ state: "degraded", detail: `discarded an unreadable tick frame: ${problem}`, attempt: this.#attempt });
+      return;
+    }
+    onTick(raw as TickUpdate);
+  }
+}
+
+// -- payload validation ------------------------------------------------------
+//
+// CONSTITUTION.md section 1.3: every external call is untrusted. A bare
+// `await response.json() as SimSnapshot` is an unchecked promise to the rest of the
+// client that the server sent exactly the shape it was asked for, and the failure mode
+// when that is not true is a blank panel or a `NaN` in the top bar. So each payload is
+// checked at the boundary and refused with a sentence the player can read.
+//
+// This mirrors `validateRegion` / `validateSettlements` / `validateNetwork` in
+// `src/world/load.ts`, deliberately: one house pattern for untrusted payloads, not two.
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isFinite(value);
+}
+
+function isString(value: unknown): value is string {
+  return typeof value === "string" && value.length > 0;
+}
+
+/** The first thing wrong with a payload, as a developer-readable sentence. */
+function snapshotProblem(raw: unknown): string | null {
+  if (!isRecord(raw)) return "the reply is not a JSON object";
+  if (!isFiniteNumber(raw.day)) return "day is not a number";
+  if (!isFiniteNumber(raw.year)) return "year is not a number";
+  if (raw.eraTier !== 1 && raw.eraTier !== 2 && raw.eraTier !== 3 && raw.eraTier !== 4) {
+    return "eraTier is not one of 1, 2, 3 or 4";
+  }
+  if (!isRecord(raw.player)) return "player is missing";
+  if (!isString(raw.player.characterName)) return "player.characterName is missing";
+  if (!isRecord(raw.player.resources)) return "player.resources is missing";
+  for (const id of ["money", "gold", "food", "metal", "medicine"]) {
+    if (!isFiniteNumber(raw.player.resources[id])) return `player.resources.${id} is not a number`;
+  }
+  if (!isRecord(raw.party)) return "party is missing";
+  if (!Array.isArray(raw.party.troops)) return "party.troops is not a list";
+  if (!isFiniteNumber(raw.party.morale)) return "party.morale is not a number";
+  if (!isRecord(raw.ledger)) return "ledger is missing";
+  if (!isRecord(raw.ledger.netPerDay)) return "ledger.netPerDay is missing";
+  for (const key of ["towns", "sides", "rulers", "warnings", "notifications"]) {
+    if (!Array.isArray(raw[key])) return `${key} is not a list`;
+  }
+  for (const key of ["markets", "causeLog"]) {
+    if (!isRecord(raw[key])) return `${key} is not a table`;
+  }
+  return null;
+}
+
+function whyChainProblem(raw: unknown): string | null {
+  if (!isRecord(raw)) return "the reply is not a JSON object";
+  if (!isString(raw.entityId)) return "entityId is missing";
+  if (!Array.isArray(raw.rows)) return "rows is not a list";
+  if (!Array.isArray(raw.related)) return "related is not a list";
+  for (const [index, row] of raw.rows.entries()) {
+    if (!isRecord(row)) return `row ${index} is not a JSON object`;
+    if (!isString(row.id)) return `row ${index} has no id`;
+    if (!isFiniteNumber(row.tick)) return `row ${index} has no tick`;
+    if (!isFiniteNumber(row.old) || !isFiniteNumber(row.new)) return `row ${index} has no before or after figure`;
+    if (!Array.isArray(row.causedBy)) return `row ${index} has no cause list`;
+  }
+  return null;
+}
+
+function tickFrameProblem(raw: unknown): string | null {
+  if (!isRecord(raw)) return "the frame is not a JSON object";
+  if (!isFiniteNumber(raw.tick)) return "tick is not a number";
+  if (!isFiniteNumber(raw.day)) return "day is not a number";
+  return null;
+}
+
+function decodeSnapshot(raw: unknown, url: string): SimSnapshot {
+  const problem = snapshotProblem(raw);
+  if (problem) {
+    throw new SimulationUnavailableError(
+      "The world simulation sent a report this client cannot read, so nothing has been drawn from it.",
+      `GET ${url} returned a snapshot that failed validation: ${problem}`,
+      false,
+    );
+  }
+  return raw as SimSnapshot;
+}
+
+function decodeWhyChain(raw: unknown, url: string): WhyChain {
+  const problem = whyChainProblem(raw);
+  if (problem) {
+    throw new SimulationUnavailableError(
+      "The reason behind that change could not be read.",
+      `GET ${url} returned a cause chain that failed validation: ${problem}`,
+      false,
+    );
+  }
+  return raw as WhyChain;
 }

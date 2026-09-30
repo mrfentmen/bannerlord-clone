@@ -9,25 +9,57 @@
  * The panel does not compute anything. Every number arrives from the simulation. The
  * only thing calculated here is "days until trouble", which is arithmetic on a value
  * the player can already see, and it is shown next to the value it came from.
+ *
+ * Sections follow `UI_UX.md` section 6 in order: population and workers, food and
+ * supply days, health, sanitation and infrastructure, unrest and loyalty, media trust,
+ * garrison, and the market link. Two of the sections that document lists — the
+ * projects queue and notables and quests — have no field in the simulation contract,
+ * and the panel does not draw an empty section for data it does not have. That gap is
+ * recorded rather than filled with a placeholder.
  */
 
-import { h, sectionHeader, row } from "../dom.js";
-import { errorState, gauge, panel, statusChip } from "../kit.js";
+import { h, row, sectionHeader } from "../dom.js";
+import { emptyState, errorState, gauge, panel, statusChip, type StatusKind } from "../kit.js";
+import { townSkeleton } from "./skeletons.js";
+import { asBottomSheet } from "./narrow.js";
 import type { TownState } from "../../data/types.js";
 
 export interface TownPanelOptions {
-  town: TownState;
+  /**
+   * `null` when the map has nothing selected. The panel then says what to do about
+   * it rather than rendering an empty sheet of headings.
+   */
+  town: TownState | null;
   /** Previous tick's values, for the trend arrows. Null on the very first render. */
   previous?: TownState | null;
   onWhy: (field: string) => void;
   onOpenMarket: () => void;
   onMarchHere: () => void;
   onRoster: () => void;
+  /**
+   * The survey is still being read. Renders `town-skeleton`, which mirrors this
+   * panel's sections, so the context region does not change height when the town
+   * lands. Drawn before the request, never after it (CONSTITUTION.md section 3.2).
+   */
+  loading?: boolean;
   testId?: string;
 }
 
+/** The empty-state copy, verbatim from ART_DIRECTION.md section 10.2. */
+const NO_TOWN_HEADLINE = "No town selected.";
+const NO_TOWN_DETAIL = "Choose a settlement on the map, or press Tab to cycle holdings.";
+
+/** The failure copy, ART_DIRECTION.md section 10.2, with the town named in it. */
+function noSurvey(townName: string): string {
+  return `The town ledger did not load. The connection to the simulation was refused, and ${townName} could not be read.`;
+}
+
 export function townPanel(options: TownPanelOptions): HTMLElement {
+  if (options.loading) return townSkeleton(options.town?.name ?? "Town");
+
   const { town, previous } = options;
+  if (!town) return townPanelEmpty(options);
+
   const { root, body } = panel({
     title: town.name,
     testId: options.testId ?? "town-panel",
@@ -35,6 +67,7 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
   });
   // The town panel is the context panel, so it does not close itself; the HUD owns it.
   root.querySelector(".panel__close")?.remove();
+  asBottomSheet(root);
 
   // food_stock is person-days (CAUSE_EFFECT.md section 2). Days is what a player can
   // act on, and dividing by demand is the only way to get it. Showing the raw field
@@ -45,6 +78,7 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
   const daysToEmpty = foodBalance < 0 ? daysOfFood / ((-foodBalance) / demand) : null;
   const loyaltyDays = town.loyalty < 0.2 ? 12 : null;
 
+  // -- population and workers ------------------------------------------------
   body.appendChild(
     h(
       "div",
@@ -53,19 +87,23 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
         "div",
         { style: "flex:1 1 auto;min-width:0" },
         h("p", { class: "caption", style: "margin:0 0 var(--space-1)" }, `Held by ${town.holderName}`),
-        h("p", { class: "data", style: "margin:0" },
-          town.population === null
-            ? "Population not surveyed"
-            : `${town.population.toLocaleString("en-US")} people · ${town.workers.toLocaleString("en-US")} workers`,
-        ),
+        h("p", { class: "caption", style: "margin:0" }, `A ${town.klass} on the surveyed road network`),
       ),
-      statusChip(town.unrest > 0.8 ? "critical" : town.unrest > 0.6 ? "warning" : "good", `Unrest ${town.unrest.toFixed(2)}`, { testId: "town-unrest-chip" }),
+      statusChip(unrestKind(town.unrest), `Unrest ${town.unrest.toFixed(2)}`, { testId: "town-unrest-chip" }),
+    ),
+  );
+  body.appendChild(
+    h(
+      "div",
+      {},
+      row("Population", town.population === null ? "Not surveyed" : town.population.toLocaleString("en-US"), { mono: true, testId: "town-population" }),
+      row("Workers", town.workers.toLocaleString("en-US"), { mono: true, testId: "town-workers" }),
+      row("Production", `${Math.round(town.foodProduction).toLocaleString("en-US")} person-days a day`, { mono: true, testId: "town-production" }),
     ),
   );
 
   // -- food, the thing that kills towns ------------------------------------
-  const food = sectionHeader("Food and supply", whyButton("foodStock", () => options.onWhy("foodStock")));
-  body.appendChild(food);
+  body.appendChild(sectionHeader("Food and supply", whyButton("foodStock", () => options.onWhy("foodStock"))));
   body.appendChild(
     h(
       "div",
@@ -99,7 +137,7 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
     body.appendChild(
       h(
         "p",
-        { class: "annotation", style: "font-size:var(--type-caption-size)" },
+        { class: "annotation", style: "font-size:var(--type-caption-size)", "data-testid": "town-food-note" },
         "The store is empty. People are already going without.",
       ),
     );
@@ -107,13 +145,13 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
     body.appendChild(
       h(
         "p",
-        { class: "annotation", style: "font-size:var(--type-caption-size)" },
+        { class: "annotation", style: "font-size:var(--type-caption-size)", "data-testid": "town-food-note" },
         `At the current rate the store empties in about ${daysToEmpty.toFixed(1)} days.`,
       ),
     );
   }
 
-  // -- health --------------------------------------------------------------
+  // -- health ---------------------------------------------------------------
   body.appendChild(sectionHeader("Health", whyButton("infected", () => options.onWhy("infected"))));
   body.appendChild(
     h(
@@ -124,13 +162,25 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
         value: town.infected,
         format: (v) => `${(v * 100).toFixed(1)}% of the population`,
         trend: previous ? trendOf(town.infected, previous.infected) : "flat",
-        note:
-          town.medicineStock <= 0
-            ? "No medicine in store. Nobody is being treated."
-            : `${Math.round(town.medicineStock).toLocaleString("en-US")} doses in store.`,
         thresholds: { criticalBelow: 0.05, warningBelow: 0.02, goodAbove: 0 },
         testId: "town-infection-gauge",
       }),
+      row(
+        "Medicine in store",
+        town.medicineStock <= 0
+          ? h("span", { class: "caption", "data-testid": "town-medicine" }, "No doses. Nobody is being treated.")
+          : `${Math.round(town.medicineStock).toLocaleString("en-US")} doses`,
+        { mono: true, testId: "town-medicine" },
+      ),
+    ),
+  );
+
+  // -- sanitation and infrastructure ----------------------------------------
+  body.appendChild(sectionHeader("Sanitation and housing", whyButton("sanitation", () => options.onWhy("sanitation"))));
+  body.appendChild(
+    h(
+      "div",
+      {},
       gauge({
         label: "Sanitation",
         value: town.sanitation,
@@ -139,7 +189,7 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
         thresholds: { criticalBelow: 0.4, warningBelow: 0.6, goodAbove: 0.8 },
         testId: "town-sanitation-gauge",
       }),
-      row("Crowding", `${(town.crowding * 100).toFixed(0)}% of housing capacity`, { mono: true }),
+      row("Crowding", `${(town.crowding * 100).toFixed(0)}% of housing capacity`, { mono: true, testId: "town-crowding" }),
     ),
   );
 
@@ -170,26 +220,38 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
         thresholds: { criticalBelow: 0.2, warningBelow: 0.35, goodAbove: 0.6 },
         testId: "town-loyalty-gauge",
       }),
-      row("Tax rate", `${(town.taxRate * 100).toFixed(1)}%`, { mono: true }),
-      row("Prosperity", town.prosperity.toFixed(2), { mono: true }),
-      row("Information trust", town.informationTrust.toFixed(2), { mono: true }),
+      row("Tax rate", `${(town.taxRate * 100).toFixed(1)}%`, { mono: true, testId: "town-tax" }),
+      row("Prosperity", town.prosperity.toFixed(2), { mono: true, testId: "town-prosperity" }),
     ),
   );
 
-  // -- security and money ---------------------------------------------------
-  body.appendChild(sectionHeader("Security and money", whyButton("road_safety", () => options.onWhy("road_safety"))));
+  // -- media trust ----------------------------------------------------------
+  body.appendChild(sectionHeader("Media trust", whyButton("informationTrust", () => options.onWhy("informationTrust"))));
   body.appendChild(
     h(
       "div",
       {},
       gauge({
-        label: "Road safety",
-        value: town.roadSafety,
-        trend: previous ? trendOf(town.roadSafety, previous.roadSafety) : "flat",
-        note: town.roadSafety < 0.35 ? "No patrols. Caravans get taken here." : "Patrols are running.",
-        thresholds: { criticalBelow: 0.3, warningBelow: 0.5, goodAbove: 0.7 },
-        testId: "town-road-gauge",
+        label: "Trust in what is published",
+        value: town.informationTrust,
+        trend: previous ? trendOf(town.informationTrust, previous.informationTrust) : "flat",
+        note:
+          town.informationTrust < 0.4
+            ? "The town's figures are being disbelieved. Warnings about it travel further than warnings about it."
+            : "What the town publishes is taken at face value.",
+        thresholds: { criticalBelow: 0.25, warningBelow: 0.45, goodAbove: 0.7 },
+        testId: "town-trust-gauge",
       }),
+    ),
+  );
+
+  // -- garrison and roads ---------------------------------------------------
+  body.appendChild(sectionHeader("Garrison and roads", whyButton("road_safety", () => options.onWhy("road_safety"))));
+  body.appendChild(
+    h(
+      "div",
+      {},
+      row("Garrison", `${town.garrison.toLocaleString("en-US")} soldiers`, { mono: true, testId: "town-garrison" }),
       gauge({
         label: "Garrison conduct",
         value: town.garrisonConduct,
@@ -198,14 +260,30 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
         thresholds: { criticalBelow: 0.4, warningBelow: 0.6, goodAbove: 0.8 },
         testId: "town-conduct-gauge",
       }),
-      row("Garrison", `${town.garrison.toLocaleString("en-US")} soldiers`, { mono: true }),
-      row("Money", `$${Math.round(town.money).toLocaleString("en-US")}`, { mono: true, testId: "town-money" }),
-      row("Gold", `$${Math.round(town.gold).toLocaleString("en-US")}`, { mono: true }),
-      row("Metal", `${Math.round(town.metal).toLocaleString("en-US")}`, { mono: true }),
+      gauge({
+        label: "Road safety",
+        value: town.roadSafety,
+        trend: previous ? trendOf(town.roadSafety, previous.roadSafety) : "flat",
+        note: town.roadSafety < 0.35 ? "No patrols. Caravans get taken here." : "Patrols are running.",
+        thresholds: { criticalBelow: 0.3, warningBelow: 0.5, goodAbove: 0.7 },
+        testId: "town-road-gauge",
+      }),
     ),
   );
 
-  // -- actions --------------------------------------------------------------
+  // -- money ----------------------------------------------------------------
+  body.appendChild(sectionHeader("Money", whyButton("money", () => options.onWhy("money"))));
+  body.appendChild(
+    h(
+      "div",
+      {},
+      row("Money", `$${Math.round(town.money).toLocaleString("en-US")}`, { mono: true, testId: "town-money" }),
+      row("Gold", `$${Math.round(town.gold).toLocaleString("en-US")}`, { mono: true, testId: "town-gold" }),
+      row("Metal", `${Math.round(town.metal).toLocaleString("en-US")}`, { mono: true, testId: "town-metal" }),
+    ),
+  );
+
+  // -- actions: the market link, the march, the rulers ----------------------
   const actions = h("div", { class: "field-row", style: "margin-top:var(--space-4)" });
   const marketBtn = h("button", { type: "button", class: "btn btn--primary", "data-testid": "open-market" }, "Open the market");
   marketBtn.addEventListener("click", () => options.onOpenMarket());
@@ -216,6 +294,28 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
   actions.append(marketBtn, marchBtn, rosterBtn);
   body.appendChild(actions);
 
+  return root;
+}
+
+/**
+ * Nothing is selected. `ART_DIRECTION.md` section 10.2 gives the wording, and the
+ * roster is offered as the way out of the state, because an empty panel that only
+ * explains itself is a dead end.
+ */
+function townPanelEmpty(options: TownPanelOptions): HTMLElement {
+  const { root, body } = panel({
+    title: "No town",
+    testId: options.testId ?? "town-panel",
+    ...(options.testId ? {} : { onClose: () => undefined }),
+  });
+  root.querySelector(".panel__close")?.remove();
+  asBottomSheet(root);
+
+  const roster = h("button", { type: "button", class: "btn", "data-testid": "empty-open-roster" }, "Open the roster");
+  roster.addEventListener("click", () => options.onRoster());
+  body.appendChild(
+    h("div", { style: "margin-top:var(--space-2)" }, emptyState(NO_TOWN_HEADLINE, NO_TOWN_DETAIL, roster)),
+  );
   return root;
 }
 
@@ -232,10 +332,20 @@ function trendOf(now: number, before: number): "up" | "down" | "flat" {
   return delta > 0 ? "up" : "down";
 }
 
-/** The town panel's error state, shared with the HUD so both read the same. */
+function unrestKind(unrest: number): StatusKind {
+  if (unrest > 0.8) return "critical";
+  if (unrest > 0.6) return "warning";
+  return "good";
+}
+
+/**
+ * The town panel's error state, shared with the HUD so both read the same. A plain
+ * sentence and a way to recover (CONSTITUTION.md section 1.3); the cause goes to the
+ * console, never to the screen.
+ */
 export function townPanelError(townName: string, detail: string, onRetry: () => void): HTMLElement {
   return errorState({
-    message: `The survey for ${townName} did not load. The simulation refused the connection.`,
+    message: noSurvey(townName),
     detail,
     onRetry,
     testId: "town-error",

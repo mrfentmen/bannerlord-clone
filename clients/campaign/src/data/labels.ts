@@ -16,6 +16,18 @@ export const TEST_SOURCE_DETAIL =
   "Terrain, roads, settlements and populations are real public data. Town fields, prices, " +
   "unrest and the cause log are test fixtures, because the simulation has not landed.";
 
-/** Shown when the world data files are not present at all. */
+/**
+ * Shown when the world survey files are not present at all.
+ *
+ * The file name and the command that fetches them are deliberately absent. This string
+ * reaches the player's screen, and `ART_DIRECTION.md` section 10.3 bans both a file path
+ * and a developer command in anything a player can see. The command belongs in the
+ * developer detail that goes to the console, which is where the operator is looking.
+ */
 export const NO_WORLD_DATA_HINT =
-  "The world survey files are not in public/world. Run `npm run fetch:world`.";
+  "The world survey did not load, so the map has no terrain, roads or towns to draw. " +
+  "The rest of the client is fine; the survey files are missing from this build.";
+
+/** The operator-facing half of `NO_WORLD_DATA_HINT`. Console only, never rendered. */
+export const NO_WORLD_DATA_DETAIL =
+  "No world survey files were found. Expected them under the public path; run the world fetch step before starting the client.";

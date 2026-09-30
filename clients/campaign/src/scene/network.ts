@@ -29,19 +29,33 @@ import type { TownClassName } from "../design/tokens.js";
  * relative weight as the camera comes down. Class is carried by weight and value, never
  * by hue (ART_DIRECTION.md section 7).
  */
-const ROAD_WIDTH: Record<RoadWay["roadClass"], number> = {
+export const ROAD_WIDTH: Record<RoadWay["roadClass"], number> = {
   motorway: 34,
   trunk: 34,
   primary: 26,
   secondary: 15,
 };
 
-const ROAD_COLOR: Record<RoadWay["roadClass"], string> = {
+export const ROAD_COLOR: Record<RoadWay["roadClass"], string> = {
   motorway: mapColor.roadMajor,
   trunk: mapColor.roadMajor,
   primary: mapColor.roadMajor,
   secondary: mapColor.roadMinor,
 };
+
+/** Rail is the last row of the same locked table: 9 m, drawn as a sleeper-dash. */
+export const RAIL_WIDTH = 9;
+
+/**
+ * Dash cycle for the sleeper-dash, in metres, and the fraction of it that is drawn.
+ *
+ * Measured along the ground rather than per segment, because a rail way is hundreds of
+ * short OSM segments and skipping alternate ones drew a dash pattern whose rhythm came
+ * from the way's vertex count instead of from its length. 480 m is the point at which
+ * the dashes still read as separate marks at the default campaign zoom.
+ */
+export const RAIL_DASH_CYCLE_M = 480;
+export const RAIL_DASH_ON_RATIO = 0.55;
 
 export interface NetworkMeshes {
   roads: Mesh[];
@@ -90,15 +104,27 @@ export function buildNetwork(
   }
 
   // Rail as a sleeper-dash: shorter, lighter, and clearly not a road.
-  const railMesh = ribbonMesh(scene, "rail", rail, projection, 1.0, mapColor.rail, verticalScale, 0.55, material);
+  const railMesh = ribbonMesh(
+    scene,
+    "rail",
+    rail,
+    projection,
+    RAIL_WIDTH,
+    mapColor.rail,
+    verticalScale,
+    RAIL_DASH_ON_RATIO,
+    material,
+  );
   return { roads: meshes, rail: railMesh };
 }
 
 /**
  * A flat ribbon draped on the terrain.
  *
- * Each segment becomes a quad. `dashFraction` breaks the ribbon into dashes, which is
- * how a railway is drawn on a real map.
+ * Each segment becomes a quad. A non-zero `dashOnRatio` breaks the ribbon along its
+ * length, which is how a railway is drawn on a real map: the dash phase is carried
+ * across segment and way boundaries, so the rhythm comes from distance travelled
+ * rather than from how the surveyor happened to split the line.
  */
 function ribbonMesh(
   scene: Scene,
@@ -108,7 +134,7 @@ function ribbonMesh(
   width: number,
   color: string,
   verticalScale: number,
-  dashFraction: number,
+  dashOnRatio: number,
   material: StandardMaterial,
 ): Mesh | null {
   if (ways.length === 0) return null;
@@ -120,11 +146,12 @@ function ribbonMesh(
   const c = Color3.FromHexString(color);
   const lift = 6; // metres, so roads sit on the surface rather than z-fighting it
   let base = 0;
+  // Distance travelled since the last dash boundary, carried across every way.
+  let dashPhase = 0;
 
   for (const way of ways) {
     const pts = way.coords;
     for (let i = 0; i < pts.length - 1; i += 1) {
-      if (dashFraction > 0 && i % 2 === 1) continue;
       const [latA, lonA] = pts[i]!;
       const [latB, lonB] = pts[i + 1]!;
       const a = projection.toWorld(latA, lonA);
@@ -135,9 +162,27 @@ function ribbonMesh(
       let dx = b.x - a.x;
       let dz = b.z - a.z;
       const len = Math.hypot(dx, dz);
-      if (len < 0.5) continue;
+      if (len < 0.5) {
+        // A degenerate segment still advances the dash phase, or the rhythm would
+        // stretch around every duplicated node in the source data.
+        dashPhase += len;
+        continue;
+      }
       dx /= len;
       dz /= len;
+
+      // Drawn if the segment's midpoint falls in the "on" part of the cycle. A segment
+      // longer than the cycle would drop out entirely, so a long one is still drawn and
+      // the phase simply continues from where it was.
+      if (dashOnRatio > 0 && dashOnRatio < 1 && len < RAIL_DASH_CYCLE_M) {
+        const midPhase = (dashPhase + len / 2) % RAIL_DASH_CYCLE_M;
+        if (midPhase / RAIL_DASH_CYCLE_M >= dashOnRatio) {
+          dashPhase += len;
+          continue;
+        }
+      }
+      dashPhase += len;
+
       // Normal in the ground plane, so the ribbon is the same width on the ground as
       // on a slope.
       const nx = -dz * (width / 2);
@@ -181,14 +226,17 @@ export interface TownCluster {
   /** The map pin, which keeps the settlement findable at campaign zoom. */
   marker: Mesh;
   markerPosition: Vector3;
+  /** The shape that was built, so a panel can explain it without rebuilding geometry. */
+  silhouette: TownSilhouette;
 }
 
 /**
  * Towns as 3D clusters, with silhouettes that read by size and type.
  *
  * Block count and height scale from the real population, so this is a settlement-size
- * map: Denver is a tower and a sprawl, Nederland is three roofs and a silo. Seeded
- * from the settlement id, so a town looks the same every session.
+ * map: Denver is a tower and a sprawl, Nederland is three roofs and a silo. The
+ * silhouette is seeded from the settlement's name, so a town looks the same every
+ * session.
  */
 export function buildTowns(
   scene: Scene,
@@ -209,17 +257,9 @@ export function buildTowns(
     const { klass, fromRealData } = classifySettlement(s);
     const p = projection.toWorld(s.lat, s.lon);
     const ground = projection.heightAt(p.x, p.z) * verticalScale;
-    const spec = tokens.townClass[klass];
+    const silhouette = townSilhouette(klass, s.population);
 
-    // Real population drives the footprint and the height, with a floor so a
-    // settlement with no surveyed population still reads as a place.
-    const people = s.population ?? 0;
-    const scale = people > 0 ? Math.log10(people + 10) / 6 : 0.25;
-    const blockCount = Math.round(spec.minHeight + (spec.maxHeight - spec.minHeight) * scale);
-    const maxHeight = spec.minHeight + (spec.maxHeight - spec.minHeight) * (0.6 + scale * 0.8);
-    const radius = 60 + scale * 420;
-
-    const mesh = clusterMesh(scene, s.id, klass, s.name, blockCount, maxHeight, radius, people, material);
+    const mesh = clusterMesh(scene, s.id, s.name, silhouette, s.population, material);
     mesh.position.set(p.x, ground + lift, p.z);
     mesh.metadata = { settlementId: s.id, name: s.name, klass };
 
@@ -228,7 +268,7 @@ export function buildTowns(
     // section 6 lists the pin as a motif and section 7 gives each class a marker, so
     // both are drawn: the cluster up close, the pin at distance.
     const marker = buildMarker(scene, `marker-${s.id}`, klass, material, out.length);
-    marker.position.set(p.x, ground + lift + maxHeight + 260, p.z);
+    marker.position.set(p.x, ground + lift + silhouette.meanHeight * 2.4 + 260, p.z);
     marker.metadata = { settlementId: s.id, name: s.name, klass, isMarker: true };
 
     out.push({
@@ -241,6 +281,7 @@ export function buildTowns(
       mesh,
       marker,
       markerPosition: marker.position,
+      silhouette,
     });
   }
   return out;
@@ -262,28 +303,95 @@ function nameSeed(name: string): () => number {
   };
 }
 
-function clusterMesh(
-  scene: Scene,
-  id: string,
-  klass: TownClassName,
-  name: string,
-  blockCount: number,
-  maxHeight: number,
-  radius: number,
-  population: number,
-  material: StandardMaterial,
-): Mesh {
-  const rand = nameSeed(name);
+/**
+ * The silhouette spec for one settlement: how many buildings, how tall, and which of
+ * the three shapes from `ART_DIRECTION.md` section 7.
+ *
+ * A pure function of the class and the real population, so it is testable without a
+ * GPU and so nothing about the shape is decided inside the mesh builder. The band
+ * numbers come from `tokens.townClass`, which is where the locked threshold table
+ * lives; those figures are building counts in the section 7 table, and the token field
+ * they share is named for heights, so both readings are served by the same pair.
+ */
+export interface TownSilhouette {
+  klass: TownClassName;
+  /** Buildings in the cluster. Section 7: city 18–34, town 8–16, village 3–6. */
+  blockCount: number;
+  /** Mean block height in metres, which the tower is measured against. */
+  meanHeight: number;
+  /** The one thing above the mean, or null for a village. 2.2× for a city, 1.6× for a town. */
+  towerHeight: number | null;
+  /** Footprint radius in metres. */
+  radius: number;
+  /** A town has a visible street grid; a city is a tower and low-rise sprawl. */
+  streetGrid: boolean;
+  /** A village is a single pitched roof and one silo. */
+  pitchedRoof: boolean;
+}
+
+/**
+ * Height and block count scale from the real population, so the map reads as a
+ * settlement-size map rather than a set of arbitrary icons: Denver is a tower and a
+ * sprawl, Nederland is three roofs and a silo.
+ *
+ * `population` is `null` when no real dataset covered the place. That is not zero
+ * people, it is an unknown count, and it gets the smallest silhouette and no tower
+ * rather than an invented figure (CONSTITUTION.md section 1.1).
+ */
+export function townSilhouette(klass: TownClassName, population: number | null): TownSilhouette {
+  const spec = tokens.townClass[klass];
+  // log10 rather than a linear ramp: a settlement's footprint grows with the square
+  // root of its people, and a linear scale put a 700,000-person city and a 25,000-person
+  // town within 4% of each other.
+  const scale = population !== null && population > 0 ? Math.log10(population + 10) / 6 : 0.25;
+  const band = spec.maxHeight - spec.minHeight;
+  const meanHeight = spec.minHeight + band * (0.6 + scale * 0.8);
+  return {
+    klass,
+    blockCount: Math.round(spec.minHeight + band * scale),
+    meanHeight,
+    towerHeight:
+      klass === "city" ? meanHeight * 2.2 : klass === "town" ? meanHeight * 1.6 : null,
+    radius: 60 + scale * 420,
+    streetGrid: klass === "town",
+    pitchedRoof: klass === "village",
+  };
+}
+
+export interface SilhouetteGeometry {
+  positions: number[];
+  indices: number[];
+  colors: number[];
+  /** Boxes actually emitted, which is the block count the test asserts on. */
+  blockCount: number;
+  /** Height of the tallest thing on the plot, in metres. */
+  peakHeight: number;
+}
+
+/**
+ * Build the cluster's geometry as plain arrays.
+ *
+ * Deliberately pure: it touches no Scene and no engine. The marker in the same file
+ * needs a canvas for its texture, so anything tested through `buildTowns` would need a
+ * GPU, and the silhouette is the thing that actually has to conform to section 7.
+ */
+export function silhouetteGeometry(silhouette: TownSilhouette, seed: string): SilhouetteGeometry {
+  const rand = nameSeed(seed);
   const positions: number[] = [];
-  const normals: number[] = [];
-  const colors: number[] = [];
   const indices: number[] = [];
+  const colors: number[] = [];
   let base = 0;
+  let peak = 0;
 
   // Wall value by class, so a city is darker and denser than a village at a glance.
   const baseHex =
-    klass === "city" ? townColor.cityWall : klass === "town" ? townColor.townWall : townColor.villageWall;
-  const roofHex = klass === "city" ? townColor.cityRoof : townColor.townRoof;
+    silhouette.klass === "city"
+      ? townColor.cityWall
+      : silhouette.klass === "town"
+        ? townColor.townWall
+        : townColor.villageWall;
+  const roofHex =
+    silhouette.klass === "city" ? townColor.cityRoof : townColor.townRoof;
   const wall = Color3.FromHexString(baseHex);
   const roof = Color3.FromHexString(roofHex);
   const silo = Color3.FromHexString(townColor.silo);
@@ -300,7 +408,6 @@ function clusterMesh(
     ];
     for (const p of pts) {
       positions.push(p[0], p[1], p[2]);
-      normals.push(0, 0, 0);
       colors.push(color.r, color.g, color.b, 1);
     }
     // Faces, wound so the normal points outward.
@@ -313,49 +420,114 @@ function clusterMesh(
     ];
     for (const f of faces) indices.push(base + f[0], base + f[1], base + f[2], base + f[3], base + f[4], base + f[5]);
     base += 8;
+    peak = Math.max(peak, hgt);
   };
 
-  // The grid of blocks.
-  for (let i = 0; i < blockCount; i += 1) {
-    const angle = rand() * Math.PI * 2;
-    const dist = Math.sqrt(rand()) * radius;
-    const cx = Math.cos(angle) * dist;
-    const cz = Math.sin(angle) * dist;
-    // Downtown blocks are taller; the edge is low-rise sprawl.
-    const centrality = 1 - dist / (radius + 1);
-    const w = 14 + rand() * 26;
-    const d = 14 + rand() * 26;
-    const hgt = Math.max(8, maxHeight * (0.22 + centrality * 0.9) * (0.5 + rand() * 0.9));
-    addBox(cx, cz, w, d, hgt, wall);
+  /**
+   * A gable end: two sloped roof planes over a rectangular footprint.
+   *
+   * A village's silhouette in section 7 is "a single pitched roof", and a flat-topped
+   * box does not read as one from above. Five points make a prism that has no bottom
+   * face, which is never visible.
+   */
+  const addPitchedRoof = (cx: number, cz: number, w: number, d: number, wallHeight: number, color: Color3): void => {
+    const hw = w / 2;
+    const hd = d / 2;
+    const y1 = wallHeight;
+    const y2 = wallHeight + d * 0.42;
+    const pts: [number, number, number][] = [
+      [cx - hw, 0, cz - hd], [cx + hw, 0, cz - hd], [cx + hw, 0, cz + hd], [cx - hw, 0, cz + hd],
+      [cx - hw, y1, cz - hd], [cx + hw, y1, cz - hd], [cx + hw, y1, cz + hd], [cx - hw, y1, cz + hd],
+      // Ridge, running along X.
+      [cx - hw, y2, cz], [cx + hw, y2, cz],
+    ];
+    for (const p of pts) {
+      positions.push(p[0], p[1], p[2]);
+      colors.push(color.r, color.g, color.b, 1);
+    }
+    const faces: [number, number, number][] = [
+      [4, 8, 5], [5, 8, 9], [4, 5, 6], [4, 6, 7], // the two roof planes and the gable ends
+    ];
+    for (const f of faces) indices.push(base + f[0], base + f[1], base + f[2]);
+    base += 10;
+    peak = Math.max(peak, y2);
+  };
+
+  const radius = silhouette.radius;
+
+  // The blocks. A town sits on a street grid, which is what separates its silhouette
+  // from a city's sprawl; a city and a village scatter, because a village is a few
+  // buildings wherever they happen to be.
+  if (silhouette.streetGrid) {
+    const perSide = Math.max(2, Math.round(Math.sqrt(silhouette.blockCount)));
+    const plot = (radius * 1.7) / perSide;
+    for (let gz = 0; gz < perSide; gz += 1) {
+      for (let gx = 0; gx < perSide; gx += 1) {
+        if (gx + gz > perSide - 1) continue;
+        const cx = -radius * 0.85 + gx * plot + plot / 2;
+        const cz = -radius * 0.85 + gz * plot + plot / 2;
+        const centrality = 1 - Math.hypot(cx, cz) / (radius + 1);
+        const hgt = Math.max(8, silhouette.meanHeight * (0.35 + centrality * 0.85) * (0.7 + rand() * 0.6));
+        addBox(cx, cz, plot * 0.62, plot * 0.62, hgt, wall);
+      }
+    }
+  } else {
+    for (let i = 0; i < silhouette.blockCount; i += 1) {
+      const angle = rand() * Math.PI * 2;
+      const dist = Math.sqrt(rand()) * radius;
+      const cx = Math.cos(angle) * dist;
+      const cz = Math.sin(angle) * dist;
+      // Downtown blocks are taller; the edge is low-rise sprawl.
+      const centrality = 1 - dist / (radius + 1);
+      const w = 14 + rand() * 26;
+      const d = 14 + rand() * 26;
+      const hgt = Math.max(8, silhouette.meanHeight * (0.22 + centrality * 0.9) * (0.5 + rand() * 0.9));
+      addBox(cx, cz, w, d, hgt, wall);
+    }
   }
 
   // The one thing that says "city" from a distance: a tower well above the mean.
-  if (klass === "city" || klass === "town") {
-    const towerHeight = maxHeight * (klass === "city" ? 2.2 : 1.6);
-    addBox(0, 0, klass === "city" ? 26 : 18, klass === "city" ? 26 : 18, towerHeight, roof);
-    addBox(0, 0, 8, 8, towerHeight + 40, silo);
+  if (silhouette.towerHeight !== null) {
+    const wide = silhouette.klass === "city" ? 26 : 18;
+    addBox(0, 0, wide, wide, silhouette.towerHeight, roof);
+    addBox(0, 0, 8, 8, silhouette.towerHeight + 40, silo);
   }
   // A water tower or grain silo marks a town; a village gets a single pitched roof.
-  if (klass === "village") {
-    addBox(radius * 0.4, -radius * 0.3, 10, 10, maxHeight * 1.1, roof);
+  if (silhouette.pitchedRoof) {
+    addPitchedRoof(radius * 0.4, -radius * 0.3, 22, 16, silhouette.meanHeight * 0.8, roof);
+    addBox(-radius * 0.35, radius * 0.4, 7, 7, silhouette.meanHeight * 1.1, silo);
   } else {
     const siloAt = rand() * radius * 0.7;
-    addBox(siloAt, siloAt * 0.6, 7, 7, maxHeight * (klass === "city" ? 1.3 : 1.6), silo);
+    addBox(siloAt, siloAt * 0.6, 7, 7, silhouette.meanHeight * 1.3, silo);
   }
+
+  return { positions, indices, colors, blockCount: silhouette.blockCount, peakHeight: peak };
+}
+
+function clusterMesh(
+  scene: Scene,
+  id: string,
+  name: string,
+  silhouette: TownSilhouette,
+  population: number | null,
+  material: StandardMaterial,
+): Mesh {
+  const geometry = silhouetteGeometry(silhouette, name);
 
   const mesh = new Mesh(`town-${id}`, scene);
   const data = new VertexData();
-  data.positions = positions;
-  data.indices = indices;
-  data.normals = normals;
-  data.colors = colors;
+  data.positions = geometry.positions;
+  data.indices = geometry.indices;
+  data.colors = geometry.colors;
+  // Normals are recomputed by the flat-shade conversion below; supplying zeros first
+  // would just be a wasted pass.
   data.applyToMesh(mesh, false);
   // Flat shading: the hard normals are the art direction (ART_DIRECTION.md section 8),
   // and they also make the silhouette the thing you read, not the shading.
   mesh.convertToFlatShadedMesh();
   mesh.material = material;
   mesh.useVertexColors = true;
-  mesh.metadata = { ...(mesh.metadata as object), population };
+  mesh.metadata = { population, blockCount: geometry.blockCount };
   return mesh;
 }
 
@@ -434,7 +606,7 @@ function buildMarker(
 }
 
 /** Pin size in metres. Sized to stay legible at the default campaign zoom. */
-function markerWorldSize(klass: TownClassName): number {
+export function markerWorldSize(klass: TownClassName): number {
   return klass === "city" ? 950 : klass === "town" ? 720 : 520;
 }
 

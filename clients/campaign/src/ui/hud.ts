@@ -9,19 +9,83 @@
  * (CONSTITUTION.md section 3.2).
  */
 
-import { announce, clear, h, liveRegion } from "./dom.js";
-import { errorState, skeleton, statusChip, type StatusKind } from "./kit.js";
-import type { ConnectionStatus, ResourceId, ResourceWarning, SimSnapshot } from "../data/types.js";
+import { announce, clear, h, liveRegion, type Child } from "./dom.js";
+import { errorState, skeleton, stamp, statusChip, type StatusKind } from "./kit.js";
+import type {
+  ConnectionStatus,
+  Notification,
+  ResourceId,
+  ResourceWarning,
+  SimSnapshot,
+} from "../data/types.js";
 
 export interface HudOptions {
   onSelectPanel: (panel: HudPanel) => void;
   onTimeScale: (scale: number) => void;
   onOpenDataSource: () => void;
+  /**
+   * Applies one of the four text-size settings.
+   *
+   * The name says "open" but the signature is a setter, and it is kept as-is because
+   * `main.ts` already supplies it under this key and is not this file to rename.
+   */
   onOpenUiScale: (scale: number) => void;
   onNotification: (entityId: string, field: string) => void;
 }
 
 export type HudPanel = "town" | "market" | "party" | "march" | "ledger" | "roster" | "why" | "none";
+
+/** Which detent of the time dial is live. Used by the pointer and the tick scale. */
+export type TimePositionId = "paused" | "normal" | "fast";
+
+/** One detent on the time dial. `scale` is the multiplier the simulation is run at. */
+export interface TimePosition {
+  id: TimePositionId;
+  scale: number;
+  /** Decorative, and always printed beside `label`. Nothing here is icon-only. */
+  glyph: string;
+  /** The typed label on the printed scale. */
+  label: string;
+  /** The accessible name, which must contain `label` (WCAG 2.5.3). */
+  name: string;
+  /** The tooltip, which says what the position does rather than repeating the label. */
+  phrase: string;
+}
+
+/**
+ * Notification priority, in the redundant shapes of ART_DIRECTION.md section 5.3.
+ * The same glyph vocabulary as the status chips, so a critical notice and a critical
+ * gauge are the same shape across the whole interface.
+ */
+const PRIORITY_GLYPH: Record<Notification["priority"], string> = {
+  critical: "◆",
+  important: "▲",
+  informational: "■",
+};
+
+const PRIORITY_WORD: Record<Notification["priority"], string> = {
+  critical: "Critical",
+  important: "Important",
+  informational: "For information",
+};
+
+/** `ART_DIRECTION.md` section 12: the four text-size settings, in percent. */
+const UI_SCALES = [90, 100, 115, 130] as const;
+
+type UiScale = (typeof UI_SCALES)[number];
+
+const UI_SCALE_DEFAULT: UiScale = 100;
+
+function isUiScale(value: number): value is UiScale {
+  return (UI_SCALES as readonly number[]).includes(value);
+}
+
+/** The setting actually in force, read from the root element `main.ts` writes to. */
+function currentUiScale(): UiScale {
+  const raw = typeof document === "undefined" ? null : document.documentElement.getAttribute("data-ui-scale");
+  const value = raw === null ? UI_SCALE_DEFAULT : Number(raw);
+  return isUiScale(value) ? value : UI_SCALE_DEFAULT;
+}
 
 const MONTHS = [
   "January", "February", "March", "April", "May", "June",
@@ -36,6 +100,19 @@ const RESOURCES: { id: ResourceId; label: string }[] = [
   { id: "metal", label: "Metal" },
   { id: "medicine", label: "Medicine" },
 ];
+
+/**
+ * The three detents of the time dial, in the order they sit on the arc.
+ *
+ * `glyph` is decorative and always sits beside a typed `label`, because nothing in
+ * this interface is an icon-only control. `phrase` is the longer form for the
+ * tooltip, so hovering says what the position does rather than repeating the label.
+ */
+export const TIME_POSITIONS = [
+  { id: "paused", scale: 0, glyph: "‖", label: "Pause", name: "Pause", phrase: "Hold the clock where it is" },
+  { id: "normal", scale: 1, glyph: "▶", label: "Normal", name: "Normal speed", phrase: "One day per real second" },
+  { id: "fast", scale: 3, glyph: "▶▶", label: "Fast", name: "Fast speed", phrase: "Three days per real second" },
+] as const satisfies readonly TimePosition[];
 
 export interface HudHandle {
   root: HTMLElement;
@@ -90,7 +167,7 @@ export function createHud(options: HudOptions): HudHandle {
     for (const r of RESOURCES) {
       const value = snapshot.player.resources[r.id];
       const warning = state.warnings.find((w) => w.resource === r.id);
-      const trend = r.id === "food" || r.id === "money" ? trendOf(state) : "flat";
+      const trend = trendOf(snapshot.ledger.netPerDay[r.id]);
       res.appendChild(
         h(
           "div",
@@ -98,51 +175,163 @@ export function createHud(options: HudOptions): HudHandle {
             class: "res",
             "data-testid": `res-${r.id}`,
             "data-status": warning ? warning.severity : "normal",
-            title: warning ? `${warning.headline}. ${warning.detail}` : `${r.label} in hand`,
+            title: warning ? `${warning.headline}. ${warning.detail}` : resourceTitle(r.id, value),
           },
-          h("span", { class: "res__key" }, r.label),
+          // Motif 6: the key is typed onto the form, so it is mono, uppercase and
+          // widely tracked rather than set as running sans text.
+          h("span", { class: "res__key data-sm" }, r.label),
           h(
             "span",
             { class: "res__value" },
             h("span", { class: "res__trend", "aria-hidden": "true", "data-trend": trend }, trendGlyph(trend)),
-            h("span", { class: "data" }, formatResource(r.id, value)),
+            // The type scale puts top-bar resources on `type-data-lg`, so the five
+            // numbers are the largest figures on screen and are all tabular mono.
+            h("span", { class: "res__figure data-lg" }, formatResource(r.id, value)),
           ),
           warning
-            ? h("span", { class: "res__note", "data-testid": `res-note-${r.id}` }, `${warning.daysRemaining?.toFixed(1) ?? "0"} days`)
+            ? h("span", { class: "res__note", "data-testid": `res-note-${r.id}` }, daysNote(warning))
             : h("span", { class: "res__note" }, r.id === "food" ? `${state.partyDaysOfFood.toFixed(1)} days` : ""),
         ),
       );
     }
     bar.appendChild(res);
+    bar.appendChild(uiScaleControl());
     bar.appendChild(dial(state.timeScale));
     return bar;
   }
 
+  /**
+   * The text-size setting, as a field on the form rather than a gear icon.
+   *
+   * ART_DIRECTION.md section 12 asks for 90 / 100 / 115 / 130 percent, and `main.ts`
+   * already applies whatever is stored on the root element. The control reads that
+   * attribute rather than keeping its own copy, so it shows the truth even when the
+   * size was changed at boot or from anywhere else, and cannot disagree with it.
+   */
+  function uiScaleControl(): HTMLElement {
+    const id = "hud-ui-scale";
+    const current = currentUiScale();
+    const select = h(
+      "select",
+      {
+        id,
+        class: "uiscale__select field__input",
+        "data-testid": "ui-scale",
+        "aria-label": "Text size",
+      },
+      ...UI_SCALES.map((scale) =>
+        h("option", { value: String(scale), selected: scale === current ? true : undefined }, `${scale}%`),
+      ),
+    );
+    select.value = String(current);
+    select.addEventListener("change", () => {
+      const next = Number(select.value);
+      if (isUiScale(next)) options.onOpenUiScale(next);
+    });
+    return h(
+      "div",
+      { class: "uiscale" },
+      h("label", { class: "uiscale__label data-sm", for: id }, "Text"),
+      select,
+    );
+  }
+
+  /**
+   * The time control, as a rotary dial with three detents. `ART_DIRECTION.md`
+   * section 6.8 asks for exactly this and rules out the three-pill-button
+   * alternative, so the face carries a pointer that swings to whichever detent is
+   * live, and each detent is a tick on the printed scale beside it.
+   *
+   * Semantically it is a radio group: one of three mutually exclusive positions, so
+   * the ARIA radiogroup pattern is used rather than three independent toggles. That
+   * means a roving `tabindex` (one stop in the tab order, not three) and arrow keys
+   * to move between detents, which is what a real dial does. The buttons are not
+   * hidden and not replaced by the drawing: the drawing is `aria-hidden`, and the
+   * buttons are the controls.
+   *
+   * `aria-pressed` is mirrored from `aria-checked` on each detent. It is redundant
+   * with the radio role, and the honest fix is to drop it, but two test files outside
+   * this area assert on it (`src/ui/__tests__/rendered.test.ts` and
+   * `tests/e2e/campaign.spec.ts`), so it stays until those are updated together.
+   */
   function dial(current: number): HTMLElement {
-    const wrap = h("div", { class: "dial", role: "group", "aria-label": "Time controls" });
-    const defs: [string, number, string][] = [
-      ["‖", 0, "Pause"],
-      ["▶", 1, "Normal speed"],
-      ["▶▶", 3, "Fast speed"],
-    ];
-    for (const [label, scale, name] of defs) {
+    const position = TIME_POSITIONS.find((p) => p.scale === current) ?? TIME_POSITIONS[0];
+    const wrap = h("div", {
+      class: "dial",
+      role: "radiogroup",
+      "aria-label": "Time controls",
+      "data-testid": "time-dial",
+      "data-position": position.id,
+    });
+
+    // The face: a pointer and three detent ticks. Decorative. The detent buttons
+    // below it carry the names and do the work.
+    const face = h("span", { class: "dial__face", "aria-hidden": "true" });
+    for (const detent of TIME_POSITIONS) {
+      face.appendChild(
+        h("span", { class: "dial__detent", "data-detent": detent.id, "data-on": detent.scale === current ? "true" : "false" }),
+      );
+    }
+    face.appendChild(h("span", { class: "dial__pointer" }));
+    wrap.appendChild(face);
+
+    // The printed scale. Each detent is a tick, a speed glyph and a typed label, so
+    // nothing here is an icon-only control (ART_DIRECTION.md section 2.4).
+    const scale_ = h("span", { class: "dial__scale" });
+    const buttons: HTMLButtonElement[] = [];
+    for (const detent of TIME_POSITIONS) {
+      const selected = detent.scale === current;
       const btn = h(
         "button",
         {
           type: "button",
-          class: "dial__btn",
-          "data-testid": `time-${scale}`,
-          "aria-pressed": current === scale ? "true" : "false",
-          "aria-label": name,
-          title: name,
+          role: "radio",
+          class: "dial__detent-btn",
+          "data-testid": `time-${detent.scale}`,
+          "data-position": detent.id,
+          "aria-checked": selected ? "true" : "false",
+          "aria-pressed": selected ? "true" : "false",
+          "aria-label": detent.name,
+          title: detent.phrase,
+          // Roving tabindex: the dial is one stop in the tab order.
+          tabindex: selected ? "0" : "-1",
         },
-        label,
+        h("span", { class: "dial__tick", "aria-hidden": "true" }),
+        h("span", { class: "dial__glyph", "aria-hidden": "true" }, detent.glyph),
+        h("span", { class: "dial__label" }, detent.label),
       );
-      btn.addEventListener("click", () => options.onTimeScale(scale));
-      wrap.appendChild(btn);
+      btn.addEventListener("click", () => options.onTimeScale(detent.scale));
+      scale_.appendChild(btn);
+      buttons.push(btn);
     }
-    // Detent ticks, so it reads as a dial rather than three buttons.
-    wrap.appendChild(h("span", { class: "dial__ticks", "aria-hidden": "true" }, h("span", { class: "dial__tick" }), h("span", { class: "dial__tick" }), h("span", { class: "dial__tick" })));
+
+    // Arrow keys walk the detents, the way turning a knob does. Home and End jump to
+    // the ends of the arc. The handler is on the group rather than on each button, so
+    // it catches the key wherever focus sits inside the dial. Only the live detent is
+    // tabbable, so `current` is the one that was focused.
+    wrap.addEventListener("keydown", (event) => {
+      const step =
+        event.key === "ArrowRight" || event.key === "ArrowDown"
+          ? 1
+          : event.key === "ArrowLeft" || event.key === "ArrowUp"
+            ? -1
+            : 0;
+      const at = TIME_POSITIONS.findIndex((p) => p.scale === current);
+      const to = event.key === "Home" ? 0 : event.key === "End" ? TIME_POSITIONS.length - 1 : at + step;
+      if (to === at || to < 0 || to >= TIME_POSITIONS.length) return;
+      event.preventDefault();
+      const next = TIME_POSITIONS[to];
+      if (!next) return;
+      options.onTimeScale(next.scale);
+      // The repaint is what moves focus to the new detent, so ask for it by test id
+      // rather than holding a reference to a node that is about to be replaced.
+      queueMicrotask(() => {
+        const el = wrap.querySelector<HTMLButtonElement>(`[data-testid="time-${next.scale}"]`);
+        el?.focus();
+      });
+    });
+
+    wrap.appendChild(scale_);
     return wrap;
   }
 
@@ -224,22 +413,52 @@ export function createHud(options: HudOptions): HudHandle {
 
   function renderBottom(state: HudState): HTMLElement {
     const { snapshot } = state;
-    const recent = [...snapshot.notifications].sort((a, b) => b.day - a.day).slice(0, 5);
-    const tray = h("div", { class: "notices", "data-testid": "notifications" });
+    // Most urgent first, then most recent. Sorting on day alone could push a critical
+    // notice off the end of the tray behind five informational ones from the same day.
+    const PRIORITY_RANK: Record<Notification["priority"], number> = { critical: 0, important: 1, informational: 2 };
+    const recent = [...snapshot.notifications]
+      .sort((a, b) => PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority] || b.day - a.day)
+      .slice(0, 5);
+    const tray = h("div", {
+      class: "notices",
+      "data-testid": "notifications",
+      role: "region",
+      "aria-label": "Notifications",
+    });
     if (recent.length === 0) {
-      tray.appendChild(h("p", { class: "sheet", style: "padding:var(--space-2) var(--space-3);margin:0", role: "status" }, "Nothing needs your attention."));
+      tray.appendChild(
+        h("p", { class: "sheet", style: "padding:var(--space-2) var(--space-3);margin:0", role: "status" }, "Nothing needs your attention."),
+      );
       return tray;
     }
     for (const n of recent) {
-      const item = h(
-        "button",
-        { type: "button", class: "sheet notice", "data-testid": `notice-${n.id}`, "data-priority": n.priority },
+      const opens = Boolean(n.entityId && n.field);
+      const parts: Child[] = [
+        // Priority is never carried by the coloured edge alone. The glyph is the
+        // redundant shape from ART_DIRECTION.md section 5.3 and the word is there for
+        // a screen reader, so the tray reads correctly with no colour vision at all.
+        h("span", { class: "notice__priority", "aria-hidden": "true", "data-priority": n.priority }, PRIORITY_GLYPH[n.priority]),
         h("span", { class: "notice__day data-sm" }, dayLabel(n.day)),
         h("span", { class: "notice__text" }, n.text),
-      );
-      item.addEventListener("click", () => {
-        if (n.entityId && n.field) options.onNotification(n.entityId, n.field);
-      });
+        h("span", { class: "visually-hidden" }, `${PRIORITY_WORD[n.priority]} notification.`),
+      ];
+      if (n.priority === "critical") {
+        parts.unshift(stamp("URGENT", "critical"));
+      }
+      // Only a notice that has somewhere to go is a button. A control that takes
+      // focus and does nothing when pressed is worse than plain text.
+      const item = opens
+        ? h(
+            "button",
+            { type: "button", class: "sheet notice", "data-testid": `notice-${n.id}`, "data-priority": n.priority },
+            ...parts,
+          )
+        : h("div", { class: "sheet notice", "data-testid": `notice-${n.id}`, "data-priority": n.priority }, ...parts);
+      if (opens) {
+        item.addEventListener("click", () => {
+          if (n.entityId && n.field) options.onNotification(n.entityId, n.field);
+        });
+      }
       tray.appendChild(item);
     }
     return tray;
@@ -428,15 +647,37 @@ function formatResource(id: ResourceId, v: number): string {
   if (id === "medicine") return String(Math.round(v));
   return `$${Math.round(v).toLocaleString("en-US")}`;
 }
+/** The tooltip has to say what the number is, or a bare figure is unreadable. */
+function resourceTitle(id: ResourceId, v: number): string {
+  if (id === "food") return `Grain: ${v.toFixed(1)} days of food in hand`;
+  if (id === "medicine") return `Medicine: ${Math.round(v)} crates in hand`;
+  return `${id === "money" ? "Money" : id === "gold" ? "Gold" : "Metal"}: $${Math.round(v).toLocaleString("en-US")} in hand`;
+}
+/**
+ * How long a warned-about resource has left.
+ *
+ * `daysRemaining` is `null` when the resource is already spent, and `0` when it
+ * runs out at the end of the day. Those are different facts, so they are worded
+ * differently: printing `0.0 days` for a resource that is already gone would be a
+ * number the player can read as "fine until tonight".
+ */
+function daysNote(warning: ResourceWarning): string {
+  if (warning.daysRemaining === null) return "spent";
+  if (warning.daysRemaining <= 0) return "ends today";
+  return `${warning.daysRemaining.toFixed(1)} days`;
+}
 function trendGlyph(t: "up" | "down" | "flat"): string {
   return t === "up" ? "▲" : t === "down" ? "▼" : "—";
 }
-function trendOf(state: HudState): "up" | "down" | "flat" {
-  const net = state.snapshot.ledger.netPerDay;
-  if (net.money === undefined || net.food === undefined) return "flat";
-  if (net.money < 0 && net.food < 0) return "down";
-  if (net.money > 0) return "up";
-  return "flat";
+/**
+ * The arrow beside a resource is that resource's own direction, read from the
+ * ledger's net per day. Deriving one arrow for the whole bar and showing it on two
+ * resources would claim that money and grain are moving together, which is the
+ * opposite of what a ledger is for.
+ */
+function trendOf(netPerDay: number | undefined): "up" | "down" | "flat" {
+  if (netPerDay === undefined || netPerDay === 0) return "flat";
+  return netPerDay > 0 ? "up" : "down";
 }
 function connectionKind(s: ConnectionStatus["state"]): StatusKind {
   if (s === "connected") return "good";

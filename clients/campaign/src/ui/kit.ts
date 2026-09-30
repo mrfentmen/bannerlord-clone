@@ -4,7 +4,7 @@
  */
 
 import { h, clear } from "./dom.js";
-import { paperTreatment, STAMP_ROTATION_DEG } from "../design/grade.js";
+import { STAMP_ROTATION_DEG } from "../design/grade.js";
 
 // -- Panel -------------------------------------------------------------------
 
@@ -311,9 +311,14 @@ export function skeleton(options: SkeletonOptions): HTMLElement {
   return root;
 }
 
-/** Fill a panel body with a named skeleton. */
+/**
+ * Fill a panel body with a named skeleton.
+ *
+ * The shape is a named one rather than a default box, because `CONSTITUTION.md`
+ * section 3.2 requires a skeleton that mirrors the content that is coming, and only
+ * the panel knows what its own layout looks like.
+ */
 export function skeletonBody(body: HTMLElement, shape: string, label: string, testId?: string): void {
   clear(body);
   body.appendChild(skeleton({ shape, label, ...(testId === undefined ? {} : { testId }) }));
-  void paperTreatment;
 }
