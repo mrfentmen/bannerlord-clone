@@ -716,3 +716,482 @@ log_row_limit = 400000.0       # cause rows retained per run. Range 10000-500000
 # The seam between the ruler AI's decision and the march system's movement.
 # Player orders and scripted-profile orders use this same path, so a headless
 # "dumb player" run exercises exactly the machinery a real player would.
+
+# ---------------------------------------------------------------------------
+# BATTLE CORE — the headless field battle
+# ---------------------------------------------------------------------------
+# Every constant the battle tick loop uses, read by internal/battle.
+#
+# Units of measure are fixed and stated here once: distances and sizes are
+# metres, speeds are metres per second, durations are seconds of SIMULATED
+# time, and a tick is battle.tick_seconds long. So a number below is written
+# so that one tick reads as a plausible few seconds of fighting.
+#
+# BATTLE SIZE IS A KNOB, NOT A NUMBER IN CODE. There is no fixed unit count
+# anywhere in the battle engine: every array, every grid cell count, and every
+# target list is sized from the forces the caller hands in. The only ceiling is
+# battle.max_units_per_side, and exceeding it is an explicit error, not a
+# silent truncation. This is what COMBAT.md section 13 and SPEC.md section 5.1
+# ask for: 300 units is a rendering budget, not a simulation budget.
+
+[battle]
+# --- SIZE AND TIME ---------------------------------------------------------
+# Ceiling on how many units one side may field. A validation limit, never an
+# allocation size. Range 100-50000. Raise it freely: nothing in the engine
+# changes shape. The client render budget in SPEC.md section 5.1 is a separate
+# and much lower limit.
+max_units_per_side = 4000
+# Simulated seconds per tick. Range 0.02-5.0. Shorter ticks resolve fire and
+# movement more finely and cost more passes over the force.
+tick_seconds = 0.25
+# Ticks before an unresolved battle is called a stalemate and returns a Draw.
+# Range 100-500000. At tick_seconds 0.25 this is over 3 hours of fighting,
+# which no field battle should ever need; reaching it is a real outcome and is
+# reported as one rather than hidden by an infinite loop.
+max_ticks = 20000
+# Width of one cell of the uniform spatial hash, in metres. Range 1-500. Must
+# be at least melee.range, or a melee query has to scan cells it could have
+# stepped over. Larger cells mean fewer cell lookups and more units per lookup.
+grid_cell_size = 12.0
+# Width of one cell of the second, coarser spatial hash used for aimed fire,
+# in metres. Range 1-5000. Kept separate because the two queries have opposite
+# shapes: melee wants the smallest cell that holds a swing, aimed fire wants a
+# cell big enough that a shooter finds targets in the first ring of cells it
+# looks at rather than walking outwards twenty cells to find one.
+ranged_grid_cell_size = 64.0
+
+# --- UNIT GENERATION -------------------------------------------------------
+# These build a plausible force from a unit count alone, so a caller does not
+# have to invent 500 soldiers by hand. A caller that already has troops in the
+# shape of model.Party uses those instead and none of these apply.
+# Mean hit points of a generated unit, before skill. Range 5-2000.
+roster_hp_base = 100.0
+# Hit points per point of melee skill above the generated mean. Range 0-500.
+# Better troops are harder to kill as well as better at killing.
+roster_hp_skill_weight = 22.0
+# Metres per second for an average generated unit. Range 0.1-25. A walking pace
+# plus kit; this is a game, not a fitness test.
+roster_speed_base = 4.2
+# Metres per second per point of melee skill. Range 0-15. Small, deliberately:
+# skill should not outrun a soldier.
+roster_speed_skill_weight = 0.9
+# Share of a generated force that is ranged-capable. Range 0-1.0. The rest are
+# melee troops. A modern mixed force sits around 0.25.
+roster_ranged_share = 0.25
+# Mean and spread of generated melee skill on a 0-1 scale. Ranges 0-1 and
+# 0.01-0.5. A real force is not homogeneous, and a spread of zero would make
+# troop quality a constant rather than a decision.
+roster_melee_skill_mean = 0.55
+roster_melee_skill_spread = 0.16
+# Mean and spread of generated ranged skill on a 0-1 scale. Ranges 0-1 and
+# 0.01-0.5.
+roster_ranged_skill_mean = 0.50
+roster_ranged_skill_spread = 0.15
+# Morale every generated unit starts at. Range 0-1.0. Low enough that a bad
+# start matters, high enough that nobody breaks before contact.
+roster_morale_start = 0.72
+# Standard deviation of generated starting morale. Range 0-0.5.
+roster_morale_spread = 0.07
+# Bodies one generated unit represents. Range 1-100. A squad-based force sets
+# this above 1 so that "500 vs 500 troops" can be 50 squads of ten, which is
+# what COMBAT.md section 7 describes. Casualty accounting follows it exactly.
+roster_troops_per_unit = 1.0
+# Metres of front one unit occupies. Range 0.5-50. Sets how wide a formation of
+# N units is and therefore how many enemies can reach it at once, which is the
+# whole of the melee concentration problem.
+roster_frontage = 2.6
+# Starting x of a side's line, in metres from the origin. Range 1-5000. The
+# two sides are placed this far apart along +x and -x.
+roster_start_distance = 900.0
+# Depth of a side's formation in rows behind its front line, in metres. Range
+# 1-200. Sets how deep the crowd is, and so how many units a ranged volley
+# passes through.
+roster_formation_depth = 4.0
+
+# --- MELEE -----------------------------------------------------------------
+# Reach of a melee swing, in metres. Range 0.5-20. Also the smallest engagement
+# range in the game.
+melee_range = 2.6
+# Seconds between one unit's swings. Range 0.05-10. A swing is one attack
+# opportunity, not one animation; the client may animate it over more time.
+melee_swing_seconds = 1.1
+# Mean damage of a connecting melee blow, before skill, armour, and momentum.
+# Range 1-500. Expressed as hit points, matching roster_hp_base.
+melee_damage_base = 22.0
+# Damage per point of attacker melee skill. Range 0-200.
+melee_damage_skill_weight = 16.0
+# Damage per point of attacker speed advantage over the target, in metres per
+# second. Range 0-20. Closing at speed hurts, which is what makes a charge a
+# decision rather than a default.
+melee_damage_speed_weight = 1.7
+# Share of the attacker's damage that the target's armour removes, before the
+# armour cap. Range 0-1.0.
+melee_armor_reduction = 0.35
+# Ceiling on armour reduction, as a share of incoming damage. Range 0-1.0.
+# Above this, armour stops being a meaningful term and further gear is wasted.
+melee_armor_reduction_cap = 0.78
+# Standard deviation of melee damage around its mean, as a fraction of the mean.
+# Range 0-2.0. Without it every blow of a skill lands identically and a battle
+# has no texture.
+melee_damage_variance = 0.35
+# Exhaustion added per point of melee damage actually dealt. Range 0-0.05.
+# Fighting tires the men who survive it, so the cost lands on the attacker and
+# on the target alike; this is the per-damage half, on top of the flat
+# exhaustion_per_attack every swing costs.
+melee_fatigue_per_damage = 0.0022
+# How much a routed unit's melee damage is scaled by. Range 0-1.0. A running
+# man swings badly; this is why routing is worth so much.
+melee_routed_effectiveness = 0.15
+# How much a broken (shaken but not routed) unit's melee damage is scaled by.
+# Range 0-1.0. A broken unit still bites, less.
+melee_broken_effectiveness = 0.45
+
+# --- RANGED ---------------------------------------------------------------
+# Effective reach of a aimed shot, in metres. Range 10-3000.
+ranged_range = 240.0
+# Range below which a shot cannot be taken, in metres. Range 0-100. Without
+# this a shooter would be superhuman in a brawl.
+ranged_min_range = 12.0
+# Seconds between one unit's shots. Range 0.05-10.
+ranged_fire_interval = 1.4
+# Mean damage of one connecting shot. Range 1-500.
+ranged_damage_base = 17.0
+# Damage per point of attacker ranged skill. Range 0-200.
+ranged_damage_skill_weight = 14.0
+# Standard deviation of shot damage around its mean, as a fraction of the mean.
+# Range 0-2.0.
+ranged_damage_variance = 0.30
+# Share of hits that add suppression rather than injury. Range 0-1.0. A near
+# miss is nearly as useful as a hit, which is what COMBAT.md section 6 is
+# about: suppression is the weapon that breaks a formation.
+ranged_suppression_share = 0.65
+# Suppression added to the target per connecting shot. Range 0-5. Range above
+# 1 saturates against suppression_cap.
+ranged_suppression_per_hit = 0.28
+# Rounds one ranged unit carries. Range 1-100000. Running out matters
+# (COMBAT.md section 4): a unit at zero ammunition falls back to a much weaker
+# melee rather than firing for free.
+roster_ammo_per_unit = 220.0
+
+# --- SUPPRESSION ----------------------------------------------------------
+# Ceiling on suppression. Range 0.1-5.0. Above 1 the unit is pinned, not
+# merely shaken.
+suppression_cap = 1.0
+# Suppression recovered per second. Range 0-5.0. Slow enough that suppression
+# accumulates through a firefight and recovers during a lull.
+suppression_decay = 0.22
+# Share of incoming melee damage removed at full suppression. Range 0-0.9. A
+# pinned unit fights badly because it cannot get its head up, not because it
+# is magically tougher.
+suppression_melee_penalty = 0.55
+# Share of ranged damage lost at full suppression. Range 0-0.9.
+suppression_ranged_penalty = 0.60
+# Share of melee damage a routed unit also suffers. Range 0-2.0. Men who have
+# run toward the enemy's flank are shot in the back.
+routed_exposure = 1.30
+
+# --- MORALE ---------------------------------------------------------------
+# Morale lost per tick per casualty suffered within morale.neighbourhood
+# metres. Range 0-100. The unit that loses the man next to it feels it more
+# than the arithmetic suggests, which is why this is the largest morale term.
+morale_casualty_hit = 3.4
+# Reference distance over which a nearby casualty frightens a unit, in metres.
+# Range 5-1000. A formation breaks because of what it can see.
+morale_neighbourhood = 90.0
+# Share of a neighbouring casualty that reaches a unit morale_neighbourhood
+# away, at the edge of the neighbourhood. Range 0-1.0. Zero means a casualty
+# only terrifies the unit it happened to.
+morale_casualty_falloff = 0.25
+# Morale lost per tick at full suppression. Range 0-10.
+morale_suppression_hit = 1.1
+# Friendly-to-enemy weight ratio at which local pressure is neutral. Range
+# 0.05-0.95. Below this ratio a unit is in trouble locally, which is the
+# SPEC.md section 5.2 requirement that morale comes from the local ratio.
+morale_ratio_neutral = 0.5
+# How hard the local ratio moves morale per tick, per unit of ratio away from
+# neutral. Range 0-50. The largest single lever on when a flank folds.
+morale_ratio_weight = 9.0
+# Morale gained per tick by a healthy, unopposed, supplied unit. Range 0-5.
+# Under fire nobody recovers, which is why this only counts at low suppression.
+morale_recovery = 0.28
+# Morale lost per tick by a unit that is out of ammunition and cannot fight
+# back. Range 0-10.
+morale_unarmed_hit = 0.45
+# Morale added per tick per leader inside morale_leader_radius metres, scaled
+# by that leader's influence. Range 0-10. RULERS.md section 4 made mechanical.
+morale_leader_bonus = 0.55
+# Radius within which a leader steadies troops, in metres. Range 5-1000.
+morale_leader_radius = 120.0
+# Morale below which a unit breaks: it stops advancing and fights at reduced
+# effect. Range 0-0.8. Broken is not routed; a shaken line can recover.
+morale_break_threshold = 0.28
+# Morale below which a unit routs: it runs. Range 0-0.6. Below the break
+# threshold always, because breaking precedes running.
+morale_rout_threshold = 0.14
+# Morale a unit can never go below while it is alive. Range 0-0.2. A floor, so
+# a panicking crowd does not drive morale negative.
+morale_floor = 0.0
+# Chance per tick that a broken unit rallies, before the morale gain.
+# Range 0-1.0.
+rally_chance = 0.22
+# Morale a successful rally adds. Range 0-1.0. A rally is a decision by an
+# officer, not a passive regeneration.
+rally_morale_gain = 0.30
+# Chance per tick that a routed unit rallies at all. Range 0-1.0. Far below
+# rally_chance, and multiplied by whether a leader is present.
+rally_routed_chance = 0.035
+# Multiplier on rally_routed_chance when a leader is within morale_leader_radius.
+# Range 0-10. Somebody shouting can turn a panic; nobody cannot.
+rally_leader_multiplier = 4.0
+# Influence at which a leader's steadying is complete. Range 1-1000. A minor
+# captain steadies a squad; a warlord steadies a wing.
+morale_leader_influence_reference = 260.0
+# Morale lost by a friendly unit per tick for each routed unit inside
+# morale_neighbourhood metres. Range 0-20. Panic spreads (SPEC.md section
+# 5.2): one unit running takes its neighbours with it.
+morale_panic_spread = 1.6
+# Morale a surrendered unit would have had, kept so the aftermath can report
+# what the enemy broke. Range 0-1.0.
+surrender_morale_report = 0.05
+
+# --- MOVEMENT -------------------------------------------------------------
+# Speed multiplier while advancing toward the enemy. Range 0.1-3.0.
+approach_speed_scale = 1.0
+# Speed multiplier while charging. Range 0.5-3.0. Above approach, because a
+# charge is a commitment.
+charge_speed_scale = 1.35
+# Speed multiplier while withdrawing under fire. Range 0.1-2.0.
+withdraw_speed_scale = 0.85
+# Speed multiplier of a routed unit. Range 0.1-5.0. Routed troops run, and a
+# panic is faster than a march.
+rout_speed_scale = 1.5
+# Distance in metres a unit tries to keep from the nearest enemy of its own
+# side's front line when it has no target. Range 0-200. Standoff spacing, so
+# a line does not collapse into a single point.
+standoff_distance = 8.0
+# Range in metres at which a routed or withdrawing unit looks for the enemy it
+# is running from. Range 0-1000. Small on purpose: a man fleeing an enemy he
+# cannot see is not running from anything in particular, and a wide search here
+# would cost a large neighbour scan for every routed unit on the field.
+rout_flee_radius = 45.0
+# Distance in metres beyond which a melee unit closes at charge_speed_scale
+# rather than approach_speed_scale. Range 0-5000. Below it a charge is not worth
+# the sprint, because there is no time left for the extra speed to matter.
+charge_distance = 70.0
+# Largest step a unit may take in one tick, in metres. Range 0.1-1000. A hard
+# bound on movement per tick, so no combination of speed multipliers can
+# teleport a unit across the field between two ticks.
+max_step_per_tick = 30.0
+# Metres a unit drifts sideways per tick when it has a target, to stop a whole
+# formation converging on one point. Range 0-50.
+lateral_drift = 0.6
+
+# --- TARGETING -----------------------------------------------------------
+# Most enemies one unit may strike per tick. Range 1-50. Above 1 a unit is
+# working through a crowd rather than trading with one opponent.
+melee_max_targets = 1
+# Most units that may engage one defender in the same tick. Range 1-200. This
+# is the concentration limit: without it every unit on the field would hit the
+# same two enemies and the casualty count would be an artefact of iteration
+# order rather than of the fight.
+max_attackers_per_target = 3
+# Most enemies one ranged unit shoots per tick. Range 1-50.
+ranged_max_targets = 2
+# Weight given to the nearest enemy when a unit picks its target, as a share
+# of the distance term. Range 0-10. Lower means a unit prefers an enemy that
+# is nearly dead to one that is slightly closer, which is what a soldier does.
+target_casualty_weight = 0.55
+
+# --- DEATH AND CASUALTIES -------------------------------------------------
+# Fraction of a unit's hit points below which it is destroyed. Range 0-0.95.
+# Below 1.0 so a wounded unit keeps fighting at reduced effect instead of
+# dying outright from one lucky shot.
+fatal_hp_fraction = 0.22
+# Share of a destroyed unit's bodies that are dead rather than wounded. Range
+# 0-1.0. The wounded leave the field for the aftermath's medicine problem
+# (COMBAT.md section 5) and do not rejoin this battle.
+dead_share = 0.30
+# Damage multiplier on a unit already below fatal_hp_fraction. Range 0-2.0.
+# Extra 1.0 makes a finishing blow decisive; below 1.0 lets a hurt unit be
+# finished by a later attacker.
+finishing_blow_scale = 1.0
+
+# --- EXHAUSTION ----------------------------------------------------------
+# Ceiling on exhaustion. Range 0.1-5.0.
+exhaustion_cap = 1.0
+# Exhaustion gained per tick per unit of swing or shot made. Range 0-5.
+exhaustion_per_attack = 0.045
+# Exhaustion gained per tick for every metre travelled. Range 0-0.5.
+exhaustion_per_metre = 0.0016
+# Exhaustion recovered per tick. Range 0-5.0. Combat is a sprint, not a march.
+exhaustion_recovery = 0.075
+# Share of melee damage lost at full exhaustion. Range 0-1.0.
+exhaustion_damage_penalty = 0.30
+# Share of speed lost at full exhaustion. Range 0-1.0.
+exhaustion_speed_penalty = 0.35
+
+# --- ENDING THE BATTLE ---------------------------------------------------
+# Share of a side's starting battle strength at or below which it yields and
+# the other side wins. Range 0.01-1.0. This is the defeat condition: a side
+# that has been destroyed is decided by casualties, and a side that has only
+# been shaken decides by this ratio.
+surrender_strength_fraction = 0.12
+# Share of a side's starting strength made of routed units at which the whole
+# side is treated as routed and yields. Range 0.01-1.0. A battle is lost when
+# the crowd stops fighting, which is earlier and more often than when it dies.
+rout_strength_fraction = 0.55
+# Range within which a routed unit with nothing left to fight may surrender, in
+# metres. Range 1-5000. A routed unit with an enemy still on its heels keeps
+# running; one that has escaped the fight surrenders.
+surrender_range = 260.0
+# Chance per tick that an eligible routed unit surrenders. Range 0-1.0. Below
+# 1.0 so a surrender is a decision an officer makes rather than a switch.
+surrender_chance = 0.30
+
+# ---------------------------------------------------------------------------
+# BATTLE FORMATIONS — shapes, spacing, and paces
+# ---------------------------------------------------------------------------
+# COMBAT.md section 7: line, column, wedge, and cover posts; hold, advance,
+# charge, fall back, follow. AI.md section 5: formation-level goals with
+# individual units offset inside the formation.
+#
+# Metres, seconds, and degrees. An adult walking unloaded covers roughly
+# 1.4 m/s and a rank of men needs about 2 m of depth to form up and step off,
+# which is where the starting values below come from; everything else is a
+# judgement about how a fight should read from above, and the ranges are the
+# bounds inside which the formation code is willing to keep working.
+#
+# Read through internal/config, the one loader the whole simulation uses: see
+# internal/config/keys.go for the key table and internal/config/validate.go for
+# the ranges enforced below. internal/formation takes its constants from that
+# loaded config through FromCentral (internal/formation/config.go) and owns what
+# they mean — the geometry, the spacing, and the shape of an order.
+#
+# One file, one loader, one table of keys. This section used to be parsed by a
+# second private parser inside internal/formation, which meant internal/config
+# could not load the balance file this repo ships: it refuses to start on a key
+# no caller claimed, and a section nobody in its table had claimed is refused as
+# a dead constant.
+
+[formation]
+# Metres between two men abreast in the same rank, for line, column, and wedge.
+# This is shoulder to shoulder, not the distance a man shoots past his
+# neighbour. Range 0.3-10. Below ~1.0 a line is shoulder to shoulder; above
+# ~2.5 the men in a rank start screening each other.
+front_spacing = 1.5
+# Metres of depth between one rank and the next, shared by line, column, and
+# wedge: the room a rank needs to form up and move off. Range 0.3-50. Below ~1
+# a formation cannot walk, because men are standing in each other's space.
+rank_spacing = 2.0
+# Men abreast in one rank of a line. The rest of the line goes into further
+# ranks behind, so a bigger number is a wider and shallower line: more fire
+# across the front, less depth to absorb a charge. Range 1-60. A modern
+# rifle line is usually ten to twenty men to a file.
+line_front_width = 16.0
+# Men abreast in a column. A column is narrow and deep: it can use a road and
+# arrives in order, and it can shoot almost nothing to the front. Range 1-30.
+# Four abreast is a section-sized file.
+column_front_width = 4.0
+# How many men form the point of a wedge. One is a true point, which is what a
+# wedge is for: the point goes in first. More than one is a blunt nose, and is
+# honest about being blunt. Range 1-9.
+wedge_tip_units = 1.0
+# How many men are added to each side of the wedge for every rank back from
+# the point. Two gives a 45-degree arrow; one a narrow file that is barely a
+# wedge; five a very broad, slow arrow that turns a flank slowly. Range 1-12.
+wedge_row_growth = 2.0
+# Metres between neighbours in loose order. Much wider than front spacing,
+# because the point of loose order is that one burst cannot hit ten men
+# standing in a file. Range 1-60. At 7 m a man is hard to see as a target
+# and still finds his neighbours.
+loose_spacing = 7.0
+# How far a man may be pushed off his loose-order lattice point, as a fraction
+# of loose spacing. The scatter is what makes loose order look loose rather
+# than like a grid with gaps. Range 0-0.45, and it must stay below 0.5: past
+# that, two neighbours can be pushed into each other by the scatter alone.
+loose_jitter_fraction = 0.35
+# Seed for the loose-order scatter. It is data, not state: the same seed and
+# the same men always produce the same scatter, so a battle replays from a
+# seed alone. Range: any integer. Change it only to see a different-looking
+# scatter; it has no balance effect.
+loose_seed = 20260930.0
+# The smallest gap the spacing pass will allow between any two men. Below it
+# they are pushed apart. This is what keeps a formation a formation after men
+# have been shoved, charged past each other, or come round a corner of the
+# enemy line. Range 0.1-20, and it may not exceed the tightest gap any shape
+# produces (the code refuses a config where it does, because the spacing pass
+# would then fight the shape itself).
+min_separation = 1.2
+# How many passes the spacing pass makes per tick. One pass resolves a single
+# pair; a crowd needs more. Range 0-8. Zero disables the pass entirely, which
+# is only honest if nothing can push men into each other.
+separation_iterations = 3.0
+# Share of an overlap resolved per pass. Half or less is stable: resolving more
+# than half in one go overshoots, and the formation oscillates instead of
+# forming up. Range 0-0.5.
+separation_push_fraction = 0.4
+# Cap on how far one pass may move one man, in metres. Without it, a heavy
+# overlap in a single tick would fire men across the field, which reads as
+# teleportation and is not a thing a man does. Range 0.01-5.
+separation_push_max = 0.5
+# Walking speed in metres per second for a formation holding its ground. Men
+# who have been shoved need to get back to their slots, and that is a shuffle,
+# not a march. Range 0.05-8. Keep it well under advance_speed: a formation
+# that reordered itself at a march would never stop moving.
+hold_speed = 0.8
+# Closing speed for an advance, in metres per second. An adult walking
+# unloaded covers about 1.4 m/s, and a formation that could not hold that pace
+# could not cross a field. Range 0.05-8.
+advance_speed = 1.4
+# Closing speed for a charge, in metres per second. This is a run, and the
+# whole difference between an advance and a charge is this number and the
+# standoff below. Range 0.05-12.
+charge_speed = 4.2
+# Speed of a flanking move, in metres per second. Faster than an advance,
+# because the value of a flank is arriving before they are ready; slower than
+# a charge, because men running to a flank arrive as a mob rather than a
+# formation. Range 0.05-10.
+flank_speed = 2.6
+# Speed of a withdrawal, in metres per second. Faster than a march, because
+# nobody is waiting for anybody. Range 0.05-10.
+retreat_speed = 2.2
+# Radians per second a nominal man turns at agility 1.0. Roughly 115 degrees a
+# second, which is brisk but achievable for a man changing his mind on the
+# move. Range 0.05-12.
+turn_rate = 2.0
+# Multiple of turn_rate applied when a man squares up to the enemy rather than
+# following his march order. A man pivots far faster than he changes
+# direction on the move, and this is the gap between the two. Range 0.05-6.
+face_turn_rate_scale = 1.5
+# How strongly a man faces the enemy rather than the way he is walking, from 0
+# to 1. At 1 a man falling back still has his front on the enemy, which is the
+# rule that keeps a withdrawal from becoming a rout. Range 0-1.
+face_enemy_weight = 1.0
+# Distance from the enemy, in metres, at which an advancing formation stops
+# closing and waits. A firing distance: the line arrives in order and then
+# shoots, rather than arriving as a crowd and shooting from wherever it
+# stopped. Range 0-2000. Below the effective range of the side's weapons the
+# formation would walk into point-blank fire before it stops.
+advance_standoff = 120.0
+# Distance at which a charge stops closing, in metres. Small, because a charge
+# ends with men in contact. Range 0-500.
+charge_standoff = 8.0
+# How far back, in metres, a fall-back order pulls the formation. It is
+# re-read every tick, so a formation still ordered to fall back keeps falling
+# back while the enemy advances. Range 0-5000.
+retreat_distance = 180.0
+# Clearance, in metres, beyond the enemy's own depth that a flanking formation
+# stands off at before turning in. Turning in from inside their depth is not a
+# flank, it is a collision. Range 0-2000.
+flank_standoff = 45.0
+# How far around the enemy's front, in degrees, a flank order swings before
+# turning in to attack. 90 degrees puts the formation on their flank; 180
+# would put it behind them, which is a different and much harder move.
+# Range 1-180.
+flank_sweep_deg = 75.0
+# How fast that swing happens, in degrees per second. The sweep is a rate, not
+# a jump: a formation walks the arc around the enemy and arrives at the flank
+# having gone round, which is what a flanking march looks like from above.
+# Range 0.1-90. At 6 a 75-degree swing takes about twelve seconds, so the
+# formation spends real time exposed on their flank before it attacks.
+flank_sweep_rate_deg = 6.0
