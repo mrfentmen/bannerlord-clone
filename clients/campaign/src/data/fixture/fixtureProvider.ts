@@ -27,7 +27,17 @@ import type {
   BarterTerms,
   CauseRow,
   ConnectionStatus,
+  FogState,
   GoodId,
+  Issue,
+  IssueAction,
+  IssueActionRequest,
+  IssueActionResult,
+  IssueBoard,
+  IssueKind,
+  IssueReward,
+  IssueState,
+  IssueStep,
   Ledger,
   MarketGood,
   MarketState,
@@ -84,6 +94,30 @@ const FIXTURE = {
   productionTroubled: 0.86,
   /** One grain unit bought or sold is this many person-days of town food stock. */
   grainUnitInPersonDays: 40,
+  /**
+   * Issues. A notable's request, the notice given when it is taken, and what serving it is
+   * worth. Mirrors `balance.toml`'s `[issue]` block, which is the authority for these
+   * numbers in the real simulation.
+   */
+  /** Share of the shortfall the taker must actually close. Below one, on purpose. */
+  issueDeliverTolerance: 0.8,
+  issueDeliverDeadlineDays: 24,
+  issueHideoutDeadlineDays: 30,
+  issueEscortDeadlineDays: 20,
+  /** The disorder level a hideout issue is measured against, in the fixture's own units. */
+  issueHideoutCrimeTarget: 0.2,
+  /** The road safety an escorted road must reach, 0 to 1. */
+  issueEscortSafetyTarget: 0.75,
+  /** Rewards scale with what is at stake and with the notable's power. */
+  issueRewardMoneyPerUnit: 0.85,
+  issueRewardGoldPerUnit: 0.06,
+  issueRewardRenownPerUnit: 0.14,
+  issueRewardRelation: 18,
+  /** How far walking away moves the notable's opinion, against their 0-100 standing. */
+  issueAbandonRelationPenalty: 24,
+  issueRelationShare: 0.5,
+  /** How long an untaken offer survives before it lapses. */
+  issueStaleOfferDays: 18,
   /**
    * Barter. A lord does not trade at the market price in either direction: they buy
    * under it and sell over it, and the difference is their margin. Barter is where
@@ -157,23 +191,44 @@ interface FixtureTownsSpec {
   infected: number;
   /** Towns that are in trouble get a real pre-existing cause chain in the log. */
   scenario?: "shortage" | "outbreak" | "road-rot";
+  /**
+   * Which fog state this town is declared to be in. Fixed data, like everything else in
+   * this file, and for the same reason: the client needs a snapshot carrying all three
+   * states so the map's three renderings are exercised in the fixture build the
+   * end-to-end tests run against. It is a declared shape, not a sighting rule, and the
+   * real rule is `services/simulation/internal/systems/visibility/visibility.go`.
+   */
+  fog: "visible" | "remembered" | "unseen";
 }
 
 /** Twelve real places from `public/world/settlements.json`, with real populations. */
 const TOWN_SPECS: FixtureTownsSpec[] = [
-  { settlementId: "denver", name: "Denver", klass: "city", population: 715513, holder: "Halloway", unrest: 0.31, loyalty: 0.62, daysOfFood: 9.4, infected: 0.02 },
-  { settlementId: "aurora", name: "Aurora", klass: "city", population: 386333, holder: "Halloway", unrest: 0.24, loyalty: 0.7, daysOfFood: 12.1, infected: 0.01 },
-  { settlementId: "lakewood", name: "Lakewood", klass: "city", population: 155999, holder: "Halloway", unrest: 0.19, loyalty: 0.74, daysOfFood: 14.6, infected: 0.0 },
-  { settlementId: "boulder", name: "Boulder", klass: "city", population: 108556, holder: "Vashti", unrest: 0.38, loyalty: 0.55, daysOfFood: 6.2, infected: 0.03 },
-  { settlementId: "thornton", name: "Thornton", klass: "city", population: 141865, holder: "Halloway", unrest: 0.22, loyalty: 0.71, daysOfFood: 11.3, infected: 0.01 },
-  { settlementId: "arvada", name: "Arvada", klass: "town", population: 124354, holder: "Halloway", unrest: 0.27, loyalty: 0.66, daysOfFood: 8.8, infected: 0.02 },
-  { settlementId: "broomfield", name: "Broomfield", klass: "town", population: 74106, holder: "Halloway", unrest: 0.21, loyalty: 0.73, daysOfFood: 13.2, infected: 0.01 },
-  { settlementId: "longmont", name: "Longmont", klass: "town", population: 98919, holder: "Vashti", unrest: 0.44, loyalty: 0.48, daysOfFood: 3.1, infected: 0.06, scenario: "shortage" },
-  { settlementId: "golden", name: "Golden", klass: "town", population: 20415, holder: "Vashti", unrest: 0.72, loyalty: 0.29, daysOfFood: 0.4, infected: 0.14, scenario: "outbreak" },
-  { settlementId: "idaho-springs", name: "Idaho Springs", klass: "town", population: 15273, holder: "Vashti", unrest: 0.49, loyalty: 0.51, daysOfFood: 5.5, infected: 0.04, scenario: "road-rot" },
-  { settlementId: "nederland", name: "Nederland", klass: "town", population: 1470, holder: "Vashti", unrest: 0.35, loyalty: 0.6, daysOfFood: 7.4, infected: 0.02 },
-  { settlementId: "central-city", name: "Central City", klass: "village", population: null, holder: "Vashti", unrest: 0.28, loyalty: 0.66, daysOfFood: 9.0, infected: 0.01 },
+  { settlementId: "denver", name: "Denver", klass: "city", population: 715513, holder: "Halloway", unrest: 0.31, loyalty: 0.62, daysOfFood: 9.4, infected: 0.02, fog: "visible" },
+  { settlementId: "aurora", name: "Aurora", klass: "city", population: 386333, holder: "Halloway", unrest: 0.24, loyalty: 0.7, daysOfFood: 12.1, infected: 0.01, fog: "visible" },
+  { settlementId: "lakewood", name: "Lakewood", klass: "city", population: 155999, holder: "Halloway", unrest: 0.19, loyalty: 0.74, daysOfFood: 14.6, infected: 0.0, fog: "visible" },
+  { settlementId: "boulder", name: "Boulder", klass: "city", population: 108556, holder: "Vashti", unrest: 0.38, loyalty: 0.55, daysOfFood: 6.2, infected: 0.03, fog: "visible" },
+  { settlementId: "thornton", name: "Thornton", klass: "city", population: 141865, holder: "Halloway", unrest: 0.22, loyalty: 0.71, daysOfFood: 11.3, infected: 0.01, fog: "visible" },
+  { settlementId: "arvada", name: "Arvada", klass: "town", population: 124354, holder: "Halloway", unrest: 0.27, loyalty: 0.66, daysOfFood: 8.8, infected: 0.02, fog: "visible" },
+  { settlementId: "broomfield", name: "Broomfield", klass: "town", population: 74106, holder: "Halloway", unrest: 0.21, loyalty: 0.73, daysOfFood: 13.2, infected: 0.01, fog: "remembered" },
+  { settlementId: "longmont", name: "Longmont", klass: "town", population: 98919, holder: "Vashti", unrest: 0.44, loyalty: 0.48, daysOfFood: 3.1, infected: 0.06, scenario: "shortage", fog: "remembered" },
+  { settlementId: "golden", name: "Golden", klass: "town", population: 20415, holder: "Vashti", unrest: 0.72, loyalty: 0.29, daysOfFood: 0.4, infected: 0.14, scenario: "outbreak", fog: "remembered" },
+  { settlementId: "idaho-springs", name: "Idaho Springs", klass: "town", population: 15273, holder: "Vashti", unrest: 0.49, loyalty: 0.51, daysOfFood: 5.5, infected: 0.04, scenario: "road-rot", fog: "unseen" },
+  { settlementId: "nederland", name: "Nederland", klass: "town", population: 1470, holder: "Vashti", unrest: 0.35, loyalty: 0.6, daysOfFood: 7.4, infected: 0.02, fog: "unseen" },
+  { settlementId: "central-city", name: "Central City", klass: "village", population: null, holder: "Vashti", unrest: 0.28, loyalty: 0.66, daysOfFood: 9.0, infected: 0.01, fog: "unseen" },
 ];
+
+/**
+ * The fog constants the fixture declares, matching the apiserver's fog block field for
+ * field. Fixed numbers so the data-source panel has something to print and the tests have
+ * something to assert on. The real values come from `visibility.sight_radius_km` and
+ * `visibility.sighting_memory_days` in the simulation's config.
+ */
+const FIXTURE_FOG = {
+  sideId: "side-1",
+  sightRadiusKm: 24,
+  sightRadiusLeagues: 24 / 4.828032,
+  sightingMemoryDays: 3,
+} as const;
 
 const RULER_SPECS = [
   { name: "Ilse Halloway", faction: "Mountain Alliance", tier: "side-leader" as const, holdings: ["denver", "aurora", "lakewood", "thornton", "arvada", "broomfield"], influence: 92, renown: 74, loyalty: 0.81, relation: 34 },
@@ -195,6 +250,121 @@ const RULER_SPECS = [
  */
 const HOLDER_RULER_ID: Record<string, string> = { Halloway: "ruler-0", Vashti: "ruler-1" };
 
+/**
+ * A notable: a non-ruler person who holds local power and can therefore ask for help.
+ *
+ * `role` is the gate on which requests this person will put their name to, exactly as the
+ * simulation gates it: a gang boss asks for a hideout cleared and would not ask anyone to
+ * haul sacks of grain. Keeping the gate in the roster rather than hard-coding it per issue
+ * is the difference between one rule in one table and a cross product.
+ */
+interface FixtureNotable {
+  id: string;
+  name: string;
+  role: string;
+  settlementId: string;
+  /** How much this person sways their settlement, 0 to 1. */
+  power: number;
+  /** Their opinion of the player, 0 to 100 on the client's standing scale. */
+  relation: number;
+  grievance: number;
+}
+
+/** The roles the simulation knows, and which requests each will put their name to. */
+const NOTABLE_ROLES: { role: string; kinds: IssueKind[] }[] = [
+  { role: "mayor", kinds: ["deliver-goods", "clear-hideout"] },
+  { role: "foreman", kinds: ["deliver-goods", "escort"] },
+  { role: "merchant", kinds: ["deliver-goods", "escort"] },
+  { role: "shopkeeper", kinds: ["deliver-goods"] },
+  { role: "headman", kinds: ["deliver-goods"] },
+  { role: "doctor", kinds: ["deliver-goods"] },
+  { role: "gang boss", kinds: ["clear-hideout"] },
+  { role: "militia captain", kinds: ["clear-hideout"] },
+];
+
+/** The three requests the simulation generates, and what each is measured against. */
+const ISSUE_UNIT: Record<IssueKind, string> = {
+  "deliver-goods": "grain units",
+  "clear-hideout": "disorder",
+  escort: "road safety",
+};
+
+/** Display names for the three issue kinds. */
+const ISSUE_KIND_NAMES: Record<IssueKind, string> = {
+  "deliver-goods": "Deliver goods",
+  "clear-hideout": "Clear hideout",
+  escort: "Escort",
+};
+
+/** Names for generated notables, cycled by index. */
+const NOTABLE_NAMES: string[] = [
+  "Marcus Webb", "Elena Vasquez", "James Okafor", "Sarah Lindqvist", "David Chen",
+  "Maria Santos", "Robert Hayes", "Aisha Johnson", "Thomas Mueller", "Lisa Park",
+  "William Carter", "Ana Rodriguez", "Michael Torres", "Jennifer Kim", "Daniel Brooks",
+  "Sofia Andersson", "Kevin O'Brien", "Rachel Green", "Anthony Russo", "Nina Petrov",
+];
+
+/** Format a number as a whole number for display. */
+function whole(n: number): string {
+  return Math.round(n).toLocaleString("en-US");
+}
+
+/** Capitalize the first letter of a string. */
+function cap(s: string): string {
+  return s.length > 0 ? s.charAt(0).toUpperCase() + s.slice(1) : s;
+}
+
+/**
+ * Sort order for the issue board: live work first, then offers by expiry,
+ * then history newest first.
+ */
+function byBoardOrder(a: Issue, b: Issue): number {
+  const stateRank = (s: Issue["state"]): number => {
+    switch (s) {
+      case "accepted": return 0;
+      case "offered": return 1;
+      case "succeeded": return 2;
+      case "failed": return 3;
+      default: return 4;
+    }
+  };
+  const ra = stateRank(a.state);
+  const rb = stateRank(b.state);
+  if (ra !== rb) return ra - rb;
+  if (a.state === "offered" && b.state === "offered") {
+    return a.deadlineDay - b.deadlineDay;
+  }
+  return (b.startedDay ?? 0) - (a.startedDay ?? 0);
+}
+
+/**
+ * The fixture's own record of one outstanding request.
+ *
+ * It is not the contract type on purpose: the contract sends a projected `Issue` with
+ * progress and the requirement sentence already resolved from world state, while this holds
+ * the raw readings and the state. A double that returned the contract type directly would
+ * be returning a copy of itself with the interesting part done for it.
+ */
+interface FixtureIssue {
+  id: string;
+  kind: IssueKind;
+  notableId: string;
+  settlementId: string;
+  targetName: string | null;
+  /** Road safety at the moment the offer was made, for an escort. */
+  roadSafety: number;
+  /** What is at stake, in `unit`. For a delivery, grain units of food. */
+  amount: number;
+  /** The objective's reading when it was taken, in the same unit as `amount`. */
+  baseline: number;
+  state: IssueState;
+  startedDay: number | null;
+  deadlineDay: number;
+  deadlineDays: number;
+  reward: IssueReward;
+  steps: IssueStep[];
+}
+
 export function createFixtureSimulationProvider(options: { seed?: number } = {}): SimulationProvider {
   const state = new FixtureState(options.seed ?? 20050304);
   return {
@@ -206,6 +376,10 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     barterTerms: async (traderId, townId) => state.barterTerms(traderId, townId),
     proposeBarter: async (request) => state.proposeBarter(request),
     commitBarter: async (request) => state.commitBarter(request),
+    issueBoard: async (partyId) => state.issueBoard(partyId),
+    acceptIssue: async (request) => state.acceptIssue(request),
+    completeIssue: async (request) => state.completeIssue(request),
+    abandonIssue: async (request) => state.abandonIssue(request),
     planMarch: async (request) => state.planMarch(request),
     commitMarch: async (request) => state.commitMarch(request),
     setTimeScale: (daysPerRealSecond) => state.setTimeScale(daysPerRealSecond),
@@ -227,6 +401,8 @@ class FixtureState {
   #markets = new Map<string, MarketState>();
   #party!: PartyState;
   #rulers: RulerState[] = [];
+  #notables: FixtureNotable[] = [];
+  #issues = new Map<string, FixtureIssue>();
   #warnings: ResourceWarning[] = [];
   #notifications: Notification[] = [];
   #ledger!: Ledger;
@@ -238,6 +414,7 @@ class FixtureState {
     this.#random = mulberry32(seed);
     this.#build();
     this.#seedCauseChains();
+    this.#seedIssues();
   }
 
   // -- construction ---------------------------------------------------------
@@ -282,6 +459,13 @@ class FixtureState {
         gold: Math.round((population ?? 900) * 0.6),
         metal: Math.round((population ?? 900) * 0.9),
         updatedTick: 0,
+        // Fog, from the declared state on the spec rather than from any rule. `known`
+        // is the union of visible and remembered, matching what the simulation's
+        // `EverSeenSides` mask means: a sighting is never forgotten, so a town that
+        // leaves sight is remembered rather than unknown.
+        visible: spec.fog === "visible",
+        known: spec.fog !== "unseen",
+        lastSeenTick: spec.fog === "unseen" ? 0 : 1,
         recruitable: RECRUITABLE_UNITS.map((u) => ({
           ...u,
           available: Math.max(4, Math.round((RECRUIT_BASE_AVAILABLE[u.unitId] ?? 10) * sizeFactorFor(population))),
@@ -500,6 +684,7 @@ class FixtureState {
       player: { ...this.#player, resources: { ...this.#player.resources } },
       party: structuredClone(this.#party),
       towns: [...this.#towns.values()].map((t) => ({ ...t })),
+      fog: this.#fog(),
       markets: Object.fromEntries([...this.#markets].map(([k, v]) => [k, structuredClone(v)])),
       sides: buildFixtureSides(),
       rulers: structuredClone(this.#rulers),
@@ -507,6 +692,38 @@ class FixtureState {
       warnings: structuredClone(this.#warnings),
       notifications: structuredClone(this.#notifications.slice(-40)),
       causeLog: Object.fromEntries([...this.#cause].map(([k, v]) => [k, { ...v }])),
+    };
+  }
+
+  /**
+   * The fog block, in the apiserver's shape: three explicit id lists, the three counts,
+   * and the radius in both units. Assembled from the declared state on each town spec.
+   *
+   * The three lists are written out rather than derived from each other, because that is
+   * what the server does and the client is being fed this in place of a server. A fixture
+   * that handed the client a derived list would be testing the client's own arithmetic
+   * instead of its reading of the contract.
+   */
+  #fog(): FogState {
+    const idsFor = (state: FixtureTownsSpec["fog"]): string[] =>
+      TOWN_SPECS.filter((s) => s.fog === state).map((s) => `town-${s.settlementId}`);
+    const visibleTowns = idsFor("visible");
+    const knownTowns = TOWN_SPECS.filter((s) => s.fog !== "unseen").map((s) => `town-${s.settlementId}`);
+    const unseenTowns = idsFor("unseen");
+    return {
+      sideId: FIXTURE_FOG.sideId,
+      sightRadiusKm: FIXTURE_FOG.sightRadiusKm,
+      sightRadiusLeagues: FIXTURE_FOG.sightRadiusLeagues,
+      sightingMemoryDays: FIXTURE_FOG.sightingMemoryDays,
+      visibleTowns,
+      knownTowns,
+      unseenTowns,
+      counts: {
+        visible: visibleTowns.length,
+        known: knownTowns.length,
+        unseen: unseenTowns.length,
+        total: TOWN_SPECS.length,
+      },
     };
   }
 
@@ -1234,6 +1451,650 @@ class FixtureState {
       [causedBy],
       `${this.#party.name} holds ${total} prisoners, ${count} ${taken.name.toLowerCase()} among them.`,
     );
+  }
+
+  // -- issues ------------------------------------------------------------------
+  //
+  // One notable's request is the unit the player accepts and completes. Three rules shape
+  // the code here, and all three are the simulation's rules rather than the fixture's.
+  //
+  // **Progress is read from the world, never declared.** Every read recomputes the objective
+  // from the town's own readings, so a delivery made by somebody else counts and a claim
+  // made without the goods does not. A double that let the player set its own progress
+  // would be testing the panel against a fiction.
+  //
+  // **Reporting an issue complete is an order, not a fact.** `completeIssue` reads the world
+  // and refuses an unsupported claim in the simulation's own words. This is the single most
+  // important behaviour the quest panel has to get right, so it is the one this section is
+  // built around.
+  //
+  // **Ignoring has consequences and walking away costs more.** An offer nobody takes ages
+  // the notable's opinion, and abandoning an accepted issue costs a visible number. Both are
+  // measured, both land in the per-issue step log, and the panel prints the figure before
+  // the button rather than only in the refusal.
+
+  /**
+   * A notable roster and one request per troubled place.
+   *
+   * Seeded rather than generated, for the reason the cause chains are seeded: a double
+   * whose requests appear at random would be a double whose quest panel could not be
+   * asserted against, and the four states have to be on screen at once for the panel's four
+   * button sets to be testable at all.
+   */
+  #seedIssues(): void {
+    const rand = this.#random;
+    const wanted: { settlementId: string; kind: IssueKind; state: IssueState }[] = [
+      { settlementId: "longmont", kind: "deliver-goods", state: "offered" },
+      { settlementId: "longmont", kind: "escort", state: "offered" },
+      { settlementId: "golden", kind: "deliver-goods", state: "offered" },
+      { settlementId: "golden", kind: "clear-hideout", state: "offered" },
+      { settlementId: "idaho-springs", kind: "escort", state: "offered" },
+      { settlementId: "denver", kind: "clear-hideout", state: "offered" },
+      // One accepted, so the panel has a request with a notice running and both of the
+      // buttons that only an accepted request is allowed to show.
+      { settlementId: "boulder", kind: "deliver-goods", state: "accepted" },
+      // And one of each resolved state, so the log is not only a list of things to do.
+      { settlementId: "aurora", kind: "deliver-goods", state: "succeeded" },
+      { settlementId: "golden", kind: "escort", state: "failed" },
+    ];
+    for (const [index, want] of wanted.entries()) {
+      const town = this.#towns.get(`town-${want.settlementId}`);
+      if (!town) continue;
+      // The role gates which request this person will put their name to, so the pairing
+      // comes out of the eligibility table rather than being written per issue.
+      const seat = NOTABLE_ROLES.find((r) => r.kinds.includes(want.kind));
+      if (!seat) continue;
+      const notableId = `notable-${index}`;
+      this.#notables.push({
+        id: notableId,
+        name: NOTABLE_NAMES[index % NOTABLE_NAMES.length] ?? "A notable of the town",
+        role: seat.role,
+        settlementId: town.id,
+        // Power follows the settlement's size, so a prosperous town's requests are worth
+        // more and a bankrupt one's worth less, with no separate rule per role.
+        power: round2(clamp(0.22 + (town.population ?? 1400) / 1_400_000 + rand() * 0.18, 0.15, 1)),
+        relation: Math.round(clamp(14 + rand() * 36, 0, 100)),
+        grievance: round2(clamp(rand() * 0.18, 0, 1)),
+      });
+      const issue = this.#makeIssue(`issue-${index}`, want.kind, notableId, town);
+      if (want.state !== "offered") this.#seedHistory(issue, want.state);
+      this.#issues.set(issue.id, issue);
+    }
+  }
+
+  /**
+   * A fresh request from a notable who has one, with the objective measured against the
+   * world as it stands today and the reward priced off the notable's own power.
+   */
+  #makeIssue(id: string, kind: IssueKind, notableId: string, town: TownState): FixtureIssue {
+    const notable = this.#notable(notableId);
+    const issue: FixtureIssue = {
+      id,
+      kind,
+      notableId,
+      settlementId: town.id,
+      targetName: kind === "escort" ? `the ${town.name} road` : null,
+      roadSafety: town.roadSafety,
+      amount: this.#amountAtStake(kind, town),
+      baseline: this.#readingAt(kind, town, 0),
+      state: "offered",
+      startedDay: null,
+      // An untaken offer carries the stale-offer window rather than a working notice: the
+      // deadline only becomes a real notice on the day somebody takes it up.
+      deadlineDay: this.#day + FIXTURE.issueStaleOfferDays,
+      deadlineDays: FIXTURE.issueStaleOfferDays,
+      reward: this.#priceReward(kind, this.#amountAtStake(kind, town), notable, town),
+      steps: [],
+    };
+    this.#logStep(issue, this.#offerText(issue, town), "offered");
+    return issue;
+  }
+
+  /** What a request of this kind asks for today, in its own unit. */
+  #amountAtStake(kind: IssueKind, town: TownState): number {
+    switch (kind) {
+      case "deliver-goods": {
+        // Enough grain to lift a larder a fixed distance above where it stands.
+        const larder = this.#readingAt(kind, town, 0);
+        return Math.max(1, Math.round(larder * FIXTURE.issueDeliverTolerance + 10));
+      }
+      case "clear-hideout":
+        return Math.round(town.unrest * 100);
+      case "escort":
+        return Math.round(town.roadSafety * 100);
+    }
+  }
+
+  /** The number of days of notice given for this kind, which is the sim's table. */
+  #noticeOf(kind: IssueKind): number {
+    switch (kind) {
+      case "deliver-goods":
+        return FIXTURE.issueDeliverDeadlineDays;
+      case "clear-hideout":
+        return FIXTURE.issueHideoutDeadlineDays;
+      case "escort":
+        return FIXTURE.issueEscortDeadlineDays;
+    }
+  }
+
+  /**
+   * What serving this request is worth, scaled by what is at stake and by how much the
+   * person asking sways their settlement.
+   *
+   * The promised money is then held under the payer's treasury, because a town that cannot
+   * pay what it has promised should promise less rather than fail to pay at the end.
+   */
+  #priceReward(_kind: IssueKind, amount: number, notable: FixtureNotable, town: TownState): IssueReward {
+    const power = 1 + FIXTURE.issueRelationShare * notable.power;
+    const money = FIXTURE.issueRewardMoneyPerUnit * amount * power;
+    return {
+      money: round2(Math.min(money, town.money * 0.5)),
+      gold: round2(FIXTURE.issueRewardGoldPerUnit * amount * power),
+      renown: round2(FIXTURE.issueRewardRenownPerUnit * amount * power),
+      relation: round2(FIXTURE.issueRewardRelation * power),
+    };
+  }
+
+  /**
+   * The objective's reading of the world, in the issue's own unit.
+   *
+   * Two of the three read fields the fixture really holds: a town's larder in grain units,
+   * and a town's road safety. The third reads disorder, and the fixture has no crime field,
+   * so it uses the unrest it does hold and says so here rather than inventing a number the
+   * world would then have to agree with elsewhere. It is the one place in this double where
+   * a field stands in for another, and it is labelled.
+   */
+  #readingAt(kind: IssueKind, town: TownState, _roadSafety: number): number {
+    switch (kind) {
+      case "deliver-goods":
+        return round2(town.foodStock / FIXTURE.grainUnitInPersonDays);
+      case "clear-hideout":
+        return round2(town.unrest * 100);
+      case "escort":
+        return round2(town.roadSafety * 100);
+    }
+  }
+
+  /** The reading the objective has to reach. Below the baseline for a hideout, by design. */
+  #targetOf(issue: FixtureIssue): number {
+    switch (issue.kind) {
+      case "deliver-goods":
+        return round2(issue.baseline + issue.amount * FIXTURE.issueDeliverTolerance);
+      case "clear-hideout":
+        return round2(FIXTURE.issueHideoutCrimeTarget * 100);
+      case "escort":
+        return round2(FIXTURE.issueEscortSafetyTarget * 100);
+    }
+  }
+
+  /** Whether the world currently satisfies the objective. Read, never declared. */
+  #metNow(issue: FixtureIssue, town: TownState): boolean {
+    const reading = this.#readingAt(issue.kind, town, issue.roadSafety);
+    return this.#compare(issue, reading, this.#targetOf(issue));
+  }
+
+  /** Higher is better for a delivery and an escort; lower is better for a hideout. */
+  #compare(issue: FixtureIssue, reading: number, target: number): boolean {
+    return issue.kind === "clear-hideout" ? reading <= target : reading >= target;
+  }
+
+  /** How far the objective is met, 0 to 1, measured from the reading captured on acceptance. */
+  #progressNow(issue: FixtureIssue, town: TownState): number {
+    if (issue.state !== "accepted") return issue.state === "succeeded" ? 1 : 0;
+    const reading = this.#readingAt(issue.kind, town, issue.roadSafety);
+    const target = this.#targetOf(issue);
+    const span =
+      issue.kind === "clear-hideout"
+        ? issue.baseline - target
+        : target - issue.baseline;
+    if (span <= 0) return this.#metNow(issue, town) ? 1 : 0;
+    const done = issue.kind === "clear-hideout" ? issue.baseline - reading : reading - issue.baseline;
+    return clamp(done / span, 0, 1);
+  }
+
+  /**
+   * The requirement in a full sentence, written here rather than in the panel because only
+   * the simulation knows what the objective is: a delivery is a larder reading against the
+   * baseline captured on the day it was taken, an escort is a road's safety, and a hideout is
+   * disorder coming down rather than anything being raised.
+   */
+  #requirementText(issue: FixtureIssue, town: TownState, reading: number, target: number): string {
+    if (issue.state === "offered") {
+      switch (issue.kind) {
+        case "deliver-goods":
+          return `${town.name}'s larder stands at ${whole(reading)} grain units. Bring it to ${whole(target)} and ${this.#notable(issue.notableId).name} pays what is promised.`;
+        case "clear-hideout":
+          return `Disorder in ${town.name} stands at ${whole(reading)}. Bring it down to ${whole(target)} and ${this.#notable(issue.notableId).name} pays what is promised.`;
+        case "escort":
+          return `${cap(issue.targetName ?? "The road")} stands at ${whole(reading)} out of 100. Bring it to ${whole(target)} and ${this.#notable(issue.notableId).name} pays what is promised.`;
+      }
+    }
+    const baseline = whole(issue.baseline);
+    const now = whole(reading);
+    switch (issue.kind) {
+      case "deliver-goods":
+        return `${town.name}'s larder stood at ${baseline} grain units when this was taken and must reach ${whole(target)}. It stands at ${now} now.`;
+      case "clear-hideout":
+        return `Disorder in ${town.name} stood at ${baseline} when this was taken and must come down to ${whole(target)}. It stands at ${now} now.`;
+      case "escort":
+        return `${cap(issue.targetName ?? "The road")} stood at ${baseline} when this was taken and must reach ${whole(target)}. It stands at ${now} now.`;
+    }
+  }
+
+  /** The sentence the notable's request was made with, written into the step log. */
+  #offerText(issue: FixtureIssue, town: TownState): string {
+    const reading = this.#readingAt(issue.kind, town, issue.roadSafety);
+    switch (issue.kind) {
+      case "deliver-goods":
+        return `offered: ${town.name} has ${whole(reading)} grain units in store`;
+      case "clear-hideout":
+        return `offered: disorder in ${town.name} is at ${whole(reading)}`;
+      case "escort":
+        return `offered: ${issue.targetName ?? "the road"} is at ${whole(reading)}`;
+    }
+  }
+
+  /**
+   * Backdate a request to a state other than offered, so the board carries history rather
+   * than only work to do. Written through the same helpers the actions use, so the seed
+   * cannot drift away from what a real resolution produces.
+   */
+  #seedHistory(issue: FixtureIssue, state: IssueState): void {
+    if (state === "failed") {
+      const daysAgo = 6;
+      this.#day -= 0; // The clock is not rewound; the history is stamped into the past.
+      issue.state = "accepted";
+      issue.startedDay = this.#day;
+      issue.deadlineDays = this.#noticeOf(issue.kind);
+      issue.deadlineDay = this.#day + issue.deadlineDays;
+      this.#logStep(issue, `taken up with ${issue.deadlineDays} days to do it`, "accepted", daysAgo);
+      issue.state = "failed";
+      this.#logStep(issue, "the taker walked away from it", "failed", daysAgo - 4);
+      const notable = this.#notable(issue.notableId);
+      notable.relation = Math.max(0, notable.relation - FIXTURE.issueAbandonRelationPenalty);
+      notable.grievance = round2(clamp(notable.grievance + 0.2, 0, 1));
+      return;
+    }
+    issue.state = "accepted";
+    issue.startedDay = this.#day;
+    issue.deadlineDays = this.#noticeOf(issue.kind);
+    issue.deadlineDay = this.#day + issue.deadlineDays;
+    this.#logStep(issue, `taken up with ${issue.deadlineDays} days to do it`, "accepted", 5);
+    issue.state = state;
+    this.#logStep(issue, "the goods arrived and the work was done", state, 2);
+    const notable = this.#notable(issue.notableId);
+    notable.relation = Math.min(100, notable.relation + issue.reward.relation);
+    notable.grievance = round2(clamp(notable.grievance - 0.25, 0, 1));
+  }
+
+  /**
+   * Age the board: an offer nobody took up lapses on its own, and an accepted request whose
+   * notice ran out fails.
+   *
+   * Called from `issueBoard` rather than from a timer, because the only thing the quest panel
+   * needs is for the board to be honest at the moment it is drawn, and a deadline that only
+   * moves when somebody looks at it is not a deadline.
+   */
+  #age(): void {
+    for (const issue of this.#issues.values()) {
+      if (this.#day <= issue.deadlineDay) continue;
+      if (issue.state === "offered") {
+        this.#logStep(issue, "nobody took it up and the offer lapsed", "failed");
+        const notable = this.#notable(issue.notableId);
+        notable.grievance = round2(clamp(notable.grievance + 0.06, 0, 1));
+        this.#issueRow(issue, "state", 0, 3, `${this.#title(issue)} lapsed with nobody to answer it.`);
+      } else if (issue.state === "accepted") {
+        this.#logStep(issue, "the notice ran out and the work was never done", "failed");
+        const notable = this.#notable(issue.notableId);
+        notable.relation = Math.max(0, notable.relation - FIXTURE.issueAbandonRelationPenalty);
+        this.#issueRow(issue, "state", 1, 3, `${this.#title(issue)} failed: the notice ran out.`);
+      }
+    }
+  }
+
+  async issueBoard(partyId: string): Promise<IssueBoard> {
+    if (partyId !== this.#party.id) throw new Error(`No party with id ${partyId}`);
+    this.#age();
+    return {
+      partyId,
+      day: this.#day,
+      issues: [...this.#issues.values()]
+        .map((issue) => this.#project(issue))
+        // Live work first, then the offer that expires soonest, then history newest first.
+        // The order is the simulation's to decide, so this only reads it.
+        .sort(byBoardOrder),
+    };
+  }
+
+  async acceptIssue(request: IssueActionRequest): Promise<IssueActionResult> {
+    return this.#act(request, "accept");
+  }
+
+  async completeIssue(request: IssueActionRequest): Promise<IssueActionResult> {
+    return this.#act(request, "complete");
+  }
+
+  async abandonIssue(request: IssueActionRequest): Promise<IssueActionResult> {
+    return this.#act(request, "abandon");
+  }
+
+  /**
+   * One order against one request, resolved against the world rather than against the
+   * player's claim.
+   *
+   * The issue's own state is the authority on whether an order still makes sense: an offer
+   * that has lapsed is `failed`, and every action on it is refused in those words rather
+   * than in a generic error. `expectedDay` is checked only for the impossible case of an
+   * order dated ahead of the world, because the state check above already covers the case
+   * the guard exists for and a clock that runs while the panel is open would otherwise
+   * refuse every order the player makes.
+   */
+  #act(request: IssueActionRequest, action: IssueAction): IssueActionResult {
+    if (request.partyId !== this.#party.id) throw new Error(`No party with id ${request.partyId}`);
+    if (request.expectedDay > this.#day) {
+      throw new Error(`Issue order dated day ${request.expectedDay}, ahead of the world's day ${this.#day}`);
+    }
+    const issue = this.#issue(request.issueId);
+    this.#age();
+    const town = this.#towns.get(issue.settlementId);
+    if (!town) throw new Error(`Issue ${issue.id} names no town the fixture knows`);
+    const notable = this.#notable(issue.notableId);
+
+    if (action === "accept") {
+      if (issue.state !== "offered") {
+        return this.#refuse(issue, "accept", this.#staleReason(issue, "taken up"), "Offer taken");
+      }
+      // The notice is given now, and the reading is captured now: a request taken four days
+      // after it was made is measured against the world as it stands today, not as it stood
+      // when the notable happened to ask.
+      issue.state = "accepted";
+      issue.baseline = this.#readingAt(issue.kind, town, issue.roadSafety);
+      issue.startedDay = this.#day;
+      issue.deadlineDays = this.#noticeOf(issue.kind);
+      issue.deadlineDay = this.#day + issue.deadlineDays;
+      this.#logStep(issue, `taken up with ${issue.deadlineDays} days to do it`, "accepted");
+      const row = this.#issueRow(
+        issue,
+        "state",
+        0,
+        1,
+        `${this.#title(issue)} was taken up with ${issue.deadlineDays} days to do it.`,
+      );
+      notable.relation = Math.min(100, notable.relation + 4);
+      return this.#settle(issue, "accept", `Taken. ${issue.deadlineDays} days to do it.`, row);
+    }
+
+    if (issue.state !== "accepted") {
+      const why =
+        issue.state === "offered"
+          ? "This one is still an offer. Take it up first."
+          : this.#staleReason(issue, action === "complete" ? "reported done" : "given up");
+      return this.#refuse(issue, action, why, "Not your request to close");
+    }
+
+    if (action === "abandon") {
+      const before = notable.relation;
+      notable.relation = Math.max(0, before - FIXTURE.issueAbandonRelationPenalty);
+      notable.grievance = round2(clamp(notable.grievance + 0.2, 0, 1));
+      issue.state = "failed";
+      this.#logStep(issue, "the taker walked away from it", "failed");
+      const row = this.#issueRow(
+        issue,
+        "state",
+        1,
+        3,
+        `${this.#title(issue)} was given up. ${notable.name} is ${FIXTURE.issueAbandonRelationPenalty} worse disposed towards the party.`,
+        [`${notable.name}'s standing fell from ${before} to ${Math.round(notable.relation)}.`],
+      );
+      return this.#settle(
+        issue,
+        "abandon",
+        `Given up. ${notable.name} is ${FIXTURE.issueAbandonRelationPenalty} worse disposed towards the party.`,
+        row,
+      );
+    }
+
+    // Completing. The world decides, not the claim: this is the branch that keeps the button
+    // honest, and the refusal is written to name the shortfall rather than to say "no".
+    const reading = this.#readingAt(issue.kind, town, issue.roadSafety);
+    const target = this.#targetOf(issue);
+    const over = this.#day > issue.deadlineDay;
+    if (!this.#compare(issue, reading, target)) {
+      if (over) {
+        issue.state = "failed";
+        this.#logStep(issue, "reported done after the notice had run out", "failed");
+        const row = this.#issueRow(
+          issue,
+          "state",
+          1,
+          3,
+          `${this.#title(issue)} was reported done ${this.#day - issue.deadlineDay} days too late to count.`,
+        );
+        return this.#settle(issue, "complete", "Too late to count. The notice had run out.", row);
+      }
+      return this.#refuse(
+        issue,
+        "complete",
+        `Reported done, but ${this.#shortfallText(issue, town.name, reading, target)}.`,
+        "Not done",
+      );
+    }
+    issue.state = "succeeded";
+    this.#logStep(issue, `the work was done on day ${this.#day}`, "succeeded");
+    const paid = this.#pay(issue, notable);
+    const row = this.#issueRow(
+      issue,
+      "state",
+      1,
+      2,
+      `${this.#title(issue)} was served. ${notable.name} paid ${formatMoney(paid.money)}, ${whole(paid.gold)} gold and ${whole(paid.renown)} renown.`,
+    );
+    return this.#settle(
+      issue,
+      "complete",
+      `Served. ${notable.name} paid ${formatMoney(paid.money)}, ${whole(paid.gold)} gold and ${whole(paid.renown)} renown.`,
+      row,
+      paid,
+    );
+  }
+
+  /**
+   * Pay what was promised.
+   *
+   * The money actually paid is what is there, not what was written: the promise was capped
+   * against the payer's treasury when it was made, and a town that has spent its money since
+   * pays the smaller figure and the sentence says so.
+   */
+  #pay(issue: FixtureIssue, notable: FixtureNotable): IssueReward {
+    const town = this.#towns.get(issue.settlementId);
+    const fromTreasury = town ? Math.min(issue.reward.money, town.money) : 0;
+    if (town) town.money = round2(town.money - fromTreasury);
+    this.#party.money = round2(this.#party.money + fromTreasury);
+    this.#player.resources.money = round2(this.#player.resources.money + fromTreasury);
+    this.#player.resources.gold = round2(this.#player.resources.gold + issue.reward.gold);
+    this.#player.renown = round2(this.#player.renown + issue.reward.renown);
+    notable.relation = Math.min(100, notable.relation + issue.reward.relation);
+    notable.grievance = round2(clamp(notable.grievance - 0.25, 0, 1));
+    return {
+      money: round2(fromTreasury),
+      gold: issue.reward.gold,
+      renown: issue.reward.renown,
+      relation: issue.reward.relation,
+    };
+  }
+
+  /** A refusal: the simulation's own sentence, and the issue untouched. */
+  #refuse(issue: FixtureIssue, action: IssueAction, reason: string, verdict: string): IssueActionResult {
+    return {
+      issueId: issue.id,
+      action,
+      accepted: false,
+      verdict,
+      reason,
+      issue: this.#project(issue),
+      causedBy: `issue-${action}-refused`,
+    };
+  }
+
+  /** A settlement, carrying the cause row so the Why panel can walk it. */
+  #settle(
+    issue: FixtureIssue,
+    action: IssueAction,
+    verdict: string,
+    row: string,
+    paid?: IssueReward,
+  ): IssueActionResult {
+    return {
+      issueId: issue.id,
+      action,
+      accepted: true,
+      verdict,
+      ...(paid === undefined ? {} : { paid }),
+      issue: this.#project(issue),
+      causedBy: row,
+    };
+  }
+
+  /**
+   * The request as the contract carries it: objective resolved from world state, author
+   * resolved from the roster, and a detached copy so a later tick cannot write back into
+   * what the panel is drawing.
+   */
+  #project(issue: FixtureIssue): Issue {
+    const town = this.#towns.get(issue.settlementId);
+    if (!town) throw new Error(`Issue ${issue.id} names no town the fixture knows`);
+    const notable = this.#notable(issue.notableId);
+    const reading = this.#readingAt(issue.kind, town, issue.roadSafety);
+    return {
+      id: issue.id,
+      kind: issue.kind,
+      state: issue.state,
+      notable: {
+        id: notable.id,
+        name: notable.name,
+        role: notable.role,
+        settlementId: town.id,
+        settlementName: town.name,
+        power: notable.power,
+        // Standing is the opinion minus the grievance it has already caused, on the
+        // `RULERS.md` section 2 scale the roster screen already uses.
+        relationToPlayer: Math.round(clamp(notable.relation - notable.grievance * 30, -100, 100)),
+        openIssues: this.#openIssuesOf(notable.id),
+        grievance: notable.grievance,
+      },
+      settlementId: town.id,
+      settlementName: town.name,
+      requirement: {
+        text: this.#requirementText(issue, town, reading, this.#targetOf(issue)),
+        targetName: issue.targetName,
+        amount: issue.amount,
+        baseline: issue.baseline,
+        unit: ISSUE_UNIT[issue.kind],
+        met: this.#metNow(issue, town),
+      },
+      progress: round2(this.#progressNow(issue, town)),
+      deadlineDay: issue.deadlineDay,
+      deadlineDays: issue.deadlineDays,
+      startedDay: issue.startedDay,
+      reward: { ...issue.reward },
+      abandonPenalty: FIXTURE.issueAbandonRelationPenalty,
+      steps: issue.steps.map((step) => ({ ...step })),
+    };
+  }
+
+  /** How many requests this person still has outstanding, an offer or accepted alike. */
+  #openIssuesOf(notableId: string): number {
+    let open = 0;
+    for (const issue of this.#issues.values()) {
+      if (issue.notableId === notableId && (issue.state === "offered" || issue.state === "accepted")) open += 1;
+    }
+    return open;
+  }
+
+  /** One entry in a request's own log, which is why a request can explain itself. */
+  #logStep(issue: FixtureIssue, text: string, state: IssueState, daysAgo = 0): void {
+    issue.steps.push({ day: Math.max(1, this.#day - daysAgo), text, state });
+  }
+
+  /** The sentence naming this request, used in every cause row about it. */
+  #title(issue: FixtureIssue): string {
+    const town = this.#towns.get(issue.settlementId);
+    return `${ISSUE_KIND_NAMES[issue.kind]} at ${town?.name ?? issue.settlementId}`;
+  }
+
+  /** One row in the cause log, so the Why panel has something real to walk for an issue. */
+  #issueRow(
+    issue: FixtureIssue,
+    field: string,
+    old: number,
+    next: number,
+    summary: string,
+    extra: string[] = [],
+  ): string {
+    const town = this.#towns.get(issue.settlementId);
+    const headline = this.#row(
+      field,
+      issue.id,
+      `${this.#title(issue)} (${this.#notable(issue.notableId).name})`,
+      old,
+      next,
+      "Issue",
+      [],
+      summary,
+    );
+    let causedBy = headline;
+    for (const line of extra) {
+      causedBy = this.#row(
+        "notable_relation",
+        issue.notableId,
+        this.#notable(issue.notableId).name,
+        0,
+        0,
+        "Issue",
+        [causedBy],
+        line,
+      );
+    }
+    if (town) this.#pushHistory(town.id, summary, causedBy);
+    return causedBy;
+  }
+
+  /** Why an order no longer applies, in the words for the state the request is actually in. */
+  #staleReason(issue: FixtureIssue, what: string): string {
+    switch (issue.state) {
+      case "offered":
+        return "This one is still an offer and was never taken up.";
+      case "succeeded":
+        return `This one is already done. It was ${what} on day ${issue.steps.at(-1)?.day ?? issue.deadlineDay}.`;
+      case "failed":
+        return `This one has already failed. It was ${what}: ${issue.steps.at(-1)?.text ?? "the notice ran out"}.`;
+      case "accepted":
+        return "This one is still in hand.";
+    }
+  }
+
+  /** The number the player can go and fix, written as a sentence about the world. */
+  #shortfallText(issue: FixtureIssue, townName: string, reading: number, target: number): string {
+    switch (issue.kind) {
+      case "deliver-goods":
+        return `${townName} is ${whole(target - reading)} grain units short of the ${whole(target)} it needs`;
+      case "clear-hideout":
+        return `disorder in ${townName} stands at ${whole(reading)} against a target of ${whole(target)}`;
+      case "escort":
+        return `${issue.targetName ?? "the road"} stands at ${whole(reading)} against a target of ${whole(target)}`;
+    }
+  }
+
+  #notable(id: string): FixtureNotable {
+    const notable = this.#notables.find((n) => n.id === id);
+    if (!notable) throw new Error(`No notable with id ${id}`);
+    return notable;
+  }
+
+  #issue(id: string): FixtureIssue {
+    const issue = this.#issues.get(id);
+    if (!issue) throw new Error(`No issue with id ${id}`);
+    return issue;
   }
 
   async planMarch(request: MarchRequest): Promise<MarchPlan> {

@@ -601,6 +601,7 @@ describe("player-visible copy in the HUD (CONSTITUTION.md section 3.3)", () => {
       regionName: "Front Range",
       retrieved: "2026-09-30",
       providerLabel: "Live simulation",
+      fogDetail: "",
       isFixture: true,
       connection: { state: "connected", detail: "", attempt: 0 },
       onClose: () => {},

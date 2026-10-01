@@ -577,6 +577,8 @@ export function dataSourcePanel(options: {
   regionName: string;
   retrieved: string;
   providerLabel: string;
+  /** What the map is doing about fog, and why. Never omitted, never empty. */
+  fogDetail: string;
   isFixture: boolean;
   connection: ConnectionStatus;
   onClose: () => void;
@@ -619,6 +621,14 @@ export function dataSourcePanel(options: {
     ),
   );
   body.appendChild(simList);
+
+  // Fog of war, under the simulation rather than the map, because it is the simulation
+  // that decides it: the terrain and the roads are real for everyone, and what this side
+  // has found is not. Stated in a sentence rather than a row of numbers because the
+  // interesting case is the one where it is *not* being applied, and a bare count of
+  // "0 hidden" reads as a claim about the world rather than about the server.
+  body.appendChild(h("h3", { class: "section-header", style: "margin-top:var(--space-4)" }, "What this side knows"));
+  body.appendChild(h("p", { class: "caption", "data-testid": "data-source-fog" }, options.fogDetail));
 
   if (options.isFixture) {
     body.appendChild(

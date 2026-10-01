@@ -15,6 +15,10 @@ import { mapColor, tokens, townColor } from "../design/tokens.js";
 import type { Projection, RoadWay, RailWay, WorldSettlement } from "../world/types.js";
 import { classifySettlement } from "../world/load.js";
 import type { TownClassName } from "../design/tokens.js";
+// The three-state vocabulary is the simulation's, so it is declared with the rest of the
+// contract in `data/types.ts` and imported as a type only. This file decides how a state
+// looks; `data/fog.ts` decides which state a town is in, and neither imports the other.
+import type { TownVisibility } from "../data/types.js";
 
 // -- roads and rail ----------------------------------------------------------
 
@@ -228,7 +232,26 @@ export interface TownCluster {
   markerPosition: Vector3;
   /** The shape that was built, so a panel can explain it without rebuilding geometry. */
   silhouette: TownSilhouette;
+  /**
+   * Put this settlement into one of the three fog states. See `TownVisibility`.
+   *
+   * Held on the cluster rather than in a map-level pass so the three ways a town can be
+   * drawn live beside the geometry they change, and so a caller cannot apply "visible" to
+   * the cluster and forget the pin — which is the version where a remembered town keeps
+   * a bright diamond over a grey mass and the map contradicts itself.
+   */
+  applyVisibility(state: TownVisibility): void;
 }
+
+/**
+ * How much of a remembered town's pin is left.
+ *
+ * A pin is unlit and carries its own contrast, so dimming it with a material colour does
+ * nothing an unlit material would honour. Alpha is the one control that works, and a
+ * half-faded pin over a grey silhouette reads as "not being watched" without hiding the
+ * town: the player can still find it, which is what "remembered" has to mean.
+ */
+const REMEMBERED_MARKER_ALPHA = 0.4;
 
 /**
  * Towns as 3D clusters, with silhouettes that read by size and type.
@@ -237,6 +260,12 @@ export interface TownCluster {
  * map: Denver is a tower and a sprawl, Nederland is three roofs and a silo. The
  * silhouette is seeded from the settlement's name, so a town looks the same every
  * session.
+ *
+ * Two materials, not one per town. A live cluster keeps its vertex colours; a remembered
+ * one is swapped to a flat desaturated fill with vertex colours off, which is what makes
+ * it read as a remembered outline rather than a town with a filter over it. Two shared
+ * materials keep that at two draw calls' worth of state, and a per-town material would
+ * have been a second material per settlement for a difference of one colour.
  */
 export function buildTowns(
   scene: Scene,
@@ -251,6 +280,12 @@ export function buildTowns(
   material.diffuseColor = new Color3(1, 1, 1);
   material.specularColor = new Color3(0, 0, 0);
   material.backFaceCulling = false;
+  // The fog-of-war material. One shared instance, flat fill, no vertex colours: the
+  // point is that a remembered town carries no live detail to read.
+  const rememberedMaterial = new StandardMaterial("town-mat-remembered", scene);
+  rememberedMaterial.diffuseColor = Color3.FromHexString(mapColor.townRemembered);
+  rememberedMaterial.specularColor = new Color3(0, 0, 0);
+  rememberedMaterial.backFaceCulling = false;
   const out: TownCluster[] = [];
 
   for (const s of settlements) {
@@ -282,6 +317,19 @@ export function buildTowns(
       marker,
       markerPosition: marker.position,
       silhouette,
+      applyVisibility(state) {
+        // `setEnabled` rather than a visibility of 0, so a hidden town is not drawn at
+        // all and is not pickable: clicking through to a town the player has not found
+        // would be a worse leak than the marker it replaced.
+        const drawn = state !== "unseen";
+        mesh.setEnabled(drawn);
+        marker.setEnabled(drawn);
+        if (!drawn) return;
+        const remembered = state === "remembered";
+        mesh.material = remembered ? rememberedMaterial : material;
+        mesh.useVertexColors = !remembered;
+        marker.visibility = remembered ? REMEMBERED_MARKER_ALPHA : 1;
+      },
     });
   }
   return out;

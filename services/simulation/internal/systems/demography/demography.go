@@ -30,6 +30,13 @@ func run(v *sim.View, w *sim.WriteSet) {
 	for _, id := range v.State.TownIDs() {
 		t := v.State.Towns[id]
 		if t.Population <= 0 {
+			// An empty town still has to have its per-tick accumulators drained.
+			// Both are absolute writes, which is safe because demography is the
+			// only writer of either field. Skipping this would let a dead town
+			// carry a stale balance forever, so a town repopulating by
+			// immigration would be handed the whole backlog at once.
+			w.Set(model.KindTown, id, "deaths_today", 0, "population=0", nil, "")
+			w.Set(model.KindTown, id, "net_migration", 0, "population=0", nil, "")
 			continue
 		}
 
@@ -68,10 +75,21 @@ func run(v *sim.View, w *sim.WriteSet) {
 
 		w.Add(model.KindTown, id, "population", popDelta, read, causes, "natural change and migration")
 		w.Set(model.KindTown, id, "recent_deaths", deaths, read, causes, "deaths today from all causes")
-		// The accumulator is cleared for tomorrow. An absolute write here is
-		// safe because demography is the only system that writes it, which the
-		// engine enforces rather than assumes.
+		// Both accumulators are cleared for tomorrow. An absolute write here is
+		// safe because demography is the only system that writes either one,
+		// which the engine enforces rather than assumes.
+		//
+		// net_migration MUST be cleared here. It is a per-tick flow, not a
+		// stock, and this is its only consumer. Leaving it set makes
+		// demography re-apply the same movement to population on every
+		// subsequent day, so a town that once lost 500 people keeps losing 500
+		// a day forever and reaches zero population within a year, while a
+		// town that once gained them inflates without bound. Migration is
+		// conservative (every departure arrives somewhere), so the world
+		// total was only being destroyed by this re-application, not by the
+		// migration maths.
 		w.Set(model.KindTown, id, "deaths_today", 0, read, causes, "")
+		w.Set(model.KindTown, id, "net_migration", 0, read, causes, "")
 
 		// Death memory: a town remembers its dead for a while and stays angry,
 		// which is CAUSE_EFFECT.md section 3's "deaths recently".

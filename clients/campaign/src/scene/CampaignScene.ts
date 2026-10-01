@@ -37,6 +37,7 @@ import {
   type TownCluster,
 } from "./network.js";
 import type { Projection, WorldData } from "../world/types.js";
+import type { TownVisibility } from "../data/types.js";
 
 /** 1 unit = 1 metre (ART_DIRECTION.md section 7). */
 export const VERTICAL_SCALE = 1.6;
@@ -75,6 +76,16 @@ export interface SceneHandle {
   setPartyVisible(visible: boolean): void;
   /** One line about what the map is showing, for the data-source panel. */
   summary(): string;
+  /**
+   * Put the map into a fog state, keyed by the client's settlement id.
+   *
+   * Every settlement is stated, not just the ones being hidden, so the map is a function
+   * of this call and a settlement missing from the map is one the caller has not decided
+   * about rather than one left over from the last snapshot. A settlement the map draws
+   * and the call does not name is treated as `visible`, which is the same reading the
+   * rest of the client gives a place the simulation has no town for.
+   */
+  setTownVisibility(states: ReadonlyMap<string, TownVisibility>): void;
   towns: TownCluster[];
 }
 
@@ -141,6 +152,12 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
   const towns: TownCluster[] = buildTowns(scene, world.settlements, projection, VERTICAL_SCALE, LIFT);
 
   const graph: RouteGraph = buildRouteGraph(world.roads, world.settlements, projection);
+
+  // Settlements currently drawn, and of those how many the side is watching. Both are
+  // mutable because fog moves: the data-source panel reads them on every open, and a
+  // count frozen at boot would claim a map that is no longer the one on screen.
+  let drawnSettlements = towns.length;
+  let watchedSettlements = towns.length;
 
   // -- party marker ---------------------------------------------------------
   // A small convoy: two vehicles and a pennant. Enough to read as a party moving at
@@ -255,9 +272,27 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
     setPartyVisible(visible) {
       partyRoot.setEnabled(visible);
     },
+    setTownVisibility(states) {
+      let drawn = 0;
+      let watched = 0;
+      for (const cluster of towns) {
+        const state = states.get(cluster.settlementId) ?? "visible";
+        cluster.applyVisibility(state);
+        if (state !== "unseen") drawn += 1;
+        if (state === "visible") watched += 1;
+      }
+      drawnSettlements = drawn;
+      watchedSettlements = watched;
+    },
     summary() {
+      // The settlement count is the map's, and it moves with fog: saying 48 when 41 are
+      // drawn would be a claim about the screen that the screen does not support.
+      const shown =
+        drawnSettlements === towns.length
+          ? `${towns.length} settlements`
+          : `${drawnSettlements} of ${towns.length} settlements shown (${watchedSettlements} in sight)`;
       return (
-        `${world.settlements.length} settlements · terrain ${terrainInfo.min.toFixed(0)}–` +
+        `${shown} · terrain ${terrainInfo.min.toFixed(0)}–` +
         `${terrainInfo.max.toFixed(0)} m at ${terrainInfo.resolution.toFixed(0)} m/px · ` +
         `${graph.nodes.length.toLocaleString("en-US")} road nodes`
       );

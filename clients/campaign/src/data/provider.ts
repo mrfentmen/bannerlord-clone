@@ -26,6 +26,12 @@ import type {
   BarterResult,
   BarterTerms,
   ConnectionStatus,
+  IssueAction,
+  IssueActionRequest,
+  IssueActionResult,
+  IssueBoard,
+  IssueKind,
+  IssueState,
   MarchPlan,
   MarchRequest,
   RecruitRequest,
@@ -201,6 +207,27 @@ export class HttpSimulationProvider implements SimulationProvider {
   async commitBarter(request: BarterProposalRequest): Promise<BarterResult> {
     const url = `${this.#httpUrl}/v1/barter/commit`;
     return decodeBarterResult(await this.#post<unknown>(url, request, "The deal did not go through."), url);
+  }
+
+  async issueBoard(partyId: string): Promise<IssueBoard> {
+    const url = `${this.#httpUrl}/v1/issues?party=${encodeURIComponent(partyId)}`;
+    const body = await this.#getJson(url, "This party's quest log could not be read.");
+    return decodeIssueBoard(body, url);
+  }
+
+  async acceptIssue(request: IssueActionRequest): Promise<IssueActionResult> {
+    const url = `${this.#httpUrl}/v1/issues/accept`;
+    return decodeIssueAction(await this.#post<unknown>(url, request, "The request was not taken up."), url);
+  }
+
+  async completeIssue(request: IssueActionRequest): Promise<IssueActionResult> {
+    const url = `${this.#httpUrl}/v1/issues/complete`;
+    return decodeIssueAction(await this.#post<unknown>(url, request, "The request was not closed."), url);
+  }
+
+  async abandonIssue(request: IssueActionRequest): Promise<IssueActionResult> {
+    const url = `${this.#httpUrl}/v1/issues/abandon`;
+    return decodeIssueAction(await this.#post<unknown>(url, request, "The request was not given up."), url);
   }
 
   setTimeScale(daysPerRealSecond: number): void {
@@ -397,6 +424,44 @@ function isString(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
 }
 
+/**
+ * The fog block, when there is one.
+ *
+ * Optional, and validated only when present, because a simulation that publishes no fog
+ * is a simulation this client can still play: the block is refused for being unreadable
+ * rather than for being absent. Every list is checked for being a list of ids, because
+ * the map indexes them as sets and a single non-string in one of them would otherwise
+ * become a `Set` entry no town id could ever match — which reads as "every town is
+ * unseen" and blanks the map.
+ *
+ * `sideId` is deliberately allowed to be null, and the three counts with it: the server
+ * sends nulls for all four when it has no player to state visibility from, and that is a
+ * real state with a real meaning rather than a broken payload.
+ */
+function fogProblem(raw: unknown): string | null {
+  if (raw === undefined) return null;
+  if (!isRecord(raw)) return "fog is not a JSON object";
+  if (raw.sideId !== null && !isString(raw.sideId)) return "fog.sideId is neither a side id nor null";
+  for (const key of ["sightRadiusKm", "sightRadiusLeagues", "sightingMemoryDays"] as const) {
+    if (!isFiniteNumber(raw[key])) return `fog.${key} is not a number`;
+  }
+  for (const key of ["visibleTowns", "knownTowns", "unseenTowns"] as const) {
+    if (!Array.isArray(raw[key])) return `fog.${key} is not a list`;
+    for (const [index, id] of raw[key].entries()) {
+      if (!isString(id)) return `fog.${key} entry ${index} is not a town id`;
+    }
+  }
+  if (!isRecord(raw.counts)) return "fog.counts is not a JSON object";
+  for (const key of ["visible", "known", "unseen"]) {
+    // Nullable by design: with no vantage point the count is unknown, not zero.
+    if (raw.counts[key] !== null && !isFiniteNumber(raw.counts[key])) {
+      return `fog.counts.${key} is neither a number nor null`;
+    }
+  }
+  if (!isFiniteNumber(raw.counts.total)) return "fog.counts.total is not a number";
+  return null;
+}
+
 /** The first thing wrong with a payload, as a developer-readable sentence. */
 function snapshotProblem(raw: unknown): string | null {
   if (!isRecord(raw)) return "the reply is not a JSON object";
@@ -422,6 +487,8 @@ function snapshotProblem(raw: unknown): string | null {
   for (const key of ["markets", "causeLog"]) {
     if (!isRecord(raw[key])) return `${key} is not a table`;
   }
+  const fog = fogProblem(raw.fog);
+  if (fog) return fog;
   return null;
 }
 
@@ -493,6 +560,132 @@ function barterResultProblem(raw: unknown): string | null {
   );
 }
 
+/**
+ * The three issue kinds and the four states, as the simulation names them.
+ *
+ * Checked as closed sets rather than free strings because the quest panel branches on both:
+ * an unknown kind would have no requirement sentence to draw and an unknown state would have
+ * no buttons, and in both cases the panel would draw a live-looking row with nothing behind
+ * it. A row the client cannot classify is refused at the boundary instead.
+ */
+const ISSUE_KINDS: readonly IssueKind[] = ["deliver-goods", "clear-hideout", "escort"];
+const ISSUE_STATES: readonly IssueState[] = ["offered", "accepted", "succeeded", "failed"];
+
+function issueRewardProblem(raw: unknown, where: string): string | null {
+  if (!isRecord(raw)) return `${where} is missing`;
+  for (const key of ["money", "gold", "renown", "relation"]) {
+    if (!isFiniteNumber(raw[key])) return `${where}.${key} is not a number`;
+  }
+  return null;
+}
+
+/**
+ * A notable is only usable if it names a person and a settlement, because the panel prints
+ * both and the reward scale reads the power. `relationToPlayer` and `grievance` are read as
+ * numbers rather than ranges here on purpose: they are the simulation's own figures and
+ * clamping them would mean the client had an opinion about what they ought to be.
+ */
+function notableProblem(raw: unknown, where: string): string | null {
+  if (!isRecord(raw)) return `${where} is not a JSON object`;
+  if (!isString(raw.id)) return `${where} has no id`;
+  if (!isString(raw.name)) return `${where} has no name`;
+  if (!isString(raw.role)) return `${where} has no role`;
+  if (!isString(raw.settlementId)) return `${where} has no settlement`;
+  if (!isString(raw.settlementName)) return `${where} has no settlement name`;
+  if (!isFiniteNumber(raw.power)) return `${where}.power is not a number`;
+  if (!isFiniteNumber(raw.relationToPlayer)) return `${where}.relationToPlayer is not a number`;
+  if (!isFiniteNumber(raw.openIssues)) return `${where}.openIssues is not a number`;
+  if (!isFiniteNumber(raw.grievance)) return `${where}.grievance is not a number`;
+  return null;
+}
+
+/**
+ * The requirement is checked for its sentence and its amount rather than for a shape the
+ * client would then have to interpret. `targetName` and `baseline` are nullable in the
+ * interface because the simulation genuinely has no second settlement or no baseline for
+ * some objectives, and inventing one would be the client guessing at the sim's objective.
+ */
+function issueRequirementProblem(raw: unknown, where: string): string | null {
+  if (!isRecord(raw)) return `${where} is not a JSON object`;
+  if (!isString(raw.text)) return `${where}.text is missing`;
+  if (raw.targetName !== null && typeof raw.targetName !== "string") return `${where}.targetName is neither a string nor null`;
+  if (!isFiniteNumber(raw.amount)) return `${where}.amount is not a number`;
+  if (raw.baseline !== null && !isFiniteNumber(raw.baseline)) return `${where}.baseline is neither a number nor null`;
+  if (!isString(raw.unit)) return `${where}.unit is missing`;
+  if (typeof raw.met !== "boolean") return `${where}.met is not a boolean`;
+  return null;
+}
+
+/**
+ * One issue is only drawable if its state, kind, author, requirement and reward are all
+ * present, because those five are the whole row: the buttons come off `state`, the
+ * sentence off `requirement`, the promise off `reward`, and the "who asked" line off
+ * `notable`.
+ *
+ * `progress` is checked for finiteness but not for range. The simulation clamps it and a
+ * reading of 1.0004 from a future version should be shown, not refused.
+ */
+function issueProblem(raw: unknown, where: string): string | null {
+  if (!isRecord(raw)) return `${where} is not a JSON object`;
+  if (!isString(raw.id)) return `${where} has no id`;
+  if (!ISSUE_KINDS.includes(raw.kind as IssueKind)) return `${where}.kind is not one the simulation generates`;
+  if (!ISSUE_STATES.includes(raw.state as IssueState)) return `${where}.state is not one of the four states`;
+  const notable = notableProblem(raw.notable, `${where}.notable`);
+  if (notable) return notable;
+  if (!isString(raw.settlementId)) return `${where} has no settlement id`;
+  if (!isString(raw.settlementName)) return `${where} has no settlement name`;
+  const requirement = issueRequirementProblem(raw.requirement, `${where}.requirement`);
+  if (requirement) return requirement;
+  if (!isFiniteNumber(raw.progress)) return `${where}.progress is not a number`;
+  if (!isFiniteNumber(raw.deadlineDay)) return `${where}.deadlineDay is not a number`;
+  if (!isFiniteNumber(raw.deadlineDays)) return `${where}.deadlineDays is not a number`;
+  if (raw.startedDay !== null && !isFiniteNumber(raw.startedDay)) return `${where}.startedDay is neither a number nor null`;
+  const reward = issueRewardProblem(raw.reward, `${where}.reward`);
+  if (reward) return reward;
+  if (!isFiniteNumber(raw.abandonPenalty)) return `${where}.abandonPenalty is not a number`;
+  if (!Array.isArray(raw.steps)) return `${where}.steps is not a list`;
+  for (const [index, step] of raw.steps.entries()) {
+    if (!isRecord(step)) return `${where}.step ${index} is not a JSON object`;
+    if (!isFiniteNumber(step.day)) return `${where}.step ${index} has no day`;
+    if (!isString(step.text)) return `${where}.step ${index} has no text`;
+    if (!ISSUE_STATES.includes(step.state as IssueState)) return `${where}.step ${index} has an unknown state`;
+  }
+  return null;
+}
+
+function issueBoardProblem(raw: unknown): string | null {
+  if (!isRecord(raw)) return "the reply is not a JSON object";
+  if (!isString(raw.partyId)) return "partyId is missing";
+  if (!isFiniteNumber(raw.day)) return "day is not a number";
+  if (!Array.isArray(raw.issues)) return "issues is not a list";
+  for (const [index, issue] of raw.issues.entries()) {
+    const problem = issueProblem(issue, `issue ${index}`);
+    if (problem) return problem;
+  }
+  return null;
+}
+
+/**
+ * One decoder for all three actions, because an accept, a completion and a walk-away all
+ * answer in the same shape: a verdict, maybe a reason, and the issue as the simulation now
+ * holds it. `paid` is checked only when it is present, since only a settled issue pays.
+ */
+function issueActionProblem(raw: unknown): string | null {
+  if (!isRecord(raw)) return "the reply is not a JSON object";
+  if (!isString(raw.issueId)) return "issueId is missing";
+  if (raw.action !== "accept" && raw.action !== "complete" && raw.action !== "abandon") {
+    return "action is not one of accept, complete or abandon";
+  }
+  if (typeof raw.accepted !== "boolean") return "accepted is not a boolean";
+  if (!isString(raw.verdict)) return "verdict is missing";
+  if (raw.reason !== undefined && typeof raw.reason !== "string") return "reason is neither a string nor absent";
+  if (raw.paid !== undefined) {
+    const problem = issueRewardProblem(raw.paid, "paid");
+    if (problem) return problem;
+  }
+  return issueProblem(raw.issue, "issue");
+}
+
 function tickFrameProblem(raw: unknown): string | null {
   if (!isRecord(raw)) return "the frame is not a JSON object";
   if (!isFiniteNumber(raw.tick)) return "tick is not a number";
@@ -559,4 +752,30 @@ function decodeBarterResult(raw: unknown, url: string): BarterResult {
     );
   }
   return raw as BarterResult;
+}
+
+function decodeIssueBoard(raw: unknown, url: string): IssueBoard {
+  const problem = issueBoardProblem(raw);
+  if (problem) {
+    throw new SimulationUnavailableError(
+      "This quest log arrived in a form this client cannot read, so nothing has been drawn from it.",
+      `GET ${url} returned an issue board that failed validation: ${problem}`,
+      false,
+    );
+  }
+  return raw as IssueBoard;
+}
+
+/** One decoder for all three actions, with the message naming the action that failed. */
+function decodeIssueAction(raw: unknown, url: string): IssueActionResult {
+  const problem = issueActionProblem(raw);
+  if (problem) {
+    const action = isRecord(raw) && isString(raw.action) ? (raw.action as IssueAction) : "answer";
+    throw new SimulationUnavailableError(
+      `The simulation's ${action} answer arrived in a form this client cannot read, so no change has been drawn.`,
+      `POST ${url} returned an issue action that failed validation: ${problem}`,
+      false,
+    );
+  }
+  return raw as IssueActionResult;
 }

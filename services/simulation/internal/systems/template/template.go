@@ -104,12 +104,12 @@ func run(v *sim.View, w *sim.WriteSet) {
 				read, causes, "refit consumes metal")
 			if p.RefitDays-1 > 0 {
 				publish(v, w, pid, p, c)
-				return
+				continue
 			}
 			w.Set(model.KindParty, pid, "party_template", float64(best),
 				read, causes, "refit complete: new template")
 			publish(v, w, pid, p, c)
-			return
+			continue
 		}
 
 		// Not worth changing. Either the current template is already good for
@@ -118,7 +118,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 		if model.PartyTemplate(best) == p.Template ||
 			fits[best] < fits[p.Template]+c.Template.FitSwitchThreshold {
 			publish(v, w, pid, p, c)
-			return
+			continue
 		}
 
 		cost := c.Template.RefitMetalPerTroop * p.Troops
@@ -127,7 +127,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 			// why a ruler's metal reserve is a military decision and not only a
 			// purchasing one.
 			publish(v, w, pid, p, c)
-			return
+			continue
 		}
 		w.Add(model.KindParty, pid, "party_metal", -cost, read, causes, "metal spent on refit")
 		w.Add(model.KindParty, pid, "morale", -c.Template.RefitMoraleHit*p.Troops,

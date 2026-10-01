@@ -20,6 +20,13 @@ import "./design/tokens.css";
 import "./ui/ui.css";
 
 import { readConfig, providerFromConfig, SimulationUnavailableError } from "./data/provider.js";
+import {
+  buildFogIndex,
+  countByVisibility,
+  isDrawn,
+  reportFog,
+  townVisibility,
+} from "./data/fog.js";
 import { TEST_SOURCE_WARNING, TEST_SOURCE_DETAIL } from "./data/labels.js";
 import { START_YEAR, eraGradeForYear } from "./design/grade.js";
 import { buildWorld } from "./world/build.js";
@@ -45,6 +52,7 @@ import type {
   SimSnapshot,
   TickUpdate,
   TownState,
+  TownVisibility,
 } from "./data/types.js";
 
 const appEl = document.getElementById("app");
@@ -226,7 +234,12 @@ function mountCampaign(): void {
     // would take keyboard traversal away from the panels, which is the opposite of
     // what UI_UX.md section 11 asks for.
     if (ev.key === "Tab" && mapCanvas === document.activeElement) {
-      const ids = world?.data.settlements.map((s) => s.id) ?? [];
+      // Only what is drawn. Cycling to a settlement the fog has hidden would move the
+      // camera to an empty patch of ground with a panel open about a place the player
+      // cannot see, which is the map contradicting itself.
+      const ids = (world?.data.settlements ?? [])
+        .filter((s) => isDrawn(visibilityFor(s.id)))
+        .map((s) => s.id);
       if (ids.length === 0) return;
       const at = selectedSettlement ? ids.indexOf(selectedSettlement) : -1;
       const next = ids[(at + (ev.shiftKey ? ids.length - 1 : 1)) % ids.length]!;
@@ -347,6 +360,62 @@ function reindexTowns(): void {
 function townFor(settlementId: string): TownState | undefined {
   const target = settlement(settlementId)?.id ?? settlementId;
   return townByPlaceId.get(target);
+}
+
+// -- fog of war ----------------------------------------------------------------
+
+/**
+ * The fog state of every settlement the map is drawing, and the census of it.
+ *
+ * Held between reads rather than recomputed on demand because three separate places ask
+ * the question — the scene, the tab cycle and the data-source panel — and a panel that
+ * counted a different map from the one on screen would be reporting on something else.
+ * Recomputed in `paint`, which is the one place that runs after a snapshot lands.
+ */
+let fogStates = new Map<string, TownVisibility>();
+let fogCensus = countByVisibility([]);
+
+/**
+ * One settlement's state, by the client's own id.
+ *
+ * A settlement the simulation runs no town for is `visible`, and the reason is the same
+ * one `noSimulationRecordNode` gives: the place is real, with real ground and a real
+ * name, and a simulation holding no record of it has not said this side cannot see it.
+ * Reading the absence of a town record as "unseen" would hide most of the region from a
+ * player who has done nothing.
+ */
+function visibilityFor(placeId: string): TownVisibility {
+  return fogStates.get(placeId) ?? "visible";
+}
+
+/**
+ * Read the snapshot's fog and put the map into it.
+ *
+ * The join is the whole job: fog is stated in simulation town ids, the map is drawn from
+ * OpenStreetMap settlements, and `townByPlaceId` is the only thing that bridges the two
+ * vocabularies. That is why this runs after `reindexTowns` and not before — a fog pass
+ * over a stale index would grey the wrong towns, and would do it quietly.
+ */
+function applyFog(): void {
+  if (!world) return;
+  const index = buildFogIndex(snapshot?.fog);
+
+  const states = new Map<string, TownVisibility>();
+  for (const place of world.data.settlements) {
+    const town = townByPlaceId.get(place.id);
+    states.set(
+      place.id,
+      town ? townVisibility(index, town.id, town) : "visible",
+    );
+  }
+  fogStates = states;
+  fogCensus = countByVisibility(states.values());
+  scene?.setTownVisibility(states);
+}
+
+/** The fog sentence for the data-source panel, in the product's voice. */
+function fogDetail(): string {
+  return reportFog(snapshot?.fog, fogCensus).detail;
 }
 
 // -- selection ---------------------------------------------------------------
@@ -487,6 +556,7 @@ function openDataSource(): void {
     regionName: worldData.data.region.name,
     retrieved: worldData.data.region.retrieved,
     providerLabel: provider.label,
+    fogDetail: fogDetail(),
     isFixture: config.simulationSource === "fixture",
     connection: { state: connectionState, detail: "", attempt: 0 },
     onClose: () => {
@@ -918,6 +988,8 @@ function applyTick(base: SimSnapshot, update: TickUpdate): SimSnapshot {
 function paint(): void {
   if (!snapshot) return;
   reindexTowns();
+  // After the reindex, never before: the fog pass reads the settlement-to-town join.
+  applyFog();
   const headcount = snapshot.party.troops.reduce((a, t) => a + t.count, 0);
   const dailyFood = headcount * 0.85;
   const state: HudState = {

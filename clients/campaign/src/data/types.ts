@@ -99,10 +99,96 @@ export interface TownState {
   /** The last tick this town changed, so the UI can show staleness honestly. */
   updatedTick: number;
   /**
+   * Whether the player's side has this town in sight right now.
+   *
+   * From `FogState`, and per town rather than only in the three lists, so a caller that
+   * already holds a `TownState` does not have to go back to the snapshot to ask whether
+   * the town is being watched. The map reads `FogState` instead, because that block
+   * states the three states explicitly and this flag pair cannot express the third.
+   */
+  visible: boolean;
+  /** Whether the player's side has ever had this town in sight. Never cleared. */
+  known: boolean;
+  /**
+   * Tick when any side last had this town in view, or 0 when nobody ever has. The
+   * client's own clock is not this number's unit, so it is only ever compared against
+   * another `lastSeenTick`, never against `SimSnapshot.day`.
+   */
+  lastSeenTick: number;
+  /**
    * Who can be hired here. The simulation is the authority on what a town offers:
    * the client renders the list and sends the order, nothing more.
    */
   recruitable: RecruitableUnit[];
+}
+
+// -- fog of war ----------------------------------------------------------------
+//
+// Fog is the simulation's, not the client's. `services/simulation/internal/systems/
+// visibility/visibility.go` decides the answer — a side sees a town when one of its
+// parties is close enough to have spotted it — and publishes two masks per town and two
+// counts per side. The apiserver's `buildFog` in `cmd/apiserver/snapshot.go` renders that
+// into the `fog` block below. The client draws what it is told and computes no radius,
+// no distance and no sight line of its own: a client that measured visibility itself
+// would be a second visibility system, and a raid would be visible to the player before
+// the attacker left, which is the whole thing fog exists to prevent.
+
+/**
+ * The three states a town can be in for the side this snapshot is written from.
+ *
+ * The middle one is the reason this is a type and not a boolean. A town out of sight but
+ * remembered is neither known nor unknown: the side knows it is there and does not know
+ * what is happening in it, and collapsing the two either hides a town the player has
+ * already found or shows them a place they have never been.
+ */
+export type TownVisibility = "visible" | "remembered" | "unseen";
+
+/**
+ * What this side can see, and what it has ever found.
+ *
+ * Every number here is the simulation's. `sideId` is the side the rest of the block is
+ * stated against, and it is `null` when the snapshot has no player to state it from —
+ * which is a different answer from "this side sees nothing", and the two are kept apart
+ * so the map is not emptied by a session that simply has no vantage point.
+ *
+ * The three id lists are explicit rather than left to subtraction. "Never found" is the
+ * complement of two other lists, and a client that derived it by set difference would get
+ * it wrong the first time a town was added or removed between snapshots, and the failure
+ * would be a town wrongly shown rather than a town wrongly hidden.
+ */
+export interface FogState {
+  /** The side these lists are relative to. `null` when there is no player vantage point. */
+  sideId: string | null;
+  /** The configured sight radius, in the unit the player reads. */
+  sightRadiusKm: number;
+  /** The same radius in the map's own unit, so the client need not convert it. */
+  sightRadiusLeagues: number;
+  /**
+   * How long a sighting keeps counting as seen. A town leaves `visibleTowns` when the
+   * window closes but stays in `knownTowns` forever, which is what the two lists are for.
+   */
+  sightingMemoryDays: number;
+  /** Town ids in sight now, widened by the sighting memory. */
+  visibleTowns: string[];
+  /** Town ids this side has ever had in sight. Never shrinks. */
+  knownTowns: string[];
+  /** Town ids this side has never found. Stated, not derived. */
+  unseenTowns: string[];
+  counts: FogCounts;
+}
+
+/**
+ * How many towns are in each of the three states.
+ *
+ * The three are nullable for one reason: with no vantage point the answer is "nobody is
+ * looking", not "there are none". `total` is always a number, because the number of
+ * towns in the world does not depend on whether anyone is watching them.
+ */
+export interface FogCounts {
+  visible: number | null;
+  known: number | null;
+  unseen: number | null;
+  total: number;
 }
 
 /** One kind of soldier a town can raise, as the simulation describes it. */
@@ -500,6 +586,216 @@ export interface BarterResult extends BarterProposal {
   traderMoney: number;
 }
 
+// -- issues -------------------------------------------------------------------
+//
+// An issue is one outstanding request from one notable, and the unit the player accepts
+// and completes. `QUESTS_AND_NOTABLES.md` sections 3 to 7 describe it, and the simulation
+// owns it: the notable's situation, the trigger that produced the request, the reward
+// scale, and whether the objective has actually been met.
+//
+// The split below is the same split the barter screen uses. **The client reads the state
+// and writes nothing it could have decided for itself.** Every sentence the panel shows —
+// what the request wants, why it was made, what serving it is worth, why a completion was
+// refused — is written by the simulation and shown verbatim. A client that phrased its own
+// "you have delivered enough" sentence would be a second issue system, and a player could
+// never tell which one it was reading.
+//
+// Two fields earn their place by being the two things the simulation knows and the client
+// cannot invent: `progress`, recomputed from world state every tick rather than declared
+// by the player, and `requirement.met`, read off the world at the moment the request was
+// read. Reporting an issue complete is an order, not a fact: whether the goods arrived or
+// the hideout came down is settled in the simulation, and an unsupported claim is refused.
+
+// The three kinds of issue the simulation generates. Deliberately different in kind and
+// not only in scale: one moves goods, one fights, one travels, and each therefore has its
+// own trigger, its own measure of progress, and its own effects on the world.
+export type IssueKind = "deliver-goods" | "clear-hideout" | "escort";
+
+// Where an issue is in its life. There are four states and no others: an offer that is
+// never accepted lapses on its own, and "abandoned" is not a state but a reason recorded
+// against `failed` in the step log, because whether a taker walked away or ran out of
+// time is a fact about the step log and not about the issue.
+export type IssueState = "offered" | "accepted" | "succeeded" | "failed";
+
+/** One recorded moment of an issue's life, the per-issue log `QUESTS_AND_NOTABLES.md` §3 asks for. */
+export interface IssueStep {
+  day: number;
+  /** The plain-language step, written by the simulation. Shown verbatim. */
+  text: string;
+  /** The state this step produced. */
+  state: IssueState;
+}
+
+/**
+ * A non-ruler person who holds local power: the one who can notice that a town has three
+ * days of food left and can therefore ask for help, and whose opinion of the player moves
+ * when that help does or does not arrive.
+ */
+export interface Notable {
+  id: string;
+  name: string;
+  /** `mayor`, `headman`, `gang boss` and the rest, as the simulation names the role. */
+  role: string;
+  /** The settlement this person belongs to. A notable is attached to exactly one. */
+  settlementId: string;
+  settlementName: string;
+  /** How much this person sways their settlement, 0 to 1. */
+  power: number;
+  /** This person's opinion of the player, -100 to 100, on the `RULERS.md` §2 scale. */
+  relationToPlayer: number;
+  /** How many issues this person currently has outstanding, an offer or accepted alike. */
+  openIssues: number;
+  /** How aggrieved this person is at the moment, 0 to 1. */
+  grievance: number;
+}
+
+/**
+ * What the request asks for, in the simulation's own words.
+ *
+ * `text` is the whole requirement and it is written by the simulation because only the
+ * simulation knows the objective: a delivery is a larder reading against the baseline
+ * captured on the day it was accepted, an escort is a road's safety *and* the raiders on
+ * it. The numbers behind it come along so the panel can show progress, and `met` is the
+ * simulation's own reading of whether the objective holds right now.
+ */
+export interface IssueRequirement {
+  /** The requirement in a full sentence, written by the simulation. Shown verbatim. */
+  text: string;
+  /** The settlement the objective concerns, or `null` where the objective has no second place. */
+  targetName: string | null;
+  /** What there is at stake in the issue's own unit: sacks, riders, person-days. */
+  amount: number;
+  /**
+   * The world reading captured when the issue was accepted.
+   *
+   * Progress is measured against this, and it is sent because "the larder stood at 300 and
+   * must reach 700" only means something with both figures on screen. `null` where the
+   * objective has no baseline.
+   */
+  baseline: number | null;
+  /** The unit `amount` and `baseline` are counted in, written out for the panel. */
+  unit: string;
+  /** Whether the simulation currently reads the objective as met. */
+  met: boolean;
+}
+
+/**
+ * What serving this issue is worth.
+ *
+ * Priced at offer time by the simulation, from the notable's own power, so a large
+ * shortage asked by someone who matters pays more than a small one asked by someone who
+ * does not. All four are the simulation's figures. `relation` is how far the notable's
+ * opinion of the taker moves, and it is the reward the player cannot spend.
+ */
+export interface IssueReward {
+  money: number;
+  gold: number;
+  renown: number;
+  relation: number;
+}
+
+/**
+ * One outstanding request, and the unit the player accepts and completes.
+ *
+ * `state` is the field to branch on and nothing else should be: the buttons, the deadline
+ * countdown and the progress gauge all read it, so there is one place in this client where
+ * the life of an issue is decided and every other place is drawing the consequence.
+ */
+export interface Issue {
+  id: string;
+  kind: IssueKind;
+  state: IssueState;
+  /** Who asked. Every effect is written against this person, so an ignored request has an author. */
+  notable: Notable;
+  /** The settlement asking. */
+  settlementId: string;
+  settlementName: string;
+  /** What the request wants. */
+  requirement: IssueRequirement;
+  /** How far the objective is met, 0 to 1. Recomputed by the simulation every tick. */
+  progress: number;
+  /** The day the notice runs out, and how many days of notice were given. */
+  deadlineDay: number;
+  deadlineDays: number;
+  /** The day the issue was accepted, or `null` while it is still an offer. */
+  startedDay: number | null;
+  reward: IssueReward;
+  /**
+   * What walking away costs, in the notable's opinion of the player.
+   *
+   * Shown before the abandon button rather than after it. A panel that only mentioned the
+   * penalty in the refusal would be telling the player what it costs to find out what it
+   * costs.
+   */
+  abandonPenalty: number;
+  /** The per-issue log of what happened and when. */
+  steps: IssueStep[];
+}
+
+/**
+ * Everything the quest panel needs in one read: the requests this party can act on, and
+ * the people who made them.
+ *
+ * One read rather than two because the two cannot disagree: an issue and its author are
+ * one fact about the world, and a panel that read them separately could show a request
+ * from somebody it had already drawn a different opinion of. `day` is stamped for the same
+ * reason `BarterTerms` carries one — so an order sent against a stale board is refused
+ * rather than silently applied to a request that has since lapsed.
+ *
+ * Keyed by the party rather than by the ruler who owns the issues, because the party id is
+ * the one entity identifier in the snapshot the client is certain about: `player.partyId`
+ * is in every snapshot, while the leader behind it is a question the simulation answers.
+ * Resolving party to leader is the simulation's indirection to own, not the client's.
+ */
+export interface IssueBoard {
+  /** The party this quest log belongs to. */
+  partyId: string;
+  day: number;
+  /** Offered and accepted, and recently resolved ones, all in the simulation's order. */
+  issues: Issue[];
+}
+
+/** The three things a player can do to an issue. */
+export type IssueAction = "accept" | "complete" | "abandon";
+
+/** One order against one issue. */
+export interface IssueActionRequest {
+  partyId: string;
+  issueId: string;
+  /**
+   * The day the player is looking at, so a request that has since lapsed cannot be taken
+   * up against a board the player was looking at three days ago.
+   */
+  expectedDay: number;
+}
+
+/**
+ * What the simulation did with an order, in words.
+ *
+ * `accepted` is false whenever the simulation refused, and `reason` then says why in the
+ * simulation's own sentence — an offer taken by somebody else, a notice that ran out, or a
+ * claim of completion the world does not support. Both are shown in full, because both name
+ * the number the player can go and fix.
+ *
+ * `issue` is the request as the simulation now holds it, which replaces the one on screen.
+ * A panel that kept drawing the copy it started with after the world moved on would be a
+ * panel reporting a state that does not exist.
+ */
+export interface IssueActionResult {
+  issueId: string;
+  action: IssueAction;
+  accepted: boolean;
+  /** What the simulation makes of the order, in its own words. */
+  verdict: string;
+  /** Why it was refused, when `accepted` is false. */
+  reason?: string;
+  /** What was actually paid, when an action settled the issue. Absent on a refusal. */
+  paid?: IssueReward;
+  /** The issue as the simulation now holds it. */
+  issue: Issue;
+  causedBy: string;
+}
+
 /**
  * One row of the cause log, `CAUSE_EFFECT.md` section 4.
  *
@@ -552,6 +848,17 @@ export interface SimSnapshot {
   };
   party: PartyState;
   towns: TownState[];
+  /**
+   * Fog of war for the side this snapshot is written from. See `FogState`.
+   *
+   * Optional because the client must not treat its absence as an empty world. A
+   * simulation that has not published visibility yet is not a simulation in which every
+   * town is unknown, and drawing a blank map on that reading would be the single worst
+   * thing this client could do with a missing field. So the map is drawn whole and the
+   * data-source panel says that visibility is not being published, which is what is
+   * actually true.
+   */
+  fog?: FogState;
   markets: Record<string, MarketState>;
   sides: SideState[];
   rulers: RulerState[];
@@ -585,6 +892,14 @@ export interface TickUpdate {
   warnings?: ResourceWarning[];
   notifications?: Notification[];
   causeRows?: CauseRow[];
+  /**
+   * No `fog` here, and that is the server's decision rather than an omission here: the
+   * apiserver's tick frames (`cmd/apiserver/ws.go`) carry no fog block, so a town does
+   * not grey out or clear while the party is marching. Fog moves on the next full
+   * snapshot read, which `getSnapshot` already does after any write. Adding a fog field
+   * to this interface before the server sends one would be the client promising to
+   * handle a frame that never arrives.
+   */
 }
 
 /** The full read and write surface the client needs from the simulation. */
@@ -601,6 +916,20 @@ export interface SimulationProvider {
   proposeBarter(request: BarterProposalRequest): Promise<BarterProposal>;
   /** Strike a deal the trader has already agreed to. Moves goods, gold and prisoners. */
   commitBarter(request: BarterProposalRequest): Promise<BarterResult>;
+  /** This party's quest log: every live request, with the notable who made each one. */
+  issueBoard(partyId: string): Promise<IssueBoard>;
+  /** Take an outstanding request. The simulation decides whether it can be taken. */
+  acceptIssue(request: IssueActionRequest): Promise<IssueActionResult>;
+  /**
+   * Report an accepted request as finished.
+   *
+   * An order, never a guarantee: the simulation reads the world and finds out whether the
+   * goods arrived or the hideout came down, and an unsupported claim is refused rather than
+   * paid.
+   */
+  completeIssue(request: IssueActionRequest): Promise<IssueActionResult>;
+  /** Give up an accepted request, and pay the notable for it. */
+  abandonIssue(request: IssueActionRequest): Promise<IssueActionResult>;
   planMarch(request: MarchRequest): Promise<MarchPlan>;
   commitMarch(request: MarchRequest): Promise<void>;
   /** Days of game time per real second. Zero pauses the clock. */

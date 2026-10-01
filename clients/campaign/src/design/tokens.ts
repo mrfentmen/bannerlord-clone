@@ -143,6 +143,17 @@ export const mapColor = {
   /** Sky and fog, matched to the grade so the horizon does not fight the terrain. */
   sky: "#9AA0A2",
   fog: "#8E9497",
+  /**
+   * A town this side has found but is not watching. Fog of war, and only fog of war.
+   *
+   * It sits a step below `fog` in value so a remembered town still reads against snow
+   * and against the dark forest bands, and it borrows that hue rather than inventing
+   * one: this palette already uses the haze colour to mean "not quite here", and a
+   * remembered town is exactly that. It is deliberately not a `status` colour, because
+   * a town being out of sight is a fact about what this side knows and not a condition
+   * anything is in.
+   */
+  townRemembered: "#6E7477",
 } as const;
 
 /** Settled sizes for town silhouettes (ART_DIRECTION.md section 7). */
