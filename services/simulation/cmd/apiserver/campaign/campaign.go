@@ -557,6 +557,10 @@ func (c *Campaign) pass(ctx context.Context, elapsed float64) {
 		}
 		c.ticksRun++
 	}
+	// After ticks, check for hostile parties in proximity and auto-create
+	// encounters. The game generates fights on its own; the player doesn't
+	// have to manually trigger every battle via API.
+	c.checkEncountersLocked()
 	// A tick can run several days when the clock is fast, but a job applies once.
 	// orderSystem clears the batch as it drains it, and this is the backstop for
 	// the case where a job carried no stage function and was never reached.
