@@ -21,7 +21,8 @@ def run_tool(name, *args):
 def test_manifest_check_passes_on_real_manifest():
     r = run_tool("manifest-check.py")
     assert r.returncode == 0, r.stderr
-    assert "All 4 assets verified" in r.stdout
+    # count-agnostic: processed assets append entries to the same manifest
+    assert "assets verified" in r.stdout
 
 
 def test_manifest_check_fails_on_hash_mismatch(tmp_path):
