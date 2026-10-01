@@ -435,6 +435,8 @@ func init() {
 	// --- ruler fields ---
 	register(Field{"influence", KindLeader, ValueFloat, "influence", true, 0, inf, nil, 0})
 	register(Field{"renown", KindLeader, ValueFloat, "renown", true, 0, inf, nil, 0})
+	register(Field{"gold", KindLeader, ValueFloat, "gold", true, zero, inf, nil, 0})
+	register(Field{"money", KindLeader, ValueFloat, "money", true, zero, inf, nil, 0})
 	register(Field{"loyalty_to_leader", KindLeader, ValueFloat, "share", true, zero, one, nil, 0})
 	register(Field{"ruler_side", KindLeader, ValueSideRef, "side", true, -1, inf, nil, 0})
 	register(Field{"ruler_town", KindLeader, ValueInt, "town", true, -1, inf, nil, 0})
