@@ -1,0 +1,68 @@
+/**
+ * Screenshot gallery styles (expression/galleryPanel.ts).
+ *
+ * Every value comes from src/design/tokens.css: no colour, font, spacing,
+ * or radius is invented here. The viewer sits above the panel layer so a
+ * full-size shot is readable without closing the gallery.
+ */
+
+.gallery__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: var(--space-3);
+  max-height: 60vh;
+  overflow-y: auto;
+  padding: var(--space-1);
+}
+
+.gallery__card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  background: var(--paper-200);
+  border: 1px solid var(--paper-300);
+  border-radius: var(--radius-2);
+}
+
+.gallery__thumb {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--radius-1);
+  border: 1px solid var(--paper-300);
+}
+
+.gallery__label {
+  margin: 0;
+  color: var(--ink-700);
+}
+
+.gallery__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+}
+
+.gallery__viewer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  max-height: 70vh;
+  overflow-y: auto;
+}
+
+.gallery__viewer[hidden] {
+  display: none;
+}
+
+.gallery__full {
+  width: 100%;
+  border-radius: var(--radius-2);
+  border: 1px solid var(--paper-300);
+}
+
+.gallery__viewer-actions {
+  display: flex;
+  gap: var(--space-2);
+}

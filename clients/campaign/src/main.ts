@@ -91,7 +91,7 @@ import { questJournalPanel } from "./ui/panels/QuestJournal.js";
 import { createAchievementStore } from "./achievements/index.js";
 import { achievementsPanel } from "./ui/panels/Achievements.js";
 import { mountBattleUi, type BattleMount } from "./battleflow/mount.js";
-import { createPhotoMode, mountPhotoModeBar, type PhotoModeBarHandle } from "./expression/index.js";
+import { createGalleryStore, createPhotoMode, galleryPanel, mountPhotoModeBar, type PhotoModeBarHandle } from "./expression/index.js";
 import { chroniclePanel, seasonForDay } from "./expression/chroniclePanel.js";
 import { createMemorial, memorialPanel } from "./afteraction/index.js";
 import { lawsPanel, DEFAULT_LAWS, type ClanLaws } from "./clan/index.js";
@@ -462,6 +462,7 @@ const hud = createHud({
   onOpenCodex: () => openCodex(),
   onOpenAchievements: () => openAchievements(),
   onOpenPhotoMode: () => enterPhotoMode(),
+  onOpenGallery: () => openGallery(),
   onOpenChronicle: () => openChronicle(),
   onOpenHeatmap: () => toggleHeatmap(),
   onOpenMemorial: () => openMemorial(),
@@ -712,6 +713,9 @@ function enterPhotoMode(): void {
       } catch {
         return null;
       }
+    },
+    onCapture: (dataUrl) => {
+      gallery.add(dataUrl);
     },
     setInterfaceHidden: (hidden) => {
       app.style.display = hidden ? "none" : "";
@@ -1361,6 +1365,24 @@ function refreshQuestTracker(): void {
 function openQuestTracker(): void {
   if (trackerHud.isCollapsed()) trackerHud.setCollapsed(false);
   trackerHud.refresh();
+}
+
+// --- Screenshot gallery (MASTER_PLAN task 130) --------------------------------
+// In-session capture list. Photo mode feeds it through the bar's onCapture
+// hook; the HUD rail "Gallery" button opens the browser panel.
+const gallery = createGalleryStore();
+
+function openGallery(): void {
+  currentPanel = "none";
+  contextNode = galleryPanel({
+    store: gallery,
+    onClose: () => {
+      currentPanel = "none";
+      contextNode = null;
+      paint();
+    },
+  });
+  paint();
 }
 
 // --- Achievements (MASTER_PLAN task 137) --------------------------------------

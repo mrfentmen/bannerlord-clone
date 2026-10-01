@@ -45,6 +45,8 @@ export interface PhotoModeBarOptions {
   resumeInput: () => void;
   /** Called after exit, once the bar is gone. */
   onExit: () => void;
+  /** Called with the captured data URL after a successful capture. Optional. */
+  onCapture?: (dataUrl: string) => void;
   /** Where to mount the bar. Defaults to `document.body`. */
   mountInto?: HTMLElement;
 }
@@ -126,7 +128,8 @@ export function mountPhotoModeBar(options: PhotoModeBarOptions): PhotoModeBarHan
     document.body.appendChild(a);
     a.click();
     a.remove();
-    announce(announcer, "Photo captured and downloaded.");
+    options.onCapture?.(frame);
+    announce(announcer, "Photo captured, downloaded, and added to the gallery.");
   }
 
   function toggleInterface(): void {

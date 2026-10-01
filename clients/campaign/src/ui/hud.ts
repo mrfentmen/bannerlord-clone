@@ -43,6 +43,8 @@ export interface HudOptions {
   onOpenAchievements?: () => void;
   /** Opens photo mode (MASTER_PLAN task 123). Optional: the button hides without it. */
   onOpenPhotoMode?: () => void;
+  /** Opens the screenshot gallery (MASTER_PLAN task 130). Optional: the button hides without it. */
+  onOpenGallery?: () => void;
   /** Opens the clan chronicle. Optional: the button hides without it. */
   onOpenChronicle?: () => void;
   /** Toggles the battle heatmap overlay. Optional: the button hides without it. */
@@ -516,6 +518,12 @@ export function createHud(options: HudOptions): HudHandle {
       const chronicleBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-chronicle" }, "Chronicle");
       chronicleBtn.addEventListener("click", () => options.onOpenChronicle?.());
       rail.appendChild(chronicleBtn);
+    }
+
+    if (options.onOpenGallery) {
+      const galleryBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-gallery" }, "Gallery");
+      galleryBtn.addEventListener("click", () => options.onOpenGallery?.());
+      rail.appendChild(galleryBtn);
     }
 
     if (options.onOpenHeatmap) {
