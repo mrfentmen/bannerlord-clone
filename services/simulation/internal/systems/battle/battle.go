@@ -46,13 +46,16 @@ func strength(v *sim.View, p *model.Party, leader *model.Leader) float64 {
 	if leader != nil {
 		valorMult = 1.0 + leader.Traits.Valor*0.3
 	}
+	// Troop XP: every 100 XP = +1% effectiveness, capped at +50%.
+	// Veterans hit harder than green recruits.
+	xpMult := 1.0 + shared.Clamp(p.TroopXP/100.0*0.01, 0, 0.5)
 	// What the party is made of (Tier 6.2). The same number of men is not the
 	// same fighting strength: an armoured core hits harder than a skirmish
 	// screen. This is a separate multiplier from the march system's speed
 	// factor deliberately, so a party is not automatically at its strongest
 	// where it is quickest.
 	combatMult := template.CombatFactor(v, p)
-	return base * moraleMult * valorMult * combatMult
+	return base * moraleMult * valorMult * xpMult * combatMult
 }
 
 // hostile reports whether two sides are at odds, which is the precondition for
@@ -247,6 +250,15 @@ func run(v *sim.View, w *sim.WriteSet) {
 			w.Add(model.KindLeader, winnerLeader.ID, "renown_victories", 1,
 				read, causes, "battle victory")
 		}
+		// Troop XP: winners gain XP based on enemy casualties inflicted;
+		// losers gain a smaller participation amount. XP improves future
+		// combat effectiveness (Tier 5.5).
+		winnerXP := loserLoss * 0.5
+		loserXP := winnerLoss * 0.2
+		w.Add(model.KindParty, winner.ID, "troop_xp", winnerXP,
+			read, causes, "battle experience")
+		w.Add(model.KindParty, loser.ID, "troop_xp", loserXP,
+			read, causes, "battle experience")
 		// Defeated leader may be captured. A capture names the captor, so
 		// there is nothing to write when the winner has no leader on the
 		// state: a raider band that wins has no ruler to hold anyone.

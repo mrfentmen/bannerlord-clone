@@ -282,6 +282,9 @@ type Party struct {
 	Metal            float64
 	Medicine         float64
 	Morale           float64
+	// TroopXP is accumulated combat experience, 0+. Battles grant XP;
+	// higher XP improves combat effectiveness (Tier 5.5).
+	TroopXP          float64
 	Fatigue          float64
 	WagesOwed        float64
 	Activity         Activity

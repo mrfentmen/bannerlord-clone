@@ -408,6 +408,9 @@ func init() {
 	register(Field{"party_template", KindParty, ValueText, "template", true, 0, 0, []string{
 		"stance", "heavy", "light", "horse",
 	}, 0})
+	// troop_xp is tracked because it is the progression system: battles grant
+	// XP, and XP improves combat effectiveness. The player sees it grow.
+	register(Field{"troop_xp", KindParty, ValueFloat, "xp", true, 0, inf, nil, 0})
 	register(Field{"troops_stance", KindParty, ValueInt, "troops", true, 0, inf, nil, 0})
 	register(Field{"troops_heavy", KindParty, ValueInt, "troops", true, 0, inf, nil, 0})
 	register(Field{"troops_light", KindParty, ValueInt, "troops", true, 0, inf, nil, 0})
