@@ -9,7 +9,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { bandFor, classifySettlement, indexSettlements, makeProjection, positionKey } from "./load.js";
+import { bandFor, classifySettlement, indexSettlements, loadHeightfield, makeProjection, positionKey } from "./load.js";
 import type { Heightfield, RegionFile, WorldSettlement, WorldSettlementFile } from "./types.js";
 
 /** The decoder as a pure function, so it can be tested without a canvas. */
@@ -76,33 +76,87 @@ describe("the elevation tiers in region.json", () => {
     expect(region.elevation.tileSize).toBeGreaterThan(0);
     for (const tile of region.elevation.tiles) {
       expect(tile.z).toBe(region.elevation.zoom);
-      expect(tile.path).toContain(`/elevation/${region.elevation.zoom}/`);
+      expect(tile.path).toContain(`elevation/${region.elevation.zoom}/${tile.x}/${tile.y}.png`);
     }
   });
 
-  it("treats the detail list as optional, and validates it when it is present", () => {
-    // This region ships a boot list only, which is the case the loader has to handle.
+  it("treats the detail list as optional, and this region ships the boot list alone", () => {
+    // The loader reads `elevation` and nothing else, so a boot-list-only file is the
+    // normal case rather than a degraded one.
     expect(region.elevationDetail).toBeUndefined();
     expect(region.elevation.tiles.length).toBeGreaterThan(0);
   });
 
-  it("describes a tiered file the way the tiered export writes one", () => {
-    // Taken from the tiered region file on `worker/mute/wire-elevation-tiers`, which
-    // splits Ohio into a zoom-10 boot list and a zoom-12 detail list. The client must
-    // load the boot list from `elevation` and leave `elevationDetail` alone, so this
-    // checks the loader picks the right one rather than the larger of the two.
-    const tiered = JSON.parse(
-      readFileSync(fileURLToPath(new URL("./fixtures/tiered-region.json", import.meta.url)), "utf8"),
-    ) as RegionFile;
-    expect(tiered.elevation.zoom).toBe(10);
-    expect(tiered.elevationDetail?.zoom).toBe(12);
-    expect(tiered.elevation.tiles.length).toBeLessThan(tiered.elevationDetail!.tiles.length);
-    // Every tile carries the zoom of its own list, so the two cannot be confused.
-    expect(tiered.elevation.tiles.every((t) => t.z === 10)).toBe(true);
-    expect(tiered.elevationDetail!.tiles.every((t) => t.z === 12)).toBe(true);
-    // `loadHeightfield` reads `region.elevation` only. Its tile count is what the boot
-    // payload is, so this is the assertion that the client fetches 154 tiles, not 2,236.
-    expect(tiered.elevation.tiles.length).toBe(154);
+  it("loads a tiered file from the boot list, never from the larger detail list", async () => {
+    // The shape written by the tiered export: Ohio split into a zoom-10 boot list and a
+    // zoom-12 detail list, 154 tiles against 2,236. The client must read the first and
+    // leave the second alone, because fetching the detail list at boot is the ~200 MB
+    // payload this split exists to avoid.
+    // A 14 x 11 grid, the shape the real Ohio boot list has: the loader derives the
+    // heightfield's size from the tile grid's extent, so the tiles have to be laid out as
+    // a grid rather than as a list for the field dimensions to mean anything.
+    const tiles = (zoom: number, cols: number, rows: number) =>
+      Array.from({ length: cols * rows }, (_, i) => {
+        const x = 100 + (i % cols);
+        const y = 200 + Math.floor(i / cols);
+        return { z: zoom, x, y, path: `elevation/${zoom}/${x}/${y}.png` };
+      });
+    const tiered: RegionFile = {
+      name: "tiered",
+      bbox: { south: 37.1, west: -85.3, north: 40.6, east: -81.6 },
+      elevation: { encoding: "terrarium", formula: "", zoom: 10, tileSize: 256, tiles: tiles(10, 14, 11) },
+      elevationDetail: { encoding: "terrarium", formula: "", zoom: 12, tileSize: 256, tiles: tiles(12, 52, 43) },
+      retrieved: "2026-10-01",
+    };
+
+    const requested: string[] = [];
+    const canvasStub = {
+      width: 0,
+      height: 0,
+      getContext: () => ({
+        clearRect: () => {},
+        drawImage: () => {},
+        // 0x800000 is terrarium's zero, so every tile decodes to 0 m and the loop moves on.
+        getImageData: () => ({ data: new Uint8ClampedArray(256 * 256 * 4).fill(0x80) }),
+      }),
+    };
+    const globals = globalThis as Record<string, unknown>;
+    const saved = {
+      document: globals["document"],
+      fetch: globals["fetch"],
+      bitmap: globals["createImageBitmap"],
+      // `loadHeightfield` resolves tile paths against `location.href`, which node has no
+      // global for. Supplied here rather than in the loader, because in the client this
+      // is the browser's own global and the loader is right to use it.
+      location: globals["location"],
+    };
+    globals["document"] = { createElement: () => canvasStub };
+    globals["createImageBitmap"] = async () => ({ close: () => {} });
+    globals["location"] = { href: "http://localhost/" };
+    globals["fetch"] = async (url: string) => {
+      requested.push(String(url));
+      return { ok: true, blob: async () => new Blob() };
+    };
+
+    try {
+      const hf = await loadHeightfield(tiered, "http://localhost/world/");
+      // 14 x 11 tiles of 256 px is a 3584 x 2816 field, which is what the boot list
+      // describes. Had the loader used the detail list this would be 13312 x 11008 and
+      // 2,236 fetches would have happened.
+      expect(hf.width).toBe(14 * 256);
+      expect(hf.height).toBe(11 * 256);
+    } finally {
+      globals["document"] = saved.document;
+      globals["fetch"] = saved.fetch;
+      globals["createImageBitmap"] = saved.bitmap;
+      globals["location"] = saved.location;
+    }
+
+    // Every requested tile is a zoom-10 boot tile. A single zoom-12 request here is the
+    // bug this test exists to catch: 2,236 of them is a boot nobody can wait for.
+    expect(requested).toHaveLength(tiered.elevation.tiles.length);
+    expect(requested.every((url) => url.includes("/elevation/10/"))).toBe(true);
+    expect(requested.some((url) => url.includes("/elevation/12/"))).toBe(false);
   });
 });
 

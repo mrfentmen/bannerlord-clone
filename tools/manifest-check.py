@@ -28,10 +28,13 @@ def main() -> int:
     ap = argparse.ArgumentParser(description="Verify asset originals against the manifest.")
     ap.add_argument("--manifest", default="assets/manifest.json")
     ap.add_argument("--originals", default="assets/originals")
+    ap.add_argument("--root", default=".",
+                    help="repo root; manifest paths are resolved relative to it first")
     args = ap.parse_args()
 
     manifest_path = Path(args.manifest)
     originals_dir = Path(args.originals)
+    repo_root = Path(args.root)
 
     try:
         manifest = json.loads(manifest_path.read_text())
@@ -67,8 +70,11 @@ def main() -> int:
             failures += 1
             continue
 
-        # The originals live under the originals dir; manifest path is repo-relative.
-        local = originals_dir / Path(rel_path).name
+        # Resolve the file: prefer the repo-relative manifest path (covers
+        # processed assets under assets/processed/), falling back to the
+        # historical originals-dir/basename lookup for originals entries.
+        candidate = repo_root / rel_path
+        local = candidate if candidate.is_file() else originals_dir / Path(rel_path).name
         if not local.exists():
             print(f"FAIL: {asset_id}: missing original: {local}", file=sys.stderr)
             failures += 1
