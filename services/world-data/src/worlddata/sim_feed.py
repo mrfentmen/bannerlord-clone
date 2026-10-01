@@ -267,6 +267,39 @@ def build_sim_feed(
     # Stable order: biggest places first.
     feed.sort(key=lambda r: (-r["Population"], r["Name"]))
 
+    # Tier 1B-19: route edges for the sim. The sim needs a travel graph, not
+    # just settlements. Build from the travel-graph.json edges, keeping only
+    # routes where both endpoints are in this feed. Indices refer to the
+    # sorted feed order above.
+    # Build the id->idx map: sort in_region the same way as the feed, then map.
+    sorted_region = sorted(
+        in_region,
+        key=lambda s: (-float(s["population"]), display_name(str(s["name"]))),
+    )
+    id_to_idx = {str(s["settlement_id"]): i for i, s in enumerate(sorted_region)}
+
+    routes = []
+    travel_graph_path = dist / "travel-graph.json"
+    if travel_graph_path.exists():
+        graph = json.loads(travel_graph_path.read_text())
+        for e in graph["edges"]:
+            a = id_to_idx.get(str(e["from"]))
+            b = id_to_idx.get(str(e["to"]))
+            if a is None or b is None:
+                continue
+            routes.append(
+                {
+                    "From": a,
+                    "To": b,
+                    "LengthKm": e["length_km"],
+                    "RoadClass": e["road_class"],
+                    "Kind": e["kind"],
+                    "Minutes": e["minutes"],
+                }
+            )
+    else:
+        warnings.append("travel-graph.json not found; routes.json will be empty")
+
     warnings.append(
         "gap (CONSTITUTION 1.1): Terrain Forest (1) and Swamp (4) are not "
         "derivable from the pipeline's tables and are never emitted; "
@@ -295,6 +328,10 @@ def build_sim_feed(
         "settlement_count": len(feed),
     }
     (out / "settlements.json").write_text(json.dumps(feed))
+    (out / "settlements.meta.json").write_text(json.dumps(meta))
+    # Tier 1B-19: routes.json — the travel graph for the sim.
+    (out / "routes.json").write_text(json.dumps(routes))
+    meta["route_count"] = len(routes)
     (out / "settlements.meta.json").write_text(json.dumps(meta))
     return SimFeedResult(
         out_dir=out,
