@@ -48,25 +48,30 @@ per-edge terrain. Travel-time terrain multipliers land with it.
 ## Connectivity (Tier 1A-11/12)
 
 `tools/check-connectivity.py` builds connected components and spot-checks A*
-on 200 random pairs. 2026-10-01 result:
+on 200 random pairs. 2026-10-01 result (with connectors):
 
-- **5,510 components; largest holds 5,845 of 13,181 settlements (44%)**
-- 5,111 settlements have no edges at all
+- **National: 16,487 edges, largest component 7,433 of 13,181 (56%)**
+- **Metros: NYC 98%, LA 99%, Houston 97%, Miami 100%** — Tier 1A's target
+- 2,391 settlements remain isolated (>8 km from any primary road/rail line)
 - A* agrees with the component map on 200/200 pairs
 
-This is not a regression from the retune: the 20 km rule's graph was also
-fragmented (4,409 components, largest 56%). The structural cause is that the
-pipeline imports TIGER **primary** roads and rails only. Endpoint snapping
-misses towns that sit beside a line's middle, and towns served only by
-secondary/local roads have no lines at all. A 500-settlement sample found
-only ~15% of isolated settlements within 5 km of a line interior
-(`tools/measure-line-proximity.py`).
+### Connectors (Tier 1A-3, v1)
 
-Planned remedies (Tier 1A-3/13/15): boundary-intersection connectors for
-settlements near a line, ferry/water edges, and explicit `no_road` marking
-for the genuinely off-network remainder. The connectivity check exits
-non-zero while any settlement is unreachable, so the report cannot go stale
-silently.
+`tools/build-connectors.py` attaches isolated settlements to the network by
+nearest-line (point-to-polyline) distance, not endpoint snapping. For a
+settlement S near segment A-B at point P:
+
+    S->A length = dist(S,P) + along-line(P,A)
+    S->B length = dist(S,P) + along-line(P,B)
+
+Edges are tagged `method="connector"`. v1 connected 2,720 of 5,111 isolated
+settlements (53%) within the 8 km radius, adding 5,440 edges. The v2
+refinement is Census place-boundary polygon intersection
+(`method=intersection`).
+
+The remaining 2,391 isolated settlements are genuinely off the primary
+network (>8 km from any line). They need secondary-road imports or explicit
+`no_road` marking (Tier 1A-13).
 
 ## Per-metro slices (Tier 1A-18)
 
