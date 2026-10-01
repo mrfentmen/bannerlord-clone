@@ -1694,3 +1694,11 @@
 .quest-offer__giver { color:var(--ink-500); }
 .quest-offer__desc { color:var(--ink-700); }
 .quest-offer__actions { display:flex; gap:var(--space-2); margin-top:var(--space-3); }
+
+/* Time controls (MASTER_PLAN.md 4A). Token-only: no literal colours. */
+.time-controls { display:flex; align-items:center; gap:var(--space-2); }
+.time-controls__date { color:var(--ink-900); white-space:nowrap; }
+.time-controls__buttons { display:flex; gap:var(--space-1); }
+.time-controls__btn { background:var(--paper-100); border:1px solid var(--line-1); border-radius:var(--radius-sm); padding:var(--space-1) var(--space-2); cursor:pointer; color:var(--ink-700); font-family:var(--font-sans); }
+.time-controls__btn--active { background:var(--paper-200); border-color:var(--accent-primary); color:var(--ink-900); font-weight:600; }
+.time-controls__pending { display:flex; align-items:center; }
