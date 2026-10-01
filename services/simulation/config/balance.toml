@@ -585,6 +585,7 @@ tax_cut_loyalty_gain = 0.030    # loyalty a ruler trades for lower taxes. Range 
 execute_chance = 0.34           # chance a captured ruler with low Mercy and Honor is executed. Range 0-0.8. Chain 9's trigger.
 prisoner_ransom_gold = 260.0    # gold expected from ransoming a ruler. Range 20-2000.
 prisoner_ransom_relation = 0.10  # relation cost of ransoming. Range 0-0.5.
+prisoner_release_relation = 0.15  # relation gain from releasing a prisoner (honorable). Range 0-0.5.
 decide_every_days = 4.0         # how often a ruler makes a decision. Range 1-30. Daily decisions make rulers twitchy.
 starving_army_penalty = 0.25    # how much a starving army cuts offensive willingness. Range 0-1.0. An army that cannot march cannot attack.
 low_supply_penalty = 0.45       # how much an army short of food cuts it. Range 0-1.0. The supply check from MARCH_AND_WAR.md section 1.
