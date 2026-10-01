@@ -1,7 +1,7 @@
 # GLB manifest for Rowan — Milo's 3D model staging
 
 Per Pax's lane ruling: Milo's agents are out of clients/campaign scene wiring.
-The 28 GLB files below are staged as files only. Wire them however fits the client.
+The 30 GLB files below are staged as files only. Wire them however fits the client.
 
 All files are valid glTF 2.0. Target lengths are longest-axis metres for auto-scale.
 Orientation note: troop-officer.glb geometry lies flat along Z; apply rotationX = -PI/2 to stand it up.
@@ -17,7 +17,7 @@ Orientation note: troop-officer.glb geometry lies flat along Z; apply rotationX 
 - patrol-boat.glb — target 12m
 - helicopter.glb — target 16m (marginal quality; ambient/background use only)
 
-## Troops (7)
+## Troops (9)
 - troop-gunner.glb — target 1.8m (marginal quality; verify in client)
 - troop-medic.glb — target 1.8m
 - troop-officer.glb — target 1.8m (needs rotationX = -PI/2)
@@ -25,6 +25,8 @@ Orientation note: troop-officer.glb geometry lies flat along Z; apply rotationX 
 - warlord.glb — target 1.9m
 - sniper.glb — target 1.8m (quality gate 65; marksman variant)
 - medic.glb — target 1.8m (quality gate 85)
+- gunner.glb — target 1.8m (fresh Forge regen 2026-10-01; alternative to marginal troop-gunner.glb)
+- officer.glb — target 1.8m (fresh Forge regen 2026-10-01)
 
 ## Structures (8)
 - bunker.glb — target 12m
