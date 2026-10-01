@@ -71,6 +71,11 @@ class Route:
     road_safety: float
     segment_ids: tuple[str, ...]
     kind: str
+    # Road class of the longest member segment (rail for rail routes); the
+    # travel graph and sim feed need per-edge class, not just per-segment.
+    road_class: str
+    # Sum of member segment travel hours; the travel graph reports minutes.
+    travel_hours: float
 
 
 class SettlementIndex:
@@ -287,8 +292,11 @@ def _load_lines(
     graph snaps to exactly the settlements the settlements stage decided on, with
     no hidden intermediate file that could go stale.
     """
-    snap_km = float(config.get("travel.snap_radius_km"))
-    index = SettlementIndex(settlement_points, snap_km)
+    radii = config.travel.snap_radius_km_by_class
+    # The spatial index is built at the widest class radius; nearest() only ever
+    # *narrows* below the index radius, so per-class radii are enforced per line
+    # without rebuilding the grid.
+    index = SettlementIndex(settlement_points, max(radii.values()))
 
     segments: list[RouteSegment] = []
     both_snapped = 0
@@ -309,8 +317,9 @@ def _load_lines(
 
         road_class = _road_class(config, record, kind)
         speed = _speed_for(config, road_class, kind)
-        from_id, from_km = index.nearest(points[0])
-        to_id, to_km = index.nearest(points[-1])
+        class_radius_km = radii[road_class]
+        from_id, from_km = index.nearest(points[0], max_km=class_radius_km)
+        to_id, to_km = index.nearest(points[-1], max_km=class_radius_km)
         if from_id is not None and to_id is not None:
             both_snapped += 1
         elif from_id is not None or to_id is not None:
@@ -341,8 +350,9 @@ def _load_lines(
         )
 
     notes = [
-        f"{archive_name}: read {len(segments)} lines against {len(settlement_points)} settlement points. "
-        f"{both_snapped} snapped at both ends to a settlement within {snap_km} km, {one_snapped} at one "
+        f"{archive_name}: read {len(segments)} lines against {len(settlement_points)} settlement points "
+        f"with per-class snap radii {radii}. "
+        f"{both_snapped} snapped at both ends, {one_snapped} at one "
         f"end, {none_snapped} at neither. Lines shorter than one usable vertex were skipped: {skipped_short}."
     ]
     return segments, notes
@@ -443,6 +453,9 @@ def _build_route_edges(segments: list[RouteSegment]) -> list[Route]:
         safety = (
             sum(segment.road_safety * segment.length_km for segment in members) / length if length > 0 else 0.0
         )
+        # The edge's class is its longest member's: a route that is 90%
+        # interstate and 10% frontage road behaves as an interstate.
+        longest = max(members, key=lambda segment: segment.length_km)
         routes.append(
             Route(
                 route_id=f"{kind}:{left}->{right}",
@@ -452,6 +465,8 @@ def _build_route_edges(segments: list[RouteSegment]) -> list[Route]:
                 road_safety=safety,
                 segment_ids=tuple(segment.segment_id for segment in members),
                 kind=kind,
+                road_class=longest.road_class,
+                travel_hours=sum(segment.travel_hours for segment in members),
             )
         )
     return routes

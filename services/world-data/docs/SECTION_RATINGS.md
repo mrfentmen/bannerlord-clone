@@ -65,23 +65,23 @@ total. They are what turn a real number into a 1-5 band.
 
 | Section | Dimension | Computed | Target | Direction | Share of national | Reading |
 |---|---|---|---|---|---|---|
-| atlantic_corridor | gold | 1 | 4 | weaker than designed | 1.32% | band 1 of <function max_rating at 0x73c61371bf60>, z=-0.70 across the six sides |
-| atlantic_corridor | metal | 3 | 2 | stronger than designed | 17.15% | band 3 of <function max_rating at 0x73c61371bf60>, z=0.05 across the six sides |
-| great_lakes_union | metal | 3 | 4 | weaker than designed | 17.40% | band 3 of <function max_rating at 0x73c61371bf60>, z=0.07 across the six sides |
-| great_lakes_union | money | 4 | 3 | stronger than designed | 18.77% | band 4 of <function max_rating at 0x73c61371bf60>, z=0.30 across the six sides |
-| lone_star_frontier | food | 2 | 3 | weaker than designed | 9.27% | band 2 of <function max_rating at 0x73c61371bf60>, z=-0.49 across the six sides |
-| lone_star_frontier | gold | 1 | 2 | weaker than designed | 0.19% | band 1 of <function max_rating at 0x73c61371bf60>, z=-0.75 across the six sides |
-| lone_star_frontier | metal | 1 | 4 | weaker than designed | 5.08% | band 1 of <function max_rating at 0x73c61371bf60>, z=-1.17 across the six sides |
-| lone_star_frontier | money | 1 | 4 | weaker than designed | 10.06% | band 1 of <function max_rating at 0x73c61371bf60>, z=-0.95 across the six sides |
-| lone_star_frontier | population | 1 | 3 | weaker than designed | 10.32% | band 1 of <function max_rating at 0x73c61371bf60>, z=-1.07 across the six sides |
-| mountain_alliance | money | 1 | 2 | weaker than designed | 5.00% | band 1 of <function max_rating at 0x73c61371bf60>, z=-1.68 across the six sides |
-| pacific_compact | food | 3 | 2 | stronger than designed | 13.68% | band 3 of <function max_rating at 0x73c61371bf60>, z=-0.20 across the six sides |
-| pacific_compact | gold | 5 | 3 | stronger than designed | 43.29% | band 5 of <function max_rating at 0x73c61371bf60>, z=1.22 across the six sides |
-| pacific_compact | population | 3 | 4 | weaker than designed | 15.88% | band 3 of <function max_rating at 0x73c61371bf60>, z=-0.13 across the six sides |
-| southern_compact | food | 2 | 4 | weaker than designed | 13.46% | band 2 of <function max_rating at 0x73c61371bf60>, z=-0.21 across the six sides |
-| southern_compact | metal | 2 | 3 | weaker than designed | 12.12% | band 2 of <function max_rating at 0x73c61371bf60>, z=-0.46 across the six sides |
-| southern_compact | money | 4 | 3 | stronger than designed | 18.80% | band 4 of <function max_rating at 0x73c61371bf60>, z=0.31 across the six sides |
-| southern_compact | population | 5 | 4 | stronger than designed | 23.05% | band 5 of <function max_rating at 0x73c61371bf60>, z=1.07 across the six sides |
+| atlantic_corridor | gold | 1 | 4 | weaker than designed | 1.32% | band 1 of <function max_rating at 0x7611b8c78d60>, z=-0.70 across the six sides |
+| atlantic_corridor | metal | 3 | 2 | stronger than designed | 17.15% | band 3 of <function max_rating at 0x7611b8c78d60>, z=0.05 across the six sides |
+| great_lakes_union | metal | 3 | 4 | weaker than designed | 17.40% | band 3 of <function max_rating at 0x7611b8c78d60>, z=0.07 across the six sides |
+| great_lakes_union | money | 4 | 3 | stronger than designed | 18.77% | band 4 of <function max_rating at 0x7611b8c78d60>, z=0.30 across the six sides |
+| lone_star_frontier | food | 2 | 3 | weaker than designed | 9.27% | band 2 of <function max_rating at 0x7611b8c78d60>, z=-0.49 across the six sides |
+| lone_star_frontier | gold | 1 | 2 | weaker than designed | 0.19% | band 1 of <function max_rating at 0x7611b8c78d60>, z=-0.75 across the six sides |
+| lone_star_frontier | metal | 1 | 4 | weaker than designed | 5.08% | band 1 of <function max_rating at 0x7611b8c78d60>, z=-1.17 across the six sides |
+| lone_star_frontier | money | 1 | 4 | weaker than designed | 10.06% | band 1 of <function max_rating at 0x7611b8c78d60>, z=-0.95 across the six sides |
+| lone_star_frontier | population | 1 | 3 | weaker than designed | 10.32% | band 1 of <function max_rating at 0x7611b8c78d60>, z=-1.07 across the six sides |
+| mountain_alliance | money | 1 | 2 | weaker than designed | 5.00% | band 1 of <function max_rating at 0x7611b8c78d60>, z=-1.68 across the six sides |
+| pacific_compact | food | 3 | 2 | stronger than designed | 13.68% | band 3 of <function max_rating at 0x7611b8c78d60>, z=-0.20 across the six sides |
+| pacific_compact | gold | 5 | 3 | stronger than designed | 43.29% | band 5 of <function max_rating at 0x7611b8c78d60>, z=1.22 across the six sides |
+| pacific_compact | population | 3 | 4 | weaker than designed | 15.88% | band 3 of <function max_rating at 0x7611b8c78d60>, z=-0.13 across the six sides |
+| southern_compact | food | 2 | 4 | weaker than designed | 13.46% | band 2 of <function max_rating at 0x7611b8c78d60>, z=-0.21 across the six sides |
+| southern_compact | metal | 2 | 3 | weaker than designed | 12.12% | band 2 of <function max_rating at 0x7611b8c78d60>, z=-0.46 across the six sides |
+| southern_compact | money | 4 | 3 | stronger than designed | 18.80% | band 4 of <function max_rating at 0x7611b8c78d60>, z=0.31 across the six sides |
+| southern_compact | population | 5 | 4 | stronger than designed | 23.05% | band 5 of <function max_rating at 0x7611b8c78d60>, z=1.07 across the six sides |
 
 Each row above is a real finding about the source data, not a pipeline fault. The three
 structural reasons the computed numbers differ from the design targets are:

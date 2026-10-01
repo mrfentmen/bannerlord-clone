@@ -2,8 +2,8 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Mount and Blade clone - Phase 0 world data",
   "description": "Schema of the world data produced by services/world-data. Inferred from the exported rows, so it describes what was produced rather than what was intended. Field definitions come from CAUSE_EFFECT.md section 2 for town fields and SPEC.md section 3 for the entity model.",
-  "generated_at": "2026-10-01T08:40:36Z",
-  "generated_at_iso": "2026-10-01T08:42:31.347931+00:00",
+  "generated_at": "2026-10-01T08:57:35Z",
+  "generated_at_iso": "2026-10-01T09:00:55.455841+00:00",
   "pipeline_version": "1.0.0",
   "census_year": 2020,
   "estimates_vintage": 2023,
@@ -1030,9 +1030,9 @@
     },
     {
       "table": "routes",
-      "row_count": 13274,
+      "row_count": 11047,
       "sampled_rows_for_types": 500,
-      "column_count": 8,
+      "column_count": 10,
       "columns": [
         {
           "name": "distance_km",
@@ -1056,6 +1056,16 @@
         },
         {
           "name": "kind",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "rail",
+            "rail",
+            "rail"
+          ]
+        },
+        {
+          "name": "road_class",
           "type": "string",
           "nullable": false,
           "examples": [
@@ -1112,6 +1122,16 @@
             "01-33856",
             "01-21136",
             "01-31384"
+          ]
+        },
+        {
+          "name": "travel_hours",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "0.8002594600393019",
+            "0.0682609933041752",
+            "0.052303762696417955"
           ]
         }
       ]
