@@ -1719,3 +1719,38 @@
 /* Market trade rumors (MASTER_PLAN.md 4D task 147). Token-only: no literal colours. */
 .market-rumors { display:flex; flex-direction:column; gap:var(--space-2); margin-bottom:var(--space-3); }
 .market-rumor { display:flex; flex-direction:column; gap:var(--space-1); background:var(--paper-100); border:1px solid var(--line-1); border-radius:var(--radius-sm); padding:var(--space-2) var(--space-3); }
+
+/* Mobile layout (MASTER_PLAN.md 4F tasks 153-154). Token-only: no literal colours. */
+/* The 3D canvas takes all gestures; the browser must not steal them for scrolling. */
+canvas { touch-action: none; }
+
+/* iPhone SE is 375px wide; the 480px breakpoint covers it with room to spare. */
+@media (max-width: 480px) {
+  /* The two-column HUD collapses to one column and never scrolls sideways. */
+  .hud {
+    grid-template-areas: "top" "left" "right" "bottom";
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto auto 1fr auto;
+    gap: var(--space-2);
+    padding: var(--space-2);
+    overflow-x: hidden;
+  }
+  .hud__left { grid-area: left; justify-self: stretch; min-width: 0; }
+  .hud__right { justify-self: stretch; width: 100%; min-width: 0; }
+
+  /* Panels go edge to edge instead of floating at a fixed width. */
+  .panel { max-width: 100%; min-width: 0; }
+  .panel__body { padding: var(--space-2); }
+
+  /* The speed buttons wrap under the date instead of overflowing. */
+  .time-controls { flex-wrap: wrap; }
+  .time-controls__date { flex-basis: 100%; }
+  .time-controls__buttons { flex-wrap: wrap; }
+
+  /* Town menus stack their rows on narrow screens. */
+  .tavern-row, .arena-row { flex-wrap: wrap; }
+  .arena-card__head { flex-wrap: wrap; }
+
+  /* Nothing in the client may force horizontal scrolling on a phone. */
+  .notice__text { overflow-wrap: anywhere; }
+}
