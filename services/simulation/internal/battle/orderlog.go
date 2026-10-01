@@ -318,10 +318,11 @@ func (l *OrderLog) Rows() []Order {
 
 // OrdersForTick returns the rows issued for one tick, in append order.
 //
-// It is the reader the replayer uses and it is the reason the log is useful rather
-// than merely complete: an order is only meaningful against the tick it was made
-// for, and a replayer that had to scan the whole log per tick would be quadratic
-// in a long battle.
+// It is the reader for a caller holding a finished log and asking "what was ordered
+// on tick 40", which is the question an after-action reader asks. It is NOT the
+// replay path: Replayer walks the rows with a cursor, because this reader rescans
+// from the front of the log on every call and a replayer that used it would be
+// quadratic in a long battle.
 func (l *OrderLog) OrdersForTick(tick int) []Order {
 	start := 0
 	for start < len(l.rows) && l.rows[start].Tick < tick {
