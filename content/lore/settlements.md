@@ -289,10 +289,10 @@ anything.
 ### Arriving
 
 Omaha is not a farming town. It is a town built by farmers to move what they grew,
-and everything physical about it points at that fact. The elevators stand at the
-south end of the city in a row you can see from the interstate. The rail comes
-in, crosses the river, and goes into a yard the width of a neighborhood. The
-office buildings downtown hold the people who decide what a bushel is worth.
+and everything physical about it points at that. The elevators stand at the south
+end of the city in a row you can see from the interstate. The rail comes in,
+crosses the river, and goes into a yard the width of a neighborhood. The office
+buildings downtown hold the people who decide what a bushel is worth.
 
 That decision is why this place matters more than its size suggests. The Corn Belt
 feeds the whole map, and Nebraska wants the export gates opened and the money
