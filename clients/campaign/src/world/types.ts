@@ -151,12 +151,25 @@ export interface RailWay {
   coords: [number, number][];
 }
 
+export interface TravelEdgeFile {
+  from: number;
+  to: number;
+  length_km: number;
+  road_class: string;
+  kind: string;
+  minutes: number;
+  method: string;
+}
+
 export interface NetworkFile {
   source: string;
   licence: string;
   retrieved: string;
   roads: RoadWayFile[];
   rail: RailWayFile[];
+  /** v2: settlement-to-settlement weighted edges for pathfinding. */
+  travelEdges?: TravelEdgeFile[];
+  travelEdgesMeta?: { count: number; matched_settlements: number; note: string };
 }
 
 /** Every dataset, with the provenance the client shows in its data-source panel. */
