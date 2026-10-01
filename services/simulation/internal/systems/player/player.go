@@ -40,7 +40,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 			applyTrade(v, w, o)
 		case sim.OrderHireMercenaries:
 			applyMercenaries(v, w, o)
-		case sim.OrderExecutePrisoner, sim.OrderRansomPrisoner:
+		case sim.OrderExecutePrisoner, sim.OrderRansomPrisoner, sim.OrderReleasePrisoner:
 			applyPrisoner(v, w, o)
 		case sim.OrderDeclareWar, sim.OrderSuePeace:
 			applyWar(v, w, o)
@@ -256,6 +256,15 @@ func applyPrisoner(v *sim.View, w *sim.WriteSet, o sim.Order) {
 			"ransomed a prisoner", nil, "ransom received")
 		w.Set(model.KindLeader, o.Target, "captured_by", -1, "ransomed", nil, "released for ransom")
 		w.AddRelation(o.LeaderID, o.Target, -c.RulerAI.PrisonerRansomRelation, "ransomed", nil, "ransom")
+		return
+	}
+	if o.Kind == sim.OrderReleasePrisoner {
+		// A release is the honorable option: the prisoner goes free, and
+		// the captor gains relation with the prisoner's faction. This is
+		// the primary political tool for building goodwill.
+		w.Set(model.KindLeader, o.Target, "captured_by", -1, "released", nil, "released by captor")
+		// Grant positive relation with the prisoner (and by extension their side).
+		w.AddRelation(o.LeaderID, o.Target, c.RulerAI.PrisonerReleaseRelation, "released a prisoner", nil, "honorable release")
 		return
 	}
 	// An execution. The prisoner dies; the broken oaths and the spreading
