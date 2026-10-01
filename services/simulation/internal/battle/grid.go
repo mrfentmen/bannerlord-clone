@@ -364,6 +364,90 @@ func (h *hash) forEachCell(x, y, radius float64, fn func(id int)) {
 	}
 }
 
+// anyInCell reports whether fn returns true for any unit in the cells
+// overlapping the square of side 2*radius centred on (x,y), and stops the walk
+// at the first one that does.
+//
+// This exists because forEachCell cannot be made to stop early. It takes a
+// func(id) with no result, so a caller that only wants to know WHETHER something
+// is in range has no way to end the walk, and the walk goes on visiting every
+// cell in the box and calling the closure for every unit in them after the answer
+// is already known.
+//
+// The cost of that was measured on the 500 v 500 battle. A CPU profile put
+// (*Battle).enemyWithin at 28.69% cumulative and (*Battle).inFireArc at 7.79% on
+// top of it, and both are yes-or-no questions: is any enemy inside the arc. Both
+// walk the COARSE hash out to battle.ranged_range, which is two hundred and forty
+// metres over sixty-four metre cells, so a query near the middle of the field
+// covers a twenty-one-by-twenty-one block — four hundred and forty-one cells — and
+// asks every unit in each of them. Worse, the shooters are exactly the units for
+// which the answer is usually yes, and the melee units ask it again for
+// battle.charge_distance. The engine was paying a full field sweep, per unit, per
+// tick, to compute a bit that was settled in the first few cells.
+//
+// anyInCell takes a func(id) bool and returns as soon as it is true, so the same
+// query that cost four hundred and forty-one cells now costs however many it took
+// to find the answer, which in a shooting battle is one or two.
+//
+// DETERMINISM. The walk visits the same cells in the same ring order as
+// forEachCell, and it stops at the first true. That is safe precisely because the
+// caller is asking whether ANY unit matches: the answer does not depend on which
+// match is found first, only on whether one exists, and a query that would have
+// found a later match has already found an earlier one and reports the same true.
+// A caller that needs every match, or that needs them in a particular order to
+// break a tie, must use forEachCell, which is unchanged.
+func (h *hash) anyInCell(x, y, radius float64, fn func(id int) bool) bool {
+	if h.count == 0 {
+		return false
+	}
+	cx, cy := h.extent(x, y)
+	last := h.span(radius)
+	items := h.items
+	starts := h.starts
+	w := h.w
+	hgt := h.h
+	// visit walks one index cell and reports whether fn matched anything in it.
+	// Bounds are clamped rather than tested per side, for the reason given on
+	// forEachCell's own visit: only the grid's edges can fall outside the walk.
+	visit := func(ix, iy int) bool {
+		if ix < 0 || iy < 0 || ix >= w || iy >= hgt {
+			return false
+		}
+		i := ix + w*iy
+		for _, id := range items[starts[i]:starts[i+1]] {
+			if fn(id) {
+				return true
+			}
+		}
+		return false
+	}
+	for ring := 0; ring <= last; ring++ {
+		if ring == 0 {
+			if visit(cx, cy) {
+				return true
+			}
+			continue
+		}
+		for dx := -ring; dx <= ring; dx++ {
+			if visit(cx+dx, cy-ring) {
+				return true
+			}
+			if visit(cx+dx, cy+ring) {
+				return true
+			}
+		}
+		for dy := -ring + 1; dy <= ring-1; dy++ {
+			if visit(cx-ring, cy+dy) {
+				return true
+			}
+			if visit(cx+ring, cy+dy) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 // occupiedCells is how many non-empty cells the index holds, reported so a
 // performance note can say what the battle actually built rather than guessing.
 func (h *hash) occupiedCells() int { return h.cellCount }

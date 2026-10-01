@@ -333,44 +333,34 @@ func (b *Battle) clampStep(d *delta) {
 // It uses the melee hash, whose cells are about one swing wide, so the query
 // touches nine cells regardless of how many units are on the field.
 func (b *Battle) enemyInMelee(x, y float64, side Side) bool {
-	found := false
 	r2 := b.c.MeleeRange * b.c.MeleeRange
 	enemy := side.Opposing()
-	b.meleeHash.forEachCell(x, y, b.c.MeleeRange, func(id int) {
-		if found {
-			return
-		}
+	return b.meleeHash.anyInCell(x, y, b.c.MeleeRange, func(id int) bool {
 		cand := b.byID[id]
 		if cand.Side != enemy || !cand.alive() {
-			return
+			return false
 		}
-		if dist2(cand.X-x, cand.Y-y) <= r2 {
-			found = true
-		}
+		return dist2(cand.X-x, cand.Y-y) <= r2
 	})
-	return found
 }
 
 // enemyWithin reports whether any living enemy is within a radius, using the
 // coarse fire hash. It is the long-range question, so it is asked with the hash
 // built for long-range questions.
+//
+// It is a yes-or-no question asked once per unit per tick, over a radius that can
+// be two hundred and forty metres, which is why it goes through anyInCell rather
+// than forEachCell. See hash.anyInCell for the measured cost of not doing that.
 func (b *Battle) enemyWithin(x, y float64, side Side, radius float64) bool {
-	found := false
 	r2 := radius * radius
 	enemy := side.Opposing()
-	b.fireHash.forEachCell(x, y, radius, func(id int) {
-		if found {
-			return
-		}
+	return b.fireHash.anyInCell(x, y, radius, func(id int) bool {
 		cand := b.byID[id]
 		if cand.Side != enemy || !cand.alive() {
-			return
+			return false
 		}
-		if dist2(cand.X-x, cand.Y-y) <= r2 {
-			found = true
-		}
+		return dist2(cand.X-x, cand.Y-y) <= r2
 	})
-	return found
 }
 
 // inFireArc reports whether a shooter has an enemy inside its minimum and
