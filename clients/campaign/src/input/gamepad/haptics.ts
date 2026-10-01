@@ -70,7 +70,9 @@ export function createHaptics(opts: HapticsOptions): Haptics {
     const fire = (i: number): void => {
       if (disposed || i >= pulses.length) return;
       const p = pulses[i]!;
-      void source.rumble(p.duration, p.strong, p.weak);
+      // A failed rumble (no actuator, autoplay policy) must never surface as
+      // an unhandled rejection; haptics are best-effort by design.
+      source.rumble(p.duration, p.strong, p.weak).catch(() => {});
       if (p.gap !== undefined && i + 1 < pulses.length) {
         later(() => fire(i + 1), p.duration + p.gap);
       }

@@ -45,6 +45,7 @@ import {
   type TownCluster,
 } from "./network.js";
 import type { Projection, WorldData } from "../world/types.js";
+import { ModelLibrary, loadModelsManifest, upgradeConvoyToGlb } from "./models.js";
 
 /** 1 unit = 1 metre (ART_DIRECTION.md section 7). */
 export const VERTICAL_SCALE = 1.6;
@@ -296,6 +297,14 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
   pin.parent = partyRoot;
   pin.position.set(0, 26, 0);
   pin.isPickable = false;
+
+  // Upgrade the two box vehicles to staged GLB models (humvee lead,
+  // pickup-truck second) when they load; on any failure the boxes stay.
+  loadModelsManifest()
+    .then((manifest) =>
+      upgradeConvoyToGlb(partyRoot, lead, second, new ModelLibrary(scene), manifest),
+    )
+    .catch((err) => console.warn("[models] party convoy stays procedural:", err));
 
   partyRoot.position.set(projection.width / 2, 0, projection.depth / 2);
 
