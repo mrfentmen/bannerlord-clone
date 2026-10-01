@@ -1,0 +1,226 @@
+{
+  "_comment": "Integrated ethnicity + territory data. Sources: agent5-ethnicities.json (definitions), agent4-territories.json (placements). All settlements validated against clients/campaign/public/world/settlements.json.",
+  "license": "Game design data, original work",
+  "ethnicities": [
+    {
+      "id": "italian",
+      "name": "Italian",
+      "description": "Cleveland's Little Italy families, three and four generations deep around the steel mills. The old yards are gone but the block structure held: the family still keeps a payroll, settles disputes, and remembers which door on the street belongs to whom.",
+      "pros": [
+        "Trade profit +0.15 in any settlement with a neighborhood retail strip.",
+        "Recruit cost -0.20: street-level enforcers are hired cheap and arrive same-day."
+      ],
+      "con": "Party upkeep +0.20. A payroll on the move eats food and wages faster than anyone else in the valley.",
+      "capital": "Hamilton",
+      "territories": [
+        "Fairfield",
+        "Middletown",
+        "Sharonville"
+      ],
+      "home_region": "Cleveland, OH -- Little Italy, Superior Avenue and the old steel corridors south of it",
+      "units": [
+        "street enforcer",
+        "neighborhood lookout",
+        "close-protection detail"
+      ]
+    },
+    {
+      "id": "irish",
+      "name": "Irish",
+      "description": "Pittsburgh's South Side and Lawrenceville wards, still organized by parish and ward rather than by flag. When the mills closed the halls stayed open, and the halls are where the recruiting happens.",
+      "pros": [
+        "Garrison morale +0.15: ward halls hold settlements together through long sieges.",
+        "Recruit speed +0.15: parish networks fill empty slots faster than any other ethnicity."
+      ],
+      "con": "Tax yield -0.15. Ward politics rewards patronage over assessment, so the collections office takes a haircut.",
+      "capital": "Marion",
+      "territories": [
+        "Delaware",
+        "Cardington",
+        "Mount Gilead"
+      ],
+      "home_region": "Pittsburgh, PA -- South Side, Lawrenceville, and the Strip District halls",
+      "units": [
+        "neighborhood militia",
+        "hall brawler",
+        "precinct patrolman"
+      ]
+    },
+    {
+      "id": "chinese",
+      "name": "Chinese",
+      "description": "Columbus's Chinatown runs on the High Street blocks, backed by warehouses and machine shops further north. Capital is scarce and expertise is not; the family that owns the tooling owns the argument.",
+      "pros": [
+        "Industry output +0.20: workshops and plants run at near capacity.",
+        "Siege defense +0.15: crews that built the plant know how to hold its walls."
+      ],
+      "con": "Recruit cost +0.20. Small numbers, trained hard, and priced accordingly.",
+      "capital": "Athens",
+      "territories": [
+        "Nelsonville",
+        "Wellston",
+        "New Lexington"
+      ],
+      "home_region": "Columbus, OH -- High Street Chinatown and the North Side industrial belt",
+      "units": [
+        "wholesale-store guard",
+        "logistics clerk",
+        "plant mechanic"
+      ]
+    },
+    {
+      "id": "korean",
+      "name": "Korean",
+      "description": "Cleveland's University Circle and Larchmere, split between the clinics and the corner stores. A tight, literate network with real money in it and few people to spare for a militia roster.",
+      "pros": [
+        "Casualty sustain +0.15: wounded convert back to fit at a far better rate after a battle.",
+        "Party speed +0.15: light, well-supplied, and never where you left them."
+      ],
+      "con": "Garrison capacity -0.15. Nobody has time to hold an empty building.",
+      "capital": "Columbus",
+      "territories": [
+        "Gahanna",
+        "Pickerington",
+        "Reynoldsburg"
+      ],
+      "home_region": "Cleveland, OH -- University Circle, Larchmere, and the Edgewater clinics",
+      "units": [
+        "clinic medic",
+        "corner-store clerk",
+        "dojo instructor"
+      ]
+    },
+    {
+      "id": "african",
+      "name": "African",
+      "description": "Indianapolis's Fletcher Place and the districts either side of the university, where block associations have run mutual aid and self-defense since before anyone in the valley was hiring mercenaries.",
+      "pros": [
+        "Recruit speed +0.15: block rosters refill faster than the recruitment office can post them.",
+        "Siege defense +0.15: mutual-aid crews dig in hard and hold a line without complaint."
+      ],
+      "con": "Trade profit -0.15. The block keeps itself fed first and does not have much left to trade upriver.",
+      "capital": "Dayton",
+      "territories": [
+        "Kettering",
+        "Fairborn",
+        "Riverside"
+      ],
+      "home_region": "Indianapolis, IN -- Fletcher Place and the near-west and near-east districts",
+      "units": [
+        "block captain",
+        "community defense rifleman",
+        "crew runner"
+      ]
+    },
+    {
+      "id": "jamaican",
+      "name": "Jamaican",
+      "description": "Cincinnati's Walnut Hills and Carthage, threaded through the car washes, studios, and auto shops. Sound systems still organize the block, and the crew that runs the system runs everything else too.",
+      "pros": [
+        "Tax yield +0.15: a culture of hustles and short leases taxes about as hard as it can.",
+        "Garrison morale +0.15: crews that talk to each other hold a settlement together."
+      ],
+      "con": "Casualty sustain -0.15. The network runs thin at the top and absorbs losses faster than it replaces them.",
+      "capital": "Huntington",
+      "territories": [
+        "Ashland",
+        "Ironton",
+        "Catlettsburg"
+      ],
+      "home_region": "Cincinnati, OH -- Walnut Hills, Carthage, and the Avondale auto corridor",
+      "units": [
+        "sound-system road crew",
+        "crew boss enforcer",
+        "auto-shop mechanic"
+      ]
+    },
+    {
+      "id": "mexican",
+      "name": "Mexican",
+      "description": "Louisville's South Side -- Newburg, Hillcrest, the meatpacking blocks -- built fast and mostly on arrival. People come for the packing plants and the kitchens, and end up running both.",
+      "pros": [
+        "Trade profit +0.15: kitchen, hauling, and resale networks move goods cheaply and quietly.",
+        "Influence gain +0.15: fast to court the county, the ward, and whoever is handing out permits."
+      ],
+      "con": "Party speed -0.15. A young roster with trucks and dependents never marches fast.",
+      "capital": "Lexington-Fayette urban county",
+      "territories": [
+        "Nicholasville",
+        "Paris",
+        "Berea"
+      ],
+      "home_region": "Louisville, KY -- South Louisville: Newburg, Hillcrest, and the packing-plant blocks",
+      "units": [
+        "kitchen-crew enforcer",
+        "packing-plant marksman",
+        "hauling-team hand"
+      ]
+    },
+    {
+      "id": "puerto_rican",
+      "name": "Puerto Rican",
+      "description": "Pittsburgh's East Liberty and the South Side flats, plus a growing line out to Monessen. Newer arrivals than the old wards, so the network is built on bars, churches, and the block captain's phone tree rather than on institutions.",
+      "pros": [
+        "Recruit cost -0.15: the cheapest troops on any roster, and there are always more.",
+        "Casualty sustain +0.15: the church network patches up and sends people back out."
+      ],
+      "con": "Influence gain -0.15. Not yet wired into the county, the banks, or the council rooms.",
+      "capital": "Springfield",
+      "territories": [
+        "Yellow Springs",
+        "Cedarville",
+        "Mechanicsburg"
+      ],
+      "home_region": "Pittsburgh, PA -- East Liberty, the South Side flats, and the Monessen corridor",
+      "units": [
+        "barrio captain",
+        "community guard",
+        "organizer runner"
+      ]
+    },
+    {
+      "id": "german",
+      "name": "German",
+      "description": "Over-the-Rhine and northern Covington -- the largest German-majority neighborhood in the state, on the north bank since the 1830s. Deep, patient, and very hard to dislodge from ground it paid for once and considers permanent.",
+      "pros": [
+        "Industry output +0.20: machine shops and breweries run at full output.",
+        "Tax yield +0.10: a treasury tradition, and the ledgers actually balance."
+      ],
+      "con": "Recruit speed -0.15. Nobody signs up for a season. The registry is exact and it is slow.",
+      "capital": "Florence",
+      "territories": [
+        "Newport",
+        "Fort Thomas",
+        "Bellevue"
+      ],
+      "home_region": "Cincinnati, OH -- Over-the-Rhine and the Covington neighborhoods across the river",
+      "units": [
+        "brewery-hall bouncer",
+        "pipe-fitter marksman",
+        "precinct detective"
+      ]
+    },
+    {
+      "id": "russian",
+      "name": "Russian",
+      "description": "Columbus's University District and the old factory blocks on the north side, with a second concentration out in Cleveland's industrial flats. Arrived inside a decade, arrived in numbers, and immediately organized gyms, restaurants, and phones.",
+      "pros": [
+        "Party speed +0.15: everything runs long and fast, and it is never waiting.",
+        "Influence gain +0.15: an arrival wave that organizes faster than anyone expected."
+      ],
+      "con": "Settlement loyalty -0.15. Half the roster is still new to the country and has not pledged to a town yet.",
+      "capital": "Cincinnati",
+      "territories": [
+        "Cheviot",
+        "Reading",
+        "Wyoming"
+      ],
+      "home_region": "Columbus, OH -- the University District and the north-side factory blocks",
+      "units": [
+        "gym-floor enforcer",
+        "restaurant bouncer",
+        "neighborhood self-defense rifleman"
+      ]
+    }
+  ]
+}
