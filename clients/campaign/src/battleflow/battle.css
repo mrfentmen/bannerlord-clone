@@ -1,0 +1,52 @@
+/**
+ * Battle UI overlay styles (battleflow/mount.ts).
+ *
+ * Every value comes from src/design/tokens.css: no colour, font, spacing,
+ * or radius is invented here. The overlay follows the fatal-error overlay
+ * pattern in src/ui/ui.css (fixed full-screen dim, centered card), one
+ * z-step below the offline/update banners so system chrome stays on top.
+ */
+
+.battle-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 180;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.55);
+  padding: var(--space-4);
+}
+
+/* `display: flex` beats the UA `[hidden] { display: none }`, so restate it. */
+.battle-overlay[hidden] {
+  display: none;
+}
+
+.battle-overlay .panel {
+  width: 100%;
+  max-width: 36rem;
+  max-height: 90vh;
+  overflow: auto;
+}
+
+.battle__actions,
+.battle__orders {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+
+.battle__order {
+  display: inline-flex;
+}
+
+.battle__note {
+  margin: var(--space-2) 0 0;
+}
+
+.battle__result {
+  margin: var(--space-3) 0 var(--space-1);
+  font-size: 1.35rem;
+}

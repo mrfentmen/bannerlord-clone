@@ -81,6 +81,9 @@ import { QuestJournal, seedQuests } from "./journal/index.js";
 import { questJournalPanel } from "./ui/panels/QuestJournal.js";
 import { createAchievementStore } from "./achievements/index.js";
 import { achievementsPanel } from "./ui/panels/Achievements.js";
+import { mountBattleUi, type BattleMount } from "./battleflow/mount.js";
+import { saveLoadPanel } from "./saves/mount.js";
+import { SaveUiError } from "./saves/screens.js";
 import { ALL_CODEX_ENTRIES, CODEX_CATEGORIES } from "./codex/index.js";
 import { toast } from "./ui/kit.js";
 import { settings, type Settings } from "./settings/index.js";
@@ -417,6 +420,7 @@ const hud = createHud({
   onOpenDataSource: () => openDataSource(),
   onOpenControls: () => openControls(),
   onOpenSettings: () => openSettings(),
+  onOpenSaveLoad: () => openSaveLoad(),
   onOpenDeploymentPreview: () => openDeployment(),
   onOpenJournal: () => openJournal(),
   onOpenCodex: () => openCodex(),
@@ -425,10 +429,67 @@ const hud = createHud({
   onNotification: (entityId, field) => openWhy(entityId, field),
 });
 
+/** Battle domain needs numeric ids (`party-<n>` wire scheme). -1 = not a battle id. */
+function parseBattlePartyId(id: string | undefined): number {
+  const m = typeof id === "string" ? /^party-(\d+)$/.exec(id) : null;
+  return m ? Number(m[1]) : -1;
+}
+
+/** The full-screen battle overlay; mounted once per campaign session. */
+let battleUi: BattleMount | null = null;
+
 function mountCampaign(): void {
   if (!snapshot) return;
   app.appendChild(hud.root);
   paint();
+
+  // -- Battle UI overlay (Rowan): mounts once. The encounter poller adopts
+  //    server encounters automatically; manual encounters go through
+  //    battleUi.attack(attackerId, defenderId) when an attack affordance lands.
+  if (!battleUi) {
+    const party = snapshot.party;
+    const troopCount = party.troops.reduce((n, s) => n + s.count, 0);
+    const troopPower = party.troops.reduce((n, s) => n + s.count * s.tier, 0);
+    const battlePartyId = parseBattlePartyId(party.id);
+    battleUi = mountBattleUi({
+      apiBaseUrl: config.simulationHttpUrl,
+      playerPartyId: battlePartyId,
+      local: {
+        describeEncounter: (attackerId, defenderId) => ({
+          attacker: {
+            partyId: attackerId,
+            name: party.name,
+            troops: troopCount,
+            power: troopPower,
+          },
+          defender: {
+            partyId: defenderId,
+            name: "Raider band",
+            troops: Math.max(10, Math.round(troopCount * 0.8)),
+            power: Math.max(10, Math.round(troopPower * 0.8)),
+          },
+        }),
+      },
+      pollEncounters: battlePartyId >= 0,
+      onBattleEvent: (event) => {
+        if (event === "victory") {
+          haptics?.play("confirm");
+          achievements.record("battle-won");
+        } else if (event === "defeat") {
+          haptics?.play("error");
+          achievements.record("battle-lost");
+        } else {
+          haptics?.play("order");
+        }
+      },
+      onDone: () => {
+        // The overlay persists (hidden) and the poller keeps adopting future
+        // encounters; just refresh the campaign state underneath.
+        void reloadSnapshot();
+      },
+    });
+  }
+
   bindInputActions();
   bindGamepad();
   bindTouch();
@@ -804,6 +865,28 @@ function openSettings(): void {
       paint();
     },
   });
+  paint();
+}
+
+function openSaveLoad(): void {
+  currentPanel = "none";
+  const { root } = saveLoadPanel({
+    currentSnapshot: () => {
+      if (!snapshot) throw new Error("No snapshot to save yet.");
+      return snapshot;
+    },
+    onLoad: () => {
+      // No provider-level snapshot restore exists yet (PAX's data lane);
+      // fail in plain language rather than faking a load.
+      throw new SaveUiError("Loading a save back into the running game is not supported yet.");
+    },
+    onClose: () => {
+      currentPanel = "none";
+      contextNode = null;
+      paint();
+    },
+  });
+  contextNode = root;
   paint();
 }
 
