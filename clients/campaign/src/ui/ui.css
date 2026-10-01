@@ -986,12 +986,12 @@
   border: 1px solid rgba(255, 255, 255, 0.25);
   margin-bottom: 4px;
 }
-.player-health-fill { height: 100%; width: 100%; background: #4caf50; }
-.player-stamina-fill { height: 100%; width: 100%; background: #ffca28; }
+.player-health-fill { height: 100%; width: 100%; background: var(--status-good); }
+.player-stamina-fill { height: 100%; width: 100%; background: var(--status-warning); }
 .player-ammo {
-  color: #fff;
+  color: var(--paper-0);
   font: 14px/1.4 monospace;
-  text-shadow: 0 1px 2px #000;
+  text-shadow: 0 1px 2px var(--ink-900);
 }
 
 .player-death {
@@ -1002,6 +1002,192 @@
   align-items: center;
   justify-content: center;
   background: rgba(20, 0, 0, 0.72);
-  color: #fff;
+  color: var(--paper-0);
   font-size: 20px;
+}
+
+/* ---- Formation orders panel (MASTER_PLAN.md 2C) ----
+ * Colours come from the design tokens (src/design/tokens.css); components
+ * must not introduce hex literals (see src/design/__tests__/design.test.ts). */
+.orders-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px 12px;
+  background: color-mix(in srgb, var(--ink-900) 92%, transparent);
+  border: 1px solid var(--ink-700);
+  border-radius: 8px;
+  color: var(--paper-100);
+  font-size: 13px;
+  max-width: 420px;
+}
+
+.orders-section {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.orders-label {
+  color: var(--ink-300);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-right: 2px;
+}
+
+.orders-palette {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.orders-grid {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.orders-shapes {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.orders-targets,
+.orders-stances {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.orders-btn {
+  background: var(--ink-700);
+  border: 1px solid var(--ink-500);
+  border-radius: 6px;
+  color: var(--paper-100);
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.orders-btn:hover {
+  background: color-mix(in srgb, var(--ink-700) 70%, var(--paper-100));
+  border-color: var(--ink-300);
+}
+
+.orders-btn.small {
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.orders-btn.active {
+  background: var(--accent-primary);
+  border-color: var(--accent-info);
+  color: var(--paper-0);
+}
+
+.orders-btn.enemy.active {
+  background: var(--status-critical);
+  border-color: var(--status-critical);
+}
+
+.orders-glyph {
+  width: 20px;
+  height: 20px;
+}
+
+.orders-glyph-dot {
+  fill: var(--ink-300);
+}
+
+.orders-btn.active .orders-glyph-dot {
+  fill: var(--paper-0);
+}
+
+.orders-selected {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.orders-none {
+  color: var(--ink-500);
+  font-style: italic;
+}
+
+.orders-chip {
+  background: var(--accent-primary);
+  border: 1px solid var(--accent-info);
+  border-radius: 12px;
+  color: var(--paper-0);
+  padding: 2px 10px;
+  font-size: 12px;
+}
+
+.orders-chip.queue {
+  background: color-mix(in srgb, var(--status-warning) 30%, var(--ink-900));
+  border-color: var(--status-warning);
+  cursor: pointer;
+}
+
+.orders-queues {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.orders-queue {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.orders-queue-name {
+  color: var(--ink-300);
+  font-size: 12px;
+}
+
+.orders-send {
+  background: var(--accent-primary);
+  border: 1px solid var(--accent-info);
+  border-radius: 6px;
+  color: var(--paper-0);
+  padding: 2px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.orders-toasts {
+  position: fixed;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: center;
+  pointer-events: none;
+  z-index: 100;
+}
+
+.orders-toast {
+  background: color-mix(in srgb, var(--ink-900) 95%, transparent);
+  border: 1px solid var(--ink-500);
+  border-radius: 6px;
+  color: var(--paper-0);
+  padding: 8px 16px;
+  font-size: 13px;
+  transition: opacity 0.4s;
+}
+
+.orders-toast.fade {
+  opacity: 0;
 }

@@ -12,6 +12,7 @@
  */
 
 import { h } from "./dom.js";
+import { ink, status } from "../design/tokens.js";
 
 export interface BattleHudState {
   tick: number;
@@ -77,7 +78,7 @@ export function createBattleHud(onSelectFormation: (id: string) => void): Battle
     const ctx = minimap.getContext("2d");
     if (!ctx) return;
     ctx.clearRect(0, 0, 160, 160);
-    ctx.fillStyle = "#1a1a1a";
+    ctx.fillStyle = ink[900];
     ctx.fillRect(0, 0, 160, 160);
     // Scale world coords into the 160px box. Battles are fought on fields
     // measured in hundreds of metres; clamp to a 400m view.
@@ -87,7 +88,7 @@ export function createBattleHud(onSelectFormation: (id: string) => void): Battle
       const px = 80 + u.x * scale;
       const py = 80 + u.y * scale;
       if (px < 0 || px > 160 || py < 0 || py > 160) continue;
-      ctx.fillStyle = u.side === "ally" ? "#4a9eff" : "#ff4a4a";
+      ctx.fillStyle = u.side === "ally" ? status.info.mark : status.critical.mark;
       ctx.fillRect(px - 1, py - 1, 3, 3);
     }
   }
