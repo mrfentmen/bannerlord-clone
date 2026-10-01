@@ -1,6 +1,10 @@
 package battle
 
-import "mbclone/simulation/internal/config"
+import (
+	"fmt"
+
+	"mbclone/simulation/internal/config"
+)
 
 // THE COMMAND SEAM.
 //
@@ -94,6 +98,46 @@ type UnitCommand struct {
 	// what they would have done uncommanded. The command layer sets it with the
 	// movement, every time.
 	Intent Intent
+	// Formation is the shape this unit is standing in, and Facing is the
+	// bearing that shape looks, in radians counter-clockwise from +X.
+	//
+	// They are the formation layer's half of the seam. A commander that moves
+	// men into a shape says which shape they are in, and the combat stages read
+	// that from shared state to apply what the balance file says the shape is
+	// worth: a wedge's charge bonus and its open flank, a square against a fast
+	// mover, a skirmish line's bargain. A commander may name a shape and may
+	// not say what it does; what a shape is worth is a balance question and the
+	// engine answers it, so a commander cannot invent a bonus that is not in the
+	// balance file.
+	Formation Formation
+	// Facing is the bearing the formation looks. It is read only when
+	// FormationSet is true, and it is what tells a wedge's front from its open
+	// side when a blow arrives.
+	Facing float64
+	// FormationSet marks the shape as spoken to, separately from Set.
+	//
+	// It is separate because the two answers are different and both are worth
+	// having. A man already standing in his slot is not given a movement order,
+	// and silence on the movement channel means he follows the engine's own
+	// rules; he is still in the shape, and the shape is still doing whatever it
+	// does to him. Collapsing the two would mean either that a man in formation
+	// could never be in one, or that holding a shape stopped a man fighting.
+	FormationSet bool
+}
+
+// formationOf is the shape a command was speaking about: the shape it published,
+// or no shape at all when it published none.
+//
+// A zero Formation would mean FormationLine, and a commander that never had an
+// opinion about shapes would be recorded as having put every man it touched on a
+// line, which is a commander inventing a decision and a log that cannot be
+// replayed. OrderFormationNone exists so that "nobody said" is a value rather
+// than a default.
+func formationOf(c UnitCommand) Formation {
+	if !c.FormationSet {
+		return FormationNone
+	}
+	return c.Formation
 }
 
 // View is the whole field at one tick, as a commander sees it.
@@ -135,6 +179,58 @@ type View struct {
 // unseeded generator would break that for every run it took part in.
 type Commander interface {
 	Command(v *View) error
+}
+
+// NewMultiCommanders returns one Commander that hands the field to each of cmds in
+// turn and returns the first error any of them returns.
+//
+// It exists because the seam takes a single Commander and a battle has two sides.
+// A caller that wants side A held in one shape and side B in another has two
+// options without this: write its own composite, or fight two battles and
+// compare them. Both are worse than naming the thing once.
+//
+// The commanders are called in the order given, on the same View, and each of
+// them writes only into the slots for the units it commands. That is the rule a
+// composite relies on, and it is stated here because it is the only thing that
+// makes the order of the calls irrelevant: two commanders that both spoke for the
+// same unit would have the second one silently win, and which of them that was
+// would depend on the order they were passed in.
+func NewMultiCommanders(cmds ...Commander) (Commander, error) {
+	if len(cmds) == 0 {
+		return nil, &Error{
+			Kind:  ErrUnitInvalid,
+			Field: "NewMultiCommanders",
+			Detail: "no commanders were supplied, so nothing is being commanded. Use Run for an " +
+				"uncommanded battle, which is a real mode rather than a bug to route around",
+		}
+	}
+	for i, c := range cmds {
+		if c == nil {
+			return nil, &Error{
+				Kind:   ErrUnitInvalid,
+				Field:  "NewMultiCommanders",
+				Detail: fmt.Sprintf("commander %d is nil, and a nil commander in the middle of a composite "+
+					"is a tick that half the field was never ordered for", i),
+			}
+		}
+	}
+	return &multiCommander{cmds: cmds}, nil
+}
+
+// multiCommanders is the composite NewMultiCommanders returns. It is one field
+// and one loop: there is nothing to it but the order and the first error.
+type multiCommander struct {
+	cmds []Commander
+}
+
+// Command implements Commander.
+func (m *multiCommander) Command(v *View) error {
+	for _, c := range m.cmds {
+		if err := c.Command(v); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // commandHooks is the battle's optional seam: the commander and the buffers it
@@ -227,6 +323,12 @@ func (b *Battle) runCommanders() error {
 	}
 	for i := range v.Commands {
 		c := v.Commands[i]
+		if c.FormationSet {
+			// The shape this unit is in, published to the combat stages. It is
+			// written whether or not there was a movement order, because a man
+			// already standing in his slot is in the shape all the same.
+			b.formations[i] = formationState{Kind: c.Formation, Facing: c.Facing}
+		}
 		if !c.Set {
 			continue
 		}

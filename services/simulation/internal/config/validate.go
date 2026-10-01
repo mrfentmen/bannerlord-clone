@@ -160,6 +160,26 @@ func (c *Config) validate(path string) error {
 		{"formation.flank_standoff", c.Formation.FlankStandoff, 0, 2000},
 		{"formation.flank_sweep_deg", c.Formation.FlankSweepDeg, 1, 180},
 		{"formation.flank_sweep_rate_deg", c.Formation.FlankSweepRateDeg, 0.1, 90},
+		// What each shape does in contact. The bounds are the ones the same
+		// block's comments in balance.toml state, for the same reason as the
+		// bounds above: the file and this table must not be able to disagree
+		// about what a designer may type.
+		//
+		// Two of them are worth a second look because they are the two that
+		// could make a shape pointless rather than illegal. A wedge flank arc
+		// of 360 is a wedge that cannot be caught from the side, and a
+		// skirmish suppression scale of 1 is a skirmish line that breaks
+		// exactly as a line does. Neither is a syntax error and both are a
+		// shape that does not do what its name says, so they are bounded
+		// where a shape can still be worth choosing.
+		{"formation.wedge_charge_damage_bonus", c.Formation.WedgeChargeDamageBonus, 0, 3},
+		{"formation.wedge_flank_taken_scale", c.Formation.WedgeFlankTakenScale, 0, 3},
+		{"formation.wedge_flank_arc_deg", c.Formation.WedgeFlankArcDeg, 30, 359},
+		{"formation.square_fast_mover_speed", c.Formation.SquareFastMoverSpeed, 0.1, 25},
+		{"formation.square_fast_mover_taken_scale", c.Formation.SquareFastMoverTakenScale, 0, 1},
+		{"formation.square_move_speed_scale", c.Formation.SquareMoveSpeedScale, 0.05, 1},
+		{"formation.skirmish_suppression_taken_scale", c.Formation.SkirmishSuppressionTakenScale, 0, 0.99},
+		{"formation.skirmish_melee_taken_scale", c.Formation.SkirmishMeleeTakenScale, 0.5, 3},
 		// --- command ---
 		// The bounds are the ones the [command] section's own comments in
 		// balance.toml state, copied rather than re-derived, for the same reason

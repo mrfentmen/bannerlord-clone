@@ -191,10 +191,35 @@ func TestLoadNamesAMissedFormationSection(t *testing.T) {
 	if !asMissing(err, &missing) {
 		t.Fatalf("expected a MissingError, got %T: %v", err, err)
 	}
-	if len(missing.Keys) != 27 {
-		t.Errorf("removing the section reported %d missing keys, it should report all 27: %v", len(missing.Keys), missing.Keys)
+	// Every key in the section, counted from the file rather than written here as
+	// a literal. A hard-coded count is a second list of the keys that goes stale
+	// the moment one is added, and the failure it produces is a test that stops
+	// testing the thing it was written for.
+	want := countKeys(shippedText(t), "formation")
+	if len(missing.Keys) != want {
+		t.Errorf("removing the section reported %d missing keys, it should report all %d: %v", len(missing.Keys), want, missing.Keys)
 	}
 	t.Logf("missing section reported %d keys", len(missing.Keys))
+}
+
+// countKeys is how many keys a section of a balance file holds, read from the
+// file itself so the expected count of a missing-section test cannot drift away
+// from the section it is checking.
+func countKeys(text, section string) int {
+	lines := strings.Split(text, "\n")
+	start, end, ok := sectionLines(lines, section)
+	if !ok {
+		return 0
+	}
+	n := 0
+	for _, line := range lines[start:end] {
+		trimmed := strings.TrimSpace(line)
+		if trimmed == "" || strings.HasPrefix(trimmed, "#") {
+			continue
+		}
+		n++
+	}
+	return n
 }
 
 // TestLoadRefusesAnUnreadFormationKey is the typo check. A misspelled key in the
