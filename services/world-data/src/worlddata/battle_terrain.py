@@ -108,20 +108,20 @@ def classify_biome(
     if dist_to_river_km is not None and dist_to_river_km <= 2.0:
         return "river"
 
-    # 7. Swamp (low-lying southern).
+    # 7. Swamp (low-lying Gulf Coast).
     if (
         elevation_m is not None
         and elevation_m < 10.0
         and latitude < 35.0
-        and longitude > -90.0
+        and -95.0 <= longitude <= -80.0
     ):
         return "swamp"
 
-    # 8. Forest (upland east/north).
+    # 8. Forest (upland east/north, higher elevation).
     if (
         elevation_m is not None
-        and 200.0 <= elevation_m <= 1000.0
-        and (latitude >= 38.0 or longitude <= -85.0)
+        and 400.0 <= elevation_m <= 1000.0
+        and (latitude >= 40.0 or longitude <= -80.0)
     ):
         return "forest"
 
