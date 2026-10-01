@@ -7,8 +7,7 @@ module generates them deterministically from real settlement data
 
 Names are fictional by construction (CONSTITUTION.md section 6 requires
 fictional people on real geography): they are assembled from syllable
-banks, never from lists of real persons, so no generated name can
-collide with a real living person.
+banks and are never sourced from lists of real persons.
 
 Pure function of the settlement seeds: no I/O, no network, no randomness
 beyond the hash-seeded PRNG, so output is byte-identical across runs.
@@ -17,6 +16,7 @@ beyond the hash-seeded PRNG, so output is byte-identical across runs.
 from __future__ import annotations
 
 import hashlib
+import json
 import random
 from typing import Any
 
@@ -166,9 +166,15 @@ def generate_notables(seeds: list[Any]) -> list[dict[str, Any]]:
                     "role": role,
                     "size_class": size_class,
                     "power": power_for(role, prosperity, population),
-                    "grievances": grievances,
-                    "recruit_pool": recruit_pool_for(role, population),
-                    "quest_types": ROLE_QUESTS[role],
+                    "grievances": json.dumps(grievances),
+                    "recruit_pool": json.dumps(recruit_pool_for(role, population)),
+                    # JSON strings, not list/dict: the published schema's type
+                    # vocabulary is scalars only (see sections.state_fips,
+                    # routes.segment_ids for the same convention).
+                    "quest_types": json.dumps(ROLE_QUESTS[role]),
+                    # JSON string, not a list: the published schema's type
+                    # vocabulary is scalars only (see sections.state_fips,
+                    # routes.segment_ids for the same convention).
                     "source": ("procedural fictional notables seeded from "
                                "settlement data; names fictional by construction"),
                 })

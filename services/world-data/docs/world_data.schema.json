@@ -2,8 +2,8 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Mount and Blade clone - Phase 0 world data",
   "description": "Schema of the world data produced by services/world-data. Inferred from the exported rows, so it describes what was produced rather than what was intended. Field definitions come from CAUSE_EFFECT.md section 2 for town fields and SPEC.md section 3 for the entity model.",
-  "generated_at": "2026-10-01T06:26:41Z",
-  "generated_at_iso": "2026-10-01T06:29:55.578659+00:00",
+  "generated_at": "2026-10-01T08:40:36Z",
+  "generated_at_iso": "2026-10-01T08:42:31.347931+00:00",
   "pipeline_version": "1.0.0",
   "census_year": 2020,
   "estimates_vintage": 2023,
@@ -916,6 +916,114 @@
             "1117",
             "1961",
             "313"
+          ]
+        }
+      ]
+    },
+    {
+      "table": "notables",
+      "row_count": 48319,
+      "sampled_rows_for_types": 500,
+      "column_count": 10,
+      "columns": [
+        {
+          "name": "grievances",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "[]",
+            "[]",
+            "[]"
+          ]
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "Marora Tarnwick",
+            "Dorel Birchgrave",
+            "Franton Vexfield"
+          ]
+        },
+        {
+          "name": "notable_id",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "01-00124-N01",
+            "01-00124-N02",
+            "01-00124-N03"
+          ]
+        },
+        {
+          "name": "power",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "0.3",
+            "0.2",
+            "0.25"
+          ]
+        },
+        {
+          "name": "quest_types",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "[\"food_delivery\", \"protect_harvest\", \"clear_road\"]",
+            "[\"food_delivery\", \"protect_harvest\"]",
+            "[\"clear_road\", \"bounty\", \"escort_caravan\"]"
+          ]
+        },
+        {
+          "name": "recruit_pool",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "{\"available\": true, \"size\": 1}",
+            "{\"available\": true, \"size\": 1}",
+            "{\"available\": true, \"size\": 2}"
+          ]
+        },
+        {
+          "name": "role",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "headman",
+            "farm_owner",
+            "militia_captain"
+          ]
+        },
+        {
+          "name": "settlement_id",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "01-00124",
+            "01-00124",
+            "01-00124"
+          ]
+        },
+        {
+          "name": "size_class",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "village",
+            "village",
+            "village"
+          ]
+        },
+        {
+          "name": "source",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "procedural fictional notables seeded from settlement data; names fictional by co",
+            "procedural fictional notables seeded from settlement data; names fictional by co",
+            "procedural fictional notables seeded from settlement data; names fictional by co"
           ]
         }
       ]

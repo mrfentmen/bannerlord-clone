@@ -1,6 +1,7 @@
 """Tests for the notables transform: determinism, schema, role coverage."""
 
 from types import SimpleNamespace
+import json
 
 from worlddata.transforms.notables import (ROLES_BY_SIZE, generate_notables,
                                            grievances_for, power_for)
@@ -41,9 +42,9 @@ def test_schema_and_ranges():
         assert r["settlement_id"] == "01-00124"
         assert 0.0 <= r["power"] <= 1.0
         assert isinstance(r["name"], str) and " " in r["name"]
-        assert isinstance(r["grievances"], list)
-        assert isinstance(r["quest_types"], list) and r["quest_types"]
-        rp = r["recruit_pool"]
+        assert json.loads(r["grievances"]) is not None  # JSON-encoded list
+        assert json.loads(r["quest_types"])  # JSON-encoded list of quest type ids
+        rp = json.loads(r["recruit_pool"])
         assert isinstance(rp["available"], bool) and rp["size"] >= 0
 
 
@@ -63,8 +64,9 @@ def test_militia_recruits_scale_with_population():
     big = generate_notables([seed(settlement_id="z", population=100000)])
     sm = next(r for r in small if r["role"] == "militia_captain")
     bg = next(r for r in big if r["role"] == "militia_captain")
-    assert sm["recruit_pool"]["available"] and bg["recruit_pool"]["available"]
-    assert bg["recruit_pool"]["size"] > sm["recruit_pool"]["size"]
+    smp, bgp = json.loads(sm["recruit_pool"]), json.loads(bg["recruit_pool"])
+    assert smp["available"] and bgp["available"]
+    assert bgp["size"] > smp["size"]
 
 
 def test_power_monotone_in_prosperity():
