@@ -82,6 +82,9 @@ const (
 	OrderGift
 	// OrderHireMercenaries hires a company with gold.
 	OrderHireMercenaries
+	// OrderRecruitTroops recruits volunteers from a town into the party.
+	// Costs gold, limited by town prosperity and available recruits.
+	OrderRecruitTroops
 	// OrderExecutePrisoner executes a captured ruler, which is chain 9's
 	// trigger and is a policy decision, not a system call.
 	OrderExecutePrisoner
