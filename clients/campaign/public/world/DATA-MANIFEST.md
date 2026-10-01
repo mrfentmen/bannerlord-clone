@@ -182,6 +182,29 @@ exist in any real form yet. See section 1.
 
 ## 5. Reconciliation notes for Agent 1
 
+### 5.0 Wire-format adoption — 2026-09-30
+
+`region.json`, `settlements.json`, and `network.json` were replaced with the
+world-data pipeline's wire-format export (`services/world-data/exports/wire/`,
+built by `python -m worlddata wire`, merged to main as `worker/mute/client-wire-format`).
+
+- **Region is now Ohio River Valley (OH/KY metro cluster)**, bbox 37.1–40.6 N,
+  85.3–81.6 W. The Northern Colorado Front Range data below (sections 2.1–2.3)
+  describes the previous stopgap export and is superseded for the three JSON files.
+- **Settlements:** 487 (was 48), U.S. Census Bureau Vintage 2023 sub-county
+  population estimates + 2020 Census counts. Public domain.
+- **Network:** 439 road + 4,653 rail segments with real TIGER/Line 2023 geometry
+  (was 26,872 + 2,247 OSM ways). Public domain.
+- **Shapes unchanged.** The wire files match `src/world/types.ts`; all 282 client
+  tests pass against the new files.
+- **Open: elevation.** The wire `region.json` lists 2,236 zoom-12 terrarium tiles
+  for the Ohio bbox (~250 MB at ~114 KB/tile sampled). The client fetches every
+  listed tile at boot and fails hard on any missing tile, so the previous
+  `public/world/elevation/` (80 Colorado tiles, 9.2 MB) no longer satisfies it.
+  Elevation strategy (runtime AWS fetch vs. lower zoom vs. smaller bbox vs.
+  progressive loading) is with pax/hana on the crew bus as of 2026-09-30; this
+  section will be rewritten once decided.
+
 - **Region ownership.** `PHASES.md` Phase 0 assigns the V1 region to the world-data
   pipeline. This client picked the Northern Colorado Front Range so it could build
   before Agent 1 landed. If Agent 1 picks a different region, the client reads the
