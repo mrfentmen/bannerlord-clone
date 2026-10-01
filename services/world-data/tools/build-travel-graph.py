@@ -141,6 +141,41 @@ def main() -> int:
 
     DIST.mkdir(parents=True, exist_ok=True)
     out = DIST / "travel-graph.json"
+
+    # Tier 1A-13: explicitly mark network status on every node. No settlement
+    # is silently unreachable: "connected" (on a snapped route), "connector"
+    # (joined via a connector edge), or "no_road" (>8 km from any primary
+    # road/rail line — local-road access only, not in the TIGER primary set).
+    # A node is "connector" iff it had no route edges before merging.
+    route_degree = {}
+    for e in edges:
+        if e.get("method") == "connector":
+            continue
+        route_degree[e["from"]] = route_degree.get(e["from"], 0) + 1
+        route_degree[e["to"]] = route_degree.get(e["to"], 0) + 1
+    full_degree = {}
+    for e in edges:
+        full_degree[e["from"]] = full_degree.get(e["from"], 0) + 1
+        full_degree[e["to"]] = full_degree.get(e["to"], 0) + 1
+    for n in nodes:
+        if full_degree.get(n["id"], 0) == 0:
+            n["network_status"] = "no_road"
+        elif route_degree.get(n["id"], 0) == 0:
+            n["network_status"] = "connector"
+        else:
+            n["network_status"] = "connected"
+    n_no_road = sum(1 for n in nodes if n["network_status"] == "no_road")
+
+    # Write the explicit no_road list (Tier 1A-13: failures listed, not hidden).
+    no_road_path = DIST / "no_road_settlements.json"
+    no_road_list = [
+        {"id": n["id"], "name": n["name"], "lat": n["lat"], "lon": n["lon"]}
+        for n in nodes
+        if n["network_status"] == "no_road"
+    ]
+    no_road_path.write_text(json.dumps(no_road_list, indent=1), encoding="utf-8")
+    print(f"no_road settlements: {n_no_road} (list at {no_road_path.name})", flush=True)
+
     graph = {
         "nodes": nodes,
         "edges": edges,
@@ -148,6 +183,7 @@ def main() -> int:
             "node_count": len(nodes),
             "edge_count": len(edges),
             "skipped_dangling_edges": skipped,
+            "no_road_count": n_no_road,
             "terrain_note": "v1 heuristic from endpoint SRTM elevation; "
             "'unknown' where elevation is null (outside V1 tiles)",
         },
