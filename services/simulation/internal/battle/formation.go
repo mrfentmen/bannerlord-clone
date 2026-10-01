@@ -817,21 +817,6 @@ type formationState struct {
 	Facing float64
 }
 
-// shapePace is the share of a formation pace this shape moves at.
-//
-// A square is the only shape that cannot keep up, and the reason is mechanical
-// rather than a judgement about war: its men are shoulder to shoulder facing
-// every way at once, so the shape can only be walked slowly and turned worse. A
-// line, a column, a wedge, and a skirmish line all move at the pace they were
-// ordered at, which is stated by returning exactly one for them rather than by
-// leaving a case out of a switch.
-func (b *Battle) shapePace(kind Formation) float64 {
-	if kind == FormationSquare {
-		return b.cfg.Formation.SquareMoveSpeedScale
-	}
-	return 1
-}
-
 // meleeDealtScale is the multiplier on the melee damage a unit deals, from the
 // shape it is in and how fast it is moving.
 //
@@ -1249,6 +1234,13 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 // is what a formation of mixed troops actually does. Dividing by that reference
 // is why there is no configured conversion constant: the reference is already a
 // number in the file, and a second one could disagree with it.
+//
+// It is also the only place a shape's pace is defined. There was a second copy
+// of this rule on the Battle, shapePace, which nothing in the engine called: the
+// pace of a formation is a thing the commander decides when it writes a movement
+// order, and the engine has no pace of its own to scale. Two copies of one rule
+// is two answers waiting to disagree, and the one nobody called was the one a
+// reader would have trusted.
 func (c *FormationCommander) paceScale(kind Formation) float64 {
 	scale := 1.0
 	if kind == FormationSquare {
