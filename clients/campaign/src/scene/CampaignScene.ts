@@ -26,6 +26,7 @@ import {
   Vector3,
 } from "@babylonjs/core";
 import { mapColor, tokens } from "../design/tokens.js";
+import { attachMapGestures } from "../input/touch/gestures.js";
 import { resolveGrade, type QualityLevel } from "../design/grade.js";
 import { buildTerrain, terrainSummary } from "./terrain.js";
 import {
@@ -130,6 +131,38 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
   camera.minZ = 20;
   camera.maxZ = 260_000;
   camera.attachControl(canvas, true);
+
+  // Touch gestures (MASTER_PLAN task 4): one-finger drag pans the map,
+  // pinch zooms, two-finger drag pans. Babylon's own one-finger orbit is
+  // intercepted by the gesture layer, so mouse keeps the default behaviour.
+  const mapGestures = attachMapGestures(canvas, {
+    screenToWorld(dxPx, dyPx) {
+      const wpp = (2 * camera.radius * Math.tan(camera.fov / 2)) / engine.getRenderHeight();
+      // Camera-space axes in world space, projected onto the ground plane.
+      // beta never reaches 0 (lowerBetaLimit 0.2), so screen-up's ground
+      // projection never degenerates; guarded anyway.
+      const right = camera.getDirection(new Vector3(1, 0, 0));
+      right.y = 0;
+      const up = camera.getDirection(new Vector3(0, 1, 0));
+      up.y = 0;
+      const rl = right.length() || 1;
+      const ul = up.length() || 1;
+      return {
+        dx: ((right.x / rl) * dxPx + (up.x / ul) * dyPx) * wpp,
+        dz: ((right.z / rl) * dxPx + (up.z / ul) * dyPx) * wpp,
+      };
+    },
+    panByWorld(dx, dz) {
+      const tx = camera.target.x + dx;
+      const tz = camera.target.z + dz;
+      camera.setTarget(new Vector3(tx, projection.heightAt(tx, tz) * VERTICAL_SCALE, tz));
+    },
+    zoomBy(factor) {
+      const lo = camera.lowerRadiusLimit ?? 900;
+      const hi = camera.upperRadiusLimit ?? 95_000;
+      camera.radius = Math.min(hi, Math.max(lo, camera.radius * factor));
+    },
+  });
 
   // -- light ----------------------------------------------------------------
   // Cold, overcast key, so relief reads without drama. Hemispheric fill in the sky
@@ -241,6 +274,7 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
     dispose() {
       window.removeEventListener("resize", onResize);
       engine.stopRenderLoop();
+      mapGestures.dispose();
       grain?.dispose();
       pipeline.dispose();
       scene.dispose();
