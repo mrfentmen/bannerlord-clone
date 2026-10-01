@@ -1475,7 +1475,7 @@
 .rating__label { min-width: 0; }
 .rating__value { text-align: right; }
 
-.start__summary { padding: var(--space-4); max-width: var(--space-8); }
+.start__summary { padding: var(--space-4); max-width: 34rem; }
 .start__facts { margin: var(--space-2) 0 0; display: grid; gap: 0; }
 .start__fact {
   display: flex;
