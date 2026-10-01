@@ -7,11 +7,23 @@
  * loop, decoupled from the button-polling loop in the gamepad manager.
  */
 
-import type { GamepadManager } from "./manager.js";
 import type { CameraDelta } from "../../scene/CampaignScene.js";
 
+/**
+ * Anything that can feed the twin-stick camera: a gamepad manager, the touch
+ * overlay's virtual joystick, or a composite of the two.
+ */
+export interface StickSource {
+  axes(padIndex?: number): [number, number, number, number];
+  triggers(padIndex?: number): [number, number];
+}
+
 export interface StickCameraOptions {
-  manager: GamepadManager;
+  /**
+   * Where stick state comes from. The gamepad manager implements this; the
+   * touch overlay (task 3) does too, and main.ts composites the two.
+   */
+  source: StickSource;
   /** Applies one frame of camera deltas (SceneHandle.cameraControl). */
   control: (delta: CameraDelta) => void;
   /** False while gamepad input is off or suspended. Defaults to always. */
@@ -62,8 +74,8 @@ export function createStickCamera(opts: StickCameraOptions): StickCamera {
     lastMs = now;
     if (!isEnabled() || !isActive() || dt <= 0) return;
 
-    const [lx, ly, rx, ry] = opts.manager.axes();
-    const [lt, rt] = opts.manager.triggers();
+    const [lx, ly, rx, ry] = opts.source.axes();
+    const [lt, rt] = opts.source.triggers();
     const scale = speedScale();
     const delta: CameraDelta = {};
     if (lx !== 0 || ly !== 0) {

@@ -1818,3 +1818,44 @@
 /* Toast (kit.ts) */
 .toast-region { position: fixed; left: 50%; bottom: var(--space-4); transform: translateX(-50%); display: flex; flex-direction: column; gap: var(--space-1); z-index: 1000; pointer-events: none; }
 .toast { background: var(--ink-900); color: var(--paper-0); border-radius: var(--radius-2); padding: var(--space-2) var(--space-3); font-size: 0.9rem; max-width: min(90vw, 420px); }
+
+/* Touch overlay (MASTER_PLAN task 3) — virtual joystick + action buttons.
+   Hidden unless the device reports a coarse pointer, so desktop never sees it. */
+.touch-overlay { display: none; }
+@media (pointer: coarse) {
+  .touch-overlay {
+    display: block;
+    position: fixed; inset: 0;
+    pointer-events: none;
+    z-index: 900;
+  }
+  .touch-stick {
+    position: absolute; left: 20px; bottom: 20px;
+    width: 132px; height: 132px; border-radius: 50%;
+    background: color-mix(in srgb, var(--ink-900) 28%, transparent);
+    border: 2px solid color-mix(in srgb, var(--paper-0) 45%, transparent);
+    pointer-events: auto;
+    touch-action: none;
+  }
+  .touch-stick-knob {
+    position: absolute; left: 50%; top: 50%;
+    width: 56px; height: 56px; margin: -28px 0 0 -28px; border-radius: 50%;
+    background: color-mix(in srgb, var(--paper-0) 75%, transparent);
+    border: 2px solid var(--accent-primary);
+  }
+  .touch-buttons {
+    position: absolute; right: 20px; bottom: 20px;
+    display: flex; gap: 14px; align-items: flex-end;
+    pointer-events: auto;
+  }
+  .touch-btn {
+    width: 72px; height: 72px; border-radius: 50%;
+    font-size: 1.4rem; font-weight: 700;
+    color: var(--paper-0);
+    background: color-mix(in srgb, var(--ink-900) 55%, transparent);
+    border: 2px solid color-mix(in srgb, var(--paper-0) 45%, transparent);
+    touch-action: none;
+  }
+  .touch-btn:active { background: var(--accent-primary); }
+  .touch-btn-a { width: 84px; height: 84px; }
+}

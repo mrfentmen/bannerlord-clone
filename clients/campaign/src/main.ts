@@ -30,7 +30,8 @@ import type { WorldSettlement } from "./world/types.js";
 import { createCampaignScene, type SceneHandle } from "./scene/CampaignScene.js";
 import { findRoute, shortestPath } from "./scene/network.js";
 import { createHud, dataSourcePanel, fatalError, type HudPanel, type HudState } from "./ui/hud.js";
-import { createGamepadManager, createStickCamera, moveFocus, type GamepadManager, type StickCamera } from "./input/gamepad/index.js";
+import { createGamepadManager, createStickCamera, moveFocus, type GamepadManager, type StickCamera, type StickSource } from "./input/gamepad/index.js";
+import { createTouchOverlay, isTouchDevice, type TouchOverlay } from "./input/touch/overlay.js";
 import { marketPanel } from "./ui/panels/MarketPanel.js";
 import { partyPanel } from "./ui/panels/PartyPanel.js";
 import { marchPlanner } from "./ui/panels/MarchPlanner.js";
@@ -293,6 +294,8 @@ function mountCampaign(): void {
   paint();
   bindInputActions();
   bindGamepad();
+  bindTouch();
+  bindStickCamera();
   // The scene exists by now, so graphics quality can apply to the live engine.
   // mountCampaign can run again after a snapshot reload; subscribe once.
   applySettingsLive();
@@ -341,6 +344,8 @@ let settingsLive = false;
 let gamepad: GamepadManager | null = null;
 let stickCamera: StickCamera | null = null;
 let gamepadBound = false;
+let touchOverlay: TouchOverlay | null = null;
+let touchBound = false;
 let gamepadLabel: string | null = null;
 
 function bindGamepad(): void {
@@ -364,10 +369,42 @@ function bindGamepad(): void {
     isEnabled: enabled,
   });
   gamepad.start();
-  // Twin-stick camera (task 2): left stick pans, right stick orbits, LT/RT
-  // zoom. Only in map view — while a panel is open the sticks navigate it.
+}
+
+// -- touch overlay (MASTER_PLAN task 3) --------------------------------------
+// Virtual joystick + A/B buttons for mobile play. The joystick is a StickSource,
+// so the twin-stick camera driver below consumes it exactly like a gamepad
+// stick; buttons dispatch the same action ids as keyboard/gamepad.
+function bindTouch(): void {
+  if (touchBound) return;
+  touchBound = true;
+  if (!isTouchDevice()) return;
+  touchOverlay = createTouchOverlay({
+    dispatch: (id) => {
+      input.dispatch(id, "touch");
+    },
+    isEnabled: () => !input.suspended,
+  });
+}
+
+// -- twin-stick camera (MASTER_PLAN task 2, touch-fed by task 3) --------------
+// One driver, one composite source: a connected gamepad wins, otherwise the
+// touch overlay's virtual joystick drives. Only in map view — while a panel is
+// open the sticks navigate it.
+function bindStickCamera(): void {
+  const source: StickSource = {
+    axes: (padIndex) => {
+      if (gamepad?.connected()) return gamepad.axes(padIndex);
+      return touchOverlay?.axes() ?? [0, 0, 0, 0];
+    },
+    triggers: (padIndex) => {
+      if (gamepad?.connected()) return gamepad.triggers(padIndex);
+      return [0, 0];
+    },
+  };
+  const enabled = (): boolean => settings.get().gamepadEnabled && !input.suspended;
   stickCamera = createStickCamera({
-    manager: gamepad,
+    source,
     control: (delta) => scene?.cameraControl(delta),
     isEnabled: enabled,
     isActive: () => currentPanel === "none" && scene !== null,
@@ -386,11 +423,10 @@ function bindInputActions(): void {
     paint();
   });
 
-  // Gamepad A (ui.confirm) activates the focused control. Keyboard Enter is
-  // left alone — it already activates natively, and this guard keeps the two
-  // from double-firing.
+  // Touch A behaves like gamepad A: keyboard Enter is left alone — it already
+  // activates natively, and this guard keeps the two from double-firing.
   input.on("ui.confirm", (ev) => {
-    if (ev.source !== "gamepad") return;
+    if (ev.source !== "gamepad" && ev.source !== "touch") return;
     const el = document.activeElement;
     if (el instanceof HTMLButtonElement || el instanceof HTMLAnchorElement) el.click();
   });

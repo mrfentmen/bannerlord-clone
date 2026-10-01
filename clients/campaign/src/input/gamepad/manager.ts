@@ -88,6 +88,12 @@ export interface GamepadManager {
   readonly running: boolean;
   /** Single poll step; the rAF loop calls this, tests call it directly. */
   poll(nowMs?: number): void;
+  /**
+   * True while at least one pad is connected. Reads the pad list fresh (the
+   * composite stick source in main.ts uses it to prefer a real gamepad over
+   * the touch overlay).
+   */
+  connected(): boolean;
   /** Deadzoned axes of the first connected pad, [lx, ly, rx, ry]. */
   axes(padIndex?: number): [number, number, number, number];
   /**
@@ -279,11 +285,13 @@ export function createGamepadManager(opts: GamepadManagerOptions = {}): GamepadM
       return rafId !== null;
     },
     poll,
+    connected() {
+      return connectedPads().length > 0;
+    },
     axes(padIndex = 0) {
       const pads = connectedPads();
       const pad = pads.find((p) => p.index === padIndex) ?? pads[0];
-      if (!pad) return [0, 0, 0, 0];
-      return [
+      if (!pad) return [0, 0, 0, 0];      return [
         applyDeadzone(pad.axes[GAMEPAD_AXIS.LEFT_X] ?? 0, deadzone),
         applyDeadzone(pad.axes[GAMEPAD_AXIS.LEFT_Y] ?? 0, deadzone),
         applyDeadzone(pad.axes[GAMEPAD_AXIS.RIGHT_X] ?? 0, deadzone),
