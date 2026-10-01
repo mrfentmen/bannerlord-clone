@@ -242,8 +242,8 @@ type Battle struct {
 //
 // # WHAT THE ORDER DOES AND DOES NOT BUY, WHICH IS NOT NOTHING
 //
-// Three of these five stages are independent of the others and two of them are
-// not, and it used to be claimed here that all five were.
+// Of the five delta-writing stages, three are independent of the others and two
+// of them are not, and it used to be claimed here that all five were.
 //
 // The intent stage and the morale stage read the snapshot taken at the top of the
 // tick and write deltas nothing else reads, so they can be moved anywhere in the
@@ -268,8 +268,27 @@ type Battle struct {
 //  4. melee       blows, armour, and fatigue
 //  5. morale      morale, suppression and exhaustion decay, breaks, routs,
 //     and surrenders
+//
+// # WHY "command" IS ONE OF THE NAMES AND NOT A CALL BESIDE THE LOOP
+//
+// The seam is the sixth name because tick runs the stages by name and the seam is
+// one of them. It was left out of the list once, when the tick was refactored to
+// iterate this value instead of spelling the stages out, and nothing failed: a
+// stage the engine does not run is not an error, and a battle with no commander
+// is a battle whose result is unchanged by not calling it. What it did instead was
+// make every order in the game a no-op. Formations were built and never walked to,
+// no order was written to the order log, every replay of a commanded battle
+// reproduced an uncommanded one, and a commander that refused a nonsense order
+// returned the error to a caller that was never called. Four different tests said
+// "the commander issued no orders", which is the sentence a dead seam writes.
+//
+// So the seam is named here, and runStage refuses a name it does not know, which
+// means a stage cannot be dropped from the engine without being dropped from this
+// list by the same edit. A name that is here and not run is a bug this file can no
+// longer express.
 var tickOrder = []string{
 	"intent",
+	"command",
 	"targeting",
 	"aimed fire",
 	"melee",
