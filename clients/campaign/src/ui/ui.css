@@ -1191,3 +1191,192 @@
 .orders-toast.fade {
   opacity: 0;
 }
+
+/* Siege assault UI. MASTER_PLAN.md section 2F. Token-only colours. */
+
+.siege-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px 14px;
+  background: color-mix(in srgb, var(--ink-900) 92%, transparent);
+  border: 1px solid var(--ink-700);
+  border-radius: 8px;
+  color: var(--paper-100);
+  font-size: 13px;
+  max-width: 460px;
+}
+
+.siege-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.siege-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.siege-phase {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 4px;
+  background: var(--ink-700);
+  color: var(--paper-100);
+}
+
+.siege-phase.bombarding {
+  background: var(--status-warning-fill);
+  color: var(--status-warning-ink);
+}
+
+.siege-phase.breached,
+.siege-phase.assaulting {
+  background: var(--status-critical-fill);
+  color: var(--status-critical-ink);
+}
+
+.siege-phase.resolved {
+  background: var(--status-good-fill);
+  color: var(--status-good-ink);
+}
+
+.siege-section {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.siege-section-title {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-300);
+  margin: 0;
+}
+
+.siege-camp {
+  display: flex;
+  gap: 16px;
+}
+
+.siege-label {
+  color: var(--ink-300);
+}
+
+.siege-stat {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.siege-equip,
+.siege-walls,
+.siege-sorties,
+.siege-assault-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.siege-equip-row,
+.siege-wall-row,
+.siege-assault-row,
+.siege-sortie-row,
+.siege-gate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.siege-bar {
+  flex: 1;
+  height: 8px;
+  min-width: 60px;
+  background: var(--ink-700);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.siege-bar.small {
+  height: 5px;
+  max-width: 120px;
+}
+
+.siege-bar-fill {
+  height: 100%;
+  background: var(--accent-info);
+  transition: width 0.3s linear;
+}
+
+.siege-targets {
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+}
+
+.siege-btn {
+  background: var(--ink-700);
+  border: 1px solid var(--ink-500);
+  border-radius: 6px;
+  color: var(--paper-100);
+  padding: 6px 10px;
+  cursor: pointer;
+  font-size: 13px;
+}
+
+.siege-btn:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--ink-700) 70%, var(--paper-100));
+}
+
+.siege-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.siege-btn.small {
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.siege-btn.active {
+  background: var(--accent-primary);
+  border-color: var(--accent-primary);
+}
+
+.siege-btn.primary {
+  background: var(--status-critical-fill);
+  border-color: var(--status-critical-fill);
+  color: var(--status-critical-ink);
+}
+
+.siege-badge {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 2px 6px;
+  border-radius: 3px;
+}
+
+.siege-badge.breached {
+  background: var(--status-critical-fill);
+  color: var(--status-critical-ink);
+}
+
+.siege-badge.repelled {
+  background: var(--status-good-fill);
+  color: var(--status-good-ink);
+}
+
+.siege-eta {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-300);
+}
+
+.siege-none {
+  color: var(--ink-300);
+  font-size: 12px;
+}
