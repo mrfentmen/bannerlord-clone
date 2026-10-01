@@ -138,7 +138,65 @@ func (b *Battle) stageIntent() {
 				b.stageSeparate(i, u, s)
 				continue
 			}
-		} else if b.enemyInMelee(s.X, s.Y, u.Side) {
+		} else if b.contact[i] {
+			d.intentSet, d.intent = true, IntentEngage
+			b.stageSeparate(i, u, s)
+			continue
+		}
+
+		// A man cannot walk through the man in front of him. This is the rule
+		// that makes a block a block instead of a queue.
+		//
+		// WHY THIS IS HERE: THE RANKS WERE WALKING THROUGH EACH OTHER
+		//
+		// Measured on the 500 v 500 battle before this rule, the two blocks did
+		// not meet along a front. They passed through one another, and 96.8% of
+		// units were never inside a swing of an enemy at any point:
+		//
+		//	peak units in melee reach at any one tick: 10 of 400 (2.5%)
+		//	units that were NEVER inside a swing of an enemy: 387 of 400 (96.8%)
+		//	units that finished the battle PAST their enemy:  102
+		//
+		// The mechanism was shear. Nothing stopped an advancing unit from moving
+		// through a friendly who had already stopped to fight, so the second rank
+		// overtook the first, the third overtook the second, and the block's x
+		// depth grew by roughly one unit's step per tick for the whole approach
+		// while its y width stayed put: 61.8 m of depth became 213.6 m. The block
+		// was not moving, its length was increasing. At tick 275, with the leading
+		// edge already past the enemy, 148 of 200 units were still advancing and
+		// the 52 that had engaged were strung from x=-208 to x=-1 BEHIND them.
+		//
+		// A first attempt at this rule blocked on any friendly within
+		// battle.standoff_distance ahead, and it froze the army on tick 20. A
+		// column is four metres deep by battle.roster_formation_depth, so every man
+		// has a man ahead of him inside the standoff distance from the first tick,
+		// and a rule that cannot tell a column from a queue stops both. Measured:
+		// 171 of 200 units engaged at tick 20 and the block never closed again.
+		//
+		// So the rule blocks on a friendly who is IN CONTACT with the enemy, not
+		// merely on one who is nearby. That is the physical constraint and not an
+		// approximation of it: a man who is fighting has his ground, and you cannot
+		// occupy it. It does not freeze a column, because in a column advancing on
+		// open ground nobody is in contact until the front rank reaches the enemy,
+		// and it does not let a rank walk through, because the rank in front of it
+		// is in contact by then.
+		//
+		// It also leaves ranged units out of it deliberately. A shooter stops to
+		// trade fire at battle.ranged_range, which is two hundred and forty metres,
+		// and a shooter is not in melee contact, so he does not block the men
+		// behind him from closing. If he did block them, the back rank of a mixed
+		// force would stand off at two hundred and forty metres and the battle
+		// would never reach a swing. The blocking test is contact, so the rule
+		// fires for the front rank that is actually in the fight and for nothing
+		// else.
+		//
+		// Contact is read from the per-tick contact flags rather than re-queried
+		// per candidate: asking "is he in contact" inside the walk over the
+		// standoff box would be a neighbourhood query inside a neighbourhood
+		// query, per friendly candidate, per unit, per tick. The flags cost one
+		// pass over the field per tick and are read by both this rule and the
+		// intent decisions below, so the question has one answer.
+		if b.blockedByContact(i, u, s) {
 			d.intentSet, d.intent = true, IntentEngage
 			b.stageSeparate(i, u, s)
 			continue
@@ -280,7 +338,7 @@ func (b *Battle) stageSeparate(i int, u *Unit, s *snapshot) {
 		return
 	}
 	r2 := c.StandoffDistance * c.StandoffDistance
-	sumX, sumY, weight := 0.0, 0.0, 0.0
+	sumX, sumY, weight, distSum := 0.0, 0.0, 0.0, 0.0
 	b.meleeHash.forEachCell(s.X, s.Y, c.StandoffDistance, func(id int) {
 		if id == u.ID {
 			return
@@ -289,27 +347,88 @@ func (b *Battle) stageSeparate(i int, u *Unit, s *snapshot) {
 		if o.Side != u.Side || !o.alive() {
 			return
 		}
-		if d2 := dist2(o.X-s.X, o.Y-s.Y); d2 > r2 {
+		d2 := dist2(o.X-s.X, o.Y-s.Y)
+		if d2 > r2 {
 			return
 		}
 		w := o.Troops
 		sumX += o.X * w
 		sumY += o.Y * w
 		weight += w
+		// The bodies-weighted mean squared distance to the neighbours inside the
+		// standoff, which is what the crowding scale below is read from.
+		distSum += d2 * w
 	})
 	if weight <= 0 {
 		// Nothing of its own side nearby: nothing to spread away from.
 		return
 	}
-	dx, dy := s.X-sumX/weight, s.Y-sumY/weight
+	// The push is away from the centre of mass of the neighbours, on BOTH axes,
+	// and it is scaled by how crowded this unit actually is, so that
+	// battle.standoff_distance is an EQUILIBRIUM SPACING rather than a velocity.
+	//
+	// # WHY IT IS SCALED, MEASURED
+	//
+	// An earlier version of this rule pushed a constant battle.lateral_drift
+	// every tick with no restoring force, which is not a spacing rule at all: a
+	// unit pushed outward leaves the radius and stops being pushed, and the edge
+	// of a block is always its most crowded part, so the edge always gains. On
+	// the 500 v 500 battle the block's width went from 61 m to 111 m by tick 300
+	// while the constant pushed a single unit 0.6 m a tick for three hundred
+	// ticks in one direction, and the two sides' fronts stopped facing each
+	// other at all. Sliced into 4 m bands of y at the tick of closest approach,
+	// the gap between the leading men swung from -16 m (crossed) to +358 m (never
+	// touched) from one band to the next.
+	//
+	// # WHY IT IS ON BOTH AXES, MEASURED
+	//
+	// Limiting the push to the lateral axis was the next attempt and it was
+	// worse, because it left the other half of the problem in place. Nothing then
+	// stopped a rank from advancing THROUGH the rank in front of it: the
+	// rank-blocking rule above only stops a man whose blocker is IN CONTACT, and
+	// contact is a two-deep effect, so it propagates two ranks and no further.
+	// Measured, the block was still 207 m deep at tick 300 against a
+	// roster_formation_depth of 4 m and about thirteen ranks, which is about 52 m,
+	// and 166 of 400 units finished the battle on the wrong side of their enemy.
+	//
+	// A symmetric push with crowding scaling has the property the block needs in
+	// both directions at once. At the standoff the scale is zero and the block
+	// holds its shape, whatever shape that is. Inside it, a unit is pushed back
+	// out along the axis it crowded, which for a rear-rank man crowding the rank
+	// ahead is BACKWARD, exactly the restoring force that stops a rank
+	// overtaking. And a block that has been stretched in depth re-converges,
+	// because the leading man of each rank is the one with nobody in front of him
+	// and stays put while the rear of the rank is pushed forward into place.
+	//
+	// The push being away from the centre of mass of the unit's OWN side, with no
+	// side-dependent term, is still what keeps the two armies closing on each
+	// other. An earlier mirrored version pushed side A one way and side B the
+	// other and peeled the armies apart across the field until nothing was in
+	// reach of anything.
+	//
+	// dx is computed but not applied when the crowd is zero, so the early return
+	// below it cannot read an uninitialised value.
+	meanD := math.Sqrt(distSum / weight)
+	crowd := 1 - meanD/c.StandoffDistance
+	if crowd <= 0 || !isFinite(crowd) {
+		return
+	}
+	if crowd > 1 {
+		crowd = 1
+	}
+	dx := s.X - sumX/weight
+	dy := s.Y - sumY/weight
 	dist := math.Sqrt(dist2(dx, dy))
 	if dist <= 0 || !isFinite(dist) {
-		// Exactly on the centre of mass: no direction to be pushed in.
+		// Exactly on the centre of mass of his neighbours: no direction to be
+		// pushed in. A man inside a solid block has this problem, and there is
+		// no honest direction to invent for him.
 		return
 	}
 	d := &b.deltas[i]
-	d.DX += dx / dist * c.LateralDrift
-	d.DY += dy / dist * c.LateralDrift
+	step := c.LateralDrift * crowd
+	d.DX += dx / dist * step
+	d.DY += dy / dist * step
 	b.clampStep(d)
 }
 
@@ -327,6 +446,93 @@ func (b *Battle) clampStep(d *delta) {
 		d.DX *= scale
 		d.DY *= scale
 	}
+}
+
+// markContact fills b.contact with, for every unit, whether a living enemy of
+// its own side is within a swing of it.
+//
+// It is one pass over the field per tick, computed once and read by both the
+// intent decisions and the rank-blocking rule below. The alternative was measured
+// and is worse: the blocking rule asks "is this friendly in contact" once per
+// friendly found in the standoff box, so computing it on demand is a
+// neighbourhood query inside a neighbourhood query, per candidate, per unit, per
+// tick, on a question the whole tick already knows the answer to.
+func (b *Battle) markContact() {
+	c := b.c
+	r2 := c.MeleeRange * c.MeleeRange
+	for i, u := range b.units {
+		s := &b.snap[i]
+		b.contact[i] = false
+		if !u.alive() || !s.Status.Actable() {
+			continue
+		}
+		enemy := u.Side.Opposing()
+		b.meleeHash.anyInCell(s.X, s.Y, c.MeleeRange, func(id int) bool {
+			cand := b.byID[id]
+			if cand.Side != enemy || !cand.alive() {
+				return false
+			}
+			if dist2(cand.X-s.X, cand.Y-s.Y) > r2 {
+				return false
+			}
+			b.contact[i] = true
+			return true
+		})
+	}
+}
+
+// blockedByContact reports whether a friendly in contact with the enemy stands
+// between this unit and the enemy, within battle.standoff_distance.
+//
+// "Ahead" is measured along the direction the side closes in, not toward the
+// enemy: a unit's own side advances along a fixed axis (side A toward positive x,
+// side B toward negative x), and a man is in front of his comrades when he is
+// further along that axis than they are and no more than the standoff distance
+// away from them. Measuring toward the enemy instead would make the test depend
+// on where the enemy army's centre happens to be, which moves as the battle
+// moves, and a unit would be released and re-blocked as the centre swung past it.
+//
+// A routed friendly does not block. He is running away from the enemy, so he is
+// not in front of anybody, and blocking on him would mean a man fleeing the
+// battlefield holds up the line behind him. A broken friendly does block: he has
+// stopped where he is and struck, and the ground he is on is occupied.
+//
+// The walk stops at the first blocking man found rather than visiting every cell
+// in the standoff box, because the answer is a yes or a no and this is asked of
+// every advancing unit on both sides every tick.
+func (b *Battle) blockedByContact(i int, u *Unit, s *snapshot) bool {
+	c := b.c
+	if c.StandoffDistance <= 0 {
+		return false
+	}
+	axis := b.towardAxis(u.Side)
+	r2 := c.StandoffDistance * c.StandoffDistance
+	blocked := false
+	b.meleeHash.anyInCell(s.X, s.Y, c.StandoffDistance, func(id int) bool {
+		if blocked {
+			return true
+		}
+		if id == i {
+			return false
+		}
+		o := b.byID[id]
+		if o.Side != u.Side || !o.alive() || o.Status == StatusRouted {
+			return false
+		}
+		if dist2(o.X-s.X, o.Y-s.Y) > r2 {
+			return false
+		}
+		if !b.contact[id] {
+			return false
+		}
+		if axis > 0 {
+			blocked = o.X > s.X
+		} else {
+			blocked = o.X < s.X
+		}
+		return blocked
+	})
+	return blocked
 }
 
 // enemyInMelee reports whether any living enemy is within a swing of a point.
