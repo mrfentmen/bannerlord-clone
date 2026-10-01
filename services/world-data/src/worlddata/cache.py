@@ -26,8 +26,14 @@ from .errors import WorldDataError
 T = TypeVar("T")
 
 # Bumped when the cached dataclasses change shape, so an old cache is never read
-# into new code.
-CACHE_FORMAT_VERSION = 3
+# into new code. It must ALSO be bumped whenever a transform's logic changes in
+# a way that alters its output, because the fingerprint covers config bytes and
+# source digests but not code: on 2026-09-30 the boundaries stage cache held
+# place boundaries whose state_fips carried stray quote characters (written by
+# an older transform), the stale cache was silently reused, the state-FIPS
+# filter then dropped all 32,608 rows, and the place_boundaries export shipped
+# empty with only a log line to mark it.
+CACHE_FORMAT_VERSION = 4
 
 
 def fingerprint(

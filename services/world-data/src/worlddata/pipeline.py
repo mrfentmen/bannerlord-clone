@@ -129,6 +129,27 @@ def _load_boundaries(config: Config):
     return (state_boundaries, place_boundaries), notes + place_notes
 
 
+def restrict_place_boundaries(
+    place_boundaries_loaded: list, valid_fips: set[str]
+) -> list:
+    """Keep the place boundaries whose state FIPS is in the valid set.
+
+    Fails loudly when the loader produced polygons but the filter drops every
+    one: the join keys disagree, which is always a data/code bug, never a valid
+    empty result. Failing here beats shipping an empty table with only a log
+    line to mark it (2026-09-30: a stale cache held quoted FIPS, the filter
+    dropped all 32,608 rows, the export shipped empty).
+    """
+    kept = [item for item in place_boundaries_loaded if item.state_fips in valid_fips]
+    if place_boundaries_loaded and not kept:
+        raise WorldDataError(
+            f"boundaries: the place-boundary loader produced {len(place_boundaries_loaded)} "
+            f"polygons but none survived the {len(valid_fips)}-state FIPS filter; "
+            "the loader's state_fips values do not match the population table's keys"
+        )
+    return kept
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -206,7 +227,7 @@ def run(
     # --- stage 3: boundaries ----------------------------------------------
     stage_start = time.perf_counter()
     stamp = stage_cache.fingerprint(config.path, retrieved, "boundaries")
-    ((state_boundaries, place_boundaries), boundary_notes), cache_note = stage_cache.cached(
+    ((state_boundaries, place_boundaries_loaded), boundary_notes), cache_note = stage_cache.cached(
         config.path_for("cache_dir"),
         "boundaries",
         stamp,
@@ -219,7 +240,7 @@ def run(
     name_to_fips = state_name_to_fips(state_boundaries)
     valid_fips = set(population.states)
     state_boundaries = [item for item in state_boundaries if item.state_fips in valid_fips]
-    place_boundaries = [item for item in place_boundaries if item.state_fips in valid_fips]
+    place_boundaries = restrict_place_boundaries(place_boundaries_loaded, valid_fips)
     result.log(
         f"boundaries: {len(state_boundaries)} state polygons and {len(place_boundaries)} place polygons "
         "restricted to the 50-states-plus-D.C. universe"
@@ -360,10 +381,16 @@ def run(
 
     # Everything downstream of seeding needs settlement coordinates, which are
     # already copied into settlement_points, and nothing downstream needs the
-    # 32,000 place polygons or the raw population rows. Release them here.
+    # place lookup dicts or the raw population rows. Release them here.
+    # NOTE: place_boundaries itself must survive until _assemble_tables builds
+    # the place_boundaries export table. Emptying it here (as was done before
+    # 2026-10-01) silently shipped an empty place_boundaries table: the
+    # PlaceBoundary dataclasses are lightweight (no polygon geometry is kept;
+    # the loader discards rings after computing the interior point), so keeping
+    # the 32,608 rows costs megabytes, not the hundreds of megabytes the old
+    # comment feared.
     place_by_key = {}
     by_name_state = {}
-    place_boundaries = []
     kept = []
     population = None
     gc.collect()
