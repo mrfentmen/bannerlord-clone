@@ -18,11 +18,12 @@
  * recorded rather than filled with a placeholder.
  */
 
-import { h, row, sectionHeader } from "../dom.js";
+import { h, numberField, row, sectionHeader } from "../dom.js";
 import { emptyState, errorState, gauge, panel, statusChip, type StatusKind } from "../kit.js";
 import { townSkeleton } from "./skeletons.js";
 import { asBottomSheet } from "./narrow.js";
-import type { TownState } from "../../data/types.js";
+import type { RecruitableUnit, RecruitResult, TownState } from "../../data/types.js";
+import { SimulationUnavailableError } from "../../data/provider.js";
 
 export interface TownPanelOptions {
   /**
@@ -36,6 +37,15 @@ export interface TownPanelOptions {
   onOpenMarket: () => void;
   onMarchHere: () => void;
   onRoster: () => void;
+  /**
+   * Hire soldiers. The panel sends the order; the simulation decides if it happens.
+   * Resolves with the simulation's answer so the panel can show the reason verbatim.
+   */
+  onRecruit?: (unitId: string, quantity: number) => Promise<RecruitResult>;
+  /** The player's purse, for the hiring cost labels. */
+  purse?: number;
+  /** The day the player is looking at, sent with the hire order. */
+  day?: number;
   /**
    * The survey is still being read. Renders `town-skeleton`, which mirrors this
    * panel's sections, so the context region does not change height when the town
@@ -294,7 +304,115 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
   actions.append(marketBtn, marchBtn, rosterBtn);
   body.appendChild(actions);
 
+  // -- recruit ----------------------------------------------------------------
+  if (options.onRecruit) {
+    body.appendChild(recruitSection(town, options));
+  }
+
   return root;
+}
+
+/**
+ * Who is willing to sign on here. The list comes from the simulation; the panel
+ * sends the order and shows the simulation's answer verbatim.
+ */
+function recruitSection(town: TownState, options: TownPanelOptions): HTMLElement {
+  const wrap = h("section", { "data-testid": "recruit-section" });
+  wrap.appendChild(sectionHeader("Recruit"));
+
+  if (town.recruitable.length === 0) {
+    wrap.appendChild(
+      emptyState(
+        "Nobody is signing on here.",
+        "No willing recruits in this town right now. Try a larger town.",
+      ),
+    );
+    return wrap;
+  }
+
+  const message = h("p", { class: "caption", "data-testid": "recruit-message", role: "status", style: "margin:0 0 var(--space-3)" });
+  message.style.display = "none";
+  wrap.appendChild(message);
+
+  const purse = options.purse ?? 0;
+  wrap.appendChild(
+    h("p", { class: "caption", style: "margin:0 0 var(--space-3)" },
+      `Purse $${Math.round(purse).toLocaleString("en-US")}. The hiring bonus is paid now; wages join the daily bill.`),
+  );
+
+  for (const unit of town.recruitable) {
+    wrap.appendChild(recruitRow(unit, options, message));
+  }
+  return wrap;
+}
+
+function recruitRow(
+  unit: RecruitableUnit,
+  options: TownPanelOptions,
+  message: HTMLElement,
+): HTMLElement {
+  const rowEl = h("div", { class: "field-row", style: "margin-bottom:var(--space-3)" });
+  const qty = numberField(`recruit-qty-${unit.unitId}`, "Number", 10, {
+    min: 1,
+    max: unit.available,
+    step: 1,
+  });
+  const hire = h(
+    "button",
+    { type: "button", class: "btn", "data-testid": `recruit-${unit.unitId}` },
+    `Hire ${unit.name}`,
+  );
+
+  const updateLabel = (): void => {
+    const n = Math.max(1, Math.floor(Number(qty.input.value) || 1));
+    const cost = n * unit.hireCost;
+    hire.setAttribute("aria-label", `Hire ${n} ${unit.name} for $${cost.toLocaleString("en-US")}`);
+    hire.title = `${n} × $${unit.hireCost} hiring bonus, $${unit.wage.toFixed(2)} a day each after.`;
+  };
+  qty.input.addEventListener("input", updateLabel);
+  updateLabel();
+
+  hire.disabled = unit.available < 1;
+  hire.addEventListener("click", () => {
+    if (hire.disabled) return;
+    hire.disabled = true;
+    const n = Math.max(1, Math.floor(Number(qty.input.value) || 1));
+    void options.onRecruit!(unit.unitId, n).then(
+      (result) => {
+        hire.disabled = false;
+        message.style.display = "";
+        if (result.accepted) {
+          message.textContent =
+            `Hired ${result.quantity} ${result.unitName.toLowerCase()} for $${Math.round(result.totalCost).toLocaleString("en-US")}. ` +
+            `${result.newCount} in the party now.`;
+        } else {
+          message.textContent = result.reason ?? "The hire was refused.";
+        }
+      },
+      (err) => {
+        hire.disabled = false;
+        message.style.display = "";
+        message.textContent =
+          err instanceof SimulationUnavailableError ? err.playerMessage : "The hire did not go through.";
+      },
+    );
+  });
+
+  rowEl.append(
+    h(
+      "div",
+      { style: "flex:1 1 auto;min-width:0" },
+      h("p", { class: "label", style: "margin:0 0 var(--space-1)" },
+        `${unit.name} — ${unit.available} willing`,
+      ),
+      h("p", { class: "caption", style: "margin:0" },
+        `${unit.blurb} Quality ${unit.quality}/5. $${unit.hireCost} to sign, $${unit.wage.toFixed(2)} a day.`,
+      ),
+    ),
+    qty.field,
+    hire,
+  );
+  return rowEl;
 }
 
 /**

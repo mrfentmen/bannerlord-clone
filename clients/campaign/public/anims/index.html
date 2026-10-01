@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Animation Demo — Soldier</title>
+<style>
+html,body{margin:0;height:100%;background:#1a1a1a;overflow:hidden;font-family:system-ui}
+#ui{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);display:flex;gap:10px;z-index:10}
+#ui button{background:#2a2a3a;color:#fff;border:1px solid #4a4a5a;padding:12px 24px;font-size:16px;border-radius:8px;cursor:pointer}
+#ui button.active{background:#4a7c59;border-color:#6a9c79}
+#ui button:hover{background:#3a3a4a}
+#label{position:fixed;top:20px;left:50%;transform:translateX(-50%);color:#fff;font-size:18px;z-index:10}
+canvas{width:100%;height:100%;display:block}
+</style></head><body>
+<div id="label">Soldier Animations — free (three.js examples, MIT)</div>
+<div id="ui">
+<button data-anim="Idle" class="active">Idle</button>
+<button data-anim="Walk">Walk</button>
+<button data-anim="Run">Run</button>
+<button data-anim="TPose">T-Pose</button>
+</div>
+<canvas id="c"></canvas>
+<script src="https://cdn.jsdelivr.net/npm/babylonjs@8.56.2/babylon.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/babylonjs-loaders@8.56.2/babylonjs.loaders.min.js"></script>
+<script>
+const canvas = document.getElementById("c");
+const engine = new BABYLON.Engine(canvas, true);
+const scene = new BABYLON.Scene(engine);
+scene.clearColor = new BABYLON.Color4(0.1, 0.1, 0.12, 1);
+const camera = new BABYLON.ArcRotateCamera("cam", Math.PI/2, Math.PI/2.5, 4, new BABYLON.Vector3(0, 1, 0), scene);
+camera.attachControl(canvas, true);
+camera.wheelPrecision = 20;
+new BABYLON.HemisphericLight("h", new BABYLON.Vector3(0, 1, 0), scene).intensity = 0.9;
+const dir = new BABYLON.DirectionalLight("d", new BABYLON.Vector3(-1, -2, -1), scene);
+dir.intensity = 0.6;
+const ground = BABYLON.MeshBuilder.CreateGround("g", {width: 20, height: 20}, scene);
+ground.material = new BABYLON.StandardMaterial("gm", scene);
+ground.material.diffuseColor = new BABYLON.Color3(0.2, 0.25, 0.2);
+
+let groups = [];
+BABYLON.SceneLoader.ImportMesh("", "/anims/", "Soldier.glb", scene, (meshes, ps, skels, animGroups) => {
+  groups = animGroups;
+  console.log("animations:", animGroups.map(g => g.name));
+  // auto-play Idle
+  const idle = animGroups.find(g => g.name === "Idle");
+  if (idle) idle.play(true);
+  document.querySelectorAll("#ui button").forEach(btn => {
+    btn.onclick = () => {
+      document.querySelectorAll("#ui button").forEach(b => b.classList.remove("active"));
+      btn.classList.add("active");
+      groups.forEach(g => g.stop());
+      const g = animGroups.find(x => x.name === btn.dataset.anim);
+      if (g) g.play(true);
+    };
+  });
+});
+engine.runRenderLoop(() => scene.render());
+window.addEventListener("resize", () => engine.resize());
+</script></body></html>

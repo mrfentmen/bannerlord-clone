@@ -24,6 +24,8 @@ import type {
   ConnectionStatus,
   MarchPlan,
   MarchRequest,
+  RecruitRequest,
+  RecruitResult,
   SimSnapshot,
   SimulationProvider,
   TickUpdate,
@@ -174,6 +176,18 @@ export class HttpSimulationProvider implements SimulationProvider {
 
   async trade(request: TradeRequest): Promise<TradeResult> {
     return this.#post<TradeResult>("/v1/trade", request, "The trade did not go through.");
+  }
+
+  async recruit(request: RecruitRequest): Promise<RecruitResult> {
+    return this.#post<RecruitResult>("/v1/recruit", request, "The hire did not go through.");
+  }
+
+  setTimeScale(daysPerRealSecond: number): void {
+    void this.#post<{ accepted: true }>("/v1/time-scale", { daysPerRealSecond }, "The clock did not change speed.");
+  }
+
+  async skipToArrival(): Promise<{ daysAdvanced: number }> {
+    return this.#post<{ daysAdvanced: number }>("/v1/skip-to-arrival", {}, "The clock did not skip.");
   }
 
   async planMarch(request: MarchRequest): Promise<MarchPlan> {

@@ -98,6 +98,49 @@ export interface TownState {
 
   /** The last tick this town changed, so the UI can show staleness honestly. */
   updatedTick: number;
+  /**
+   * Who can be hired here. The simulation is the authority on what a town offers:
+   * the client renders the list and sends the order, nothing more.
+   */
+  recruitable: RecruitableUnit[];
+}
+
+/** One kind of soldier a town can raise, as the simulation describes it. */
+export interface RecruitableUnit {
+  unitId: string;
+  name: string;
+  /** 0 to 5, same scale as TroopStack.quality. */
+  quality: number;
+  /** Money per day per soldier, added to the wage bill on hire. */
+  wage: number;
+  /** One-time hiring bonus per soldier, taken from the purse on hire. */
+  hireCost: number;
+  /** How many are willing to sign on here right now. */
+  available: number;
+  /** One line on what they are, in the product's voice. */
+  blurb: string;
+}
+
+export interface RecruitRequest {
+  partyId: string;
+  townId: string;
+  unitId: string;
+  quantity: number;
+  /** The day the player is looking at, so a stale roster cannot be hired against. */
+  expectedDay: number;
+}
+
+export interface RecruitResult {
+  accepted: boolean;
+  unitName: string;
+  quantity: number;
+  /** The hiring bonus paid, in whole money. */
+  totalCost: number;
+  /** Soldiers of this unit in the party after the hire. */
+  newCount: number;
+  /** Why the hire failed, in the product's voice, when `accepted` is false. */
+  reason?: string;
+  causedBy: string;
 }
 
 export interface MarketGood {
@@ -418,8 +461,13 @@ export interface SimulationProvider {
   readonly label: string;
   getSnapshot(): Promise<SimSnapshot>;
   trade(request: TradeRequest): Promise<TradeResult>;
+  recruit(request: RecruitRequest): Promise<RecruitResult>;
   planMarch(request: MarchRequest): Promise<MarchPlan>;
   commitMarch(request: MarchRequest): Promise<void>;
+  /** Days of game time per real second. Zero pauses the clock. */
+  setTimeScale(daysPerRealSecond: number): void;
+  /** Run the clock until the party's march completes. Resolves with days advanced. */
+  skipToArrival(): Promise<{ daysAdvanced: number }>;
   why(entityId: string, field: string): Promise<WhyChain>;
   subscribeTicks(onTick: (tick: TickUpdate) => void, onStatus: (status: ConnectionStatus) => void): () => void;
 }

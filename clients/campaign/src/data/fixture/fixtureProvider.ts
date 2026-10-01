@@ -30,6 +30,9 @@ import type {
   MarchRequest,
   Notification,
   PartyState,
+  RecruitableUnit,
+  RecruitRequest,
+  RecruitResult,
   ResourceWarning,
   RulerState,
   SimSnapshot,
@@ -160,11 +163,14 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
   const state = new FixtureState(options.seed ?? 20050304);
   return {
     kind: "fixture",
-    label: `${FIXTURE_MARKER} · Northern Colorado Front Range`,
+    label: `${FIXTURE_MARKER} · Ohio River Valley`,
     getSnapshot: async () => state.snapshot(),
     trade: async (request) => state.trade(request),
+    recruit: async (request) => state.recruit(request),
     planMarch: async (request) => state.planMarch(request),
     commitMarch: async (request) => state.commitMarch(request),
+    setTimeScale: (daysPerRealSecond) => state.setTimeScale(daysPerRealSecond),
+    skipToArrival: async () => state.skipToArrival(),
     why: async (entityId, field) => state.why(entityId, field),
     subscribeTicks: (onTick, onStatus) => state.subscribe(onTick, onStatus),
   };
@@ -237,6 +243,10 @@ class FixtureState {
         gold: Math.round((population ?? 900) * 0.6),
         metal: Math.round((population ?? 900) * 0.9),
         updatedTick: 0,
+        recruitable: RECRUITABLE_UNITS.map((u) => ({
+          ...u,
+          available: Math.max(4, Math.round((RECRUIT_BASE_AVAILABLE[u.unitId] ?? 10) * sizeFactorFor(population))),
+        })),
       });
       this.#markets.set(id, this.#market(id, population));
     }
@@ -312,7 +322,7 @@ class FixtureState {
    */
   #market(townId: string, population: number | null): MarketState {
     const town = this.#towns.get(townId)!;
-    const sizeFactor = population === null ? 0.35 : Math.min(2.2, 0.6 + Math.log10(population + 10) / 5.2);
+    const sizeFactor = sizeFactorFor(population);
     const goods: MarketGood[] = GOOD_IDS.map((goodId) => {
       const units = Math.round(GOOD_MARKET_UNITS[goodId] * sizeFactor);
       // Medicine is scarce wherever there is an outbreak, which is the sort of thing
@@ -652,6 +662,105 @@ class FixtureState {
     };
   }
 
+  /**
+   * Hire soldiers into the party.
+   *
+   * The hiring bonus comes out of the purse immediately, and the new mouths join the
+   * wage bill and the ration line on the next tick, because the Ledger and Supply
+   * systems read the party roster rather than a separate hiring record. The town's
+   * pool of willing recruits drains, so hiring the same town dry is a real decision.
+   */
+  async recruit(request: RecruitRequest): Promise<RecruitResult> {
+    if (request.quantity <= 0 || !Number.isInteger(request.quantity)) {
+      throw new Error(`Recruit quantity must be a positive whole number, got ${request.quantity}`);
+    }
+    const town = this.#towns.get(request.townId);
+    if (!town) throw new Error(`No town with id ${request.townId}`);
+    const offered = town.recruitable.find((u) => u.unitId === request.unitId);
+    if (!offered) throw new Error(`${request.unitId} cannot be raised at ${town.name}`);
+
+    const totalCost = round2(offered.hireCost * request.quantity);
+    if (offered.available < request.quantity) {
+      return {
+        accepted: false,
+        unitName: offered.name,
+        quantity: request.quantity,
+        totalCost,
+        newCount: this.#party.troops.find((t) => t.id === `t-${offered.unitId}`)?.count ?? 0,
+        reason: `Only ${offered.available} ${offered.name.toLowerCase()} are willing to sign on at ${town.name}.`,
+        causedBy: "recruit-rejected",
+      };
+    }
+    if (this.#player.resources.money < totalCost) {
+      return {
+        accepted: false,
+        unitName: offered.name,
+        quantity: request.quantity,
+        totalCost,
+        newCount: this.#party.troops.find((t) => t.id === `t-${offered.unitId}`)?.count ?? 0,
+        reason: `Short ${formatMoney(totalCost - this.#player.resources.money)}. You have ${formatMoney(this.#player.resources.money)}. The hiring bonus is ${formatMoney(offered.hireCost)} a head.`,
+        causedBy: "recruit-rejected",
+      };
+    }
+
+    this.#player.resources.money = round2(this.#player.resources.money - totalCost);
+    offered.available -= request.quantity;
+    const stackId = `t-${offered.unitId}`;
+    const stack = this.#party.troops.find((t) => t.id === stackId);
+    if (stack) {
+      // Fresh recruits dilute the stack's quality toward the raw recruit quality, and
+      // morale dips: veterans resent sharing the fire with green hands.
+      const before = stack.count;
+      stack.count += request.quantity;
+      stack.quality = Math.round(((stack.quality * before + offered.quality * request.quantity) / stack.count) * 10) / 10;
+      stack.morale = round2(clamp(stack.morale - 0.03, 0, 1));
+    } else {
+      this.#party.troops.push({
+        id: stackId,
+        name: offered.name,
+        count: request.quantity,
+        quality: offered.quality,
+        wage: offered.wage,
+        morale: 0.62,
+      });
+    }
+    const newCount = this.#party.troops.find((t) => t.id === stackId)!.count;
+
+    const hireEvent = this.#row(
+      "recruit",
+      this.#party.id,
+      this.#party.name,
+      -totalCost,
+      0,
+      "Player",
+      [],
+      `You hired ${request.quantity} ${offered.name.toLowerCase()} at ${town.name} for ${formatMoney(totalCost)}.`,
+    );
+    const causedBy = this.#row(
+      "troops",
+      this.#party.id,
+      this.#party.name,
+      newCount - request.quantity,
+      newCount,
+      "Military upkeep",
+      [hireEvent],
+      `${offered.name} in the party rose from ${newCount - request.quantity} to ${newCount}.`,
+    );
+
+    this.#rebuildLedger();
+    this.#refreshWarnings();
+    this.#emit({ tick: this.#tick, day: this.#day, party: structuredClone(this.#party), ledger: structuredClone(this.#ledger), warnings: structuredClone(this.#warnings) });
+
+    return {
+      accepted: true,
+      unitName: offered.name,
+      quantity: request.quantity,
+      totalCost,
+      newCount,
+      causedBy,
+    };
+  }
+
   async planMarch(request: MarchRequest): Promise<MarchPlan> {
     const dest = TOWN_SPECS.find((t) => t.settlementId === request.destinationSettlementId);
     if (!dest) throw new Error(`No settlement with id ${request.destinationSettlementId}`);
@@ -812,9 +921,8 @@ class FixtureState {
       }
     }
 
-    // Party marches if ordered: the position advances and food comes down.
+    // Party marches if ordered: fatigue rises until the party arrives.
     if (this.#party.destination) {
-      this.#party.food = round2(Math.max(0, this.#party.food - this.#party.troops.reduce((a, t) => a + t.count, 0) * 0.85));
       this.#party.fatigue = round2(clamp(this.#party.fatigue + 0.02, 0, 1));
       if ((this.#day - (this.#party.marchingSinceDay ?? this.#day)) >= 3) {
         this.#party.destination = null;
@@ -824,6 +932,7 @@ class FixtureState {
       }
     }
 
+    this.#applyDailyUpkeep();
     this.#rebuildLedger();
     this.#refreshWarnings();
     this.#emit({ tick: this.#tick, day: this.#day, towns: townDeltas, party: structuredClone(this.#party), ledger: structuredClone(this.#ledger), warnings: structuredClone(this.#warnings) });
@@ -831,6 +940,66 @@ class FixtureState {
 
   #emit(update: TickUpdate): void {
     for (const listener of this.#tickListeners) listener(update);
+  }
+
+  /**
+   * The ledger is a bill, not a display. Every day the party eats its rations,
+   * pays its wages, burns ammunition, and pays for the camp — marching or not.
+   * A purse that cannot cover the day goes to zero and the shortfall becomes
+   * wages owed, which is the number the party panel stamps.
+   *
+   * Income is not a daily drip: trade receipts arrive when a trade happens, and
+   * tolls when the road is held. Only the costs run on the clock.
+   */
+  #applyDailyUpkeep(): void {
+    const wages = round2(this.#party.troops.reduce((a, t) => a + t.count * t.wage, 0));
+    const headcount = this.#party.troops.reduce((a, t) => a + t.count, 0);
+    const rations = round2(headcount * 0.85);
+    const ammo = 3;
+    const camp = 14;
+
+    const purseAfter = round2(this.#player.resources.money - wages - camp);
+    if (purseAfter >= 0) {
+      this.#player.resources.money = purseAfter;
+    } else {
+      this.#player.resources.money = 0;
+      this.#party.wagesOwed = round2(this.#party.wagesOwed - purseAfter);
+    }
+    // The party's purse mirrors the player's: one purse, two views of it.
+    this.#party.money = this.#player.resources.money;
+
+    this.#party.food = round2(Math.max(0, this.#party.food - rations));
+    this.#party.metal = round2(Math.max(0, this.#party.metal - ammo));
+    this.#player.resources.food = this.#party.food;
+    this.#player.resources.metal = this.#party.metal;
+  }
+
+  /**
+   * Days of game time per real second. Zero pauses the clock. The dial in the HUD
+   * is the only caller; the simulation does not guess at speeds on its own.
+   */
+  setTimeScale(daysPerRealSecond: number): void {
+    if (this.#timer !== null) {
+      clearInterval(this.#timer);
+      this.#timer = null;
+    }
+    if (daysPerRealSecond > 0) {
+      this.#timer = setInterval(() => this.#step(), 1000 / daysPerRealSecond);
+    }
+  }
+
+  /**
+   * Run the clock forward until the party's march completes. A march that never
+   * arrives is a bug, not an invitation to loop forever, so this gives up after a
+   * year and says how far it got.
+   */
+  async skipToArrival(): Promise<{ daysAdvanced: number }> {
+    let days = 0;
+    while (this.#party.destination && days < 365) {
+      this.#step();
+      days += 1;
+    }
+    return { daysAdvanced: days };
   }
 
   // -- derived panels -------------------------------------------------------
@@ -935,6 +1104,24 @@ class FixtureState {
 /* -- helpers -------------------------------------------------------------- */
 
 /**
+ * Who is willing to sign on, before the town-size factor. A city raises a company;
+ * a village raises a squad. The simulation is the authority on the list; the client
+ * renders it and sends the order.
+ */
+const RECRUITABLE_UNITS: Omit<RecruitableUnit, "available">[] = [
+  { unitId: "militia", name: "Militia", quality: 1, wage: 0.5, hireCost: 15, blurb: "Locals with rifles. Cheap, and it shows." },
+  { unitId: "riflemen", name: "Riflemen", quality: 3, wage: 0.9, hireCost: 60, blurb: "Trained infantry. The backbone of a line." },
+  { unitId: "scouts", name: "Scouts", quality: 2, wage: 1.2, hireCost: 90, blurb: "Fast riders. Eyes before the fight." },
+];
+
+/** Base willing recruits per unit at a mid-sized town, before the town-size factor. */
+const RECRUIT_BASE_AVAILABLE: Record<string, number> = {
+  militia: 40,
+  riflemen: 24,
+  scouts: 12,
+};
+
+/**
  * How many units of each good a market holds at a mid-sized town, before the town-size
  * factor. Deliberately caravan scale, so a load of grain is a real decision.
  */
@@ -980,6 +1167,10 @@ function priceFor(stock: number, demand: number, base: number = 1): number {
 
 function clamp(v: number, lo: number, hi: number): number {
   return Math.min(hi, Math.max(lo, v));
+}
+/** How big a town's market and recruiting pool are, from its surveyed population. */
+function sizeFactorFor(population: number | null): number {
+  return population === null ? 0.35 : Math.min(2.2, 0.6 + Math.log10(population + 10) / 5.2);
 }
 function round2(v: number): number {
   return Math.round(v * 100) / 100;

@@ -198,8 +198,10 @@ const hud = createHud({
   onSelectPanel: (p) => openPanel(p),
   onTimeScale: (s) => {
     timeScale = s;
+    provider.setTimeScale(s);
     paint();
   },
+  onSkipToArrival: () => void skipToArrival(),
   onOpenDataSource: () => openDataSource(),
   onOpenUiScale: (s) => applyUiScale(s),
   onNotification: (entityId, field) => openWhy(entityId, field),
@@ -360,6 +362,25 @@ function townNode(town: TownState): Node {
     onOpenMarket: () => openPanel("market"),
     onMarchHere: () => openPanel("march"),
     onRoster: () => openPanel("roster"),
+    purse: snapshot?.player.resources.money ?? 0,
+    day: snapshot?.day ?? 0,
+    onRecruit: async (unitId, quantity) => {
+      if (!snapshot) throw new Error("No snapshot to recruit against.");
+      const result = await provider.recruit({
+        partyId: snapshot.party.id,
+        townId: town.id,
+        unitId,
+        quantity,
+        expectedDay: snapshot.day,
+      });
+      if (result.accepted) {
+        previous = snapshot;
+        snapshot = await provider.getSnapshot();
+        rebuildContext();
+        paint();
+      }
+      return result;
+    },
   });
 }
 
@@ -418,6 +439,22 @@ async function reloadSnapshot(): Promise<void> {
     currentPanel = "none";
     contextNode = fatalError(message, detail, () => void reloadSnapshot());
     paint();
+  }
+}
+
+/** Run the clock to the end of the current march, then re-read the world. */
+async function skipToArrival(): Promise<void> {
+  try {
+    const { daysAdvanced } = await provider.skipToArrival();
+    if (daysAdvanced > 0) {
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+    }
+  } catch (err) {
+    const message = err instanceof SimulationUnavailableError ? err.playerMessage : "The clock did not skip.";
+    console.error(err instanceof SimulationUnavailableError ? err.developerDetail : String(err), message);
   }
 }
 

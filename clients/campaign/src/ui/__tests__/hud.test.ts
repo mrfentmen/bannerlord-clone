@@ -45,17 +45,17 @@ beforeAll(async () => {
 });
 
 describe("the time dial (ART_DIRECTION.md section 6.8)", () => {
-  it("is a radio group of three detents, not a row of independent toggles", () => {
+  it("is a radio group of four detents, not a row of independent toggles", () => {
     const dial = hudAt().querySelector("[data-testid='time-dial']")!;
     expect(dial.getAttribute("role")).toBe("radiogroup");
     expect(dial.getAttribute("aria-label")).toBe("Time controls");
     const radios = Array.from(dial.querySelectorAll("[role='radio']"));
-    expect(radios).toHaveLength(3);
-    expect(radios.map((r) => r.getAttribute("data-testid"))).toEqual(["time-0", "time-1", "time-3"]);
+    expect(radios).toHaveLength(4);
+    expect(radios.map((r) => r.getAttribute("data-testid"))).toEqual(["time-0", "time-1", "time-3", "time-10"]);
   });
 
   it("checks exactly one detent, and marks it checked for assistive tech", () => {
-    for (const scale of [0, 1, 3]) {
+    for (const scale of [0, 1, 3, 10]) {
       const dial = hudAt({ timeScale: scale }).querySelector("[data-testid='time-dial']")!;
       const checked = Array.from(dial.querySelectorAll("[role='radio']")).filter(
         (r) => r.getAttribute("aria-checked") === "true",
@@ -98,7 +98,7 @@ describe("the time dial (ART_DIRECTION.md section 6.8)", () => {
     dial.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
     expect(onTimeScale).toHaveBeenCalledWith(1);
     dial.dispatchEvent(new KeyboardEvent("keydown", { key: "End", bubbles: true }));
-    expect(onTimeScale).toHaveBeenCalledWith(3);
+    expect(onTimeScale).toHaveBeenCalledWith(10);
   });
 
   it("does not run off either end of the arc", () => {
@@ -126,13 +126,13 @@ describe("the time dial (ART_DIRECTION.md section 6.8)", () => {
     expect(onTimeScale).not.toHaveBeenCalled();
   });
 
-  it("draws the face as a pointer and three detent ticks, all hidden from a reader", () => {
+  it("draws the face as a pointer and four detent ticks, all hidden from a reader", () => {
     const dial = hudAt({ timeScale: 3 }).querySelector("[data-testid='time-dial']")!;
     const face = dial.querySelector(".dial__face")!;
     expect(face.getAttribute("aria-hidden"), "the drawing must not be read as content").toBe("true");
     expect(dial.querySelector(".dial__pointer"), "the dial has no pointer").not.toBeNull();
     const detents = Array.from(face.querySelectorAll(".dial__detent"));
-    expect(detents).toHaveLength(3);
+    expect(detents).toHaveLength(4);
     expect(detents.filter((d) => d.getAttribute("data-on") === "true")).toHaveLength(1);
     // The pointer angle is CSS, keyed off the position, so the drawing and the checked
     // radio can never disagree about which detent is live.
@@ -157,6 +157,67 @@ describe("the time dial (ART_DIRECTION.md section 6.8)", () => {
       expect(radio.getAttribute("aria-label")?.length ?? 0).toBeGreaterThan(0);
       expect(radio.getAttribute("title")?.length ?? 0).toBeGreaterThan(0);
     }
+  });
+
+  it("offers a very-fast detent at ten days a second", () => {
+    const detent = TIME_POSITIONS.find((p) => p.id === "very-fast")!;
+    expect(detent.scale).toBe(10);
+    const btn = hudAt().querySelector(`[data-testid='time-${detent.scale}']`)!;
+    expect(btn.querySelector(".dial__label")!.textContent).toBe("Very fast");
+  });
+});
+
+describe("skip to arrival", () => {
+  function hudWithSkip(overrides: Partial<HudState> = {}, onSkipToArrival: () => void = () => {}): HTMLElement {
+    const noop = (): void => {};
+    const hud = createHud({
+      onSelectPanel: noop,
+      onTimeScale: noop,
+      onSkipToArrival,
+      onOpenDataSource: noop,
+      onOpenUiScale: noop,
+      onNotification: noop,
+    });
+    hud.renderState({
+      snapshot,
+      warnings: snapshot.warnings,
+      context: null,
+      loading: false,
+      loadingShape: "town",
+      timeScale: 0,
+      partyDaysOfFood: 4.2,
+      selectionName: "",
+      ...overrides,
+    });
+    return hud.root;
+  }
+
+  it("is hidden when the app supplies no skip handler", () => {
+    const btn = hudAt().querySelector("[data-testid='skip-to-arrival']");
+    expect(btn).toBeNull();
+  });
+
+  it("is disabled when the party is not marching", () => {
+    const btn = hudWithSkip().querySelector<HTMLButtonElement>("[data-testid='skip-to-arrival']")!;
+    expect(btn.disabled).toBe(true);
+    expect(btn.getAttribute("title")).toContain("not marching");
+  });
+
+  it("is enabled and names the destination when the party is marching", () => {
+    const marching = structuredClone(snapshot);
+    marching.party.destination = { settlementId: "denver", name: "Denver" };
+    const btn = hudWithSkip({ snapshot: marching }).querySelector<HTMLButtonElement>("[data-testid='skip-to-arrival']")!;
+    expect(btn.disabled).toBe(false);
+    expect(btn.getAttribute("aria-label")).toContain("Denver");
+  });
+
+  it("calls onSkipToArrival when pressed", () => {
+    const onSkipToArrival = vi.fn();
+    const marching = structuredClone(snapshot);
+    marching.party.destination = { settlementId: "denver", name: "Denver" };
+    const root = hudWithSkip({ snapshot: marching }, onSkipToArrival);
+    root.querySelector<HTMLButtonElement>("[data-testid='skip-to-arrival']")!.click();
+    expect(onSkipToArrival).toHaveBeenCalledTimes(1);
   });
 });
 

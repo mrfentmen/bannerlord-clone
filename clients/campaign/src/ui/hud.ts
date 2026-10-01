@@ -22,6 +22,8 @@ import type {
 export interface HudOptions {
   onSelectPanel: (panel: HudPanel) => void;
   onTimeScale: (scale: number) => void;
+  /** Jump the clock to the end of the party's current march. Optional: the button hides without it. */
+  onSkipToArrival?: () => void;
   onOpenDataSource: () => void;
   /**
    * Applies one of the four text-size settings.
@@ -36,7 +38,7 @@ export interface HudOptions {
 export type HudPanel = "town" | "market" | "party" | "march" | "ledger" | "roster" | "why" | "none";
 
 /** Which detent of the time dial is live. Used by the pointer and the tick scale. */
-export type TimePositionId = "paused" | "normal" | "fast";
+export type TimePositionId = "paused" | "normal" | "fast" | "very-fast";
 
 /** One detent on the time dial. `scale` is the multiplier the simulation is run at. */
 export interface TimePosition {
@@ -102,7 +104,7 @@ const RESOURCES: { id: ResourceId; label: string }[] = [
 ];
 
 /**
- * The three detents of the time dial, in the order they sit on the arc.
+ * The four detents of the time dial, in the order they sit on the arc.
  *
  * `glyph` is decorative and always sits beside a typed `label`, because nothing in
  * this interface is an icon-only control. `phrase` is the longer form for the
@@ -112,6 +114,7 @@ export const TIME_POSITIONS = [
   { id: "paused", scale: 0, glyph: "‖", label: "Pause", name: "Pause", phrase: "Hold the clock where it is" },
   { id: "normal", scale: 1, glyph: "▶", label: "Normal", name: "Normal speed", phrase: "One day per real second" },
   { id: "fast", scale: 3, glyph: "▶▶", label: "Fast", name: "Fast speed", phrase: "Three days per real second" },
+  { id: "very-fast", scale: 10, glyph: "▶▶▶", label: "Very fast", name: "Very fast speed", phrase: "Ten days per real second" },
 ] as const satisfies readonly TimePosition[];
 
 export interface HudHandle {
@@ -197,7 +200,38 @@ export function createHud(options: HudOptions): HudHandle {
     bar.appendChild(res);
     bar.appendChild(uiScaleControl());
     bar.appendChild(dial(state.timeScale));
+    bar.appendChild(skipToArrival(state));
     return bar;
+  }
+
+  /**
+   * Jump the clock to the end of the current march. A one-shot button, not a dial
+   * detent: it does one thing once rather than setting a speed. Disabled when the
+   * party is not marching, because there is no arrival to skip to. Hidden entirely
+   * when the app supplies no skip handler.
+   */
+  function skipToArrival(state: HudState): HTMLElement {
+    if (!options.onSkipToArrival) return h("span", { style: "display:none" });
+    const marching = state.snapshot.party.destination !== null;
+    const btn = h(
+      "button",
+      {
+        type: "button",
+        class: "btn",
+        "data-testid": "skip-to-arrival",
+        "aria-label": marching
+          ? `Skip to arrival at ${state.snapshot.party.destination?.name}`
+          : "Skip to arrival",
+        title: marching
+          ? `Run the clock forward until the party reaches ${state.snapshot.party.destination?.name}.`
+          : "The party is not marching. Order a march first.",
+        disabled: marching ? undefined : true,
+      },
+      h("span", { class: "dial__glyph", "aria-hidden": "true" }, "⏭"),
+      h("span", { class: "dial__label" }, "Skip to arrival"),
+    );
+    btn.addEventListener("click", () => options.onSkipToArrival?.());
+    return btn;
   }
 
   /**
@@ -237,14 +271,14 @@ export function createHud(options: HudOptions): HudHandle {
   }
 
   /**
-   * The time control, as a rotary dial with three detents. `ART_DIRECTION.md`
+   * The time control, as a rotary dial with four detents. `ART_DIRECTION.md`
    * section 6.8 asks for exactly this and rules out the three-pill-button
    * alternative, so the face carries a pointer that swings to whichever detent is
    * live, and each detent is a tick on the printed scale beside it.
    *
-   * Semantically it is a radio group: one of three mutually exclusive positions, so
-   * the ARIA radiogroup pattern is used rather than three independent toggles. That
-   * means a roving `tabindex` (one stop in the tab order, not three) and arrow keys
+   * Semantically it is a radio group: one of four mutually exclusive positions, so
+   * the ARIA radiogroup pattern is used rather than four independent toggles. That
+   * means a roving `tabindex` (one stop in the tab order, not four) and arrow keys
    * to move between detents, which is what a real dial does. The buttons are not
    * hidden and not replaced by the drawing: the drawing is `aria-hidden`, and the
    * buttons are the controls.
