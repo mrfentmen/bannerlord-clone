@@ -36,12 +36,13 @@ type Report struct {
 	Bodies        [2]float64
 	TroopsPerUnit [2]float64
 
-	// TickSeconds, MaxTicks, MaxUnitsPerSide, and MaxStep are the balance
-	// constants the report's timings and bounds are read against.
+	// TickSeconds, MaxTicks, MaxUnitsPerSide, MaxStep, and MeleeRange are the
+	// balance constants the report's timings and bounds are read against.
 	TickSeconds     float64
 	MaxTicks        float64
 	MaxUnitsPerSide float64
 	MaxStep         float64
+	MeleeRange      float64
 
 	// Result is the engine's own outcome.
 	Result *battle.Result
@@ -106,15 +107,15 @@ type SideReport struct {
 	// engine's MoraleStart field is the CONFIGURED mean from the balance file, not
 	// what this force actually started at, and a report that printed only the
 	// configured mean would claim a shaken side arrived steady.
-	SetupMorale               float64
-	MoraleStart, MoraleEnd    float64
-	Shots, RangedHits          float64
-	Swings, MeleeHits          float64
-	AmmoSpent                  float64
-	SuppressionDealt           float64
-	SuppressionTaken           float64
-	Inflicted                  float64
-	Leaders                    int
+	SetupMorale            float64
+	MoraleStart, MoraleEnd float64
+	Shots, RangedHits      float64
+	Swings, MeleeHits      float64
+	AmmoSpent              float64
+	SuppressionDealt       float64
+	SuppressionTaken       float64
+	Inflicted              float64
+	Leaders                int
 }
 
 // howDecided names the condition that ended a battle, in the words a reader of a
@@ -250,6 +251,12 @@ func (r *Report) writeProbe(w io.Writer) {
 		p.ticks, p.units, p.maxAbsX, p.maxAbsY, p.maxStepSeen, p.stepLimit)
 	fmt.Fprintf(w, "          envelope after %d ticks: %.0f m on x, %.0f m on y\n",
 		p.ticks, p.bounds.X(p.ticks), p.bounds.Y(p.ticks))
+	// The contact line, printed whether or not it is good news, because "how close
+	// did the armies get" is the first question a reader has about a battle and the
+	// answer is the difference between a fight and two armies standing apart.
+	fmt.Fprintf(w, "          closest approach %.1f m between units that could strike each other, on %d of "+
+		"%d ticks inside a blow's reach of %g m\n",
+		p.minFoe, p.contactTicks, p.ticks, r.MeleeRange)
 }
 
 // writeChecks prints every rule and what it found.
