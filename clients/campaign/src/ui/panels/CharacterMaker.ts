@@ -1,13 +1,14 @@
 /**
  * The character maker: Bannerlord-style creation for modern America.
  *
- * Steps: Name → Appearance → Background (4 categories) → Review.
+ * Steps: Name → Appearance → Age → City → Background → Attributes → Review.
  * Each background choice grants skill bonuses and shapes the biography.
  * The result feeds into the campaign start.
  */
 
 import { clear, h } from "../dom.js";
-import { BACKGROUNDS, APPEARANCE_PRESETS, appearancesForEthnicity, computeCharacterStats, type GameCharacter } from "../../data/backgrounds.js";
+import { BACKGROUNDS, appearancesForEthnicity, computeCharacterStats,
+  START_CITIES, AGE_BRACKETS, type GameCharacter } from "../../data/backgrounds.js";
 import { ETHNICITIES } from "../../data/ethnicities.js";
 
 export interface CharacterMakerOptions {
@@ -16,16 +17,33 @@ export interface CharacterMakerOptions {
   testId?: string;
 }
 
-const MAKER_STEPS = ["Name", "Appearance", "Background", "Review"] as const;
-type MakerStep = 0 | 1 | 2 | 3;
+const MAKER_STEPS = ["Name", "Appearance", "Age", "City", "Background", "Attributes", "Review"] as const;
+type MakerStep = 0 | 1 | 2 | 3 | 4 | 5 | 6;
+
+const LAST_STEP: MakerStep = 6;
+const BONUS_POINTS_TOTAL = 5;
+const SKILL_NAMES = [
+  "combat",
+  "leadership",
+  "trade",
+  "medicine",
+  "engineering",
+  "athletics",
+  "streetwise",
+  "stealth",
+  "survival",
+] as const;
 
 export function characterMaker(options: CharacterMakerOptions): HTMLElement {
   let step: MakerStep = 0;
   let firstName = "";
   let lastName = "";
   let gender: "male" | "female" = "male";
-  let appearanceId = APPEARANCE_PRESETS[0]!.id;
+  let appearanceId = appearancesForEthnicity(ETHNICITIES[0]!.id)[0]?.id ?? "";
   let ethnicityId = ETHNICITIES[0]!.id;
+  let age = 30;
+  let startCity = "manhattan-sample";
+  let bonusPoints: Record<string, number> = {};
   let backgroundChoices: Record<string, string> = {};
   // Default to first option in each category.
   for (const cat of BACKGROUNDS) {
@@ -42,6 +60,11 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
   function canProceed(): boolean {
     if (step === 0) return firstName.trim().length > 0 && lastName.trim().length > 0;
     return true;
+  }
+
+  function pointsRemaining(): number {
+    const spent = Object.values(bonusPoints).reduce((a, b) => a + b, 0);
+    return BONUS_POINTS_TOTAL - spent;
   }
 
   function stepBar(): HTMLElement {
@@ -126,6 +149,8 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
       );
       btn.addEventListener("click", () => {
         ethnicityId = e.id;
+        // Reset appearance to this ethnicity's first preset.
+        appearanceId = appearancesForEthnicity(ethnicityId)[0]?.id ?? "";
         render();
       });
       egrid.appendChild(btn);
@@ -171,6 +196,68 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     return frag;
   }
 
+  function ageStep(): HTMLElement {
+    const frag = h("div", { class: "maker-step" });
+    frag.appendChild(h("h2", { class: "title" }, "How old are you?"));
+    frag.appendChild(h("p", { class: "caption" }, "Age shapes your starting skills."));
+
+    const grid = h("div", { class: "roles", "data-testid": "age-grid" });
+    for (const bracket of AGE_BRACKETS) {
+      // Use the midpoint of the bracket as the representative age.
+      const mid = Math.floor((bracket.min + bracket.max) / 2);
+      const selected = age >= bracket.min && age <= bracket.max;
+      const btn = h(
+        "button",
+        {
+          class: `role${selected ? " role--selected" : ""}`,
+          "aria-pressed": selected ? "true" : "false",
+          "data-testid": `age-${bracket.min}-${bracket.max}`,
+          title: bracket.effect,
+        },
+        h("strong", {}, bracket.label),
+        h("br"),
+        h("span", { class: "caption" }, bracket.effect),
+      );
+      btn.addEventListener("click", () => {
+        age = mid;
+        render();
+      });
+      grid.appendChild(btn);
+    }
+    frag.appendChild(grid);
+    return frag;
+  }
+
+  function cityStep(): HTMLElement {
+    const frag = h("div", { class: "maker-step" });
+    frag.appendChild(h("h2", { class: "title" }, "Where do you start?"));
+    frag.appendChild(h("p", { class: "caption" }, "Your home turf. You can travel anywhere after."));
+
+    const grid = h("div", { class: "roles", "data-testid": "city-grid" });
+    for (const city of START_CITIES) {
+      const selected = startCity === city.slug;
+      const btn = h(
+        "button",
+        {
+          class: `role${selected ? " role--selected" : ""}`,
+          "aria-pressed": selected ? "true" : "false",
+          "data-testid": `city-${city.slug}`,
+          title: city.description,
+        },
+        h("strong", {}, city.name),
+        h("br"),
+        h("span", { class: "caption" }, city.description),
+      );
+      btn.addEventListener("click", () => {
+        startCity = city.slug;
+        render();
+      });
+      grid.appendChild(btn);
+    }
+    frag.appendChild(grid);
+    return frag;
+  }
+
   function backgroundStep(): HTMLElement {
     const frag = h("div", { class: "maker-step" });
     frag.appendChild(h("h2", { class: "title" }, "Your story"));
@@ -204,21 +291,94 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     return frag;
   }
 
+  function attributesStep(): HTMLElement {
+    const frag = h("div", { class: "maker-step" });
+    frag.appendChild(h("h2", { class: "title" }, "Spend your bonus points"));
+    const remaining = pointsRemaining();
+    frag.appendChild(
+      h("p", { class: "caption", "data-testid": "points-remaining" },
+        `${remaining} of ${BONUS_POINTS_TOTAL} points remaining`),
+    );
+
+    const list = h("div", { "data-testid": "attributes-list" });
+    for (const skill of SKILL_NAMES) {
+      const pts = bonusPoints[skill] ?? 0;
+      const row = h("div", { class: "attr-row", style: "display:flex;align-items:center;gap:8px;margin:4px 0" });
+      row.appendChild(h("span", { style: "flex:1" }, skill));
+      const minus = h(
+        "button",
+        {
+          class: "btn",
+          "data-testid": `attr-minus-${skill}`,
+          disabled: pts <= 0 ? true : undefined,
+          "aria-label": `Remove point from ${skill}`,
+        },
+        "−",
+      ) as HTMLButtonElement;
+      minus.addEventListener("click", () => {
+        const cur = bonusPoints[skill] ?? 0;
+        if (cur > 0) {
+          bonusPoints[skill] = cur - 1;
+          if (bonusPoints[skill] === 0) delete bonusPoints[skill];
+          render();
+        }
+      });
+      const val = h("span", { "data-testid": `attr-value-${skill}`, style: "min-width:2ch;text-align:center" },
+        String(pts));
+      const plus = h(
+        "button",
+        {
+          class: "btn",
+          "data-testid": `attr-plus-${skill}`,
+          disabled: remaining <= 0 ? true : undefined,
+          "aria-label": `Add point to ${skill}`,
+        },
+        "+",
+      ) as HTMLButtonElement;
+      plus.addEventListener("click", () => {
+        if (pointsRemaining() > 0) {
+          bonusPoints[skill] = (bonusPoints[skill] ?? 0) + 1;
+          render();
+        }
+      });
+      row.append(minus, val, plus);
+      list.appendChild(row);
+    }
+    frag.appendChild(list);
+    return frag;
+  }
+
   function reviewStep(): HTMLElement {
     const frag = h("div", { class: "maker-step" });
     frag.appendChild(h("h2", { class: "title" }, "Review your character"));
 
-    const { skills, cash, biography } = computeCharacterStats(backgroundChoices);
+    const { skills, cash, biography } = computeCharacterStats(backgroundChoices, age, bonusPoints);
     const ethnicity = ETHNICITIES.find((e) => e.id === ethnicityId);
     const appearance = appearancesForEthnicity(ethnicityId).find((a) => a.id === appearanceId);
+    const bracket = AGE_BRACKETS.find((b) => age >= b.min && age <= b.max);
+    const city = START_CITIES.find((c) => c.slug === startCity);
 
     const card = h("div", { class: "sheet", "data-testid": "char-review" });
     card.appendChild(h("div", { style: "font-size:3rem;text-align:center" }, appearance?.icon ?? "🧑"));
     card.appendChild(h("h3", { style: "text-align:center" }, `${firstName} ${lastName}`));
     card.appendChild(
       h("p", { class: "caption", style: "text-align:center" },
-        `${gender === "male" ? "Male" : "Female"} · ${ethnicity?.name ?? ""} · ${appearance?.label ?? ""}`),
+        `${gender === "male" ? "Male" : "Female"} · ${bracket?.label ?? ""} · ${ethnicity?.name ?? ""} · ${appearance?.label ?? ""}`),
     );
+    card.appendChild(
+      h("p", { class: "caption", style: "text-align:center" },
+        `Starting city: ${city?.name ?? startCity}`),
+    );
+
+    const bonusEntries = Object.entries(bonusPoints).filter(([, v]) => v > 0);
+    if (bonusEntries.length > 0) {
+      card.appendChild(h("h4", {}, "Bonus points"));
+      const bonusList = h("ul", {});
+      for (const [skill, pts] of bonusEntries) {
+        bonusList.appendChild(h("li", {}, `${skill}: +${pts}`));
+      }
+      card.appendChild(bonusList);
+    }
 
     card.appendChild(h("h4", {}, "Starting skills"));
     const skillList = h("ul", {});
@@ -243,7 +403,10 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     const body = h("div", { class: "maker-body" });
     if (step === 0) body.appendChild(nameStep());
     else if (step === 1) body.appendChild(appearanceStep());
-    else if (step === 2) body.appendChild(backgroundStep());
+    else if (step === 2) body.appendChild(ageStep());
+    else if (step === 3) body.appendChild(cityStep());
+    else if (step === 4) body.appendChild(backgroundStep());
+    else if (step === 5) body.appendChild(attributesStep());
     else body.appendChild(reviewStep());
     root.appendChild(body);
 
@@ -257,7 +420,7 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
       cancel.addEventListener("click", () => options.onCancel());
       nav.appendChild(cancel);
     }
-    if (step < 3) {
+    if (step < LAST_STEP) {
       nextBtn = h("button", {
         class: "btn btn--primary",
         "data-testid": "maker-next",
@@ -270,7 +433,7 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     } else {
       const done = h("button", { class: "btn btn--primary", "data-testid": "maker-done" }, "Start Game");
       done.addEventListener("click", () => {
-        const { skills, cash, biography } = computeCharacterStats(backgroundChoices);
+        const { skills, cash, biography } = computeCharacterStats(backgroundChoices, age, bonusPoints);
         options.onComplete({
           firstName: firstName.trim(),
           lastName: lastName.trim(),
@@ -278,6 +441,9 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
           appearanceId,
           ethnicityId,
           backgroundChoices: { ...backgroundChoices },
+          bonusPoints: { ...bonusPoints },
+          startCity,
+          age,
           startingSkills: skills,
           startingCash: cash,
           biography,

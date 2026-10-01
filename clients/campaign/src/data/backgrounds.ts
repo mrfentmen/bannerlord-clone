@@ -272,18 +272,42 @@ export interface GameCharacter {
   appearanceId: string;
   ethnicityId: string;
   backgroundChoices: Record<string, string>; // categoryId -> optionId
-  /** Computed starting skills from backgrounds + ethnicity. */
+  /** Player-allocated bonus points: skill -> points. */
+  bonusPoints: Record<string, number>;
+  /** Starting city slug. */
+  startCity: string;
+  /** Character age. */
+  age: number;
+  /** Computed starting skills from backgrounds + ethnicity + bonus points. */
   startingSkills: Record<string, number>;
   startingCash: number;
   biography: string;
 }
 
+/** Starting cities — the 4 we have 3D data for. */
+export const START_CITIES: { slug: string; name: string; description: string }[] = [
+  { slug: "manhattan-sample", name: "New York City", description: "8,156 buildings. The big leagues." },
+  { slug: "la-downtown", name: "Los Angeles", description: "342 buildings. Sunshine and sprawl." },
+  { slug: "houston-downtown", name: "Houston", description: "217 buildings. Oil money and heat." },
+  { slug: "miami-downtown", name: "Miami", description: "224 buildings. Neon and ocean." },
+];
+
+/** Age brackets with mechanical effects. */
+export const AGE_BRACKETS: { min: number; max: number; label: string; effect: string }[] = [
+  { min: 18, max: 25, label: "Young (18-25)", effect: "+2 Athletics, -1 Leadership" },
+  { min: 26, max: 35, label: "Prime (26-35)", effect: "Balanced. No modifiers." },
+  { min: 36, max: 50, label: "Veteran (36-50)", effect: "+2 Leadership, -1 Athletics" },
+  { min: 51, max: 70, label: "Elder (51+)", effect: "+3 Leadership, +1 Trade, -2 Athletics, -1 Combat" },
+];
+
 /**
- * Compute starting skills and cash from background choices.
+ * Compute starting skills and cash from background choices, age, and bonus points.
  * Base is 1 in every skill; backgrounds add on top.
  */
 export function computeCharacterStats(
   backgroundChoices: Record<string, string>,
+  age: number = 30,
+  bonusPoints: Record<string, number> = {},
 ): { skills: Record<string, number>; cash: number; biography: string } {
   const skills: Record<string, number> = {
     combat: 1,
@@ -308,6 +332,25 @@ export function computeCharacterStats(
     }
     cash += option.cash;
     storyParts.push(option.story);
+  }
+
+  // Age modifiers.
+  if (age <= 25) {
+    skills.athletics = (skills.athletics ?? 1) + 2;
+    skills.leadership = Math.max(1, (skills.leadership ?? 1) - 1);
+  } else if (age >= 36 && age <= 50) {
+    skills.leadership = (skills.leadership ?? 1) + 2;
+    skills.athletics = Math.max(1, (skills.athletics ?? 1) - 1);
+  } else if (age > 50) {
+    skills.leadership = (skills.leadership ?? 1) + 3;
+    skills.trade = (skills.trade ?? 1) + 1;
+    skills.athletics = Math.max(1, (skills.athletics ?? 1) - 2);
+    skills.combat = Math.max(1, (skills.combat ?? 1) - 1);
+  }
+
+  // Player-allocated bonus points.
+  for (const [skill, pts] of Object.entries(bonusPoints)) {
+    skills[skill] = (skills[skill] ?? 1) + pts;
   }
 
   return { skills, cash, biography: storyParts.join(" ") };
