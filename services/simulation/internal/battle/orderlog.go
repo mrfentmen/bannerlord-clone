@@ -108,6 +108,18 @@ const (
 	// hold" from "said nothing", and a log that collapsed them would record a
 	// commander's silence as a command.
 	OrderHold
+	// OrderFormation is an order that names the shape a unit is standing in and
+	// says nothing about where it goes this tick.
+	//
+	// It is the formation layer's row. A man already standing in his slot must
+	// not be given a movement order to say so: the engine's own rules decide
+	// whether a man in contact fights or closes, and a formation is not a reason
+	// to stop him doing either. He is still in the shape, and the shape is still
+	// doing whatever the balance file says it does to him, so the row has to
+	// exist. Recording it as an OrderHold would tell the replay to stand him
+	// still, and the replay would then be a battle in which every man in a
+	// formation is a statue and the original is not.
+	OrderFormation
 )
 
 // String names the order kind.
@@ -117,6 +129,8 @@ func (k OrderKind) String() string {
 		return "move"
 	case OrderHold:
 		return "hold"
+	case OrderFormation:
+		return "formation"
 	default:
 		return "unknown"
 	}
@@ -160,6 +174,20 @@ type Order struct {
 	// through the delta buffer and the battle report has to describe what the men
 	// were told to do rather than what they would have done.
 	Intent Intent
+	// Formation is the shape the unit was in when the order was given, and
+	// Facing is the bearing that shape looked. They are recorded because they
+	// change what the engine does to the man: a wedge's charge bonus, its open
+	// flank, a square against a fast mover, a skirmish line's bargain. A log
+	// that dropped them would replay a battle in which nobody was in any
+	// formation, which is a different battle wearing the same orders.
+	//
+	// FormationNone is the zero value and is what an order from a commander that
+	// has no opinion about shapes carries, which is exactly right: those orders
+	// were issued into no formation and replayed into no formation.
+	Formation Formation
+	// Facing is the bearing the formation looked, in radians counter-clockwise
+	// from +X. It is read only when Formation is a shape.
+	Facing float64
 	// Source names the commanding layer that issued the order, as free text. It is
 	// never parsed and never affects the battle. It is here so that a log holding
 	// orders from two sources, which is what a replay of a battle where the player
@@ -337,6 +365,8 @@ func hashOrder(h uint64, o Order) uint64 {
 	h = mixUint64(h, floatBits(o.DX))
 	h = mixUint64(h, floatBits(o.DY))
 	h = mixUint64(h, uint64(o.Intent))
+	h = mixUint64(h, uint64(o.Formation))
+	h = mixUint64(h, floatBits(o.Facing))
 	for i := 0; i < len(o.Source); i++ {
 		h ^= uint64(o.Source[i])
 		h *= orderLogHashPrime
@@ -484,6 +514,15 @@ func formatOrderRow(o Order) string {
 	sb.WriteString(formatFloat(o.DY))
 	sb.WriteString(`,"intent":`)
 	sb.WriteString(strconv.Itoa(int(o.Intent)))
+	// The formation and its bearing. They are written for every row, including
+	// the ones from a commander that never had an opinion about shapes, so that
+	// the row layout does not depend on which commander wrote it. A layout that
+	// changed with the caller would make two logs of the same engine shape
+	// differently for no reason a reader could see.
+	sb.WriteString(`,"formation":`)
+	sb.WriteString(strconv.Itoa(int(o.Formation)))
+	sb.WriteString(`,"facing":`)
+	sb.WriteString(formatFloat(o.Facing))
 	sb.WriteString(`,"source":`)
 	writeJSONString(&sb, o.Source)
 	sb.WriteString(`}`)
@@ -653,6 +692,13 @@ func parseOrderRow(line []byte) (Order, error) {
 			v, err := parseOrderInt(key, raw)
 			o.Intent = Intent(v)
 			return err
+		case "formation":
+			v, err := parseOrderInt(key, raw)
+			o.Formation = Formation(v)
+			return err
+		case "facing":
+			o.Facing = mustParseFloat(raw)
+			return nil
 		case "side":
 			s, quoted, err := parseOrderString(raw)
 			if err != nil {
@@ -719,8 +765,8 @@ func parseOrderRow(line []byte) (Order, error) {
 	if o.Tick < 0 {
 		return o, fmt.Errorf("tick %d is negative", o.Tick)
 	}
-	if o.Kind != OrderMove && o.Kind != OrderHold {
-		return o, fmt.Errorf("order kind %d is neither move nor hold", int(o.Kind))
+	if o.Kind != OrderMove && o.Kind != OrderHold && o.Kind != OrderFormation {
+		return o, fmt.Errorf("order kind %d is neither move, hold, nor formation", int(o.Kind))
 	}
 	return o, nil
 }
@@ -942,6 +988,8 @@ func parseIntentName(s string) Intent {
 		return IntentWithdraw
 	case "rout":
 		return IntentRout
+	case "hold":
+		return IntentHold
 	default:
 		return Intent(255)
 	}
@@ -954,6 +1002,8 @@ func parseOrderKindName(s string) OrderKind {
 		return OrderMove
 	case "hold":
 		return OrderHold
+	case "formation":
+		return OrderFormation
 	default:
 		return OrderKind(255)
 	}

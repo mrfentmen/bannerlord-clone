@@ -69,7 +69,12 @@ func (b *Battle) stageAimedFire() {
 		suppression := c.RangedSuppressionShare * c.RangedSuppressionPerHit
 		d.suppressionDealt = suppression
 		td := &b.deltas[tid]
-		td.Suppression += suppression
+		// What the target is standing in. Only skirmish order has anything to
+		// say about aimed fire, and what it says is that men spread out do not
+		// present one target: the burst lands, and a smaller share of it pins
+		// him. It scales the suppression and not the injury, because spreading
+		// out does not stop a bullet that has already found a man.
+		td.Suppression += suppression * b.suppressionTakenScale(tid)
 
 		injury := 1 - c.RangedSuppressionShare
 		if injury <= 0 {

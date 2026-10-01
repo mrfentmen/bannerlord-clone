@@ -1928,6 +1928,53 @@ type Formation struct {
 	// formation walks the arc around the enemy and arrives at the flank having
 	// gone round, which is what a flanking march looks like from above.
 	FlankSweepRateDeg float64
+
+	// --- what each shape does in contact ---
+	//
+	// The knobs above say where a formation stands. These say what standing
+	// there costs and pays, and they are read by internal/battle, which is
+	// where a formation order turns into movement and into the multipliers the
+	// melee and aimed-fire stages apply to a man in a shape. They live here
+	// rather than in that package for the reason the rest of this struct is
+	// here: one balance file, one loader, one table of keys.
+	//
+	// A shape with no knob in this block is a reference shape, which means it
+	// neither adds nor takes anything away. Line and column are the reference
+	// shapes.
+
+	// WedgeChargeDamageBonus is the share of extra melee damage a wedge deals
+	// while it is moving at charge speed, on top of the closing-speed term the
+	// damage formula already applies. It is the reason to send a wedge in
+	// rather than a line. Range 0-3.
+	WedgeChargeDamageBonus float64
+	// WedgeFlankTakenScale is how much harder a wedge takes a blow arriving
+	// from outside its front arc. A wedge has no flanks in the ordinary sense,
+	// which is its virtue and also its weakness: once the enemy is past the
+	// tip, the whole body of it is open from the side. Range 0-3, and above 1
+	// is the penalty.
+	WedgeFlankTakenScale float64
+	// WedgeFlankArcDeg is how wide the protected front of a wedge is, in
+	// degrees either side of the bearing the formation faces. Range 30-360.
+	WedgeFlankArcDeg float64
+	// SquareFastMoverSpeed is the speed, in metres per second, above which a
+	// man counts as a fast mover against a square: a charge at the run, or a
+	// vehicle. That is the threat a square is built to stop. Range 0.1-25.
+	SquareFastMoverSpeed float64
+	// SquareFastMoverTakenScale is the share of a melee blow from a fast mover
+	// that reaches a square. A square is a wall and not a spear. Range 0-1.
+	SquareFastMoverTakenScale float64
+	// SquareMoveSpeedScale is the share of a formation pace a square moves
+	// at, because a square is a shape a commander builds and keeps rather than
+	// crosses open ground in. Range 0.05-1.
+	SquareMoveSpeedScale float64
+	// SkirmishSuppressionTakenScale is the share of aimed-fire suppression
+	// that lands on men in skirmish order. Spread out is the whole point of
+	// the shape, and suppression is what breaks a formation. Range 0-1.
+	SkirmishSuppressionTakenScale float64
+	// SkirmishMeleeTakenScale is the share of melee damage done to men in
+	// skirmish order that they actually pay, because a scattered man is in
+	// reach of several others at once. Range 0.5-3.
+	SkirmishMeleeTakenScale float64
 }
 
 // Command holds every threshold the tactics layer uses to decide what a

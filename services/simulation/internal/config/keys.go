@@ -741,6 +741,20 @@ func (l *loader) load(c *Config) {
 	c.Formation.FlankStandoff = l.f64("formation.flank_standoff")
 	c.Formation.FlankSweepDeg = l.f64("formation.flank_sweep_deg")
 	c.Formation.FlankSweepRateDeg = l.f64("formation.flank_sweep_rate_deg")
+	// What each shape does in contact, as opposed to where it stands. Read by
+	// internal/battle: a formation order becomes movement there, and the shape
+	// a unit is standing in becomes a multiplier in the melee and aimed-fire
+	// stages. The same one-loader rule as the rest of the section applies, and
+	// these are the keys that were missing for it: before them a shape could be
+	// drawn on the field and nothing could be said about what it was worth.
+	c.Formation.WedgeChargeDamageBonus = l.f64("formation.wedge_charge_damage_bonus")
+	c.Formation.WedgeFlankTakenScale = l.f64("formation.wedge_flank_taken_scale")
+	c.Formation.WedgeFlankArcDeg = l.f64("formation.wedge_flank_arc_deg")
+	c.Formation.SquareFastMoverSpeed = l.f64("formation.square_fast_mover_speed")
+	c.Formation.SquareFastMoverTakenScale = l.f64("formation.square_fast_mover_taken_scale")
+	c.Formation.SquareMoveSpeedScale = l.f64("formation.square_move_speed_scale")
+	c.Formation.SkirmishSuppressionTakenScale = l.f64("formation.skirmish_suppression_taken_scale")
+	c.Formation.SkirmishMeleeTakenScale = l.f64("formation.skirmish_melee_taken_scale")
 
 	// --- command ---
 	// The tactics layer, internal/command. Same arrangement as [formation] and
