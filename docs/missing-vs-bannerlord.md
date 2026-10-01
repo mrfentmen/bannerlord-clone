@@ -20,6 +20,22 @@
 
 ---
 
+## Terminology
+
+The left column keeps Bannerlord's medieval names — that is what we are comparing against. Everywhere this file talks about **our** game, it uses the modern terms on the right. `town` is used as-is in both.
+
+| Bannerlord | Ours |
+|---|---|
+| kingdom | faction |
+| village | neighborhood |
+| town | town |
+| fief | turf |
+| lord | boss |
+| clan | clan (crew / family) |
+| hearth | hearth (household — kept as the mechanic name) |
+
+---
+
 ## 1. The headline: what is genuinely missing
 
 These are absent from every one of our 24 docs. This is the actual answer to the question.
@@ -128,7 +144,7 @@ Not missing — scheduled. Included so nobody rebuilds these.
 Its research was good. Two findings survive the baseline problem:
 
 1. **"Our spec mentions loyalty once without any mechanics"** — wrong about the doc, but right about the *gap*. Our loyalty is qualitative: `CAUSE_EFFECT.md` §3 says it "reads unrest, promises kept and broken, tax_rate, recent security, outside offers" with no numbers. Bannerlord's is arithmetic: governor culture ±1, security ≥50 +1 / <50 −2, each supporting notable ±0.5, drift toward 50, ≥75 boosts tax and prosperity. **Converting our qualitative chain to those thresholds is the real task.**
-2. **Village hearth tiers scale production** (0.5× / 1× / 1.5× by hearth count). We have villages with `yield` but no hearth tier.
+2. **Village hearth tiers scale production** (0.5× / 1× / 1.5× by hearth count). We have neighborhoods with `yield` but no hearth tier.
 
 Its formula for sneak chance and its conformity numbers are both good starting points for §1.
 
@@ -151,7 +167,7 @@ Ordered by dependency, not by excitement. `CONSTITUTION.md` §7.1 says phases ar
 
 **Tier 0 — verify what exists.** Phase 0 cannot be signed off and Phase 1 cannot be measured. `services/simulation` has 27 systems and zero tests; 10 of 12 seeds panic in world generation; the simulation is not reproducible from a seed. **None of the 60 items above can be validated until this closes.**
 
-**Tier 1 — the keystone.** Clans (1.1–1.3). Unblocks heirs, marriage, succession, kingdom policy voting, and gives overextension its missing enforcement. Everything in §1.1 depends on it and nothing else does.
+**Tier 1 — the keystone.** Clans (1.1–1.3). Unblocks heirs, marriage, succession, faction policy voting, and gives overextension its missing enforcement. Everything in §1.1 depends on it and nothing else does.
 
 **Tier 2 — cheapest structural wins.** Militia and rebellion together (2.1, 2.2). Pure arithmetic on `garrison` and `loyalty`, and they deliver the anti-snowball behaviour Bannerlord gets from them.
 
