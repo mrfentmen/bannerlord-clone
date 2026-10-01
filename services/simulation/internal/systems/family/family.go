@@ -123,13 +123,40 @@ func run(v *sim.View, w *sim.WriteSet) {
 
 			if newDays >= pregnancyDuration {
 				// Birth! Create a child leader.
-				// The child is born as age 0.
-				// Note: Creating a new leader entity is complex;
-				// for now, we just clear the pregnancy and log the birth.
-				// A full implementation would spawn a child Leader.
+				// The child is born as age 0, marked as a child (cannot
+				// inherit or hold land until adulthood).
+				mother := l
+				father := v.State.Leaders[l.SpouseID]
+				// Determine parents (mother is the pregnant one).
+				var fatherID, motherID int
+				if father != nil {
+					// Assume the lower ID is the mother for simplicity;
+					// in practice, track which one was pregnant.
+					motherID = lid
+					fatherID = l.SpouseID
+				} else {
+					motherID = lid
+					fatherID = -1
+				}
+				// Spawn the child via CreateEntity.
+				w.CreateEntity(func(s *model.State) {
+					childID := s.NewID(model.IDRuler)
+					child := &model.Leader{
+						ID:            childID,
+						Name:          "Child of " + mother.Name,
+						Age:           0,
+						IsAlive:       true,
+						IsChild:       true,
+						FatherID:      fatherID,
+						MotherID:      motherID,
+						SpouseID:      -1,
+						HeirID:        -1,
+						PregnancyDays: -1,
+					}
+					s.Leaders[childID] = child
+				})
 				w.Set(model.KindLeader, lid, "pregnancy_days", -1,
 					read, causes, "birth")
-				// TODO: Spawn child leader entity.
 			} else {
 				w.Set(model.KindLeader, lid, "pregnancy_days", newDays,
 					read, causes, "pregnancy progresses")
