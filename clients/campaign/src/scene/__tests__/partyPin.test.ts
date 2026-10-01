@@ -9,7 +9,8 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { Mesh, Scene } from "@babylonjs/core";
+import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
+import { Scene } from "@babylonjs/core/scene.js";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { sizePartyPin } from "../CampaignScene.js";
 import { markerWorldSize } from "../network.js";

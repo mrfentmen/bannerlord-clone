@@ -19,16 +19,13 @@
  * a manifest decision, so nothing here names a file that does not exist.
  */
 
-import {
-  Color3,
-  Scene,
-  SceneLoader,
-  StandardMaterial,
-  TransformNode,
-  type AbstractMesh,
-  type ISceneLoaderAsyncResult,
-  type Material,
-} from "@babylonjs/core";
+import { Color3 } from "@babylonjs/core/Maths/math.color.js";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
+import type { Material } from "@babylonjs/core/Materials/material.js";
+import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
+import type { AbstractMesh } from "@babylonjs/core/Meshes/abstractMesh.js";
+import { SceneLoader, type ISceneLoaderAsyncResult } from "@babylonjs/core/Loading/sceneLoader.js";
+import type { Scene } from "@babylonjs/core/scene.js";
 import { ProceduralUnitFactory, metadataFor, slotColour } from "./procedural.js";
 import {
   clampScale,

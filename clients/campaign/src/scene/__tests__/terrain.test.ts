@@ -9,7 +9,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { Scene } from "@babylonjs/core";
+import { Scene } from "@babylonjs/core/scene.js";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { buildTerrain } from "../terrain.js";
 import { makeProjection } from "../../world/load.js";

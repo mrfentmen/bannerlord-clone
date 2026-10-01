@@ -23,7 +23,8 @@
     "e2e": "playwright test"
   },
   "dependencies": {
-    "@babylonjs/core": "^8.0.0"
+    "@babylonjs/core": "^8.0.0",
+    "@babylonjs/loaders": "8.56.2"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0",

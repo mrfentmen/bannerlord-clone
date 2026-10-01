@@ -11,7 +11,12 @@
  * what the DEM actually measured rather than smoothing it into a guess.
  */
 
-import { Color3, Color4, Mesh, Scene, StandardMaterial, VertexData, Vector3 } from "@babylonjs/core";
+import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
+import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
+import type { Scene } from "@babylonjs/core/scene.js";
 import { terrainBands, tokens } from "../design/tokens.js";
 import { bandFor } from "../world/load.js";
 import type { Heightfield, Projection } from "../world/types.js";

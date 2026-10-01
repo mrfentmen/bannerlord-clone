@@ -10,7 +10,14 @@
  * actually are rather than a straight line.
  */
 
-import { Color3, DynamicTexture, Mesh, MeshBuilder, Scene, StandardMaterial, Vector3, VertexData } from "@babylonjs/core";
+import { Color3 } from "@babylonjs/core/Maths/math.color.js";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
+import { VertexData } from "@babylonjs/core/Meshes/mesh.vertexData.js";
+import { CreatePlane } from "@babylonjs/core/Meshes/Builders/planeBuilder.js";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
+import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture.js";
+import type { Scene } from "@babylonjs/core/scene.js";
 import { mapColor, tokens, townColor } from "../design/tokens.js";
 import type { Projection, RoadWay, RailWay, WorldSettlement } from "../world/types.js";
 import { classifySettlement } from "../world/load.js";
@@ -595,7 +602,7 @@ function buildMarker(
   material.disableLighting = true;
   void networkMaterial;
 
-  const plane = MeshBuilder.CreatePlane(name, { size: markerWorldSize(klass) }, scene);
+  const plane = CreatePlane(name, { size: markerWorldSize(klass) }, scene);
   plane.material = material;
   plane.billboardMode = Mesh.BILLBOARDMODE_ALL;
   plane.isPickable = true;

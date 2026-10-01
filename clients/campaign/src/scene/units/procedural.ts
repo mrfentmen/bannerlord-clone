@@ -14,15 +14,16 @@
  * what makes it testable without a GPU.
  */
 
-import {
-  Color3,
-  Mesh,
-  MeshBuilder,
-  Scene,
-  StandardMaterial,
-  TransformNode,
-  VertexBuffer,
-} from "@babylonjs/core";
+import { Color3 } from "@babylonjs/core/Maths/math.color.js";
+import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
+import { CreateBox } from "@babylonjs/core/Meshes/Builders/boxBuilder.js";
+import { CreateCapsule } from "@babylonjs/core/Meshes/Builders/capsuleBuilder.js";
+import { CreateCylinder } from "@babylonjs/core/Meshes/Builders/cylinderBuilder.js";
+import { CreatePlane } from "@babylonjs/core/Meshes/Builders/planeBuilder.js";
+import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
+import { VertexBuffer } from "@babylonjs/core/Buffers/buffer.js";
+import type { Scene } from "@babylonjs/core/scene.js";
 import {
   isHexColour,
   normalizeAppearance,
@@ -295,20 +296,20 @@ export class ProceduralUnitFactory implements UnitFactory {
 
     const mesh =
       part.shape === "box"
-        ? MeshBuilder.CreateBox(meshName, { width: w, height: h, depth: d }, this.#scene)
+        ? CreateBox(meshName, { width: w, height: h, depth: d }, this.#scene)
         : part.shape === "capsule"
-          ? MeshBuilder.CreateCapsule(
+          ? CreateCapsule(
               meshName,
               { height: h, radius: w / 2, tessellation: part.tessellation ?? 8, capSubdivisions: 1, subdivisions: 1 },
               this.#scene,
             )
           : part.shape === "cylinder"
-            ? MeshBuilder.CreateCylinder(
+            ? CreateCylinder(
                 meshName,
                 { height: h, diameter: w, diameterTop: w, tessellation: part.tessellation ?? 8 },
                 this.#scene,
               )
-            : MeshBuilder.CreatePlane(meshName, { width: w, height: h }, this.#scene);
+            : CreatePlane(meshName, { width: w, height: h }, this.#scene);
 
     mesh.position.set(x, y, z);
     if (part.rotation) mesh.rotation.set(part.rotation[0], part.rotation[1], part.rotation[2]);

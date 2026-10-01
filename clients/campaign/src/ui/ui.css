@@ -1019,29 +1019,42 @@
   .res { padding: var(--space-1) var(--space-2); }
   .btn { min-height: 44px; }
 
-  /* ART_DIRECTION.md section 13 asks for a two-row sticky header at this width. A grid
-     places it deterministically: the clock, the scrolling resource chips and the text
-     size share the first row, and the dial takes a full row of its own. Left as a
-     wrapping flex row the clock and the dial would not both fit on one line and the
-     header would silently become three rows, and the text size would fall into a fourth
-     implicit one. */
+  /* ART_DIRECTION.md section 13 asks for a compact sticky header at this width. A grid
+     places it deterministically, one thing per row: the clock and the text size share
+     the first row, the resource chips take the second, and the dial takes the third.
+     Left as a wrapping flex row the clock and the dial would not both fit on one line
+     and the header would silently become three rows, and the text size would fall into
+     a fourth implicit one.
+
+     The chips were on the first row, beside the clock, where they had 208px of a 366px
+     header and 378px of content: two chips whole and a third sliced through the middle,
+     with the other two only reachable by a sideways scroll nobody knows to try. The row
+     costs 72px, which is one chip row, and it buys the whole form for the chips. The
+     chips are still a strip that scrolls if the numbers ever outgrow the row, so this
+     costs nothing when the money runs to seven figures. */
   .topbar {
     display: grid;
     grid-template-columns: auto minmax(0, 1fr) auto;
-    grid-template-areas: "clock resources uiscale" "dial dial dial";
+    grid-template-areas: "clock uiscale uiscale" "resources resources resources" "dial dial dial";
   }
-  .topbar__clock { grid-area: clock; padding-left: 0; }
+  .topbar__clock { grid-area: clock; padding-left: 0; padding-right: var(--space-3); }
   .topbar__resources { grid-area: resources; }
-  /* Not worth its own row at 390px, so it drops its visible label and keeps its
-     accessible name, which is what a screen reader announces either way. */
+  /* Right-aligned on the clock's row, which is otherwise only as wide as the clock. */
   .uiscale {
     grid-area: uiscale;
+    justify-self: end;
     border-left: 0;
     padding-left: 0;
     padding-right: 0;
   }
+  /* Not worth its own row at 390px, so it drops its visible label and keeps its
+     accessible name, which is what a screen reader announces either way. */
   .uiscale__label { display: none; }
   .uiscale__select { min-width: var(--space-7); }
+  /* Four pixels of side padding rather than eight. Five chips is 378px at eight and 338px
+     at four, and the row is 366px: this is the difference between five resources on
+     screen and two and a half. The vertical padding is already one step. */
+  .res { padding: var(--space-1); }
   .dial {
     grid-area: dial;
     justify-content: center;
@@ -1150,6 +1163,80 @@
   .costs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .why__link[data-depth="3"] { margin-left: var(--space-4); }
   .why__link[data-depth="4"] { margin-left: var(--space-5); }
+
+  /* ---------- the rail, measured at 390 x 844 ----------
+   *
+   * Below 899 px the rail is a horizontal strip that scrolls sideways, which is the
+   * right shape for the two information cards in it. It was also the shape for the four
+   * panel buttons and the data-source button, and that is what made them unusable.
+   * Measured at 390 px on the campaign map: the rail is 935px of content in a 366px
+   * strip, the button group alone sits at left 172 to right 487, so "Ledger" had 62 of
+   * its 77px on screen and "Rulers" was 413px to 487px, entirely past the right edge.
+   * Neither could be tapped, and the warnings behind them and the data-source button
+   * at left 709 were further out still. A scroll gesture nobody knows to try is not a
+   * control being reachable, so the buttons have to come out of the scroller.
+   *
+   * The rail becomes a wrapping flex block instead. The four panel buttons take the
+   * first line, four across, which is the only arrangement that puts all four on screen
+   * at once: 366px is 91px a button, and the longest label is "Rulers" at 42px of type
+   * plus 16px of padding. The two information cards share the second line and share it
+   * evenly, so no card needs a scroll to be read. The data-source button takes the last
+   * line at full width, because it is a sentence rather than a word.
+   *
+   * `order` rather than a new wrapper is what puts the two cards on one line, and what
+   * puts the controls above them. A flex line breaks before the first item that will not
+   * fit, and a button group with a 100% basis never shares a line with anything, so in
+   * DOM order the cards would be pushed onto lines of their own and the rail would
+   * become a column about 500px tall. It also means that on a viewport too short to hold
+   * the whole rail, what stays on screen while the cards scroll is the four buttons and
+   * not a reference table. Nothing in either card takes focus before the buttons, so the
+   * tab order still follows what is on screen.
+   *
+   * The height cap is a guard, not a guess. The rail's content measures about 338px and
+   * the bottom sheet needs roughly 150px of an 844px frame, so at any phone size in this
+   * range the rail fits whole. Where it would not, it scrolls inside itself rather than
+   * growing into the sheet and covering the notifications.
+   */
+  .rail {
+    flex-wrap: wrap;
+    overflow-x: hidden;
+    overflow-y: auto;
+    max-height: 46vh;
+    padding-bottom: 0;
+    scrollbar-width: thin;
+  }
+
+  .rail__card { flex: 1 1 8rem; min-width: 0; }
+
+  /* flex-basis 100% with no shrink: the buttons take a line of their own instead of
+     being squeezed into whatever the cards left over. */
+  .rail .stack {
+    order: -1;
+    flex: 1 0 100%;
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: var(--space-1);
+    align-items: stretch;
+  }
+  .rail .stack > * { min-width: 0; padding: 0 var(--space-2); }
+
+  .rail > .btn { order: 1; flex: 1 0 100%; align-self: stretch; }
+
+  /* A notification card is at most as wide as the tray it scrolls in, so no card can
+     be wider than the viewport at any width. The tray still scrolls sideways, which is
+     the single-line ticker ART_DIRECTION.md section 13 asks for at this width. */
+  .notice { max-width: min(16rem, 100%); }
+
+  /* The top-bar figures are `type-data-lg`, 26px of tabular mono, which is right for a
+     desktop form and unaffordable five times over in a 170px strip: at 390 px the money
+     figure alone is 140px wide and the strip showed one and a half of the five
+     resources. One step down the type scale nearly doubles how many are on screen at
+     once without dropping any of them, and the chips still scroll sideways, which is
+     what section 13 asks for at this width. Nothing is hidden and no row moves. */
+  .topbar__resources .res__figure {
+    font-size: var(--type-data-size);
+    line-height: var(--type-data-line);
+  }
 }
 
 /* ---------- town, market and party panels ----------
@@ -1490,6 +1577,112 @@
 .start__confirm-role { margin-top: var(--space-2); }
 
 .step:disabled { color: var(--ink-300); background: var(--paper-200); border-color: var(--paper-300); cursor: not-allowed; }
+
+/* ---------- degraded boot ----------
+ *
+ * The screen shown when the simulation will not answer. It reuses `.start`, so the paper,
+ * the type scale and the fact grid are the ones the start screen already uses, and adds
+ * only the three things this screen has that the start screen does not: a status strip, a
+ * column that holds the error, and a sheet that lists what the world files contain.
+ *
+ * It is a sheet over the map rather than a replacement for it, so `background` is the paper
+ * at reduced strength: the real terrain is behind it and stays visible, which is the whole
+ * argument the screen is making. An opaque screen saying "the map loaded" would be asking
+ * to be believed rather than shown.
+ */
+.degraded-boot {
+  background: var(--paper-200);
+  background-image: var(--paper-fibre);
+  background-blend-mode: multiply;
+}
+
+.degraded-boot__inner {
+  max-width: 62rem;
+  display: grid;
+  gap: var(--space-4);
+  align-content: start;
+}
+
+.degraded-boot__status {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-2) var(--space-3);
+  background: var(--paper-0);
+  border: 1px solid var(--paper-300);
+  border-left: 4px solid var(--status-warning);
+}
+
+.degraded-boot__error { display: grid; gap: var(--space-2); }
+
+.degraded-boot__waiting { margin: 0; }
+
+.degraded-boot__world { padding: var(--space-4); }
+.degraded-boot__world .start__facts { margin-top: 0; }
+.degraded-boot__absent { display: grid; gap: var(--space-1); margin-top: var(--space-3); }
+.degraded-boot__absent .label { display: block; }
+.degraded-boot__actions { margin-top: var(--space-4); }
+
+/* ---------- the world without a simulation ---------- */
+
+/* A banner rather than a full-screen panel: the map is the point, and a sheet over the
+   whole of it would be the white screen this path exists to replace. */
+.offline {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-rows: auto 1fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 26rem);
+  gap: var(--space-3);
+  padding: var(--space-3);
+  pointer-events: none;
+}
+
+.offline > * { pointer-events: auto; }
+
+.offline-banner {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+  padding: var(--space-2) var(--space-3);
+  background: var(--status-warning-fill);
+  color: var(--status-warning-ink);
+  font-size: var(--type-caption-size);
+}
+
+/* The key is the status glyph plus the words, rather than the status chip, because the chip
+   would put its own paper surface inside a filled banner and there is no room for two.
+   The glyph is aria-hidden in the markup because the words beside it carry the status for
+   a screen reader, and the shape carries it for a reader with no colour vision. */
+.offline-banner__glyph { flex: 0 0 auto; }
+.offline-banner__key { flex: 0 0 auto; font-weight: 700; letter-spacing: 0.09em; text-transform: uppercase; }
+.offline-banner__text { flex: 1 1 18rem; min-width: 0; }
+.offline-world { grid-column: 2; grid-row: 2; justify-self: end; width: 100%; min-width: 0; max-height: 100%; }
+.offline-world .panel__body { overflow-y: auto; }
+
+.table__td--actions { text-align: right; width: 1%; white-space: nowrap; }
+
+/* A real button in the row rather than a click handler on the row, so the row is reachable
+   by Tab and announced as what it is. `btn--quiet` because the row itself is the visual
+   weight and a solid button in every row would out-shout the numbers. */
+.table__row-open { padding: var(--space-1) var(--space-2); }
+
+@media (max-width: 899px) {
+  /* 768 x 1024. The panel goes under the banner and takes the full width rather than
+     holding a narrow column beside a map the player cannot see past it. */
+  .offline { grid-template-columns: minmax(0, 1fr); }
+  .offline-world { grid-column: 1; grid-row: 2; justify-self: stretch; }
+}
+
+@media (max-width: 599px) {
+  /* 390 x 844. The banner's button wraps onto its own line and the facts stack, the same
+     way `.start__fact` does on the start screen. */
+  .offline-banner { flex-direction: column; align-items: stretch; }
+  .degraded-boot__inner { padding: var(--space-4) var(--space-3) var(--space-6); }
+}
 
 /* ---------- the five skeletons ----------
  *

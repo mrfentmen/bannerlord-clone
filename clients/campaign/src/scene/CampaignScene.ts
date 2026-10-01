@@ -7,24 +7,26 @@
  * The grain is a real animated pass with a real shader, not an overlay image.
  */
 
-import {
-  ArcRotateCamera,
-  Color3,
-  Color4,
-  DefaultRenderingPipeline,
-  DirectionalLight,
-  DynamicTexture,
-  Effect,
-  Engine,
-  HemisphericLight,
-  Mesh,
-  MeshBuilder,
-  PointerEventTypes,
-  PostProcess,
-  Scene,
-  StandardMaterial,
-  Vector3,
-} from "@babylonjs/core";
+import { ArcRotateCamera } from "@babylonjs/core/Cameras/arcRotateCamera.js";
+import { Color3, Color4 } from "@babylonjs/core/Maths/math.color.js";
+import { Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import { DirectionalLight } from "@babylonjs/core/Lights/directionalLight.js";
+import { HemisphericLight } from "@babylonjs/core/Lights/hemisphericLight.js";
+import { DefaultRenderingPipeline } from "@babylonjs/core/PostProcesses/RenderPipeline/Pipelines/defaultRenderingPipeline.js";
+import { PostProcess } from "@babylonjs/core/PostProcesses/postProcess.js";
+import { Effect } from "@babylonjs/core/Materials/effect.js";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
+import { DynamicTexture } from "@babylonjs/core/Materials/Textures/dynamicTexture.js";
+import { Engine } from "@babylonjs/core/Engines/engine.js";
+import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
+import { CreateCylinder } from "@babylonjs/core/Meshes/Builders/cylinderBuilder.js";
+import { CreatePlane } from "@babylonjs/core/Meshes/Builders/planeBuilder.js";
+import { CreateLines } from "@babylonjs/core/Meshes/Builders/linesBuilder.js";
+import { PointerEventTypes } from "@babylonjs/core/Events/pointerEvents.js";
+import { Scene } from "@babylonjs/core/scene.js";
+import { buildPartyConvoy } from "./units/convoy.js";
+import { EMPTY_UNIT_MANIFEST, GlbUnitFactory, type UnitManifest } from "./units/glb.js";
+import { unitPalettes } from "./units/types.js";
 import { mapColor, tokens } from "../design/tokens.js";
 import { resolveGrade, type QualityLevel } from "../design/grade.js";
 import { buildTerrain, terrainSummary } from "./terrain.js";
@@ -62,6 +64,12 @@ export interface SceneOptions {
   year: number;
   quality: QualityLevel;
   onSelect: (settlementId: string) => void;
+  /**
+   * The vendored unit manifest (`public/assets/units/units.manifest.json`). When
+   * absent the convoy falls back to procedural placeholders, so the map never
+   * waits on it.
+   */
+  unitManifest?: UnitManifest | undefined;
 }
 
 export interface SceneHandle {
@@ -144,15 +152,24 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
 
   // -- party marker ---------------------------------------------------------
   // A small convoy: two vehicles and a pennant. Enough to read as a party moving at
-  // map scale without pretending to be a unit.
-  const partyRoot = new Mesh("party", scene);
-  const lead = MeshBuilder.CreateBox("party-lead", { width: 9, height: 4, depth: 5 }, scene);
-  const second = MeshBuilder.CreateBox("party-second", { width: 7, height: 3.4, depth: 4.4 }, scene);
-  const mast = MeshBuilder.CreateCylinder("party-mast", { height: 12, diameter: 0.6 }, scene);
-  const pennant = MeshBuilder.CreatePlane("party-pennant", { width: 7, height: 4 }, scene);
+  // map scale without pretending to be a unit. The vehicles come from the unit
+  // pipeline — vendored GLBs when the manifest names them, procedural placeholders
+  // otherwise — and land asynchronously; the root is usable from the first frame.
+  const factory = new GlbUnitFactory({
+    scene,
+    manifest: options.unitManifest ?? EMPTY_UNIT_MANIFEST,
+    namePrefix: "party",
+    onFallback: (report) =>
+      console.warn(`[campaign-client] party convoy fell back to procedural: ${report.reason}`),
+  });
+  const convoy = buildPartyConvoy(scene, factory, unitPalettes.player, {
+    onError: (error, slot) =>
+      console.error(`[campaign-client] party convoy slot ${slot} failed:`, error),
+  });
+  const partyRoot = convoy.root;
+  const mast = CreateCylinder("party-mast", { height: 12, diameter: 0.6 }, scene);
+  const pennant = CreatePlane("party-pennant", { width: 7, height: 4 }, scene);
   for (const [part, y, z] of [
-    [lead, 3, 0],
-    [second, 2.6, -14],
     [mast, 10, 0],
     [pennant, 14, 0],
   ] as const) {
@@ -160,13 +177,10 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
     part.position.set(0, y, z);
     part.isPickable = false;
   }
-  const bodyMat = new StandardMaterial("party-body", scene);
-  bodyMat.diffuseColor = Color3.FromHexString(tokens.accent.primary);
-  bodyMat.specularColor = new Color3(0.05, 0.05, 0.05);
   const flagMat = new StandardMaterial("party-flag", scene);
   flagMat.diffuseColor = Color3.FromHexString(tokens.accent.primaryDeep);
   flagMat.specularColor = new Color3(0, 0, 0);
-  for (const part of [lead, second, mast]) part.material = bodyMat;
+  mast.material = flagMat;
   pennant.material = flagMat;
 
   // The campaign-zoom pin: a pennant in the player's stamp-blue, drawn on its own
@@ -240,7 +254,7 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       const lifted = points.map(
         (p) => new Vector3(p.x, projection.heightAt(p.x, p.z) * VERTICAL_SCALE + 45, p.z),
       );
-      const line = MeshBuilder.CreateLines("route", { points: lifted }, scene);
+      const line = CreateLines("route", { points: lifted }, scene);
       line.color = Color3.FromHexString(tokens.accent.influence);
       line.isPickable = false;
       line.renderingGroupId = 1;
@@ -398,7 +412,7 @@ function buildPartyPin(scene: Scene): Mesh {
 
   // A unit plane, scaled per frame to the metres that hold PARTY_PIN_PIXELS at the
   // current camera distance.
-  const plane = MeshBuilder.CreatePlane("party-pin", { size: 1 }, scene);
+  const plane = CreatePlane("party-pin", { size: 1 }, scene);
   plane.material = material;
   plane.billboardMode = Mesh.BILLBOARDMODE_ALL;
   plane.renderingGroupId = 1;

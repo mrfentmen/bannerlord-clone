@@ -18,7 +18,13 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it, vi } from "vitest";
-import { Color3, Mesh, MeshBuilder, Scene, SceneLoader, StandardMaterial, TransformNode } from "@babylonjs/core";
+import { Color3 } from "@babylonjs/core/Maths/math.color.js";
+import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
+import { CreateBox } from "@babylonjs/core/Meshes/Builders/boxBuilder.js";
+import { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
+import { StandardMaterial } from "@babylonjs/core/Materials/standardMaterial.js";
+import { SceneLoader } from "@babylonjs/core/Loading/sceneLoader.js";
+import { Scene } from "@babylonjs/core/scene.js";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { GlbUnitFactory, EMPTY_UNIT_MANIFEST, hasGlbLoader, resolveUrl, type GlbLoader, type UnitManifest } from "./glb.js";
 import {
@@ -443,7 +449,7 @@ describe("the GLB factory uses a vendored model when the manifest supplies one",
     // Rigged characters are exported from the hip bone. A unit floating a metre above
     // the road is the single most visible thing this pipeline can get wrong.
     const scene = newScene();
-    const hip = MeshBuilder.CreateBox("swat-body", { width: 1, height: 1, depth: 1 }, scene);
+    const hip = CreateBox("swat-body", { width: 1, height: 1, depth: 1 }, scene);
     hip.position.y = 0.93;
     const factory = new GlbUnitFactory({
       scene,
@@ -552,7 +558,7 @@ describe("the shipped manifest", () => {
 
 /** A stand-in for a vendored GLB: one box, hip-height, with a named material. */
 function stubModel(scene: Scene, materialName = "webbing"): Mesh {
-  const mesh = MeshBuilder.CreateBox("swat-body", { width: 0.6, height: 1.8, depth: 0.4 }, scene);
+  const mesh = CreateBox("swat-body", { width: 0.6, height: 1.8, depth: 0.4 }, scene);
   const material = new StandardMaterial(materialName, scene);
   material.diffuseColor = Color3.FromHexString(unitPalettes.civilian.primary);
   material.specularColor = new Color3(0, 0, 0);

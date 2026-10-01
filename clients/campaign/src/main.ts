@@ -20,6 +20,9 @@ import "./design/tokens.css";
 import "./ui/ui.css";
 
 import { readConfig, providerFromConfig, SimulationUnavailableError } from "./data/provider.js";
+import { classifyBootFailure, surveyFacts, type BootFailure, type SurveyFacts } from "./boot/bootFailure.js";
+import { degradedBootScreen, type DegradedBootHandle } from "./ui/panels/DegradedBootScreen.js";
+import { offlineWorldPanel, type OfflineWorldHandle } from "./ui/panels/OfflineWorldPanel.js";
 import { TEST_SOURCE_WARNING, TEST_SOURCE_DETAIL } from "./data/labels.js";
 import { START_YEAR, eraGradeForYear } from "./design/grade.js";
 import { buildWorld } from "./world/build.js";
@@ -27,8 +30,10 @@ import { publishWorld } from "./world/context.js";
 import { classifySettlement } from "./world/load.js";
 import type { WorldSettlement } from "./world/types.js";
 import { createCampaignScene, type SceneHandle } from "./scene/CampaignScene.js";
+import { registerGltfLoader } from "./scene/gltf.js";
+import type { UnitManifest } from "./scene/units/glb.js";
 import { findRoute, shortestPath } from "./scene/network.js";
-import { createHud, dataSourcePanel, fatalError, type HudPanel, type HudState } from "./ui/hud.js";
+import { createHud, dataSourcePanel, fatalError, type HudHandle, type HudPanel, type HudState } from "./ui/hud.js";
 import { marketPanel } from "./ui/panels/MarketPanel.js";
 import { partyPanel } from "./ui/panels/PartyPanel.js";
 import { marchPlanner } from "./ui/panels/MarchPlanner.js";
@@ -107,6 +112,27 @@ const setBootNote = (text: string): void => {
 
 // -- 1. skeleton first, then the world ---------------------------------------
 
+// The glTF plugin ships separately from Babylon core in v8; without this no GLB
+// loads anywhere, including the party convoy. Registered once, before anything
+// that could ask for a model.
+registerGltfLoader();
+
+/**
+ * The vendored unit manifest. A missing or unreadable manifest is not a boot
+ * failure: the scene falls back to procedural placeholders, so this resolves
+ * to undefined and the map still loads.
+ */
+async function loadUnitManifest(): Promise<UnitManifest | undefined> {
+  try {
+    const res = await fetch("./assets/units/units.manifest.json");
+    if (!res.ok) return undefined;
+    const json = (await res.json()) as UnitManifest;
+    return json.version === 1 ? json : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 const bootScreen = startScreen({
   sides: [],
   startYear: START_YEAR,
@@ -150,6 +176,7 @@ publishWorld({
 });
 
 setBootNote("Starting the renderer.");
+const unitManifest = await loadUnitManifest();
 scene = createCampaignScene({
   canvas: canvasEl,
   world: worldData.data,
@@ -157,57 +184,171 @@ scene = createCampaignScene({
   year: START_YEAR,
   quality: config.quality,
   onSelect: (id) => selectSettlement(id),
+  unitManifest,
 });
 
 // -- 2. the simulation --------------------------------------------------------
+//
+// A dead simulation is not a dead app. The map above is real survey data and it is on
+// screen; the snapshot is the only thing missing. So this path degrades rather than
+// failing: it shows what is real, offers the two honest ways forward, and returns.
+//
+// The return is the point. This used to `throw err` after painting a fatal error, and in
+// a production bundle that top-level rejection *is* the white screen — the boot sequence
+// has no caller to catch it. Nothing escapes from here now, and `handleBootFailure` is the
+// single place that decides what a failed boot looks like.
+//
+// `--mode fixtures` never reaches any of this: the fixture provider answers from memory,
+// so `snapshot` is set and the flow continues to the selection screen exactly as before.
 
+const facts = surveyFacts(world?.data);
+
+let bootFailure: BootFailure | null = null;
 try {
   snapshot = await provider.getSnapshot();
 } catch (err) {
-  const message =
-    err instanceof SimulationUnavailableError ? err.playerMessage : "The world simulation could not be read.";
-  const detail = err instanceof SimulationUnavailableError ? err.developerDetail : String(err);
-  console.error(detail);
-  bootScreen.remove();
-  app.appendChild(
-    fatalError(
-      `${message} The map itself loaded, so the real terrain, roads and towns are here. Start the ` +
-        "simulation, or run this build against test fixtures to work on the client.",
-      detail,
-      () => location.reload(),
-    ),
-  );
-  throw err;
+  bootFailure = classifyBootFailure(err, world !== null);
+  console.error(`[campaign-client] the world simulation could not be read: ${bootFailure.developerDetail}`);
 }
 
-const selectionScreen = startScreen({
-  sides: snapshot.sides,
-  startYear: START_YEAR,
-  eraLabel: eraGradeForYear(START_YEAR).years,
-  loading: false,
-  onStart: () => {
-    selectionScreen.remove();
-    mountCampaign();
-  },
-});
-bootScreen.replaceWith(selectionScreen);
+// -- 2b. the degraded boot ----------------------------------------------------
+//
+// Two ways out, both real. Retry asks the simulation again and, on success, replaces the
+// degraded screen with the campaign. "Look at the world" opens the map that is already
+// behind this screen, with the survey's own figures and no simulation state at all.
+
+/** The campaign HUD, created only once there is a snapshot for it to render. */
+let hud: HudHandle | null = null;
+let degraded: DegradedBootHandle | null = null;
+let offline: OfflineWorldHandle | null = null;
+
+if (snapshot) {
+  bootCampaign();
+} else {
+  handleBootFailure(bootFailure!, facts);
+}
+
+function handleBootFailure(failure: BootFailure, survey: SurveyFacts): void {
+  degraded = degradedBootScreen({
+    failure,
+    facts: survey,
+    onRetry: () => void retrySimulation(),
+    onLookAtWorld: () => openWorldWithoutSimulation(survey),
+  });
+  bootScreen.replaceWith(degraded.root);
+}
+
+/**
+ * Ask the simulation again, and finish the boot if it answers this time.
+ *
+ * Every rejection is handled here and nowhere else escapes: a second failure re-renders
+ * the same degraded screen with the new reason rather than throwing, because a retry that
+ * throws would put the app back in the state this screen exists to end.
+ */
+async function retrySimulation(): Promise<void> {
+  degraded?.setRetrying(true);
+  try {
+    snapshot = await provider.getSnapshot();
+  } catch (err) {
+    const again = classifyBootFailure(err, world !== null);
+    console.error(`[campaign-client] the retry did not answer: ${again.developerDetail}`);
+    // The screen is rebuilt rather than re-worded, so the new reason and its new retry
+    // label come from the same code path that drew the first one.
+    degraded?.root.remove();
+    handleBootFailure(again, facts);
+    return;
+  }
+  degraded?.setRetrying(false);
+  degraded?.root.remove();
+  degraded = null;
+  bootCampaign();
+}
+
+/**
+ * The world without a simulation.
+ *
+ * The 3D scene is already built and running behind this screen, so there is nothing to
+ * load: the offline panel reports what the survey files contain and refuses to say
+ * anything about the state of the world. `groundAt` reads the heightfield the terrain was
+ * drawn from, so the metres under a place are the real ones rather than a second estimate.
+ */
+function openWorldWithoutSimulation(survey: SurveyFacts): void {
+  if (!world || !scene) return;
+  offline = offlineWorldPanel({
+    facts: survey,
+    places: world.data.settlements,
+    groundAt: (place) => {
+      const p = world!.projection.toWorld(place.lat, place.lon);
+      const metres = world!.projection.heightAt(p.x, p.z);
+      return Number.isFinite(metres) ? metres : null;
+    },
+    onRetry: () => void retrySimulation(),
+    onSelect: (id) => selectPlaceOffline(id),
+  });
+  degraded?.root.remove();
+  app.appendChild(offline.root);
+  // Frame the whole region, the same opening shot the campaign uses. It is the honest
+  // framing here too: this is a survey of a region, not a position in a war.
+  scene.focus(world.projection.width / 2, world.projection.depth / 2, 34_000);
+}
+
+/** A place chosen on the offline map or from the offline list. */
+function selectPlaceOffline(id: string): void {
+  const place = settlement(id);
+  if (!place) return;
+  if (scene && world) {
+    const p = world.projection.toWorld(place.lat, place.lon);
+    scene.focus(p.x, p.z, 13_000);
+  }
+  offline?.showPlace(place);
+  setBootNote(`${place.name} is on the map. The simulation is not running, so nothing else is shown.`);
+}
+
+/**
+ * The handover from a successful read to the campaign, used by both the first boot and a
+ * retry that succeeded. Declared here so the retry path can reach it.
+ */
+function bootCampaign(): void {
+  if (!snapshot) return;
+  const selectionScreen = startScreen({
+    sides: snapshot.sides,
+    startYear: START_YEAR,
+    eraLabel: eraGradeForYear(START_YEAR).years,
+    loading: false,
+    onStart: () => {
+      selectionScreen.remove();
+      offline?.root.remove();
+      offline = null;
+      mountCampaign();
+    },
+  });
+  const current = degraded?.root.isConnected ? degraded.root : bootScreen;
+  current.replaceWith(selectionScreen);
+  if (!hud) {
+    hud = createHud({
+      onSelectPanel: (p) => openPanel(p),
+      onTimeScale: (s) => {
+        timeScale = s;
+        paint();
+      },
+      onOpenDataSource: () => openDataSource(),
+      onOpenUiScale: (s) => applyUiScale(s),
+      onNotification: (entityId, field) => openWhy(entityId, field),
+    });
+  }
+}
 
 // -- 3. the campaign map ------------------------------------------------------
 
-const hud = createHud({
-  onSelectPanel: (p) => openPanel(p),
-  onTimeScale: (s) => {
-    timeScale = s;
-    paint();
-  },
-  onOpenDataSource: () => openDataSource(),
-  onOpenUiScale: (s) => applyUiScale(s),
-  onNotification: (entityId, field) => openWhy(entityId, field),
-});
-
 function mountCampaign(): void {
-  if (!snapshot) return;
-  app.appendChild(hud.root);
+  // Both are set by `bootCampaign` before this can be reached: the selection screen only
+  // exists once a snapshot did, and it builds the HUD. The guards make the invariant a
+  // check rather than a comment, because the offline path calls in here too.
+  if (!snapshot || !hud) return;
+  // Bound once, because the tick callbacks below outlive this scope and TypeScript will not
+  // carry the narrowing of a mutable module binding into them.
+  const activeHud = hud;
+  app.appendChild(activeHud.root);
   paint();
 
   window.addEventListener("keydown", (ev) => {
@@ -260,7 +401,7 @@ function mountCampaign(): void {
     },
     (status) => {
       connectionState = status.state === "connected" ? "connected" : status.state === "degraded" ? "degraded" : "reconnecting";
-      hud.setConnection(status);
+      activeHud.setConnection(status);
     },
   );
 
@@ -329,7 +470,7 @@ function selectSettlement(id: string): void {
   contextNode = town ? townNode(town) : noSimulationRecordNode(place?.name ?? id);
   syncParty();
   paint();
-  if (place) hud.announcer.textContent = `${place.name} selected.`;
+  if (place) hud?.announcer.replaceChildren(`${place.name} selected.`);
 }
 
 function noSimulationRecordNode(name: string): Node {
@@ -733,7 +874,9 @@ function applyTick(base: SimSnapshot, update: TickUpdate): SimSnapshot {
 // -- paint -------------------------------------------------------------------
 
 function paint(): void {
-  if (!snapshot) return;
+  // No snapshot means the boot degraded, and there is no campaign state to paint. That is
+  // the offline path working as intended rather than a panel that failed to draw.
+  if (!snapshot || !hud) return;
   reindexTowns();
   const headcount = snapshot.party.troops.reduce((a, t) => a + t.count, 0);
   const dailyFood = headcount * 0.85;

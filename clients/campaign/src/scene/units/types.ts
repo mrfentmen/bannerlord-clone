@@ -13,7 +13,7 @@
  * than typed in.
  */
 
-import type { TransformNode } from "@babylonjs/core";
+import type { TransformNode } from "@babylonjs/core/Meshes/transformNode.js";
 import { accent, ink, paper, status } from "../../design/tokens.js";
 
 /**

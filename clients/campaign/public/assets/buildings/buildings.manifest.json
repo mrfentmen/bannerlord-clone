@@ -1,0 +1,15 @@
+{
+    "version": 1,
+    "baseUrl": "./assets/buildings/",
+    "buildings": {
+        "gas-station": "gas-station.glb",
+        "diner": "diner.glb",
+        "water-tower": "water-tower.glb",
+        "ranch-house": "ranch-house.glb",
+        "motel": "motel.glb",
+        "strip-mall": "strip-mall.glb"
+    },
+    "credits": [
+        "Building models generated with three.ws/forge (text-to-3D, draft tier). Per provider terms the outputs are Apache 2.0 and free for commercial use."
+    ]
+}

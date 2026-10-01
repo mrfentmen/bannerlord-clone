@@ -11,7 +11,9 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { Color3, Mesh, Scene } from "@babylonjs/core";
+import { Color3 } from "@babylonjs/core/Maths/math.color.js";
+import { Mesh } from "@babylonjs/core/Meshes/mesh.js";
+import { Scene } from "@babylonjs/core/scene.js";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import {
   RAIL_DASH_CYCLE_M,
