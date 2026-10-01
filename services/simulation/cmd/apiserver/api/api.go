@@ -116,6 +116,17 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /v1/march/plan", s.postMarchPlan)
 	s.mux.HandleFunc("POST /v1/march/commit", s.postMarchCommit)
 
+	// Battle-session lifecycle: encounters (campaign-level) escalate into
+	// real-time battles. The sim itself is stubbed; the routes return
+	// CodeUnimplemented until the battle sim lands.
+	s.mux.HandleFunc("POST /v1/encounters", s.postEncounter)
+	s.mux.HandleFunc("GET /v1/encounters/{id}", s.getEncounter)
+	s.mux.HandleFunc("POST /v1/encounters/{id}/resolve", s.postEncounterResolve)
+	s.mux.HandleFunc("POST /v1/battles", s.postBattle)
+	s.mux.HandleFunc("GET /v1/battles/{id}", s.getBattle)
+	s.mux.HandleFunc("POST /v1/battles/{id}/orders", s.postBattleOrders)
+	s.mux.HandleFunc("POST /v1/battles/{id}/end", s.postBattleEnd)
+
 	// A liveness route, because a container platform needs one and because a
 	// clock halted after a failed tick should be visible without reading logs.
 	s.mux.HandleFunc("GET /v1/health", s.getHealth)
