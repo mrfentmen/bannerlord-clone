@@ -40,12 +40,17 @@ const DIST = join(ROOT, "dist");
  * with no fixture code anywhere near it, and the check refused honest builds. The
  * coverage it was standing in for is now held by FIXTURE_SOURCES below, which is
  * structural and cannot be satisfied by a name that merely looks fixture-ish.
+ *
+ * `mulberry32` used to be in this list and was removed on 2026-10-01: it is a
+ * generic seeded-RNG implementation name, not fixture-only. Production terrain
+ * generation (`deploy/terrain.ts`) uses the same function name legitimately. The
+ * sourcemap-based FIXTURE_SOURCES check below already catches the actual fixture
+ * module by path, which is strictly stronger than matching a common function name.
  */
 const MARKERS = [
   "AGENT-3 TEST FIXTURE",
   "TEST FIXTURE DATA",
   "FixtureState",
-  "mulberry32",
   "TOWN_SPECS",
 ];
 
@@ -167,3 +172,4 @@ main().catch((err) => {
   console.error(`CHECK FAILED TO RUN: ${err.message}`);
   process.exitCode = 1;
 });
+
