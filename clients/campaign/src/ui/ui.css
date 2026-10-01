@@ -1655,3 +1655,16 @@
 .party-prisoner__head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:var(--space-1); }
 .party-prisoner__actions { display:flex; gap:var(--space-2); flex-wrap:wrap; }
 .party-speed-factor { display:flex; align-items:center; gap:var(--space-2); padding:var(--space-1) 0; border-bottom:1px solid var(--line-1); }
+
+/* Inventory and equipment (MASTER_PLAN.md 3C). Token-only: no literal colours. */
+.inventory-slots { display:flex; flex-direction:column; gap:var(--space-2); margin-bottom:var(--space-4); }
+.inventory-slot { display:flex; align-items:center; gap:var(--space-2); background:var(--paper-100); border:1px solid var(--line-1); border-radius:var(--radius-sm); padding:var(--space-2); }
+.inventory-slot__label { min-width:8rem; font-weight:600; color:var(--ink-900); }
+.inventory-slot__empty { color:var(--ink-500); }
+.inventory-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(10rem,1fr)); gap:var(--space-2); margin-bottom:var(--space-4); }
+.inventory-card { position:relative; display:flex; flex-direction:column; align-items:flex-start; gap:var(--space-1); background:var(--paper-0); border:1px solid var(--line-1); border-radius:var(--radius-sm); padding:var(--space-2); cursor:pointer; }
+.inventory-card__icon { font-size:1.5rem; }
+.inventory-card__name { font-weight:600; color:var(--ink-900); }
+.inventory-card__tier { color:var(--ink-700); }
+.inventory-card__condition { color:var(--ink-700); }
+.inventory-card__tooltip { position:absolute; z-index:1; top:100%; left:0; background:var(--ink-900); color:var(--paper-0); border-radius:var(--radius-sm); padding:var(--space-1) var(--space-2); white-space:nowrap; }
