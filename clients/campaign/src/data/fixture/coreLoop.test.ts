@@ -246,32 +246,54 @@ describe("marching and daily upkeep", () => {
     const provider = createFixtureSimulationProvider();
     provider.setTimeScale(0);
 
-    // Raise a large force across two towns: 138 militia at 0.5 wage each.
+    // Raise a force across two towns that the purse cannot pay for: militia at 0.5
+    // wage each, hired at the hiring bonus, until the bag cannot cover another head.
+    //
+    // The headcount is derived from the purse rather than written down, because the
+    // willing-recruit pool is fixture data, not a constant: it scales with town
+    // population, with the power of the town's notables, and with the character's
+    // ethnicity. A hard-coded roster is a test that fails when the towns change
+    // instead of when the rule breaks — which is what happened to the 138 militia
+    // this test used to name, before notable power and ethnicity moved the pools.
+    let hireCost = 0;
     for (const townId of ["town-denver", "town-aurora"]) {
       const snap = await provider.getSnapshot();
       const town = snap.towns.find((t) => t.id === townId)!;
-      const available = town.recruitable.find((u) => u.unitId === "militia")!.available;
+      const militia = town.recruitable.find((u) => u.unitId === "militia")!;
+      hireCost = militia.hireCost;
+      const quantity = Math.min(Math.floor(snap.player.resources.money / militia.hireCost), militia.available);
+      if (quantity <= 0) continue; // The purse is already below one head.
       const hired = await provider.recruit({
         partyId: "party-player",
         townId,
         unitId: "militia",
-        quantity: available,
+        quantity,
         expectedDay: snap.day,
       });
       expect(hired.accepted).toBe(true);
     }
 
-    // 163 troops: ~95/day wages + 14 camp against a purse of ~110. Two days of
-    // that and the purse cannot cover the bill.
+    // Precondition, and the reason this test is worth having: the purse now holds
+    // less than one head's hiring bonus, which no day of wages and camp fits inside.
+    // If the fixture ever starts a party rich enough to cover a day's bill without
+    // hiring, this fails here rather than passing for the wrong reason.
+    const purse = (await provider.getSnapshot()).player.resources.money;
+    expect(purse).toBeLessThan(hireCost);
+
+    // March, so the clock runs and the day bill lands on that purse.
     await provider.commitMarch({
       partyId: "party-player",
       destinationSettlementId: "longmont",
       departure: "now",
     });
-    await provider.skipToArrival();
+    const { daysAdvanced } = await provider.skipToArrival();
+    expect(daysAdvanced).toBeGreaterThan(0);
 
+    // The ledger's rule: the purse stops at zero and the shortfall it could not pay
+    // is owed, not negative gold.
     const after = await provider.getSnapshot();
-    expect(after.player.resources.money).toBeGreaterThanOrEqual(0);
+    expect(after.player.resources.money).toBe(0);
+    expect(after.party.money).toBe(0); // One purse, two views of it.
     expect(after.party.wagesOwed).toBeGreaterThan(0);
   });
 });
