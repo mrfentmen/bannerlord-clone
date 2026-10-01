@@ -22,6 +22,10 @@ import sys
 REPO = os.path.dirname(os.path.dirname(os.path.dirname(
     os.path.abspath(__file__))))
 SIM_DIR = os.path.join(REPO, "services", "simulation")
+# The TypeScript client lives in clients/campaign (Rowan's lane); the gate
+# runs there, and skips cleanly if node_modules was never installed.
+TS_DIR = os.path.join(REPO, "clients", "campaign")
+TSC = os.path.join(TS_DIR, "node_modules", ".bin", "tsc")
 
 
 def run(cmd, cwd, timeout):
@@ -74,10 +78,14 @@ def main(argv):
     failed += not ok
 
     if not skip_tsc:
-        ok, out = run(["npx", "tsc", "--noEmit"], REPO, 240)
-        report.append(("tsc --noEmit", ok,
-                       out.splitlines()[-5:] if not ok else []))
-        failed += not ok
+        if os.path.isfile(TSC):
+            ok, out = run([TSC, "--noEmit"], TS_DIR, 240)
+            report.append(("tsc --noEmit", ok,
+                           out.splitlines()[-5:] if not ok else []))
+            failed += not ok
+        else:
+            report.append(("tsc --noEmit", None,
+                           ["skipped: node_modules not installed in clients/campaign"]))
     else:
         report.append(("tsc --noEmit", None, ["skipped"]))
 
