@@ -109,27 +109,31 @@ func (b *Battle) chooseFireTarget(i int, s *snapshot, u *Unit) {
 	c := b.c
 	minR2 := c.RangedMinRange * c.RangedMinRange
 	maxR2 := c.RangedRange * c.RangedRange
-	enemy := u.Side.Opposing()
+	enemy := uint8(u.Side.Opposing())
 	bestID, bestScore := -1, math.Inf(1)
 	shots := 0
 	limit := int(c.RangedMaxTargets)
 	if limit <= 0 {
 		return
 	}
+	// Position, side and liveness come from the flat mirror. targetScore still
+	// takes the Unit, because it reads the target's exposure and skill, which are
+	// not per-candidate hot fields and are read once per chosen target rather
+	// than once per visited candidate.
+	hf := &b.hot
 	b.fireHash.forEachCell(s.X, s.Y, c.RangedRange, func(id int) {
 		if shots >= limit {
 			return
 		}
-		cand := b.byID[id]
-		if cand.Side != enemy || !cand.alive() {
+		if hf.side[id] != enemy || !hf.alive[id] {
 			return
 		}
-		d2 := dist2(cand.X-s.X, cand.Y-s.Y)
+		d2 := dist2(hf.x[id]-s.X, hf.y[id]-s.Y)
 		if d2 > maxR2 || d2 < minR2 {
 			return
 		}
 		shots++
-		score := b.targetScore(d2, cand, c.RangedRange)
+		score := b.targetScore(d2, b.byID[id], c.RangedRange)
 		if score < bestScore {
 			bestScore, bestID = score, id
 		}

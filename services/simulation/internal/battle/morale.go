@@ -90,9 +90,20 @@ func (b *Battle) stageMorale() {
 		// run in cell lookup rather than in the neighbour arithmetic. A battle
 		// that cannot be simulated is a battle that is not simulated, so the
 		// query takes the shape its radius actually wants.
+		//
+		// The candidate read itself comes from the flat mirror rather than from
+		// b.byID. This is the stage the profile put 50% of the whole 500 v 500 run
+		// in, and 30% of the run in the body of this closure, so the cost of
+		// touching a candidate was the largest single cost in the engine. See
+		// hotfield.go: same values, same order, four sequential streams instead of
+		// a pointer chase into a wide struct, and hpFrac's division hoisted out of
+		// a loop that ran it half a million times a tick. Every value read here is
+		// the value the pointer chase read, so the arithmetic and its order are
+		// unchanged and the golden replay hashes still match.
+		hf := &b.hot
+		mySide := uint8(u.Side)
 		b.fireHash.forEachCell(s.X, s.Y, span, func(id int) {
-			cand := b.byID[id]
-			d2 := dist2(cand.X-s.X, cand.Y-s.Y)
+			d2 := dist2(hf.x[id]-s.X, hf.y[id]-s.Y)
 			if d2 > span2 {
 				return
 			}
@@ -106,24 +117,23 @@ func (b *Battle) stageMorale() {
 					reach = 1 - t*(1-c.MoraleCasualtyFalloff)
 				}
 			}
-			cs := &b.snap[id]
-			if cand.Side == u.Side {
-				if !cand.alive() {
-					friendDead += cand.Troops * reach
+			if hf.side[id] == mySide {
+				if !hf.alive[id] {
+					friendDead += hf.troops[id] * reach
 					return
 				}
-				if cs.Status == StatusRouted {
-					routed += cand.Troops * reach
+				if hf.snapRouted[id] {
+					routed += hf.troops[id] * reach
 					return
 				}
-				friendly += cand.Troops * cand.hpFrac() * reach
+				friendly += hf.troopsHP[id] * reach
 				return
 			}
-			if !cand.alive() {
-				enemyDead += cand.Troops * reach
+			if !hf.alive[id] {
+				enemyDead += hf.troops[id] * reach
 				return
 			}
-			enemy += cand.Troops * cand.hpFrac() * reach
+			enemy += hf.troopsHP[id] * reach
 		})
 
 		// 1. casualties seen, on both sides. See casualtySeen for why it is a

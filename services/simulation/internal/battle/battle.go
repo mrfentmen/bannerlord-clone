@@ -169,6 +169,13 @@ type Battle struct {
 	meleeHash *hash
 	fireHash  *hash
 
+	// hot is the flat per-tick mirror of the fields the neighbourhood queries
+	// read, rebuilt in the same place as the two hashes and for the same reason:
+	// so a query cannot see a position the index was not built from. See
+	// hotfield.go for what it replaced and why the two status sources stay
+	// separate.
+	hot hotField
+
 	// snap is the snapshot every stage reads. Allocated once, one entry per
 	// unit, refilled at the top of each tick.
 	snap []snapshot
@@ -719,6 +726,10 @@ func (b *Battle) beginTick() error {
 	// which is the coupling the snapshot exists to prevent.
 	b.meleeHash.rebuild(b.units)
 	b.fireHash.rebuild(b.units)
+
+	// And the flat mirror, from the same committed state and at the same point in
+	// the tick as the two indexes it serves. See hotfield.go.
+	b.refreshHotField()
 
 	// Contact flags, filled once from the hashes and the snapshot the stages are
 	// about to read. They are not a stage and write nothing: they are the answer

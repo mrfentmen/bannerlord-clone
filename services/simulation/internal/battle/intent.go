@@ -339,21 +339,22 @@ func (b *Battle) stageSeparate(i int, u *Unit, s *snapshot) {
 	}
 	r2 := c.StandoffDistance * c.StandoffDistance
 	sumX, sumY, weight, distSum := 0.0, 0.0, 0.0, 0.0
+	hf := &b.hot
+	mySide := uint8(u.Side)
 	b.meleeHash.forEachCell(s.X, s.Y, c.StandoffDistance, func(id int) {
 		if id == u.ID {
 			return
 		}
-		o := b.byID[id]
-		if o.Side != u.Side || !o.alive() {
+		if hf.side[id] != mySide || !hf.alive[id] {
 			return
 		}
-		d2 := dist2(o.X-s.X, o.Y-s.Y)
+		d2 := dist2(hf.x[id]-s.X, hf.y[id]-s.Y)
 		if d2 > r2 {
 			return
 		}
-		w := o.Troops
-		sumX += o.X * w
-		sumY += o.Y * w
+		w := hf.troops[id]
+		sumX += hf.x[id] * w
+		sumY += hf.y[id] * w
 		weight += w
 		// The bodies-weighted mean squared distance to the neighbours inside the
 		// standoff, which is what the crowding scale below is read from.
@@ -466,13 +467,13 @@ func (b *Battle) markContact() {
 		if !u.alive() || !s.Status.Actable() {
 			continue
 		}
-		enemy := u.Side.Opposing()
+		enemy := uint8(u.Side.Opposing())
+		hf := &b.hot
 		b.meleeHash.anyInCell(s.X, s.Y, c.MeleeRange, func(id int) bool {
-			cand := b.byID[id]
-			if cand.Side != enemy || !cand.alive() {
+			if hf.side[id] != enemy || !hf.alive[id] {
 				return false
 			}
-			if dist2(cand.X-s.X, cand.Y-s.Y) > r2 {
+			if dist2(hf.x[id]-s.X, hf.y[id]-s.Y) > r2 {
 				return false
 			}
 			b.contact[i] = true
@@ -508,6 +509,7 @@ func (b *Battle) blockedByContact(i int, u *Unit, s *snapshot) bool {
 	axis := b.towardAxis(u.Side)
 	r2 := c.StandoffDistance * c.StandoffDistance
 	blocked := false
+	mySide := uint8(u.Side)
 	b.meleeHash.anyInCell(s.X, s.Y, c.StandoffDistance, func(id int) bool {
 		if blocked {
 			return true
@@ -515,20 +517,20 @@ func (b *Battle) blockedByContact(i int, u *Unit, s *snapshot) bool {
 		if id == i {
 			return false
 		}
-		o := b.byID[id]
-		if o.Side != u.Side || !o.alive() || o.Status == StatusRouted {
+		hf := &b.hot
+		if hf.side[id] != mySide || !hf.alive[id] || hf.routed[id] {
 			return false
 		}
-		if dist2(o.X-s.X, o.Y-s.Y) > r2 {
+		if dist2(hf.x[id]-s.X, hf.y[id]-s.Y) > r2 {
 			return false
 		}
 		if !b.contact[id] {
 			return false
 		}
 		if axis > 0 {
-			blocked = o.X > s.X
+			blocked = hf.x[id] > s.X
 		} else {
-			blocked = o.X < s.X
+			blocked = hf.x[id] < s.X
 		}
 		return blocked
 	})
@@ -540,13 +542,13 @@ func (b *Battle) blockedByContact(i int, u *Unit, s *snapshot) bool {
 // touches nine cells regardless of how many units are on the field.
 func (b *Battle) enemyInMelee(x, y float64, side Side) bool {
 	r2 := b.c.MeleeRange * b.c.MeleeRange
-	enemy := side.Opposing()
+	enemy := uint8(side.Opposing())
+	hf := &b.hot
 	return b.meleeHash.anyInCell(x, y, b.c.MeleeRange, func(id int) bool {
-		cand := b.byID[id]
-		if cand.Side != enemy || !cand.alive() {
+		if hf.side[id] != enemy || !hf.alive[id] {
 			return false
 		}
-		return dist2(cand.X-x, cand.Y-y) <= r2
+		return dist2(hf.x[id]-x, hf.y[id]-y) <= r2
 	})
 }
 
@@ -559,13 +561,13 @@ func (b *Battle) enemyInMelee(x, y float64, side Side) bool {
 // than forEachCell. See hash.anyInCell for the measured cost of not doing that.
 func (b *Battle) enemyWithin(x, y float64, side Side, radius float64) bool {
 	r2 := radius * radius
-	enemy := side.Opposing()
+	enemy := uint8(side.Opposing())
+	hf := &b.hot
 	return b.fireHash.anyInCell(x, y, radius, func(id int) bool {
-		cand := b.byID[id]
-		if cand.Side != enemy || !cand.alive() {
+		if hf.side[id] != enemy || !hf.alive[id] {
 			return false
 		}
-		return dist2(cand.X-x, cand.Y-y) <= r2
+		return dist2(hf.x[id]-x, hf.y[id]-y) <= r2
 	})
 }
 
@@ -585,20 +587,20 @@ func (b *Battle) inFireArc(x, y float64, side Side) bool {
 // Heavier units pull harder, which is what makes a squad a squad: a line that
 // has lost its heavy elements does not have the same centre of mass it did.
 func (b *Battle) enemyCentre(h *hash, side Side, x, y, radius float64) (float64, float64, bool) {
-	enemy := side.Opposing()
+	enemy := uint8(side.Opposing())
 	sumX, sumY, weight := 0.0, 0.0, 0.0
 	r2 := radius * radius
+	hf := &b.hot
 	h.forEachCell(x, y, radius, func(id int) {
-		cand := b.byID[id]
-		if cand.Side != enemy || !cand.alive() {
+		if hf.side[id] != enemy || !hf.alive[id] {
 			return
 		}
-		if dist2(cand.X-x, cand.Y-y) > r2 {
+		if dist2(hf.x[id]-x, hf.y[id]-y) > r2 {
 			return
 		}
-		w := cand.Troops
-		sumX += cand.X * w
-		sumY += cand.Y * w
+		w := hf.troops[id]
+		sumX += hf.x[id] * w
+		sumY += hf.y[id] * w
 		weight += w
 	})
 	if weight <= 0 {
