@@ -76,4 +76,9 @@ export interface CommandSurface {
    * targetless retreat and the sim resolves "rout to the map edge".
    */
   fieldBounds?(): { minX: number; maxX: number; minZ: number; maxZ: number };
+  /**
+   * Task 42: jump the camera to a battlefield position. Optional — without
+   * it, double-tapping a control group only re-selects the group.
+   */
+  focusCamera?(x: number, z: number): void;
 }

@@ -223,4 +223,55 @@ describe("command UX batch (tasks 40, 43-48)", () => {
       commander.destroy();
     }
   });
+
+  it("task 42: double-tap on a control group jumps the camera to it", () => {
+    const surface = fakeSurface();
+    const focused: { x: number; z: number }[] = [];
+    surface.focusCamera = (x, z) => {
+      focused.push({ x, z });
+    };
+    const commander = createCommander(surface);
+    try {
+      clickAt(surface, 100, 100); // select A
+      clickAt(surface, 300, 100, { shiftKey: true }); // add B
+      input.dispatch(
+        "battle.controlGroup1",
+        "keyboard",
+        new KeyboardEvent("keydown", { key: "1", ctrlKey: true }),
+      ); // assign group 1 = {a, b}
+      clickAt(surface, 500, 400); // select only C, proving the recall restores
+      input.dispatch("battle.controlGroup1", "keyboard"); // single tap: recall, no camera jump
+      expect(focused).toEqual([]);
+      input.dispatch("battle.controlGroup1", "keyboard"); // double-tap: camera jumps
+      expect(focused).toHaveLength(1);
+      expect(focused[0]!.x).toBeCloseTo(200, 5); // centroid of (100,100) and (300,100)
+      expect(focused[0]!.z).toBeCloseTo(100, 5);
+      // A third tap starts a fresh pair — no second jump without a fourth.
+      input.dispatch("battle.controlGroup1", "keyboard");
+      expect(focused).toHaveLength(1);
+      input.dispatch("battle.controlGroup1", "keyboard");
+      expect(focused).toHaveLength(2);
+    } finally {
+      commander.destroy();
+    }
+  });
+
+  it("task 42: double-tap is safe when the scene has no camera hook", () => {
+    const surface = fakeSurface(); // no focusCamera
+    const commander = createCommander(surface);
+    try {
+      clickAt(surface, 100, 100);
+      input.dispatch(
+        "battle.controlGroup1",
+        "keyboard",
+        new KeyboardEvent("keydown", { key: "1", ctrlKey: true }),
+      );
+      expect(() => {
+        input.dispatch("battle.controlGroup1", "keyboard");
+        input.dispatch("battle.controlGroup1", "keyboard");
+      }).not.toThrow();
+    } finally {
+      commander.destroy();
+    }
+  });
 });

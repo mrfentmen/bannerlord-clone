@@ -321,6 +321,24 @@ export function createCommander(
       events.onSelect?.();
     }),
   );
+  // -- task 42: double-tap a control group to jump the camera to it --------
+  const lastRecallAt = new Map<number, number>();
+  const DOUBLE_TAP_MS = 400;
+  function maybeFocusGroup(n: number): void {
+    const now = Date.now();
+    const last = lastRecallAt.get(n);
+    if (last !== undefined && now - last <= DOUBLE_TAP_MS) {
+      lastRecallAt.delete(n); // a third tap starts a new pair
+      const ids = new Set(selection.selected());
+      const units = surface.units().filter((u) => ids.has(u.id));
+      if (units.length === 0) return;
+      const cx = units.reduce((s, u) => s + u.x, 0) / units.length;
+      const cz = units.reduce((s, u) => s + u.z, 0) / units.length;
+      surface.focusCamera?.(cx, cz);
+    } else {
+      lastRecallAt.set(n, now);
+    }
+  }
   for (let n = 1; n <= 9; n++) {
     offs.push(
       registry.on(`battle.controlGroup${n}`, (ev) => {
@@ -328,6 +346,7 @@ export function createCommander(
         else {
           selection.recallGroup(n);
           events.onSelect?.();
+          maybeFocusGroup(n);
         }
       }),
     );
