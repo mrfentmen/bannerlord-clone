@@ -254,6 +254,17 @@ func (r *Report) writeProbe(w io.Writer) {
 	// The contact line, printed whether or not it is good news, because "how close
 	// did the armies get" is the first question a reader has about a battle and the
 	// answer is the difference between a fight and two armies standing apart.
+	//
+	// An unset measurement prints as a sentence rather than as a distance. The
+	// number it would print is +Inf metres, and a report that says "the closest
+	// approach was +Inf m" is a number about nothing: it means no two men who
+	// could strike each other were ever both on the field, which is a different and
+	// more alarming thing to say.
+	if !p.minFoeSet {
+		fmt.Fprintf(w, "          closest approach never measured: no two men who could strike each other were "+
+			"both on the field across %d published ticks\n", p.ticks)
+		return
+	}
 	fmt.Fprintf(w, "          closest approach %.1f m between units that could strike each other, on %d of "+
 		"%d ticks inside a blow's reach of %g m\n",
 		p.minFoe, p.contactTicks, p.ticks, r.MeleeRange)
