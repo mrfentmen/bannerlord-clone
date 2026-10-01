@@ -115,7 +115,8 @@ func checkPerTick(f *Findings, log *violationLog, p *Probe) {
 // there is no balance judgement in the verdict at all: either a blow was thrown or
 // none was.
 //
-// Three outcomes, because they are three different faults:
+// Three outcomes once there is a measurement, because they are three different
+// faults:
 //
 //   - A swing was thrown. The battle was fought. Pass.
 //   - The armies closed to a blow's reach and nothing was thrown. That is a
@@ -125,6 +126,11 @@ func checkPerTick(f *Findings, log *violationLog, p *Probe) {
 //     two constants that govern it are set so that contact cannot happen inside
 //     battle.max_ticks. The report quotes both, and the closing arithmetic, so the
 //     reader can see which without reading any code.
+//
+// Two more before the measurement exists: no published state at all, and
+// published state in which no two men who could strike each other ever existed.
+// Both fail, because both describe a run in which this rule has no evidence and
+// neither is a pass.
 func checkContact(f *Findings, in Input) {
 	if in.Probe == nil {
 		f.skip(RuleContact, "this run had no probe attached, so the distance between the armies was "+
@@ -132,11 +138,28 @@ func checkContact(f *Findings, in Input) {
 		return
 	}
 	p := in.Probe
-	if !p.minFoeSet {
+	// Two failures, not one, because they are two different faults and the reader
+	// has to be able to tell them apart. A battle that published nothing is an
+	// instrument fault: the engine never showed its field, so nothing is known
+	// about whether it was fought. A battle that published state in which no man
+	// who could swing ever faced a man who could swing is a battle with nobody to
+	// fight, and that is a fact about the battle, not about the watching.
+	if p.ticks == 0 {
 		f.fail(RuleContact, "the battle published no state, so no contact could be measured", []Violation{{
 			Rule: RuleContact, Tick: -1,
 			Detail: "the probe saw no published ticks at all",
 		}})
+		return
+	}
+	if !p.minFoeSet {
+		f.fail(RuleContact, fmt.Sprintf("the battle ran %d published ticks and never once put a man who "+
+			"could swing within measuring distance of a man on the other side who could swing", p.ticks),
+			[]Violation{{
+				Rule: RuleContact, Tick: p.ticks - 1,
+				Detail: "every unit either fought for the same side or was destroyed, surrendered, or routed, " +
+					"throughout the whole run, so there was no pair of men who could have struck each other. " +
+					"Status.Actable is fighting or broken, and a routed or surrendered man is off the attack",
+			}})
 		return
 	}
 

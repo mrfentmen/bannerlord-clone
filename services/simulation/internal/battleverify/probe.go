@@ -56,6 +56,27 @@ type Probe struct {
 	// displacement can be measured rather than assumed.
 	prevX, prevY []float64
 
+	// meleeRange is battle.melee_range, the reach of a blow, and it is the number
+	// the contact measurement is judged against.
+	meleeRange float64
+	// minFoe is the smallest distance any two opposing units that could actually
+	// strike each other were ever seen at, with the tick and the two unit ids it
+	// happened to. contactTicks is how many published ticks had at least one such
+	// pair inside melee range.
+	//
+	// "Could actually strike each other" is the engine's own Actable, not a
+	// definition invented here: a destroyed or surrendered man is inert to the
+	// simulation and a routed one still bites, so those three and those three are
+	// the statuses the melee stage will swing at. Measuring contact against any
+	// other set of statuses would produce a number that answers a question nobody
+	// asked.
+	minFoe       float64
+	minFoeAt     int
+	minFoeA      int
+	minFoeB      int
+	minFoeSet    bool
+	contactTicks int
+
 	// ticks is how many published views were checked.
 	ticks int
 	// maxAbsX, maxAbsY, and maxStepSeen are the furthest any unit was ever seen
@@ -85,6 +106,7 @@ func NewProbe(cfg *config.Config, unitsA, unitsB int) *Probe {
 		stepLimit:      c.MaxStepPerTick,
 		eps:            stepEpsilon,
 		suppressionCap: c.SuppressionCap,
+		meleeRange:     c.MeleeRange,
 		units:          unitsA + unitsB,
 		sides:          make([]battle.Side, unitsA+unitsB),
 		seen:           make([]bool, unitsA+unitsB),
@@ -243,9 +265,65 @@ func (p *Probe) Command(v *battle.View) error {
 		p.prevX[i], p.prevY[i] = u.X, u.Y
 	}
 
+	p.scanContact(v)
+
 	p.ticks = v.Tick + 1
 	p.startedAt = true
 	return nil
+}
+
+// scanContact measures how close the two armies ever came, tick by tick.
+//
+// WHY IT IS HERE AND NOT A RULE ON THE RESULT: a battle in which the armies never
+// touch produces a perfectly coherent result. The casualty totals add up, the
+// winner is one of the two sides, the tick count is inside the bound, and every
+// other rule in this package passes. What the result cannot show is WHY it ended,
+// and the reason a battle ends matters more than the fact that it did: suppression
+// and panic can decide a fight at long range, and if that is the only thing
+// deciding fights then the melee stage never runs, half the model in COMBAT.md is
+// unreachable, and every report of a successful battle is really a report that the
+// armies stood far apart and got tired. That is the "ran fine" claim this package
+// exists to refuse, and the only way to see it is to measure the gap.
+//
+// The cost is O(units squared) per tick, against the engine's own O(units) hash
+// queries, and it is the most expensive thing the harness does. It is paid anyway,
+// because an approximation here would be a number that is sometimes a lie and the
+// report would not say which times. At the suite's default sizes the whole
+// contact scan costs less than the battle it watches; the report prints the wall
+// time with and without the probe so a reader can see what the checking costs.
+func (p *Probe) scanContact(v *battle.View) {
+	touching := false
+	for i := range v.Units {
+		a := &v.Units[i]
+		if !a.Status.Actable() {
+			continue
+		}
+		for j := i + 1; j < len(v.Units); j++ {
+			b := &v.Units[j]
+			if b.Side == a.Side || !b.Status.Actable() {
+				continue
+			}
+			d := math.Hypot(a.X-b.X, a.Y-b.Y)
+			// The flag is set here and not at the top of the function on purpose.
+			// "A tick was scanned" and "two men who could strike each other were
+			// seen" are different facts, and the rule downstream has to tell them
+			// apart: a battle whose published state holds no actable man on one
+			// side never produced a distance, and reporting that as an approach of
+			// +Inf metres would be a confident number about nothing. So the first
+			// real pair sets the flag, and a battle that never had one is left
+			// unset for the rule to call the fault it is.
+			if !p.minFoeSet || d < p.minFoe {
+				p.minFoe, p.minFoeAt, p.minFoeA, p.minFoeB = d, v.Tick, a.ID, b.ID
+				p.minFoeSet = true
+			}
+			if d <= p.meleeRange {
+				touching = true
+			}
+		}
+	}
+	if touching {
+		p.contactTicks++
+	}
 }
 
 // checkFinite records a violation for one published field that is not finite.

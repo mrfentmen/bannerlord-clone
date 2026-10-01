@@ -29,6 +29,17 @@ const (
 	// RuleRosterStable is that the field held the same units throughout: dense
 	// ascending ids, one side per id, and no unit appearing or vanishing.
 	RuleRosterStable = "roster-stable"
+	// RuleContact is that the battle was fought: the armies closed to a blow's
+	// reach, and the melee stage actually struck.
+	//
+	// It is the rule that catches the failure every other rule here waves through.
+	// A battle the armies never touch is internally consistent in every way a
+	// result can be, so it passes the casualty rules, the winner rule, and the
+	// tick bound, and prints a clean row. If the suite does not also ask whether
+	// anybody swung, then "the sim works" reduces to "the sim does not crash", and
+	// a battle that resolves entirely through suppression at long range would be
+	// reported as a working battle with half the combat model unreachable.
+	RuleContact = "sides-made-contact"
 	// RuleCasualties is that the body counts add up.
 	RuleCasualties = "casualties-add-up"
 	// RuleUnitsAccounted is that every unit a side started with is accounted for
@@ -66,6 +77,7 @@ var allRules = []string{
 	RuleFieldBounds,
 	RuleNoTeleport,
 	RuleRosterStable,
+	RuleContact,
 	RuleCasualties,
 	RuleUnitsAccounted,
 	RuleWinner,
