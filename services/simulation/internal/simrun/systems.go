@@ -42,11 +42,13 @@ import (
 	"mbclone/simulation/internal/systems/loadout"
 	"mbclone/simulation/internal/systems/logistics"
 	"mbclone/simulation/internal/systems/loyalty"
+	"mbclone/simulation/internal/systems/rebellion"
 	"mbclone/simulation/internal/systems/march"
 	"mbclone/simulation/internal/systems/market"
 	"mbclone/simulation/internal/systems/migration"
 	"mbclone/simulation/internal/systems/naval"
 	"mbclone/simulation/internal/systems/player"
+	"mbclone/simulation/internal/systems/prisoner"
 	"mbclone/simulation/internal/systems/relation"
 	"mbclone/simulation/internal/systems/rulerai"
 	"mbclone/simulation/internal/systems/security"
@@ -69,6 +71,7 @@ func Systems() []sim.System {
 		// --- player and scripted orders, applied first so a player's decision
 		// is visible to every system that reads state this tick ---
 		player.System(),
+		prisoner.System(),
 
 		// --- production: people into workers into food ---
 		labor.System(),
@@ -103,6 +106,7 @@ func Systems() []sim.System {
 		// --- politics ---
 		unrest.System(),
 		loyalty.System(),
+		rebellion.System(),
 		loadout.System(),
 		council.System(),
 		clan.System(),

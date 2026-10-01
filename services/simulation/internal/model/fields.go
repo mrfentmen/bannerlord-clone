@@ -578,4 +578,7 @@ func init() {
 	register(Field{"workshop_input_stock", KindWorkshop, ValueFloat, "goods", true, 0, inf, nil, 0})
 	register(Field{"workshop_output_stock", KindWorkshop, ValueFloat, "goods", true, 0, inf, nil, 0})
 	register(Field{"workshop_income", KindWorkshop, ValueFloat, "money", false, 0, inf, nil, 0})
+	// --- prisoner fields (Tier 2.3) ---
+	register(Field{"prisoners", KindParty, ValueFloat, "troops", true, 0, inf, nil, 0})
+	register(Field{"prisoner_conformity", KindParty, ValueFloat, "share", false, 0, 1, nil, 0})
 }

@@ -740,6 +740,10 @@ func partyGet(p *Party, f string) (float64, bool) {
 		return p.SplitShare, true
 	case "merge_target":
 		return float64(p.MergeTarget), true
+	case "prisoners":
+		return p.Prisoners, true
+	case "prisoner_conformity":
+		return p.PrisonerConformity, true
 	default:
 		return 0, false
 	}
@@ -857,6 +861,12 @@ func partySet(p *Party, f string, v float64) bool {
 		p.SplitShare = v
 	case "merge_target":
 		p.MergeTarget = int(v)
+	case "prisoners":
+		p.Prisoners = v
+		return true
+	case "prisoner_conformity":
+		p.PrisonerConformity = v
+		return true
 	default:
 		return false
 	}

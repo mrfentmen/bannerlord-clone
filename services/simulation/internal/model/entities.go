@@ -354,6 +354,10 @@ type Party struct {
 	// id, or -1 for none. Same seam as SplitShare, and cleared by the
 	// formation system whether or not the merge is possible.
 	MergeTarget int
+	// Prisoners is the number of captured enemy troops held by the party.
+	Prisoners float64
+	// PrisonerConformity is 0-1, how willing prisoners are to defect/join.
+	PrisonerConformity float64
 }
 
 // Ruler is a named character who holds land, leads a party, or sells a company.
