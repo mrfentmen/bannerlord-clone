@@ -138,6 +138,8 @@ func (c *Config) validate(path string) error {
 		{"battle.morale_break_threshold", c.Battle.MoraleBreakThreshold, 0, 1},
 		{"battle.morale_rout_threshold", c.Battle.MoraleRoutThreshold, 0, 1},
 		{"battle.morale_ratio_neutral", c.Battle.MoraleRatioNeutral, 0.001, 0.999},
+		{"battle.morale_ratio_deadband", c.Battle.MoraleRatioDeadband, 0, 0.499},
+		{"battle.morale_panic_floor", c.Battle.MoralePanicFloor, 0, 1},
 		{"battle.morale_recovery_suppression_band", c.Battle.MoraleRecoverySuppressionBand, 0, 1},
 		{"battle.rally_chance", c.Battle.RallyChance, 0, 1},
 		{"battle.rally_routed_chance", c.Battle.RallyRoutedChance, 0, 1},
@@ -285,6 +287,30 @@ func validateBattleRelations(path string, b *Battle) error {
 		return fmt.Errorf("config: %s: battle.morale_floor (%g) is above battle.morale_rout_threshold (%g); "+
 			"a unit could never rout",
 			path, b.MoraleFloor, b.MoraleRoutThreshold)
+	}
+	// Panic pulls a man's morale down toward the floor, and the floor has to sit
+	// strictly below the rout threshold or a contagion could never tip anybody
+	// over it: the pull would approach the threshold asymptotically and stop
+	// there, so routed troops would stop spreading panic the moment the first
+	// one ran. The check is >= and not > for that reason, and a floor set to
+	// exactly the threshold is the easy mistake, because it looks deliberate.
+	if b.MoralePanicFloor >= b.MoraleRoutThreshold {
+		return fmt.Errorf("config: %s: battle.morale_panic_floor (%g) is at or above "+
+			"battle.morale_rout_threshold (%g); panic pulls toward the floor and a floor at or above "+
+			"the threshold can never take a unit below it, so a rout could not spread",
+			path, b.MoralePanicFloor, b.MoraleRoutThreshold)
+	}
+	// The deadband is the share of the ratio either side of neutral that costs
+	// nothing. It has to leave the term able to bite at all: the local ratio
+	// runs from 0 (nothing of my own side in sight) to 1 (nothing of the enemy),
+	// so a deadband as wide as the nearer of those two distances would mean no
+	// local imbalance could ever cost morale and a flanked wing would stand
+	// there happily outnumbered three to one.
+	if reach := math.Min(b.MoraleRatioNeutral, 1-b.MoraleRatioNeutral); b.MoraleRatioDeadband >= reach {
+		return fmt.Errorf("config: %s: battle.morale_ratio_deadband (%g) is not below the distance from "+
+			"battle.morale_ratio_neutral (%g) to the nearest extreme (%g); a deadband that wide means no "+
+			"local imbalance can cost any morale, so a flank could never fold",
+			path, b.MoraleRatioDeadband, b.MoraleRatioNeutral, reach)
 	}
 	if b.RangedMinRange >= b.RangedRange {
 		return fmt.Errorf("config: %s: battle.ranged_min_range (%g) is not below battle.ranged_range (%g); "+

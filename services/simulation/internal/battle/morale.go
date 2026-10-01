@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"math"
 
+	"mbclone/simulation/internal/config"
 	"mbclone/simulation/internal/rng"
 )
 
@@ -125,8 +126,9 @@ func (b *Battle) stageMorale() {
 			enemy += cand.Troops * cand.hpFrac() * reach
 		})
 
-		// 1. casualties seen, on both sides.
-		d.Morale += c.MoraleCasualtyHit * (enemyDead - friendDead) * dt
+		// 1. casualties seen, on both sides. See casualtySeen for why it is a
+		// share of the local weight and not a count of bodies.
+		d.Morale += casualtySeen(friendDead, friendly+routed, enemyDead, enemy+enemyDead, &c, dt)
 
 		// 2. local balance.
 		//
@@ -146,17 +148,67 @@ func (b *Battle) stageMorale() {
 		// requires enemy == 0, so the two agree about what an unopposed unit is
 		// doing, and with this term guarded a pre-contact army holds near its
 		// starting morale instead of being wound to the cap.
+		//
+		// WHY A ROUTED MAN STILL COUNTS AS OWN PRESENCE HERE, WHICH IS THE
+		// WHOLE FIX
+		//
+		// This term is a question about the ENEMY: is there more of him here than
+		// there is of me. It used to be computed over `friendly`, which counted
+		// only units still on their feet, so a man who turned his back was
+		// deleted from his own side's strength the instant he ran. The term then
+		// read his running as enemy superiority, dropped his neighbours' morale,
+		// and made them run too. The feedback gain is far above one and the term
+		// diverges.
+		//
+		// Measured on the 500 v 500 battle, with friendly/(friendly+enemy) and
+		// the shipped constants, sweeping the routed share r of a side against
+		// the morale a unit loses per tick:
+		//
+		//	    r   ratio term   panic term    total     ticks 0.72 -> 0.28
+		//	  0.0     +1.1250       -0.0000   +1.1250      never
+		//	  0.1     +0.7159       -0.0400   +0.6759      never
+		//	  0.2     +0.3750       -0.0800   +0.2950      never
+		//	  0.3     +0.0865       -0.1200   -0.0335     13.15
+		//	  0.5     -0.3750       -0.2000   -0.5750      0.77
+		//	  0.7     -0.7279       -0.2800   -1.0079      0.44
+		//	  0.9     -1.0066       -0.3600   -1.3666      0.32
+		//
+		// At a 30% routed share the side is net LOSING morale with nothing having
+		// been done to it, and past that it loses more morale per tick than the
+		// 0.44 it has to spare before the break threshold, so every remaining
+		// unit breaks and runs inside one tick. That is the same divergence the
+		// panic term above was already rewritten to remove, in the term next door
+		// to it, reached by the same route: a term that counts a man's state
+		// instead of his presence.
+		//
+		// A routed unit is still standing on the field. It is still between you
+		// and the enemy, it still blocks the ground, and the enemy still has to
+		// get past it. So it counts as own presence, and this term goes back to
+		// answering only what it is named for. Measured with routed counted, the
+		// same table gives +0.0000 for the ratio term at every share, because
+		// your own men running no longer moves the ratio at all: the gain of this
+		// term with respect to your own routs is now exactly zero.
+		//
+		// The panic term keeps its share, and it is now the only term that
+		// responds to a rout at all. That is the division of labour the model
+		// wants: the ratio says the enemy is heavier here, the panic says my own
+		// side is running, and neither one is computed from the other's effect.
+		// What genuinely moves the ratio is losing men, which is bounded by the
+		// men there are to lose, and it is the same event the casualty term
+		// above measures from the other side.
+		own := friendly + routed
 		if enemy > 0 {
-			total := friendly + enemy
+			total := own + enemy
 			if total > 0 {
-				d.Morale += c.MoraleRatioWeight * (friendly/total - c.MoraleRatioNeutral) * dt
+				d.Morale += c.MoraleRatioWeight * ratioImbalance(own/total, &c) * dt
 			}
 		}
 
 		// 3. panic.
 		//
 		// Measured as the SHARE of the unit's own side inside the neighbourhood
-		// that is running, not as a raw count of running neighbours.
+		// that is running, and applied as a PULL TOWARD A FLOOR rather than as a
+		// flat subtraction.
 		//
 		// A raw count is not merely larger than intended at scale, it is
 		// unstable, and the instability is the whole problem. One routed
@@ -185,9 +237,21 @@ func (b *Battle) stageMorale() {
 		// distinguish those cases at all — it charges the same enormous penalty
 		// for the first man to run as for the two hundred and fiftieth, which is
 		// why a single break at the front line used to empty the field.
+		//
+		// The pull toward battle.morale_panic_floor is the second half of the
+		// fix, and it is the half that makes a rout a battle event rather than a
+		// switch. Subtracting a constant per tick is unbounded: a man with his
+		// whole neighbourhood running lost 0.4 morale a tick, which is 1.6 a
+		// second, which took him from steady to running in under two seconds no
+		// matter what his officers were doing, and the whole field emptied in
+		// the sixteen ticks after first contact with four bodies on the ground
+		// between them. Against a floor the pull weakens as a man approaches
+		// it, so there is a fixed point, the contagion has a rate a commander
+		// can beat, and a man who has not seen his side break is not being
+		// panicked by men he cannot see.
 		ownTotal := friendly + friendDead + routed
 		if routed > 0 && ownTotal > 0 {
-			d.Morale -= c.MoralePanicSpread * (routed / ownTotal) * dt
+			d.Morale += panicPull(s.Morale+d.Morale, routed/ownTotal, &c, dt)
 		}
 
 		// 4. suppression.
@@ -208,6 +272,128 @@ func (b *Battle) stageMorale() {
 		}
 
 		b.resolveCondition(i, u, s, d, r)
+	}
+}
+
+// casualtySeen is the morale a tick costs or earns for the dead a unit can see,
+// signed: negative for its own side, positive for the enemy's.
+//
+// The dead are read as a SHARE of the local weight on each side, not as a count
+// of bodies. That single choice is the difference between a battle that is
+// fought and a battle that is decided by arithmetic, and the reason is that a
+// count is unbounded in a way nothing else in the model is.
+//
+// The spatial hash holds a destroyed unit for the rest of the battle at the
+// place it fell, so every body in the neighbourhood is re-read every tick for
+// the whole fight. At the shipped battle.morale_casualty_hit of 3.4 a count is
+// 0.85 morale a tick, PER BODY, forever. Measured on the 50 v 50 battle with
+// the shipped constants, the casualty term alone took side B from morale 0.999
+// to 0.601 to 0.311 to nothing in three ticks, with two bodies on the ground
+// between the two armies, and the battle ended at 2% of casualties with 37 of
+// 50 men running. The same arithmetic at 500 v 500 is 296 routs and one kill,
+// which is the result the size knob was being blamed for. Two dead men were
+// worth more than a hundred living ones, and no value of any other constant
+// could repair that, because the count scales with how many men happen to be
+// dead around you and not with how much of the fight is lost.
+//
+// As a share the term is bounded by construction. The most it can ever cost is
+// battle.moraleCasualtyHit * dt, which is every man the unit can see dead. A
+// share is also free of the two scale couplings a count drags in: a squad of
+// ten dying reads the same as one man of ten dying, which is what
+// battle.roster_troops_per_unit asks for and what no value of the constant
+// could achieve, and a thousand a side reads the same as fifty, which is what
+// COMBAT.md section 13 requires of a model that has to carry both. The two
+// terms either side of this one are shares for the same reasons.
+//
+// The reach weighting is already folded into the weights the stage passes in,
+// so the share is of what the unit can actually see rather than of the whole
+// neighbourhood, which is what battle.morale_casualty_falloff is for.
+func casualtySeen(friendDead, ownTotal, enemyDead, enemyTotal float64, c *config.Battle, dt float64) float64 {
+	own := 0.0
+	if friendDead > 0 && ownTotal > 0 {
+		own = friendDead / ownTotal
+	}
+	foe := 0.0
+	if enemyDead > 0 && enemyTotal > 0 {
+		foe = enemyDead / enemyTotal
+	}
+	return c.MoraleCasualtyHit * (foe - own) * dt
+}
+
+// panicPull is the morale one tick of watching your own side run costs, for a
+// man at the given morale, when the given share of what he can see of his own
+// side is running.
+//
+// It is a PULL TOWARD battle.morale_panic_floor, not a flat subtraction, and
+// that is the second of the two fixes in this stage. A flat subtraction is
+// unbounded: a man with his whole neighbourhood running lost 0.4 morale a tick
+// at the shipped constant, which is 1.6 a second, which took him from steady
+// to running in under two seconds whatever his officers were doing. Measured on
+// the 500 v 500 battle, the field emptied of 296 men in the sixteen ticks after
+// first contact, decided by that term, with four bodies on the ground between
+// the two armies. A contagion needs a fixed point as much as it needs a gain,
+// and this is it: the pull weakens as a man approaches the floor, so the
+// strongest pull is on a man who is still steady and the weakest is on one who
+// is already running, which is both what a crowd does and what stops the
+// cascade from being a switch.
+//
+// The floor sits below battle.morale_rout_threshold, and configuration
+// validation refuses a floor at or above it, because a pull toward a floor at
+// the threshold approaches it asymptotically and can never take a man past it:
+// routed troops would then stop spreading panic the instant the first one ran,
+// and SPEC.md section 5.2 would be a sentence in a file.
+//
+// A man already at or below the floor is charged nothing. That is the
+// definition of the floor: he cannot be pulled further down by this term, only
+// by casualties, suppression, ammunition, or being outnumbered.
+func panicPull(morale, routedShare float64, c *config.Battle, dt float64) float64 {
+	if routedShare <= 0 {
+		return 0
+	}
+	gap := morale - c.MoralePanicFloor
+	if gap <= 0 {
+		return 0
+	}
+	return -c.MoralePanicSpread * routedShare * gap * dt
+}
+
+// ratioImbalance is how far a unit's local friendly-to-enemy weight share sits
+// PAST battle.morale_ratio_deadband, signed, with the sign of the imbalance.
+//
+// A share of zero is parity: as many of my own side's weight in reach as of the
+// enemy's. A share of battle.morale_ratio_neutral is the parity this engine
+// considers neutral, and a designer may move that. What this function returns
+// is the excess beyond the deadband, so a formation one man off parity scores
+// exactly nothing and a formation that is surrounded scores the full distance.
+//
+// WHY THE DEADBAND, MEASURED. Without it the term is not a rule, it is a tax.
+// The shipped pair was morale_ratio_neutral 0.5 and morale_ratio_weight 9.0
+// with no deadband, so the cost of a local 51/49 split was
+// 9.0 * 0.01 * 0.25 = 0.0225 morale a tick, or 0.09 a second, EVERY TICK, for
+// the whole of a battle. Nothing in contact pushes back: morale_recovery is
+// gated on there being no enemy in reach, and the leader term is worth 0.55 a
+// second only for men within morale_leader_radius of an officer, which at one
+// commander per roster_leaders_per_unit men is a shrinking share of a large
+// army. So the term integrated. Measured on the 500 v 500 reference battle,
+// the local ratio term was the reason the whole field was at morale 1.0000
+// after 250 ticks of approach and then fell without a single blow being
+// struck: the battle was decided at 0.2% of casualties, with 296 routs and 1
+// kill, and the routs were arithmetic rather than fear.
+//
+// A deadband is what makes it a rule with a threshold in it, and the shape of
+// the rest of the engine agrees: the break and rout thresholds are thresholds,
+// morale_recovery_suppression_band is a band, and COMBAT.md section 6 says
+// morale drops from being outnumbered LOCALLY, which is a statement about a
+// difference big enough to notice.
+func ratioImbalance(share float64, c *config.Battle) float64 {
+	dev := share - c.MoraleRatioNeutral
+	switch {
+	case dev > c.MoraleRatioDeadband:
+		return dev - c.MoraleRatioDeadband
+	case dev < -c.MoraleRatioDeadband:
+		return dev + c.MoraleRatioDeadband
+	default:
+		return 0
 	}
 }
 
