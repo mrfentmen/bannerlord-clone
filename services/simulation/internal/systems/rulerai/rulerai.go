@@ -311,15 +311,6 @@ func setTax(v *sim.View, w *sim.WriteSet, r *model.Leader) {
 	if home.Holder != r.ID {
 		return
 	}
-	// Player orders take precedence over AI tax policy. If the player issued
-	// a tax order for this town this tick, the AI must not override it with
-	// its own policy - that would be two absolute writes and the engine
-	// correctly refuses to choose between them.
-	for _, o := range v.Orders {
-		if o.Kind == sim.OrderSetTax && o.TownID == home.ID {
-			return
-		}
-	}
 	// What the town can bear, read from what is actually happening there.
 	bearable := c.Unrest.TaxComfortRate
 	// A town that is already angry can bear less; a calm prosperous one more.

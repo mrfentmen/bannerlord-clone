@@ -59,57 +59,6 @@ func run(v *sim.View, w *sim.WriteSet) {
 		if p.MergeTarget >= 0 {
 			merge(v, w, pid, p, c)
 		}
-		// Cohesion (Tier 5.6): large armies are hard to keep together.
-		// Drain scales with troops; recovery when small and well-fed.
-		// At zero cohesion, troops desert.
-		updateCohesion(v, w, pid, p, c)
-	}
-}
-
-// updateCohesion drains or recovers party cohesion based on size and supply.
-// Large armies (>200 troops) drain cohesion daily; small well-supplied parties
-// recover. At zero, desertion begins.
-func updateCohesion(v *sim.View, w *sim.WriteSet, pid int, p *model.Party, c *config.Config) {
-	// Initialize cohesion for parties that predate the field.
-	if p.Cohesion <= 0 && p.Troops > 0 {
-		w.Set(model.KindParty, pid, "cohesion", 0.8,
-			shared.ReadString(shared.Pair("troops", p.Troops)),
-			nil, "cohesion initialized")
-		return
-	}
-	// Drain: 0.01 per day per 100 troops over 200.
-	// A 1000-troop army loses 0.08/day; a 200-troop party loses nothing.
-	over := p.Troops - 200
-	var delta float64
-	if over > 0 {
-		delta = -0.01 * (over / 100.0)
-	} else {
-		// Recovery: +0.02/day when small and not starving.
-		if !p.IsStarving {
-			delta = 0.02
-		}
-	}
-	// Low morale accelerates the drain.
-	if p.Morale < 0 {
-		delta += p.Morale * 0.05
-	}
-	if delta == 0 {
-		return
-	}
-	newCohesion := shared.Clamp(p.Cohesion+delta, 0, 1)
-	read := shared.ReadString(
-		shared.Pair("troops", p.Troops),
-		shared.Pair("cohesion", p.Cohesion),
-		shared.Pair("morale", p.Morale),
-	)
-	causes := v.Log.RecentFor(model.KindParty, pid, []string{"troops", "morale"}, 2)
-	w.Set(model.KindParty, pid, "cohesion", newCohesion, read, causes,
-		"cohesion change")
-	// Desertion at zero cohesion: lose 5% of troops per day.
-	if newCohesion <= 0 && p.Troops > 0 {
-		deserters := p.Troops * 0.05
-		w.Add(model.KindParty, pid, "troops", -deserters, read, causes,
-			"desertion: zero cohesion")
 	}
 }
 

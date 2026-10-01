@@ -18,6 +18,7 @@ import (
 	"mbclone/simulation/internal/model"
 	"mbclone/simulation/internal/sim"
 	"mbclone/simulation/internal/systems/shared"
+	"mbclone/simulation/internal/systems/template"
 )
 
 // System returns the battle system.
@@ -29,19 +30,29 @@ func System() sim.System {
 	}
 }
 
-// strength computes a party's combat power.
-func strength(p *model.Party, leader *model.Ruler) float64 {
+// strength computes a party's combat power. The view is taken rather than the
+// party alone because a party's fighting strength depends on what it is made
+// of, and that composition is shared state the template system publishes
+// (Tier 6.2). Reading it is not calling into it: no decision crosses here, only
+// a number the template system already committed.
+func strength(v *sim.View, p *model.Party, leader *model.Leader) float64 {
 	base := p.Troops
 	// Morale scales effectiveness 0.5x to 1.5x.
 	moraleMult := 1.0 + shared.Clamp(p.Morale, -1, 1)*0.5
 	// Leader valor adds up to 30%. A party can have no leader on the state: a
-	// raider band has RulerID -1, and a map lookup of a missing key is the nil
+	// raider band has LeaderID -1, and a map lookup of a missing key is the nil
 	// pointer, so the check has to be here rather than assumed away.
 	valorMult := 1.0
 	if leader != nil {
 		valorMult = 1.0 + leader.Traits.Valor*0.3
 	}
-	return base * moraleMult * valorMult
+	// What the party is made of (Tier 6.2). The same number of men is not the
+	// same fighting strength: an armoured core hits harder than a skirmish
+	// screen. This is a separate multiplier from the march system's speed
+	// factor deliberately, so a party is not automatically at its strongest
+	// where it is quickest.
+	combatMult := template.CombatFactor(v, p)
+	return base * moraleMult * valorMult * combatMult
 }
 
 // hostile reports whether two sides are at odds, which is the precondition for
@@ -93,13 +104,13 @@ func findPair(v *sim.View, pids []int) (*model.Party, float64, *model.Party, flo
 		if pa == nil {
 			continue
 		}
-		strA := strength(pa, v.State.Rulers[pa.RulerID])
+		strA := strength(v, pa, v.State.Leaders[pa.LeaderID])
 		for _, pidB := range pids[i+1:] {
 			pb := v.State.Parties[pidB]
 			if pb == nil || !hostile(v, pa.SideID, pb.SideID) {
 				continue
 			}
-			strB := strength(pb, v.State.Rulers[pb.RulerID])
+			strB := strength(v, pb, v.State.Leaders[pb.LeaderID])
 			total := strA + strB
 			if total <= bestTotal {
 				continue
@@ -156,7 +167,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 		if pa == nil || pb == nil {
 			continue
 		}
-		la, lb := v.State.Rulers[pa.RulerID], v.State.Rulers[pb.RulerID]
+		la, lb := v.State.Leaders[pa.LeaderID], v.State.Leaders[pb.LeaderID]
 		// Resolve: casualty rate scales with the loser's relative weakness.
 		// The winner takes 10-30% casualties; the loser 40-80%.
 		total := bestStrA + bestStrB
@@ -169,7 +180,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 		// Determine winner.
 		aWins := shareA*roll > 0.5
 		var winner, loser *model.Party
-		var winnerLeader, loserLeader *model.Ruler
+		var winnerLeader, loserLeader *model.Leader
 		var winnerShare float64
 		if aWins {
 			winner, loser = pa, pb
@@ -187,6 +198,8 @@ func run(v *sim.View, w *sim.WriteSet) {
 			shared.Pair("attacker_strength", bestStrA),
 			shared.Pair("defender_strength", bestStrB),
 			shared.PairI("town", townID),
+			shared.Pair("attacker_template", float64(winner.Template)),
+			shared.Pair("loser_template", float64(loser.Template)),
 		)
 		causes := v.Log.RecentFor(model.KindParty, winner.ID,
 			[]string{"troops", "morale"}, 3)
@@ -197,12 +210,12 @@ func run(v *sim.View, w *sim.WriteSet) {
 		// Victor gains renown; feeds clan renown (Tier 1).
 		if winnerLeader != nil {
 			renownGain := c.Battle.RenownPerVictory * (1.0 + (1.0 - winnerShare))
-			w.Add(model.KindRuler, winnerLeader.ID, "renown", renownGain,
+			w.Add(model.KindLeader, winnerLeader.ID, "renown", renownGain,
 				read, causes, "battle victory")
 			// Clan renown too.
-			if winnerLeader.ClanID >= 0 {
-				if cl := v.State.Clans[winnerLeader.ClanID]; cl != nil {
-					w.Add(model.KindClan, cl.ID, "clan_renown",
+			if winnerLeader.OrganizationID >= 0 {
+				if cl := v.State.Organizations[winnerLeader.OrganizationID]; cl != nil {
+					w.Add(model.KindOrganization, cl.ID, "clan_renown",
 						c.Clan.RenownPerVictory, read, causes,
 						"clan member victory")
 				}
@@ -210,7 +223,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 			// The registered field name is renown_victories; "victories" is its
 			// display unit. Staging the unit as the name would fail the field
 			// registry check and abort the tick.
-			w.Add(model.KindRuler, winnerLeader.ID, "renown_victories", 1,
+			w.Add(model.KindLeader, winnerLeader.ID, "renown_victories", 1,
 				read, causes, "battle victory")
 		}
 		// Defeated leader may be captured. A capture names the captor, so
@@ -219,7 +232,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 		if winnerLeader != nil && loserLeader != nil &&
 			loser.Troops-loserLoss < c.Battle.CaptureThreshold*loser.Troops {
 			if v.Rng.Chance(c.Battle.CaptureChance) {
-				w.Set(model.KindRuler, loserLeader.ID, "captured_by",
+				w.Set(model.KindLeader, loserLeader.ID, "captured_by",
 					float64(winnerLeader.ID), read, causes,
 					"captured in battle")
 			}

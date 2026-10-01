@@ -40,9 +40,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 			applyTrade(v, w, o)
 		case sim.OrderHireMercenaries:
 			applyMercenaries(v, w, o)
-		case sim.OrderRecruitTroops:
-			applyRecruit(v, w, o)
-		case sim.OrderExecutePrisoner, sim.OrderRansomPrisoner, sim.OrderReleasePrisoner:
+		case sim.OrderExecutePrisoner, sim.OrderRansomPrisoner:
 			applyPrisoner(v, w, o)
 		case sim.OrderDeclareWar, sim.OrderSuePeace:
 			applyWar(v, w, o)
@@ -238,55 +236,6 @@ func applyMercenaries(v *sim.View, w *sim.WriteSet, o sim.Order) {
 		"hiring mercenaries", nil, "hired a company")
 }
 
-// applyRecruit recruits volunteers from a town into the leader's party.
-// Costs gold per troop, limited by town prosperity (more prosperous towns
-// have more willing recruits) and the leader's available gold.
-func applyRecruit(v *sim.View, w *sim.WriteSet, o sim.Order) {
-	r := v.State.Leaders[o.LeaderID]
-	t := v.State.Towns[o.TownID]
-	if r == nil || t == nil {
-		return
-	}
-	// Find the leader's party.
-	var party *model.Party
-	for _, pid := range v.State.PartyIDs() {
-		p := v.State.Parties[pid]
-		if p != nil && p.LeaderID == r.ID {
-			party = p
-			break
-		}
-	}
-	if party == nil {
-		return
-	}
-	// Available recruits scale with prosperity and town size.
-	available := int(t.Prosperity * 20)
-	if available < 1 {
-		available = 1
-	}
-	want := int(o.Amount)
-	if want < 1 {
-		want = 1
-	}
-	if want > available {
-		want = available
-	}
-	// Cost: 10 gold per recruit (base).
-	cost := float64(want * 10)
-	if r.Gold < cost {
-		// Recruit as many as affordable.
-		want = int(r.Gold / 10)
-		if want < 1 {
-			return
-		}
-		cost = float64(want * 10)
-	}
-	w.Add(model.KindLeader, o.LeaderID, "gold", -cost,
-		"recruiting troops", nil, "gold spent on recruits")
-	w.Add(model.KindParty, party.ID, "troops", float64(want),
-		"recruited volunteers", nil, "new recruits joined")
-}
-
 // applyPrisoner resolves a captured ruler, which is chain 9's trigger. An
 // execution is a policy decision with a large and lasting cost: the loyalty
 // system notices the broken oaths, the relation system spreads the damage, and
@@ -307,15 +256,6 @@ func applyPrisoner(v *sim.View, w *sim.WriteSet, o sim.Order) {
 			"ransomed a prisoner", nil, "ransom received")
 		w.Set(model.KindLeader, o.Target, "captured_by", -1, "ransomed", nil, "released for ransom")
 		w.AddRelation(o.LeaderID, o.Target, -c.RulerAI.PrisonerRansomRelation, "ransomed", nil, "ransom")
-		return
-	}
-	if o.Kind == sim.OrderReleasePrisoner {
-		// A release is the honorable option: the prisoner goes free, and
-		// the captor gains relation with the prisoner's faction. This is
-		// the primary political tool for building goodwill.
-		w.Set(model.KindLeader, o.Target, "captured_by", -1, "released", nil, "released by captor")
-		// Grant positive relation with the prisoner (and by extension their side).
-		w.AddRelation(o.LeaderID, o.Target, c.RulerAI.PrisonerReleaseRelation, "released a prisoner", nil, "honorable release")
 		return
 	}
 	// An execution. The prisoner dies; the broken oaths and the spreading

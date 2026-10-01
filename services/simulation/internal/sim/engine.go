@@ -57,9 +57,9 @@ type View struct {
 type Order struct {
 	// Kind selects what the order does.
 	Kind OrderKind
-	// TownID and RulerID scope the order; -1 means unset.
-	TownID  int
-	RulerID int
+	// TownID and LeaderID scope the order; -1 means unset.
+	TownID   int
+	LeaderID int
 	// Amount carries a magnitude, meaning depends on Kind.
 	Amount float64
 	// Target is a second entity, for a gift or a target town.
@@ -403,7 +403,7 @@ func (e *Engine) applyRelation(s *model.State, rw relationWrite, isSide bool) {
 	// A relation belongs to both parties equally, but the log records it once,
 	// against the first of the pair, with the other named in the read record.
 	// Recording it twice would make a single change look like two events.
-	kind := model.KindRuler
+	kind := model.KindLeader
 	unit := "opinion of ruler #" + itoa(rw.B)
 	if isSide {
 		kind = model.KindSide
@@ -712,16 +712,16 @@ func (e *Engine) apply(s *model.State, w *WriteSet) error {
 			delete(s.Villages, d.ID)
 		case model.KindParty:
 			delete(s.Parties, d.ID)
-		case model.KindRuler:
-			delete(s.Rulers, d.ID)
+		case model.KindLeader:
+			delete(s.Leaders, d.ID)
 		case model.KindRoute:
 			delete(s.Routes, d.ID)
 		case model.KindSiege:
 			delete(s.Sieges, d.ID)
 		case model.KindWar:
 			delete(s.Wars, d.ID)
-		case model.KindClan:
-			delete(s.Clans, d.ID)
+		case model.KindOrganization:
+			delete(s.Organizations, d.ID)
 		}
 	}
 	return nil
