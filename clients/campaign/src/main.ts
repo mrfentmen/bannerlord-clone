@@ -51,7 +51,7 @@ import { buildWorld } from "./world/build.js";
 import { publishWorld } from "./world/context.js";
 import { classifySettlement } from "./world/load.js";
 import type { WorldSettlement } from "./world/types.js";
-import { createCampaignScene, type SceneHandle } from "./scene/CampaignScene.js";
+import { createCampaignScene, VERTICAL_SCALE, type SceneHandle } from "./scene/CampaignScene.js";
 import { findRoute, shortestPath } from "./scene/network.js";
 import { createHud, dataSourcePanel, fatalError, type HudPanel, type HudState } from "./ui/hud.js";
 import { createGamepadManager, createStickCamera, moveFocus, type GamepadManager, type StickCamera, type StickSource } from "./input/gamepad/index.js";
@@ -86,6 +86,16 @@ import { mountBattleUi, type BattleMount } from "./battleflow/mount.js";
 import { createPhotoMode, mountPhotoModeBar, type PhotoModeBarHandle } from "./expression/index.js";
 import { chroniclePanel, seasonForDay } from "./expression/chroniclePanel.js";
 import type { ChronicleEvent, Oath } from "./expression/chronicle.js";
+import {
+  boundsForWorld,
+  clearBattleSites,
+  loadBattleSites,
+  recordBattleSite,
+  saveBattleSites,
+  type BattleSite,
+} from "./meta/heatmap.js";
+import { heatmapPanel, type HeatmapPanelHandle } from "./meta/heatmapPanel.js";
+import { makeWorldProjector } from "./meta/heatmapProjector.js";
 import { saveLoadPanel } from "./saves/mount.js";
 import { SaveUiError } from "./saves/screens.js";
 import { ALL_CODEX_ENTRIES, CODEX_CATEGORIES } from "./codex/index.js";
@@ -435,6 +445,7 @@ const hud = createHud({
   onOpenAchievements: () => openAchievements(),
   onOpenPhotoMode: () => enterPhotoMode(),
   onOpenChronicle: () => openChronicle(),
+  onOpenHeatmap: () => toggleHeatmap(),
   onOpenUiScale: (s) => settings.set({ uiScale: s }),
   onNotification: (entityId, field) => openWhy(entityId, field),
 });
@@ -486,6 +497,65 @@ function persistChronicle(): void {
 function recordDeed(kind: ChronicleEvent["kind"], text: string): void {
   chronicle.events.push({ season: seasonForDay(snapshot?.day ?? 0), kind, text });
   persistChronicle();
+}
+
+// -- Battle heatmap (MASTER_PLAN task 140): where you've fought, on the map -
+let battleSites: BattleSite[] = loadBattleSites();
+let heatmapHandle: HeatmapPanelHandle | null = null;
+
+/** Record a battle site at the player's current position. */
+function recordHeatSite(won: boolean): void {
+  const pos = snapshot?.party?.position;
+  if (!pos) return;
+  battleSites = recordBattleSite(battleSites, {
+    x: pos.x,
+    z: pos.z,
+    won,
+    season: seasonForDay(snapshot?.day ?? 0),
+    label: won ? "Victory" : "Defeat",
+  });
+  saveBattleSites(battleSites);
+  heatmapHandle?.refresh();
+}
+
+function closeHeatmap(): void {
+  const handle = heatmapHandle;
+  heatmapHandle = null;
+  handle?.root.remove();
+  handle?.dispose();
+}
+
+/** Toggle the heatmap overlay + floating card (HUD rail button). */
+function toggleHeatmap(): void {
+  if (heatmapHandle) {
+    closeHeatmap();
+    return;
+  }
+  const liveScene = scene;
+  const stage = mapCanvas.parentElement;
+  if (!liveScene || !stage) return;
+  const projection = worldData.projection;
+  heatmapHandle = heatmapPanel({
+    sites: () => battleSites,
+    bounds: boundsForWorld(projection.width, projection.depth),
+    toScreen: makeWorldProjector(
+      liveScene.scene,
+      (x, z) => projection.heightAt(x, z) * VERTICAL_SCALE,
+    ),
+    overlayHost: stage,
+    renderSize: () => ({
+      width: liveScene.engine.getRenderWidth(),
+      height: liveScene.engine.getRenderHeight(),
+    }),
+    onClear: () => {
+      battleSites = [];
+      clearBattleSites();
+      heatmapHandle?.refresh();
+    },
+    onClose: () => closeHeatmap(),
+  });
+  heatmapHandle.root.classList.add("heatmap__card");
+  app.appendChild(heatmapHandle.root);
 }
 
 /**
@@ -562,10 +632,12 @@ function mountCampaign(): void {
           haptics?.play("confirm");
           achievements.record("battle-won");
           recordDeed("battle", "Won a battle.");
+          recordHeatSite(true);
         } else if (event === "defeat") {
           haptics?.play("error");
           achievements.record("battle-lost");
           recordDeed("battle", "Lost a battle.");
+          recordHeatSite(false);
         } else {
           haptics?.play("order");
         }

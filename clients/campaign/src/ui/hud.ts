@@ -45,6 +45,8 @@ export interface HudOptions {
   onOpenPhotoMode?: () => void;
   /** Opens the clan chronicle. Optional: the button hides without it. */
   onOpenChronicle?: () => void;
+  /** Toggles the battle heatmap overlay. Optional: the button hides without it. */
+  onOpenHeatmap?: () => void;
   /** Opens the deployment map preview. Optional: the button hides without it. */
   onOpenDeploymentPreview?: () => void;
   /**
@@ -506,6 +508,12 @@ export function createHud(options: HudOptions): HudHandle {
       const chronicleBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-chronicle" }, "Chronicle");
       chronicleBtn.addEventListener("click", () => options.onOpenChronicle?.());
       rail.appendChild(chronicleBtn);
+    }
+
+    if (options.onOpenHeatmap) {
+      const heatmapBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-heatmap" }, "Battle heatmap");
+      heatmapBtn.addEventListener("click", () => options.onOpenHeatmap?.());
+      rail.appendChild(heatmapBtn);
     }
 
     return rail;

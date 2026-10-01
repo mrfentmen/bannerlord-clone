@@ -1,0 +1,70 @@
+/**
+ * Battle heatmap styles (meta/heatmapPanel.ts).
+ *
+ * Every value comes from src/design/tokens.css — except the three legend
+ * swatches, which are the heat ramp's own data colours (blue → yellow → red)
+ * by definition, not theme colours.
+ */
+
+.heatmap__overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 40;
+}
+
+.heatmap__stats {
+  margin: 0 0 var(--space-2);
+  font-size: 0.9rem;
+  color: var(--ink-700);
+}
+
+.heatmap__legend {
+  display: flex;
+  gap: var(--space-3);
+  align-items: center;
+  margin-bottom: var(--space-3);
+}
+
+.heatmap__key {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 0.8rem;
+  color: var(--ink-700);
+}
+
+.heatmap__swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.heatmap__swatch--low {
+  background: rgb(43, 108, 176);
+}
+
+.heatmap__swatch--mid {
+  background: rgb(236, 201, 75);
+}
+
+.heatmap__swatch--high {
+  background: rgb(197, 48, 48);
+}
+
+.heatmap__confirm {
+  margin-top: var(--space-2);
+}
+
+/* The heatmap card floats over the map (it is a toggle, not a context panel),
+ * below the system banners so disconnect/update notices stay on top. */
+.heatmap__card {
+  position: fixed;
+  top: var(--space-3);
+  left: var(--space-3);
+  z-index: 120;
+  max-width: 22rem;
+}
