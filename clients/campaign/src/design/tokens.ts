@@ -133,7 +133,30 @@ export const townColor = {
   cityRoof: "#5C5A50",
   townRoof: "#6A675C",
   silo: "#D5D2C7",
+  /** The City Walls ring (MASTER_PLAN.md 4C task 142): stone, darker than any town wall. */
+  fortWall: "#5E5C55",
+  /** Garrison banner poles (MASTER_PLAN.md 4C task 144): near-black iron. */
+  bannerPole: "#3A362E",
+  /**
+   * Fallback banner cloth when the caller feeds no colour for the controlling
+   * faction: a neutral grey that admits the data is missing.
+   */
+  bannerUnknown: "#5A5A5A",
 } as const;
+
+/**
+ * Prosperity district tint, 0 (destitute) to 4 (rich). Documented in
+ * ART_DIRECTION.md section 7. Desaturated like everything else here; the tint is
+ * a ground ring, not a building recolour, so the cluster silhouette keeps doing
+ * the work (MASTER_PLAN.md 4C task 143).
+ */
+export const prosperityScale = [
+  "#4A4A42", // 0 destitute
+  "#625E52", // 1 poor
+  "#77715C", // 2 holding
+  "#8D835F", // 3 thriving
+  "#9E9260", // 4 rich
+] as const;
 
 export const mapColor = {
   water: "#35474E",
@@ -169,6 +192,7 @@ export const tokens = {
   mapColor,
   townColor,
   townClass,
+  prosperityScale,
 } as const;
 
 /**

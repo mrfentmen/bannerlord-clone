@@ -259,6 +259,28 @@ Height and block count scale from real population, so the map reads as a real
 settlement-size map rather than a set of arbitrary icons. The threshold table is data
 in `src/data/classify.ts`, not a rule buried in a component.
 
+**District tint by prosperity** (4C task 143): a flat ground ring around the
+cluster, coloured by the sim's 0–1 prosperity figure. The tint is a ring, not a
+building recolour, so the cluster silhouette keeps doing the work. When the sim
+has no prosperity figure for a town, no ring is drawn rather than a fake one.
+
+| Level | Prosperity | Colour | Reads as |
+|---|---|---|---|
+| 0 | 0.00 – 0.19 | `#4A4A42` | destitute |
+| 1 | 0.20 – 0.39 | `#625E52` | poor |
+| 2 | 0.40 – 0.59 | `#77715C` | holding |
+| 3 | 0.60 – 0.79 | `#8D835F` | thriving |
+| 4 | 0.80 – 1.00 | `#9E9260` | rich |
+
+The scale is data in `src/design/tokens.ts` (`prosperityScale`), not a rule
+buried in a component. Desaturated like everything else here.
+
+**City Walls** (4C task 142): a completed City Walls project adds a stone ring
+(`fortWall` `#5E5C55`) just outside the cluster footprint, with a gate gap at
+bearing 0. **Garrison banners** (4C task 144): a banner pole outside the wall
+ring flies cloth in the controlling faction's colour and swaps on ownership
+change; a faction with no colour entry gets the neutral `bannerUnknown` grey.
+
 **Road class by weight, never by hue** (R3):
 
 | Class | Ribbon width | Value |
