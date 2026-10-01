@@ -1209,6 +1209,8 @@ func clanGet(c *Clan, f string) (float64, bool) {
 		return float64(c.HouseholdSize), true
 	case "clan_fiefs":
 		return float64(len(c.FiefIDs)), true
+	case "wants_kingdom":
+		return float64(c.WantsKingdom), true
 	default:
 		return 0, false
 	}
@@ -1227,6 +1229,8 @@ func clanSet(c *Clan, f string, v float64) bool {
 		c.SideID = int(v)
 	case "clan_household":
 		c.HouseholdSize = int(v)
+	case "wants_kingdom":
+		c.WantsKingdom = int(v)
 	default:
 		return false
 	}

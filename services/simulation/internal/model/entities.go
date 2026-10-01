@@ -369,6 +369,9 @@ type Clan struct {
 	FoundedTick int
 	// FiefIDs are town IDs held by this clan's members.
 	FiefIDs []int
+	// WantsKingdom is set by player order or AI ambition when the clan
+	// intends to found its own kingdom (Tier 1.9).
+	WantsKingdom int
 }
 
 // ClanTierThresholds maps clan tier to the renown required.

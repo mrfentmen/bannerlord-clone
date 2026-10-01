@@ -21,6 +21,7 @@ import (
 	"mbclone/simulation/internal/config"
 	"mbclone/simulation/internal/sim"
 	"mbclone/simulation/internal/systems/aging"
+	"mbclone/simulation/internal/systems/kingdom"
 	"mbclone/simulation/internal/systems/attrition"
 	"mbclone/simulation/internal/systems/battle"
 	"mbclone/simulation/internal/systems/campaign"
@@ -97,6 +98,7 @@ func Systems() []sim.System {
 		rulerai.System(),
 		factionai.System(),
 		succession.System(),
+		kingdom.System(),
 		aging.System(),
 
 		// --- turning intentions into movement ---

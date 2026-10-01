@@ -513,6 +513,7 @@ func init() {
 	register(Field{"clan_members", KindClan, ValueInt, "members", true, 0, inf, nil, 0})
 	register(Field{"clan_household", KindClan, ValueInt, "people", true, 0, inf, nil, 0})
 	register(Field{"clan_fiefs", KindClan, ValueInt, "fiefs", true, 0, inf, nil, 0})
+	register(Field{"wants_kingdom", KindClan, ValueFlag, "boolean", true, zero, one, nil, 0})
 	// --- workshop fields (Tier 3) ---
 	register(Field{"workshop_town", KindWorkshop, ValueInt, "town", true, -1, inf, nil, 0})
 	register(Field{"workshop_owner_clan", KindWorkshop, ValueInt, "clan", true, -1, inf, nil, 0})
