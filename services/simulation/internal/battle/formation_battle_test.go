@@ -112,12 +112,43 @@ func TestFormationOrdersCompleteABattle(t *testing.T) {
 			res.Outcome.Reason)
 	}
 
-	// Somebody has to have been hit. A battle in which nothing at all happened
-	// means the formations are not in contact with the enemy, and the smoke test
-	// is not testing what it says it is.
-	totalCas := res.Sides[0].Dead + res.Sides[0].Wounded + res.Sides[1].Dead + res.Sides[1].Wounded
+	// Did anybody get hit, and is that the formation layer's doing?
+	//
+	// The same battle is fought a second time with the same seed, the same
+	// forces, and no formation layer at all, and the two are compared. A formed
+	// battle that produced casualties where an uncommanded one produced none
+	// would be a formation layer that had removed the fighting from the battle,
+	// which is the one thing this layer must never do. An uncommanded battle that
+	// produced none either is telling the truth about the engine rather than
+	// about the formations, and the numbers are printed side by side so a reader
+	// can see which of the two cases this run was.
+	//
+	// At the time of writing both numbers are zero, and that is a fact about the
+	// melee pipeline rather than about this file: at battle.melee_range 2.6 m,
+	// battle.standoff_distance 8 m, and formation.advance_standoff 120 m from
+	// the enemy's centre of mass, the two armies settle tens of metres apart and
+	// decide the battle with morale before anybody lands a blow. A 40 v 40 battle
+	// at this seed swings about ten blows in total either way. The assertion
+	// below is written so that it is live the moment the engine does put men in
+	// reach of each other: then the uncommanded battle has casualties and the
+	// formed one is required to as well.
+	totalCas := casualties(res)
+	plain, err := Run(cfg, seed, setup)
+	if err != nil {
+		t.Fatalf("the same battle without formations did not run: %v", err)
+	}
+	plainCas := casualties(plain)
+	t.Logf("the same battle with no formation layer: %d ticks, winner %s (%s), %.0f casualties, "+
+		"%.0f melee swings", plain.Ticks, plain.Outcome.Kind, plain.Outcome.Reason, plainCas,
+		plain.Sides[0].Swings+plain.Sides[1].Swings)
+	if plainCas > 0 && totalCas <= 0 {
+		t.Errorf("the same battle produced %.0f casualties with no formations and %.0f with them across "+
+			"%d ticks; the formation layer has taken the fighting out of the battle",
+			plainCas, totalCas, res.Ticks)
+	}
 	if totalCas <= 0 {
-		t.Errorf("a battle with formation orders produced no casualties at all across %d ticks", res.Ticks)
+		t.Logf("note: neither battle landed a blow at this seed (%d ticks formed, %d uncommanded). The "+
+			"formation layer is not what decides that: the melee pipeline is", res.Ticks, plain.Ticks)
 	}
 	for _, s := range res.Sides {
 		if s.Dead+s.Wounded > s.StartBodies {
@@ -135,7 +166,23 @@ func TestFormationOrdersCompleteABattle(t *testing.T) {
 		fmt.Printf("side %s:    dead %.0f  wounded %.0f  of %.0f bodies; %d standing (%d broken, %d routed), "+
 			"%d surrendered\n", s.Side, s.Dead, s.Wounded, s.StartBodies, s.Standing, s.Broken, s.Routed, s.Surrendered)
 	}
+	fmt.Printf("same battle, no formations: %d ticks, winner %s (%s), %.0f casualties, %.0f melee swings\n",
+		plain.Ticks, plain.Outcome.Kind, plain.Outcome.Reason, plainCas,
+		plain.Sides[0].Swings+plain.Sides[1].Swings)
 	fmt.Printf("state hash: %016x\n", res.StateHash)
+}
+
+// casualties is both sides' dead and wounded, which is the one number that says
+// whether anything happened in a battle.
+func casualties(res *Result) float64 {
+	if res == nil {
+		return 0
+	}
+	var n float64
+	for _, s := range res.Sides {
+		n += s.Dead + s.Wounded
+	}
+	return n
 }
 
 // TestFormedMenEndUpOnTheirSlots is the check that the orders were carried out
@@ -588,23 +635,169 @@ func spyRun(t *testing.T, cfg *config.Config, seed uint64, setup Setup, order Fo
 	return spy
 }
 
+// TestAnAdvanceOrAChargeCarriesTheShapeForward is the rule that the anchor moves.
+//
+// A formation's anchor is its group's centre of mass and its slots are laid out
+// around that anchor, so a shape whose anchor is left alone has its slots exactly
+// where its men already are: every man is "in his slot", nobody is given an
+// order, and an advance advances nothing. It reads as a working advance only
+// because the enemy walking toward the formation keeps shoving men out of their
+// slots and every man who was shoved returns at the faster pace, which is an
+// advance that happens only when it is attacked.
+//
+// The view here is built by hand with every man already standing exactly on the
+// slot the layout gives him and the enemy four hundred metres away, which is the
+// cleanest possible version of the question: nothing displaces these men, so any
+// movement the order produces is the order's own doing. A hold must then leave
+// every one of them alone, and an advance, a charge, and a fall-back must each
+// walk every one of them in the direction that order means, at that order's pace.
+//
+// It uses the engine's own layout to place the men, so it says nothing about the
+// geometry; formation_test.go measures that to the metre. What it measures is
+// whether an order moves the shape it was given.
+func TestAnAdvanceOrAChargeCarriesTheShapeForward(t *testing.T) {
+	cfg := loadConfig(t)
+	const n = 6
+	p := FormationParamsFrom(cfg.Formation)
+	slots, err := FormationLayout(FormationLine, n, p)
+	if err != nil {
+		t.Fatalf("laying out a line of %d failed: %v", n, err)
+	}
+
+	// The enemy's bearing is the one the commander will resolve: due east, so
+	// the formation faces 0 radians and a forward slot is a larger x.
+	build := func() *View {
+		v := &View{
+			Elapsed:     0,
+			TickSeconds: cfg.Battle.TickSeconds,
+			Units:       make([]UnitView, n+1),
+			Commands:    make([]UnitCommand, n+1),
+		}
+		for i, s := range slots {
+			x, y := s.place(0, 0, 0)
+			v.Units[i] = UnitView{
+				ID: i, Side: SideA, Status: StatusFighting, Troops: 1,
+				Speed: cfg.Battle.RosterSpeedBase, X: x, Y: y,
+			}
+		}
+		v.Units[n] = UnitView{
+			ID: n, Side: SideB, Status: StatusFighting, Troops: 1,
+			Speed: cfg.Battle.RosterSpeedBase, X: 400, Y: 0,
+		}
+		return v
+	}
+	ids := make([]int, n)
+	for i := range ids {
+		ids[i] = i
+	}
+
+	// The distance one tick of an order's own pace covers, which is what each
+	// man below is measured against: the shape's pace, the tick length, and the
+	// unit's speed over the file's reference speed.
+	wantStep := func(pace float64) float64 {
+		return cfg.Battle.RosterSpeedBase * pace / cfg.Battle.RosterSpeedBase * cfg.Battle.TickSeconds
+	}
+
+	for _, c := range []struct {
+		order FormationOrder
+		// want is the sign of the movement a man in this formation must be given.
+		want float64
+	}{
+		{OrderFormationHold, 0},
+		{OrderFormationAdvance, 1},
+		{OrderFormationCharge, 1},
+		{OrderFormationRetreat, -1},
+	} {
+		cmd, err := NewFormationCommander(cfg, SideA, []Group{
+			{Order: GroupOrder{Kind: FormationLine, Order: c.order}, Units: ids},
+		})
+		if err != nil {
+			t.Fatalf("building the commander for %s failed: %v", c.order, err)
+		}
+		v := build()
+		if err := cmd.Command(v); err != nil {
+			t.Fatalf("%s: ordering the field failed: %v", c.order, err)
+		}
+		pace := cfg.Formation.HoldSpeed
+		switch c.order {
+		case OrderFormationAdvance:
+			pace = cfg.Formation.AdvanceSpeed
+		case OrderFormationCharge:
+			pace = cfg.Formation.ChargeSpeed
+		case OrderFormationRetreat:
+			pace = cfg.Formation.RetreatSpeed
+		}
+		ordered, formed := 0, 0
+		for i := 0; i < n; i++ {
+			got := v.Commands[i]
+			if got.FormationSet && got.Formation == FormationLine {
+				formed++
+			}
+			if !got.Set {
+				continue
+			}
+			ordered++
+			if got.Intent == IntentHold && c.order != OrderFormationHold {
+				t.Errorf("%s: unit %d was ordered to move and told it was holding", c.order, i)
+			}
+			if c.want == 0 {
+				t.Errorf("%s: unit %d was told to move %g, %g m, and a hold is a hold; every man in this "+
+					"view is already on his slot, so a hold has nothing to do but leave him there",
+					c.order, i, got.DX, got.DY)
+				continue
+			}
+			if got.DX*c.want <= 0 {
+				t.Errorf("%s: unit %d was ordered %g m east of his slot; an order that walks the shape "+
+					"%s has to move every man in it, including the ones already in place",
+					c.order, i, got.DX, map[FormationOrder]string{
+						OrderFormationAdvance: "toward the enemy",
+						OrderFormationCharge:  "toward the enemy",
+						OrderFormationRetreat: "away from the enemy",
+					}[c.order])
+			}
+			if step := math.Hypot(got.DX, got.DY); math.Abs(step-wantStep(pace)) > 1e-9 {
+				t.Errorf("%s: unit %d was ordered %.4f m in a tick, and one tick at %s (%.2f m/s) is %.4f m",
+					c.order, i, step, c.order, pace, wantStep(pace))
+			}
+		}
+		t.Logf("%-8s %d of %d men in a line already on their slots were ordered to move, at %.3f m a tick",
+			c.order, ordered, n, wantStep(pace))
+		if c.want == 0 && ordered != 0 {
+			t.Errorf("%s: %d men were ordered to move out of a shape they are already standing in", c.order, ordered)
+		}
+		if c.want != 0 && ordered != n {
+			t.Errorf("%s: %d of %d men were ordered to move and the rest were left where they stood; an "+
+				"order that walks the shape has to walk all of it, and a man already on his slot is the "+
+				"one the anchor has just moved away from", c.order, ordered, n)
+		}
+		if c.want != 0 && formed != n {
+			t.Errorf("%s: %d of %d men were put in the formation, want all of them", c.order, formed, n)
+		}
+	}
+}
+
 // TestEachOrderMovesTheFormationTheWayItSays is the test that the orders are
 // obeyed and not merely drawn.
 //
-// Every order is measured against the same battle fought three ways, with the
+// Every order is measured against the same battle fought four ways, with the
 // same seed and the same forces, so the only thing that differs between the runs
-// is the word in the order. The observable is how far side A walked, which is
-// read early in the battle: the end of a battle is decided by who won and by
-// what a routed side does with its legs, and a formation order is not what that
-// measures.
+// is the word in the order. The observable is how far side A walked, read in a
+// window that starts once the shape has formed: the first forty ticks are every
+// formation converging from the roster's own spread into its slots, which is the
+// same work whatever the order was, and measuring an order by it measures the
+// shape instead. The end of a battle is no better an observable: it is decided
+// by who won and by what a routed side does with its legs.
 //
-// A hold is the reference and is allowed to drift a little, because the engine's
-// own intent stage moves an uncommanded man and a formation that is only tidying
-// itself is not holding a position to the metre. What is not allowed is for a
-// fall-back to walk the same way an advance does, which is exactly what it did
-// when the in-slot exemption applied to a retreating formation: the anchor moved
-// back by less than the cohesion tolerance, so every man was "already in his
-// slot", nobody was ordered, and a withdrawal withdrew nothing.
+// A hold is the reference and is allowed to drift, because the engine's own
+// intent stage moves an uncommanded man and a formation that is only tidying
+// itself is not holding a position to the metre. What is not allowed is for the
+// four orders to come out in the same order as each other, which is exactly what
+// happened twice: when the in-slot exemption applied to a retreating formation
+// the anchor moved back by less than the cohesion tolerance, so every man was
+// "already in his slot", nobody was ordered, and a withdrawal withdrew nothing;
+// and when the anchor was left still for an advancing formation the same
+// exemption meant an advance only ever moved by however fast the enemy's approach
+// displaced its men.
 func TestEachOrderMovesTheFormationTheWayItSays(t *testing.T) {
 	cfg := loadConfig(t)
 	const seed = 20260930
@@ -616,60 +809,67 @@ func TestEachOrderMovesTheFormationTheWayItSays(t *testing.T) {
 	setup.Label = fmt.Sprintf("%d v %d, side A's order varies", n, n)
 
 	runs := map[FormationOrder]*orderSpy{}
-	for _, o := range []FormationOrder{OrderFormationHold, OrderFormationAdvance, OrderFormationRetreat} {
+	for _, o := range []FormationOrder{
+		OrderFormationHold, OrderFormationAdvance, OrderFormationCharge, OrderFormationRetreat,
+	} {
 		runs[o] = spyRun(t, cfg, seed, setup, o)
 	}
-	// A quarter of the battle's worth of ticks, or all of it if the battle was
-	// shorter. Long enough that a formation walking at its configured pace has
-	// moved a distance well outside any spacing, short enough that the two sides
-	// are not yet decided by the fight itself.
-	probe := 40
+	// The window is the second half-minute of the battle rather than its first:
+	// the first forty ticks are every formation converging from the roster's own
+	// spread into its slots, which is the same work whatever the order was, and
+	// the orders are only distinguishable once the shape is standing and the
+	// question is what it does next. Two hundred ticks is fifty seconds of
+	// simulated time, which is several formation paces, and short enough that
+	// the two sides have not yet been decided by the fight itself.
+	settle, probe := 40, 200
 	for _, s := range runs {
 		if len(s.ax) < probe {
 			probe = len(s.ax)
 		}
 	}
-	if probe < 2 {
+	if probe <= settle+1 {
 		t.Fatalf("no battle lasted long enough to measure (%d ticks)", probe)
 	}
 	walked := make(map[FormationOrder]float64, len(runs))
 	for o, s := range runs {
-		walked[o] = s.ax[probe-1] - s.ax[0]
-		t.Logf("%-8s: side A walked %+8.2f m over the first %d ticks, gap %.1f -> %.1f",
-			o, walked[o], probe, s.gap[0], s.gap[probe-1])
+		walked[o] = s.ax[probe-1] - s.ax[settle]
+		t.Logf("%-8s: side A walked %+8.2f m over ticks %d..%d, gap %.1f -> %.1f",
+			o, walked[o], settle, probe, s.gap[settle], s.gap[probe-1])
 	}
 
 	// Side A starts west of side B, so a positive walk is toward the enemy.
 	//
-	// The three orders are required to come out in order, and the yardstick for
+	// The four orders are required to come out in order, and the yardstick for
 	// "in order" is the shape's own front spacing rather than a metre written
 	// here: a man who is out of his place by a whole frontage is visibly out of
 	// it, so two orders that differ by less than that are not telling each other
 	// apart on the field. It comes from the balance file because that is where
 	// CONSTITUTION.md section 1.2 says a number like it lives.
 	gapNeeded := cfg.Formation.FrontSpacing
-	advance, hold, retreat := walked[OrderFormationAdvance], walked[OrderFormationHold], walked[OrderFormationRetreat]
-	if advance-hold < gapNeeded {
-		t.Errorf("an advance walked %+.2f m against a hold's %+.2f m, a difference of %.2f m; "+
-			"an advance has to close on the enemy by more than one frontage (%.2f m) or the two "+
-			"orders are the same order", advance, hold, advance-hold, gapNeeded)
-	}
-	if hold-retreat < gapNeeded {
-		t.Errorf("a hold walked %+.2f m against a fall-back's %+.2f m, a difference of %.2f m; "+
-			"a fall-back has to open the distance by more than one frontage (%.2f m) or it is "+
-			"not withdrawing", hold, retreat, hold-retreat, gapNeeded)
+	for _, pair := range [][2]FormationOrder{
+		{OrderFormationAdvance, OrderFormationHold},
+		{OrderFormationCharge, OrderFormationAdvance},
+		{OrderFormationHold, OrderFormationRetreat},
+	} {
+		faster, slower := pair[0], pair[1]
+		if walked[faster]-walked[slower] < gapNeeded {
+			t.Errorf("a %s walked %+.2f m against a %s's %+.2f m, a difference of %.2f m; "+
+				"the two orders have to tell each other apart on the field by more than one frontage "+
+				"(%.2f m) or they are the same order",
+				faster, walked[faster], slower, walked[slower], walked[faster]-walked[slower], gapNeeded)
+		}
 	}
 	// A hold is a tidying pass and is allowed to drift, because a man already in
 	// his slot is given no order and follows the engine's own rules. It is not
 	// allowed to become a march, though: the whole of the drift has to be less
 	// than the distance a formation covers tidying itself at its own configured
 	// pace, which is what makes it a shuffle rather than a march.
-	drift := math.Abs(hold)
-	tidy := cfg.Formation.HoldSpeed * cfg.Battle.TickSeconds * float64(probe)
+	drift := math.Abs(walked[OrderFormationHold])
+	tidy := cfg.Formation.HoldSpeed * cfg.Battle.TickSeconds * float64(probe-settle)
 	if drift > tidy {
 		t.Errorf("a hold walked %+.2f m in %d ticks, which is more than the %.2f m a formation "+
 			"tidies itself at hold_speed (%.2f m/s) in that time; a hold is a shuffle, not a march",
-			hold, probe, tidy, cfg.Formation.HoldSpeed)
+			walked[OrderFormationHold], probe-settle, tidy, cfg.Formation.HoldSpeed)
 	}
 }
 
