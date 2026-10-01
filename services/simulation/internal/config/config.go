@@ -1742,8 +1742,15 @@ type Battle struct {
 	// morale comes from the local ratio.
 	MoraleRatioNeutral float64
 	// MoraleRatioWeight is how hard the local ratio moves morale per tick, per
-	// unit of ratio away from neutral. The largest lever on when a flank folds.
+	// unit of ratio away from neutral, once the imbalance is past
+	// MoraleRatioDeadband. The largest lever on when a flank folds.
 	MoraleRatioWeight float64
+	// MoraleRatioDeadband is how far the local friendly-to-enemy weight ratio
+	// may sit from MoraleRatioNeutral before it costs anything at all. Without
+	// it the term is a constant rate that never switches off, and a formation
+	// that is one man off parity loses morale exactly as fast as one that is
+	// being flanked.
+	MoraleRatioDeadband float64
 	// MoraleRecovery is the morale gained per tick by a healthy, unopposed,
 	// supplied unit. Under fire nobody recovers.
 	MoraleRecovery float64
@@ -1779,9 +1786,17 @@ type Battle struct {
 	// RallyLeaderMultiplier scales RallyRoutedChance when a leader is present.
 	// Somebody shouting can turn a panic; nobody cannot.
 	RallyLeaderMultiplier float64
-	// MoralePanicSpread is the morale lost per tick for each routed unit
-	// inside MoraleNeighbourhood. Panic spreads (SPEC.md section 5.2).
+	// MoralePanicSpread is the share of the gap between a unit's morale and
+	// MoralePanicFloor that its neighbours' routs close per second, scaled by
+	// the share of its own side nearby that is running. Panic spreads (SPEC.md
+	// section 5.2) and the pull is toward a floor rather than away without
+	// limit, so a contagion has a fixed point instead of a runaway.
 	MoralePanicSpread float64
+	// MoralePanicFloor is the morale a rout pulls a man down toward, and it
+	// must sit below MoraleRoutThreshold: panic has to be able to tip a man
+	// over the edge, but the further below the edge it pulls, the more of the
+	// army it empties in one cascade.
+	MoralePanicFloor float64
 	// SurrenderMoraleReport is the morale a surrendered unit is reported at,
 	// kept so the aftermath can say what broke.
 	SurrenderMoraleReport float64

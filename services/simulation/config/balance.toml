@@ -1145,9 +1145,30 @@ suppression_ranged_penalty = 0.60
 routed_exposure = 1.30
 
 # --- MORALE ---------------------------------------------------------------
-# Morale lost per tick per casualty suffered within morale.neighbourhood
-# metres. Range 0-100. The unit that loses the man next to it feels it more
-# than the arithmetic suggests, which is why this is the largest morale term.
+# Morale lost per second for every unit of SHARE of the local weight that is
+# dead: the fraction of the men a unit can see inside morale_neighbourhood,
+# counting the reach-weighted share of its own side that is down. Range 0-20.
+#
+# It is a SHARE and it was a COUNT, and that was the single defect that decided
+# every battle on this branch by arithmetic instead of by fighting. The spatial
+# hash holds a destroyed unit for the rest of the battle at the place it fell,
+# so a body is re-read every tick for the whole fight, and at 3.4 a count is
+# 0.85 morale a tick PER BODY, forever. Measured on the 50 v 50 battle, two men
+# dying at the front took side B from morale 0.999 through 0.601 and 0.311 to
+# nothing in three ticks and the battle ended at 2% casualties with 37 of 50
+# men running; measured on the 500 v 500 battle the same arithmetic is 296
+# routs and one kill. Two dead men were worth more than a hundred living ones,
+# and no value of any other constant could fix that, because the count is
+# unbounded in the number of men who happen to be dead around you.
+#
+# As a share the term is bounded by construction: the most it can ever cost is
+# this number times tick_seconds, which is every man the unit can see dead. At
+# 3.4 a man who has lost one in twenty of his neighbourhood loses 0.043 a
+# second, a man who has lost a fifth of it loses 0.34, and only a neighbourhood
+# that is wiped out costs the full 0.85 a tick. It is also free of the two
+# scale couplings a count drags in: a squad of ten dying reads the same as one
+# man of ten dying, and a thousand a side reads the same as fifty, which is
+# what COMBAT.md section 13 asks of a model that has to carry both.
 morale_casualty_hit = 3.4
 # Reference distance over which a nearby casualty frightens a unit, in metres.
 # Range 5-1000. A formation breaks because of what it can see.
@@ -1162,9 +1183,34 @@ morale_suppression_hit = 1.1
 # 0.05-0.95. Below this ratio a unit is in trouble locally, which is the
 # SPEC.md section 5.2 requirement that morale comes from the local ratio.
 morale_ratio_neutral = 0.5
-# How hard the local ratio moves morale per tick, per unit of ratio away from
-# neutral. Range 0-50. The largest single lever on when a flank folds.
-morale_ratio_weight = 9.0
+# How hard the local ratio moves morale per tick, per unit of ratio past the
+# deadband below. Range 0-50. The largest single lever on when a flank folds.
+#
+# It was 9.0 and it was fatal at any value, because the term had no deadband
+# (see below) and so never switched off. Measured on the 500 v 500 reference
+# battle, a unit whose local weight was 51% its own side and 49% the enemy lost
+# 0.02 morale a tick to the ratio term and 0.09 a second, which over a
+# twenty-second fight is the whole of a man's morale. Every unit in the battle
+# was on that drift, so the battle was decided by arithmetic rather than by
+# blows, and it was decided at 0.2% casualties because the men never got the
+# time to kill each other. The default is now 2.0 and the deadband below is
+# what stops the term from being a constant tax on being in a fight.
+morale_ratio_weight = 2.0
+# Share of the local friendly-to-enemy weight ratio either side of
+# morale_ratio_neutral that costs nothing at all. HARD range 0-0.499, and it
+# must stay below the distance from morale_ratio_neutral to the nearest extreme,
+# which validation enforces. SANE range 0.05-0.25.
+#
+# This is the difference between "a man who is outnumbered locally is
+# frightened" (COMBAT.md section 6) and "every man in a fight loses morale at a
+# rate set by how the numbers happened to fall". A formation that is one man
+# off parity is not being flanked; it is a formation. Without a deadband the
+# ratio term is a rate that is always on, always the same sign in a losing
+# battle, and never saturated, so it integrates: a hundred ticks of being 51/49
+# costs exactly as much as a hundred ticks of being surrounded. At 0.12 a unit
+# must be outnumbered 62/38 locally before it loses anything, and a wing that
+# IS turned still folds at the full weight.
+morale_ratio_deadband = 0.12
 # Morale gained per tick by a healthy, unopposed, supplied unit. Range 0-5.
 # Under fire nobody recovers, which is why this only counts at low suppression.
 morale_recovery = 0.28
@@ -1206,10 +1252,31 @@ rally_leader_multiplier = 4.0
 # Influence at which a leader's steadying is complete. Range 1-1000. A minor
 # captain steadies a squad; a warlord steadies a wing.
 morale_leader_influence_reference = 260.0
-# Morale lost by a friendly unit per tick for each routed unit inside
-# morale_neighbourhood metres. Range 0-20. Panic spreads (SPEC.md section
-# 5.2): one unit running takes its neighbours with it.
-morale_panic_spread = 1.6
+# Share per second of the gap between a unit's morale and morale_panic_floor
+# that its neighbours' routs close, scaled by the share of its own side nearby
+# that is running. Range 0-20. Panic spreads (SPEC.md section 5.2): one unit
+# running takes its neighbours with him.
+#
+# It used to be a flat morale cost per tick at full panic, which is an
+# unbounded subtraction: a unit whose whole neighbourhood was running lost 0.4
+# morale a tick forever, so the panic term on its own could take any man from
+# full morale to the rout threshold in three ticks and no amount of the leader
+# term could argue with it. A contagion needs a fixed point as much as it needs
+# a gain, and this is it: the pull is toward a floor, so it weakens as a man
+# approaches it. 0.3 is about three seconds of seeing your entire side run
+# before you break, which is long enough for a commander to matter and short
+# enough that a broken line really does empty.
+morale_panic_spread = 0.3
+# Morale a rout pulls a man down toward. HARD range 0-1, and validation refuses
+# a floor at or above morale_rout_threshold, because a pull toward a floor at
+# the threshold can never take a man past it. SANE range 0.02-0.13.
+#
+# It sits a little under the rout threshold so that panic CAN tip a man over
+# the edge, and only a little under, because the further below the edge it
+# pulls the more of the army one cascade empties. The gap between the two
+# numbers is how far past running a frightened man is taken, and 0.04 of morale
+# is the whole difference between a man running and a man broken.
+morale_panic_floor = 0.10
 # Morale a surrendered unit would have had, kept so the aftermath can report
 # what the enemy broke. Range 0-1.0.
 surrender_morale_report = 0.05
