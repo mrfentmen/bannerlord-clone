@@ -1162,6 +1162,180 @@ func TestAGroupOfMenWhoAreNotThereIsRefused(t *testing.T) {
 	}
 }
 
+// TestAMoveWalksToThePointAndStopsThere is the move order, which is the one of the
+// fourteen that a player reaches for most and which has to arrive rather than
+// merely move.
+//
+// It is checked against a hand-built view rather than a battle because the question
+// is arithmetic: does the anchor walk towards the point, does it stop when it gets
+// there, and does it go there rather than somewhere on the way to the enemy. The
+// destination is deliberately off the line to the enemy, so an implementation that
+// walked towards the enemy would be caught.
+func TestAMoveWalksToThePointAndStopsThere(t *testing.T) {
+	cfg := loadConfig(t)
+	fc := cfg.Formation
+	const (
+		n      = 8
+		settle = 30
+		startX = -300.0
+		enemyX = 400.0
+		destX  = 0.0
+		destY  = 250.0
+	)
+	// The view: n side A men in a small blob, side B far away to the east, so the
+	// enemy is in +X and the destination is mostly in +Y.
+	v := &View{
+		Elapsed:     0,
+		TickSeconds: cfg.Battle.TickSeconds,
+		Units:       make([]UnitView, n+2),
+		Commands:    make([]UnitCommand, n+2),
+	}
+	for i := range v.Units {
+		u := UnitView{ID: i, Side: SideA, Status: StatusFighting, Troops: 10, Speed: 4, X: startX, Y: 0}
+		switch {
+		case i == n:
+			u = UnitView{ID: i, Side: SideB, Status: StatusFighting, Troops: 200, Speed: 4, X: enemyX, Y: 0}
+		case i == n+1:
+			u = UnitView{ID: i, Side: SideB, Status: StatusFighting, Troops: 200, Speed: 4, X: enemyX, Y: 60}
+		default:
+			u.X = startX + float64(i)*2
+			u.Y = float64(i) - 3
+		}
+		v.Units[i] = u
+	}
+	units := make([]int, n)
+	for i := range units {
+		units[i] = i
+	}
+	cmd, err := NewFormationCommander(cfg, SideA, []Group{{
+		Order: GroupOrder{
+			Kind:  FormationLine,
+			Order: OrderFormationMove,
+			At:    &Destination{X: destX, Y: destY},
+		},
+		Units: units,
+	}})
+	if err != nil {
+		t.Fatalf("building the formation commander failed: %v", err)
+	}
+
+	// Walk the commander by hand, applying the movement it orders, and watch the
+	// group's own centre of mass. The blob is 16 m across and the shape is a line,
+	// so the first ticks are the men converging into the shape and the rest are
+	// the shape walking.
+	step := func() {
+		for i := range v.Commands {
+			v.Commands[i] = UnitCommand{}
+		}
+		if err := cmd.Command(v); err != nil {
+			t.Fatalf("ordering the move failed at elapsed %.1f: %v", v.Elapsed, err)
+		}
+		for i := range v.Commands {
+			c := v.Commands[i]
+			if !c.Set {
+				continue
+			}
+			v.Units[i].X += c.DX
+			v.Units[i].Y += c.DY
+		}
+		v.Tick++
+		v.Elapsed += cfg.Battle.TickSeconds
+	}
+	// The anchor is read with the same function the commander reads it with. A
+	// test that weighs positions itself is a test of its own arithmetic: an
+	// earlier version of this one summed the coordinates and divided by the bodies
+	// standing on them, which is eight times too small a number, and reported a
+	// formation that had gone nowhere while the log above it walked 0.33 m a tick.
+	anchorAt := func() (float64, float64) {
+		x, y, ok := centreOfMass(v, units)
+		if !ok {
+			t.Fatalf("the group has no bodies left to have an anchor")
+		}
+		return x, y
+	}
+	// How long the walk is allowed to take, worked out from the pace rather than
+	// guessed: the distance to the point, at the pace a move walks, in ticks. The
+	// +120 is slack for the shape forming first and for the anchor closing the last
+	// spacing, and it is slack rather than the answer because the point of the test
+	// is that the formation arrives on its own, not that it arrives by tick N.
+	pushPerTick := fc.AdvanceSpeed * cfg.Battle.TickSeconds
+	if pushPerTick <= 0 {
+		t.Fatalf("advance_speed %g m/s over a %g s tick is not a walk at all", fc.AdvanceSpeed, cfg.Battle.TickSeconds)
+	}
+	walk := int(math.Ceil(math.Hypot(destX-startX, destY) / pushPerTick))
+	ticks := settle + walk + 120
+	t.Logf("a walk of %.1f m at %.2f m/s is %.4f m a tick, so %d ticks to arrive, and %d ticks allowed "+
+		"after the shape has formed", math.Hypot(destX-startX, destY), fc.AdvanceSpeed, pushPerTick, walk, ticks)
+
+	for i := 0; i < settle; i++ {
+		step()
+	}
+	fromX, fromY := anchorAt()
+	fromBearing := Bearing(fromX, fromY, destX, destY)
+	enemyBearing := Bearing(fromX, fromY, enemyX, 30)
+	for i := 0; i < ticks-settle; i++ {
+		step()
+		if (i+1)%200 == 0 {
+			x, y := anchorAt()
+			t.Logf("tick %d of %d: anchor (%+.3f, %+.3f), %.1f m from the point", i+1, ticks-settle, x, y,
+				math.Hypot(x-destX, y-destY))
+		}
+	}
+	toX, toY := anchorAt()
+
+	// One: it arrived. The tolerance is the shape's own spacing, which is the rule
+	// the layer already uses for a man being in his place.
+	tol := cohesionTolerance(FormationLine, FormationParamsFrom(fc))
+	left := math.Hypot(toX-destX, toY-destY)
+	if left > tol {
+		t.Errorf("after %d ticks the formation's anchor is at (%+.1f, %+.1f), %.2f m from the point "+
+			"(%+.1f, %+.1f) it was ordered to; it is more than its own %.2f m tolerance away",
+			ticks, toX, toY, left, destX, destY, tol)
+	}
+
+	// Two: it went to the point rather than towards the enemy. The enemy is due
+	// east and the point is north-east, about 60 degrees off the line to the
+	// enemy, so a formation that marched towards the enemy instead would have
+	// travelled a bearing tens of degrees away from the one it was given.
+	//
+	// The check is on the bearing travelled, not on the sign of a coordinate. The
+	// point happens to be east as well as north, so a test that complained about
+	// eastward movement would be complaining about the point I chose; the bearing
+	// is the thing the order is actually about.
+	travelled := Bearing(fromX, fromY, toX, toY)
+	if off := math.Abs(wrapAngle(travelled - fromBearing)); off > 0.05 {
+		t.Errorf("the formation travelled on a bearing of %.1f degrees and was ordered to a point on one "+
+			"of %.1f degrees, %.1f degrees off; it walked somewhere other than where it was told",
+			travelled*180/math.Pi, fromBearing*180/math.Pi, off*180/math.Pi)
+	}
+	if off := math.Abs(wrapAngle(travelled - enemyBearing)); off < 0.2 {
+		t.Errorf("the formation travelled on a bearing of %.1f degrees, which is within %.1f degrees of the "+
+			"bearing to the enemy at (%+.0f, +30) of %.1f degrees; it marched at the enemy instead of to its "+
+			"point", travelled*180/math.Pi, off*180/math.Pi, enemyX, enemyBearing*180/math.Pi)
+	}
+
+	// Three: it stopped. A formation that reaches its point and keeps walking is
+	// an order that never expires, and the last fifty ticks are where that shows.
+	beforeX, beforeY := anchorAt()
+	for i := 0; i < 50; i++ {
+		step()
+		if i%10 == 0 {
+			x, y := anchorAt()
+			t.Logf("  after arrival, tick %d: anchor (%+.3f, %+.3f)", i+1, x, y)
+		}
+	}
+	afterX, afterY := anchorAt()
+	if drift := math.Hypot(afterX-beforeX, afterY-beforeY); drift > tol {
+		t.Errorf("the formation had arrived at (%+.2f, %+.2f) and was then at (%+.2f, %+.2f) fifty ticks "+
+			"later, a drift of %.2f m; a move that never stops is not a move", beforeX, beforeY, afterX, afterY, drift)
+	}
+	t.Logf("a move ordered from (%+.1f, %+.1f) to (%+.0f, %+.0f) arrived at (%+.2f, %+.2f), %.3f m "+
+		"short after %d ticks, and then held for 50 more: walked %+.1f m east and %+.1f m north on a "+
+		"bearing of %.1f degrees where the point was on %.1f and the enemy on %.1f",
+		fromX, fromY, destX, destY, toX, toY, left, ticks, toX-fromX, toY-fromY,
+		travelled*180/math.Pi, fromBearing*180/math.Pi, enemyBearing*180/math.Pi)
+}
+
 // countSpoken is how many order slots were spoken to at all, movement or shape.
 func countSpoken(cmds []UnitCommand) int {
 	n := 0

@@ -2,7 +2,7 @@
 // formation should do, as opposed to how it moves or what happens to it when it
 // gets there.
 //
-// WHAT THIS IS
+// # WHAT THIS IS
 //
 // One commander per side. Each tick it reads the field, measures it, applies a
 // fixed sequence of rules, and issues orders to its formations: which advance,
@@ -11,7 +11,7 @@
 // goals: advance, hold, flank, fall back", with the goals decided rather than
 // described.
 //
-// WHAT THIS IS NOT
+// # WHAT THIS IS NOT
 //
 // It is not the formation layer. internal/formation owns what a line, a column,
 // a wedge, and loose order are, how fast they walk, and where every man stands
@@ -24,7 +24,7 @@
 // formation gets to decide where to put it afterwards, and that is the whole of
 // the authority it has over morale.
 //
-// IT DOES NOT CALL THE BATTLE ENGINE
+// # IT DOES NOT CALL THE BATTLE ENGINE
 //
 // internal/battle publishes the field once per tick through battle.View and reads
 // movement back from it through battle.UnitCommand. This package imports
@@ -33,7 +33,7 @@
 // Commander. CONSTITUTION.md section 2.1 is about systems not calling each other;
 // the seam between two layers of one battle is shared state plus one interface.
 //
-// THE OTHER IMPORTS, AND WHY THEY ARE NOT COUPLING
+// # THE OTHER IMPORTS, AND WHY THEY ARE NOT COUPLING
 //
 // internal/config is the loader for the whole simulation and not one of the
 // systems in CAUSE_EFFECT.md section 3. internal/cause is the log every tracked
@@ -41,7 +41,7 @@
 // Reading a constant and writing a cause row is not a system invoking another
 // system.
 //
-// WHY A CAUSE ROW PER ORDER
+// # WHY A CAUSE ROW PER ORDER
 //
 // CONSTITUTION.md section 2.2: a feature that changes tracked state and writes
 // nothing to the cause log is incomplete. An order changes what a body of troops
@@ -51,7 +51,7 @@
 // was decided, and cites the previous order for the same formation, so the Why
 // panel can walk a formation's whole order history.
 //
-// DETERMINISM
+// # DETERMINISM
 //
 // Same battle, same orders, byte for byte. There is no randomness in this package
 // at all — not a seeded stream, not a coin flip for which side to flank: the weak

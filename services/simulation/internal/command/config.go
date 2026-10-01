@@ -105,19 +105,19 @@ func FromCentral(c *config.Config) (Config, error) {
 				"because CONSTITUTION.md section 1.2 makes the balance file the only source of them")
 	}
 	out := Config{
-		FormationsPerSide:            0,
-		ReserveShare:                 c.Command.ReserveShare,
-		AdvanceTriggerRange:          c.Command.AdvanceTriggerRange,
-		ChargeRange:                  c.Command.ChargeRange,
-		ChargeStrengthRatio:          c.Command.ChargeStrengthRatio,
-		FlankTriggerRange:            c.Command.FlankTriggerRange,
-		FlankMinStrengthFraction:     c.Command.FlankMinStrengthFraction,
+		FormationsPerSide:             0,
+		ReserveShare:                  c.Command.ReserveShare,
+		AdvanceTriggerRange:           c.Command.AdvanceTriggerRange,
+		ChargeRange:                   c.Command.ChargeRange,
+		ChargeStrengthRatio:           c.Command.ChargeStrengthRatio,
+		FlankTriggerRange:             c.Command.FlankTriggerRange,
+		FlankMinStrengthFraction:      c.Command.FlankMinStrengthFraction,
 		ReserveCommitStrengthFraction: c.Command.ReserveCommitStrengthFraction,
-		WithdrawMorale:               c.Command.WithdrawMorale,
-		WithdrawBrokenShare:          c.Command.WithdrawBrokenShare,
-		DecisionIntervalTicks:        0,
-		OrderMinTicks:                0,
-		BrokenEffectiveness:          c.Battle.MeleeBrokenEffectiveness,
+		WithdrawMorale:                c.Command.WithdrawMorale,
+		WithdrawBrokenShare:           c.Command.WithdrawBrokenShare,
+		DecisionIntervalTicks:         0,
+		OrderMinTicks:                 0,
+		BrokenEffectiveness:           c.Battle.MeleeBrokenEffectiveness,
 	}
 	// Counts arrive as float64 because every constant in the balance file is a
 	// number, and a fractional formation count is a typo rather than a setting:

@@ -194,6 +194,11 @@ const (
 	// still facing the enemy, because a body that turns its back has already
 	// lost.
 	OrderFormationRetreat
+	// OrderFormationMove sends the shape to a place rather than to the enemy: it
+	// walks towards the point it was given and stops there, still in shape and
+	// still facing whatever it faced before. It is the order a player gives when
+	// the fight is somewhere else.
+	OrderFormationMove
 )
 
 var formationOrderNames = map[FormationOrder]string{
@@ -201,11 +206,12 @@ var formationOrderNames = map[FormationOrder]string{
 	OrderFormationAdvance: "advance",
 	OrderFormationCharge:  "charge",
 	OrderFormationRetreat: "retreat",
+	OrderFormationMove:    "move",
 }
 
 // AllFormationOrders returns every order in a fixed order.
 func AllFormationOrders() []FormationOrder {
-	return []FormationOrder{OrderFormationHold, OrderFormationAdvance, OrderFormationCharge, OrderFormationRetreat}
+	return []FormationOrder{OrderFormationHold, OrderFormationAdvance, OrderFormationCharge, OrderFormationRetreat, OrderFormationMove}
 }
 
 // String names the order for reports and order logs.
@@ -276,6 +282,16 @@ func (f Facing) resolve(anchorX, anchorY, enemyX, enemyY float64, haveEnemy bool
 	return Bearing(anchorX, anchorY, enemyX, enemyY)
 }
 
+// Destination is a place on the field, in metres, that a shape can be sent to.
+//
+// It is a separate type so that "there is no destination" and "the destination is
+// the origin" are different values rather than the same zero, which is the same
+// reason Facing carries a Fixed flag instead of relying on a bearing of zero.
+type Destination struct {
+	// X and Y are the point the shape walks to, in metres.
+	X, Y float64
+}
+
 // GroupOrder is one side's standing order for one group of its units: the shape,
 // what to do with it, and which way it looks.
 type GroupOrder struct {
@@ -286,6 +302,11 @@ type GroupOrder struct {
 	Order FormationOrder
 	// Facing is which way the shape looks. The zero value faces the enemy.
 	Facing Facing
+	// At is where OrderFormationMove sends the shape, and it is read only by that
+	// order. Nil for every other order, and a destination on an order that does
+	// not walk anywhere is refused rather than ignored: an order carrying a place
+	// that nothing will walk to is an order nobody read.
+	At *Destination
 }
 
 // Group is a GroupOrder and the units ordered to carry it out.
@@ -1027,6 +1048,20 @@ func NewFormationCommander(cfg *config.Config, side Side, groups []Group) (*Form
 			return nil, newFormationError("NewFormationCommander", "Group.Units",
 				"group %d has no units, so it is not a formation", i)
 		}
+		if g.Order.Order == OrderFormationMove && g.Order.At == nil {
+			return nil, newFormationError("NewFormationCommander", "Group.Order.At",
+				"group %d is ordered to move and has no destination; there is nowhere for it to walk to", i)
+		}
+		if g.Order.Order != OrderFormationMove && g.Order.At != nil {
+			return nil, newFormationError("NewFormationCommander", "Group.Order.At",
+				"group %d is ordered %s and carries a destination; only a move reads a place to walk "+
+					"to, so this one is an order nobody will read", i, g.Order.Order)
+		}
+		if g.Order.At != nil && (!isFinite(g.Order.At.X) || !isFinite(g.Order.At.Y)) {
+			return nil, newFormationError("NewFormationCommander", "Group.Order.At",
+				"group %d is ordered to move to (%g, %g), which is not a place on the field", i,
+				g.Order.At.X, g.Order.At.Y)
+		}
 		if g.Order.Facing.Fixed && !isFinite(g.Order.Facing.Bearing) {
 			return nil, newFormationError("NewFormationCommander", "Group.Order.Facing.Bearing",
 				"group %d has a fixed facing of %g radians, which is not a direction", i, g.Order.Facing.Bearing)
@@ -1047,7 +1082,17 @@ func NewFormationCommander(cfg *config.Config, side Side, groups []Group) (*Form
 		// Ascending, so the layout assigns slots by id and the shape does not
 		// depend on the order the caller happened to list its units in.
 		sort.Ints(units)
-		c.groups = append(c.groups, &formationGroup{order: g.Order, units: units})
+		// The destination is copied rather than shared. The caller built this
+		// commander before the battle and keeps the slice it built it from, and a
+		// commander whose instructions change because somebody edited a struct
+		// afterwards is a battle that is fought under different orders from the
+		// ones it was given without anybody changing them.
+		order := g.Order
+		if g.Order.At != nil {
+			at := *g.Order.At
+			order.At = &at
+		}
+		c.groups = append(c.groups, &formationGroup{order: order, units: units})
 	}
 	return c, nil
 }
@@ -1165,6 +1210,10 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 	// be told to walk with it. See the in-slot branch below for why the
 	// tolerance cannot stand in the way of that.
 	walking := false
+	// tolerance is how far a man may be from his slot and still count as standing
+	// in it: the shape's own spacing, once. It is read by the move order below and
+	// by the slot loop after, so it is worked out here rather than in both places.
+	tolerance := cohesionTolerance(g.order.Kind, p)
 	// stepPace is how fast a man walks toward his slot, and it is the whole
 	// difference between the orders: an advance walks the shape forward, a
 	// charge walks it faster, a hold walks nobody anywhere but a man who has
@@ -1205,6 +1254,38 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 			// that arrived as a crowd reforms in place and shoots from there.
 			stepPace = fc.HoldSpeed
 		}
+	case OrderFormationMove:
+		// A move is a walk towards a place, and the pace of a walk is the file's
+		// walking pace: advance_speed. It is the same number an advance uses, and
+		// deliberately so. A formation marching to a hill and a formation closing
+		// on the enemy are the same walk by the same men, and two constants for one
+		// pace are two numbers that can disagree about how fast men walk.
+		stepPace = fc.AdvanceSpeed
+		// The destination is checked here rather than only at construction: this is
+		// the order that reads it, and an order that reads a nil destination is a
+		// formation with nowhere to go.
+		if g.order.At == nil {
+			return newFormationError("orderGroup", "Group.Order.At",
+				"group %s is ordered to move and was given no place to move to", g.order.Kind)
+		}
+		if d := math.Hypot(ax-g.order.At.X, ay-g.order.At.Y); isFinite(d) && d > 0 {
+			// The same one tick's worth of pace the advance and the withdrawal use,
+			// bounded by the distance that is left, so a formation that is nearly
+			// there spends its last tick arriving rather than arriving repeatedly.
+			push := math.Min(d, fc.AdvanceSpeed*v.TickSeconds)
+			anchorX, anchorY = ax+(g.order.At.X-ax)/d*push, ay+(g.order.At.Y-ay)/d*push
+			// Arrived is not the same as walking. A formation inside its own
+			// tolerance of the point stops being marched: the tolerance is the rule
+			// for "this man is in his place", and a shape whose anchor is inside its
+			// own spacing of where it was told to go is a shape that is there. Past
+			// it the tolerance is not consulted, for the reason the withdrawal
+			// overrides it: the point is a place, the men only ever close on the
+			// distance to a slot that is one push beyond them, and that distance is
+			// inside the tolerance every tick.
+			if d > tolerance {
+				walking = true
+			}
+		}
 	case OrderFormationRetreat:
 		stepPace = fc.RetreatSpeed
 		if d := math.Hypot(ax-ex, ay-ey); haveEnemy && isFinite(d) && d > 0 {
@@ -1231,7 +1312,6 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 		return err
 	}
 
-	tolerance := cohesionTolerance(g.order.Kind, p)
 	dt := v.TickSeconds
 	for i, id := range c.ids {
 		u := &v.Units[id]
@@ -1317,7 +1397,11 @@ func (c *FormationCommander) paceScale(kind Formation) float64 {
 // would have done uncommanded.
 func orderIntent(o FormationOrder) Intent {
 	switch o {
-	case OrderFormationAdvance, OrderFormationCharge:
+	case OrderFormationAdvance, OrderFormationCharge, OrderFormationMove:
+		// There is no separate intent for marching to a place. The report says what
+		// the men were ordered to do, and a formation walking to a point is
+		// advancing under orders; a second intent for it would be a second answer
+		// to what a man walking is doing.
 		return IntentAdvance
 	case OrderFormationRetreat:
 		return IntentWithdraw

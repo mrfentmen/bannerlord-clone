@@ -25,7 +25,7 @@ func TestEveryWireOrderIsEitherCarriedOutOrRefusedByName(t *testing.T) {
 	carried := map[OrderName]bool{
 		OrderHoldPosition: true, OrderAdvance: true, OrderCharge: true,
 		OrderFallBack: true, OrderRetreat: true, OrderChangeFormation: true,
-		OrderFaceDirection: true,
+		OrderFaceDirection: true, OrderTacticMove: true,
 	}
 	seen := map[OrderName]bool{}
 	for _, name := range ValidOrders() {
@@ -36,7 +36,7 @@ func TestEveryWireOrderIsEitherCarriedOutOrRefusedByName(t *testing.T) {
 
 		// Parameters that satisfy every order that takes one, so the test is about
 		// which orders exist rather than about which parameters were supplied.
-		p := OrderParams{Formation: "wedge", Bearing: 1.5, HasFacing: true}
+		p := OrderParams{Formation: "wedge", Bearing: 1.5, HasFacing: true, X: -120, Y: 40, HasPoint: true}
 		am, err := PlanGroupOrder(name, p)
 		switch {
 		case carried[name]:
@@ -70,11 +70,11 @@ func TestEveryWireOrderIsEitherCarriedOutOrRefusedByName(t *testing.T) {
 	}
 }
 
-// TestTheSevenOrdersThisLayerDoesNotCarryOutAreAllAccountedFor is the same
-// statement about the refused half from the other side: every refusal has a
-// reason recorded, so no order can fall through the pair of maps into a
-// "not one of the fourteen" that is really a "we forgot this one".
-func TestTheSevenOrdersThisLayerDoesNotCarryOutAreAllAccountedFor(t *testing.T) {
+// TestTheOrdersThisLayerDoesNotCarryOutAreAllAccountedFor is the same statement
+// about the refused half from the other side: every refusal has a reason recorded,
+// so no order can fall through the pair of maps into a "not one of the fourteen"
+// that is really a "we forgot this one".
+func TestTheOrdersThisLayerDoesNotCarryOutAreAllAccountedFor(t *testing.T) {
 	for name := range unexecutableOrders {
 		if !ValidOrder(name) {
 			t.Errorf("order %q is refused with a reason but is not one of the fourteen", name)
@@ -88,13 +88,15 @@ func TestTheSevenOrdersThisLayerDoesNotCarryOutAreAllAccountedFor(t *testing.T) 
 			t.Errorf("order %q has a reason recorded and was still accepted", name)
 		}
 	}
-	// The count, because "the seven" is how the file describes itself.
-	if len(unexecutableOrders) != 7 {
-		t.Errorf("%d orders are accounted for as somebody else's, and the file says seven",
+	// The counts, because "eight carried out and six refused" is how the file
+	// describes itself, and a count in a comment that has drifted is a comment a
+	// reader stops trusting.
+	if len(unexecutableOrders) != 6 {
+		t.Errorf("%d orders are accounted for as somebody else's, and the file says six",
 			len(unexecutableOrders))
 	}
-	if len(executableOrders) != 7 {
-		t.Errorf("%d orders are carried out, and the file says seven", len(executableOrders))
+	if len(executableOrders) != 8 {
+		t.Errorf("%d orders are carried out, and the file says eight", len(executableOrders))
 	}
 }
 
@@ -430,6 +432,8 @@ func TestOrdersRefuseWhatTheyCannotCarryOut(t *testing.T) {
 		{name: "a change of shape with no shape named", order: OrderChangeFormation, params: OrderParams{}, units: []int{0}, field: "OrderParams.Formation"},
 		{name: "a change into a shape that does not exist", order: OrderChangeFormation, params: OrderParams{Formation: "hexagon"}, units: []int{0}, field: "OrderParams.Formation"},
 		{name: "a face-direction with no bearing", order: OrderFaceDirection, params: OrderParams{}, units: []int{0}, field: "OrderParams.Bearing"},
+		{name: "a move with nowhere to go", order: OrderTacticMove, params: OrderParams{}, units: []int{0}, field: "OrderParams.X"},
+		{name: "a move to a point that is not a place", order: OrderTacticMove, params: OrderParams{X: math.NaN(), Y: 0, HasPoint: true}, units: []int{0}, field: "OrderParams.X"},
 		{name: "a face-direction with a bearing that is not a direction", order: OrderFaceDirection, params: OrderParams{Bearing: math.NaN(), HasFacing: true}, units: []int{0}, field: "OrderParams.Bearing"},
 	}
 	for _, tc := range cases {
