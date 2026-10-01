@@ -121,8 +121,9 @@ export class SaveManager {
     const db = await this.db();
     const now = new Date().toISOString();
     const slotId =
-      id ?? name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") ||
-      `slot-${Date.now()}`;
+      id ??
+      (name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") ||
+        `slot-${Date.now()}`);
 
     const existing = await tx<SaveSlot | undefined>(db, "readonly", (store) =>
       store.get(slotId)

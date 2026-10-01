@@ -72,9 +72,8 @@ function installFakeIdb() {
             };
           },
         };
-        (req.onsuccess as () => void)?.call({ result: db });
         Object.defineProperty(req, "result", { value: db });
-        req.onsuccess?.call(req);
+        if (typeof req.onsuccess === "function") req.onsuccess.call(req);
       }, 0);
       return req;
     },
@@ -107,7 +106,7 @@ describe("SaveManager", () => {
     const slots = await mgr.listSlots();
     expect(slots).toHaveLength(2);
     expect(slots.every((s) => s.id !== AUTOSAVE_ID)).toBe(true);
-    expect(slots[0].name).toBe("Second");
+    expect(slots[0]?.name).toBe("Second");
   });
 
   it("autosave writes and loads independently of named slots", async () => {
