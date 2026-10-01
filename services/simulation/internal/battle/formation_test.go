@@ -891,7 +891,7 @@ func TestShapeEffectsComeFromTheBalanceFile(t *testing.T) {
 	if got := square.meleeTakenScale(0, 0, 0, 1, 0, fc.SquareFastMoverSpeed-0.01); got != 1 {
 		t.Errorf("a square pays %g against a mover just under the configured speed, want 1", got)
 	}
-	if got := square.shapePace(FormationSquare); got != fc.SquareMoveSpeedScale {
+	if got := (&FormationCommander{cfg: cfg}).paceScale(FormationSquare); got != fc.SquareMoveSpeedScale {
 		t.Errorf("a square moves at %g of the pace it is given, want %g", got, fc.SquareMoveSpeedScale)
 	}
 
@@ -906,6 +906,12 @@ func TestShapeEffectsComeFromTheBalanceFile(t *testing.T) {
 
 	// Line and column are the reference shapes: neither adds nor takes anything,
 	// which is stated in the balance file and checked here.
+	//
+	// The pace is read through the commander rather than through the Battle,
+	// because the commander is where a formation's pace is decided: it is the
+	// thing that writes the movement order. A pace rule that lived on the Battle
+	// would have no caller, and a rule with no caller reads as a rule that works.
+	commander := &FormationCommander{cfg: cfg}
 	for _, f := range []Formation{FormationLine, FormationColumn} {
 		b := setupEffectBattle(t, cfg, f, 0)
 		if got := b.meleeDealtScale(0, fc.ChargeSpeed*2); got != 1 {
@@ -917,7 +923,7 @@ func TestShapeEffectsComeFromTheBalanceFile(t *testing.T) {
 		if got := b.suppressionTakenScale(0); got != 1 {
 			t.Errorf("%s takes %g of the suppression aimed at it, want 1: it is a reference shape", f, got)
 		}
-		if got := b.shapePace(f); got != 1 {
+		if got := commander.paceScale(f); got != 1 {
 			t.Errorf("%s moves at %g of the pace it is given, want 1: it is a reference shape", f, got)
 		}
 	}
@@ -926,7 +932,7 @@ func TestShapeEffectsComeFromTheBalanceFile(t *testing.T) {
 	// uncommanded battle bit-for-bit the battle there was before formations.
 	none := setupEffectBattle(t, cfg, FormationNone, 0)
 	if none.meleeDealtScale(0, 100) != 1 || none.meleeTakenScale(0, 0, 0, -1, 0, 100) != 1 ||
-		none.suppressionTakenScale(0) != 1 || none.shapePace(FormationWedge) != 1 {
+		none.suppressionTakenScale(0) != 1 || commander.paceScale(FormationWedge) != 1 {
 		t.Error("a unit in no formation is getting a formation effect")
 	}
 }
