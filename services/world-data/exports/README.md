@@ -1,6 +1,6 @@
 # World-data portable export
 
-Generated 2026-09-30 by the Phase 0 pipeline (`python -m worlddata run`).
+Generated 2026-10-01 by the Phase 0 pipeline (`python -m worlddata run`).
 Every table is published twice: **JSONL** (`.jsonl.gz`, universal) and
 **Parquet** (`.parquet`, columnar). No database required — this directory is
 the portable Contract A deliverable.
@@ -18,6 +18,7 @@ the portable Contract A deliverable.
 | `ports` | 81 | Ports from Natural Earth |
 | `regions` | 1 | Region rollup |
 | `state_boundaries` | 51 | State boundary references |
+| `place_boundaries` | 32,037 | Census place boundaries: id, name, state, LSAD area-type code, centroid lat/lon |
 | `schema.json` | — | Column definitions for every table |
 | `MANIFEST.json` | — | Source datasets, digests, and run provenance |
 
@@ -28,9 +29,6 @@ JSONL) is excluded: it is render geometry, regenerable in ~3 minutes with
 `python -m worlddata --config config/world_data.toml run --skip-fetch
 --skip-postgres --reuse-stages`. The `routes` table above already carries the
 settlement-to-settlement edges the simulation needs.
-
-`place_boundaries` exported 0 rows in this run; it is omitted rather than
-shipped empty.
 
 ## Verification
 
