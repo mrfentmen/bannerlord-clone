@@ -34,14 +34,20 @@ import (
 //
 // # WHAT THIS FILE WILL NOT DO
 //
-// Seven of the fourteen names are not here: move, follow, change-spacing,
-// volley-fire, fire-at-will, take-cover, and flank. They are not refused because
-// they are bad orders. They are refused because the formation layer has no
-// definition of any of them, and the layer's own rule is that accepting a shape
-// or an order it cannot draw is the silent stub this codebase treats as a bug.
-// The tactics layer (internal/command) does define them, and an order that
-// belongs there is a tactics commander's business. PlanGroupOrder says so by
-// name rather than pretending the order set is smaller than it is.
+// Six of the fourteen names are not here: follow, change-spacing, volley-fire,
+// fire-at-will, take-cover, and flank. They are not refused because they are bad
+// orders. They are refused because the formation layer has no definition of any of
+// them, and the layer's own rule is that accepting a shape or an order it cannot
+// carry out is the silent stub this codebase treats as a bug. The tactics layer
+// (internal/command) does define them, and an order that belongs there is a
+// tactics commander's business. PlanGroupOrder says so by name rather than
+// pretending the order set is smaller than it is.
+//
+// move IS here, and it is the one of the seven that needed no new number to
+// define. A shape walks to a point at the file's walking pace, which is the same
+// pace an advance uses because it is the same walk, and it stops when its anchor
+// is inside its own spacing of where it was told to go. Every constant it needs is
+// therefore one the layer already had.
 //
 // A group with no shape has no movement order either. OrderFormationHold is the
 // zero value of FormationOrder, so a standing order that named only "advance"
@@ -66,6 +72,12 @@ type OrderParams struct {
 	// can be asked for rather than being indistinguishable from no bearing.
 	Bearing   float64
 	HasFacing bool
+	// X and Y are the point in metres for move. They are read only when HasPoint
+	// is true, for the same reason the bearing is: the origin is a place a player
+	// can order a formation to, so "no point given" has to be its own value rather
+	// than a zero that means the middle of the field.
+	X, Y     float64
+	HasPoint bool
 }
 
 // executableOrders is the part of the fourteen this layer can carry out, and
@@ -83,12 +95,12 @@ var executableOrders = map[OrderName]string{
 	OrderRetreat:         "break contact, keeping the shape",
 	OrderChangeFormation: "form into the named shape",
 	OrderFaceDirection:   "face a fixed bearing instead of the enemy",
+	OrderTacticMove:      "walk the shape to a point on the field",
 }
 
-// unexecutableOrders says what happened to the seven names this layer does not
-// carry out, so the refusal can name the road rather than only the wall.
+// unexecutableOrders says what happened to the names this layer does not carry
+// out, so the refusal can name the road rather than only the wall.
 var unexecutableOrders = map[OrderName]string{
-	OrderTacticMove:    "the tactics layer moves a formation with a plan, not a single order",
 	OrderFollow:        "following is a question about another formation's anchor, and this layer only commands its own groups",
 	OrderChangeSpacing: "spacing is a parameter of the shape in the balance file, not something a commander changes mid-battle",
 	OrderVolleyFire:    "fire discipline belongs to the aimed-fire stage, which has no seam for it",
@@ -128,6 +140,19 @@ func PlanGroupOrder(name OrderName, p OrderParams) (amendment, error) {
 				"change-formation needs the shape to form and %q is not one this layer can draw", p.Formation)
 		}
 		return amendment{kind: f, saysKind: true, describes: "change-formation: " + f.String()}, nil
+	case OrderTacticMove:
+		if !p.HasPoint {
+			return amendment{}, newFormationError("PlanGroupOrder", "OrderParams.X",
+				"move needs a point in metres and none was given; a formation with nowhere to walk to is "+
+					"a formation holding, and that is a different order with a name of its own")
+		}
+		if !isFinite(p.X) || !isFinite(p.Y) {
+			return amendment{}, newFormationError("PlanGroupOrder", "OrderParams.X",
+				"move was given the point (%g, %g), which is not a place on the field", p.X, p.Y)
+		}
+		return amendment{order: OrderFormationMove, saysOrder: true,
+			at:        &Destination{X: p.X, Y: p.Y},
+			describes: fmt.Sprintf("move: (%+.1f, %+.1f) m", p.X, p.Y)}, nil
 	case OrderFaceDirection:
 		if !p.HasFacing {
 			return amendment{}, newFormationError("PlanGroupOrder", "OrderParams.Bearing",
@@ -160,6 +185,7 @@ type amendment struct {
 	kind   Formation
 	order  FormationOrder
 	facing Facing
+	at     *Destination
 	// saysKind, saysOrder, and saysFacing are which fields the order spoke to.
 	// An order that does not speak to a field leaves it alone, and that is the
 	// whole reason "advance" can be sent without naming a shape.
@@ -215,6 +241,14 @@ func executableOrderNames() []string {
 //
 // One Orders belongs to one side and commands that side's units only. A group
 // naming another side's men is refused, by the commander it builds.
+//
+// It is not safe for concurrent use, and the reason is worth stating rather than
+// leaving to a caller to discover. Apply writes the standing orders while the
+// engine reads them, once per tick, through the commander they built. A request
+// handler amending orders while a pump goroutine advances the same battle is two
+// goroutines on one standing order. The API server does not have that race, because
+// its pump holds the same mutex its handlers take around the whole of Advance, and
+// a caller with a different shape has to serialise the two itself.
 type Orders struct {
 	cfg    *config.Config
 	side   Side
@@ -404,6 +438,17 @@ func (a amendment) applyTo(g GroupOrder) GroupOrder {
 	}
 	if a.saysOrder {
 		g.Order = a.order
+		// A destination belongs to a move and to nothing else, so an order that
+		// walks somewhere else takes the place with it. Leaving it behind would be
+		// an order carrying a destination nothing will read, which is the thing
+		// the commander refuses at construction.
+		if a.order != OrderFormationMove {
+			g.At = nil
+		}
+	}
+	if a.saysOrder && a.at != nil {
+		at := *a.at
+		g.At = &at
 	}
 	if a.saysFacing {
 		g.Facing = a.facing

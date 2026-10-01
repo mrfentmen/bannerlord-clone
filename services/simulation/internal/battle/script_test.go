@@ -606,10 +606,27 @@ func loadGoldens(t testing.TB, update bool) []goldenFixture {
 			t.Fatalf("golden fixture %s names itself %q; the .hash file is keyed on the file name, so "+
 				"the two have to agree", e.Name(), s.Name)
 		}
+		// The expectation comes from the FILE, and this is the second thing that
+		// has to be true of this loader, the first being that the script file is
+		// what it claims to be.
+		//
+		// It used to come from the fresh run, which is the run being judged, so
+		// the fixture's Outcome, Ticks and Orders held what the engine does now.
+		// The failure message then printed "ticks now 333, fixture says 333" for
+		// a fixture whose file said 483: the diagnostic compared the engine
+		// against itself and told a reader trying to work out whether a battle
+		// had changed that the tick count had not. The three fields exist so a
+		// diff can be read without decoding a hash, and they cannot do that
+		// while they are copied from the thing being compared.
+		recorded := readGoldenExpectation(t, e.Name(), name)
 		got, err := goldenOutcome(loadConfig(t), s)
 		if err != nil {
 			t.Fatalf("fighting golden fixture %s failed: %v", e.Name(), err)
 		}
+		got.ResultHash = recorded.ResultHash
+		got.Outcome = recorded.Outcome
+		got.Ticks = recorded.Ticks
+		got.Orders = recorded.Orders
 		out = append(out, got)
 	}
 	return out
@@ -704,11 +721,17 @@ func TestGoldenReplaysAreTheBattlesTheyWere(t *testing.T) {
 				t.Fatalf("fighting the fixture failed: %v", err)
 			}
 			if res.HashString() != want {
+				// Both sides of every "now / fixture says" pair below come from a
+				// different place: "now" is this run, "the fixture says" is the
+				// .hash file. The outcome is quoted as the file records it, kind and
+				// reason together, so a battle that changed only in WHY it was won
+				// is legible in the diff rather than hidden behind a hash.
 				t.Errorf("the battle moved. it hashed to %s and the fixture says %s\n"+
-					"  outcome now %s, fixture says %s\n"+
+					"  outcome now %s (%s), fixture says %s\n"+
 					"  ticks now %d, fixture says %d; orders now %d, fixture says %d\n"+
 					"  if this change was intended, set %s and commit the new hash with the change",
-					res.HashString(), want, res.Outcome.Kind, f.Outcome,
+					res.HashString(), want,
+					res.Outcome.Kind, res.Outcome.Reason, f.Outcome,
 					res.Ticks, f.Ticks, rec.Log.Len(), f.Orders, goldenFixtureEnv)
 				return
 			}
@@ -734,16 +757,68 @@ func TestGoldenReplaysAreTheBattlesTheyWere(t *testing.T) {
 // readGoldenHash reads a fixture's recorded result hash.
 func readGoldenHash(t testing.TB, name string) string {
 	t.Helper()
+	return readGoldenExpectation(t, name, name).ResultHash
+}
+
+// readGoldenExpectation reads everything a fixture records: the hash, and the
+// outcome, tick count and order count beside it.
+//
+// The whole line is parsed rather than just the hash, and the numbers are parsed
+// rather than trusted, because this is what the failure message quotes as "the
+// fixture says". A diagnostic that quotes a number it took from the run it is
+// judging is worse than no diagnostic: it is a diagnostic that agrees with
+// whatever it is checking.
+//
+// A .hash file that cannot be parsed is a hard error with the regenerate
+// instruction in it, because a half-written expectation is not a test that
+// should be quietly skipped.
+func readGoldenExpectation(t testing.TB, file, name string) goldenFixture {
+	t.Helper()
 	b, err := os.ReadFile(filepath.Join(goldenDir(), name+".hash"))
 	if err != nil {
 		t.Fatalf("reading the expected hash for golden %s failed: %v; regenerate the fixtures with "+
-			"%s set", name, err, goldenFixtureEnv)
+			"%s set", file, err, goldenFixtureEnv)
 	}
-	fields := strings.Fields(string(b))
+	line := strings.TrimSpace(string(b))
+	fields := strings.Fields(line)
 	if len(fields) == 0 {
-		t.Fatalf("the hash file for golden %s is empty", name)
+		t.Fatalf("the hash file for golden %s is empty", file)
 	}
-	return fields[0]
+	out := goldenFixture{Name: name, ResultHash: fields[0]}
+	// The line is written as "<hash>  <outcome>  ticks=<n>  orders=<n>".
+	if len(fields) > 1 {
+		// The outcome is every field between the hash and the first key=value pair.
+		var words []string
+		for _, f := range fields[1:] {
+			if strings.Contains(f, "=") {
+				break
+			}
+			words = append(words, f)
+		}
+		out.Outcome = strings.Join(words, " ")
+	}
+	for _, f := range fields {
+		k, v, ok := strings.Cut(f, "=")
+		if !ok {
+			continue
+		}
+		n, err := strconv.Atoi(v)
+		if err != nil {
+			t.Fatalf("the hash file for golden %s has %q where a number belongs; the line is "+
+				"\"<hash>  <outcome>  ticks=<n>  orders=<n>\", and regenerating with %s set rewrites it",
+				file, f, goldenFixtureEnv)
+		}
+		switch k {
+		case "ticks":
+			out.Ticks = n
+		case "orders":
+			out.Orders = n
+		default:
+			t.Fatalf("the hash file for golden %s carries the unknown key %q; regenerate the fixtures "+
+				"with %s set rather than editing one by hand", file, k, goldenFixtureEnv)
+		}
+	}
+	return out
 }
 
 // TestThereAreThreeCanonicalBattles pins the count.
