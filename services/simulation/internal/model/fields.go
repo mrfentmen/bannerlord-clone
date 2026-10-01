@@ -365,7 +365,7 @@ func init() {
 	register(Field{"wages_owed", KindParty, ValueFloat, "money", true, 0, inf, nil, 0})
 	register(Field{"position_x", KindParty, ValueFloat, "leagues", true, 0, inf, nil, 0})
 	register(Field{"position_y", KindParty, ValueFloat, "leagues", true, 0, inf, nil, 0})
-	register(Field{"activity", KindParty, ValueText, "activity", true, 0, 0, []string{
+	register(Field{"activity", KindParty, ValueText, "activity", true, 0, 8, []string{
 		"idle", "marching", "raiding", "sieging", "trading", "patrolling",
 		"resupplying", "returning", "defending",
 	}, 0})
