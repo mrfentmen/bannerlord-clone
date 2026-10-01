@@ -205,3 +205,44 @@ exist in any real form yet. See section 1.
 
 Enforced by `src/data/__tests__/attribution.test.ts`, which fails the build if any of
 these strings disappears from the credits data.
+
+---
+
+## 7. Priority metros (Tier 2B-69)
+
+Per-metro dataset status for the 4 priority metros. Bboxes defined in
+`services/world-data/config/world_data.toml` [metros.*].
+
+### 7.1 New York City (5 boroughs)
+
+- **Bbox:** [-74.30, 40.40, -73.70, 40.90]
+- **Settlements:** 80 (all 5 boroughs represented)
+- **Roads:** In main travel graph (Tier 1A)
+- **Elevation:** Z12 tiles via `tools/fetch-elevation-tiles.py`
+- **Gaps:** Building footprints not yet in pipeline (see 4.3)
+
+### 7.2 Los Angeles metro
+
+- **Bbox:** [-118.70, 33.70, -117.80, 34.30]
+- **Settlements:** 94
+- **Roads:** In main travel graph
+- **Elevation:** Z12 tiles available
+- **Gaps:** Same as NYC
+
+### 7.3 Houston metro
+
+- **Bbox:** [-95.80, 29.50, -94.80, 30.20]
+- **Settlements:** 49
+- **Roads:** In main travel graph
+- **Elevation:** Z12 tiles available
+- **Gaps:** Same as NYC
+
+### 7.4 Miami metro
+
+- **Bbox:** [-80.40, 25.60, -80.00, 26.00]
+- **Settlements:** 34
+- **Roads:** In main travel graph
+- **Elevation:** Z12 tiles available
+- **Gaps:** Same as NYC; barrier islands need ferry edges (Tier 1A-15)
+
+**Total:** 257 metro settlements. Spot-checks in `docs/METRO_SPOT_CHECKS.md`.
