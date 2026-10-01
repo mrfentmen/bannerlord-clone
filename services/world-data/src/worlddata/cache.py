@@ -27,7 +27,7 @@ T = TypeVar("T")
 
 # Bumped when the cached dataclasses change shape, so an old cache is never read
 # into new code.
-CACHE_FORMAT_VERSION = 3
+CACHE_FORMAT_VERSION = 4
 
 
 def fingerprint(

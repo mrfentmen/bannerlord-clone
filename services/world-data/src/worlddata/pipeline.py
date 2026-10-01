@@ -133,6 +133,24 @@ def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def restrict_place_boundaries(
+    place_boundaries: list[PlaceBoundary], valid_fips: set[str]
+) -> list[PlaceBoundary]:
+    """Filter place boundaries to valid state FIPS, failing loudly if empty.
+
+    A stale stage cache can hold corrupted FIPS codes that match nothing;
+    silently dropping all 32,000 rows produces an empty export with no error.
+    Raise WorldDataError instead so the problem is visible.
+    """
+    restricted = [b for b in place_boundaries if b.state_fips in valid_fips]
+    if place_boundaries and not restricted:
+        raise WorldDataError(
+            f"FIPS filter dropped all {len(place_boundaries)} place boundaries; "
+            "valid_fips does not match any boundary.state_fips (stale cache?)"
+        )
+    return restricted
+
+
 def run(
     config: Config | None = None,
     *,
@@ -219,7 +237,7 @@ def run(
     name_to_fips = state_name_to_fips(state_boundaries)
     valid_fips = set(population.states)
     state_boundaries = [item for item in state_boundaries if item.state_fips in valid_fips]
-    place_boundaries = [item for item in place_boundaries if item.state_fips in valid_fips]
+    place_boundaries = restrict_place_boundaries(place_boundaries, valid_fips)
     result.log(
         f"boundaries: {len(state_boundaries)} state polygons and {len(place_boundaries)} place polygons "
         "restricted to the 50-states-plus-D.C. universe"
@@ -359,16 +377,17 @@ def run(
     result.log_stage("seed")
 
     # Everything downstream of seeding needs settlement coordinates, which are
-    # already copied into settlement_points, and nothing downstream needs the
-    # 32,000 place polygons or the raw population rows. Release them here.
+    # already copied into settlement_points. The place_by_key / by_name_state
+    # indexes and raw population rows are no longer needed, but the
+    # place_boundaries list itself must survive until _assemble_tables builds
+    # the export (it was cleared here before, shipping zero boundary rows).
     place_by_key = {}
     by_name_state = {}
-    place_boundaries = []
     kept = []
     population = None
     gc.collect()
     result.log(
-        "seed: released the place polygons and raw population rows before the route stage"
+        "seed: released the place indexes and raw population rows before the route stage"
     )
 
     # --- stage 10: routes --------------------------------------------------
