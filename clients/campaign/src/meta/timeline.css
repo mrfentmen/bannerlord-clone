@@ -1,0 +1,127 @@
+/**
+ * Campaign timeline styles (meta/timelinePanel.ts).
+ *
+ * Every value comes from src/design/tokens.css. The vertical spine is a
+ * single ::before rail; season ticks and event dots sit on it.
+ */
+
+.timeline__stats {
+  margin: 0 0 var(--space-2);
+  font-size: 0.9rem;
+  color: var(--ink-700);
+}
+
+.timeline__filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+
+.timeline__chip {
+  font-size: 0.8rem;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--ink-300);
+  background: transparent;
+  color: var(--ink-700);
+  cursor: pointer;
+}
+
+.timeline__chip--on {
+  background: var(--brand-600);
+  border-color: var(--brand-600);
+  color: var(--ink-50);
+}
+
+.timeline__spine {
+  list-style: none;
+  margin: 0;
+  padding: 0 0 0 var(--space-5);
+  position: relative;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.timeline__spine::before {
+  content: "";
+  position: absolute;
+  left: var(--space-2);
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--ink-300);
+}
+
+.timeline__season {
+  position: relative;
+  margin-bottom: var(--space-4);
+}
+
+.timeline__tick {
+  position: absolute;
+  left: calc(-1 * var(--space-5) + var(--space-2) - 5px);
+  top: var(--space-1);
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full);
+  background: var(--brand-600);
+  border: 2px solid var(--ink-50);
+}
+
+.timeline__season-label {
+  margin: 0 0 var(--space-2);
+  font-size: 0.95rem;
+  color: var(--ink-900);
+}
+
+.timeline__events {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+}
+
+.timeline__event {
+  display: flex;
+  gap: var(--space-2);
+  align-items: flex-start;
+}
+
+.timeline__dot {
+  flex: none;
+  width: 28px;
+  height: 28px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-full);
+  background: var(--ink-200);
+  font-size: 1rem;
+}
+
+.timeline__card {
+  flex: 1;
+  background: var(--ink-100);
+  border-radius: var(--radius-md);
+  padding: var(--space-2) var(--space-3);
+}
+
+.timeline__kind {
+  margin: 0;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-500);
+}
+
+.timeline__text {
+  margin: var(--space-1) 0 0;
+  font-size: 0.9rem;
+  color: var(--ink-900);
+}
+
+.timeline__empty {
+  list-style: none;
+}

@@ -47,6 +47,8 @@ export interface HudOptions {
   onOpenGallery?: () => void;
   /** Opens the clan chronicle. Optional: the button hides without it. */
   onOpenChronicle?: () => void;
+  /** Opens the campaign timeline (MASTER_PLAN task 139). Optional: the button hides without it. */
+  onOpenTimeline?: () => void;
   /** Toggles the battle heatmap overlay. Optional: the button hides without it. */
   onOpenHeatmap?: () => void;
   /** Opens the war memorial. Optional: the button hides without it. */
@@ -534,6 +536,12 @@ export function createHud(options: HudOptions): HudHandle {
       const chronicleBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-chronicle" }, "Chronicle");
       chronicleBtn.addEventListener("click", () => options.onOpenChronicle?.());
       rail.appendChild(chronicleBtn);
+    }
+
+    if (options.onOpenTimeline) {
+      const timelineBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-timeline" }, "Timeline");
+      timelineBtn.addEventListener("click", () => options.onOpenTimeline?.());
+      rail.appendChild(timelineBtn);
     }
 
     if (options.onOpenGallery) {

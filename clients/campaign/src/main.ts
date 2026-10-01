@@ -105,6 +105,7 @@ import {
   type BattleSite,
 } from "./meta/heatmap.js";
 import { heatmapPanel, type HeatmapPanelHandle } from "./meta/heatmapPanel.js";
+import { timelinePanel } from "./meta/timelinePanel.js";
 import { makeWorldProjector } from "./meta/heatmapProjector.js";
 import {
   clearIronmanRun,
@@ -507,6 +508,7 @@ const hud = createHud({
   onOpenPhotoMode: () => enterPhotoMode(),
   onOpenGallery: () => openGallery(),
   onOpenChronicle: () => openChronicle(),
+  onOpenTimeline: () => openTimeline(),
   onOpenHeatmap: () => toggleHeatmap(),
   onOpenMemorial: () => openMemorial(),
   onOpenClanLaws: () => openClanLaws(),
@@ -565,6 +567,7 @@ function persistChronicle(): void {
 function recordDeed(kind: ChronicleEvent["kind"], text: string): void {
   chronicle.events.push({ season: seasonForDay(snapshot?.day ?? 0), kind, text });
   persistChronicle();
+  timelineRefresh?.();
 }
 
 // -- Battle heatmap (MASTER_PLAN task 140): where you've fought, on the map -
@@ -1250,6 +1253,28 @@ function openSaveLoad(): void {
   contextNode = root;
   paint();
 }
+
+// -- Campaign timeline (Rowan, MASTER_PLAN task 139) --------------------------
+// Visual history of the reign: the chronicle's recorded deeds plotted by
+// season on a date-ordered spine. Same event store as the prose chronicle.
+function openTimeline(): void {
+  currentPanel = "none";
+  const { root, refresh } = timelinePanel({
+    events: () => chronicle.events,
+    onClose: () => {
+      currentPanel = "none";
+      contextNode = null;
+      timelineRefresh = null;
+      paint();
+    },
+  });
+  timelineRefresh = refresh;
+  contextNode = root;
+  paint();
+}
+
+/** Re-render the open timeline, if any, after a new deed is recorded. */
+let timelineRefresh: (() => void) | null = null;
 
 function openChronicle(): void {
   currentPanel = "none";
