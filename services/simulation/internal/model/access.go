@@ -994,6 +994,9 @@ func rulerSet(r *Leader, f string, v float64) bool {
 		r.PregnancyTicks = v
 	case "sex":
 		r.Sex = Sex(int(v))
+	case "pregnancy_days":
+		r.PregnancyDays = v
+		return true
 	default:
 		return false
 	}

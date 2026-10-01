@@ -51,6 +51,7 @@ import (
 	"mbclone/simulation/internal/systems/prisoner"
 	"mbclone/simulation/internal/systems/diplomat"
 	"mbclone/simulation/internal/systems/tournament"
+	"mbclone/simulation/internal/systems/family"
 	"mbclone/simulation/internal/systems/relation"
 	"mbclone/simulation/internal/systems/rulerai"
 	"mbclone/simulation/internal/systems/security"
@@ -76,6 +77,7 @@ func Systems() []sim.System {
 		prisoner.System(),
 		diplomat.System(),
 		tournament.System(),
+		family.System(),
 
 		// --- production: people into workers into food ---
 		labor.System(),
