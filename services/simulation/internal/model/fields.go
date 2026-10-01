@@ -27,12 +27,12 @@ const (
 	KindTown Kind = iota
 	KindVillage
 	KindParty
-	KindLeader
+	KindRuler
 	KindSide
 	KindRoute
 	KindSiege
 	KindWar
-	KindOrganization
+	KindClan
 	KindWorkshop
 )
 
@@ -45,7 +45,7 @@ func (k Kind) String() string {
 		return "village"
 	case KindParty:
 		return "party"
-	case KindLeader:
+	case KindRuler:
 		return "ruler"
 	case KindSide:
 		return "side"
@@ -55,7 +55,7 @@ func (k Kind) String() string {
 		return "siege"
 	case KindWar:
 		return "war"
-	case KindOrganization:
+	case KindClan:
 		return "clan"
 	case KindWorkshop:
 		return "workshop"
@@ -296,6 +296,8 @@ func init() {
 	register(Field{"food_imports", KindTown, ValueFloat, "person-days/day", true, 0, inf, nil, 0})
 	register(Field{"food_exports", KindTown, ValueFloat, "person-days/day", true, 0, inf, nil, 0})
 	register(Field{"medicine_imports", KindTown, ValueFloat, "doses/day", true, 0, inf, nil, 0})
+	register(Field{"militia", KindTown, ValueInt, "troops", true, 0, inf, nil, 0})
+	register(Field{"crime", KindTown, ValueFloat, "share", true, zero, one, nil, 0})
 	// arriving_cargo_* are staged by the logistics system and consumed by the
 	// food and disease systems. They are the seam between a caravan arriving
 	// and a town being fed or treated, and they are untracked because the
@@ -398,98 +400,35 @@ func init() {
 	register(Field{"is_sieging", KindParty, ValueFlag, "boolean", true, zero, one, nil, 0})
 	register(Field{"raid_target", KindParty, ValueInt, "village", false, -1, inf, nil, 0})
 	register(Field{"wage_daily", KindParty, ValueFloat, "money/day", false, 0, inf, nil, 0})
-	// --- party composition and formation fields (Tier 6.2, 6.3) ---
-	//
-	// party_template is tracked because a refit is a decision a player made or
-	// an AI scored, and the Why panel has to be able to explain why this army
-	// is a horse column now. The four class counts are tracked for the same
-	// reason: they are what a party panel shows, and a change in the mix is a
-	// change the player would ask about.
-	register(Field{"party_template", KindParty, ValueText, "template", true, 0, 0, []string{
-		"stance", "heavy", "light", "horse",
-	}, 0})
-	// troop_xp is tracked because it is the progression system: battles grant
-	// XP, and XP improves combat effectiveness. The player sees it grow.
-	register(Field{"troop_xp", KindParty, ValueFloat, "xp", true, 0, inf, nil, 0})
-	// cohesion is tracked because it gates army size: a doomstack with zero
-	// cohesion deserts, which is a decision the player must see coming.
-	register(Field{"cohesion", KindParty, ValueFloat, "share", true, zero, one, nil, 0})
-	register(Field{"troops_stance", KindParty, ValueInt, "troops", true, 0, inf, nil, 0})
-	register(Field{"troops_heavy", KindParty, ValueInt, "troops", true, 0, inf, nil, 0})
-	register(Field{"troops_light", KindParty, ValueInt, "troops", true, 0, inf, nil, 0})
-	register(Field{"troops_horse", KindParty, ValueInt, "troops", true, 0, inf, nil, 0})
-	// template_fit, refit_days, wing_share and parent_party are untracked
-	// bookkeeping: template_fit is recomputed every tick from terrain and
-	// mission so logging it would log a moving average, and a refit in
-	// progress is visible through party_template and the class counts
-	// themselves.
-	register(Field{"template_fit", KindParty, ValueFloat, "index", false, 0, one, nil, 0})
-	register(Field{"refit_days", KindParty, ValueFloat, "days", false, 0, inf, nil, 0})
-	register(Field{"is_wing", KindParty, ValueFlag, "boolean", true, zero, one, nil, 0})
-	register(Field{"parent_party", KindParty, ValueInt, "party", false, -1, inf, nil, 0})
-	register(Field{"wing_share", KindParty, ValueFloat, "share", false, zero, one, nil, 0})
-	// split_share and merge_target are the orders that carry a split or a
-	// consolidation into the formation system (Tier 6.3). They are untracked
-	// because the formation system clears them in the same tick it acts on
-	// them, so logging them would produce a pair of rows per order and the row
-	// that matters is the troop change it causes.
-	register(Field{"split_share", KindParty, ValueFloat, "share", false, zero, one, nil, 0})
-	register(Field{"merge_target", KindParty, ValueInt, "party", false, -1, inf, nil, 0})
-	// side_culture is untracked because it is an identity assigned at world
-	// generation and never changes; the template system reads it every tick.
-	register(Field{"side_culture", KindSide, ValueInt, "culture", false, 0, CultureCount - 1, nil, 0})
 	// --- ruler fields ---
-	register(Field{"influence", KindLeader, ValueFloat, "influence", true, 0, inf, nil, 0})
-	register(Field{"renown", KindLeader, ValueFloat, "renown", true, 0, inf, nil, 0})
-	register(Field{"gold", KindLeader, ValueFloat, "gold", true, zero, inf, nil, 0})
-	register(Field{"money", KindLeader, ValueFloat, "money", true, zero, inf, nil, 0})
-	register(Field{"loyalty_to_leader", KindLeader, ValueFloat, "share", true, zero, one, nil, 0})
-	register(Field{"ruler_side", KindLeader, ValueSideRef, "side", true, -1, inf, nil, 0})
-	register(Field{"ruler_town", KindLeader, ValueInt, "town", true, -1, inf, nil, 0})
-	register(Field{"ruler_age", KindLeader, ValueInt, "years", true, 0, 120, nil, 0})
-	register(Field{"captured_by", KindLeader, ValueInt, "ruler", true, -1, inf, nil, 0})
-	register(Field{"prisoner_days", KindLeader, ValueInt, "days", false, 0, inf, nil, 0})
+	register(Field{"influence", KindRuler, ValueFloat, "influence", true, 0, inf, nil, 0})
+	register(Field{"renown", KindRuler, ValueFloat, "renown", true, 0, inf, nil, 0})
+	register(Field{"loyalty_to_leader", KindRuler, ValueFloat, "share", true, zero, one, nil, 0})
+	register(Field{"ruler_side", KindRuler, ValueSideRef, "side", true, -1, inf, nil, 0})
+	register(Field{"ruler_town", KindRuler, ValueInt, "town", true, -1, inf, nil, 0})
+	register(Field{"ruler_age", KindRuler, ValueInt, "years", true, 0, 120, nil, 0})
+	register(Field{"captured_by", KindRuler, ValueInt, "ruler", true, -1, inf, nil, 0})
+	register(Field{"prisoner_days", KindRuler, ValueInt, "days", false, 0, inf, nil, 0})
 	// Opinion is measured from -1 to 1, so its logging threshold is far coarser
 	// than the global one: a hundredth of an opinion is the smallest change a
 	// player would notice or a why-query needs.
-	register(Field{"relation_score", KindLeader, ValueFloat, "score", true, -1, 1, nil, 0.02})
+	register(Field{"relation_score", KindRuler, ValueFloat, "score", true, -1, 1, nil, 0.02})
 	register(Field{"relation_score", KindSide, ValueFloat, "score", true, -1, 1, nil, 0.02})
-	register(Field{"renown_victories", KindLeader, ValueInt, "victories", false, 0, inf, nil, 0})
-	register(Field{"army", KindLeader, ValueInt, "party", true, -1, inf, nil, 0})
-	register(Field{"broken_oaths", KindLeader, ValueInt, "count", true, 0, inf, nil, 0})
-	register(Field{"is_mercenary_ruler", KindLeader, ValueFlag, "boolean", true, zero, one, nil, 0})
-	register(Field{"is_alive", KindLeader, ValueFlag, "boolean", true, zero, one, nil, 0})
-	register(Field{"oath_made", KindLeader, ValueFlag, "boolean", true, zero, one, nil, 0})
-	register(Field{"last_defection", KindLeader, ValueFlag, "boolean", true, zero, one, nil, 0})
-	register(Field{"relations_with", KindLeader, ValueInt, "ruler", false, -1, inf, nil, 0})
-	register(Field{"decision_reasons", KindLeader, ValueText, "reason", true, 0, 0, []string{
+	register(Field{"renown_victories", KindRuler, ValueInt, "victories", false, 0, inf, nil, 0})
+	register(Field{"army", KindRuler, ValueInt, "party", true, -1, inf, nil, 0})
+	register(Field{"broken_oaths", KindRuler, ValueInt, "count", true, 0, inf, nil, 0})
+	register(Field{"is_mercenary_ruler", KindRuler, ValueFlag, "boolean", true, zero, one, nil, 0})
+	register(Field{"is_alive", KindRuler, ValueFlag, "boolean", true, zero, one, nil, 0})
+	register(Field{"oath_made", KindRuler, ValueFlag, "boolean", true, zero, one, nil, 0})
+	register(Field{"last_defection", KindRuler, ValueFlag, "boolean", true, zero, one, nil, 0})
+	register(Field{"relations_with", KindRuler, ValueInt, "ruler", false, -1, inf, nil, 0})
+	register(Field{"decision_reasons", KindRuler, ValueText, "reason", true, 0, 0, []string{
 		"none", "weak target", "own holdings threatened", "food shortage",
 		"greed", "revenge", "ambition", "duty", "mercy", "trade profit",
 		"safe distance", "exhausted", "broke", "ally obligation", "grievance",
 	}, 0})
-	register(Field{"ruler_troops", KindLeader, ValueInt, "troops", false, 0, inf, nil, 0})
-	register(Field{"service_quality", KindLeader, ValueFloat, "index", false, zero, one, nil, 0})
-	// --- ruler family fields (Tier 1.4, 1.6) ---
-	//
-	// These are tracked because a dynasty is a chain a player has to be
-	// able to follow: who was named heir, who married whom, when a child
-	// was born, and when control actually moved are all questions the Why
-	// panel must answer, and none of them is answerable if the change that
-	// caused them was never written down.
-	register(Field{"spouse", KindLeader, ValueRulerRef, "ruler", true, -1, inf, nil, 0})
-	register(Field{"father", KindLeader, ValueRulerRef, "ruler", true, -1, inf, nil, 0})
-	register(Field{"mother", KindLeader, ValueRulerRef, "ruler", true, -1, inf, nil, 0})
-	register(Field{"heir", KindLeader, ValueRulerRef, "ruler", true, -1, inf, nil, 0})
-	register(Field{"is_child", KindLeader, ValueFlag, "boolean", true, zero, one, nil, 0})
-	register(Field{"is_pregnant", KindLeader, ValueFlag, "boolean", true, zero, one, nil, 0})
-	// pregnancy_ticks is a countdown to a birth. It is untracked because the
-	// birth itself is the event worth a row, and a row per day of every
-	// pregnancy would bury it; the is_pregnant transition and the newborn's
-	// own arrival are what the log shows.
-	register(Field{"pregnancy_ticks", KindLeader, ValueInt, "days", false, 0, inf, nil, 0})
-	register(Field{"sex", KindLeader, ValueText, "sex", true, 0, 0, []string{
-		"female", "male",
-	}, 0})
+	register(Field{"ruler_troops", KindRuler, ValueInt, "troops", false, 0, inf, nil, 0})
+	register(Field{"service_quality", KindRuler, ValueFloat, "index", false, zero, one, nil, 0})
 	// --- side fields ---
 	register(Field{"side_treasury", KindSide, ValueFloat, "money", true, -inf, inf, nil, 0})
 	register(Field{"side_gold", KindSide, ValueFloat, "gold", true, zero, inf, nil, 0})
@@ -499,7 +438,7 @@ func init() {
 	register(Field{"side_states", KindSide, ValueInt, "states", true, 0, inf, nil, 0})
 	register(Field{"side_towns", KindSide, ValueInt, "towns", true, 0, inf, nil, 0})
 	register(Field{"side_leader", KindSide, ValueInt, "ruler", true, -1, inf, nil, 0})
-	register(Field{"is_affiliate", KindSide, ValueFlag, "boolean", true, zero, one, nil, 0})
+	register(Field{"is_vassal", KindSide, ValueFlag, "boolean", true, zero, one, nil, 0})
 	register(Field{"exchange_rate", KindSide, ValueFloat, "gold per money", true, 0.01, inf, nil, 0})
 	register(Field{"debt_total", KindSide, ValueFloat, "money", true, -inf, inf, nil, 0})
 	register(Field{"side_inflation", KindSide, ValueFloat, "index", true, 0, inf, nil, 0})
@@ -513,7 +452,7 @@ func init() {
 	register(Field{"side_target", KindSide, ValueSideRef, "side", true, -1, inf, nil, 0})
 	register(Field{"trust", KindSide, ValueFloat, "share", true, 0, one, nil, 0})
 	register(Field{"coalition_with", KindSide, ValueSideRef, "side", true, -1, inf, nil, 0})
-	register(Field{"affiliate_of", KindSide, ValueSideRef, "side", true, -1, inf, nil, 0})
+	register(Field{"vassal_of", KindSide, ValueSideRef, "side", true, -1, inf, nil, 0})
 	register(Field{"income_total", KindSide, ValueFloat, "money/day", false, -inf, inf, nil, 0})
 	register(Field{"expense_total", KindSide, ValueFloat, "money/day", false, -inf, inf, nil, 0})
 	register(Field{"target_score", KindSide, ValueFloat, "score", false, -inf, inf, nil, 0})
@@ -569,14 +508,13 @@ func init() {
 		"border", "revenge", "resources", "defence", "alliance", "opportunity",
 	}, 0})
 	// --- clan fields (Tier 1) ---
-	register(Field{"clan_renown", KindOrganization, ValueFloat, "renown", true, 0, inf, nil, 0})
-	register(Field{"clan_tier", KindOrganization, ValueInt, "tier", true, 0, 6, nil, 0})
-	register(Field{"clan_leader", KindOrganization, ValueRulerRef, "ruler", true, -1, inf, nil, 0})
-	register(Field{"clan_side", KindOrganization, ValueSideRef, "side", true, -1, inf, nil, 0})
-	register(Field{"clan_members", KindOrganization, ValueInt, "members", true, 0, inf, nil, 0})
-	register(Field{"clan_household", KindOrganization, ValueInt, "people", true, 0, inf, nil, 0})
-	register(Field{"clan_fiefs", KindOrganization, ValueInt, "fiefs", true, 0, inf, nil, 0})
-	register(Field{"wants_kingdom", KindOrganization, ValueFlag, "boolean", true, zero, one, nil, 0})
+	register(Field{"clan_renown", KindClan, ValueFloat, "renown", true, 0, inf, nil, 0})
+	register(Field{"clan_tier", KindClan, ValueInt, "tier", true, 0, 6, nil, 0})
+	register(Field{"clan_leader", KindClan, ValueRulerRef, "ruler", true, -1, inf, nil, 0})
+	register(Field{"clan_side", KindClan, ValueSideRef, "side", true, -1, inf, nil, 0})
+	register(Field{"clan_members", KindClan, ValueInt, "members", true, 0, inf, nil, 0})
+	register(Field{"clan_household", KindClan, ValueInt, "people", true, 0, inf, nil, 0})
+	register(Field{"clan_fiefs", KindClan, ValueInt, "fiefs", true, 0, inf, nil, 0})
 	// --- workshop fields (Tier 3) ---
 	register(Field{"workshop_town", KindWorkshop, ValueInt, "town", true, -1, inf, nil, 0})
 	register(Field{"workshop_owner_clan", KindWorkshop, ValueInt, "clan", true, -1, inf, nil, 0})
@@ -586,9 +524,4 @@ func init() {
 	register(Field{"workshop_input_stock", KindWorkshop, ValueFloat, "goods", true, 0, inf, nil, 0})
 	register(Field{"workshop_output_stock", KindWorkshop, ValueFloat, "goods", true, 0, inf, nil, 0})
 	register(Field{"workshop_income", KindWorkshop, ValueFloat, "money", false, 0, inf, nil, 0})
-	// --- prisoner fields (Tier 2.3) ---
-	register(Field{"prisoners", KindParty, ValueFloat, "troops", true, 0, inf, nil, 0})
-	register(Field{"prisoner_conformity", KindParty, ValueFloat, "share", false, 0, 1, nil, 0})
-	// --- family fields (Tier 2.1) ---
-	register(Field{"pregnancy_days", KindLeader, ValueFloat, "days", false, -1, 300, nil, 0})
 }

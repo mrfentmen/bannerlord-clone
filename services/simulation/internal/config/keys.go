@@ -16,7 +16,7 @@ func (l *loader) load(c *Config) {
 	c.World.MaxTowns = l.f64("world.max_towns")
 	c.World.TownsPerState = l.f64("world.towns_per_state")
 	c.World.VillagesPerTown = l.f64("world.villages_per_town")
-	c.World.LeadersPerTown = l.f64("world.rulers_per_town")
+	c.World.RulersPerTown = l.f64("world.rulers_per_town")
 	c.World.MinRulers = l.f64("world.min_rulers")
 	c.World.MaxRulers = l.f64("world.max_rulers")
 	c.World.FoodDaysTarget = l.f64("world.food_days_target")
@@ -474,7 +474,6 @@ func (l *loader) load(c *Config) {
 	c.RulerAI.ExecuteChance = l.f64("ruler_ai.execute_chance")
 	c.RulerAI.PrisonerRansomGold = l.f64("ruler_ai.prisoner_ransom_gold")
 	c.RulerAI.PrisonerRansomRelation = l.f64("ruler_ai.prisoner_ransom_relation")
-	c.RulerAI.PrisonerReleaseRelation = l.f64("ruler_ai.prisoner_release_relation")
 	c.RulerAI.DecideEveryDays = l.f64("ruler_ai.decide_every_days")
 	c.RulerAI.StarvingArmyPenalty = l.f64("ruler_ai.starving_army_penalty")
 	c.RulerAI.LowSupplyPenalty = l.f64("ruler_ai.low_supply_penalty")
@@ -523,7 +522,7 @@ func (l *loader) load(c *Config) {
 	c.FactionAI.WarWearinessPerDay = l.f64("faction_ai.war_weariness_per_day")
 	c.FactionAI.WarWearinessFromBattle = l.f64("faction_ai.war_weariness_from_battle")
 	c.FactionAI.TributeShare = l.f64("faction_ai.tribute_share")
-	c.FactionAI.AffiliateTributeRate = l.f64("faction_ai.affiliate_tribute_rate")
+	c.FactionAI.VassalTributeRate = l.f64("faction_ai.vassal_tribute_rate")
 	c.FactionAI.RaidThreshold = l.f64("faction_ai.raid_threshold")
 	c.FactionAI.TradePactBonusPerDay = l.f64("faction_ai.trade_pact_bonus_per_day")
 	c.FactionAI.AllyJoinThreshold = l.f64("faction_ai.ally_join_threshold")
@@ -539,9 +538,9 @@ func (l *loader) load(c *Config) {
 	c.FactionAI.PeaceWearinessRelief = l.f64("faction_ai.peace_weariness_relief")
 	c.FactionAI.PeaceRelationGain = l.f64("faction_ai.peace_relation_gain")
 	c.FactionAI.IntensityPerBattle = l.f64("faction_ai.intensity_per_battle")
-	c.FactionAI.AffiliateStrengthRatio = l.f64("faction_ai.affiliate_strength_ratio")
-	c.FactionAI.AffiliateStrengthShare = l.f64("faction_ai.affiliate_strength_share")
-	c.FactionAI.AffiliateChancePerPeace = l.f64("faction_ai.affiliate_chance_per_peace")
+	c.FactionAI.VassalStrengthRatio = l.f64("faction_ai.vassal_strength_ratio")
+	c.FactionAI.VassalStrengthShare = l.f64("faction_ai.vassal_strength_share")
+	c.FactionAI.VassalChancePerPeace = l.f64("faction_ai.vassal_chance_per_peace")
 	c.FactionAI.InfluenceCostOfWar = l.f64("faction_ai.influence_cost_of_war")
 	c.FactionAI.HostileRelationShare = l.f64("faction_ai.hostile_relation_share")
 	c.FactionAI.ActRelationThreshold = l.f64("faction_ai.act_relation_threshold")
@@ -606,36 +605,6 @@ func (l *loader) load(c *Config) {
 	c.Clan.RenownPerVictory = l.f64("clan.renown_per_victory")
 	c.Clan.HouseholdGrowthPerYear = l.f64("clan.household_growth_per_year")
 
-	// --- heir ---
-	c.Heir.AdultAge = l.f64("heir.adult_age")
-	c.Heir.AutoDesignateChance = l.f64("heir.auto_designate_chance")
-	c.Heir.AutoDesignateMinAge = l.f64("heir.auto_designate_min_age")
-	c.Heir.HeirRenownShare = l.f64("heir.renown_share")
-	c.Heir.HeirInfluenceShare = l.f64("heir.influence_share")
-	c.Heir.HeirGoldShare = l.f64("heir.gold_share")
-	c.Heir.HeirMoneyShare = l.f64("heir.money_share")
-	c.Heir.LoyaltyAfterInheritance = l.f64("heir.loyalty_after_inheritance")
-	c.Heir.InheritParty = l.f64("heir.inherit_party")
-	c.Heir.MinInheritorsForFiefSplit = l.f64("heir.min_inheritors_for_fief_split")
-
-	// --- family ---
-	c.Family.MarriageMinAge = l.f64("family.marriage_min_age")
-	c.Family.MarriageMaxAge = l.f64("family.marriage_max_age")
-	c.Family.MarriageRangeLeagues = l.f64("family.marriage_range_leagues")
-	c.Family.MarriageDailyChance = l.f64("family.marriage_daily_chance")
-	c.Family.CourtRelationWeight = l.f64("family.court_relation_weight")
-	c.Family.CourtTierWeight = l.f64("family.court_tier_weight")
-	c.Family.MarriageRelationGain = l.f64("family.marriage_relation_gain")
-	c.Family.MarriageAllianceBonus = l.f64("family.marriage_alliance_bonus")
-	c.Family.MarriageNonAggressionPact = l.f64("family.marriage_non_aggression_pact")
-	c.Family.ConceptionChance = l.f64("family.conception_chance")
-	c.Family.GestationDays = l.f64("family.gestation_days")
-	c.Family.MaxChildren = l.f64("family.max_children")
-	c.Family.ChildInfluence = l.f64("family.child_influence")
-	c.Family.ChildRenownInheritance = l.f64("family.child_renown_inheritance")
-	c.Family.WidowedRemarryDelay = l.f64("family.widowed_remarry_delay")
-	c.Family.SameSidePenalty = l.f64("family.same_side_penalty")
-
 	// --- workshop ---
 	c.Workshop.ProfitMargin = l.f64("workshop.profit_margin")
 	c.Workshop.MaxPerTown = l.f64("workshop.max_per_town")
@@ -650,104 +619,4 @@ func (l *loader) load(c *Config) {
 	c.Crime.AdjustmentRate = l.f64("crime.adjustment_rate")
 	c.Crime.ProsperityErosion = l.f64("crime.prosperity_erosion")
 	c.Crime.UnrestPerCrime = l.f64("crime.unrest_per_crime")
-
-	loadTemplate(l, &c.Template)
-	loadFormation(l, &c.Formation)
-}
-
-// Row and column labels for the template tables. They are spelled out here
-// rather than generated from the model so that the key names in balance.toml
-// read as words a designer can find, and so a mismatch between this list and
-// the model's enum order is a visible editing error rather than a silent
-// one-row-off table.
-var (
-	templateLabels = []string{"stance", "heavy", "light", "horse"}
-	classLabels    = []string{"stance", "heavy", "light", "horse"}
-	terrainLabels  = []string{"plain", "forest", "hills", "mountain", "swamp", "coast"}
-	missionLabels  = []string{"field", "siege", "screen", "escort", "garrison"}
-)
-
-// loadTemplate reads the party-template tables. Each table is a small grid of
-// balance numbers indexed by words, so it is loaded through a loop with the key
-// names built from the label lists above; the values still come only from the
-// balance file, and the loader's missing and unused checks apply to every one
-// of them exactly as they do to a scalar.
-func loadTemplate(l *loader, t *Template) {
-	t.MinTroopsForTemplate = l.f64("template.min_troops_for_template")
-	t.RefitDays = l.f64("template.refit_days")
-	t.RefitMetalPerTroop = l.f64("template.refit_metal_per_troop")
-	t.RefitMoraleHit = l.f64("template.refit_morale_hit")
-	t.RefitMetalPerDay = l.f64("template.refit_metal_per_day")
-	t.FitSwitchThreshold = l.f64("template.fit_switch_threshold")
-	t.FitRelaxPerDay = l.f64("template.fit_relax_per_day")
-
-	for i, cls := range classLabels {
-		t.SpeedPerClass[i] = l.f64("template.speed_per_class_" + cls)
-		t.CombatPerClass[i] = l.f64("template.combat_per_class_" + cls)
-		t.WoundedRecoveryPerClass[i] = l.f64("template.wounded_recovery_per_class_" + cls)
-	}
-	for ti, tpl := range templateLabels {
-		for ci, cls := range classLabels {
-			t.TemplateShare[ti][ci] = l.f64("template.share_" + tpl + "_" + cls)
-		}
-	}
-	for i := range t.CultureShare {
-		for ci, cls := range classLabels {
-			t.CultureShare[i][ci] = l.f64("template.culture_" + itoa(i) + "_" + cls)
-		}
-	}
-	for ti, ter := range terrainLabels {
-		for ci, cls := range classLabels {
-			t.TerrainSpeedPerClass[ti][ci] = l.f64("template.terrain_speed_" + ter + "_" + cls)
-		}
-		for pi, tpl := range templateLabels {
-			t.TerrainFit[ti][pi] = l.f64("template.terrain_fit_" + ter + "_" + tpl)
-		}
-	}
-	for mi, mis := range missionLabels {
-		for pi, tpl := range templateLabels {
-			t.MissionFit[mi][pi] = l.f64("template.mission_fit_" + mis + "_" + tpl)
-		}
-	}
-}
-
-// loadFormation reads the split and merge constants (Tier 6.3).
-func loadFormation(l *loader, f *Formation) {
-	f.SplitMinTroops = l.f64("formation.split_min_troops")
-	f.SplitMinParentTroops = l.f64("formation.split_min_parent_troops")
-	f.SplitMaxShare = l.f64("formation.split_max_share")
-	f.SplitFoodSharePerTroop = l.f64("formation.split_food_days_per_troop")
-	f.SplitMoraleHit = l.f64("formation.split_morale_hit")
-	f.SplitWingMorale = l.f64("formation.split_wing_morale")
-	f.MergeMaxRangeLeagues = l.f64("formation.merge_max_range_leagues")
-	f.MergeMinTroops = l.f64("formation.merge_min_troops")
-	f.MergeMinParentTroops = l.f64("formation.merge_min_parent_share")
-	f.MergeMoraleHit = l.f64("formation.merge_morale_hit")
-	f.MergeRequiresSameSide = l.f64("formation.merge_requires_same_side") != 0
-	f.MergeRequiresIdle = l.f64("formation.merge_requires_idle") != 0
-	f.MergeDelayDays = l.f64("formation.merge_delay_days")
-	f.AutoMergeChance = l.f64("formation.auto_merge_chance")
-	f.AutoMergeTroops = l.f64("formation.auto_merge_troops")
-}
-
-func itoa(v int) string {
-	if v == 0 {
-		return "0"
-	}
-	neg := v < 0
-	if neg {
-		v = -v
-	}
-	var buf [20]byte
-	i := len(buf)
-	for v > 0 {
-		i--
-		buf[i] = byte('0' + v%10)
-		v /= 10
-	}
-	if neg {
-		i--
-		buf[i] = '-'
-	}
-	return string(buf[i:])
 }

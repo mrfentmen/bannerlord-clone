@@ -261,7 +261,7 @@ offer_proximity_weight = 0.55   # how much nearer rivals stronger the pull. Rang
 # ---------------------------------------------------------------------------
 # COUNCIL SYSTEM — who holds a town
 # ---------------------------------------------------------------------------
-start_loyalty_min = 0.30          # least loyal a new affiliate starts. Range 0-1.0. Not everyone is devoted.
+start_loyalty_min = 0.30          # least loyal a new vassal starts. Range 0-1.0. Not everyone is devoted.
 start_loyalty_max = 0.95          # most loyal. Range 0-1.0.
 
 [council]
@@ -410,7 +410,7 @@ service_unrest_weight = 1.10    # how unrest reduces that gain. Range 0.2-2.0.
 victory_influence = 22.0        # influence from winning a field battle. Range 3-100.
 siege_influence = 1.2           # influence per day of a successful siege. Range 0.1-10.
 broken_oath_influence = 28.0    # influence lost by breaking a pledge. Range 5-150. The political half of chain 9.
-defection_influence_loss = 45.0 # influence lost when a affiliate leaves. Range 10-300.
+defection_influence_loss = 45.0 # influence lost when a vassal leaves. Range 10-300.
 influence_decay = 0.0075        # daily decay of unused influence. Range 0.001-0.03.
 influence_cap = 900.0           # ceiling. Range 100-3000.
 renown_per_victory = 30.0       # renown from a victory. Range 5-200.
@@ -421,9 +421,9 @@ renown_cap = 700.0              # ceiling. Range 100-3000.
 influence_defect_threshold = 260.0 # outside appeal a ruler needs before being poached. Range 50-1000. Chain 7's last link.
 relation_spread_share = 0.30    # how much a ruler's own relations shape who approaches them. Range 0-1.0.
 leadership_upkeep = 0.30        # daily influence a side leader consumes doing the job. Range 0-1.0. Otherwise a leader accumulates power without limit.
-loyalty_weariness_weight = 0.008 # how fast a leader's war weariness erodes affiliate loyalty. Range 0-0.05.
-loyalty_treasury_weight = 0.10  # how fast a leader's debts erode affiliate loyalty, per unit of relative debt. Range 0-0.5.
-loyalty_victory_weight = 0.008  # how fast a leader's stability builds affiliate loyalty. Range 0-0.05.
+loyalty_weariness_weight = 0.008 # how fast a leader's war weariness erodes vassal loyalty. Range 0-0.05.
+loyalty_treasury_weight = 0.10  # how fast a leader's debts erode vassal loyalty, per unit of relative debt. Range 0-0.5.
+loyalty_victory_weight = 0.008  # how fast a leader's stability builds vassal loyalty. Range 0-0.05.
 loyalty_own_town_weight = 0.006  # how fast a ruler's own collapsing town costs loyalty to the leader. Range 0-0.05.
 loyalty_own_town_bonus = 0.002  # loyalty gained from governing a town well. Range 0-0.02.
 
@@ -585,7 +585,6 @@ tax_cut_loyalty_gain = 0.030    # loyalty a ruler trades for lower taxes. Range 
 execute_chance = 0.34           # chance a captured ruler with low Mercy and Honor is executed. Range 0-0.8. Chain 9's trigger.
 prisoner_ransom_gold = 260.0    # gold expected from ransoming a ruler. Range 20-2000.
 prisoner_ransom_relation = 0.10  # relation cost of ransoming. Range 0-0.5.
-prisoner_release_relation = 0.15  # relation gain from releasing a prisoner (honorable). Range 0-0.5.
 decide_every_days = 4.0         # how often a ruler makes a decision. Range 1-30. Daily decisions make rulers twitchy.
 starving_army_penalty = 0.25    # how much a starving army cuts offensive willingness. Range 0-1.0. An army that cannot march cannot attack.
 low_supply_penalty = 0.45       # how much an army short of food cuts it. Range 0-1.0. The supply check from MARCH_AND_WAR.md section 1.
@@ -594,8 +593,8 @@ starving_target_weakness = 0.55 # target weakness above which an attack is attri
 grievance_hate_threshold = -0.30 # how disliked a ruler must be before an attack is a grievance. Range -1.0 to 0.
 attack_blocked_by_home_threat = 0.55 # how much a bad home position suppresses an attack. Range 0-1.0. Nobody leaves home undefended.
 defect_weight = 0.20            # attraction of leaving one's own side. Range 0-0.8. Deliberately small: needs low loyalty, a collapse, and a buyer.
-defect_leader_weariness = 0.55  # how much a leader's exhaustion pushes affiliates out. Range 0-2.0.
-defect_leader_debt = 0.35       # how much a leader's debts push affiliates out. Range 0-2.0.
+defect_leader_weariness = 0.55  # how much a leader's exhaustion pushes vassals out. Range 0-2.0.
+defect_leader_debt = 0.35       # how much a leader's debts push vassals out. Range 0-2.0.
 defect_own_collapse = 0.45      # how much a ruler's own collapse makes them look elsewhere. Range 0-2.0.
 peace_weight = 0.55             # attraction of asking for terms when exhausted. Range 0.1-2.0.
 blockade_weight = 0.50          # attraction of blockading a port instead of assaulting it. Range 0-1.5. Chain 8's mechanism: cheaper and slower.
@@ -638,7 +637,7 @@ offer_peace_threshold = 0.58   # exhaustion above which a side sues for peace. R
 war_weariness_per_day = 0.0022  # daily exhaustion from an active war. Range 0.0005-0.01.
 war_weariness_from_battle = 0.045 # extra weariness per battle fought. Range 0.01-0.2.
 tribute_share = 0.35            # share of a defeated side's treasury demanded. Range 0.1-0.8.
-affiliate_tribute_rate = 0.004     # what a affiliate side pays daily. Range 0.001-0.02.
+vassal_tribute_rate = 0.004     # what a vassal side pays daily. Range 0.001-0.02.
 raid_threshold = -0.30          # relation below which a side starts raiding. Range -0.8 to 0.
 trade_pact_bonus_per_day = 0.0016 # daily relation gain from a trade pact. Range 0.0002-0.01.
 ally_join_threshold = 0.42      # relation at which a side joins an ally's war. Range 0-0.8. How a coalition forms.
@@ -654,9 +653,9 @@ pease_decision_threshold = 0.55 # peace score above which a side sues for peace.
 peace_weariness_relief = 0.35   # fraction of war weariness surviving peace. Range 0-1.0. Exhaustion fades but does not vanish.
 peace_relation_gain = 0.30     # how much two sides like each other after making peace. Range 0-1.0.
 intensity_per_battle = 0.20    # how much a battle raises a war's intensity. Range 0-1.0.
-affiliate_strength_ratio = 1.35    # strength advantage needed to impose affiliateage rather than peace. Range 1-5.0.
-affiliate_strength_share = 0.45    # fraction of a affiliate's strength that counts. Range 0.1-1.0. Worth having, not independent.
-affiliate_chance_per_peace = 0.55  # chance a badly beaten side becomes a affiliate. Range 0-1.0.
+vassal_strength_ratio = 1.35    # strength advantage needed to impose vassalage rather than peace. Range 1-5.0.
+vassal_strength_share = 0.45    # fraction of a vassal's strength that counts. Range 0.1-1.0. Worth having, not independent.
+vassal_chance_per_peace = 0.55  # chance a badly beaten side becomes a vassal. Range 0-1.0.
 influence_cost_of_war = 25.0    # influence declaring a war costs the leader. Range 0-200. War is not free politically.
 hostile_relation_share = 1.0    # scales the hostility term in the war score. Range 0-3.0.
 act_relation_threshold = 0.20   # relation above which sides are considered to have formal ties. Range -1.0 to 1.0.
@@ -699,43 +698,6 @@ overextension_loyalty_penalty = 0.02  # loyalty lost per excess fief per member 
 renown_per_victory = 5.0              # clan renown gained per member battle victory. Range 0-50.
 household_growth_per_year = 0.5       # annual household size increase. Range 0-5.
 
-[heir]
-# Inheritance and player succession (Tier 1.4). Death transfers control to a
-# designated heir; a dynasty with no eligible heir is a real way to lose
-# everything, and a player who never opens the family panel still gets one.
-adult_age = 18.0                    # age a child may hold land, marry, and inherit. Range 14-25. Bannerlord's adulthood.
-auto_designate_chance = 0.02        # daily chance a ruler with an eligible child and no heir names one. Range 0.001-0.5. A run where the player always dies with the campaign is not a game.
-auto_designate_min_age = 16.0       # age a child must reach to be named. Range adult_age-30. An heir should be alive to take the fief.
-renown_share = 1.0                  # share of a dead ruler's renown the heir inherits. Range 0-1.5. docs/tasks-del.md item 179: continue as heir with renown intact.
-influence_share = 0.5               # share of a dead ruler's influence that passes to the heir. Range 0-1.0. Standing follows the seat, not the man.
-gold_share = 0.75                   # share of a dead ruler's gold reserve. Range 0-1.0. Gold buys mercenaries.
-money_share = 0.5                   # share of a dead ruler's personal treasury. Range 0-1.0. An heir can inherit a broke fief.
-loyalty_after_inheritance = 0.40    # loyalty a fief starts at with a new holder. Range 0.1-0.7. A honeymoon, not a reset: the heir inherits the problems too.
-inherit_party = 1.0                 # whether a heir also takes the dead ruler's war party. Range 0-1. A mercenary company does not follow a corpse.
-min_inheritors_for_fief_split = 3.0 # eligible heirs needed before a fief is shared rather than given whole. Range 2-10. RULERS.md section 8's "or split among rivals".
-
-[family]
-# Marriage, pregnancy, and children (Tier 1.6). A marriage binds two houses, a
-# pregnancy is a timed state, and the child is an ordinary ruler who can grow
-# up and inherit. Deliberately slow: a run in which the whole roster pairs off
-# in year one is a world of couples, not a world with families in it.
-marriage_min_age = 18.0             # youngest age a ruler may marry. Range 16-25.
-marriage_max_age = 45.0             # oldest. Range 35-60. Without an upper bound every ruler pairs off the moment they are eligible.
-marriage_range_leagues = 300.0      # how far a ruler looks for a partner. Range 50-1000. Distance makes a match a decision.
-marriage_daily_chance = 0.003       # per-day chance a marriageable ruler begins courting. Range 0.0005-0.05.
-court_relation_weight = 0.45        # how much liking each other raises the chance. Range 0-2.0.
-court_tier_weight = 0.30            # how much similar standing raises the chance. Range 0-2.0.
-marriage_relation_gain = 0.30       # relation a married pair gain. Range 0.05-1.0.
-marriage_alliance_bonus = 0.35      # side-to-side relation a cross-faction marriage is worth. Range 0-1.5. The cheapest peace there is.
-marriage_non_aggression_pact = 1.0  # whether a marriage is a standing non-aggression pledge. Range 0-1. Attacking your in-laws becomes a broken oath, which is chain 9.
-conception_chance = 0.004           # daily chance a couple of childbearing age conceives. Range 0.0005-0.05. Per day, not a fixed interval, because a famine or a campaign bears on it.
-gestation_days = 270.0              # length of a pregnancy. Range 200-320. The 365-day-year equivalent of docs/tasks-del.md item 216's 36-day gestation.
-max_children = 5.0                  # living children per couple. Range 1-12. A cap, not a decline, so a long-lived prolific couple is what makes a great house.
-child_influence = 8.0               # a newborn's opening influence. Range 0-50. Small but not zero: a great house's children are known from birth.
-child_renown_inheritance = 0.05     # share of a parent's renown a newborn starts with. Range 0-0.5. A child inherits a name; an heir inherits a claim.
-widowed_remarry_delay = 180.0       # days a bereaved ruler waits before courting again. Range 0-1000. Grief should not be a mechanic.
-same_side_penalty = 0.7             # courtship chance multiplier within one side. Range 0.1-1.0. Marrying inside a faction is the ordinary case.
-
 [workshop]
 # Clan-owned production (Tier 3). Workshops turn raw goods into finished
 # goods and income for the owning clan.
@@ -755,190 +717,6 @@ deterrence_per_coverage = 8.0  # how much troop coverage reduces target crime. R
 adjustment_rate = 0.05          # how fast crime moves toward target per tick. Range 0-1.0.
 prosperity_erosion = 0.02       # prosperity lost per unit crime per tick. Range 0-0.1.
 unrest_per_crime = 0.1          # unrest gained per unit crime per tick. Range 0-1.0.
-
-# ---------------------------------------------------------------------------
-# TEMPLATE — party composition and refitting (Tier 6.2)
-# ---------------------------------------------------------------------------
-# A template is four troop-class shares. What a party fields decides how fast
-# it marches and how it fights, so the mix is a real decision and refitting one
-# costs metal, days, and morale.
-[template]
-min_troops_for_template = 12.0  # party size below which no template is enforced. Range 1-200.
-refit_days = 3.0               # days to move from one template to another. Range 0-30.
-refit_metal_per_troop = 0.8    # metal spent per soldier to refit. Range 0-20.
-refit_morale_hit = 0.004       # morale lost per soldier refitted. Range 0-0.1.
-refit_metal_per_day = 1.5      # metal a refit consumes per day it runs. Range 0-50.
-fit_switch_threshold = 0.15    # how much better another template's fit must be. Range 0.01-1.0.
-fit_relax_per_day = 0.25       # how fast fit is recomputed, per day. Range 0.01-1.0.
-
-# What each class is worth. A class's speed and combat value are its count
-# times these, so changing a composition changes what the march and battle
-# systems read without either of them knowing templates exist.
-speed_per_class_stance = 0.90   # range 0.1-3.0
-speed_per_class_heavy = 0.80
-speed_per_class_light = 1.10
-speed_per_class_horse = 1.35
-combat_per_class_stance = 1.00  # range 0.1-3.0
-combat_per_class_heavy = 1.35
-combat_per_class_light = 0.75
-combat_per_class_horse = 1.10
-wounded_recovery_per_class_stance = 0.02  # daily recovery share. Range 0-0.5.
-wounded_recovery_per_class_heavy = 0.015
-wounded_recovery_per_class_light = 0.035
-wounded_recovery_per_class_horse = 0.025
-
-# Base composition of each template. Rows need not sum to one; the template
-# system normalises them. This is Bannerlord's four templates: the disciplined
-# line, the armoured core, the skirmish screen, and the mounted wing.
-share_stance_stance = 0.70
-share_stance_heavy = 0.15
-share_stance_light = 0.10
-share_stance_horse = 0.05
-share_heavy_stance = 0.20
-share_heavy_heavy = 0.60
-share_heavy_light = 0.10
-share_heavy_horse = 0.10
-share_light_stance = 0.10
-share_light_heavy = 0.10
-share_light_light = 0.65
-share_light_horse = 0.15
-share_horse_stance = 0.05
-share_horse_heavy = 0.15
-share_horse_light = 0.30
-share_horse_horse = 0.50
-
-# How each culture bends those shares. FACTIONS.md gives every section its own
-# culture and troop style, and this is where that difference is expressed
-# rather than assumed away. Index 0 is the Pacific Compact, 1 the Mountain
-# Alliance, 2 the Great Lakes Union, 3 the Southern Compact, 4 the Lone Star
-# Frontier, 5 the Atlantic Corridor. Unaffiliated parties read culture 0.
-culture_0_stance = 0.20   # coast and islands: disciplined line, little horse. Range 0-2.
-culture_0_heavy = 0.10
-culture_0_light = 0.15
-culture_0_horse = 0.05
-culture_1_stance = 0.15    # mountain country: foot and armour.
-culture_1_heavy = 0.25
-culture_1_light = 0.10
-culture_1_horse = 0.05
-culture_2_stance = 0.15    # farming country: steady foot, few horsemen.
-culture_2_heavy = 0.10
-culture_2_light = 0.20
-culture_2_horse = 0.15
-culture_3_stance = 0.10    # southern infantry tradition, light and fast.
-culture_3_heavy = 0.15
-culture_3_light = 0.30
-culture_3_horse = 0.10
-culture_4_stance = 0.10    # frontier: everything on horseback.
-culture_4_heavy = 0.10
-culture_4_light = 0.15
-culture_4_horse = 0.35
-culture_5_stance = 0.15    # dense settled coast: line infantry and skirmishers.
-culture_5_heavy = 0.15
-culture_5_light = 0.25
-culture_5_horse = 0.05
-
-# How much each class is slowed by each ground. A horse column crossing
-# mountains is the slowest thing on the map and a light one is barely affected,
-# which is what makes ground part of a refit decision rather than trivia.
-terrain_speed_plain_stance = 0.00  # speed lost to terrain. Range 0-1.
-terrain_speed_plain_heavy = 0.00
-terrain_speed_plain_light = 0.00
-terrain_speed_plain_horse = 0.00
-terrain_speed_forest_stance = 0.05
-terrain_speed_forest_heavy = 0.15
-terrain_speed_forest_light = 0.05
-terrain_speed_forest_horse = 0.20
-terrain_speed_hills_stance = 0.05
-terrain_speed_hills_heavy = 0.10
-terrain_speed_hills_light = 0.05
-terrain_speed_hills_horse = 0.15
-terrain_speed_mountain_stance = 0.15
-terrain_speed_mountain_heavy = 0.25
-terrain_speed_mountain_light = 0.10
-terrain_speed_mountain_horse = 0.40
-terrain_speed_swamp_stance = 0.15
-terrain_speed_swamp_heavy = 0.30
-terrain_speed_swamp_light = 0.10
-terrain_speed_swamp_horse = 0.35
-terrain_speed_coast_stance = 0.00
-terrain_speed_coast_heavy = 0.05
-terrain_speed_coast_light = 0.00
-terrain_speed_coast_horse = 0.05
-
-# How well each template suits each terrain. This is the score a refit
-# compares, and it is why a party crossing mountains wants to be something
-# other than a horse column even if it was one yesterday.
-terrain_fit_plain_stance = 0.85    # range 0-1.
-terrain_fit_plain_heavy = 0.90
-terrain_fit_plain_light = 0.85
-terrain_fit_plain_horse = 1.00
-terrain_fit_forest_stance = 0.80
-terrain_fit_forest_heavy = 0.55
-terrain_fit_forest_light = 1.00
-terrain_fit_forest_horse = 0.60
-terrain_fit_hills_stance = 0.85
-terrain_fit_hills_heavy = 0.75
-terrain_fit_hills_light = 0.90
-terrain_fit_hills_horse = 0.70
-terrain_fit_mountain_stance = 0.90
-terrain_fit_mountain_heavy = 0.70
-terrain_fit_mountain_light = 0.65
-terrain_fit_mountain_horse = 0.20
-terrain_fit_swamp_stance = 0.80
-terrain_fit_swamp_heavy = 0.55
-terrain_fit_swamp_light = 0.95
-terrain_fit_swamp_horse = 0.45
-terrain_fit_coast_stance = 0.75
-terrain_fit_coast_heavy = 0.60
-terrain_fit_coast_light = 0.90
-terrain_fit_coast_horse = 0.95
-
-# How well each template suits what the party is doing. Besieging a wall wants
-# different troops from escorting a caravan, and a party that misreads that
-# pays for it in battle rather than being told it was wrong.
-mission_fit_field_stance = 0.90    # range 0-1.
-mission_fit_field_heavy = 0.95
-mission_fit_field_light = 0.80
-mission_fit_field_horse = 1.00
-mission_fit_siege_stance = 1.00
-mission_fit_siege_heavy = 0.85
-mission_fit_siege_light = 0.40
-mission_fit_siege_horse = 0.15
-mission_fit_screen_stance = 0.55
-mission_fit_screen_heavy = 0.45
-mission_fit_screen_light = 1.00
-mission_fit_screen_horse = 0.95
-mission_fit_escort_stance = 0.70
-mission_fit_escort_heavy = 0.50
-mission_fit_escort_light = 0.95
-mission_fit_escort_horse = 0.95
-mission_fit_garrison_stance = 1.00
-mission_fit_garrison_heavy = 0.90
-mission_fit_garrison_light = 0.65
-mission_fit_garrison_horse = 0.50
-
-# ---------------------------------------------------------------------------
-# FORMATION — party split and merge (Tier 6.3)
-# ---------------------------------------------------------------------------
-# A party can detach a wing, or two parties can consolidate into one. Both are
-# decisions with real costs: a split divides a command and a larder, a merge
-# costs time and morale to bring two columns into one line.
-[formation]
-split_min_troops = 10.0           # smallest wing that may be detached. Range 1-500.
-split_min_parent_troops = 20.0    # strength the parent must keep. Range 1-2000.
-split_max_share = 0.40            # largest share one wing may take. Range 0.05-1.0.
-split_food_days_per_troop = 0.6   # days of food a detached troop carries. Range 0-10.
-split_morale_hit = 0.02           # morale the parent loses on a split. Range 0-0.2.
-split_wing_morale = 0.65          # morale a new wing starts at. Range -1-1.
-merge_max_range_leagues = 12.0    # how close two parties must be to merge. Range 0.5-100.
-merge_min_troops = 12.0           # size below which a party is folded in. Range 1-500.
-merge_min_parent_share = 0.25     # surviving share of a merge for it to count. Range 0.05-1.0.
-merge_morale_hit = 0.015          # morale lost on consolidation. Range 0-0.2.
-merge_requires_same_side = 1.0    # 1 stops a merge between enemies. Range 0-1.
-merge_requires_idle = 1.0         # 1 requires both parties to be idle. Range 0-1.
-merge_delay_days = 2.0            # days idle before a merge is allowed. Range 0-60.
-auto_merge_chance = 0.02          # daily chance a small party folds in by itself. Range 0-0.5.
-auto_merge_troops = 40.0          # largest party folded in automatically. Range 0-5000.
 
 [cause]
 # A row per float operation would be unreadable; a chain that cannot be
