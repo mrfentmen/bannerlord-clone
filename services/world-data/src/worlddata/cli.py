@@ -63,6 +63,23 @@ def main(argv: list[str] | None = None) -> int:
         help="output dir (default: <dist>/wire)",
     )
 
+    simfeed_parser = subparsers.add_parser(
+        "sim-feed",
+        help="build the simulation's settlement feed (worldgen.Settlement JSON)",
+    )
+    simfeed_parser.add_argument(
+        "--dist",
+        type=Path,
+        default=None,
+        help="pipeline dist/ dir (default: from config)",
+    )
+    simfeed_parser.add_argument(
+        "--out",
+        type=Path,
+        default=None,
+        help="output dir (default: <dist>/sim-feed)",
+    )
+
     arguments = parser.parse_args(argv)
 
     try:
@@ -90,6 +107,8 @@ def main(argv: list[str] | None = None) -> int:
             return _schema(config)
         if arguments.command == "wire":
             return _wire(config, arguments.dist, arguments.out)
+        if arguments.command == "sim-feed":
+            return _sim_feed(config, arguments.dist, arguments.out)
     except WorldDataError as exc:
         print(f"worlddata: {type(exc).__name__}: {exc}", file=sys.stderr)
         return 1
@@ -122,6 +141,17 @@ def _wire(config, dist: Path | None, out: Path | None) -> int:
         census_year=config.census_year,
         estimates_vintage=config.estimates_vintage,
     )
+    for line in result.log_lines():
+        print(line)
+    return 0
+
+
+def _sim_feed(config, dist: Path | None, out: Path | None) -> int:
+    from .sim_feed import build_sim_feed
+
+    dist_dir = dist or config.path_for("export_dir")
+    out_dir = out or (dist_dir / "sim-feed")
+    result = build_sim_feed(dist_dir, out_dir)
     for line in result.log_lines():
         print(line)
     return 0
