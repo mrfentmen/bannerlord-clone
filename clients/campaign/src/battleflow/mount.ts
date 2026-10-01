@@ -8,7 +8,8 @@
  *
  * Encounters arrive two ways:
  * - the `EncounterPoller` picks up server auto-triggered encounters
- *   (`GET /v1/encounters?partyId={id}`) and the mount adopts them;
+ *   (`GET /v1/encounters?partyId={id}`) and the encounter banner offers them
+ *   to the player, who takes them into the overlay with "Meet them";
  * - `attack()` arranges an encounter by hand (a future "attack" affordance
  *   in the campaign UI calls this).
  *
@@ -35,6 +36,7 @@ import {
   statusChip,
 } from "../ui/kit.js";
 import { BattleApiError, createHttpBattleApi, type BattleApi } from "./api";
+import { encounterBanner, type EncounterBannerHandle } from "./encounterBanner";
 import {
   BattleFlow,
   type AfterActionView,
@@ -79,7 +81,9 @@ export interface BattleMount {
   readonly flow: BattleFlow;
   /** The encounter poller (started unless `pollEncounters: false`). */
   readonly poller: EncounterPoller;
-  /** Adopt a server encounter (from the poller) and show pre-battle. */
+  /** The "Hostile force encountered!" banner the poller offers encounters through. */
+  readonly banner: EncounterBannerHandle;
+  /** Adopt a server encounter (from the banner) and show pre-battle. */
   adoptEncounter(encounter: Encounter): void;
   /** Arrange an encounter by hand and show pre-battle. */
   attack(attackerPartyId: number, defenderPartyId: number): Promise<void>;
@@ -136,8 +140,23 @@ export function mountBattleUi(options: BattleMountOptions): BattleMount {
   }) as HTMLElement;
   into.appendChild(overlay);
 
+  const banner = encounterBanner({
+    playerPartyId: options.playerPartyId,
+    onMeet: (encounter) => adoptEncounter(encounter),
+  });
+  into.appendChild(banner.root);
+
   const poller = new EncounterPoller(api, options.playerPartyId, {
-    onNew: (encounter) => adoptEncounter(encounter),
+    // An encounter is offered, not thrown onto the screen: the player is in the middle
+    // of a campaign and a fight they did not start deserves a word before it takes the
+    // map. "Meet them" on the banner is what opens the overlay.
+    onNew: (encounter) => banner.offer(encounter),
+    onError: (err) =>
+      banner.reportProblem(
+        err instanceof BattleApiError
+          ? err.reason
+          : "The battle server is not answering. Encounters will be picked up when it returns.",
+      ),
   });
 
   let busy = false;
@@ -404,9 +423,10 @@ export function mountBattleUi(options: BattleMountOptions): BattleMount {
   }
 
   function adoptEncounter(encounter: Encounter): void {
-    // One battle at a time: a second encounter arriving mid-fight waits for
-    // the next poll cycle (the poller already marked it seen).
+    // One battle at a time. A second encounter arriving mid-fight waits in the banner's
+    // queue rather than being dropped, and the player takes it when this one is done.
     if (flow.phase !== "idle") return;
+    banner.clear();
     flow.adoptEncounter(encounter);
     render();
   }
@@ -415,15 +435,17 @@ export function mountBattleUi(options: BattleMountOptions): BattleMount {
     attackerPartyId: number,
     defenderPartyId: number,
   ): Promise<void> {
+    banner.clear();
     await run(() => flow.begin(attackerPartyId, defenderPartyId));
   }
 
   function destroy(): void {
     poller.stop();
+    banner.destroy();
     overlay.remove();
   }
 
   if (options.pollEncounters !== false) poller.start();
 
-  return { root: overlay, flow, poller, adoptEncounter, attack, destroy };
+  return { root: overlay, flow, poller, banner, adoptEncounter, attack, destroy };
 }

@@ -256,6 +256,56 @@ describe("battle mount", () => {
     mounts.pop();
   });
 
+  it("offers a polled encounter on the banner instead of taking the map", async () => {
+    const api: BattleApi = {
+      ...unreachableApi(),
+      listEncounters: async () => [encounter()],
+    };
+    const { mount } = makeMount(api);
+    await flush();
+
+    expect(mount.banner.root.hidden).toBe(false);
+    expect(mount.banner.root.textContent).toContain("Hostile force encountered!");
+    // The campaign map is still the player's: nothing has been taken from them yet.
+    expect(mount.root.hidden).toBe(true);
+    expect(mount.flow.phase).toBe("idle");
+
+    mount.banner.root.querySelector<HTMLElement>("[data-testid='encounter-meet']")!.click();
+
+    expect(mount.root.hidden).toBe(false);
+    expect(query(mount, "battle-prebattle")).not.toBeNull();
+    expect(mount.banner.root.hidden).toBe(true);
+  });
+
+  it("says so when polling fails, rather than leaving the player to wonder", async () => {
+    const api: BattleApi = {
+      ...unreachableApi(),
+      listEncounters: async () => {
+        throw new BattleApiError("denied", "refused", "The road is not being watched.", 400);
+      },
+    };
+    const { mount } = makeMount(api);
+    await flush();
+
+    expect(mount.banner.root.hidden).toBe(false);
+    expect(mount.banner.root.textContent).toContain("The road is not being watched.");
+  });
+
+  it("stays silent on the banner when there is no battle server to watch", async () => {
+    const { mount } = makeMount(unreachableApi());
+    await flush();
+    expect(mount.banner.root.hidden).toBe(true);
+  });
+
+  it("destroy takes the banner down with the overlay", () => {
+    const { mount, into } = makeMount(unreachableApi());
+    const banner = mount.banner.root;
+    expect(into.contains(banner)).toBe(true);
+    mount.destroy();
+    expect(into.contains(banner)).toBe(false);
+    mounts.pop();
+  });
+
   it("orders are posted to the server api when the server answers", async () => {
     const seen: BattleOrders[] = [];
     const base = unreachableApi();

@@ -39,7 +39,12 @@ export interface Encounter {
   resolution?: EncounterResolution;
 }
 
-/** One side's live state in a battle. */
+/**
+ * One side's live state in a battle.
+ *
+ * `morale` is the campaign's own morale figure, which the server writes on the 0..100
+ * scale. `BattleFlow.liveView()` is where that becomes a 0..1 fraction for the screen.
+ */
 export interface BattleSide {
   partyId: number;
   name: string;

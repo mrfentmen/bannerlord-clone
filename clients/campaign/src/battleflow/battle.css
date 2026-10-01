@@ -50,3 +50,48 @@
   margin: var(--space-3) 0 var(--space-1);
   font-size: 1.35rem;
 }
+
+/* The encounter banner: an offer, not an interruption. Top-centre, above the
+   map, below the overlay, and it takes no focus — the campaign stays the
+   player's to drive until they press "Meet them". */
+.encounter-banner {
+  position: fixed;
+  top: var(--space-4);
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 170;
+  width: min(30rem, calc(100vw - var(--space-6)));
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--status-critical-mark);
+  border-radius: var(--radius-1);
+  background: var(--paper-100);
+  box-shadow: var(--sheet-2);
+}
+
+.encounter-banner[hidden] {
+  display: none;
+}
+
+.encounter-banner__headline {
+  margin: 0 0 var(--space-1);
+  font-family: var(--font-sans);
+  font-size: var(--type-title-size);
+  line-height: var(--type-title-line);
+  font-weight: var(--type-title-weight);
+  color: var(--ink-900);
+}
+
+.encounter-banner__line {
+  margin: 0 0 var(--space-1);
+  font-family: var(--font-sans);
+  font-size: var(--type-body-size);
+  line-height: var(--type-body-line);
+  color: var(--ink-700);
+}
+
+.encounter-banner__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: var(--space-3);
+}

@@ -21,7 +21,7 @@
  * that re-renders the same missing data would be a lie told to the player.
  */
 
-import { h, numberField, sectionHeader } from "../dom.js";
+import { h, numberField, sectionHeader, button } from "../dom.js";
 import { emptyState, errorState, panel, statusChip, dataTable, type Column } from "../kit.js";
 import { marketSkeletonBody } from "./skeletons.js";
 import { asBottomSheet, stackable } from "./narrow.js";
@@ -95,6 +95,12 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
   let party: PartyState = copyParty(options.party);
   let purse = options.money;
   let busy = false;
+  // The day the prices on screen belong to. A trade is priced against this, because the
+  // simulation refuses an order bought against a day the world has left
+  // (`validateOrderDay` answers 409). The panel therefore tracks the day itself rather
+  // than reading `options.day` every time: the caller hands it a snapshot's day when the
+  // panel is built, and the clock keeps running after that.
+  let day = options.day;
   // A panel asked for a market it does not have is, by definition, about to go and
   // get one, so the first frame is the skeleton rather than a complaint about data
   // that was never on its way.
@@ -118,18 +124,26 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
   /**
    * Ask the simulation for the market again. This is a real request, which is why the
    * retry button is honest: it can succeed where the last one failed.
+   *
+   * `quiet` keeps the table on screen for the length of the request, for the calls that
+   * are made because something went wrong rather than because there is nothing to show:
+   * a skeleton over a market the player was just reading is a worse answer than a table
+   * whose numbers are one request old.
    */
-  async function reload(): Promise<void> {
+  async function reload(quiet = false): Promise<void> {
     const token = ++loadToken;
     failure = null;
-    loading = true;
-    render();
+    if (!quiet) {
+      loading = true;
+      render();
+    }
     try {
       const snapshot = await options.provider.getSnapshot();
       if (token !== loadToken) return; // A newer request already answered.
       market = copyMarket(snapshot.markets[options.townId] ?? null);
       party = copyParty(snapshot.party);
       purse = snapshot.player.resources.money;
+      day = snapshot.day;
       if (!market) {
         failure = `The market at ${options.townName} did not load. The snapshot carries no market record for this town.`;
         failureDetail = `getSnapshot returned no entry for ${options.townId}.`;
@@ -160,7 +174,7 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
         goodId: good.goodId,
         side,
         quantity,
-        expectedDay: options.day,
+        expectedDay: day,
       });
       if (result.accepted) {
         applyTrade(good, side, result);
@@ -184,10 +198,31 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
       const detail = err instanceof SimulationUnavailableError ? err.developerDetail : String(err);
       lastMessage = { tone: "critical", text: message };
       options.onError?.(`${message} :: ${detail}`);
+      if (isStaleOrder(err)) {
+        // The world moved on: these prices belong to a day that has passed. The
+        // simulation's sentence is shown as it was written, and the market is read again
+        // so the numbers on screen match the world that refused the order. The order
+        // itself is not repeated — a refusal is a refusal, and resending a buy on the
+        // player's behalf is not this panel's decision to make.
+        lastMessage = { tone: "critical", text: `${message} The prices below have been read again.` };
+        void reload(true);
+      }
     } finally {
       busy = false;
       render();
     }
+  }
+
+  /**
+   * Whether the simulation refused the order because the world moved on.
+   *
+   * The provider marks a 409 — a conflict with a reason — as not retryable, which is
+   * exactly this case and nothing else on this route. The stale day is the reason the
+   * panel reads the market again; a network failure, which is retryable, is left to the
+   * player's own retry because a re-read would fail the same way.
+   */
+  function isStaleOrder(err: unknown): boolean {
+    return err instanceof SimulationUnavailableError && !err.retryable;
   }
 
   /**
@@ -204,7 +239,7 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
       row.previousPrice = result.unitPrice;
       row.price = result.marketPriceAfter;
       row.stock = side === "buy" ? row.stock - result.quantity : row.stock + result.quantity;
-      row.history = [...row.history, { day: options.day, price: result.marketPriceAfter }].slice(-HISTORY_POINTS);
+      row.history = [...row.history, { day, price: result.marketPriceAfter }].slice(-HISTORY_POINTS);
     }
     const held = party.goods.find((g) => g.goodId === good.goodId);
     if (held) held.quantity = result.partyQuantity;
@@ -287,6 +322,26 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
       ),
     );
 
+    // -- when these prices were read ------------------------------------------
+    // The clock keeps running while this panel is open, so the numbers on screen belong
+    // to a day rather than to now. Saying which day is the difference between a price
+    // the player is looking at and a price they think is live, and the button is a real
+    // read of the simulation, so it can succeed where the last one did not.
+    body.appendChild(
+      h(
+        "p",
+        { class: "caption", "data-testid": "market-freshness" },
+        `Prices read on day ${day}.`,
+      ),
+    );
+    body.appendChild(
+      button("Read the prices again", () => void reload(), {
+        variant: "quiet",
+        testId: "market-refresh",
+        disabled: busy,
+      }),
+    );
+
     // -- the prices ----------------------------------------------------------
     const columns: Column<MarketGood>[] = [
       { header: "Good", render: (g) => h("span", { class: "label" }, g.name) },
@@ -301,6 +356,7 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
       },
       { header: "History", numeric: true, render: (g) => sparkline(g) },
       { header: "Stock", numeric: true, testId: "market-stock", render: (g) => String(g.stock) },
+      { header: "Demand", numeric: true, testId: "market-demand", render: (g) => String(g.demand) },
       { header: "Held", numeric: true, testId: "market-held", render: (g) => String(heldOf(g.goodId)) },
       { header: "Trade", numeric: true, render: (g) => actionsFor(g) },
     ];

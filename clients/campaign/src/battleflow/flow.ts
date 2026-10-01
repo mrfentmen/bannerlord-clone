@@ -55,7 +55,7 @@ export interface PrebattleView {
   playerIsAttacker: boolean;
 }
 
-/** Everything the live battle view needs. */
+/** Everything the live battle view needs. Morale is a 0..1 fraction on both sides. */
 export interface LiveBattleView {
   mode: FlowMode;
   battle: Battle;
@@ -102,6 +102,25 @@ function winChance(attackerPower: number, defenderPower: number): number {
   const total = attackerPower + defenderPower;
   if (total <= 0) return 0.5;
   return attackerPower / total;
+}
+
+/**
+ * Morale as a fraction of a full force, 0..1.
+ *
+ * The two sources of a `BattleSide` do not agree on the scale, and the local model has
+ * always used a fraction while the server sends the campaign's own morale, which runs
+ * 0..100 (`wire.BattleSide.Morale` is `model.Party.Morale`). Rendering one of them as
+ * the other puts "5000%" on screen, so the conversion happens here, once, at the boundary
+ * the view model owns, rather than in the renderer.
+ *
+ * Anything above 1 is the 0..100 scale. Exactly 1 is read as a full force rather than as
+ * one percent: on the one value the two scales cannot be told apart, the reading that
+ * shows a healthy army is the one that cannot hide a broken one.
+ */
+export function moraleFraction(morale: number): number {
+  if (!Number.isFinite(morale)) return 0;
+  const fraction = morale > 1 ? morale / 100 : morale;
+  return Math.min(1, Math.max(0, fraction));
 }
 
 function assess(playerWinChance: number): string {
@@ -324,8 +343,8 @@ export class BattleFlow {
     return {
       mode: this.#mode,
       battle,
-      playerSide,
-      enemySide,
+      playerSide: { ...playerSide, morale: moraleFraction(playerSide.morale) },
+      enemySide: { ...enemySide, morale: moraleFraction(enemySide.morale) },
       playerIsAttacker: this.#playerIsAttacker,
       availableOrders: ["advance", "hold", "retreat", "focusFire"],
     };
