@@ -285,6 +285,9 @@ type Party struct {
 	// TroopXP is accumulated combat experience, 0+. Battles grant XP;
 	// higher XP improves combat effectiveness (Tier 5.5).
 	TroopXP          float64
+	// Cohesion is party unity, 0-1. Large armies drain it; high cohesion
+	// improves combat, zero cohesion causes desertion (Tier 5.6).
+	Cohesion         float64
 	Fatigue          float64
 	WagesOwed        float64
 	Activity         Activity

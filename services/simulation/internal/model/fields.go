@@ -411,6 +411,9 @@ func init() {
 	// troop_xp is tracked because it is the progression system: battles grant
 	// XP, and XP improves combat effectiveness. The player sees it grow.
 	register(Field{"troop_xp", KindParty, ValueFloat, "xp", true, 0, inf, nil, 0})
+	// cohesion is tracked because it gates army size: a doomstack with zero
+	// cohesion deserts, which is a decision the player must see coming.
+	register(Field{"cohesion", KindParty, ValueFloat, "share", true, zero, one, nil, 0})
 	register(Field{"troops_stance", KindParty, ValueInt, "troops", true, 0, inf, nil, 0})
 	register(Field{"troops_heavy", KindParty, ValueInt, "troops", true, 0, inf, nil, 0})
 	register(Field{"troops_light", KindParty, ValueInt, "troops", true, 0, inf, nil, 0})

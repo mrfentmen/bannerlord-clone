@@ -49,13 +49,15 @@ func strength(v *sim.View, p *model.Party, leader *model.Leader) float64 {
 	// Troop XP: every 100 XP = +1% effectiveness, capped at +50%.
 	// Veterans hit harder than green recruits.
 	xpMult := 1.0 + shared.Clamp(p.TroopXP/100.0*0.01, 0, 0.5)
+	// Cohesion: 0.7x to 1.0x. A fracturing army fights poorly.
+	cohesionMult := 0.7 + 0.3*shared.Clamp(p.Cohesion, 0, 1)
 	// What the party is made of (Tier 6.2). The same number of men is not the
 	// same fighting strength: an armoured core hits harder than a skirmish
 	// screen. This is a separate multiplier from the march system's speed
 	// factor deliberately, so a party is not automatically at its strongest
 	// where it is quickest.
 	combatMult := template.CombatFactor(v, p)
-	return base * moraleMult * valorMult * xpMult * combatMult
+	return base * moraleMult * valorMult * xpMult * cohesionMult * combatMult
 }
 
 // hostile reports whether two sides are at odds, which is the precondition for
