@@ -1380,3 +1380,137 @@
   color: var(--ink-300);
   font-size: 12px;
 }
+
+.encounter-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--overlay-scrim);
+  z-index: var(--z-modal);
+}
+
+.encounter-body {
+  background: var(--surface-1);
+  border: 1px solid var(--line-1);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  min-width: 320px;
+  max-width: 480px;
+}
+
+.encounter-title {
+  font-size: 16px;
+  margin: 0 0 var(--space-3);
+  color: var(--ink-100);
+}
+
+.encounter-parties {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-3);
+}
+
+.encounter-party {
+  flex: 1;
+}
+
+.encounter-party--player .encounter-party__name {
+  color: var(--ally-ink);
+}
+
+.encounter-party__name {
+  font-weight: 600;
+  color: var(--ink-100);
+}
+
+.encounter-party__boss,
+.encounter-party__troops {
+  font-size: 12px;
+  color: var(--ink-300);
+}
+
+.encounter-strength {
+  flex: 2;
+  display: flex;
+  height: 12px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--surface-3);
+}
+
+.encounter-strength__player {
+  background: var(--ally-fill);
+}
+
+.encounter-strength__enemy {
+  background: var(--enemy-fill);
+}
+
+.encounter-options {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: var(--space-2);
+  margin-bottom: var(--space-2);
+}
+
+.encounter-note {
+  font-size: 12px;
+  color: var(--ink-300);
+}
+
+.encounter-dialogue {
+  max-height: 240px;
+  overflow-y: auto;
+  margin-bottom: var(--space-3);
+}
+
+.encounter-line {
+  margin-bottom: var(--space-2);
+  color: var(--ink-200);
+}
+
+.encounter-line__speaker {
+  font-weight: 600;
+  color: var(--ink-100);
+}
+
+.encounter-bribe {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+
+.encounter-bribe__slider {
+  flex: 1;
+}
+
+.encounter-bribe__amount {
+  min-width: 64px;
+  text-align: right;
+}
+
+.encounter-actions {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.encounter-result {
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  margin-bottom: var(--space-3);
+  color: var(--ink-100);
+}
+
+.encounter-result--ok {
+  background: var(--status-good-fill);
+  color: var(--status-good-ink);
+}
+
+.encounter-result--bad {
+  background: var(--status-critical-fill);
+  color: var(--status-critical-ink);
+}
