@@ -192,6 +192,37 @@ func (r *Recorder) Command(v *View) error {
 	return nil
 }
 
+// SetInner changes which commander this recorder records, keeping the log, the
+// source label, the row count, and the failure latch.
+//
+// It exists because a recorder that can only ever wrap one commander is a
+// recorder for a battle nobody changed their mind during. A session battle is
+// commanded by whoever was handed to it last, and a player who re-forms half his
+// line at tick 600 hands it a new commander; with the recorder wrapped around the
+// first one, every order after that tick went unrecorded and the log replays a
+// battle that stopped being fought at tick 600. One recorder with a swappable
+// inside keeps one row stream, which is the thing a log has to be.
+//
+// The failure latch is deliberately NOT cleared. A commander that failed stops the
+// battle, so swapping one in afterwards is either a battle that was never
+// resumed or a caller trying to paper over an error that has already been
+// returned; in neither case should the recorder start writing rows again.
+func (r *Recorder) SetInner(inner Commander) {
+	if r == nil {
+		return
+	}
+	r.inner = inner
+}
+
+// Inner is the commander this recorder is recording. Nil means it is recording a
+// battle driven by the engine's own rules, which is a legal thing to record.
+func (r *Recorder) Inner() Commander {
+	if r == nil {
+		return nil
+	}
+	return r.inner
+}
+
 // Log returns the log the recorder writes into.
 func (r *Recorder) Log() *OrderLog { return r.log }
 
