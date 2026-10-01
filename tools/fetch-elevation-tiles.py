@@ -11,12 +11,40 @@ Usage:
 """
 import argparse
 import json
+import struct
+import subprocess
 import sys
-import urllib.request
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 ELEVATION_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium"
+PNG_MAGIC = b"\x89PNG\r\n\x1a\n"
+
+
+def validate_png(path: Path) -> tuple:
+    """Walk the PNG chunk structure so truncated downloads are caught.
+
+    Magic bytes alone do not prove a file is complete: this sandbox's egress
+    proxy used to cut streams mid-body, which still leaves a valid-looking
+    header. Require a parseable chunk chain that terminates in IEND.
+    """
+    data = path.read_bytes()
+    if not data.startswith(PNG_MAGIC):
+        return False, f"bad magic ({data[:8]!r})"
+    pos = len(PNG_MAGIC)
+    saw_ihdr = False
+    while pos + 8 <= len(data):
+        length = struct.unpack(">I", data[pos:pos + 4])[0]
+        ctype = data[pos + 4:pos + 8]
+        end = pos + 12 + length
+        if end > len(data):
+            return False, f"truncated in {ctype.decode('ascii', 'replace')} chunk"
+        if ctype == b"IHDR":
+            saw_ihdr = True
+        pos = end
+        if ctype == b"IEND":
+            return (True, f"valid ({len(data)} bytes)") if saw_ihdr else (False, "no IHDR")
+    return False, "missing IEND (truncated)"
 
 
 def download_tile(tile, out_dir: Path) -> str:
@@ -32,15 +60,18 @@ def download_tile(tile, out_dir: Path) -> str:
     url = f"{ELEVATION_URL}/{z}/{x}/{y}.png"
     tmp = dest.with_suffix(".part")
     try:
-        req = urllib.request.Request(url, headers={"User-Agent": "bannerlord-clone-elevation-fetch/1.0"})
-        with urllib.request.urlopen(req, timeout=60) as resp, tmp.open("wb") as f:
-            while True:
-                chunk = resp.read(1 << 20)
-                if not chunk:
-                    break
-                f.write(chunk)
+        # curl, not urllib: the egress proxy truncates urllib streams.
+        subprocess.run(
+            ["curl", "-sS", "--fail", "--retry", "3", "--retry-all-errors",
+             "--max-time", "120", "-H", "User-Agent: bannerlord-clone-elevation-fetch/1.0",
+             "-o", str(tmp), url],
+            check=True, capture_output=True, text=True,
+        )
+        ok, detail = validate_png(tmp)
+        if not ok:
+            raise ValueError(f"invalid PNG: {detail}")
         tmp.replace(dest)
-        return f"OK: {z}/{x}/{y} ({dest.stat().st_size} bytes)"
+        return f"OK: {z}/{x}/{y} ({detail})"
     except Exception as e:
         if tmp.exists():
             tmp.unlink()

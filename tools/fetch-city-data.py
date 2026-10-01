@@ -92,16 +92,20 @@ def overpass_post(query: str) -> dict:
         with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as tmp:
             tmp_path = Path(tmp.name)
         try:
-            r = subprocess.run(
-                ["curl", "-sS", "--fail", "--retry", "2", "--retry-all-errors",
-                 "--retry-delay", "5", "--max-time", str(SERVER_TIMEOUT + 60),
-                 "-A", USER_AGENT,
-                 "--data-binary", "@-",
-                 "-o", str(tmp_path),
-                 mirror],
-                input=query.encode("utf-8"),
-                capture_output=True, timeout=SERVER_TIMEOUT + 90,
-            )
+            try:
+                r = subprocess.run(
+                    ["curl", "-sS", "--fail", "--retry", "2", "--retry-all-errors",
+                     "--retry-delay", "5", "--max-time", str(SERVER_TIMEOUT + 60),
+                     "-A", USER_AGENT,
+                     "--data-binary", "@-",
+                     "-o", str(tmp_path),
+                     mirror],
+                    input=query.encode("utf-8"),
+                    capture_output=True, timeout=SERVER_TIMEOUT + 90,
+                )
+            except subprocess.TimeoutExpired:
+                errors.append(f"{mirror}: timed out after {SERVER_TIMEOUT + 90}s")
+                continue
             if r.returncode != 0:
                 errors.append(f"{mirror}: {r.stderr.decode()[:150]}")
                 continue
