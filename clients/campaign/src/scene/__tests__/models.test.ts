@@ -74,7 +74,7 @@ describe("staged models manifest", () => {
   it("is consistent with the GLB files on disk", () => {
     const manifest = readManifest();
     const files = readdirSync(modelsDir);
-    expect(manifest.models).toHaveLength(26);
+    expect(manifest.models).toHaveLength(30);
     expect(validateModelsManifest(manifest, files)).toEqual([]);
   });
 
@@ -159,5 +159,15 @@ describe("staged GLB files", () => {
     // A standing figure's longest axis is Y; the officer's is Z, hence the fix.
     expect(longest).toBe(2);
     expect(officer.rotateX).toBeCloseTo(-Math.PI / 2, 10);
+  });
+
+  it("the regen officer.glb stands upright with no rotateX fix", () => {
+    const manifest = readManifest();
+    const officer = modelByName(manifest, "officer")!;
+    expect(officer.rotateX).toBeUndefined();
+    const { json } = parseGlb(join(modelsDir, officer.file));
+    const { min, max } = positionBounds(json);
+    const extents = [max[0]! - min[0]!, max[1]! - min[1]!, max[2]! - min[2]!];
+    expect(extents.indexOf(Math.max(...extents))).toBe(1);
   });
 });
