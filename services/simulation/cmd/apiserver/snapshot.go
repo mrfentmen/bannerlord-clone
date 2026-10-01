@@ -84,11 +84,10 @@ func buildSnapshot(s *Server) map[string]any {
 				playerParty = map[string]any{
 					"id":       partyID,
 					"leaderId": fmt.Sprintf("leader-%d", p.LeaderID),
-					"troops":   []any{map[string]any{"count": p.Troops, "wounded": p.Wounded}},
+					"troops":   p.Troops,
 					"wounded":  p.Wounded,
 					"x":        p.X,
 					"y":        p.Y,
-					"position": map[string]any{"x": p.X, "z": p.Y},
 					"food":     p.Food,
 					"medicine": p.Medicine,
 					"gold":     p.Gold,
@@ -99,12 +98,7 @@ func buildSnapshot(s *Server) map[string]any {
 		}
 	}
 	if playerParty == nil {
-		playerParty = map[string]any{
-			"id":       "party-none",
-			"troops":   []any{},
-			"morale":   0.0,
-			"position": map[string]any{"x": 0, "z": 0},
-		}
+		playerParty = map[string]any{"id": "party-none", "troops": 0}
 	}
 
 	return map[string]any{
@@ -116,11 +110,7 @@ func buildSnapshot(s *Server) map[string]any {
 			"characterName": playerName,
 			"factionId":     playerFaction,
 			"resources": map[string]any{
-				"money":    playerGold,
-				"gold":     playerGold,
-				"food":     100.0,
-				"metal":    0.0,
-				"medicine": 0.0,
+				"gold": playerGold,
 			},
 			"influence": playerInfluence,
 			"renown":    playerRenown,
@@ -130,7 +120,7 @@ func buildSnapshot(s *Server) map[string]any {
 		"markets":       map[string]any{},
 		"sides":         sides,
 		"rulers":        rulers,
-		"ledger":        map[string]any{"entries": []any{}, "netPerDay": map[string]any{}},
+		"ledger":        map[string]any{"entries": []any{}},
 		"warnings":      []any{},
 		"notifications": []any{},
 		"causeLog":      map[string]any{},
@@ -214,21 +204,11 @@ func (s *Server) whyChain(entity, field string) map[string]any {
 			continue
 		}
 		chain = append(chain, map[string]any{
-			"id":      fmt.Sprintf("cause-%d", r.ID),
-			"tick":    r.Tick,
-			"old":     r.Old,
-			"new":     r.New,
-			"causedBy": []any{},
-			"note":    r.Note,
-			"system":  r.System,
+			"note":   r.Note,
+			"read":   r.Read,
+			"system": r.System,
+			"tick":   r.Tick,
 		})
 	}
-	return map[string]any{
-		"entityId":   entity,
-		"field":      field,
-		"rows":       chain,
-		"related":    []any{},
-		"totalDepth": len(chain),
-		"truncated":  false,
-	}
+	return map[string]any{"entity": entity, "field": field, "chain": chain}
 }
