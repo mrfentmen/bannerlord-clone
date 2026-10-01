@@ -744,6 +744,10 @@ func partyGet(p *Party, f string) (float64, bool) {
 		return p.Prisoners, true
 	case "prisoner_conformity":
 		return p.PrisonerConformity, true
+	case "troop_xp":
+		return p.TroopXP, true
+	case "cohesion":
+		return p.Cohesion, true
 	default:
 		return 0, false
 	}
@@ -867,6 +871,12 @@ func partySet(p *Party, f string, v float64) bool {
 	case "prisoner_conformity":
 		p.PrisonerConformity = v
 		return true
+	case "troop_xp":
+		p.TroopXP = v
+		return true
+	case "cohesion":
+		p.Cohesion = v
+		return true
 	default:
 		return false
 	}
@@ -931,6 +941,10 @@ func rulerGet(r *Leader, f string) (float64, bool) {
 		return r.PregnancyTicks, true
 	case "sex":
 		return float64(r.Sex), true
+	case "gold":
+		return r.Gold, true
+	case "money":
+		return r.Money, true
 	default:
 		return 0, false
 	}
@@ -997,6 +1011,10 @@ func rulerSet(r *Leader, f string, v float64) bool {
 	case "pregnancy_days":
 		r.PregnancyDays = v
 		return true
+	case "gold":
+		r.Gold = v
+	case "money":
+		r.Money = v
 	default:
 		return false
 	}
