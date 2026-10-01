@@ -1,7 +1,7 @@
 # MASTER PLAN — Bannerlord Clone: full modern-day Bannerlord experience
 
 **Status: live.** This is the crew's working task plan. TASKS.md is stale and stays frozen; this file is the authority.
-Last assembled: 2026-10-01. Task counts: Pax ~60, Rowan 154, Hana 139, milo 157.
+Last assembled: 2026-10-01. Task counts: Pax 43, Rowan 154, Hana 139, milo 160 (496 total).
 
 ## Locked decisions (boss orders)
 
@@ -99,7 +99,7 @@ Rules: extend what exists, don't rebuild it. Every task has an acceptance criter
 ## Critical path
 The 5 tasks everything else depends on: (1) same-seed-twice determinism proven, (2) HTTP API server implementing the 8 contracted routes, (3) WebSocket tick stream, (4) Worker routing on one domain, (5) IndexedDB save/load round-trip. Until those five land, no other lane's work can integrate.
 
-## ROWAN (del) — Campaign Client (0 tasks)
+## ROWAN (del) — Campaign Client (154 tasks)
 
 ## Tier 1 — "The game exists" (provider swap, connection, local saves)
 
@@ -348,7 +348,7 @@ The 5 tasks everything else depends on: (1) same-seed-twice determinism proven, 
 
 Five tasks gate everything else. First, default the HTTP provider to the same-origin `/api` path in production builds (task 25) — without it the client cannot reach any server on the single domain. Second, harden `GET /v1/snapshot` decoding with schema validation (task 1) — every panel, the map, and the save system consume the snapshot, and none of it can be trusted until malformed payloads fail loudly instead of corrupting the UI. Third, build the promise-based IndexedDB wrapper with versioned migrations (task 29) — saves, autosave, crash recovery, and export/import all sit on it. Fourth, hydrate the scene and all panels from the snapshot on load (tasks 39–40) — a save that does not restore a playable world is worthless. Fifth, wire the march commit button to `POST /v1/march/commit` with the plan id (task 91) — it is the first full player write-back loop through the real sim, and proving that round trip works unblocks every other write path (trade, recruit, construct, orders).
 
-## HANA (mute) — World Data, Pipelines, Assets (0 tasks)
+## HANA (mute) — World Data, Pipelines, Assets (139 tasks)
 
 ## Tier 1 — The game exists (travel graph, sim-feed, reproducibility)
 
@@ -697,6 +697,215 @@ Five tasks gate everything else. First, default the HTTP provider to the same-or
    wrongly-licensed asset poisons the entire shipped game; the gate must exist before the asset
    count grows from dozens to hundreds, and the Kenney quarantine must be resolved by the boss first.
 
-## MILO — Battle Simulation + Audio (0 tasks)
+## MILO — Battle Simulation + Audio (160 tasks)
 
+## Tier 1 — The game exists
 
+### Battle session model + fixed-timestep tick
+- Define the Battle aggregate struct with id, phase, tick, participants, rosters, terrain seed, and outcome (constructing one from two campaign parties works without a client).
+- Implement battle phases: staging, deployment, fighting, rout, resolved, with legal transitions enforced (an illegal phase jump returns an error, never silently proceeds).
+- Add a fixed-timestep battle clock at 20 ticks per second decoupled from wall time (1000 ticks produce identical state on any machine).
+- Snapshot campaign parties into battle rosters at battle start, freezing troop counts, tiers, equipment, and commander identity (roster totals match the campaign parties exactly).
+- Add the battle-size config knob with presets 50/150/400/1000 agents (changing the knob changes only agent count, never rules).
+- Implement agent-count degradation: when rosters exceed the knob, merge lowest-tier troops into aggregate counters first (degraded battles still resolve with correct casualty math).
+- Add deterministic battle RNG streams: one for combat rolls, one for morale, one for AI decisions (re-seeding one stream does not affect the others).
+- Implement battle pause, single-step, and tick-skip controls for debugging (stepping one tick advances exactly one tick of simulation).
+- Add battle invariants checked every tick: troop totals conserved, no negative ammo, no agent outside bounds (a violation fails the tick loudly).
+- Write tick determinism tests: same seed plus same order script yields byte-identical battle state at tick 500 (test fails on any divergence).
+- Add battle timeout rules: a battle with no casualties for N ticks auto-resolves as a draw (no battle can run forever).
+- Implement surrender/rout thresholds per side computed from morale, casualties, and commander presence (a side at 0 morale routs within 3 ticks).
+- Add battle event stream: every kill, wound, rout, order, and phase change is an event with tick and actor ids (replaying events reconstructs the battle).
+- Write a battle smoke test that starts a 50v50, runs to resolution, and asserts an outcome plus non-zero casualties (runs in under 30 seconds).
+
+### Battle API surface
+- Implement POST /v1/battle/start accepting attacker party id, defender party id, and options, returning a battle id (starting with invalid party ids returns 400, never a battle).
+- Implement GET /v1/battle/state returning phase, tick, both rosters with alive/wounded/routed counts, and recent events (two polls 1 tick apart show tick advancing).
+- Implement POST /v1/battle/orders accepting formation orders with validation against the 14-order set (an unknown order name is rejected with a 400 and a list of valid orders).
+- Implement WS /v1/battle/stream pushing tick snapshots and events at 10 Hz to subscribed clients (a client that subscribes mid-battle receives current state first, then deltas).
+- Implement POST /v1/battle/resolve forcing immediate auto-resolve of a live battle (resolve on a finished battle returns the existing outcome, idempotent).
+- Add battle session binding: each battle id is bound to the campaign session that started it (a battle id from another session is rejected).
+- Add API versioning under /v1 with a /v1/version endpoint reporting sim build hash (client and server hashes are logged on every battle start).
+- Write API contract tests covering start, state, orders, stream, and resolve against the real sim, not fixtures (all five pass in CI).
+
+### Deterministic seed derivation + replay harness
+- Derive battle seeds as HMAC(campaign seed, battle counter, attacker id, defender id) so no two battles share a seed (deriving 1000 seeds yields 1000 unique values).
+- Record every player order with its tick into the battle replay log (replay log plus seed reproduces the battle exactly).
+- Implement the replay CLI: simrun replay --battle <id> re-runs a recorded battle headlessly (replay output matches the original outcome and casualty counts).
+- Add golden replay fixtures: three canonical battles checked into the repo, replayed in CI (any sim change that alters a golden outcome fails loudly for review).
+- Implement order-script format for scripted test battles: a JSON list of tick-ordered commands (a scripted 10v10 runs identically on every machine).
+- Add a determinism fuzz: run the same battle 20 times and assert identical final state (fuzz runs in CI nightly).
+- Write docs for the replay format: field meanings, versioning policy, and how to hand-write a script (a new engineer can write a script from the doc alone).
+
+### Auto-resolve from scratch
+- Implement base strength calculation from troop count, tier, equipment quality, and commander skill (a 100-tier-3 force outscores a 100-tier-1 force by at least 2x).
+- Add terrain modifiers to auto-resolve: attacker penalty uphill, defender bonus in forests and urban tiles, river-crossing penalty (same armies on attacker-favorable vs defender-favorable terrain differ by 15%+ win rate over 200 trials).
+- Add tactics modifiers: flanking bonus when attacker outnumbers 2:1, ambush bonus for bandits at night, siege-engine bonus for the besieger (each modifier is a named, logged term, never a magic number).
+- Implement tier-weighted casualties: higher-tier troops die less often per round, militia die most (casualty share by tier matches weights within 5% over 500 trials).
+- Split casualties into killed vs wounded with per-tier wound rates and medicine-modified survival (wounded count is nonzero in most battles and feeds the campaign wounded pool).
+- Implement XP awards per surviving participant scaled by battle size and enemy tier, with promotion rolls for troops at XP thresholds (a battle's XP ledger sums to the campaign's XP ledger exactly).
+- Implement loot generation from defeated side: weapons, ammo, medicine, cash scaled by loser tier and battle size (loot manifests list item, quantity, and source troop tier).
+- Implement prisoner capture: a fraction of routed survivors become prisoners of the winner (prisoner count never exceeds routed survivors).
+- Add named-character risk: commanders, companions, and the player roll on a wound/capture/death table weighted by battle danger (a lost battle can wound the player; a won battle almost never kills a commander).
+- Write auto-resolve results back to the campaign: party troop counts, wounded pools, prisoner lists, treasury, and XP deltas applied atomically (applying the same result twice is impossible; results carry the battle id).
+- Emit cause-log rows for every campaign state change from a battle: casualties, loot, prisoners, XP, each citing the battle id (the Why panel can explain any post-battle change).
+- Add auto-resolve vs real-time parity checks: 100 auto-resolved battles vs 100 real-time battles with the same seeds produce casualty distributions within 10% (parity test runs nightly, not per-commit).
+
+## Tier 2 — The Bannerlord loop
+
+### Soldier agents
+- Define the soldier agent struct: position, heading, speed, health, morale, suppression, ammo, weapon, formation slot, state (every field has a documented unit and range).
+- Implement agent morale as 0-100 with break thresholds modified by nearby commander, nearby routing allies, and casualties witnessed (an agent seeing 3 allies rout in 10 ticks loses at least 20 morale).
+- Implement suppression: incoming near-misses raise suppression, which degrades accuracy and eventually pins the agent (a fully suppressed agent cannot advance).
+- Implement per-agent ammo with magazine and reserve, reload times per weapon, and ammo sharing within a formation (an agent at 0 ammo and 0 reserve switches to melee).
+- Implement agent perception: vision cone with range modified by weather, night, smoke, and target movement (a stationary target in smoke at 80m is invisible).
+- Implement target selection: nearest visible threat weighted by threat level, with a reaction delay per tier (tier-1 reacts slower than tier-5, measurably).
+- Implement agent pooling: agents are recycled from a pool sized by the battle knob, never allocated mid-tick (a 1000-agent battle performs zero tick-time allocations).
+- Implement agent states: idle, moving, attacking, reloading, suppressed, routing, surrendered, down, dead (every transition is logged as a battle event).
+- Add per-agent performance budget: full agent update under 2 microseconds at 1000 agents (benchmark fails the build if exceeded).
+- Implement wounded agents: a downed agent can be stabilized by a medic-flagged ally within 60 ticks, else dies (stabilized agents enter the campaign wounded pool, not the dead list).
+
+### Formation solver
+- Define formation templates: line, column, wedge, square, skirmish, loose with slot offsets per template (instantiating a 40-agent line yields 40 unique slot positions).
+- Implement the formation anchor: position plus facing that the commander or orders move (moving the anchor moves every slot's target).
+- Implement slot assignment: agents fill slots by tier and role, shielded troops front, ranged rear (a mixed formation's front rank is always melee).
+- Implement flow-field pathfinding on the battle grid: one field per formation goal, agents follow it with local avoidance (100 agents reach a move goal without deadlock in the solver test).
+- Add slot re-convergence: after disruption, agents path back to slots instead of milling (a scattered formation reforms within 200 ticks of a Hold order).
+- Implement formation cohesion score: fraction of agents within tolerance of their slots, exposed to AI and UI (cohesion below 0.5 blocks Volley Fire).
+- Add battle terrain grid generation from the campaign map tile: elevation, forest, water, road, urban masks at 2m cells (generated terrain matches the campaign tile's dominant features).
+
+### Formation orders (14 individual tasks)
+- Implement Hold Position: formation stops, faces current heading, agents take cover if available (agents cease movement within 20 ticks).
+- Implement Move: formation anchor paths to a map point, slots follow in template (arrival declared when 90% of agents are within tolerance).
+- Implement Advance: formation moves toward the nearest enemy at combat pace, ranged agents fire on the move at reduced accuracy (advance speed is half of Move speed).
+- Implement Charge: all agents sprint at the nearest enemy, morale shock on impact, formation cohesion ignored (a charging formation's cohesion drops below 0.3).
+- Implement Follow: formation trails the player's position at 30m, matching pace (formation stays within 50m of the player while the player moves).
+- Implement Fall Back: formation retreats from the nearest enemy toward its deployment zone, rear rank facing the enemy (no agent turns its back while enemies are within 20m).
+- Implement Face Direction: formation rotates in place to a compass heading without moving the anchor (rotation completes within 60 ticks).
+- Implement Change Formation: formation morphs to a new template, agents re-path to new slots (morph completes with zero agent-agent collisions causing damage).
+- Implement Change Spacing: formation toggles tight/loose, adjusting slot offsets (loose spacing doubles slot distances and halves explosive casualties in the test).
+- Implement Volley Fire: ranged agents fire synchronized volleys at a target point, gated on cohesion above 0.5 (a volley consumes one magazine round per agent).
+- Implement Fire At Will: ranged agents engage targets of opportunity per perception rules until toggled off (toggling off stops all ranged fire within 10 ticks).
+- Implement Take Cover: agents move to nearest cover within 40m and crouch, prioritizing ranged agents (cover reduces incoming hit chance by the cover value).
+- Implement Flank: formation splits a detached group to path around the enemy's side, rejoining for a rear attack (flanking group arrives at the enemy rear quadrant).
+- Implement Retreat: entire side disengages toward the map edge, routing agents are not rallied (a retreating side keeps at least 70% of its remaining agents alive to the edge).
+
+### Melee model
+- Implement melee reach, swing time, and recovery per weapon class: knife, baton, rifle-butt, blade, improvised (each class has distinct reach/time/damage in a data table).
+- Implement directional blocking: blocking reduces frontal damage by the block value, drains stamina, and can break (a block held for 5 seconds breaks and staggers the blocker).
+- Implement knockdown: heavy hits have a knockdown chance vs the target's stance and weight (a knocked-down agent is helpless for 40 ticks).
+- Implement friendly fire for melee: wild swings can hit allies, reduced by tier discipline (tier-1 militia cause measurable friendly casualties in a dense melee).
+- Implement morale shock on melee impact: the charged side takes an immediate morale hit scaled by charger momentum (a cavalry/vehicle charge breaks militia lines in the shock test).
+- Implement weapon durability: melee weapons degrade per hit and can break, forcing fallback to sidearm or fists (a broken weapon is a battle event).
+
+### Modern ranged ballistics
+- Implement hitscan-with-travel projectiles: muzzle velocity, gravity drop, and penetration per ammo type (a rifle round at 200m drops a documented amount and penetrates car doors, not engine blocks).
+- Implement spread: base spread per weapon plus modifiers for movement, suppression, stance, and shooter skill (a sprinting suppressed shooter cannot hit beyond 30m in the test).
+- Implement recoil: per-shot kick with recovery time, full-auto climb (a 30-round mag dump walks fire upward off target without burst control).
+- Implement cover system: low/high cover values from terrain and props, destructible cover with hit points (a wooden fence stops 3 rounds before failing).
+- Implement suppression effects on accuracy: suppressed shooters lose accuracy and rate of fire (a pinned squad's effective DPS drops by at least 50%).
+- Implement ammo types: ball, hollow-point, armor-piercing, less-lethal with distinct damage/penetration profiles (AP defeats light vehicle armor that ball cannot).
+- Add ballistics animation/audio hooks: muzzle flash, tracer, impact effect, suppression crack, all emitted as battle events for the client (every shot emits exactly one event bundle).
+
+### Vehicles as modern cavalry
+- Define vehicle agents: pickup, SUV, armored van, bus with speed, armor, passenger capacity, and ram damage (each class has a data row; no hardcoded stats).
+- Implement vehicle movement with turn radius and terrain penalties: roads fast, off-road slow, forest nearly impassable (a pickup crosses open ground 3x faster than infantry).
+- Implement ramming: vehicles damage agents and light cover on contact, with damage to the vehicle scaled by target mass (ramming a barricade damages the pickup's front armor).
+- Implement passengers: agents embark/disembark, fire personal weapons from open vehicles at reduced accuracy (a drive-by is possible and modeled).
+- Implement vehicle morale shock: a vehicle charge against foot troops causes a morale check on impact (militia break; veterans hold).
+- Implement vehicle damage states: intact, damaged, disabled, burning, destroyed, with crew bail-out on disabled+ (a burning vehicle explodes after 100 ticks, damaging nearby agents).
+
+### Battle AI: unit, formation, commander
+- Implement unit AI: the per-agent loop of perceive, select target, move/shoot/reload per orders and morale (an AI-only 50v50 completes without player orders).
+- Implement formation AI: keeps slots, advances under Fire At Will, falls back when morale drops below the hold threshold (an AI formation never stands still while being shot to pieces).
+- Implement commander AI: picks an overall plan from stances (aggressive, balanced, defensive) based on relative strength and terrain (an outnumbered commander picks defensive in the test).
+- Implement flanking behavior: commander AI detaches a flanking group when it has a mobility advantage (flank occurs in at least 30% of AI-vs-AI battles with 2:1 odds).
+- Implement focus fire: AI concentrates ranged fire on the most dangerous visible formation (focused target takes 2x the casualties of unfocused in the test).
+- Implement routing behavior: broken agents flee toward their map edge, may surrender if surrounded (a surrounded routing agent surrenders instead of fighting to death).
+- Implement surrender acceptance: a side can offer surrender; the AI accepts when its position is hopeless and rejects when it can still win (surrender terms feed the prisoner system).
+- Add the AI difficulty knob: recruit, regular, veteran scaling reaction time, accuracy, morale, and tactics (veteran AI beats recruit AI 80%+ over 100 mirror battles).
+- Implement AI order-issuing cadence: commander AI re-evaluates every 100 ticks, not every tick (AI overhead stays under 5% of tick time).
+
+### Playable siege assaults
+- Model the breach state from the campaign siege system: intact, breached, gate-destroyed, each mapping to an assault entry point (an assault cannot start on an intact wall without equipment).
+- Implement ladders: placement against walls, climbable by one agent at a time, defenders can push ladders (a pushed ladder kills its climbers).
+- Implement siege towers: slow approach, drop-bridge deployment, protected climbers (a tower delivers 10 agents onto the wall per 100 ticks).
+- Implement rams: gate-targeted, crew-pushed, gate HP based on the campaign fortification level (ramming time scales with wall tier from the construction system).
+- Implement street fighting: once inside, the battle switches to urban blocks with defender barricades and ambush points (defenders get cover bonuses in streets).
+- Implement defender sallies: the garrison can sortie mid-siege as a field battle outside the gates (a successful sally destroys one random siege engine).
+- Implement wall defenders: archers/riflemen on walls get range and cover bonuses, limited by wall capacity (overcrowding the wall reduces its bonus).
+- Add siege-engine construction as a pre-battle choice spending campaign resources and days (engines built appear in the assault loadout).
+- Emit siege-specific battle events: breach widened, ladder pushed, gate down, wall taken, street cleared (the client can render a siege progress bar from events alone).
+
+### Result write-back
+- Apply casualties to campaign parties: dead removed, wounded to the wounded pool with recovery timers (party totals after write-back equal before minus dead minus wounded).
+- Apply XP and promotions to surviving troops, including companion XP (no XP is created or lost: battle ledger equals campaign delta).
+- Transfer loot into the winner's party inventory and treasury (every loot item appears in exactly one inventory).
+- Transfer prisoners to the winner's prisoner list with capture events (prisoner count matches the battle's captured total).
+- Update named characters: wounds, capture, or death applied to the campaign character records (a dead commander is dead in the campaign the same tick).
+- Update faction relations and war state from battle outcome: winner influence up, loser down, notable battles shift relation scores (a crushing defeat moves relations by the documented amount).
+- Emit cause-log rows for all of the above, each citing the battle id as the cause (the Why panel traces any post-battle change to its battle).
+
+## Tier 3 — The living world
+
+### Duels and arena brackets
+- Implement one-on-one duel battles: two named characters, no formations, small arena map (a duel starts from a campaign challenge event).
+- Implement melee-only and mixed-weapon duel rule sets with configurable rounds (a duel ends when one side is down or yields).
+- Implement arena brackets: 8 or 16 entrants, single elimination, scheduled over campaign days (a bracket completes with a recorded champion).
+- Implement wagering: the player and NPC notables bet on duel/arena outcomes with odds from relative skill (odds favor the higher-skill fighter measurably).
+- Implement crowd reactions: arena audience morale effects that buff or rattle fighters (a home-crowd fighter gets a small morale bonus).
+- Write duel tests: bracket completion, odds calibration over 200 simulated duels, and consequence application (all deterministic).
+
+### Bandit ambush encounters
+- Trigger ambush battles from the campaign encounter system when a party enters a bandit-flagged tile unaware (an unaware party starts the battle scattered, not formed).
+- Implement ambush deployment: attackers placed in concealment around the travel route, defenders in march column (ambushers get a first-volley surprise bonus).
+- Implement awareness checks: scout skill and lookouts reduce or negate the ambush (a high-scout party is never fully surprised).
+- Implement bandit AI: hit-and-run, targeting pack animals/vehicles and stragglers, breaking off when losses mount (bandits retreat after 25% casualties in the test).
+- Implement ransom demands as a pre-battle option: pay, refuse, or stall for time (stalling lets the party form up, reducing the surprise bonus).
+- Write ambush tests: surprise bonus magnitude, awareness negation, bandit break-off threshold, and ransom flows (each deterministic).
+
+### Companion bodyguard AI with permadeath
+- Assign companions as bodyguards to the player or to formations, with guard radius and intercept behavior (a bodyguard interposes within 5m of a threat to its principal).
+- Implement companion combat skill from campaign stats: their battle effectiveness matches their character sheet (a high-melee companion wins duels against tier-3 troops).
+- Implement companion wounding: companions enter the downed state and can be stabilized like agents (an unstabilized companion dies after 200 ticks).
+- Implement companion permadeath: a dead companion is removed from the campaign roster, their gear looted, and a cause-log row records where and how (their quests fail gracefully with a notification, never a crash).
+- Implement companion morale aura: nearby troops get a morale bonus scaled by the companion's leadership (removing the companion drops nearby morale measurably).
+- Implement companion capture: a downed companion can be captured instead of killed, enabling ransom events (a captured companion appears in the captor's prisoner list).
+- Write bodyguard tests: intercept behavior, wound stabilization, permadeath cascade, and capture flow (each deterministic).
+
+## Tier 4 — Audio
+
+### Dialogue voice pipeline
+- Define the voice-line asset contract: 48kHz WAV masters, compressed OGG/MP3 delivery, per-line metadata (character, emotion, context tags) in a sidecar JSON (every line in the repo validates against the schema).
+- Build the line-ingestion pipeline: drop raw recordings in, get normalized loudness, trimmed silence, and game-ready files out (ingesting 100 lines completes without manual steps).
+- Implement the dialogue voice lookup: given notable id, topic, and relationship state, return the best-matching line set (a request for an unknown notable falls back to a generic line, never silence-by-crash).
+- Implement voice playback hooks in the client dialogue UI: play, interrupt on topic change, and subtitle sync (interrupting a line stops audio within 100ms).
+- Add voice-line coverage tracking: which notables/topics have lines vs fallback, reported per build (coverage never silently decreases; CI fails on regression).
+- Write pipeline tests: schema validation, loudness normalization within 1 LUFS of target, and fallback behavior (all pass on the checked-in sample lines).
+
+### Battle barks with throttling and positional playback
+- Define the bark taxonomy: contact, taking fire, advancing, falling back, routing, victory, casualty witnessed, ammo low, each with variants (every bark event from the sim maps to a taxonomy entry).
+- Implement bark throttling: max N barks per 10 ticks per formation, priority queue so critical barks preempt chatter (a rout bark is never dropped for an ammo-low bark).
+- Implement positional playback: bark volume and pan from agent position relative to the camera (a bark 100m left plays left and quiet).
+- Implement per-faction voice sets: at least two distinct sets so enemies don't sound like the player's troops (swapping factions swaps the set).
+- Write bark tests: throttling under event floods, priority preemption, and positional math (a 500-event flood yields at most the throttle limit in barks).
+
+### Ambient battle audio integrated with Hana's SFX pipeline
+- Consume Hana's SFX pipeline output format for weapons, impacts, explosions, and movement sounds without duplicating her assets (battle audio references her manifest, never copies files).
+- Implement the ambient battle bed: distant gunfire, wind, and battle rumble mixed by battle intensity (intensity 0 is near-silent; intensity 1 is full bed).
+- Implement dynamic mixing: duck the ambient bed under dialogue barks and UI speech, restore after (ducking is at least 6dB and releases within 1 second).
+- Write audio integration tests: manifest consumption, mix levels within spec, and ducking behavior (all automated, no golden ears required).
+
+### Radio chatter lines extending Hana's radio pipeline
+- Extend Hana's radio pipeline manifest with a chatter category: squad callouts, dispatch, and commander orders formatted for her pipeline (chatter files build through her pipeline unmodified).
+- Write and ingest the core chatter script: 200 lines covering contact reports, casualty reports, requests for support, and order acknowledgments (every line tagged with tactical context).
+- Implement context selection: given battle events, pick chatter lines matching the tactical situation (a flanking maneuver triggers flanking callouts, not random chatter).
+- Implement radio effect processing: band-pass, compression, and squelch tails applied at build time through the pipeline (processed chatter is distinguishable from clean dialogue in a blind listen).
+- Write chatter tests: context matching accuracy on a labeled event set, and discipline throttle compliance (both automated).
+
+## Critical path
+
+- Define the Battle aggregate struct with id, phase, tick, participants, rosters, terrain seed, and outcome (constructing one from two campaign parties works without a client).
+- Implement POST /v1/battle/start accepting attacker party id, defender party id, and options, returning a battle id (starting with invalid party ids returns 400, never a battle).
+- Derive battle seeds as HMAC(campaign seed, battle counter, attacker id, defender id) so no two battles share a seed (deriving 1000 seeds yields 1000 unique values).
+- Implement base strength calculation from troop count, tier, equipment quality, and commander skill (a 100-tier-3 force outscores a 100-tier-1 force by at least 2x).
+- Write auto-resolve results back to the campaign: party troop counts, wounded pools, prisoner lists, treasury, and XP deltas applied atomically (applying the same result twice is impossible; results carry the battle id).
