@@ -1,0 +1,114 @@
+/**
+ * Quest tracker HUD card styles (questTracker/trackerHud.ts).
+ *
+ * Every value comes from src/design/tokens.css — no invented colours,
+ * fonts, or spacing.
+ */
+
+.qtracker {
+  position: absolute;
+  left: var(--space-3);
+  bottom: var(--space-3);
+  width: min(320px, calc(100vw - var(--space-3) * 2));
+  max-height: 40vh;
+  overflow: hidden auto;
+  display: flex;
+  flex-direction: column;
+  background: var(--sheet-1);
+  border: 1px solid var(--paper-300);
+  border-radius: var(--radius-2);
+  box-shadow: 0 2px 12px rgb(0 0 0 / 0.25);
+  font-family: var(--font-sans);
+  z-index: 5;
+}
+
+.qtracker__header {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border-bottom: 1px solid var(--paper-300);
+}
+
+.qtracker__title {
+  margin: 0;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--ink-900);
+}
+
+.qtracker__count {
+  font-size: 0.75rem;
+  color: var(--ink-500);
+}
+
+.qtracker__toggle {
+  margin-left: auto;
+}
+
+.qtracker.is-collapsed .qtracker__body,
+.qtracker.is-collapsed .qtracker__journal {
+  display: none;
+}
+
+.qtracker__list {
+  list-style: none;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.qtracker__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: var(--paper-100);
+  border: 1px solid var(--paper-300);
+  border-radius: var(--radius-1);
+}
+
+.qtracker__main {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.qtracker__name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-900);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.qtracker__meta {
+  font-size: 0.72rem;
+  color: var(--ink-500);
+}
+
+.qtracker__distance {
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--accent-info-ink);
+  white-space: nowrap;
+}
+
+.qtracker__unpin {
+  flex: 0 0 auto;
+}
+
+.qtracker__empty {
+  font-size: 0.8rem;
+  color: var(--ink-500);
+  padding: var(--space-2) 0;
+}
+
+.qtracker__journal {
+  margin: 0 var(--space-3) var(--space-3);
+}

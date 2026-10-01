@@ -79,6 +79,13 @@ import { keybindingEditor } from "./ui/panels/KeybindingEditor.js";
 import { openDeploymentPreview } from "./deploy/index.js";
 import { codexPanel } from "./ui/panels/Codex.js";
 import { QuestJournal, seedQuests } from "./journal/index.js";
+import {
+  QuestTracker,
+  buildTrackerViews,
+  createQuestTrackerHud,
+  localStoragePinStorage,
+} from "./questTracker/index.js";
+import type { TrackerPositionSource } from "./questTracker/index.js";
 import { questJournalPanel } from "./ui/panels/QuestJournal.js";
 import { createAchievementStore } from "./achievements/index.js";
 import { achievementsPanel } from "./ui/panels/Achievements.js";
@@ -448,6 +455,7 @@ const hud = createHud({
   onOpenChronicle: () => openChronicle(),
   onOpenHeatmap: () => toggleHeatmap(),
   onOpenMemorial: () => openMemorial(),
+  onOpenQuestTracker: () => openQuestTracker(),
   onOpenUiScale: (s) => settings.set({ uiScale: s }),
   onNotification: (entityId, field) => openWhy(entityId, field),
 });
@@ -1114,6 +1122,67 @@ const questJournal = new QuestJournal(seedQuests(), {
   },
 });
 
+// -- Quest tracker HUD (Rowan, MASTER_PLAN task 115) --------------------------
+// Up to 3 pinned active quests with live objective counts and the distance
+// from the party to the quest's settlement. The tracker model is pure; this
+// section only supplies the live position source.
+const questTracker = new QuestTracker(localStoragePinStorage(localStorage));
+const TRACKER_COLLAPSED_KEY = "campaign.questTracker.collapsed.v1";
+
+function loadTrackerCollapsed(): boolean {
+  try {
+    return localStorage.getItem(TRACKER_COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+function trackerPositionSource(): TrackerPositionSource {
+  return {
+    player() {
+      const pos = snapshot?.party?.position;
+      return pos ? { x: pos.x, z: pos.z } : null;
+    },
+    settlement(name: string) {
+      if (!world || !name) return null;
+      const s = world.settlements.resolve(name);
+      if (!s) return null;
+      const p = world.projection.toWorld(s.lat, s.lon);
+      return { x: p.x, z: p.z };
+    },
+  };
+}
+
+const trackerHud = createQuestTrackerHud({
+  views: () => buildTrackerViews(questJournal.all(), questTracker.pinnedIds(), trackerPositionSource()),
+  onUnpin: (id) => {
+    questTracker.unpin(id);
+    refreshQuestTracker();
+  },
+  onOpenJournal: () => openJournal(),
+  collapsed: loadTrackerCollapsed(),
+  onToggleCollapsed: (collapsed) => {
+    try {
+      localStorage.setItem(TRACKER_COLLAPSED_KEY, collapsed ? "1" : "0");
+    } catch {
+      // Collapsed state is a nicety; blocked storage must not break the HUD.
+    }
+  },
+});
+hud.root.appendChild(trackerHud.root);
+
+/** Prune finished quests, then repaint the tracker card. */
+function refreshQuestTracker(): void {
+  questTracker.prune(questJournal.all());
+  trackerHud.refresh();
+}
+
+/** Expand the tracker card from the HUD rail "Tracker" button. */
+function openQuestTracker(): void {
+  if (trackerHud.isCollapsed()) trackerHud.setCollapsed(false);
+  trackerHud.refresh();
+}
+
 // --- Achievements (MASTER_PLAN task 137) --------------------------------------
 // One store for the whole client. Anything here records events; the panel is
 // read-only. Other lanes can call `achievements.record(...)` later for
@@ -1188,6 +1257,21 @@ function openJournal(): void {
   currentPanel = "none";
   contextNode = questJournalPanel({
     journal: questJournal,
+    pinController: {
+      isPinned: (id) => questTracker.isPinned(id),
+      toggle: (id) => {
+        if (questTracker.isPinned(id)) {
+          questTracker.unpin(id);
+          refreshQuestTracker();
+          return "unpinned";
+        }
+        const result = questTracker.pin(id, questJournal.get(id)?.status);
+        refreshQuestTracker();
+        if (result === "pinned") return "pinned";
+        if (result === "full") return "full";
+        return "unpinned";
+      },
+    },
     onSearch: () => achievements.record("journal.search_used"),
     onClose: () => {
       currentPanel = "none";
@@ -1584,6 +1668,8 @@ function paint(): void {
     selectionName: selectedSettlement ? (settlement(selectedSettlement)?.name ?? "") : "",
   };
   hud.renderState(state);
+  // Quest tracker distances are live: recompute from the fresh snapshot.
+  refreshQuestTracker();
 }
 
 } // end non-city-demo branch

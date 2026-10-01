@@ -49,6 +49,8 @@ export interface HudOptions {
   onOpenHeatmap?: () => void;
   /** Opens the war memorial. Optional: the button hides without it. */
   onOpenMemorial?: () => void;
+  /** Expands the quest tracker card (MASTER_PLAN task 115). Optional: the button hides without it. */
+  onOpenQuestTracker?: () => void;
   /** Opens the deployment map preview. Optional: the button hides without it. */
   onOpenDeploymentPreview?: () => void;
   /**
@@ -516,6 +518,12 @@ export function createHud(options: HudOptions): HudHandle {
       const heatmapBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-heatmap" }, "Battle heatmap");
       heatmapBtn.addEventListener("click", () => options.onOpenHeatmap?.());
       rail.appendChild(heatmapBtn);
+    }
+
+    if (options.onOpenQuestTracker) {
+      const trackerBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-tracker" }, "Tracker");
+      trackerBtn.addEventListener("click", () => options.onOpenQuestTracker?.());
+      rail.appendChild(trackerBtn);
     }
 
     if (options.onOpenMemorial) {

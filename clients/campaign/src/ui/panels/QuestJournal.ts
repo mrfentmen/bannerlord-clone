@@ -28,6 +28,22 @@ export interface QuestJournalPanelOptions {
   testId?: string;
   /** Fired (debounced by the caller if needed) when the user searches. */
   onSearch?: () => void;
+  /**
+   * Quest tracker pinning (task 115). When present, active quests get a
+   * Pin/Unpin button in their detail view. Omitted in tests and wherever the
+   * tracker is not wired.
+   */
+  pinController?: QuestPinController;
+}
+
+/**
+ * Pin/unpin contract the quest tracker exposes to the journal panel.
+ * The panel never learns the pin cap or the storage; it only renders.
+ */
+export interface QuestPinController {
+  isPinned(id: string): boolean;
+  /** `"full"` when the tracker already holds its maximum pins. */
+  toggle(id: string): "pinned" | "unpinned" | "full";
 }
 
 const STATUS_KIND: Record<QuestStatus, StatusKind> = {
@@ -140,11 +156,13 @@ export function questJournalPanel(options: QuestJournalPanelOptions): HTMLElemen
         ),
       ),
     );
+    const pinAction = pinActionRow(q);
     return h(
       "article",
       { class: "journal__detail", "data-testid": "journal-detail", "aria-label": q.title },
       h("h3", { class: "journal__detailtitle" }, q.title),
       h("p", { class: "journal__detailmeta" }, `${q.giver} · ${q.settlement}`),
+      ...(pinAction ? [pinAction] : []),
       h("p", {}, q.summary),
       h("h4", { class: "journal__subtitle" }, `Objectives (${objectivesDone(q)}/${q.objectives.length})`),
       objectives,
@@ -159,6 +177,34 @@ export function questJournalPanel(options: QuestJournalPanelOptions): HTMLElemen
         h("dd", {}, statusChip(STATUS_KIND[q.status], STATUS_LABEL[q.status])),
       ),
     );
+  }
+
+  /**
+   * Pin/Unpin button for the quest detail (task 115). Only active quests can
+   * be pinned, and only when the tracker is wired in via `pinController`.
+   */
+  function pinActionRow(q: Quest): HTMLElement | null {
+    const ctl = options.pinController;
+    if (!ctl || q.status !== "active") return null;
+    const pinned = ctl.isPinned(q.id);
+    const btn = h(
+      "button",
+      {
+        type: "button",
+        class: "btn btn--quiet",
+        "data-testid": `journal-pin-${q.id}`,
+        "aria-pressed": String(pinned),
+      },
+      pinned ? "Unpin from tracker" : "Pin to tracker",
+    );
+    btn.addEventListener("click", () => {
+      const result = ctl.toggle(q.id);
+      if (result === "full") {
+        live.textContent = "Tracker is full — unpin a quest first (maximum 3).";
+      }
+      render();
+    });
+    return h("div", { class: "journal__pinaction" }, btn);
   }
 
   function render(): void {
