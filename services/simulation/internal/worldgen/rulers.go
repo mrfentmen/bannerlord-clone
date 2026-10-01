@@ -263,6 +263,10 @@ func generateRulers(cfg *config.Config, r *rng.Rng, st *model.State) {
 		ru.Traits.Honor = shared.Clamp01(0.45 + spec.Money*0.05)
 		st.Rulers[ru.ID] = ru
 		st.Sides[i+1].LeaderID = ru.ID
+		// New presidents start in the capital with a fresh election clock.
+		st.Sides[i+1].PresidentInDC = true
+		st.Sides[i+1].LastElectionTick = 0
+		st.Sides[i+1].PresidentTerms = 1
 		// A side's treasury scales with its money and gold ratings, which is
 		// what makes a rich side able to buy mercenaries and a poor one unable
 		// to (chain 7's premise).
@@ -339,6 +343,26 @@ func generateRulers(cfg *config.Config, r *rng.Rng, st *model.State) {
 					}
 				}
 			}
+		}
+	}
+
+	// Pick a VP for each side: highest influence+renown living ruler who is
+	// not the president. The line of succession starts here.
+	for _, sid := range st.SideIDs() {
+		side := st.Sides[sid]
+		var best *model.Ruler
+		bestScore := -1.0
+		for _, rid := range st.RulerIDsSorted() {
+			ru := st.Rulers[rid]
+			if ru.SideID != sid || !ru.IsAlive || ru.ID == side.LeaderID {
+				continue
+			}
+			if s := ru.Influence + ru.Renown; s > bestScore {
+				bestScore, best = s, ru
+			}
+		}
+		if best != nil {
+			side.VicePresidentID = best.ID
 		}
 	}
 }

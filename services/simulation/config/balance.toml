@@ -716,3 +716,16 @@ log_row_limit = 400000.0       # cause rows retained per run. Range 10000-500000
 # The seam between the ruler AI's decision and the march system's movement.
 # Player orders and scripted-profile orders use this same path, so a headless
 # "dumb player" run exercises exactly the machinery a real player would.
+
+# ---------------------------------------------------------------------------
+# ELECTION — presidential elections and succession (modern-America port)
+# ---------------------------------------------------------------------------
+# Every faction elects a president on a fixed 4-year cycle. If the president
+# dies, the VP succeeds immediately, then the line continues by influence.
+# Presidents rarely leave the capital; travel multiplies assassination risk.
+[election]
+term_years = 4.0               # election cycle length. Range 2-8. Matches the real cycle.
+max_terms = 2.0               # re-election cap. Range 1-4. Like the 22nd Amendment.
+assassination_base_rate = 0.00002  # daily probability in the capital. Range 0-0.001. ~0.7%/year.
+travel_risk_multiplier = 10.0 # risk multiplier when the president leaves DC. Range 1-50.
+unrest_risk_scale = 0.0005    # added daily risk scaled by (1 - stability). Range 0-0.01.

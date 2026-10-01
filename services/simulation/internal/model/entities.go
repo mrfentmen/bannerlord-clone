@@ -328,6 +328,18 @@ type Side struct {
 	// StrengthIndex is the side's fighting strength, recomputed by the
 	// faction AI for target selection.
 	StrengthIndex float64
+	// VicePresidentID is the second in the line of succession. If the
+	// president (LeaderID) dies, the VP takes office immediately.
+	VicePresidentID int
+	// LastElectionTick is the tick of the most recent presidential election.
+	// Elections happen every Election.TermYears.
+	LastElectionTick int
+	// PresidentInDC tracks whether the president is in the capital. They
+	// rarely leave; when they do, assassination risk multiplies.
+	PresidentInDC bool
+	// PresidentTerms counts full terms the current president has served.
+	// At Election.MaxTerms they cannot run for re-election.
+	PresidentTerms int
 	// FoodNeed and MetalNeed are the computed deficits that motivate war.
 	FoodNeed  float64
 	MetalNeed float64

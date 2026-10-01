@@ -26,6 +26,7 @@ import (
 	"mbclone/simulation/internal/systems/currency"
 	"mbclone/simulation/internal/systems/demography"
 	"mbclone/simulation/internal/systems/disease"
+	"mbclone/simulation/internal/systems/election"
 	"mbclone/simulation/internal/systems/factionai"
 	"mbclone/simulation/internal/systems/food"
 	"mbclone/simulation/internal/systems/influence"
@@ -83,6 +84,7 @@ func Systems() []sim.System {
 		unrest.System(),
 		loyalty.System(),
 		council.System(),
+		election.System(),
 		influence.System(),
 		relation.System(),
 		rulerai.System(),

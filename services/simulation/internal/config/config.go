@@ -42,6 +42,7 @@ type Config struct {
 	Audit     Audit
 	Campaign  Campaign
 	Ruler     Ruler
+	Election  Election
 }
 
 // World controls world generation.
@@ -1538,9 +1539,26 @@ func Load(path string) (*Config, error) {
 	return c, nil
 }
 
+// Election controls presidential elections and succession, per the
+// modern-America port: every faction elects a president on a fixed cycle,
+// with a VP-led line of succession if the president dies in office.
+// TermYears is the election cycle length, matching the real 4-year cycle.
+// MaxTerms caps re-election at two terms, like the 22nd Amendment.
+// AssassinationBaseRate is the daily probability the sitting president is
+// assassinated while in the capital. Presidents rarely leave DC; when they
+// do, TravelRiskMultiplier scales the risk up.
+// UnrestRiskScale adds daily risk scaled by (1 - stability), so unstable
+// factions are more dangerous for their leaders.
+type Election struct {
+	TermYears            float64
+	MaxTerms             float64
+	AssassinationBaseRate float64
+	TravelRiskMultiplier float64
+	UnrestRiskScale      float64
+}
+
 // LoadDefault reads the balance file that ships with the simulation.
-func LoadDefault() (*Config, error) {
-	abs, err := filepath.Abs(filepath.Join("config", "balance.toml"))
+func LoadDefault() (*Config, error) {	abs, err := filepath.Abs(filepath.Join("config", "balance.toml"))
 	if err != nil {
 		return nil, err
 	}

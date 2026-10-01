@@ -770,6 +770,8 @@ func rulerGet(r *Ruler, f string) (float64, bool) {
 		return b2f(r.IsMercenary), true
 	case "is_alive":
 		return b2f(r.IsAlive), true
+	case "leader":
+		return b2f(r.Leader), true
 	case "oath_made":
 		return b2f(r.OathMade), true
 	case "last_defection":
@@ -821,6 +823,8 @@ func rulerSet(r *Ruler, f string, v float64) bool {
 		r.IsMercenary = f2b(v)
 	case "is_alive":
 		r.IsAlive = f2b(v)
+	case "leader":
+		r.Leader = f2b(v)
 	case "oath_made":
 		r.OathMade = f2b(v)
 	case "last_defection":
@@ -901,6 +905,14 @@ func sideGet(d *Side, f string) (float64, bool) {
 		return d.FoodNeed, true
 	case "side_metal_need":
 		return d.MetalNeed, true
+	case "vice_president":
+		return float64(d.VicePresidentID), true
+	case "last_election_tick":
+		return float64(d.LastElectionTick), true
+	case "president_in_dc":
+		return b2f(d.PresidentInDC), true
+	case "president_terms":
+		return float64(d.PresidentTerms), true
 	default:
 		return 0, false
 	}
@@ -972,6 +984,14 @@ func sideSet(d *Side, f string, v float64) bool {
 		d.FoodNeed = v
 	case "side_metal_need":
 		d.MetalNeed = v
+	case "vice_president":
+		d.VicePresidentID = int(v)
+	case "last_election_tick":
+		d.LastElectionTick = int(v)
+	case "president_in_dc":
+		d.PresidentInDC = f2b(v)
+	case "president_terms":
+		d.PresidentTerms = int(v)
 	default:
 		return false
 	}
