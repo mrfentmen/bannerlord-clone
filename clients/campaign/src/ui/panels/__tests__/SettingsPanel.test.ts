@@ -38,6 +38,9 @@ const ACCESSIBILITY_KEYS = [
   "subtitleSize",
   "subtitleBackground",
   "holdToggles",
+  "floatingDamageNumbers",
+  "hitStop",
+  "screenShake",
 ];
 
 beforeEach(() => {

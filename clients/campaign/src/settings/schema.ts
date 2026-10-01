@@ -95,6 +95,12 @@ export interface Settings {
   hapticsEnabled: boolean;
   /** Set once the first-launch quality benchmark has run (task 13). */
   autoQualityDone: boolean;
+  /** Floating damage numbers over hits in battle (task 51). Live. */
+  floatingDamageNumbers: boolean;
+  /** Brief freeze on heavy hits (task 57). Live. Disabled by reduceMotion. */
+  hitStop: boolean;
+  /** Screen shake on heavy hits (task 57). Live. Disabled by reduceMotion. */
+  screenShake: boolean;
   /** Custom key chords, as serialized by the input registry. */
   keyBindings: Record<string, KeyBinding[]>;
 }
@@ -126,6 +132,9 @@ export const DEFAULT_SETTINGS: Settings = {
   reduceMotion: false,
   gamepadEnabled: true,
   hapticsEnabled: true,
+  floatingDamageNumbers: true,
+  hitStop: true,
+  screenShake: true,
   autoQualityDone: false,
   keyBindings: {},
 };
@@ -212,6 +221,9 @@ export function parseSettings(raw: unknown): Settings {
     reduceMotion: v.reduceMotion === true,
     gamepadEnabled: v.gamepadEnabled !== false,
     hapticsEnabled: v.hapticsEnabled !== false,
+    floatingDamageNumbers: v.floatingDamageNumbers !== false,
+    hitStop: v.hitStop !== false,
+    screenShake: v.screenShake !== false,
     autoQualityDone: v.autoQualityDone === true,
     keyBindings: pickKeyBindings(v.keyBindings),
   };

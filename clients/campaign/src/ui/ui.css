@@ -2033,3 +2033,36 @@ html[data-reduce-motion] *::after {
 .cmd-panel-meta { opacity: 0.7; font-size: 12px; }
 .cmd-panel-stance { font-style: italic; color: var(--status-warning-mark); font-size: 12px; }
 .cmd-panel-hint { margin: 6px 0 0; font-size: 11px; opacity: 0.6; }
+
+/* Battle feedback suite: tasks 49-57. */
+.fb-root { position: fixed; inset: 0; pointer-events: none; z-index: 30; }
+.fb-killfeed { position: fixed; left: 12px; top: 64px; width: 260px; margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 4px; }
+.fb-killfeed-row { background: var(--ink-800); color: var(--paper); font-size: 13px; padding: 4px 8px; border-radius: 4px; border-left: 3px solid var(--ink-500); }
+.fb-killfeed-row.is-ally { border-left-color: var(--status-good-mark); }
+.fb-killfeed-row.is-enemy { border-left-color: var(--status-critical-mark); }
+.fb-battlelog { position: fixed; left: 12px; bottom: 12px; width: 300px; max-height: 220px; background: var(--ink-800); color: var(--paper); border: 1px solid var(--ink-500); border-radius: 8px; padding: 8px; pointer-events: auto; display: flex; flex-direction: column; gap: 6px; }
+.fb-battlelog-list { list-style: none; margin: 0; padding: 0; overflow-y: auto; font-size: 12px; display: flex; flex-direction: column; gap: 2px; }
+.fb-battlelog-export { align-self: flex-start; }
+.fb-damage-layer { position: fixed; inset: 0; }
+.fb-damage { position: fixed; left: 0; top: 0; font-weight: 800; font-size: 18px; color: var(--paper); text-shadow: 0 1px 2px var(--ink-900); will-change: transform, opacity; }
+.fb-damage.is-crit { color: var(--status-warning-mark); font-size: 24px; }
+.fb-direction-layer { position: fixed; inset: 0; }
+.fb-direction-arc { position: fixed; width: 90px; height: 90px; margin: -45px 0 0 -45px; border-radius: 50%; background: conic-gradient(from calc(var(--hit-angle, 0deg) - 35deg), var(--status-critical-mark) 0deg, var(--status-critical-mark) 70deg, transparent 70deg); opacity: 0; transition: opacity 0.15s; -webkit-mask: radial-gradient(circle, transparent 58%, black 60%); mask: radial-gradient(circle, transparent 58%, black 60%); }
+.fb-direction-arc.is-visible { opacity: 0.9; }
+.fb-threat-layer { position: fixed; inset: 0; }
+.fb-threat-edge { position: fixed; opacity: 0; transition: opacity 0.2s; background: color-mix(in srgb, var(--status-warning-mark) 45%, transparent); }
+.fb-threat-edge.is-rear { background: color-mix(in srgb, var(--status-critical-mark) 65%, transparent); }
+.fb-threat-edge.is-visible { opacity: 1; }
+.fb-threat-edge.is-top { left: 0; right: 0; top: 0; height: 64px; }
+.fb-threat-edge.is-bottom { left: 0; right: 0; bottom: 0; height: 64px; }
+.fb-threat-edge.is-left { top: 0; bottom: 0; left: 0; width: 64px; }
+.fb-threat-edge.is-right { top: 0; bottom: 0; right: 0; width: 64px; }
+.fb-objective-layer { position: fixed; inset: 0; }
+.fb-objective { position: fixed; left: 0; top: 0; background: var(--ink-800); color: var(--paper); border: 1px solid var(--accent-info); border-radius: 4px; padding: 2px 8px; font-size: 12px; font-weight: 700; white-space: nowrap; }
+.fb-edge-layer { position: fixed; inset: 0; }
+.fb-edge-arrow { position: fixed; left: 0; top: 0; font-size: 20px; color: var(--paper); text-shadow: 0 1px 2px var(--ink-900); }
+.fb-edge-arrow.is-ally { color: var(--status-good-mark); }
+.fb-edge-arrow.is-enemy { color: var(--status-critical-mark); }
+.fb-vignette { position: fixed; inset: 0; background: radial-gradient(ellipse at center, transparent 55%, color-mix(in srgb, var(--status-critical-mark) calc(var(--vignette-strength, 0) * 80%), transparent) 100%); animation: fb-vignette-pulse 1.1s ease-in-out infinite; }
+@keyframes fb-vignette-pulse { 0%, 100% { opacity: calc(0.55 + var(--vignette-strength, 0) * 0.45); } 50% { opacity: 1; } }
+.fb-impact-layer { position: fixed; inset: 0; }

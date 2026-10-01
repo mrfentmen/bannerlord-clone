@@ -64,11 +64,13 @@ describe("photosensitivity guard (task 24)", () => {
 
   it("documents the repeating-animation inventory", () => {
     const found = repeatingAnimations(CSS);
-    // Exactly the two known low-frequency animations; a new strobing
+    // Exactly the three known low-frequency animations; a new strobing
     // animation fails the rate test above, and an unexpected addition here
-    // forces a human to acknowledge it.
+    // forces a human to acknowledge it. fb-vignette-pulse is the low-health
+    // vignette: 1.1s period (0.9 Hz), below the 3 Hz flash threshold, and it
+    // only runs while the player is near death.
     const names = found.map((a) => a.declaration.split(/\s+/)[0]).sort();
-    expect(names).toEqual(["chord-pulse", "skeleton-wash"]);
+    expect(names).toEqual(["chord-pulse", "fb-vignette-pulse", "skeleton-wash"]);
     for (const a of found) {
       expect(a.period, a.declaration).toBeGreaterThanOrEqual(1); // <= 1 Hz
     }

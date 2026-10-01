@@ -206,6 +206,24 @@ const CONTROLS: ControlDef[] = [
     kind: { type: "toggle" },
   },
   {
+    key: "floatingDamageNumbers", tab: "accessibility", label: "Damage numbers",
+    hint: "Floating damage numbers over hits in battle. Pooled, cheap.",
+    keywords: ["damage", "numbers", "floating", "battle"],
+    kind: { type: "toggle" },
+  },
+  {
+    key: "hitStop", tab: "accessibility", label: "Hit-stop",
+    hint: "Brief freeze-frame on heavy hits. Forced off by Reduce motion.",
+    keywords: ["hit", "stop", "freeze", "impact"],
+    kind: { type: "toggle" },
+  },
+  {
+    key: "screenShake", tab: "accessibility", label: "Screen shake",
+    hint: "Camera shake on heavy hits. Forced off by Reduce motion.",
+    keywords: ["shake", "screen", "camera", "impact"],
+    kind: { type: "toggle" },
+  },
+  {
     key: "colorblindMode", tab: "accessibility", label: "Color vision",
     hint: "Remaps faction colors so they stay distinguishable.",
     keywords: ["colorblind", "color", "vision", "deuteranopia", "protanopia", "tritanopia", "faction"],

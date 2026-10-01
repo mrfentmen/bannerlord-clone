@@ -235,6 +235,39 @@ export const CONTROL_ENTRIES: CodexEntry[] = [
     ["mechanic-battle-basics"],
   ),
   e(
+    "setting-floating-damage-numbers",
+    "Damage numbers",
+    "settings",
+    "Floating damage numbers over battle hits.",
+    [
+      "Shows pooled, allocation-free damage numbers over hits in battle. Turn it off if the numbers distract you — the combat log still records everything.",
+    ],
+    ["setting:floatingDamageNumbers", "damage", "numbers", "battle"],
+    ["mechanic-battle-basics"],
+  ),
+  e(
+    "setting-hit-stop",
+    "Hit-stop",
+    "settings",
+    "Brief freeze-frame on heavy hits.",
+    [
+      "Pauses the battle for a beat when a heavy hit lands, selling the impact. Reduce motion forces it off no matter what this says.",
+    ],
+    ["setting:hitStop", "hit", "stop", "freeze", "impact"],
+    ["mechanic-battle-basics"],
+  ),
+  e(
+    "setting-screen-shake",
+    "Screen shake",
+    "settings",
+    "Camera shake on heavy hits.",
+    [
+      "Shakes the battle camera when a heavy hit lands. Reduce motion forces it off no matter what this says.",
+    ],
+    ["setting:screenShake", "shake", "camera", "impact"],
+    ["mechanic-battle-basics"],
+  ),
+  e(
     "mechanic-keybinding-editor",
     "Keybinding editor",
     "controls",
