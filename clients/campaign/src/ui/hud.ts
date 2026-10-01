@@ -27,6 +27,11 @@ export interface HudOptions {
   onOpenDataSource: () => void;
   /** Opens the keybinding editor. Optional: the button hides without it. */
   onOpenControls?: () => void;
+  /**
+   * Current gamepad label for the rail status line (task 1). Null when no
+   * controller is connected; the line hides without it.
+   */
+  gamepadLabel?: () => string | null;
   /** Opens the quest journal. Optional: the button hides without it. */
   onOpenJournal?: () => void;
   /** Opens the codex/encyclopedia. Optional: the button hides without it. */
@@ -439,6 +444,13 @@ export function createHud(options: HudOptions): HudHandle {
       const controlsBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-controls" }, "Controls & keys");
       controlsBtn.addEventListener("click", () => options.onOpenControls?.());
       rail.appendChild(controlsBtn);
+    }
+
+    const padLabel = options.gamepadLabel?.() ?? null;
+    if (padLabel) {
+      rail.appendChild(
+        h("div", { class: "label gamepad-status", "data-testid": "gamepad-status", title: "Controller connected: d-pad moves, A confirms, B goes back" }, `🎮 ${padLabel}`),
+      );
     }
 
     if (options.onOpenDeploymentPreview) {

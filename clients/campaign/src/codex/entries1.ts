@@ -314,6 +314,18 @@ export const SETTINGS_ENTRIES: CodexEntry[] = [
     [],
   ),
   e(
+    "setting-gamepad-enabled",
+    "Gamepad input",
+    "settings",
+    "Controller support, on by default. D-pad drives menus.",
+    [
+      "When enabled, a plugged-in controller is detected automatically: the d-pad and left stick move focus through every menu spatially, A confirms, B goes back. Standard buttons map to input actions through the action registry, so rebinds stay keyboard-side and controller behavior stays predictable.",
+      "Turn it off if a controller's phantom input fights your mouse and keyboard — the client stops polling gamepads entirely.",
+    ],
+    ["setting:gamepadEnabled", "gamepad", "controller", "input"],
+    [],
+  ),
+  e(
     "setting-key-bindings",
     "Key bindings storage",
     "settings",

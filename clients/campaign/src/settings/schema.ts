@@ -36,6 +36,7 @@ export interface Settings {
   language: string;
   /** Applied live via the `data-reduce-motion` attribute. */
   reduceMotion: boolean;
+  gamepadEnabled: boolean;
   /** Custom key chords, as serialized by the input registry. */
   keyBindings: Record<string, KeyBinding[]>;
 }
@@ -50,6 +51,7 @@ export const DEFAULT_SETTINGS: Settings = {
   sfxVolume: 0.8,
   language: "en",
   reduceMotion: false,
+  gamepadEnabled: true,
   keyBindings: {},
 };
 
@@ -106,6 +108,7 @@ export function parseSettings(raw: unknown): Settings {
         ? v.language
         : DEFAULT_SETTINGS.language,
     reduceMotion: v.reduceMotion === true,
+    gamepadEnabled: v.gamepadEnabled !== false,
     keyBindings: pickKeyBindings(v.keyBindings),
   };
 }

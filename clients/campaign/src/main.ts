@@ -30,6 +30,7 @@ import type { WorldSettlement } from "./world/types.js";
 import { createCampaignScene, type SceneHandle } from "./scene/CampaignScene.js";
 import { findRoute, shortestPath } from "./scene/network.js";
 import { createHud, dataSourcePanel, fatalError, type HudPanel, type HudState } from "./ui/hud.js";
+import { createGamepadManager, moveFocus, type GamepadManager } from "./input/gamepad/index.js";
 import { marketPanel } from "./ui/panels/MarketPanel.js";
 import { partyPanel } from "./ui/panels/PartyPanel.js";
 import { marchPlanner } from "./ui/panels/MarchPlanner.js";
@@ -269,6 +270,7 @@ bootScreen.replaceWith(selectionScreen);
 
 const hud = createHud({
   onSelectPanel: (p) => openPanel(p),
+  gamepadLabel: () => gamepadLabel,
   onTimeScale: (s) => {
     timeScale = s;
     provider.setTimeScale(s);
@@ -290,6 +292,7 @@ function mountCampaign(): void {
   app.appendChild(hud.root);
   paint();
   bindInputActions();
+  bindGamepad();
   // The scene exists by now, so graphics quality can apply to the live engine.
   // mountCampaign can run again after a snapshot reload; subscribe once.
   applySettingsLive();
@@ -331,6 +334,34 @@ function mountCampaign(): void {
 let inputBound = false;
 let settingsLive = false;
 
+// -- gamepad (MASTER_PLAN task 1) --------------------------------------------
+// Detection + mapping layer. Buttons dispatch through the input registry (the
+// `gamepad` field on ActionDef owns the mapping); the d-pad / left stick move
+// focus spatially so every menu works with no mouse.
+let gamepad: GamepadManager | null = null;
+let gamepadBound = false;
+let gamepadLabel: string | null = null;
+
+function bindGamepad(): void {
+  if (gamepadBound) return;
+  gamepadBound = true;
+  gamepad = createGamepadManager({
+    onButton: (index, pressed, padIndex) => input.handleGamepadButton(index, pressed, padIndex),
+    onNavigate: (dir) => {
+      // Never yank focus out from under typing.
+      const ae = document.activeElement;
+      if (ae instanceof HTMLInputElement || ae instanceof HTMLTextAreaElement || ae instanceof HTMLSelectElement) return;
+      moveFocus(dir);
+    },
+    onStatusChange: (s) => {
+      gamepadLabel = s.connected ? s.label : null;
+      paint();
+    },
+    isEnabled: () => settings.get().gamepadEnabled && !input.suspended,
+  });
+  gamepad.start();
+}
+
 function bindInputActions(): void {
   if (inputBound) return;
   inputBound = true;
@@ -339,6 +370,15 @@ function bindInputActions(): void {
     currentPanel = "none";
     contextNode = null;
     paint();
+  });
+
+  // Gamepad A (ui.confirm) activates the focused control. Keyboard Enter is
+  // left alone — it already activates natively, and this guard keeps the two
+  // from double-firing.
+  input.on("ui.confirm", (ev) => {
+    if (ev.source !== "gamepad") return;
+    const el = document.activeElement;
+    if (el instanceof HTMLButtonElement || el instanceof HTMLAnchorElement) el.click();
   });
 
   const cycleSettlement = (dir: 1 | -1): void => {
