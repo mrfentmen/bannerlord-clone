@@ -32,16 +32,25 @@ const PREVIEW_ROSTER: RosterUnit[] = [
   { id: "cav-1", label: "Outriders", kind: "cavalry", count: 40, radius_m: 35 },
 ];
 
+import type { Placement } from "./types.js";
+
+export interface DeploymentPreviewOptions {
+  onConfirm?: (placements: Placement[]) => void;
+  onChange?: (placements: Placement[]) => void;
+}
+
 /**
  * Open the deployment map against the generated preview patch. Stand-in for
  * milo's encounter flow until it calls `openDeployment` with a real wire
  * patch and the player's actual roster.
  */
-export function openDeploymentPreview(): void {
+export function openDeploymentPreview(options: DeploymentPreviewOptions = {}): void {
   const handle = openDeployment({
     patch: samplePatch(),
     roster: PREVIEW_ROSTER,
     onClose: () => undefined,
+    ...(options.onConfirm ? { onConfirm: options.onConfirm } : {}),
+    ...(options.onChange ? { onChange: options.onChange } : {}),
   });
   document.body.append(handle.root);
 }

@@ -31,6 +31,8 @@ export interface HudOptions {
   onOpenJournal?: () => void;
   /** Opens the codex/encyclopedia. Optional: the button hides without it. */
   onOpenCodex?: () => void;
+  /** Opens the achievements panel. Optional: the button hides without it. */
+  onOpenAchievements?: () => void;
   /** Opens the deployment map preview. Optional: the button hides without it. */
   onOpenDeploymentPreview?: () => void;
   /**
@@ -455,6 +457,12 @@ export function createHud(options: HudOptions): HudHandle {
       const codexBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-codex" }, "Codex");
       codexBtn.addEventListener("click", () => options.onOpenCodex?.());
       rail.appendChild(codexBtn);
+    }
+
+    if (options.onOpenAchievements) {
+      const achieveBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-achievements" }, "Achievements");
+      achieveBtn.addEventListener("click", () => options.onOpenAchievements?.());
+      rail.appendChild(achieveBtn);
     }
 
     return rail;

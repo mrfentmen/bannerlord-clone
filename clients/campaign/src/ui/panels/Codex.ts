@@ -13,6 +13,10 @@ import { h } from "../dom.js";
 export interface CodexPanelOptions {
   onClose?: () => void;
   testId?: string;
+  /** Fired when the user opens an entry's detail view. */
+  onEntryRead?: (entry: CodexEntry) => void;
+  /** Fired when the user searches with a non-empty query. */
+  onSearch?: () => void;
 }
 
 const CAT_LABEL: Record<CodexCategory, string> = CODEX_CATEGORY_LABEL;
@@ -70,6 +74,7 @@ export function codexPanel(options: CodexPanelOptions = {}): HTMLElement {
     query = searchInput.value;
     selected = null;
     render();
+    if (searchInput.value.trim().length > 0) options.onSearch?.();
   });
   searchRow.append(searchLabel, searchInput);
 
@@ -95,6 +100,7 @@ export function codexPanel(options: CodexPanelOptions = {}): HTMLElement {
       row.setAttribute("aria-current", selected?.id === en.id ? "true" : "false");
       row.addEventListener("click", () => {
         selected = en;
+        options.onEntryRead?.(en);
         render();
       });
       listCol.appendChild(row);
@@ -125,6 +131,7 @@ export function codexPanel(options: CodexPanelOptions = {}): HTMLElement {
         const link = h("button", { type: "button", class: "codex__rel-link" }, target.title) as HTMLButtonElement;
         link.addEventListener("click", () => {
           selected = target;
+          options.onEntryRead?.(target);
           render();
         });
         links.appendChild(link);

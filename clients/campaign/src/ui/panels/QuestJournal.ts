@@ -26,6 +26,8 @@ export interface QuestJournalPanelOptions {
   journal: QuestJournal;
   onClose?: () => void;
   testId?: string;
+  /** Fired (debounced by the caller if needed) when the user searches. */
+  onSearch?: () => void;
 }
 
 const STATUS_KIND: Record<QuestStatus, StatusKind> = {
@@ -93,6 +95,7 @@ export function questJournalPanel(options: QuestJournalPanelOptions): HTMLElemen
   search.addEventListener("input", () => {
     filters.query = search.value;
     render();
+    if (search.value.trim().length > 0) options.onSearch?.();
   });
 
   const filterBar = h("div", { class: "journal__filters" }, statusTabs, categorySelect, search);

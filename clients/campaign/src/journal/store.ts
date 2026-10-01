@@ -28,11 +28,21 @@ export function objectivesDone(quest: Quest): number {
   return quest.objectives.filter((o) => o.done).length;
 }
 
+export interface QuestJournalOptions {
+  /**
+   * Called when quests change through the mutation API. Lets observers (e.g.
+   * the achievements system) track progress without polling.
+   */
+  onEvent?: (type: "quest.completed" | "quest.failed" | "quest.objective_done", fields?: Record<string, string>) => void;
+}
+
 export class QuestJournal {
   private readonly quests = new Map<string, Quest>();
+  private readonly onEvent?: QuestJournalOptions["onEvent"];
 
-  constructor(seed: readonly Quest[] = []) {
+  constructor(seed: readonly Quest[] = [], options: QuestJournalOptions = {}) {
     for (const q of seed) this.quests.set(q.id, structuredClone(q));
+    this.onEvent = options.onEvent;
   }
 
   /** All quests, newest first. */
@@ -63,7 +73,11 @@ export class QuestJournal {
   setStatus(id: string, status: QuestStatus): boolean {
     const q = this.quests.get(id);
     if (!q) return false;
+    const was = q.status;
     q.status = status;
+    if (was !== status && (status === "completed" || status === "failed")) {
+      this.onEvent?.(`quest.${status}`, { category: q.category });
+    }
     return true;
   }
 
@@ -71,7 +85,11 @@ export class QuestJournal {
     const q = this.quests.get(id);
     const o: QuestObjective | undefined = q?.objectives.find((x) => x.id === objectiveId);
     if (!o) return false;
+    const was = o.done;
     o.done = done;
+    if (done && !was) {
+      this.onEvent?.("quest.objective_done");
+    }
     return true;
   }
 }

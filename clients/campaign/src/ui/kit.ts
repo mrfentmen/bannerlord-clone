@@ -322,3 +322,27 @@ export function skeletonBody(body: HTMLElement, shape: string, label: string, te
   clear(body);
   body.appendChild(skeleton({ shape, label, ...(testId === undefined ? {} : { testId }) }));
 }
+
+/**
+ * Transient bottom-anchored notification. Single live-region container per
+ * document; messages stack briefly and dismiss themselves. Used for
+ * achievement unlocks and other low-stakes confirmations.
+ */
+export function toast(message: string, timeoutMs = 4000): void {
+  const doc = typeof document === "undefined" ? undefined : document;
+  if (!doc) return;
+  let region = doc.querySelector<HTMLElement>("[data-toast-region]");
+  if (!region) {
+    region = h("div", {
+      class: "toast-region",
+      "data-toast-region": "",
+      role: "status",
+      "aria-live": "polite",
+    }) as HTMLElement;
+    doc.body.appendChild(region);
+  }
+  const el = h("div", { class: "toast" }, message) as HTMLElement;
+  region.appendChild(el);
+  window.setTimeout(() => el.remove(), timeoutMs);
+  while (region.children.length > 4) region.firstElementChild?.remove();
+}

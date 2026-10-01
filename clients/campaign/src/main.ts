@@ -52,7 +52,11 @@ import { openDeploymentPreview } from "./deploy/index.js";
 import { codexPanel } from "./ui/panels/Codex.js";
 import { QuestJournal, seedQuests } from "./journal/index.js";
 import { questJournalPanel } from "./ui/panels/QuestJournal.js";
-import { settings } from "./settings/index.js";
+import { createAchievementStore } from "./achievements/index.js";
+import { achievementsPanel } from "./ui/panels/Achievements.js";
+import { ALL_CODEX_ENTRIES, CODEX_CATEGORIES } from "./codex/index.js";
+import { toast } from "./ui/kit.js";
+import { settings, type Settings } from "./settings/index.js";
 
 const appEl = document.getElementById("app");
 const canvasEl = document.getElementById("map");
@@ -273,9 +277,10 @@ const hud = createHud({
   onSkipToArrival: () => void skipToArrival(),
   onOpenDataSource: () => openDataSource(),
   onOpenControls: () => openControls(),
-  onOpenDeploymentPreview: () => openDeploymentPreview(),
+  onOpenDeploymentPreview: () => openDeployment(),
   onOpenJournal: () => openJournal(),
   onOpenCodex: () => openCodex(),
+  onOpenAchievements: () => openAchievements(),
   onOpenUiScale: (s) => settings.set({ uiScale: s }),
   onNotification: (entityId, field) => openWhy(entityId, field),
 });
@@ -291,6 +296,7 @@ function mountCampaign(): void {
   if (!settingsLive) {
     settingsLive = true;
     settings.subscribe(applySettingsLive);
+    settings.subscribe(trackSettingsChanges);
   }
 
   provider.subscribeTicks(
@@ -554,6 +560,9 @@ function openDataSource(): void {
 function openControls(): void {
   currentPanel = "none";
   contextNode = keybindingEditor({
+    onRebind: (_actionId, category) => {
+      achievements.record("controls.rebound", { category });
+    },
     onClose: () => {
       currentPanel = "none";
       contextNode = null;
@@ -563,12 +572,86 @@ function openControls(): void {
   paint();
 }
 
-const questJournal = new QuestJournal(seedQuests());
+const questJournal = new QuestJournal(seedQuests(), {
+  onEvent: (type, fields) => {
+    achievements.record(type, fields);
+  },
+});
+
+// --- Achievements (MASTER_PLAN task 137) --------------------------------------
+// One store for the whole client. Anything here records events; the panel is
+// read-only. Other lanes can call `achievements.record(...)` later for
+// battle/economy events without touching this wiring.
+const achievements = createAchievementStore(localStorage);
+achievements.onUnlock((defs) => {
+  for (const d of defs) toast(`Achievement unlocked: ${d.title}`);
+});
+
+function openDeployment(): void {
+  achievements.record("deployment.opened");
+  const prev = new Map<string, string>();
+  openDeploymentPreview({
+    onConfirm: () => {
+      achievements.record("battle.deployed");
+    },
+    onChange: (placements) => {
+      let placed = 0;
+      let moved = 0;
+      const next = new Map<string, string>();
+      for (const p of placements) {
+        const key = `${p.x},${p.y}`;
+        next.set(p.unitId, key);
+        if (!prev.has(p.unitId)) placed += 1;
+        else if (prev.get(p.unitId) !== key) moved += 1;
+      }
+      prev.clear();
+      for (const [k, v] of next) prev.set(k, v);
+      if (placed > 0) achievements.record("deployment.unit_placed", undefined, placed);
+      if (moved > 0) achievements.record("deployment.unit_moved", undefined, moved);
+    },
+  });
+}
+
+// Feed per-key settings changes into the achievements store.
+let prevSettingsJson: string | null = null;
+function trackSettingsChanges(): void {
+  const current = settings.get();
+  if (prevSettingsJson !== null) {
+    const prev = JSON.parse(prevSettingsJson) as Settings;
+    for (const key of Object.keys(current) as (keyof Settings)[]) {
+      if (key === "version") continue;
+      if (JSON.stringify(current[key]) !== JSON.stringify(prev[key])) {
+        achievements.record("settings.changed", { key });
+      }
+    }
+  }
+  prevSettingsJson = JSON.stringify(current);
+}
+
+function openAchievements(): void {
+  achievements.record("achievements.opened");
+  currentPanel = "none";
+  contextNode = achievementsPanel({
+    store: achievements,
+    onClose: () => {
+      currentPanel = "none";
+      contextNode = null;
+      paint();
+    },
+  });
+  paint();
+}
+
+// Codex entries the player has opened, for the read-everything achievements.
+const codexRead = new Set<string>();
+const codexCategoriesDone = new Set<string>();
 
 function openJournal(): void {
+  achievements.record("journal.opened");
   currentPanel = "none";
   contextNode = questJournalPanel({
     journal: questJournal,
+    onSearch: () => achievements.record("journal.search_used"),
     onClose: () => {
       currentPanel = "none";
       contextNode = null;
@@ -579,8 +662,22 @@ function openJournal(): void {
 }
 
 function openCodex(): void {
+  achievements.record("codex.opened");
   currentPanel = "none";
   contextNode = codexPanel({
+    onEntryRead: (entry) => {
+      achievements.record("codex.entry_read", { category: entry.category });
+      codexRead.add(entry.id);
+      for (const cat of CODEX_CATEGORIES) {
+        if (codexCategoriesDone.has(cat)) continue;
+        const ids = ALL_CODEX_ENTRIES.filter((e) => e.category === cat).map((e) => e.id);
+        if (ids.length > 0 && ids.every((id) => codexRead.has(id))) {
+          codexCategoriesDone.add(cat);
+          achievements.record("codex.category_done");
+        }
+      }
+    },
+    onSearch: () => achievements.record("codex.search_used"),
     onClose: () => {
       currentPanel = "none";
       contextNode = null;

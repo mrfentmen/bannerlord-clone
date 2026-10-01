@@ -79,7 +79,7 @@ function findConflicts(): Map<string, string[]> {
   return new Map([...sets].map(([id, labels]) => [id, [...labels]] as [string, string[]]));
 }
 
-export function keybindingEditor(options: { onClose: () => void }): HTMLElement {
+export function keybindingEditor(options: { onClose: () => void; onRebind?: (actionId: string, category: string) => void }): HTMLElement {
   const { root, body } = panel({
     title: "Controls",
     testId: "keybinding-editor",
@@ -151,6 +151,7 @@ export function keybindingEditor(options: { onClose: () => void }): HTMLElement 
       const focusIndex = index === null ? next.length - 1 : index;
       const conflicts = input.setBinding(actionId, next.slice(0, MAX_CHORDS));
       endCapture();
+      options.onRebind?.(actionId, def?.category ?? "interface");
       // Keyboard users land back on the chip they just rebound.
       root
         .querySelector<HTMLElement>(`[data-testid="binding-${actionId}-chord-${focusIndex}"]`)
@@ -227,6 +228,7 @@ export function keybindingEditor(options: { onClose: () => void }): HTMLElement 
             def.id,
             chords.filter((_, j) => j !== i),
           );
+          options.onRebind?.(def.id, def.category);
           announce(live, `${chordLabel(chord)} removed from ${def.label}.`);
         });
         chips.appendChild(remove);
