@@ -29,6 +29,7 @@ function appStorage(): StorageLike {
 export const settings: SettingsStore = createSettingsStore(appStorage());
 
 export * from "./schema.js";
+export * from "./difficulty.js";
 export * from "./store.js";
 export * from "./presets.js";
 export * from "./autodetect.js";

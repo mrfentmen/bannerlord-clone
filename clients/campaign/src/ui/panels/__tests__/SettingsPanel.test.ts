@@ -108,8 +108,9 @@ describe("settingsPanel", () => {
       }
     }
     // autoQualityDone is benchmark bookkeeping, not a user-facing setting.
+    // difficulty is object-valued with its own custom section (task 144), not a scalar control.
     const scalars = Object.keys(DEFAULT_SETTINGS).filter(
-      (k) => k !== "version" && k !== "keyBindings" && k !== "autoQualityDone",
+      (k) => k !== "version" && k !== "keyBindings" && k !== "autoQualityDone" && k !== "difficulty",
     );
     expect([...covered].sort()).toEqual(scalars.sort());
   });

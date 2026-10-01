@@ -12,8 +12,13 @@
  */
 
 import type { KeyBinding } from "../input/actions.js";
+import {
+  DEFAULT_DIFFICULTY,
+  parseDifficulty,
+  type DifficultySettings,
+} from "./difficulty.js";
 
-export const SETTINGS_VERSION = 1;
+export const SETTINGS_VERSION = 2;
 
 /** The UI-scale steps the HUD offers (task 17: 80–150%). Anything else is clamped to the nearest. */
 export const UI_SCALE_STEPS = [80, 90, 100, 115, 130, 150] as const;
@@ -103,6 +108,8 @@ export interface Settings {
   screenShake: boolean;
   /** Custom key chords, as serialized by the input registry. */
   keyBindings: Record<string, KeyBinding[]>;
+  /** Custom difficulty sliders + preset (task 144). Live: read at use time. */
+  difficulty: DifficultySettings;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -137,6 +144,7 @@ export const DEFAULT_SETTINGS: Settings = {
   screenShake: true,
   autoQualityDone: false,
   keyBindings: {},
+  difficulty: DEFAULT_DIFFICULTY,
 };
 
 const GRAPHICS_QUALITIES: readonly GraphicsQuality[] = ["low", "medium", "high", "ultra"];
@@ -226,6 +234,7 @@ export function parseSettings(raw: unknown): Settings {
     screenShake: v.screenShake !== false,
     autoQualityDone: v.autoQualityDone === true,
     keyBindings: pickKeyBindings(v.keyBindings),
+    difficulty: parseDifficulty(v.difficulty),
   };
 }
 
@@ -241,8 +250,10 @@ export interface MigrationInput {
 
 /**
  * Bring any stored blob up to the current schema. Version upgrades chain here:
- * v0 (unversioned) -> v1 is the only step today. Unknown future versions fall
- * back to defaults rather than pretending to understand them.
+ * v0 (unversioned) -> v1 absorbed the legacy uiScale key; v1 -> v2 added the
+ * difficulty sliders (parseSettings defaults them for older blobs).
+ * Unknown future versions fall back to defaults rather than pretending to
+ * understand them.
  */
 export function migrateSettings({ raw, readLegacy }: MigrationInput): Settings {
   const v = isRecord(raw) ? raw : {};

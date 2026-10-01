@@ -488,4 +488,17 @@ export const SETTINGS_ENTRIES: CodexEntry[] = [
     ],
     [],
   ),
+  e(
+    "setting-difficulty",
+    "Difficulty",
+    "settings",
+    "Eight sliders plus presets: fine-tune damage, economy, and AI.",
+    [
+      "Four presets — Story, Normal, Veteran, Nightmare — set all eight sliders at once; moving any slider by hand switches the label to Custom, and dialing every slider back onto a preset restores its name.",
+      "Damage covers damage dealt, damage taken, and casualty severity. Economy covers income, troop wages, and market prices. AI covers campaign aggression and battle skill. 100% is the intended experience on every slider.",
+      "The values persist in the settings blob and are read by the battle sim, the economy service, and the campaign AI. The client's local battle fallback is a deliberately simple stand-in and does not consume them.",
+    ],
+    ["setting:difficulty", "difficulty", "sliders", "preset", "hard", "easy"],
+    ["action-ui-settings"],
+  ),
 ];

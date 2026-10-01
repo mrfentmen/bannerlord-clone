@@ -11,6 +11,7 @@
 
 import { h } from "../dom.js";
 import { panel } from "../kit.js";
+import { difficultySection } from "./DifficultyPanel.js";
 import {
   settings,
   DEFAULT_SETTINGS,
@@ -40,6 +41,10 @@ type ControlKind =
   | { type: "toggle" }
   | { type: "select"; options: { value: string; label: string }[] }
   | { type: "preset" };
+
+/** Search haystack for the difficulty section (task 144), which is not a scalar control. */
+const DIFFICULTY_SEARCH_HAY =
+  "difficulty sliders damage economy ai aggression battle skill income wages market prices preset custom";
 
 interface ControlDef {
   key: keyof Settings;
@@ -472,7 +477,11 @@ export function settingsPanel(options: SettingsPanelOptions): HTMLElement {
   function renderRows(): void {
     rowsEl.replaceChildren();
     const list = CONTROLS.filter(matches);
-    if (list.length === 0) {
+    // Difficulty (task 144): object-valued, so it gets its own section rather
+    // than a scalar row. Lives on the Gameplay tab; searchable like the rest.
+    const wantDifficulty =
+      query === "" ? tab === "gameplay" : DIFFICULTY_SEARCH_HAY.includes(query);
+    if (list.length === 0 && !wantDifficulty) {
       rowsEl.append(h("p", { class: "settings__empty" }, "No settings match."));
       return;
     }
@@ -495,6 +504,13 @@ export function settingsPanel(options: SettingsPanelOptions): HTMLElement {
         h("div", { class: "settings__control" }, controlFor(def)),
       );
       rowsEl.appendChild(row);
+    }
+    // (wantDifficulty is computed above, before the empty-list early return.)
+    if (wantDifficulty) {
+      if (query !== "" && lastTab !== "gameplay") {
+        rowsEl.append(h("h3", { class: "settings__group" }, "Gameplay"));
+      }
+      rowsEl.appendChild(difficultySection());
     }
   }
 
