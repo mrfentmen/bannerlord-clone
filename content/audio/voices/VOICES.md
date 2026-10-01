@@ -41,6 +41,8 @@ matching TXT file with the exact lines spoken, in order. File naming:
 | rebel     | avocado_v2:vdc_NOID29 | Cranky Sandpaper, irascible M |
 | executioner | avocado_v2:qvd_01700 | Somber Monument, grim M |
 | merchant2 | avocado_v2:vdc_12430 | Neighborly Gate, friendly M |
+| bartender | avocado_v2:qvd_01645 | Weathered Hinge, tough gruff M (picked 2026-10-01 for bartender-2) |
+| shopkeeper | avocado_v2:vdc_24103 | Gracious Scarf, friendly helpful M (picked 2026-10-01 for shopkeeper-2) |
 
 ## Batches
 
@@ -68,3 +70,35 @@ Lines come straight from combat-barks.md, plain ASCII, no stage directions.
 - merchant-2: original second-merchant lines, in-style.
 - townsman-2, townswoman-2: new ambient lines in townsfolk.md style, reusing
   the established townsman/townswoman voices for consistency.
+
+## Batch 8: round-2 barks, ethnic callouts, ambient, leader sets (2026-10-01)
+
+- siege-attacker-2, siege-defender-2, persuade-2, barter-2, announcer-2,
+  rebel-2, execution-2: second sets in the same established voices as batch 7
+  (assault breach callouts, desperate defense, smooth-talker persuasion,
+  haggling, tournament announcements, rebellion rally, grim execution lines).
+- african-2 through russian-2: second short in-character callout sets for all
+  ten ethnicity voices, same voice IDs as batch 1.
+- townsman-3 (ronan), townswoman-3 (MAI_01): town ambient chatter in
+  townsfolk.md style.
+- bartender-2: tough male bartender lines in tavern-merchants.md style.
+  Voice picked from voice_source.json: avocado_v2:qvd_01645 (Weathered Hinge,
+  Masculine, American, Low, Gruff). VOICES.md previously had no voice ID for
+  the bartender role.
+- shopkeeper-2: friendly shopkeeper lines in tavern-merchants.md style.
+  Voice picked from voice_source.json: avocado_v2:vdc_24103 (Gracious Scarf,
+  Masculine, American, Deep, Helpful). VOICES.md previously had no voice ID
+  for the shopkeeper role.
+- merchant-3 (vdc_12430): more merchant lines in tavern-merchants.md style.
+- leader-1b through leader-6b: second order/speech sets for all six faction
+  leaders, in-character from content/characters/faction-leaders.md, same
+  voice IDs (Marisol vdc_24027, Hollis vdc_22255, Bernice vdc_6534,
+  Cordell casper, Royce vd2_r82_rep5k_0244_v068_28k_g5k, Yvonne qvd_03269).
+
+voice-map.json: ambient.tavern gained bartender-2, shopkeeper-2, merchant-3;
+ambient.town gained townsman-3, townswoman-3; ethnicity_callout values are now
+2-file lists; leaders values are now 2-file lists (leader-N.mp3 +
+leader-Nb.mp3); round-2 files were also appended to their trigger lists
+(siege_attack, siege_defense, persuade, barter, tournament, rebellion,
+execution). All 28 files verified with ffprobe (valid MP3, 11 to 37 seconds
+each), each with a matching .txt transcript.

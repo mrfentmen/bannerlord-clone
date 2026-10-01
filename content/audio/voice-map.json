@@ -3,27 +3,62 @@
     "tavern": [
       "bartender-1.mp3",
       "shopkeeper-1.mp3",
-      "merchant-2.mp3"
+      "merchant-2.mp3",
+      "bartender-2.mp3",
+      "shopkeeper-2.mp3",
+      "merchant-3.mp3"
     ],
     "town": [
       "townsman-1.mp3",
       "townswoman-1.mp3",
       "townsman-2.mp3",
-      "townswoman-2.mp3"
+      "townswoman-2.mp3",
+      "townsman-3.mp3",
+      "townswoman-3.mp3"
     ]
   },
   "base": "content/audio/voices",
   "ethnicity_callout": {
-    "african": "african-1.mp3",
-    "chinese": "chinese-1.mp3",
-    "german": "german-1.mp3",
-    "irish": "irish-1.mp3",
-    "italian": "italian-1.mp3",
-    "jamaican": "jamaican-1.mp3",
-    "korean": "korean-1.mp3",
-    "mexican": "mexican-1.mp3",
-    "puertorican": "puertorican-1.mp3",
-    "russian": "russian-1.mp3"
+    "african": [
+      "african-1.mp3",
+      "african-2.mp3"
+    ],
+    "chinese": [
+      "chinese-1.mp3",
+      "chinese-2.mp3"
+    ],
+    "german": [
+      "german-1.mp3",
+      "german-2.mp3"
+    ],
+    "irish": [
+      "irish-1.mp3",
+      "irish-2.mp3"
+    ],
+    "italian": [
+      "italian-1.mp3",
+      "italian-2.mp3"
+    ],
+    "jamaican": [
+      "jamaican-1.mp3",
+      "jamaican-2.mp3"
+    ],
+    "korean": [
+      "korean-1.mp3",
+      "korean-2.mp3"
+    ],
+    "mexican": [
+      "mexican-1.mp3",
+      "mexican-2.mp3"
+    ],
+    "puertorican": [
+      "puertorican-1.mp3",
+      "puertorican-2.mp3"
+    ],
+    "russian": [
+      "russian-1.mp3",
+      "russian-2.mp3"
+    ]
   },
   "note": "Wiring manifest: game event -> voice files to play. Each MP3 contains several sequential lines for that voice; the engine picks a file at random from the list for the event, or cycles them. Ethnicity callouts map to the per-ethnicity character voice. Ambient sets are for tavern/town scenes.",
   "triggers": {
@@ -103,34 +138,59 @@
       "companion-3.mp3"
     ],
     "siege_attack": [
-      "siege-attacker-1.mp3"
+      "siege-attacker-1.mp3",
+      "siege-attacker-2.mp3"
     ],
     "siege_defense": [
-      "siege-defender-1.mp3"
+      "siege-defender-1.mp3",
+      "siege-defender-2.mp3"
     ],
     "persuade": [
-      "persuade-1.mp3"
+      "persuade-1.mp3",
+      "persuade-2.mp3"
     ],
     "barter": [
-      "barter-1.mp3"
+      "barter-1.mp3",
+      "barter-2.mp3"
     ],
     "tournament": [
-      "announcer-1.mp3"
+      "announcer-1.mp3",
+      "announcer-2.mp3"
     ],
     "rebellion": [
-      "rebel-1.mp3"
+      "rebel-1.mp3",
+      "rebel-2.mp3"
     ],
     "execution": [
-      "execution-1.mp3"
+      "execution-1.mp3",
+      "execution-2.mp3"
     ]
   },
   "version": 1,
   "leaders": {
-    "marisol_vega": "leader-1.mp3",
-    "hollis_grant": "leader-2.mp3",
-    "bernice_oyelaran": "leader-3.mp3",
-    "cordell_jessup": "leader-4.mp3",
-    "royce_adair": "leader-5.mp3",
-    "yvonne_castille": "leader-6.mp3"
+    "marisol_vega": [
+      "leader-1.mp3",
+      "leader-1b.mp3"
+    ],
+    "hollis_grant": [
+      "leader-2.mp3",
+      "leader-2b.mp3"
+    ],
+    "bernice_oyelaran": [
+      "leader-3.mp3",
+      "leader-3b.mp3"
+    ],
+    "cordell_jessup": [
+      "leader-4.mp3",
+      "leader-4b.mp3"
+    ],
+    "royce_adair": [
+      "leader-5.mp3",
+      "leader-5b.mp3"
+    ],
+    "yvonne_castille": [
+      "leader-6.mp3",
+      "leader-6b.mp3"
+    ]
   }
 }
