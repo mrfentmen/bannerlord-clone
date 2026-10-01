@@ -925,3 +925,83 @@
   .why__link[data-depth="3"] { margin-left: var(--space-4); }
   .why__link[data-depth="4"] { margin-left: var(--space-5); }
 }
+
+/* Third-person player combat overlays (PlayerCombat.ts). */
+.player-crosshair {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  z-index: 40;
+  pointer-events: none;
+  --spread: 12px;
+}
+.player-crosshair span {
+  position: absolute;
+  background: rgba(255, 255, 255, 0.9);
+}
+.player-crosshair span:nth-child(1) { left: calc(-1px - var(--spread)); top: -8px; width: 2px; height: 6px; }
+.player-crosshair span:nth-child(2) { left: calc(1px + var(--spread) - 2px); top: -8px; width: 2px; height: 6px; }
+.player-crosshair span:nth-child(3) { left: -8px; top: calc(-1px - var(--spread)); width: 6px; height: 2px; }
+.player-crosshair span:nth-child(4) { left: -8px; top: calc(1px + var(--spread) - 2px); width: 6px; height: 2px; }
+.player-crosshair.ads span { background: rgba(120, 255, 120, 0.95); }
+
+.player-hitflash {
+  position: fixed;
+  inset: 0;
+  z-index: 39;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(ellipse at center, transparent 55%, rgba(200, 20, 20, 0.55) 100%);
+}
+.player-hitflash.show { animation: player-hitflash 0.22s ease-out; }
+@keyframes player-hitflash { 0% { opacity: 1; } 100% { opacity: 0; } }
+
+.player-damage-dir {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  z-index: 40;
+  pointer-events: none;
+  font-size: 28px;
+  color: rgba(255, 60, 60, 0.9);
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  margin-top: -70px;
+}
+.player-damage-dir.show { opacity: 1; transition: opacity 0.15s; }
+
+.player-bars {
+  position: fixed;
+  left: 24px;
+  bottom: 24px;
+  z-index: 40;
+  pointer-events: none;
+  width: 220px;
+}
+.player-health, .player-stamina {
+  height: 10px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  margin-bottom: 4px;
+}
+.player-health-fill { height: 100%; width: 100%; background: #4caf50; }
+.player-stamina-fill { height: 100%; width: 100%; background: #ffca28; }
+.player-ammo {
+  color: #fff;
+  font: 14px/1.4 monospace;
+  text-shadow: 0 1px 2px #000;
+}
+
+.player-death {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(20, 0, 0, 0.72);
+  color: #fff;
+  font-size: 20px;
+}
