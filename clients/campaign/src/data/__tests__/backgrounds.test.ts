@@ -108,10 +108,26 @@ describe("age brackets", () => {
     }
   });
 
-  it("each bracket has a label and effect", () => {
+  it("each bracket has a label, tagline, and description", () => {
     for (const bracket of AGE_BRACKETS) {
       expect(bracket.label.length).toBeGreaterThan(0);
-      expect(bracket.effect.length).toBeGreaterThan(0);
+      expect(bracket.tagline.length).toBeGreaterThan(0);
+      expect(bracket.description.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("each bracket has pros and cons with reasons", () => {
+    for (const bracket of AGE_BRACKETS) {
+      expect(bracket.pros.length).toBeGreaterThan(0);
+      expect(bracket.cons.length).toBeGreaterThan(0);
+      for (const pro of bracket.pros) {
+        expect(pro.label.length).toBeGreaterThan(0);
+        expect(pro.reason.length).toBeGreaterThan(0);
+      }
+      for (const con of bracket.cons) {
+        expect(con.label.length).toBeGreaterThan(0);
+        expect(con.reason.length).toBeGreaterThan(0);
+      }
     }
   });
 });
