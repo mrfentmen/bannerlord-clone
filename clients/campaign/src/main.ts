@@ -23,6 +23,7 @@ import { installErrorBoundary } from "./ui/errorBoundary.js";
 import { installConsoleTail } from "./ui/consoleTail.js";
 import { openBugReporter } from "./ui/bugReporter.js";
 import { installOfflineIndicator } from "./ui/offlineIndicator.js";
+import { installInstallPrompt } from "./ui/installPrompt.js";
 import { installUpdateNotifier } from "./ui/updateNotifier.js";
 import { installPerfOverlay, setPerfStatsProvider } from "./ui/perfOverlay.js";
 import { BUILD_HASH } from "./buildHash.js";
@@ -83,6 +84,8 @@ import { createAchievementStore } from "./achievements/index.js";
 import { achievementsPanel } from "./ui/panels/Achievements.js";
 import { mountBattleUi, type BattleMount } from "./battleflow/mount.js";
 import { createPhotoMode, mountPhotoModeBar, type PhotoModeBarHandle } from "./expression/index.js";
+import { chroniclePanel, seasonForDay } from "./expression/chroniclePanel.js";
+import type { ChronicleEvent, Oath } from "./expression/chronicle.js";
 import { saveLoadPanel } from "./saves/mount.js";
 import { SaveUiError } from "./saves/screens.js";
 import { ALL_CODEX_ENTRIES, CODEX_CATEGORIES } from "./codex/index.js";
@@ -134,6 +137,10 @@ if (import.meta.env.PROD && "serviceWorker" in navigator) {
     // without the worker.
   });
 }
+// Listens for the browser's install offer and shows the game's own banner.
+// Harmless in dev and on browsers without install support: it does nothing
+// until the event fires.
+installInstallPrompt();
 
 // -- city demo ---------------------------------------------------------------
 // `?city=<slug>` skips the campaign entirely and renders real OSM buildings.
@@ -427,6 +434,7 @@ const hud = createHud({
   onOpenCodex: () => openCodex(),
   onOpenAchievements: () => openAchievements(),
   onOpenPhotoMode: () => enterPhotoMode(),
+  onOpenChronicle: () => openChronicle(),
   onOpenUiScale: (s) => settings.set({ uiScale: s }),
   onNotification: (entityId, field) => openWhy(entityId, field),
 });
@@ -439,6 +447,46 @@ function parseBattlePartyId(id: string | undefined): number {
 
 /** The full-screen battle overlay; mounted once per campaign session. */
 let battleUi: BattleMount | null = null;
+
+// -- Chronicle (Rowan): clan oath + deed log, persisted locally -------------
+const CHRONICLE_KEY = "fentmen.chronicle.v1";
+
+interface ChronicleStore {
+  events: ChronicleEvent[];
+  oath: Oath | null;
+}
+
+function loadChronicle(): ChronicleStore {
+  try {
+    const raw = localStorage.getItem(CHRONICLE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<ChronicleStore>;
+      return {
+        events: Array.isArray(parsed.events) ? parsed.events : [],
+        oath: parsed.oath ?? null,
+      };
+    }
+  } catch {
+    // Corrupted entry: start the chronicle fresh rather than crashing.
+  }
+  return { events: [], oath: null };
+}
+
+const chronicle: ChronicleStore = loadChronicle();
+
+function persistChronicle(): void {
+  try {
+    localStorage.setItem(CHRONICLE_KEY, JSON.stringify(chronicle));
+  } catch {
+    // Storage full or blocked: keep the chronicle in memory for the session.
+  }
+}
+
+/** Record a deed against the current season. */
+function recordDeed(kind: ChronicleEvent["kind"], text: string): void {
+  chronicle.events.push({ season: seasonForDay(snapshot?.day ?? 0), kind, text });
+  persistChronicle();
+}
 
 /**
  * Photo mode (MASTER_PLAN task 123): hides the interface and frees the
@@ -513,9 +561,11 @@ function mountCampaign(): void {
         if (event === "victory") {
           haptics?.play("confirm");
           achievements.record("battle-won");
+          recordDeed("battle", "Won a battle.");
         } else if (event === "defeat") {
           haptics?.play("error");
           achievements.record("battle-lost");
+          recordDeed("battle", "Lost a battle.");
         } else {
           haptics?.play("order");
         }
@@ -918,6 +968,26 @@ function openSaveLoad(): void {
       // fail in plain language rather than faking a load.
       throw new SaveUiError("Loading a save back into the running game is not supported yet.");
     },
+    onClose: () => {
+      currentPanel = "none";
+      contextNode = null;
+      paint();
+    },
+  });
+  contextNode = root;
+  paint();
+}
+
+function openChronicle(): void {
+  currentPanel = "none";
+  const { root } = chroniclePanel({
+    events: () => chronicle.events,
+    oath: () => chronicle.oath,
+    setOath: (oath) => {
+      chronicle.oath = oath;
+      persistChronicle();
+    },
+    currentSeason: () => seasonForDay(snapshot?.day ?? 0),
     onClose: () => {
       currentPanel = "none";
       contextNode = null;

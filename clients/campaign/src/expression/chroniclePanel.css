@@ -1,0 +1,40 @@
+/**
+ * Chronicle panel styles.
+ *
+ * Tokens only (src/design/tokens.css): no new colours, fonts, or spacing
+ * values of its own, per CONSTITUTION.md section 3.4.
+ */
+
+.chronicle-heading {
+  margin: var(--space-3) 0 var(--space-2);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-500);
+}
+
+.chronicle-oath__text {
+  margin: 0 0 var(--space-1);
+  padding-left: var(--space-3);
+  border-left: 2px solid var(--accent-primary);
+  font-style: italic;
+  color: var(--ink-900);
+}
+
+.chronicle-oath__meta {
+  margin: 0 0 var(--space-2);
+  color: var(--ink-500);
+}
+
+.chronicle-oath .field {
+  margin-bottom: var(--space-2);
+}
+
+.chronicle-error {
+  min-height: var(--space-4);
+  color: var(--status-critical-ink);
+}
+
+.chronicle-chapter {
+  margin: 0 0 var(--space-2);
+  line-height: 1.5;
+}
