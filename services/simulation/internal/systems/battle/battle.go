@@ -203,10 +203,30 @@ func run(v *sim.View, w *sim.WriteSet) {
 		)
 		causes := v.Log.RecentFor(model.KindParty, winner.ID,
 			[]string{"troops", "morale"}, 3)
-		w.Add(model.KindParty, winner.ID, "troops", -winnerLoss,
-			read, causes, "battle casualties")
-		w.Add(model.KindParty, loser.ID, "troops", -loserLoss,
-			read, causes, "battle casualties")
+		// Casualties: split into killed vs wounded based on medicine.
+		// Better medicine = more wounded (recoverable) vs killed (permanent).
+		// Base: 50% of casualties are wounded; +up to 30% with full medicine.
+		winnerWoundedFrac := 0.5 + 0.3*(winner.Medicine/100.0)
+		if winnerWoundedFrac > 0.8 {
+			winnerWoundedFrac = 0.8
+		}
+		loserWoundedFrac := 0.5 + 0.3*(loser.Medicine/100.0)
+		if loserWoundedFrac > 0.8 {
+			loserWoundedFrac = 0.8
+		}
+		winnerWounded := winnerLoss * winnerWoundedFrac
+		winnerKilled := winnerLoss - winnerWounded
+		loserWounded := loserLoss * loserWoundedFrac
+		loserKilled := loserLoss - loserWounded
+
+		w.Add(model.KindParty, winner.ID, "troops", -winnerKilled,
+			read, causes, "battle killed")
+		w.Add(model.KindParty, winner.ID, "wounded", winnerWounded,
+			read, causes, "battle wounded")
+		w.Add(model.KindParty, loser.ID, "troops", -loserKilled,
+			read, causes, "battle killed")
+		w.Add(model.KindParty, loser.ID, "wounded", loserWounded,
+			read, causes, "battle wounded")
 		// Victor gains renown; feeds clan renown (Tier 1).
 		if winnerLeader != nil {
 			renownGain := c.Battle.RenownPerVictory * (1.0 + (1.0 - winnerShare))
