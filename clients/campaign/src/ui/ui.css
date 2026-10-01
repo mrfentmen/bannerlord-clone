@@ -2246,3 +2246,28 @@ html[data-reduce-motion] *::after {
 .clan-tree-years {
   font-size: 11px;
 }
+
+/* Onboarding (MASTER_PLAN 3F, tasks 116-122). */
+.video-guide {
+  display: grid;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--ink-300);
+  border-radius: 8px;
+  background: var(--paper-0);
+}
+.video-guide-frame {
+  display: grid;
+  place-items: center;
+  min-height: 160px;
+  border-radius: 6px;
+  background: var(--ink-900);
+  color: var(--paper-0);
+}
+.video-guide-title {
+  font-weight: 600;
+}
+.video-guide-duration {
+  color: var(--ink-500);
+  font-size: 13px;
+}
