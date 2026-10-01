@@ -301,14 +301,23 @@ func TestDeterminism(t *testing.T) {
 			if err != nil {
 				t.Fatalf("force: %v", err)
 			}
-			// Uneven case: give B a bigger force so the test covers a lopsided
+			// Uneven case: side B gets a bigger force, so the test covers a lopsided
 			// battle as well as an even one.
+			//
+			// BOTH runs get the same forces. This used to give the extra units to
+			// setupB only, so the first run fought 300 v 300 and the second fought
+			// 300 v 900 and the test then asserted the two battles were identical,
+			// which no engine can satisfy and which said nothing about determinism
+			// either way. A determinism test compares a battle with ITSELF, so both
+			// sides of the comparison have to be the same battle.
 			if tc.n == 300 {
-				extra, err := GenerateForce(loadConfig(t), tc.seed, SideB, Roster{Units: 900})
-				if err != nil {
-					t.Fatalf("force: %v", err)
+				for _, s := range []*Setup{&setupA, &setupB} {
+					extra, err := GenerateForce(loadConfig(t), tc.seed, SideB, Roster{Units: 900})
+					if err != nil {
+						t.Fatalf("force: %v", err)
+					}
+					s.B = extra
 				}
-				setupB.B = extra
 			}
 			ra, err := Run(loadConfig(t), tc.seed, setupA)
 			if err != nil {
@@ -475,34 +484,110 @@ func TestBattleSizeIsConfigurable(t *testing.T) {
 // TestStageOrderDoesNotMatter is CONSTITUTION.md section 2.1's requirement, made
 // concrete: a tick's result must not depend on which stage ran first.
 //
-// The stages here are separate functions over one snapshot and one delta buffer,
-// so this is a structural property rather than a lucky one, and the test proves
-// it by running the same battle with the stage order reversed and comparing every
-// number.
+// # THE CLAIM IS NOT "ANY ORDER", AND THIS TEST USED TO SAY THAT IT WAS
+//
+// The stages are separate functions over one snapshot and one delta buffer, which
+// makes most of them independent, and the first version of this test took that to
+// mean the whole order was free. It was not, and the test was red from the commit
+// that introduced both it and the coupling.
+//
+// Three of the five stages are free. Two pairs are not, and the reason is that
+// choosing a target and acting on it are one decision split across two functions:
+// stageTargeting writes each unit's meleeTarget and rangedTarget into the delta
+// buffer, and stageMelee and stageAimedFire read them out of it. So targeting has
+// to run before both of them. Run either of them first and the shooter swings at,
+// or shoots at, whatever the previous tick's delta happened to be left holding,
+// which is a different battle rather than a differently ordered one.
+//
+// So what is asserted here is the exact rule rather than a slogan: over all 120
+// orders of the five stages, a permutation reproduces the documented battle if and
+// only if targeting runs before melee and before aimed fire. That covers the
+// decoupling requirement for intent and morale, which nothing else reads and which
+// read nothing, and it pins the two real dependencies, so a stage that later starts
+// reading another stage's output fails here instead of quietly changing every
+// battle in the game.
+//
+// The split is also checked to be neither all-matching nor all-differing, because
+// a rule that every order satisfies, or that none does, is a rule this test cannot
+// see. The two counts are reported rather than asserted: which orders land on
+// which side of the line depends on how much compareResults reads, and the claim
+// under test is the rule, not the tally.
 func TestStageOrderDoesNotMatter(t *testing.T) {
 	cfg := loadConfig(t)
-	setup, err := standardForce(t, cfg, 77, 120)
+	const seed = 77
+	setup, err := standardForce(t, cfg, seed, 24)
 	if err != nil {
 		t.Fatalf("force: %v", err)
 	}
-	normal, err := Run(cfg, 77, setup)
+	normal, err := Run(cfg, seed, setup)
 	if err != nil {
 		t.Fatalf("battle: %v", err)
 	}
-	reversed, err := runWithStageOrder(cfg, 77, setup, reversedStages())
-	if err != nil {
-		t.Fatalf("battle with the stages reversed: %v", err)
+	same, differ, violations := 0, 0, 0
+	for _, order := range stagePermutations(tickOrder) {
+		got, err := runWithStageOrder(cfg, seed, setup, order)
+		if err != nil {
+			t.Fatalf("battle with the stages in the order %v: %v", order, err)
+		}
+		targeting := stageIndex(order, "targeting")
+		// The rule, stated once so the test and its failure message cannot drift
+		// apart.
+		ruleSaysSame := targeting < stageIndex(order, "melee") &&
+			targeting < stageIndex(order, "aimed fire")
+		isSame := compareResults(normal, got) == ""
+		if isSame {
+			same++
+		} else {
+			differ++
+		}
+		if ruleSaysSame != isSame {
+			violations++
+			if violations <= 5 {
+				t.Errorf("stage order %v %s the documented battle, and the rule says it %s: %s",
+					order,
+					map[bool]string{true: "reproduced", false: "did not reproduce"}[isSame],
+					map[bool]string{true: "should have", false: "should not have"}[ruleSaysSame],
+					compareResults(normal, got))
+			}
+		}
 	}
-	if diff := compareResults(normal, reversed); diff != "" {
-		t.Errorf("reversing the stage order changed the battle:\n%s", diff)
+	if violations > 5 {
+		t.Errorf("... and %d more orders that did not follow the rule", violations-5)
+	}
+	t.Logf("%d orders of the five stages: %d reproduced the battle, %d did not, and %d disagreed "+
+		"with the rule that targeting runs before melee and aimed fire",
+		same+differ, same, differ, violations)
+	if same == 0 || differ == 0 {
+		t.Fatalf("%d of %d orders reproduced the battle; the rule this test checks is vacuous if "+
+			"every order behaves the same way", same, same+differ)
 	}
 }
 
-// reversedStages is the documented order, run backwards.
-func reversedStages() []string {
-	out := make([]string, len(tickOrder))
-	for i, s := range tickOrder {
-		out[len(tickOrder)-1-i] = s
+// stageIndex is where a named stage sits in an order, or -1 if it is not there.
+func stageIndex(order []string, name string) int {
+	for i, s := range order {
+		if s == name {
+			return i
+		}
+	}
+	return -1
+}
+
+// stagePermutations returns every ordering of the given stages.
+//
+// The full set rather than a sample, because the claim is about which stages depend
+// on which and a sample cannot tell "these two are coupled" from "I happened to try
+// one order that separated them".
+func stagePermutations(stages []string) [][]string {
+	if len(stages) <= 1 {
+		return [][]string{append([]string{}, stages...)}
+	}
+	var out [][]string
+	for i := range stages {
+		rest := append(append([]string{}, stages[:i]...), stages[i+1:]...)
+		for _, p := range stagePermutations(rest) {
+			out = append(out, append([]string{stages[i]}, p...))
+		}
 	}
 	return out
 }
