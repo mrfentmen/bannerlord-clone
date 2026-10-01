@@ -197,6 +197,21 @@ type writeKey struct {
 }
 
 // NewWriteSet returns an empty write set.
+// sortedOathKeys returns oath IDs in ascending order, for deterministic
+// iteration when breaking oaths.
+func sortedOathKeys(m map[int]model.Oath) []int {
+	out := make([]int, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	for i := 1; i < len(out); i++ {
+		for j := i; j > 0 && out[j] < out[j-1]; j-- {
+			out[j], out[j-1] = out[j-1], out[j]
+		}
+	}
+	return out
+}
+
 func NewWriteSet() *WriteSet {
 	return &WriteSet{
 		byField:  map[string]int{},
@@ -695,7 +710,11 @@ func (e *Engine) apply(s *model.State, w *WriteSet) error {
 	}
 	for _, op := range w.oathOps {
 		if op.Break {
-			for k, o := range s.Oaths {
+			// Break the lowest-ID matching oath. Iterating the map directly
+			// would pick a random duplicate when several unbroken oaths share
+			// a promisor/promisee pair.
+			for _, k := range sortedOathKeys(s.Oaths) {
+				o := s.Oaths[k]
 				if o.Broken {
 					continue
 				}

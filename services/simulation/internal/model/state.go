@@ -358,14 +358,20 @@ func (s *State) SetSideRelation(a, b int, v float64) {
 	s.SideRelations[MakePair(a, b)] = v
 }
 
-// AtWar reports whether two sides are currently at war.
+// AtWar reports whether two sides are currently at war. Wars are iterated
+// in ascending ID order so the result is deterministic: with duplicate wars
+// between the same sides (an old ended one and a new active one), the answer
+// is true if ANY of them is still active, regardless of map iteration order.
 func (s *State) AtWar(a, b int) bool {
 	if a == b {
 		return false
 	}
-	for _, w := range s.Wars {
+	for _, id := range s.WarIDs() {
+		w := s.Wars[id]
 		if (w.SideA == a && w.SideB == b) || (w.SideA == b && w.SideB == a) {
-			return w.EndTick < 0
+			if w.EndTick < 0 {
+				return true
+			}
 		}
 	}
 	return false
