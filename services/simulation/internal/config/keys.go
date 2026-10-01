@@ -597,4 +597,88 @@ func (l *loader) load(c *Config) {
 	c.Campaign.MedicineUnitPrice = l.f64("campaign.medicine_unit_price")
 	c.Campaign.FortifyMetalPerLevel = l.f64("campaign.fortify_metal_per_level")
 	c.Campaign.FortifyMoraleBonus = l.f64("campaign.fortify_morale_bonus")
+
+	// --- election ---
+	c.Election.TermYears = l.f64("election.term_years")
+	c.Election.MaxTerms = l.f64("election.max_terms")
+	c.Election.AssassinationBaseRate = l.f64("election.assassination_base_rate")
+	c.Election.TravelRiskMultiplier = l.f64("election.travel_risk_multiplier")
+	c.Election.UnrestRiskScale = l.f64("election.unrest_risk_scale")
+
+	// --- construction ---
+	c.Construction.MaxLevel = l.f64("construction.max_level")
+	c.Construction.DaysPerCost = l.f64("construction.days_per_cost")
+	c.Construction.CostWalls = [3]float64{
+		l.f64("construction.cost_walls_t1"),
+		l.f64("construction.cost_walls_t2"),
+		l.f64("construction.cost_walls_t3"),
+	}
+	c.Construction.CostBarracks = [3]float64{
+		l.f64("construction.cost_barracks_t1"),
+		l.f64("construction.cost_barracks_t2"),
+		l.f64("construction.cost_barracks_t3"),
+	}
+	c.Construction.CostTraining = [3]float64{
+		l.f64("construction.cost_training_t1"),
+		l.f64("construction.cost_training_t2"),
+		l.f64("construction.cost_training_t3"),
+	}
+	c.Construction.CostCommunity = [3]float64{
+		l.f64("construction.cost_community_t1"),
+		l.f64("construction.cost_community_t2"),
+		l.f64("construction.cost_community_t3"),
+	}
+	c.Construction.CostCommercial = [3]float64{
+		l.f64("construction.cost_commercial_t1"),
+		l.f64("construction.cost_commercial_t2"),
+		l.f64("construction.cost_commercial_t3"),
+	}
+	c.Construction.CostWarehouse = [3]float64{
+		l.f64("construction.cost_warehouse_t1"),
+		l.f64("construction.cost_warehouse_t2"),
+		l.f64("construction.cost_warehouse_t3"),
+	}
+	c.Construction.CostFarms = [3]float64{
+		l.f64("construction.cost_farms_t1"),
+		l.f64("construction.cost_farms_t2"),
+		l.f64("construction.cost_farms_t3"),
+	}
+	c.Construction.CostWatch = [3]float64{
+		l.f64("construction.cost_watch_t1"),
+		l.f64("construction.cost_watch_t2"),
+		l.f64("construction.cost_watch_t3"),
+	}
+	c.Construction.CostInfra = [3]float64{
+		l.f64("construction.cost_infra_t1"),
+		l.f64("construction.cost_infra_t2"),
+		l.f64("construction.cost_infra_t3"),
+	}
+	c.Construction.CostCivic = [3]float64{
+		l.f64("construction.cost_civic_t1"),
+		l.f64("construction.cost_civic_t2"),
+		l.f64("construction.cost_civic_t3"),
+	}
+	c.Construction.AutoBuildReserve = l.f64("construction.auto_build_reserve")
+	c.Construction.CommunityLoyaltyPerLevel = l.f64("construction.community_loyalty_per_level")
+	c.Construction.InfraProsperityPerLevel = l.f64("construction.infra_prosperity_per_level")
+	c.Construction.FarmsFoodPerLevel = l.f64("construction.farms_food_per_level")
+	c.Construction.WatchMilitiaPerLevel = l.f64("construction.watch_militia_per_level")
+	c.Construction.CommercialTaxPerLevel = l.f64("construction.commercial_tax_per_level")
+	c.Construction.CivicInfluencePerLevel = l.f64("construction.civic_influence_per_level")
+	c.Construction.TrainingMoralePerLevel = l.f64("construction.training_morale_per_level")
+	c.Construction.WarehouseFoodCapPerLevel = l.f64("construction.warehouse_food_cap_per_level")
+	c.Construction.WarehouseBaseCap = l.f64("construction.warehouse_base_cap")
+	c.Construction.BarracksGarrisonCapPerLevel = [3]float64{
+		l.f64("construction.barracks_garrison_cap_t1"),
+		l.f64("construction.barracks_garrison_cap_t2"),
+		l.f64("construction.barracks_garrison_cap_t3"),
+	}
+	c.Construction.GarrisonBaseCap = l.f64("construction.garrison_base_cap")
+
+	// --- taxation ---
+	c.Taxation.StateTaxMaxRate = l.f64("taxation.state_tax_max_rate")
+	c.Taxation.StateTaxDefault = l.f64("taxation.state_tax_default")
+
+	// --- siege ---
+	c.Siege.WallLevelSlowdown = l.f64("siege.wall_level_slowdown")
 }

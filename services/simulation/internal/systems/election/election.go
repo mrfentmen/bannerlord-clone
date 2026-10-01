@@ -80,23 +80,29 @@ func run(v *sim.View, w *sim.WriteSet) {
 }
 
 // pickSuccessor returns the VP if alive and free, else the highest-influence
-// living, uncaptured ruler of the side, excluding excludeID (the deceased,
-// whose staged death is not yet visible in the view). Nil if no one qualifies.
+// living, uncaptured ruler of the side. excludeID is the deceased (whose
+// staged death is not yet visible in the view); the sitting leader is never
+// their own successor. Nil if no one qualifies.
 func pickSuccessor(v *sim.View, side *model.Side, excludeID int) *model.Ruler {
-	if vp := v.State.Rulers[side.VicePresidentID]; vp != nil && vp.ID != excludeID && vp.IsAlive && vp.CapturedBy == 0 {
+	if vp := v.State.Rulers[side.VicePresidentID]; vp != nil && vp.ID != excludeID &&
+		vp.ID != side.LeaderID && vp.IsAlive && vp.CapturedBy == 0 {
 		return vp
 	}
-	return bestCandidate(v, side.ID, excludeID)
+	return bestCandidateExcluding(v, side.ID, excludeID, side.LeaderID)
 }
 
-// bestCandidate returns the highest influence+renown eligible ruler of a
-// side, excluding excludeID. Ties break by ID for determinism.
-func bestCandidate(v *sim.View, sideID, excludeID int) *model.Ruler {
+// bestCandidateExcluding returns the highest influence+renown eligible ruler
+// of a side, skipping every ID in exclude. Ties break by ID for determinism.
+func bestCandidateExcluding(v *sim.View, sideID int, exclude ...int) *model.Ruler {
+	skip := map[int]bool{}
+	for _, id := range exclude {
+		skip[id] = true
+	}
 	var best *model.Ruler
 	bestScore := -1.0
 	for _, id := range v.State.RulerIDsSorted() {
 		r := v.State.Rulers[id]
-		if r.SideID != sideID || !r.IsAlive || r.CapturedBy != 0 || r.ID == excludeID {
+		if r.SideID != sideID || !r.IsAlive || r.CapturedBy != 0 || skip[r.ID] {
 			continue
 		}
 		if score := r.Influence + r.Renown; score > bestScore {
@@ -118,7 +124,7 @@ func installPresident(v *sim.View, w *sim.WriteSet, side *model.Side, rulerID in
 	w.Set(model.KindRuler, rulerID, "leader", 1, "election", nil, "took office")
 	w.Set(model.KindSide, side.ID, "side_leader", float64(rulerID), "election", nil, "new president")
 
-	if vp := bestCandidate(v, side.ID, rulerID); vp != nil {
+	if vp := bestCandidateExcluding(v, side.ID, rulerID); vp != nil {
 		w.Set(model.KindSide, side.ID, "vice_president", float64(vp.ID), "election", nil, "new VP")
 	} else {
 		w.Set(model.KindSide, side.ID, "vice_president", 0, "election", nil, "no eligible VP")

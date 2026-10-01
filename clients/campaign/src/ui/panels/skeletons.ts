@@ -90,13 +90,13 @@ function tableStub(columns: number, rows: number): HTMLElement {
 // -- town ---------------------------------------------------------------------
 
 /** The seven sections of the town panel, plus the header block and the three actions. */
-export const TOWN_SECTIONS = 7;
+export const TOWN_SECTIONS = 9;
 
 /**
- * `town-skeleton`. Food, health, sanitation and housing, unrest and loyalty, media
- * trust, garrison and roads, money: seven sections, the same gauges and rows the real
- * panel draws, and the same three action buttons along the bottom, so the panel does
- * not change height when the town arrives.
+ * `town-skeleton`. Food, health, sanitation and housing, unrest and loyalty, taxes,
+ * projects, media trust, garrison and roads, money: nine sections, the same gauges
+ * and rows the real panel draws, and the same three action buttons along the bottom,
+ * so the panel does not change height when the town arrives.
  */
 export function townSkeletonBody(): HTMLElement {
   const root = region(TOWN_SHAPE, "town-skeleton", "Reading the town survey.");
@@ -108,8 +108,12 @@ export function townSkeletonBody(): HTMLElement {
   root.appendChild(section([...gauges(1), ...rows(1)]));
   // Sanitation and housing: the sanitation gauge, then the crowding row.
   root.appendChild(section([...gauges(1), ...rows(1)]));
-  // Unrest and loyalty: two gauges, then tax rate and prosperity.
-  root.appendChild(section([...gauges(2), ...rows(2)]));
+  // Unrest and loyalty: two gauges, then prosperity.
+  root.appendChild(section([...gauges(2), ...rows(1)]));
+  // Taxes: the town rate and the state rate steppers.
+  root.appendChild(section(rows(2)));
+  // Projects: the building list.
+  root.appendChild(section(rows(4)));
   // Media trust: one gauge.
   root.appendChild(section(gauges(1)));
   // Garrison and roads: the garrison row, then conduct and road safety.

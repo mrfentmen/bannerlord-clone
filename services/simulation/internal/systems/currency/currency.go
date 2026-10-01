@@ -8,6 +8,8 @@
 package currency
 
 import (
+	"fmt"
+
 	"mbclone/simulation/internal/model"
 	"mbclone/simulation/internal/sim"
 	"mbclone/simulation/internal/systems/shared"
@@ -44,6 +46,9 @@ func run(v *sim.View, w *sim.WriteSet) {
 		}
 		prosperityTerm := 1 - c.Currency.TaxProsperityWeight*(1-shared.Clamp01(t.Prosperity))
 		taxIncome := t.Population * c.Currency.TaxIncomePerCapita * t.TaxRate * prosperityTerm * collection
+		// Commercial District (Bannerlord's Marketplace) widens the tax
+		// base: the construction system maintains tax_bonus from its tiers.
+		taxIncome *= 1 + t.TaxBonus
 		// Market fees on the trade that actually arrives. A blockaded or
 		// unsafe town collects no trade toll, which is the economic cost of
 		// chain 3 and chain 8.
@@ -82,6 +87,25 @@ func run(v *sim.View, w *sim.WriteSet) {
 		w.Set(model.KindTown, id, "expenditure", expense, read, causes, "")
 		w.Set(model.KindTown, id, "net_cash", net, read, causes, "")
 		w.Add(model.KindTown, id, "money", net, read, causes, "daily balance")
+
+		// --- state tax ---
+		// On top of the town rate, every town pays its US state's rate to
+		// the controlling faction's treasury: the modern port of Bannerlord's
+		// kingdom-level cut of fief income. The rate is per-state and shared
+		// by every town in that state.
+		stateTax := taxIncome * shared.Clamp01(t.StateTaxRate)
+		if stateTax > 0 && t.SideID > 0 {
+			stateRead := shared.ReadString(
+				shared.PairF("tax_income", taxIncome),
+				shared.Pair("state_tax_rate", t.StateTaxRate),
+				shared.PairF("state_tax", stateTax),
+				fmt.Sprintf("state=%s", t.State))
+			stateCauses := v.Log.RecentFor(model.KindTown, id, []string{"tax_income", "state_tax_rate"}, 3)
+			w.Add(model.KindTown, id, "money", -stateTax, stateRead, stateCauses, "state tax remitted")
+			w.Add(model.KindSide, t.SideID, "side_treasury", stateTax, stateRead, stateCauses,
+				"state tax from "+t.Name)
+			w.Set(model.KindTown, id, "state_tax_paid", stateTax, stateRead, stateCauses, "")
+		}
 
 		// --- debt ---
 		// A town that cannot pay wages borrows. Borrowing is what turns a bad

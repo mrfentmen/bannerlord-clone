@@ -22,7 +22,7 @@ import { h, numberField, row, sectionHeader } from "../dom.js";
 import { emptyState, errorState, gauge, panel, statusChip, type StatusKind } from "../kit.js";
 import { townSkeleton } from "./skeletons.js";
 import { asBottomSheet } from "./narrow.js";
-import type { RecruitableUnit, RecruitResult, TownState } from "../../data/types.js";
+import type { BuildingInfo, ConstructionResult, RecruitableUnit, RecruitResult, TownState } from "../../data/types.js";
 import { SimulationUnavailableError } from "../../data/provider.js";
 
 export interface TownPanelOptions {
@@ -37,6 +37,18 @@ export interface TownPanelOptions {
   onOpenMarket: () => void;
   onMarchHere: () => void;
   onRoster: () => void;
+  /**
+   * Set the town's tax rate. The panel sends the order; the simulation clamps
+   * and applies it. Resolves when the order is accepted.
+   */
+  onSetTaxRate?: (rate: number) => Promise<void>;
+  /** Set the state-level tax rate for the town's US state. */
+  onSetStateTaxRate?: (rate: number) => Promise<void>;
+  /**
+   * Queue a settlement project. Resolves with the simulation's answer so the
+   * panel can show the reason verbatim when the order is refused.
+   */
+  onStartConstruction?: (buildingId: string) => Promise<ConstructionResult>;
   /**
    * Hire soldiers. The panel sends the order; the simulation decides if it happens.
    * Resolves with the simulation's answer so the panel can show the reason verbatim.
@@ -230,10 +242,15 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
         thresholds: { criticalBelow: 0.2, warningBelow: 0.35, goodAbove: 0.6 },
         testId: "town-loyalty-gauge",
       }),
-      row("Tax rate", `${(town.taxRate * 100).toFixed(1)}%`, { mono: true, testId: "town-tax" }),
       row("Prosperity", town.prosperity.toFixed(2), { mono: true, testId: "town-prosperity" }),
     ),
   );
+
+  // -- taxes: the holder sets the town rate and the state rate ---------------
+  body.appendChild(taxSection(town, options));
+
+  // -- projects: Bannerlord's "Manage Town" building list --------------------
+  body.appendChild(projectsSection(town, options));
 
   // -- media trust ----------------------------------------------------------
   body.appendChild(sectionHeader("Media trust", whyButton("informationTrust", () => options.onWhy("informationTrust"))));
@@ -310,6 +327,139 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
   }
 
   return root;
+}
+
+/**
+ * Taxes the holder can set: the town's own rate and the US-state rate that
+ * applies to every town in the state. Steppers move in whole points; the
+ * simulation clamps and applies the order.
+ */
+function taxSection(town: TownState, options: TownPanelOptions): HTMLElement {
+  const wrap = h("section", { "data-testid": "tax-section" });
+  wrap.appendChild(sectionHeader("Taxes", whyButton("taxRate", () => options.onWhy("taxRate"))));
+
+  const townPct = Math.round(town.taxRate * 100);
+  const statePct = Math.round(town.stateTaxRate * 100);
+
+  const townRow = h("div", { class: "field-row", style: "align-items:center;justify-content:space-between" });
+  townRow.append(
+    h("span", {}, `Town tax — ${townPct}%`),
+    taxStepper(townPct, 0, 50, 5, (next) => options.onSetTaxRate?.(next / 100), "town-tax"),
+  );
+  const stateRow = h("div", { class: "field-row", style: "align-items:center;justify-content:space-between" });
+  stateRow.append(
+    h("span", {}, `${town.state} state tax — ${statePct}%`),
+    taxStepper(statePct, 0, 15, 1, (next) => options.onSetStateTaxRate?.(next / 100), "state-tax"),
+  );
+
+  wrap.append(
+    townRow,
+    stateRow,
+    h("p", { class: "caption", style: "margin:var(--space-1) 0 0" },
+      "High town taxes feed unrest and cost loyalty. The state cut goes to the controlling faction's treasury."),
+  );
+  return wrap;
+}
+
+/** A − value + stepper. Calls onChange with the new integer percent. */
+function taxStepper(
+  current: number, min: number, max: number, step: number,
+  onChange: (next: number) => Promise<void> | void, testId: string,
+): HTMLElement {
+  const wrap = h("div", { class: "field-row", style: "gap:var(--space-1)", "data-testid": testId });
+  const label = h("span", { class: "mono", style: "min-width:3ch;text-align:center" }, `${current}%`);
+  const busy = { on: false };
+  const set = async (next: number) => {
+    next = Math.min(max, Math.max(min, next));
+    if (next === current || busy.on) return;
+    busy.on = true;
+    try {
+      await onChange(next);
+    } finally {
+      busy.on = false;
+    }
+  };
+  const minus = h("button", { type: "button", class: "btn btn--small", "aria-label": "Lower tax" }, "−");
+  const plus = h("button", { type: "button", class: "btn btn--small", "aria-label": "Raise tax" }, "+");
+  minus.addEventListener("click", () => void set(current - step));
+  plus.addEventListener("click", () => void set(current + step));
+  wrap.append(minus, label, plus);
+  return wrap;
+}
+
+/**
+ * Settlement projects: Bannerlord's "Manage Town" building list. Each row
+ * shows the tier pips, what the next tier does and costs, and a build button.
+ * The panel sends the order; the simulation decides if it happens and says why.
+ */
+function projectsSection(town: TownState, options: TownPanelOptions): HTMLElement {
+  const wrap = h("section", { "data-testid": "projects-section" });
+  wrap.appendChild(sectionHeader("Projects"));
+
+  if (town.constructionBuilding) {
+    const active = town.buildings.find((b) => b.id === town.constructionBuilding);
+    wrap.appendChild(
+      h("p", { class: "caption", style: "margin:0 0 var(--space-2)", "data-testid": "construction-active" },
+        `Building ${active?.name ?? town.constructionBuilding} — ${Math.ceil(town.constructionDaysLeft)} days left.`),
+    );
+  }
+
+  const list = h("div", { style: "display:grid;gap:var(--space-2)" });
+  for (const b of town.buildings) {
+    list.appendChild(projectRow(town, b, options));
+  }
+  wrap.appendChild(list);
+  return wrap;
+}
+
+function projectRow(town: TownState, b: BuildingInfo, options: TownPanelOptions): HTMLElement {
+  const maxed = b.level >= b.maxLevel;
+  const busy = town.constructionBuilding !== null;
+  const afford = town.money >= b.nextCost;
+
+  const pips = "●".repeat(b.level) + "○".repeat(Math.max(0, b.maxLevel - b.level));
+  const head = h("div", { class: "field-row", style: "justify-content:space-between;align-items:baseline" });
+  head.append(
+    h("strong", {}, b.name),
+    h("span", { class: "mono caption", "aria-label": `Tier ${b.level} of ${b.maxLevel}` }, pips),
+  );
+
+  const sub = h("p", { class: "caption", style: "margin:0" },
+    `${b.blurb} · Bannerlord: ${b.bannerlord}.`);
+
+  const foot = h("div", { class: "field-row", style: "justify-content:space-between;align-items:center" });
+  const msg = h("span", { class: "caption", role: "status" });
+  if (maxed) {
+    foot.append(h("span", { class: "caption" }, "Max tier."));
+  } else {
+    foot.append(
+      h("span", { class: "caption mono" },
+        `Tier ${b.level + 1}: $${b.nextCost.toLocaleString("en-US")} · ${b.nextDays}d`),
+    );
+    const btn = h("button", {
+      type: "button",
+      class: "btn btn--small",
+      "data-testid": `build-${b.id}`,
+      ...(busy || !afford ? { disabled: "true" } : {}),
+    }, busy ? "Busy" : "Build");
+    if (!busy && afford && options.onStartConstruction) {
+      btn.addEventListener("click", () => {
+        btn.setAttribute("disabled", "true");
+        void options.onStartConstruction!(b.id).then((res) => {
+          msg.textContent = res.message;
+          if (!res.ok) btn.removeAttribute("disabled");
+        });
+      });
+    } else if (!afford && !maxed) {
+      msg.textContent = "Cannot afford.";
+    }
+    foot.append(btn);
+  }
+  foot.append(msg);
+
+  const rowEl = h("div", { "data-testid": `project-${b.id}` });
+  rowEl.append(head, sub, foot);
+  return rowEl;
 }
 
 /**

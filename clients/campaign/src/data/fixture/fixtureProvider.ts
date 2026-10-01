@@ -52,6 +52,7 @@ import type {
   BattleXpInput,
   UpgradeTroopsRequest,
   UpgradeTroopsResult,
+  ConstructionResult,
   WhyChain,
 } from "../types.js";
 import { troopStackPower, troopTier } from "../types.js";
@@ -174,6 +175,27 @@ const TOWN_SPECS: FixtureTownsSpec[] = [
   { settlementId: "central-city", name: "Central City", klass: "village", population: null, holder: "Vashti", unrest: 0.28, loyalty: 0.66, daysOfFood: 9.0, infected: 0.01 , culture: "highlander", holderCulture: "highlander", security: 0.48},
 ];
 
+/**
+ * Settlement projects: Bannerlord's "Manage Town" building list, ported to
+ * modern names. Mirrors the Go simulation's construction package. Costs are
+ * per tier [1, 2, 3]; days = cost * 0.005.
+ */
+const BUILDING_DEFS: { id: string; name: string; bannerlord: string; blurb: string; costs: [number, number, number] }[] = [
+  { id: "walls", name: "City Walls", bannerlord: "Fortifications", blurb: "Slows siege breach work", costs: [0, 8000, 16000] },
+  { id: "barracks", name: "Police Barracks", bannerlord: "Garrison Barracks", blurb: "Raises garrison cap", costs: [2000, 3000, 4000] },
+  { id: "training", name: "Training Grounds", bannerlord: "Training Fields", blurb: "Garrison morale up", costs: [2000, 3000, 4000] },
+  { id: "community", name: "Community Center", bannerlord: "Fairgrounds", blurb: "Loyalty per day", costs: [2000, 3000, 4000] },
+  { id: "commercial", name: "Commercial District", bannerlord: "Marketplace", blurb: "+5% tax income per tier", costs: [2000, 3000, 4000] },
+  { id: "warehouse", name: "Food Warehouse", bannerlord: "Granary", blurb: "Food storage cap", costs: [1000, 1500, 2000] },
+  { id: "farms", name: "Urban Farms", bannerlord: "Orchards", blurb: "Food per day", costs: [2000, 3000, 4000] },
+  { id: "watch", name: "Neighborhood Watch", bannerlord: "Militia Grounds", blurb: "Militia per day", costs: [2000, 3000, 4000] },
+  { id: "infra", name: "Infrastructure", bannerlord: "Aqueducts", blurb: "Prosperity per day", costs: [2000, 3000, 4000] },
+  { id: "civic", name: "Civic Center", bannerlord: "Forum", blurb: "Influence per day to holder", costs: [2000, 3000, 4000] },
+];
+
+const BUILDING_MAX_LEVEL = 3;
+const BUILDING_DAYS_PER_COST = 0.005;
+
 const RULER_SPECS = [
   { name: "Ilse Halloway", faction: "Mountain Alliance", tier: "side-leader" as const, holdings: ["denver", "aurora", "lakewood", "thornton", "arvada", "broomfield"], influence: 92, renown: 74, loyalty: 0.81, relation: 34 },
   { name: "Corin Vashti", faction: "Mountain Alliance", tier: "state-governor" as const, holdings: ["boulder", "longmont", "golden", "idaho-springs", "nederland", "central-city"], influence: 61, renown: 48, loyalty: 0.63, relation: 11 },
@@ -203,6 +225,9 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     setCharacter: (character) => state.setCharacter(character),
     awardBattleXp: async (input) => state.awardBattleXp(input),
     upgradeTroops: async (request) => state.upgradeTroops(request),
+    setTaxRate: async (townId, rate) => state.setTaxRate(townId, rate),
+    setStateTaxRate: async (st, rate) => state.setStateTaxRate(st, rate),
+    startConstruction: async (townId, buildingId) => state.startConstruction(townId, buildingId),
     why: async (entityId, field) => state.why(entityId, field),
     subscribeTicks: (onTick, onStatus) => state.subscribe(onTick, onStatus),
   };
@@ -273,6 +298,24 @@ class FixtureState {
         notables: [],
         prosperity: 0.5 + rand() * 0.3,
         taxRate: 0.22,
+        stateTaxRate: 0.03,
+        state: "CO",
+        buildings: BUILDING_DEFS.map((d) => {
+          const level = Math.floor(rand() * 2); // fixture towns start at tier 0-1
+          const nextCost = level >= BUILDING_MAX_LEVEL ? 0 : (d.costs[level] ?? 0);
+          return {
+            id: d.id,
+            name: d.name,
+            bannerlord: d.bannerlord,
+            level,
+            maxLevel: BUILDING_MAX_LEVEL,
+            blurb: d.blurb,
+            nextCost,
+            nextDays: Math.max(1, Math.round(nextCost * BUILDING_DAYS_PER_COST)),
+          };
+        }),
+        constructionBuilding: null,
+        constructionDaysLeft: 0,
         garrison: spec.klass === "city" ? 420 : 90,
         garrisonConduct: 0.74,
         roadSafety: spec.scenario === "road-rot" ? 0.21 : 0.62 + rand() * 0.2,
@@ -1095,6 +1138,8 @@ class FixtureState {
 
     for (const town of this.#towns.values()) {
       const before = { food: town.foodStock, unrest: town.unrest, infected: town.infected, money: town.money, loyalty: town.loyalty, security: town.security, rebellious: town.rebellious };
+      // Construction: advance the active project, completing it when due.
+      this.#progressConstruction(town);
       // Food system: a negative balance drains the stock, in person-days.
       const balance = town.foodProduction - town.foodDemand;
       town.foodStock = Math.max(0, Math.round(town.foodStock + balance));
@@ -1392,6 +1437,79 @@ class FixtureState {
   setEthnicity(ethnicityId: string): void {
     if (!getEthnicity(ethnicityId)) throw new Error(`Unknown ethnicity ${ethnicityId}`);
     this.#player.ethnicityId = ethnicityId;
+  }
+
+  /** Holder's order: set a town's tax rate, clamped to 0-0.5. */
+  async setTaxRate(townId: string, rate: number): Promise<void> {
+    const town = this.#towns.get(townId);
+    if (!town) throw new Error(`Unknown town ${townId}`);
+    town.taxRate = Math.min(0.5, Math.max(0, rate));
+    town.updatedTick = this.#tick;
+  }
+
+  /** Holder's order: set the state-level rate for every town in a US state. */
+  async setStateTaxRate(state: string, rate: number): Promise<void> {
+    const clamped = Math.min(0.15, Math.max(0, rate));
+    let any = false;
+    for (const town of this.#towns.values()) {
+      if (town.state === state) {
+        town.stateTaxRate = clamped;
+        town.updatedTick = this.#tick;
+        any = true;
+      }
+    }
+    if (!any) throw new Error(`No towns in state ${state}`);
+  }
+
+  /** Holder's order: queue a settlement project. One at a time, costs town money. */
+  async startConstruction(townId: string, buildingId: string): Promise<ConstructionResult> {
+    const town = this.#towns.get(townId);
+    if (!town) return { ok: false, message: `Unknown town ${townId}.` };
+    const def = BUILDING_DEFS.find((d) => d.id === buildingId);
+    if (!def) return { ok: false, message: `Unknown project ${buildingId}.` };
+    const info = town.buildings.find((b) => b.id === buildingId)!;
+    if (town.constructionBuilding) {
+      return { ok: false, message: `${town.name} is already building ${this.#buildingName(town.constructionBuilding)}.` };
+    }
+    if (info.level >= BUILDING_MAX_LEVEL) {
+      return { ok: false, message: `${def.name} is already at max tier.` };
+    }
+    const cost = def.costs[info.level] ?? 0;
+    if (town.money < cost) {
+      return { ok: false, message: `${town.name} cannot afford ${def.name} tier ${info.level + 1} (${cost.toLocaleString()} needed).` };
+    }
+    town.money -= cost;
+    town.constructionBuilding = buildingId;
+    town.constructionDaysLeft = Math.max(1, Math.round(cost * BUILDING_DAYS_PER_COST));
+    town.updatedTick = this.#tick;
+    return { ok: true, message: `${def.name} tier ${info.level + 1} started in ${town.name} (${town.constructionDaysLeft} days).` };
+  }
+
+  #buildingName(id: string): string {
+    return BUILDING_DEFS.find((d) => d.id === id)?.name ?? id;
+  }
+
+  /** Advance any active construction project by one day. Called from #step. */
+  #progressConstruction(town: TownState): void {
+    if (!town.constructionBuilding) return;
+    town.constructionDaysLeft -= 1;
+    if (town.constructionDaysLeft > 0) return;
+    const info = town.buildings.find((b) => b.id === town.constructionBuilding)!;
+    info.level = Math.min(BUILDING_MAX_LEVEL, info.level + 1);
+    const def = BUILDING_DEFS.find((d) => d.id === town.constructionBuilding)!;
+    info.nextCost = info.level >= BUILDING_MAX_LEVEL ? 0 : (def.costs[info.level] ?? 0);
+    info.nextDays = Math.max(1, Math.round(info.nextCost * BUILDING_DAYS_PER_COST));
+    town.constructionBuilding = null;
+    town.constructionDaysLeft = 0;
+    town.updatedTick = this.#tick;
+    this.#notifications.push({
+      id: `construction-${town.id}-${this.#tick}`,
+      day: this.#day,
+      priority: "informational",
+      text: `${town.name} finished ${def.name} tier ${info.level}.`,
+      entityId: town.id,
+      field: "buildings",
+    });
   }
 
   setCharacter(character: PlayerCharacter): void {

@@ -43,6 +43,8 @@ type Config struct {
 	Campaign  Campaign
 	Ruler     Ruler
 	Election  Election
+	Construction Construction
+	Taxation  Taxation
 }
 
 // World controls world generation.
@@ -1012,6 +1014,10 @@ type Siege struct {
 	MaxDays float64
 	// BreachDays is how many days of equipment work breach a town's walls.
 	BreachDays float64
+	// WallLevelSlowdown multiplies breach work per wall building level, so
+	// upgraded walls (City Walls project) slow an assault, like Bannerlord's
+	// Fortifications.
+	WallLevelSlowdown float64
 	// ReliefRadius is how close a friendly army must be to lift a siege.
 	ReliefRadius float64
 	// MinTroopsToBesiege is the smallest force that can lay siege to a town. A
@@ -1555,6 +1561,55 @@ type Election struct {
 	AssassinationBaseRate float64
 	TravelRiskMultiplier float64
 	UnrestRiskScale      float64
+}
+
+// Construction controls settlement projects: Bannerlord's "Manage Town"
+// building list, ported to modern names. Ten buildings, three tiers each,
+// one project under construction at a time.
+type Construction struct {
+	// MaxLevel is the top building tier (Bannerlord: 3).
+	MaxLevel float64
+	// DaysPerCost converts a project's cost into construction days.
+	DaysPerCost float64
+	// CostX are the per-tier build costs [tier1, tier2, tier3].
+	CostWalls      [3]float64
+	CostBarracks   [3]float64
+	CostTraining   [3]float64
+	CostCommunity  [3]float64
+	CostCommercial [3]float64
+	CostWarehouse  [3]float64
+	CostFarms      [3]float64
+	CostWatch      [3]float64
+	CostInfra      [3]float64
+	CostCivic      [3]float64
+	// AutoBuildReserve is the town money floor below which the holder AI
+	// will not start new construction.
+	AutoBuildReserve float64
+	// Daily effect rates, per building level.
+	CommunityLoyaltyPerLevel float64
+	InfraProsperityPerLevel  float64
+	FarmsFoodPerLevel        float64
+	WatchMilitiaPerLevel     float64
+	CommercialTaxPerLevel    float64
+	CivicInfluencePerLevel   float64
+	TrainingMoralePerLevel   float64
+	// WarehouseFoodCapPerLevel is added to the base food cap per level.
+	WarehouseFoodCapPerLevel float64
+	WarehouseBaseCap         float64
+	// BarracksGarrisonCapPerLevel is the total garrison cap bonus at each
+	// tier (Bannerlord: +30/+60/+100 total, not cumulative).
+	BarracksGarrisonCapPerLevel [3]float64
+	GarrisonBaseCap              float64
+}
+
+// Taxation controls the state-level tax layer: every town also pays its
+// US state's rate on top of its own town rate, and the revenue flows to
+// the controlling faction's treasury.
+type Taxation struct {
+	// StateTaxMaxRate caps the state-level rate a holder can set.
+	StateTaxMaxRate float64
+	// StateTaxDefault is the starting state rate for generated towns.
+	StateTaxDefault float64
 }
 
 // LoadDefault reads the balance file that ships with the simulation.

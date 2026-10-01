@@ -423,6 +423,30 @@ function townNode(town: TownState): Node {
       }
       return result;
     },
+    onSetTaxRate: async (rate) => {
+      await provider.setTaxRate(town.id, rate);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+    },
+    onSetStateTaxRate: async (rate) => {
+      await provider.setStateTaxRate(town.state, rate);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+    },
+    onStartConstruction: async (buildingId) => {
+      const result = await provider.startConstruction(town.id, buildingId);
+      if (result.ok) {
+        previous = snapshot;
+        snapshot = await provider.getSnapshot();
+        rebuildContext();
+        paint();
+      }
+      return result;
+    },
   });
 }
 

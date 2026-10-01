@@ -38,6 +38,13 @@ The left column keeps Bannerlord's medieval names — that is what we are compar
 
 ## 1. The headline: what is genuinely missing
 
+### Implemented 2026-10-01 (not in the table below)
+
+- **Settlement projects** — Bannerlord's "Manage Town" building list, all ten town projects with three tiers each: City Walls (Fortifications), Police Barracks (Garrison Barracks), Training Grounds (Training Fields), Community Center (Fairgrounds), Commercial District (Marketplace, +5%/tier tax income), Food Warehouse (Granary), Urban Farms (Orchards), Neighborhood Watch (Militia Grounds), Infrastructure (Aqueducts), Civic Center (Forum). One project at a time, costs town money, takes days. Holder AI auto-builds. Sim: `services/simulation/internal/systems/construction/`. Player order: `OrderStartConstruction`. Client: town panel Projects section.
+- **State taxes** — every town pays its US state's rate on top of its town rate; revenue flows to the controlling faction's treasury. Player order: `OrderSetStateTax` (applies to the whole state). Sim: `currency.go` state-tax block, `Taxation` config.
+- **Walls slow sieges** — City Walls tiers multiply breach work down (`siege.wall_level_slowdown`).
+- **Election field registration** — the election system's side/ruler fields are now registered, so succession and term tracking actually write.
+
 These are absent from every one of our 24 docs. This is the actual answer to the question.
 
 ### 1.1 The dynasty layer — we have none of it

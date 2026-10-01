@@ -65,6 +65,36 @@ export interface ResourceWarning {
 }
 
 /** Town state, from `CAUSE_EFFECT.md` section 2 plus section 8. */
+/**
+ * One settlement project: Bannerlord's "Manage Town" building list, ported to
+ * modern names. The simulation owns levels, costs, and build times; the client
+ * renders what it is told.
+ */
+export interface BuildingInfo {
+  /** Stable id: "walls" | "barracks" | "training" | "community" | "commercial" | "warehouse" | "farms" | "watch" | "infra" | "civic". */
+  id: string;
+  /** Modern display name, e.g. "City Walls". */
+  name: string;
+  /** The original Bannerlord project name, e.g. "Fortifications". */
+  bannerlord: string;
+  /** Current tier, 0-3. */
+  level: number;
+  /** Max tier (3). */
+  maxLevel: number;
+  /** One-line effect description. */
+  blurb: string;
+  /** Cost of the next tier in town money. 0 when maxed. */
+  nextCost: number;
+  /** Days the next tier takes to build. 0 when maxed. */
+  nextDays: number;
+}
+
+/** The answer to a construction order. */
+export interface ConstructionResult {
+  ok: boolean;
+  message: string;
+}
+
 export interface TownState {
   id: string;
   settlementId: string;
@@ -109,6 +139,19 @@ export interface TownState {
   lootedVillage?: boolean;
   prosperity: number;
   taxRate: number;
+  /** The US-state-level tax rate (e.g. Colorado's), shared by every town in the state. */
+  stateTaxRate: number;
+  /** The US state this town is in ("CO", "NY", ...). */
+  state: string;
+  /**
+   * Settlement projects (Bannerlord's "Manage Town" building list).
+   * The simulation is the authority on levels and costs.
+   */
+  buildings: BuildingInfo[];
+  /** The building id currently under construction, or null. */
+  constructionBuilding: string | null;
+  /** Days left on the active project. */
+  constructionDaysLeft: number;
   garrison: number;
   garrisonConduct: number;
   roadSafety: number;
@@ -650,6 +693,12 @@ export interface SimulationProvider {  readonly kind: "http" | "fixture";
   awardBattleXp(input: BattleXpInput): Promise<BattleXpAward[]>;
   /** Promote a troop stack to the next tier, spending banked XP and gold. */
   upgradeTroops(request: UpgradeTroopsRequest): Promise<UpgradeTroopsResult>;
+  /** Set a town's tax rate (0-0.5). The holder's order; the simulation clamps it. */
+  setTaxRate(townId: string, rate: number): Promise<void>;
+  /** Set the state-level tax rate for every town in a US state. */
+  setStateTaxRate(state: string, rate: number): Promise<void>;
+  /** Queue a settlement project in a town. One project at a time. */
+  startConstruction(townId: string, buildingId: string): Promise<ConstructionResult>;
   why(entityId: string, field: string): Promise<WhyChain>;
   subscribeTicks(onTick: (tick: TickUpdate) => void, onStatus: (status: ConnectionStatus) => void): () => void;
 }

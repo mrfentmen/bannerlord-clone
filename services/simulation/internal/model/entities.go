@@ -127,6 +127,38 @@ type Town struct {
 	BlockadeDays     float64
 	MilitiaPayroll   float64
 	MilitiaReadiness float64
+	// --- construction (settlement projects, Bannerlord "Manage Town") ---
+	// Building levels 0-3 for each project. Modern names for Bannerlord's
+	// town project list: walls, barracks, training grounds, community
+	// center (fairgrounds), commercial district (marketplace), food
+	// warehouse (granary), urban farms (orchards), neighborhood watch
+	// (militia grounds), infrastructure (aqueducts), civic center (forum).
+	BuildingWalls      float64
+	BuildingBarracks   float64
+	BuildingTraining   float64
+	BuildingCommunity  float64
+	BuildingCommercial float64
+	BuildingWarehouse  float64
+	BuildingFarms      float64
+	BuildingWatch      float64
+	BuildingInfra      float64
+	BuildingCivic      float64
+	// ConstructionBuilding is the index into the building list currently
+	// being built (-1 = none). One project at a time, like Bannerlord.
+	ConstructionBuilding float64
+	ConstructionDaysLeft float64
+	// StateTaxRate is the US-state-level tax rate shared by every town in
+	// the same State string. Collected on top of the town tax rate.
+	StateTaxRate float64
+	// TaxBonus is the commercial-district multiplier on tax income
+	// (0.05 per level). Written by the construction system, read by currency.
+	TaxBonus float64
+	// FoodCap is the warehouse-raised ceiling on food_stock.
+	FoodCap float64
+	// GarrisonCap is the barracks-raised ceiling on garrison size.
+	GarrisonCap float64
+	// StateTaxPaid is today's state tax remittance, for the ledger.
+	StateTaxPaid float64
 }
 
 // Village is a food-producing settlement serving a town, per SPEC.md section 2.

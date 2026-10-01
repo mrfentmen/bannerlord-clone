@@ -9,8 +9,11 @@
 package player
 
 import (
+	"fmt"
+
 	"mbclone/simulation/internal/model"
 	"mbclone/simulation/internal/sim"
+	"mbclone/simulation/internal/systems/construction"
 	"mbclone/simulation/internal/systems/shared"
 )
 
@@ -46,6 +49,10 @@ func run(v *sim.View, w *sim.WriteSet) {
 			applyWar(v, w, o)
 		case sim.OrderBuildFortify:
 			applyFortify(v, w, o)
+		case sim.OrderStartConstruction:
+			applyConstruction(v, w, o)
+		case sim.OrderSetStateTax:
+			applyStateTax(v, w, o)
 		}
 	}
 }
@@ -328,4 +335,44 @@ func applyFortify(v *sim.View, w *sim.WriteSet, o sim.Order) {
 	w.Add(model.KindTown, o.TownID, "metal", -cost, "fortifying", nil, "walls and equipment")
 	w.Add(model.KindTown, o.TownID, "garrison_morale", v.Cfg.Campaign.FortifyMoraleBonus,
 		"fortifying", nil, "the town feels safer")
+}
+
+// applyConstruction queues a settlement project from a player order.
+// Amount is the building index into the construction list.
+func applyConstruction(v *sim.View, w *sim.WriteSet, o sim.Order) {
+	t := v.State.Towns[o.TownID]
+	if t == nil {
+		return
+	}
+	b := int(o.Amount)
+	if b < 0 || b >= construction.BuildingCount {
+		return
+	}
+	construction.StartConstruction(v, w, v.Cfg, o.TownID, t, b, "the holder ordered construction")
+}
+
+// applyStateTax sets the state-level tax rate for every town in the same US
+// state as the order's town. Amount is the rate, clamped to the configured
+// maximum.
+func applyStateTax(v *sim.View, w *sim.WriteSet, o sim.Order) {
+	t := v.State.Towns[o.TownID]
+	if t == nil || t.State == "" {
+		return
+	}
+	rate := shared.Clamp(o.Amount, 0, v.Cfg.Taxation.StateTaxMaxRate)
+	read := shared.ReadString(
+		fmt.Sprintf("state=%s", t.State),
+		shared.Pair("ordered", rate))
+	for _, id := range v.State.TownIDs() {
+		ot := v.State.Towns[id]
+		if ot == nil || ot.State != t.State {
+			continue
+		}
+		if rate == ot.StateTaxRate {
+			continue
+		}
+		causes := v.Log.RecentFor(model.KindTown, id, []string{"state_tax_rate", "tax_rate"}, 3)
+		w.Set(model.KindTown, id, "state_tax_rate", rate, read, causes,
+			"the holder set the "+t.State+" state tax rate")
+	}
 }

@@ -298,6 +298,12 @@ func newTown(cfg *config.Config, r *rng.Rng, s Settlement) *model.Town {
 		Sanitation:      cfg.World.StartSanitation * r.Range(0.85, 1.1),
 		Prosperity:      shared.Clamp01(cfg.World.StartSanitation + r.Range(-0.1, 0.15)),
 		TaxRate:         cfg.Currency.TaxDefaultRate,
+		StateTaxRate:    cfg.Taxation.StateTaxDefault,
+		// No project under construction at world start; the construction
+		// system publishes caps from the base config on the first tick.
+		ConstructionBuilding: -1,
+		FoodCap:              cfg.Construction.WarehouseBaseCap,
+		GarrisonCap:          cfg.Construction.GarrisonBaseCap,
 		Loyalty:         r.Range(cfg.Council.LoyaltyStartMin, cfg.Council.LoyaltyStartMax),
 		Unrest:          r.Range(0, cfg.World.StartUnrestMax),
 		Holder:          -1,

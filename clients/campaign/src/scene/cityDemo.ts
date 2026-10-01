@@ -25,6 +25,7 @@ import {
   VertexData,
 } from "@babylonjs/core";
 import { buildCityBlocks, type BuildingFootprint } from "./buildings.js";
+import { spawnPedestrians } from "./pedestrians.js";
 import { makeProjection } from "../world/load.js";
 import type { Heightfield, RegionFile } from "../world/types.js";
 import { mapColor, paper, ink } from "../design/tokens.js";
@@ -154,6 +155,10 @@ export async function runCityDemo(canvas: HTMLCanvasElement, slug: string): Prom
     `<a href="./" style="color:${paper[0]};font-weight:bold">← Back to Campaign Map</a> · ` +
     `<span style="opacity:.85">${links}</span>`;
   document.body.appendChild(label);
+
+  // Animated pedestrians on the street network (KayKit Rogue, CC0).
+  // Fire-and-forget: the demo works fine if the GLB fails to load.
+  void spawnPedestrians(scene, city.streets, projection.toWorld, 24);
 
   engine.runRenderLoop(() => scene.render());
   window.addEventListener("resize", () => engine.resize());

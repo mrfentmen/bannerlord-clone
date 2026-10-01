@@ -23,6 +23,7 @@ import (
 	"mbclone/simulation/internal/systems/attrition"
 	"mbclone/simulation/internal/systems/campaign"
 	"mbclone/simulation/internal/systems/council"
+	"mbclone/simulation/internal/systems/construction"
 	"mbclone/simulation/internal/systems/currency"
 	"mbclone/simulation/internal/systems/demography"
 	"mbclone/simulation/internal/systems/disease"
@@ -64,6 +65,7 @@ func Systems() []sim.System {
 
 		// --- prices and money ---
 		market.System(),
+		construction.System(),
 		currency.System(),
 
 		// --- movement of people ---

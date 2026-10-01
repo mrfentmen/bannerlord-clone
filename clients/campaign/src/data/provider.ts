@@ -24,6 +24,7 @@ import type {
   BattleXpAward,
   BattleXpInput,
   ConnectionStatus,
+  ConstructionResult,
   ImproveRelationRequest,
   ImproveRelationResult,
   MarchPlan,
@@ -220,6 +221,18 @@ export class HttpSimulationProvider implements SimulationProvider {
 
   async upgradeTroops(request: UpgradeTroopsRequest): Promise<UpgradeTroopsResult> {
     return this.#post<UpgradeTroopsResult>("/v1/troops/upgrade", request, "The promotion did not go through.");
+  }
+
+  async setTaxRate(townId: string, rate: number): Promise<void> {
+    await this.#post<void>("/v1/town/tax", { townId, rate }, "The tax order did not go through.");
+  }
+
+  async setStateTaxRate(state: string, rate: number): Promise<void> {
+    await this.#post<void>("/v1/state/tax", { state, rate }, "The state tax order did not go through.");
+  }
+
+  async startConstruction(townId: string, buildingId: string): Promise<ConstructionResult> {
+    return this.#post<ConstructionResult>("/v1/town/construct", { townId, buildingId }, "The construction order did not go through.");
   }
 
   async planMarch(request: MarchRequest): Promise<MarchPlan> {

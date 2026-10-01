@@ -359,6 +359,40 @@ func townGet(t *Town, f string) (float64, bool) {
 		return t.MilitiaPayroll, true
 	case "militia_readiness":
 		return t.MilitiaReadiness, true
+	case "building_walls":
+		return t.BuildingWalls, true
+	case "building_barracks":
+		return t.BuildingBarracks, true
+	case "building_training":
+		return t.BuildingTraining, true
+	case "building_community":
+		return t.BuildingCommunity, true
+	case "building_commercial":
+		return t.BuildingCommercial, true
+	case "building_warehouse":
+		return t.BuildingWarehouse, true
+	case "building_farms":
+		return t.BuildingFarms, true
+	case "building_watch":
+		return t.BuildingWatch, true
+	case "building_infra":
+		return t.BuildingInfra, true
+	case "building_civic":
+		return t.BuildingCivic, true
+	case "construction_building":
+		return t.ConstructionBuilding, true
+	case "construction_days_left":
+		return t.ConstructionDaysLeft, true
+	case "state_tax_rate":
+		return t.StateTaxRate, true
+	case "tax_bonus":
+		return t.TaxBonus, true
+	case "food_cap":
+		return t.FoodCap, true
+	case "garrison_cap":
+		return t.GarrisonCap, true
+	case "state_tax_paid":
+		return t.StateTaxPaid, true
 	}
 	return 0, false
 }
@@ -509,6 +543,40 @@ func townSet(t *Town, f string, v float64) bool {
 		t.MilitiaPayroll = v
 	case "militia_readiness":
 		t.MilitiaReadiness = v
+	case "building_walls":
+		t.BuildingWalls = v
+	case "building_barracks":
+		t.BuildingBarracks = v
+	case "building_training":
+		t.BuildingTraining = v
+	case "building_community":
+		t.BuildingCommunity = v
+	case "building_commercial":
+		t.BuildingCommercial = v
+	case "building_warehouse":
+		t.BuildingWarehouse = v
+	case "building_farms":
+		t.BuildingFarms = v
+	case "building_watch":
+		t.BuildingWatch = v
+	case "building_infra":
+		t.BuildingInfra = v
+	case "building_civic":
+		t.BuildingCivic = v
+	case "construction_building":
+		t.ConstructionBuilding = v
+	case "construction_days_left":
+		t.ConstructionDaysLeft = v
+	case "state_tax_rate":
+		t.StateTaxRate = v
+	case "tax_bonus":
+		t.TaxBonus = v
+	case "food_cap":
+		t.FoodCap = v
+	case "garrison_cap":
+		t.GarrisonCap = v
+	case "state_tax_paid":
+		t.StateTaxPaid = v
 	default:
 		return false
 	}

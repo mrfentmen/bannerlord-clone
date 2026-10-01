@@ -100,6 +100,12 @@ const (
 	OrderTradeRun
 	// OrderBuyMedicine spends money on clinic stock.
 	OrderBuyMedicine
+	// OrderStartConstruction queues a settlement project in a town.
+	// Amount is the building index (see construction package).
+	OrderStartConstruction
+	// OrderSetStateTax sets the state-level tax rate for every town in the
+	// same US state as the order's town. Amount is the rate.
+	OrderSetStateTax
 )
 
 // WriteSet collects every change a tick's systems want to make. Systems stage

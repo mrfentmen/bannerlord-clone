@@ -185,6 +185,9 @@ func run(v *sim.View, w *sim.WriteSet) {
 		// quickly, and it is why metal matters in a war (ECONOMY.md section 4).
 		if attacker.Metal > 0 {
 			work := shared.SafeDiv(attacker.Metal*c.Siege.EquipmentPerBreachDay, c.Siege.BreachDays*c.Siege.BreachWorkPerDay)
+			// City Walls (Bannerlord's Fortifications) slow the breach work
+			// per completed tier.
+			work = shared.SafeDiv(work, 1+t.BuildingWalls*c.Siege.WallLevelSlowdown)
 			w.Add(model.KindParty, s.AttackerID, "party_metal", -attacker.Metal*0.02,
 				"besieging", nil, "siege equipment consumed")
 			breach := s.Breach + work

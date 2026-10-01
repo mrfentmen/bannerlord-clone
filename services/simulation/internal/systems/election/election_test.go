@@ -119,7 +119,7 @@ func TestBestCandidateExcludesDeadAndCaptured(t *testing.T) {
 	v.State.Rulers[3].IsAlive = false
 	v.State.Rulers[2].CapturedBy = 7
 	// Only ruler 1 remains eligible (excluding nobody).
-	if got := bestCandidate(v, 1, -1); got == nil || got.ID != 1 {
+	if got := bestCandidateExcluding(v, 1, -1); got == nil || got.ID != 1 {
 		t.Errorf("expected ruler 1, got %v", got)
 	}
 }
