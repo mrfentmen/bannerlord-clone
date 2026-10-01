@@ -36,11 +36,12 @@ job, not this client's.
 | URL | `https://s3.amazonaws.com/elevation-tiles-prod/terrarium/{z}/{x}/{y}.png` |
 | Upstream provenance | SRTM (Shuttle Radar Topography Mission, NASA), USGS National Map, and other national DEMs merged by Mapzen/AWS Open Data |
 | Licence | Public domain. Produced from US government source data; the tile service is published by AWS Open Data at no charge. |
-| Retrieved | 2026-09-30 |
-| Coverage | Zoom 12, 10 × 8 = 80 tiles, each 256 × 256 px, ≈ 30 m per pixel |
-| Region | 39.60–40.10 N, −105.60 to −104.80 W (55.6 km N–S × 68 km E–W) |
+| Retrieved | 2026-10-01 |
+| Coverage (boot) | Zoom 10, 11 × 14 = 154 tiles, each 256 × 256 px, ≈ 150 m per pixel — this is the list the client fetches at startup (`region.json` → `elevation`) |
+| Coverage (detail) | Zoom 12, 43 × 52 = 2,236 tiles, ≈ 30 m per pixel — shipped as `elevationDetail` in `region.json` for future on-demand streaming (battle maps, close zoom); not fetched at boot |
+| Region | 37.10–40.60 N, −85.30 to −81.60 W — Ohio River Valley (OH/KY metro cluster) |
 | Decoding | `elevation_m = R * 256 + G + B / 256 − 32768`, where R/G/B are the raw bytes of the PNG pixel |
-| File | `public/world/elevation/12/{x}/{y}.png` |
+| File | `public/world/elevation/{z}/{x}/{y}.png` |
 
 Decoding is implemented in `src/world/elevation.ts` and unit-tested against
 hand-decoded pixel values in `src/world/__tests__/elevation.test.ts`.

@@ -13,17 +13,26 @@
 /** Real public datasets. See `public/world/DATA-MANIFEST.md`. */
 export type DataProvenance = "aws-terrarium" | "openstreetmap" | "us-census" | "agent-1-export";
 
+/** One terrarium tile list in `region.json` — boot (`elevation`) or detail (`elevationDetail`). */
+export interface ElevationTileList {
+  encoding: "terrarium";
+  formula: string;
+  zoom: number;
+  tileSize: number;
+  tiles: { z: number; x: number; y: number; path: string }[];
+}
+
 /** `region.json`. The client reads its bounds and tile list from here, never a constant. */
 export interface RegionFile {
   name: string;
   bbox: { south: number; west: number; north: number; east: number };
-  elevation: {
-    encoding: "terrarium";
-    formula: string;
-    zoom: number;
-    tileSize: number;
-    tiles: { z: number; x: number; y: number; path: string }[];
-  };
+  elevation: ElevationTileList;
+  /**
+   * Full-detail tile list (same shape as `elevation`, finer zoom) for future
+   * on-demand streaming — battle maps, close zoom. The boot loader ignores it;
+   * it exists so detail tiles can be fetched without a new wire release.
+   */
+  elevationDetail?: ElevationTileList;
   retrieved: string;
   /**
    * What can honestly be said about which state this region is in.

@@ -10,7 +10,7 @@ defined in `clients/campaign/src/world/types.ts`:
 
 | File | Contents |
 |---|---|
-| `region.json` | V1 region name, bbox, and the zoom-12 terrarium tile list |
+| `region.json` | V1 region name, bbox, the zoom-10 terrarium boot tile list, and the zoom-12 detail list (`elevationDetail`) |
 | `settlements.json` | 487 settlements inside the V1 bbox, biggest first |
 | `network.json` | 439 road + 4,653 rail segments with real TIGER/Line geometry |
 
@@ -30,9 +30,11 @@ Range, fetched as a stopgap before this pipeline landed. Its DATA-MANIFEST.md
 - Roads/rail: U.S. Census Bureau, TIGER/Line 2023 Primary/Secondary Roads and
   Rail Lines. Public domain, no attribution required. Geometry is the real
   polyline from the `route_segments` table, reprojected to `[lat, lon]`.
-- Elevation tiles are **not** bundled: `region.json` lists the 2,236 zoom-12
-  terrarium tiles covering the bbox; fetch them from the AWS Open Data
-  `elevation-tiles-prod` bucket the same way the client's existing tooling does.
+- Elevation tiles are **not** bundled: `region.json` lists the 154 zoom-10
+  boot tiles the client fetches at startup plus the 2,236 zoom-12 detail
+  tiles (`elevationDetail`) for future on-demand streaming; fetch them from
+  the AWS Open Data `elevation-tiles-prod` bucket the same way the client's
+  existing tooling does.
 
 ## Regenerating
 

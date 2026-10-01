@@ -3,7 +3,7 @@
 What these check, and why it matters:
 
 * The tile math is verified against the client's own known tiles: its
-  region.json covers 39.6-40.1 N, -105.6--104.8 W with tiles x=846..847,
+  region.json covers 39.6-40.1 N, -105.6--104.8 W with tiles x=846..855,
   y=1549..1556 at zoom 12. If our formula disagrees, the elevation layer
   would silently misalign.
 * The wire shapes are checked against the field names in
@@ -55,7 +55,7 @@ def test_display_name_never_returns_empty():
 
 def test_slippy_tile_matches_the_clients_known_tiles():
     # The client's region.json (Northern Colorado Front Range, 39.6-40.1 N,
-    # -105.6--104.8 W) lists tiles x=846..847, y=1549..1556 at zoom 12.
+    # -105.6--104.8 W) lists tiles x=846..855, y=1549..1556 at zoom 12.
     # The north-west corner must land on the first of those tiles.
     assert slippy_tile(-105.6, 40.1, 12) == (846, 1549)
 
@@ -67,6 +67,19 @@ def test_tiles_for_bbox_covers_both_corners():
     assert 846 in xs and 1549 in ys
     assert all(t["z"] == 12 for t in tiles)
     assert all(t["path"] == f"elevation/12/{t['x']}/{t['y']}.png" for t in tiles)
+
+
+def test_v1_bbox_boot_tiles_stay_small():
+    # Rowan's blocker: the client fetches every tile in region.json at boot.
+    # At zoom 12 the V1 bbox needs 2,236 tiles (~250 MB); the boot list must
+    # stay near the client's old 80-tile/9 MB Colorado payload.
+    boot = tiles_for_bbox(37.1, -85.3, 40.6, -81.6, zoom=10)
+    detail = tiles_for_bbox(37.1, -85.3, 40.6, -81.6, zoom=12)
+    assert len(boot) < 200, f"boot payload too big: {len(boot)} tiles"
+    assert len(detail) > 2000, f"detail list lost coverage: {len(detail)} tiles"
+    # Every boot tile is covered by detail tiles (same ground, finer grid).
+    boot_xs = {t["x"] for t in boot}
+    assert all(t["x"] // 4 in boot_xs for t in detail)
 
 
 # --- geometry -----------------------------------------------------------------
@@ -156,15 +169,23 @@ def test_build_wire_files_writes_the_three_wire_shapes(tiny_dist: Path, tmp_path
     assert result.settlement_count == 1
     assert result.road_count == 1
     assert result.rail_count == 1
-    assert result.tile_count > 0
+    assert result.boot_tile_count > 0
+    assert result.detail_tile_count > result.boot_tile_count
     assert result.warnings == []
 
     region = json.loads((out / "region.json").read_text())
     assert region["name"] == "Test Valley"
     assert region["bbox"] == {"south": 37.0, "west": -86.0, "north": 38.0, "east": -85.0}
+    # Boot list: small zoom, fast to fetch at startup.
     assert region["elevation"]["encoding"] == "terrarium"
-    assert region["elevation"]["zoom"] == 12
+    assert region["elevation"]["zoom"] == 10
     assert region["elevation"]["tiles"], "tile list must not be empty"
+    assert len(region["elevation"]["tiles"]) == result.boot_tile_count
+    # Detail list: full zoom-12 coverage for on-demand streaming.
+    assert region["elevationDetail"]["encoding"] == "terrarium"
+    assert region["elevationDetail"]["zoom"] == 12
+    assert len(region["elevationDetail"]["tiles"]) == result.detail_tile_count
+    assert all(t["z"] == 12 for t in region["elevationDetail"]["tiles"])
     assert region["retrieved"] == "2026-09-30"
 
     settlements = json.loads((out / "settlements.json").read_text())

@@ -12,8 +12,9 @@ section 5 names this module's output the authoritative replacement:
 
 What is converted, for the V1 region recorded in the ``regions`` table:
 
-  region.json      name, bbox, and the zoom-12 terrarium tile list covering the
-                   bbox, from the pipeline's V1 region decision.
+  region.json      name, bbox, the zoom-10 terrarium boot tile list covering the
+                   bbox, plus the zoom-12 detail list (elevationDetail) for
+                   on-demand streaming, from the pipeline's V1 region decision.
   settlements.json every settlement whose coordinates fall inside the V1 bbox,
                    mapped to the client's WorldSettlementFile shape.
   network.json     every road/rail route segment touching the V1 bbox, with its
@@ -44,9 +45,19 @@ from typing import Any, Iterator
 # Constants. Declared, not magic: each has a comment saying where it comes from.
 # ---------------------------------------------------------------------------
 
-# Zoom level of the terrarium elevation tiles, matching the client's existing
-# region.json (DATA-MANIFEST.md section 2.1: zoom 12, ~30 m per pixel).
-ELEVATION_ZOOM = 12
+# Two zoom levels of terrarium elevation tiles, matching the client's existing
+# region.json shape (DATA-MANIFEST.md section 2.1: zoom 12, ~30 m per pixel).
+#
+# The client fetches every tile in region.json's elevation list at boot. At
+# zoom 12 the V1 bbox needs 2,236 tiles (~250 MB at ~114 KB/tile sampled from
+# the AWS bucket) -- unusable as a boot payload. So the boot list is zoom 10:
+# 154 tiles, ~17 MB, close to the client's old 80-tile/9 MB Colorado payload.
+# The full zoom-12 list ships alongside as elevationDetail so the client can
+# stream high-detail tiles on demand (battle maps, close zoom) without another
+# wire release. Zoom 12 was the client's original convention, not a gameplay
+# choice; the 2,236-tile count is just the V1 bbox at that zoom.
+BOOT_ZOOM = 10
+DETAIL_ZOOM = 12
 ELEVATION_TILE_SIZE = 256
 ELEVATION_ENCODING = "terrarium"
 ELEVATION_FORMULA = "elevation_metres = R * 256 + G + B / 256 - 32768"
@@ -88,7 +99,7 @@ def display_name(census_name: str) -> str:
     return stripped or census_name
 
 
-def slippy_tile(lon: float, lat: float, zoom: int = ELEVATION_ZOOM) -> tuple[int, int]:
+def slippy_tile(lon: float, lat: float, zoom: int = BOOT_ZOOM) -> tuple[int, int]:
     """Standard slippy-map tile (x, y) for a lon/lat at the given zoom."""
     n = 2**zoom
     x = math.floor((lon + 180.0) / 360.0 * n)
@@ -102,7 +113,7 @@ def slippy_tile(lon: float, lat: float, zoom: int = ELEVATION_ZOOM) -> tuple[int
 
 
 def tiles_for_bbox(
-    south: float, west: float, north: float, east: float, zoom: int = ELEVATION_ZOOM
+    south: float, west: float, north: float, east: float, zoom: int = BOOT_ZOOM
 ) -> list[dict[str, Any]]:
     """Every zoom-``zoom`` terrarium tile intersecting the bbox, in tile order."""
     x_west, y_north = slippy_tile(west, north, zoom)
@@ -203,7 +214,8 @@ class WireBuildResult:
     settlement_count: int
     road_count: int
     rail_count: int
-    tile_count: int
+    boot_tile_count: int
+    detail_tile_count: int
     warnings: list[str] = field(default_factory=list)
 
     def log_lines(self) -> list[str]:
@@ -211,7 +223,8 @@ class WireBuildResult:
             f"wire: region {self.region_name!r}",
             f"wire: {self.settlement_count} settlements, "
             f"{self.road_count} roads, {self.rail_count} rail segments, "
-            f"{self.tile_count} elevation tiles",
+            f"{self.boot_tile_count} boot + {self.detail_tile_count} detail "
+            "elevation tiles",
             *(f"wire: WARNING: {w}" for w in self.warnings),
             f"wire: wrote {self.out_dir}/region.json, settlements.json, network.json",
         ]
@@ -259,7 +272,10 @@ def build_wire_files(
     fips_to_name = {str(r["state_fips"]): str(r["name"]) for r in state_profiles}
 
     # --- region.json ---------------------------------------------------------
-    tiles = tiles_for_bbox(south, west, north, east)
+    # Boot list at BOOT_ZOOM (small enough to fetch at startup); the full
+    # DETAIL_ZOOM list ships as elevationDetail for on-demand streaming.
+    boot_tiles = tiles_for_bbox(south, west, north, east, zoom=BOOT_ZOOM)
+    detail_tiles = tiles_for_bbox(south, west, north, east, zoom=DETAIL_ZOOM)
     settlements_all = _load_table(dist, exports, "settlements")
     in_region = [
         s
@@ -276,9 +292,20 @@ def build_wire_files(
         "elevation": {
             "encoding": ELEVATION_ENCODING,
             "formula": ELEVATION_FORMULA,
-            "zoom": ELEVATION_ZOOM,
+            "zoom": BOOT_ZOOM,
             "tileSize": ELEVATION_TILE_SIZE,
-            "tiles": tiles,
+            "tiles": boot_tiles,
+        },
+        # Optional for the client: same shape as elevation, at full detail zoom.
+        # The client's loader only reads `elevation`; this is here so a future
+        # progressive/streaming loader can fetch detail tiles without a new
+        # wire release.
+        "elevationDetail": {
+            "encoding": ELEVATION_ENCODING,
+            "formula": ELEVATION_FORMULA,
+            "zoom": DETAIL_ZOOM,
+            "tileSize": ELEVATION_TILE_SIZE,
+            "tiles": detail_tiles,
         },
         "retrieved": retrieved,
         "stateCoverage": {
@@ -409,6 +436,7 @@ def build_wire_files(
         settlement_count=len(wire_settlements),
         road_count=len(roads),
         rail_count=len(rail),
-        tile_count=len(tiles),
+        boot_tile_count=len(boot_tiles),
+        detail_tile_count=len(detail_tiles),
         warnings=warnings,
     )
