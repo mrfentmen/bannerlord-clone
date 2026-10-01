@@ -150,6 +150,19 @@ type Battle struct {
 	byID []*Unit
 	// leaders are the commanders, in the order supplied, with ids assigned.
 	leaders []Leader
+	// covers are the destructible obstacles on the field: fences, walls,
+	// vehicles. The aimed-fire stage reads them for interception and writes
+	// HP damage to them directly; it is the only stage that touches them, so
+	// no staging buffer is needed. A test or a scenario sets them up before
+	// the battle runs.
+	covers []Cover
+	// shotEvents is the per-tick buffer of shot event bundles. The aimed-fire
+	// stage appends here rather than emitting directly, and the commit flushes
+	// them at a fixed point. Emitting straight from the stage would interleave
+	// shot events with morale events in stage-execution order, which would
+	// make the event log depend on the stage order and break the decoupling
+	// the stage-order test pins down.
+	shotEvents []Event
 
 	// meleeHash and fireHash are the two spatial hashes, rebuilt once per tick
 	// from committed state before any stage reads them.
@@ -478,6 +491,7 @@ func validateConstants(c *config.Battle) error {
 	}{
 		{"tick_seconds", c.TickSeconds, 0.0001, 1000, "a tick of zero length never advances the clock"},
 		{"max_ticks", c.MaxTicks, 1, 10000000, "a tick bound below one cannot run a battle"},
+		{"stalemate_ticks", c.StalemateTicks, 1, 10000000, "a no-casualty timeout below one tick would end every battle instantly"},
 		{"max_units_per_side", c.MaxUnitsPerSide, 1, 10000000, "a side limit below one rejects every force"},
 		{"grid_cell_size", c.GridCellSize, 0.01, 100000, "a cell must have a positive width"},
 		{"ranged_grid_cell_size", c.RangedGridCellSize, 0.01, 1000000, "a cell must have a positive width"},
@@ -499,6 +513,18 @@ func validateConstants(c *config.Battle) error {
 		{"ranged_hit_chance_base", c.RangedHitChanceBase, 0, 1, "a chance outside 0-1 is not a chance"},
 		{"ranged_hit_chance_skill_weight", c.RangedHitChanceSkillWeight, 0, 1, "skill adds a share of a chance"},
 		{"ranged_hit_effectiveness_floor", c.RangedHitEffectivenessFloor, 0, 1, "the share of a hit chance a shaken shooter keeps is a share"},
+		{"ballistics_gravity", c.BallisticsGravity, 0.1, 30, "bullets fall; zero gravity is a different universe"},
+		{"ballistics_target_radius", c.BallisticsTargetRadius, 0.1, 2, "a target radius outside man-size is not a man"},
+		{"ballistics_sprint_speed", c.BallisticsSprintSpeed, 0.5, 20, "a sprint threshold below a walk is not a sprint"},
+		{"ballistics_move_spread_mult", c.BallisticsMoveSpreadMult, 1, 20, "moving cannot steady the aim"},
+		{"ballistics_sprint_spread_mult", c.BallisticsSprintSpreadMult, 1, 30, "sprinting cannot steady the aim"},
+		{"ballistics_suppression_spread_mult", c.BallisticsSuppressionSpreadMult, 0, 10, "a spread multiplier is a multiplier"},
+		{"ballistics_suppression_accuracy_mult", c.BallisticsSuppressionAccuracyMult, 0, 1, "the pinned accuracy share is a share"},
+		{"ballistics_set_stance_spread_mult", c.BallisticsSetStanceSpreadMult, 0.1, 1, "a braced stance steadies, it does not scatter"},
+		{"ballistics_cover_bleed", c.BallisticsCoverBleed, 0, 1, "the damage share passing through cover is a share"},
+		{"ballistics_cover_low_mult", c.BallisticsCoverLowMult, 0, 1, "low cover's hit-chance share is a share"},
+		{"ballistics_cover_high_mult", c.BallisticsCoverHighMult, 0, 1, "high cover's hit-chance share is a share"},
+		{"ballistics_recoil_max", c.BallisticsRecoilMax, 0.01, 1, "a recoil cap below one kick is no cap at all"},
 		{"morale_recovery_suppression_band", c.MoraleRecoverySuppressionBand, 0, 1, "the suppression band at which a man gets his head up is a share of full suppression"},
 	}
 	for _, ck := range checks {
@@ -619,6 +645,12 @@ func validateUnit(u *Unit, side Side, idx int) error {
 	}
 	if !isFinite(u.X) || !isFinite(u.Y) {
 		return fail("Unit.Position", fmt.Sprintf("position is (%g, %g); it must be finite", u.X, u.Y))
+	}
+	if u.Weapon > WeaponMarksman {
+		return fail("Unit.Weapon", fmt.Sprintf("weapon is %d, which is no weapon in the table", u.Weapon))
+	}
+	if u.Recoil < 0 || !isFinite(u.Recoil) {
+		return fail("Unit.Recoil", fmt.Sprintf("recoil is %g; it must be finite and not negative", u.Recoil))
 	}
 	return nil
 }
@@ -789,6 +821,14 @@ func (b *Battle) commit() error {
 		u.MeleeCooldown = cooldownAfter(d.swingFired, s.MeleeCooldown, c.MeleeSwingSeconds, c.TickSeconds)
 		u.RangedCooldown = cooldownAfter(d.shotFired, s.RangedCooldown, c.RangedFireInterval, c.TickSeconds)
 
+		// Recoil: this tick's kick is added, one tick of recovery subtracted,
+		// clamped to the configured max. Firing faster than the weapon
+		// recovers is what walks full-auto fire upward.
+		if d.recoilKick > 0 || s.Recoil > 0 {
+			w := weaponTable[u.Weapon]
+			u.Recoil = applyRecoil(s.Recoil, d.recoilKick, w.recoilRecovery, c.TickSeconds, c.BallisticsRecoilMax)
+		}
+
 		u.X += d.DX
 		u.Y += d.DY
 		u.VX = d.DX / c.TickSeconds
@@ -856,6 +896,14 @@ func (b *Battle) commit() error {
 	if routed > b.stats.PeakRouted {
 		b.stats.PeakRouted = routed
 	}
+
+	// Shot bundles are flushed here, in unit-id order, after every stage has
+	// run. The aimed-fire stage only buffers them, so the event log never
+	// depends on where the stage sat in the tick's order.
+	for _, e := range b.shotEvents {
+		b.addEvent(e)
+	}
+	b.shotEvents = b.shotEvents[:0]
 	return nil
 }
 

@@ -307,6 +307,14 @@ type Unit struct {
 	// that leaves it at zero has its units credited with the configured load
 	// instead, which is stated in the report rather than hidden.
 	AmmoStart float64
+	// Weapon is the small arm a ranged unit carries. It selects the muzzle
+	// velocity, base spread, recoil, and ammo type from the weapon table in
+	// ballistics.go. The zero value is the service rifle.
+	Weapon WeaponKind
+	// Recoil is the accumulated unrecovered kick in radians. Every shot adds
+	// the weapon's kick; every tick recovers some. It widens the shot spread,
+	// which is what makes full-auto fire climb without burst control.
+	Recoil float64
 
 	// Suppression is 0 to SuppressionCap. It accumulates under fire, decays
 	// in a lull, and reduces both damage and accuracy while it is high.
@@ -388,6 +396,10 @@ type snapshot struct {
 	// they are part of the state every stage reads rather than something a
 	// stage infers.
 	VX, VY float64
+	// Recoil is the accumulated unrecovered kick going into this tick, in
+	// radians. The aimed-fire stage reads it for the spread and stages new
+	// kick into the delta; the commit applies recovery.
+	Recoil float64
 }
 
 // take copies a unit's tick-visible state.
@@ -405,6 +417,7 @@ func take(u *Unit) snapshot {
 		Y:              u.Y,
 		VX:             u.VX,
 		VY:             u.VY,
+		Recoil:         u.Recoil,
 	}
 }
 
@@ -445,6 +458,10 @@ type delta struct {
 	meleeHits, rangedHits float64
 	// suppressionDealt is the suppression this unit put on others this tick.
 	suppressionDealt float64
+	// recoilKick is the radians of kick this tick's shot added. The commit
+	// adds it to the unit's accumulated recoil after subtracting recovery,
+	// which is what makes firing faster than recovery climb.
+	recoilKick float64
 
 	// newStatus is the status the commit will set, and newStatusSet is true
 	// once a stage has staged one.
