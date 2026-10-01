@@ -25,19 +25,19 @@ func System() sim.System {
 
 func run(v *sim.View, w *sim.WriteSet) {
 	// --- clan succession ---
-	for _, id := range v.State.ClanIDs() {
-		cl := v.State.Clans[id]
+	for _, id := range v.State.OrganizationIDs() {
+		cl := v.State.Organizations[id]
 		if cl == nil {
 			continue
 		}
-		leader := v.State.Rulers[cl.LeaderID]
+		leader := v.State.Leaders[cl.LeaderID]
 		if leader != nil && leader.IsAlive {
 			continue
 		}
 		// Leader is dead or missing: find the eldest living member.
-		var heir *model.Ruler
+		var heir *model.Leader
 		for _, mid := range cl.MemberIDs {
-			m := v.State.Rulers[mid]
+			m := v.State.Leaders[mid]
 			if m == nil || !m.IsAlive || m.ID == cl.LeaderID {
 				continue
 			}
@@ -49,10 +49,10 @@ func run(v *sim.View, w *sim.WriteSet) {
 			shared.PairI("clan", id),
 			shared.PairI("old_leader", cl.LeaderID),
 		)
-		causes := v.Log.RecentFor(model.KindClan, id,
+		causes := v.Log.RecentFor(model.KindOrganization, id,
 			[]string{"clan_renown"}, 2)
 		if heir != nil {
-			w.Set(model.KindClan, id, "clan_leader", float64(heir.ID),
+			w.Set(model.KindOrganization, id, "clan_leader", float64(heir.ID),
 				read, causes, "succession: eldest member inherits")
 			continue
 		}
@@ -67,9 +67,9 @@ func run(v *sim.View, w *sim.WriteSet) {
 		// entity removal stages no row of its own, and a dynasty dying out is
 		// exactly the kind of event the log exists to show. The delete below
 		// is applied after it, so the row survives the clan.
-		w.Set(model.KindClan, id, "clan_leader", -1, read, causes,
+		w.Set(model.KindOrganization, id, "clan_leader", -1, read, causes,
 			"clan dissolved: no heir")
-		w.DeleteEntity(model.KindClan, id)
+		w.DeleteEntity(model.KindOrganization, id)
 	}
 	// --- side succession ---
 	for _, sid := range v.State.SideIDs() {
@@ -77,19 +77,19 @@ func run(v *sim.View, w *sim.WriteSet) {
 		if sd == nil {
 			continue
 		}
-		leader := v.State.Rulers[sd.LeaderID]
+		leader := v.State.Leaders[sd.LeaderID]
 		if leader != nil && leader.IsAlive {
 			continue
 		}
 		// Find the highest-renown living clan leader of this side.
-		var best *model.Ruler
+		var best *model.Leader
 		bestRenown := -1.0
-		for _, cid := range v.State.ClanIDs() {
-			cl := v.State.Clans[cid]
+		for _, cid := range v.State.OrganizationIDs() {
+			cl := v.State.Organizations[cid]
 			if cl == nil || cl.SideID != sid {
 				continue
 			}
-			l := v.State.Rulers[cl.LeaderID]
+			l := v.State.Leaders[cl.LeaderID]
 			if l == nil || !l.IsAlive {
 				continue
 			}
@@ -121,7 +121,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 // town becomes unowned everywhere else too (the council's secession and the
 // security system's rebellion), and it is the value every other system tests
 // for independence.
-func releaseFiefs(v *sim.View, w *sim.WriteSet, cl *model.Clan, causes []int) {
+func releaseFiefs(v *sim.View, w *sim.WriteSet, cl *model.Organization, causes []int) {
 	held := make(map[int]bool, len(cl.MemberIDs)+1)
 	for _, mid := range cl.MemberIDs {
 		held[mid] = true
@@ -151,7 +151,7 @@ func releaseFiefs(v *sim.View, w *sim.WriteSet, cl *model.Clan, causes []int) {
 func disownWorkshops(v *sim.View, w *sim.WriteSet, clanID int, read string, causes []int) {
 	for _, wid := range v.State.WorkshopIDs() {
 		wk := v.State.Workshops[wid]
-		if wk == nil || wk.OwnerClanID != clanID {
+		if wk == nil || wk.OwnerOrganizationID != clanID {
 			continue
 		}
 		w.Set(model.KindWorkshop, wid, "workshop_owner_clan", -1, read, causes,

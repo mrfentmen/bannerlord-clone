@@ -51,9 +51,9 @@ func Valid(k Kind) bool {
 // would test the faction AI instead.
 type Player struct {
 	Kind Kind
-	// RulerID is the player character, who holds TownID.
-	RulerID int
-	TownID  int
+	// LeaderID is the player character, who holds TownID.
+	LeaderID int
+	TownID   int
 	// SideID is the player's side.
 	SideID int
 	cfg    *config.Config
@@ -61,7 +61,7 @@ type Player struct {
 
 // New creates a player profile attached to a ruler.
 func New(kind Kind, rulerID, townID, sideID int, cfg *config.Config) *Player {
-	return &Player{Kind: kind, RulerID: rulerID, TownID: townID, SideID: sideID, cfg: cfg}
+	return &Player{Kind: kind, LeaderID: rulerID, TownID: townID, SideID: sideID, cfg: cfg}
 }
 
 // Orders returns the orders this profile wants issued today, given what it can
@@ -91,10 +91,10 @@ func (p *Player) Orders(v *sim.View) []sim.Order {
 		// connect.
 		if t.TaxRate < c.Currency.TaxMaxRate {
 			out = append(out, sim.Order{
-				Kind:    sim.OrderSetTax,
-				RulerID: p.RulerID,
-				TownID:  p.TownID,
-				Amount:  c.Currency.TaxMaxRate,
+				Kind:     sim.OrderSetTax,
+				LeaderID: p.LeaderID,
+				TownID:   p.TownID,
+				Amount:   c.Currency.TaxMaxRate,
 			})
 		}
 		// A greedy player also refuses to fund anything that is not a tax
@@ -106,22 +106,22 @@ func (p *Player) Orders(v *sim.View) []sim.Order {
 		// produces one.
 		if t.TaxRate < c.Currency.TaxMaxRate {
 			out = append(out, sim.Order{
-				Kind:    sim.OrderSetTax,
-				RulerID: p.RulerID,
-				TownID:  p.TownID,
-				Amount:  c.Currency.TaxMaxRate,
+				Kind:     sim.OrderSetTax,
+				LeaderID: p.LeaderID,
+				TownID:   p.TownID,
+				Amount:   c.Currency.TaxMaxRate,
 			})
 		}
-		if party := v.State.Parties[playerParty(v, p.RulerID)]; party != nil && party.Troops > 0 {
+		if party := v.State.Parties[playerParty(v, p.LeaderID)]; party != nil && party.Troops > 0 {
 			// March at the most distant reachable enemy town, which is what
 			// makes the supply line too long. A cautious player would not; this
 			// one does not compute the distance at all.
 			if far := farthestEnemy(v, party.ID); far > 0 {
 				out = append(out, sim.Order{
-					Kind:    sim.OrderMarchTo,
-					RulerID: p.RulerID,
-					TownID:  p.TownID,
-					Target:  far,
+					Kind:     sim.OrderMarchTo,
+					LeaderID: p.LeaderID,
+					TownID:   p.TownID,
+					Target:   far,
 				})
 			}
 		}
@@ -129,10 +129,10 @@ func (p *Player) Orders(v *sim.View) []sim.Order {
 		// chain 3's cause: the roads stop being patrolled.
 		if t.Garrison > 0 {
 			out = append(out, sim.Order{
-				Kind:    sim.OrderMoveGarrison,
-				RulerID: p.RulerID,
-				TownID:  p.TownID,
-				Amount:  -c.Security.GarrisonDetachShare * t.Garrison,
+				Kind:     sim.OrderMoveGarrison,
+				LeaderID: p.LeaderID,
+				TownID:   p.TownID,
+				Amount:   -c.Security.GarrisonDetachShare * t.Garrison,
 			})
 		}
 
@@ -144,42 +144,42 @@ func (p *Player) Orders(v *sim.View) []sim.Order {
 		target := c.Campaign.TaxCutLoyaltyRate
 		if t.TaxRate > target {
 			out = append(out, sim.Order{
-				Kind:    sim.OrderSetTax,
-				RulerID: p.RulerID,
-				TownID:  p.TownID,
-				Amount:  target,
+				Kind:     sim.OrderSetTax,
+				LeaderID: p.LeaderID,
+				TownID:   p.TownID,
+				Amount:   target,
 			})
 		}
 		if needy, ok := neediestNeighbour(v, p.TownID); ok {
 			out = append(out, sim.Order{
-				Kind:    sim.OrderSendAid,
-				RulerID: p.RulerID,
-				TownID:  p.TownID,
-				Target:  needy,
-				Amount:  c.Campaign.AidLoadShare,
+				Kind:     sim.OrderSendAid,
+				LeaderID: p.LeaderID,
+				TownID:   p.TownID,
+				Target:   needy,
+				Amount:   c.Campaign.AidLoadShare,
 			})
 		}
 		// And keeps medicine in stock, which is the other half of chain 5.
 		want := t.Population * c.World.MedicinePerCapita * c.Campaign.CaretakerMedicineStock
 		if t.MedicineStock < want {
 			out = append(out, sim.Order{
-				Kind:    sim.OrderBuyMedicine,
-				RulerID: p.RulerID,
-				TownID:  p.TownID,
-				Amount:  want - t.MedicineStock,
+				Kind:     sim.OrderBuyMedicine,
+				LeaderID: p.LeaderID,
+				TownID:   p.TownID,
+				Amount:   want - t.MedicineStock,
 			})
 		}
 
 	case Trader:
 		// Runs a caravan whenever a margin exists and the roads are safe
 		// enough. Tests the economy and the road safety systems.
-		if party := v.State.Parties[playerParty(v, p.RulerID)]; party != nil && party.Troops > 0 {
+		if party := v.State.Parties[playerParty(v, p.LeaderID)]; party != nil && party.Troops > 0 {
 			if target, ok := bestTradeTarget(v, party.HomeTown); ok {
 				out = append(out, sim.Order{
-					Kind:    sim.OrderTradeRun,
-					RulerID: p.RulerID,
-					TownID:  p.TownID,
-					Target:  target,
+					Kind:     sim.OrderTradeRun,
+					LeaderID: p.LeaderID,
+					TownID:   p.TownID,
+					Target:   target,
 				})
 			}
 		}
@@ -187,10 +187,10 @@ func (p *Player) Orders(v *sim.View) []sim.Order {
 		// bad market.
 		if t.TaxRate > c.Campaign.TraderTaxCeiling {
 			out = append(out, sim.Order{
-				Kind:    sim.OrderSetTax,
-				RulerID: p.RulerID,
-				TownID:  p.TownID,
-				Amount:  c.Campaign.TraderTaxCeiling,
+				Kind:     sim.OrderSetTax,
+				LeaderID: p.LeaderID,
+				TownID:   p.TownID,
+				Amount:   c.Campaign.TraderTaxCeiling,
 			})
 		}
 	}
@@ -199,7 +199,7 @@ func (p *Player) Orders(v *sim.View) []sim.Order {
 
 // playerParty returns a ruler's party id, or -1.
 func playerParty(v *sim.View, rulerID int) int {
-	if r := v.State.Rulers[rulerID]; r != nil {
+	if r := v.State.Leaders[rulerID]; r != nil {
 		return r.PartyID
 	}
 	return -1

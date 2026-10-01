@@ -33,8 +33,8 @@ func run(v *sim.View, w *sim.WriteSet) {
 	// Rulers decide on a stagger, not all on the same tick, so a large roster
 	// does not produce a synchronised world where everyone acts at once. The
 	// stagger is by id, which is deterministic.
-	for _, id := range v.State.RulerIDsSorted() {
-		r := v.State.Rulers[id]
+	for _, id := range v.State.LeaderIDsSorted() {
+		r := v.State.Leaders[id]
 		if !r.IsAlive || r.CapturedBy >= 0 {
 			continue
 		}
@@ -74,7 +74,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 			shared.Pair("loyalty_to_leader", r.LoyaltyToLeader),
 			shared.Pair("decision_score", score),
 		)
-		causes := v.Log.RecentFor(model.KindRuler, id,
+		causes := v.Log.RecentFor(model.KindLeader, id,
 			[]string{"influence", "renown", "loyalty_to_leader", "ruler_town", "service_quality"}, 4)
 		if r.TownID >= 0 {
 			causes = append(causes, v.Log.RecentFor(model.KindTown, r.TownID,
@@ -86,7 +86,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 			w.Set(model.KindParty, p.ID, "decision_reasons", float64(reason), read, causes, reasonText(reason))
 			w.Set(model.KindParty, p.ID, "decision_score", score, read, causes, reasonText(reason))
 		}
-		w.Set(model.KindRuler, id, "decision_reasons", float64(reason), read, causes, reasonText(reason))
+		w.Set(model.KindLeader, id, "decision_reasons", float64(reason), read, causes, reasonText(reason))
 
 		// Taxes. A ruler's tax policy is a decision like any other, and it is
 		// where chain 1 starts: a greedy or ambitious ruler taxes a prosperous
@@ -100,7 +100,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 // can break a tie but never overturn a real difference in state, which is the
 // distinction CAUSE_EFFECT.md section 7 draws between a random roll and a
 // scripted outcome.
-func decide(v *sim.View, r *model.Ruler) (model.Intention, model.Reason, float64) {
+func decide(v *sim.View, r *model.Leader) (model.Intention, model.Reason, float64) {
 	c := v.Cfg
 	jitter := func(base float64) float64 {
 		return base + v.Rng.Range(-c.RulerAI.Randomness, c.RulerAI.Randomness)
@@ -297,7 +297,7 @@ func decide(v *sim.View, r *model.Ruler) (model.Intention, model.Reason, float64
 // ruler raises taxes when they are greedy and their town is comfortable, cuts
 // them when their town is angry or when they are generous, and the consequences
 // are computed by the unrest, market, and loyalty systems.
-func setTax(v *sim.View, w *sim.WriteSet, r *model.Ruler) {
+func setTax(v *sim.View, w *sim.WriteSet, r *model.Leader) {
 	c := v.Cfg
 	home := v.State.Towns[r.TownID]
 	if home == nil {
@@ -365,7 +365,7 @@ func setTax(v *sim.View, w *sim.WriteSet, r *model.Ruler) {
 
 // neediestNeighbour returns the nearest friendly town that most needs help, and
 // how badly it needs it.
-func neediestNeighbour(v *sim.View, r *model.Ruler) (int, float64) {
+func neediestNeighbour(v *sim.View, r *model.Leader) (int, float64) {
 	c := v.Cfg
 	best, bestNeed := -1, 0.0
 	for _, tid := range v.State.TownIDs() {
@@ -392,7 +392,7 @@ func neediestNeighbour(v *sim.View, r *model.Ruler) (int, float64) {
 
 // bestTarget returns the nearest enemy town worth attacking, how weak it is,
 // and how much the ruler dislikes it.
-func bestTarget(v *sim.View, r *model.Ruler) (int, float64, float64) {
+func bestTarget(v *sim.View, r *model.Leader) (int, float64, float64) {
 	c := v.Cfg
 	best, bestScore, bestHate := -1, 0.0, 0.0
 	for _, tid := range v.State.TownIDs() {
@@ -444,7 +444,7 @@ func bestTarget(v *sim.View, r *model.Ruler) (int, float64, float64) {
 
 // richestNeighbourVillage returns the nearest village of another side worth
 // raiding, and what it is worth.
-func richestNeighbourVillage(v *sim.View, r *model.Ruler) (int, float64) {
+func richestNeighbourVillage(v *sim.View, r *model.Leader) (int, float64) {
 	c := v.Cfg
 	best, bestValue := -1, 0.0
 	for _, vid := range v.State.VillageIDs() {
@@ -474,7 +474,7 @@ func richestNeighbourVillage(v *sim.View, r *model.Ruler) (int, float64) {
 
 // bestTradePartner returns the nearest town of another side with the best terms
 // on offer, and the margin.
-func bestTradePartner(v *sim.View, r *model.Ruler) (int, float64) {
+func bestTradePartner(v *sim.View, r *model.Leader) (int, float64) {
 	c := v.Cfg
 	best, bestMargin := -1, 0.0
 	for _, tid := range v.State.TownIDs() {
@@ -499,7 +499,7 @@ func bestTradePartner(v *sim.View, r *model.Ruler) (int, float64) {
 }
 
 // bestBlockadeTarget returns the nearest port of an enemy side worth starving.
-func bestBlockadeTarget(v *sim.View, r *model.Ruler) (int, float64) {
+func bestBlockadeTarget(v *sim.View, r *model.Leader) (int, float64) {
 	c := v.Cfg
 	best, bestNeed := -1, 0.0
 	for _, tid := range v.State.TownIDs() {
@@ -531,7 +531,7 @@ func bestBlockadeTarget(v *sim.View, r *model.Ruler) (int, float64) {
 // distanceFactor discounts a choice by how far away its target is. A ruler
 // two hundred leagues from a problem will not solve it, and distance is the
 // single most important limit on what any AI in this game can do.
-func distanceFactor(v *sim.View, r *model.Ruler, targetTown int) float64 {
+func distanceFactor(v *sim.View, r *model.Leader, targetTown int) float64 {
 	d := 0.0
 	if r.TownID >= 0 && targetTown >= 0 {
 		d = v.State.DistanceBetweenTowns(r.TownID, targetTown)

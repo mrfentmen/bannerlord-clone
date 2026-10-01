@@ -94,7 +94,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 		// A ruler's own leadership steadies his troops. Generosity pays: a
 		// generous commander gets more out of the same pay, which is
 		// RULERS.md section 4's trait requirement made mechanical.
-		if r := v.State.Rulers[p.RulerID]; r != nil {
+		if r := v.State.Leaders[p.LeaderID]; r != nil {
 			morale += (r.Traits.Generosity - 0.5) * c.Upkeep.LeadershipMoraleWeight
 			// Valor is contagious in the other direction: a commander the
 			// troops think will not flinch holds them together.
@@ -131,8 +131,8 @@ func run(v *sim.View, w *sim.WriteSet) {
 				"desertion")
 			// Desertion is a political problem as well as a military one: the
 			// ruler who lost them looks weak.
-			if p.RulerID >= 0 {
-				w.Add(model.KindRuler, p.RulerID, "influence", -c.Upkeep.DesertionInfluenceLoss*desertions,
+			if p.LeaderID >= 0 {
+				w.Add(model.KindLeader, p.LeaderID, "influence", -c.Upkeep.DesertionInfluenceLoss*desertions,
 					shared.PairF("deserters", desertions), nil, "troops deserted")
 			}
 			// A party that is down to a handful of stragglers is finished.

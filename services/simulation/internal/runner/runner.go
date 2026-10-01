@@ -25,10 +25,10 @@ type Options struct {
 	Years float64
 	// Profile is the scripted player behaviour, or None for no player.
 	Profile profile.Kind
-	// PlayerRulerID and PlayerTownID are which ruler and town the profile acts
+	// PlayerLeaderID and PlayerTownID are which ruler and town the profile acts
 	// through. Zero values select the first suitable ruler found.
-	PlayerRulerID int
-	PlayerTownID  int
+	PlayerLeaderID int
+	PlayerTownID   int
 	// Settlements, when non-empty, are the imported real places to use. When
 	// empty the generator synthesises a map, and the run records that it did.
 	Settlements []worldgen.Settlement
@@ -48,10 +48,10 @@ type Outcome struct {
 	// report can say which it used rather than implying both.
 	RealSettlements  int
 	SynthSettlements int
-	// PlayerRulerID and PlayerTownID are the profile's actual subject, which
+	// PlayerLeaderID and PlayerTownID are the profile's actual subject, which
 	// may have been auto-selected.
-	PlayerRulerID int
-	PlayerTownID  int
+	PlayerLeaderID int
+	PlayerTownID   int
 	// Err is a non-fatal note, such as a config value that was clamped.
 	Notes []string
 }
@@ -85,7 +85,7 @@ func Run(cfg *config.Config, opts Options) (*Outcome, error) {
 				fmt.Sprintf("profile %s requested but no suitable ruler was found; run proceeded with no player", opts.Profile),
 			})
 		}
-		p = profile.New(opts.Profile, rulerID, townID, gen.State.Rulers[rulerID].SideID, cfg)
+		p = profile.New(opts.Profile, rulerID, townID, gen.State.Leaders[rulerID].SideID, cfg)
 	}
 
 	// --- engine ---
@@ -114,7 +114,7 @@ func Run(cfg *config.Config, opts Options) (*Outcome, error) {
 	// Hold the profile's subject on the outcome so the report can name it.
 	playerRuler, playerTown := -1, -1
 	if p != nil {
-		playerRuler, playerTown = p.RulerID, p.TownID
+		playerRuler, playerTown = p.LeaderID, p.TownID
 	}
 	return finish(cfg, opts, gen, log, p, ticks, notes, playerRuler, playerTown)
 }
@@ -123,15 +123,15 @@ func Run(cfg *config.Config, opts Options) (*Outcome, error) {
 // ones if they exist, otherwise the first landed, non-leader ruler of a side
 // that still holds a town.
 func pickPlayer(cfg *config.Config, state *model.State, opts Options) (int, int) {
-	if opts.PlayerRulerID > 0 {
-		if r := state.Rulers[opts.PlayerRulerID]; r != nil && !r.Leader && r.TownID >= 0 {
+	if opts.PlayerLeaderID > 0 {
+		if r := state.Leaders[opts.PlayerLeaderID]; r != nil && !r.Leader && r.TownID >= 0 {
 			return r.ID, r.TownID
 		}
 	}
 	if opts.PlayerTownID > 0 {
 		if t := state.Towns[opts.PlayerTownID]; t != nil {
-			for _, rid := range state.RulerIDsSorted() {
-				r := state.Rulers[rid]
+			for _, rid := range state.LeaderIDsSorted() {
+				r := state.Leaders[rid]
 				if r.SideID == t.HolderSide && r.TownID == t.ID {
 					return rid, t.ID
 				}
@@ -139,8 +139,8 @@ func pickPlayer(cfg *config.Config, state *model.State, opts Options) (int, int)
 			return -1, t.ID
 		}
 	}
-	for _, rid := range state.RulerIDsSorted() {
-		r := state.Rulers[rid]
+	for _, rid := range state.LeaderIDsSorted() {
+		r := state.Leaders[rid]
 		if r.Leader || r.TownID < 0 {
 			continue
 		}
@@ -160,7 +160,7 @@ func finish(cfg *config.Config, opts Options, gen *worldgen.Result, log *cause.L
 	if len(extra) >= 2 {
 		playerRuler, playerTown = extra[0], extra[1]
 	} else if p != nil {
-		playerRuler, playerTown = p.RulerID, p.TownID
+		playerRuler, playerTown = p.LeaderID, p.TownID
 	}
 	m := metrics.Summary(cfg, gen.State, log, opts.Seed, profileName)
 	chainResults := chains.Check(log, gen.State)
@@ -172,7 +172,7 @@ func finish(cfg *config.Config, opts Options, gen *worldgen.Result, log *cause.L
 		Chains:           chainResults,
 		RealSettlements:  gen.RealCount,
 		SynthSettlements: gen.SynthCount,
-		PlayerRulerID:    playerRuler,
+		PlayerLeaderID:   playerRuler,
 		PlayerTownID:     playerTown,
 		Notes:            notes,
 	}, nil

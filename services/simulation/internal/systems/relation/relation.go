@@ -66,7 +66,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 		if betrayer < 0 || victim < 0 {
 			continue
 		}
-		if !v.State.Exists(model.KindRuler, betrayer) || !v.State.Exists(model.KindRuler, victim) {
+		if !v.State.Exists(model.KindLeader, betrayer) || !v.State.Exists(model.KindLeader, victim) {
 			continue
 		}
 		oathRead := shared.ReadString(
@@ -74,13 +74,13 @@ func run(v *sim.View, w *sim.WriteSet) {
 			shared.PairI("promisee", victim),
 			shared.PairI("oath_kind", o.Kind),
 			shared.PairF("made_tick", float64(o.MadeTick)))
-		causes := v.Log.RecentFor(model.KindRuler, betrayer,
+		causes := v.Log.RecentFor(model.KindLeader, betrayer,
 			[]string{"oath_made", "broken_oaths", "renown", "influence", "relation_score"}, 4)
 		w.AddRelation(betrayer, victim, -c.Relation.BrokenOathRelation, oathRead, causes, "broke a pledge")
 		// Allies of the victim are the ones who hear about it. The share
 		// decays with the victim's own relation to the betrayer, so a betrayal
 		// of a stranger travels less far than one of a close ally.
-		for _, other := range v.State.RulerIDsSorted() {
+		for _, other := range v.State.LeaderIDsSorted() {
 			if other == betrayer || other == victim {
 				continue
 			}
@@ -97,11 +97,11 @@ func run(v *sim.View, w *sim.WriteSet) {
 		}
 		// The betrayal costs the betrayer influence as well as opinion. The
 		// influence system reads the counter.
-		w.Add(model.KindRuler, betrayer, "broken_oaths", 1,
+		w.Add(model.KindLeader, betrayer, "broken_oaths", 1,
 			"broke an oath", nil, "")
-		w.Add(model.KindRuler, betrayer, "influence", -c.Influence.BrokenOathInfluence,
+		w.Add(model.KindLeader, betrayer, "influence", -c.Influence.BrokenOathInfluence,
 			"broke an oath", nil, "broke a pledge")
-		w.Add(model.KindRuler, betrayer, "renown", -c.Influence.RenownPerBrokenOath,
+		w.Add(model.KindLeader, betrayer, "renown", -c.Influence.RenownPerBrokenOath,
 			"broke an oath", nil, "known as a oath-breaker")
 	}
 
@@ -117,15 +117,15 @@ func run(v *sim.View, w *sim.WriteSet) {
 				continue
 			}
 			sum, n := 0.0, 0.0
-			for _, rid := range v.State.RulerIDsSorted() {
-				r := v.State.Rulers[rid]
+			for _, rid := range v.State.LeaderIDsSorted() {
+				r := v.State.Leaders[rid]
 				if r.SideID != a {
 					continue
 				}
 				// Only opinion of the other side's leaders and notable rulers
 				// counts; a ruler's view of a random farmer on the other side is
 				// not a diplomatic position.
-				other := v.State.Rulers[r.RelationsWith]
+				other := v.State.Leaders[r.RelationsWith]
 				if other == nil || other.SideID != b {
 					continue
 				}
@@ -178,8 +178,8 @@ func run(v *sim.View, w *sim.WriteSet) {
 			// their own opinion of b's leader.
 			willing, total := 0.0, 0.0
 			leader := v.State.Sides[b].LeaderID
-			for _, rid := range v.State.RulerIDsSorted() {
-				r := v.State.Rulers[rid]
+			for _, rid := range v.State.LeaderIDsSorted() {
+				r := v.State.Leaders[rid]
 				if r.SideID != a || r.Leader {
 					continue
 				}

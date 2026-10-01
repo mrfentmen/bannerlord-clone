@@ -240,7 +240,7 @@ var specs = []spec{
 		steps: []link{
 			{fromField: "side_gold", toField: "wages_owed", fromKind: model.KindSide, toKind: model.KindParty, label: "the gold reserve was spent on wages"},
 			{fromField: "wages_owed", toField: "is_mercenary", fromKind: model.KindParty, toKind: model.KindParty, label: "unpaid mercenaries left"},
-			{fromField: "ruler_side", toField: "last_defection", fromKind: model.KindRuler, toKind: model.KindRuler, label: "a lord changed sides"},
+			{fromField: "ruler_side", toField: "last_defection", fromKind: model.KindLeader, toKind: model.KindLeader, label: "a lord changed sides"},
 		},
 		finalKind:  model.KindSide,
 		finalField: "side_gold",
@@ -268,10 +268,10 @@ var specs = []spec{
 	{
 		chain: BrokenOath,
 		steps: []link{
-			{fromField: "broken_oaths", toField: "relation_score", fromKind: model.KindRuler, toKind: model.KindRuler, label: "an oath was broken and opinion fell"},
-			{fromField: "relation_score", toField: "coalition_with", fromKind: model.KindRuler, toKind: model.KindSide, label: "the falling opinion spread and a coalition formed"},
+			{fromField: "broken_oaths", toField: "relation_score", fromKind: model.KindLeader, toKind: model.KindLeader, label: "an oath was broken and opinion fell"},
+			{fromField: "relation_score", toField: "coalition_with", fromKind: model.KindLeader, toKind: model.KindSide, label: "the falling opinion spread and a coalition formed"},
 		},
-		finalKind:  model.KindRuler,
+		finalKind:  model.KindLeader,
 		finalField: "broken_oaths",
 		finalNote:  "a ruler broke an oath",
 	},

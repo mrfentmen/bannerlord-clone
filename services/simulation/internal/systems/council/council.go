@@ -127,16 +127,16 @@ func run(v *sim.View, w *sim.WriteSet) {
 		// thrown out of a town, but they are humiliated, and that is staged as
 		// influence loss, which the influence system turns into a real number.
 		if out >= 0 {
-			w.Add(model.KindRuler, out, "influence", -c.Council.InflectionLossOnHumiliation,
+			w.Add(model.KindLeader, out, "influence", -c.Council.InflectionLossOnHumiliation,
 				"voted out of a town", nil, "voted out")
 		}
 		// The new holder gets influence for being chosen: governing is
 		// prestigious, which is what makes a vote a prize worth scheming for.
-		w.Add(model.KindRuler, successor, "influence", c.Council.InfluenceGainOnPromotion,
+		w.Add(model.KindLeader, successor, "influence", c.Council.InfluenceGainOnPromotion,
 			"granted a town", nil, "granted a town")
 
 		w.Set(model.KindTown, id, "holder", float64(successor), read, causes, "voted out")
-		w.Set(model.KindTown, id, "holder_side", float64(v.State.Rulers[successor].SideID), read, causes, "new holder's side")
+		w.Set(model.KindTown, id, "holder_side", float64(v.State.Leaders[successor].SideID), read, causes, "new holder's side")
 		// A town that changes hands starts over: the new holder's people are
 		// not yet loyal to him, and the old conditions get a fresh chance to
 		// show. This is why a succession does not instantly fix a broken town
@@ -195,7 +195,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 				// nobody holds firmly, changes hands this way. A town that just
 				// voted is not immediately seceded to a neighbour, because the
 				// council's choice is a legitimate outcome.
-				holder := v.State.Rulers[t.Holder]
+				holder := v.State.Leaders[t.Holder]
 				if holder != nil && holder.LoyaltyToLeader > c.Council.SecessionLoyaltyCutoff {
 					continue
 				}
@@ -230,11 +230,11 @@ func pickSuccessor(v *sim.View, townID, current int) int {
 	c := v.Cfg
 	best := -1
 	bestScore := -1e18
-	for _, rid := range v.State.RulerIDsSorted() {
+	for _, rid := range v.State.LeaderIDsSorted() {
 		if rid == current {
 			continue
 		}
-		r := v.State.Rulers[rid]
+		r := v.State.Leaders[rid]
 		if !r.IsAlive || r.CapturedBy >= 0 {
 			continue
 		}

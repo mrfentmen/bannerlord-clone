@@ -18,6 +18,7 @@ import (
 	"mbclone/simulation/internal/sim"
 	"mbclone/simulation/internal/systems/security"
 	"mbclone/simulation/internal/systems/shared"
+	"mbclone/simulation/internal/systems/template"
 )
 
 // System returns the march system.
@@ -52,6 +53,12 @@ func run(v *sim.View, w *sim.WriteSet) {
 		// None of them is a fudge: each is a specific thing a player could
 		// change, and each is visible in the read record on every write.
 		speed := c.March.SpeedPerDay
+		// What the party is made of, before anything else. A horse column and
+		// a stance column of the same size on the same road travel at
+		// different speeds, which is the whole reason a composition is a
+		// decision (Tier 6.2). The march system reads the published class
+		// counts and the template system owns what they mean.
+		speed *= template.SpeedFactor(v, p)
 		route := nearestRouteTo(v, p)
 		safety := 1.0
 		terrain := 0.0
@@ -96,6 +103,11 @@ func run(v *sim.View, w *sim.WriteSet) {
 			shared.PairF("troops", p.Troops),
 			shared.Pair("fatigue", p.Fatigue),
 			shared.Pair("weather", weather),
+			shared.Pair("template", float64(p.Template)),
+			shared.PairF("stance", p.StanceTroops),
+			shared.PairF("heavy", p.HeavyTroops),
+			shared.PairF("light", p.LightTroops),
+			shared.PairF("horse", p.HorseTroops),
 		)
 		causes := v.Log.RecentFor(model.KindParty, pid,
 			[]string{"position_x", "position_y", "fatigue", "morale", "party_food", "party_starving"}, 4)

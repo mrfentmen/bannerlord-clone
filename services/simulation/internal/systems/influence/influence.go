@@ -24,8 +24,8 @@ func System() sim.System {
 
 func run(v *sim.View, w *sim.WriteSet) {
 	c := v.Cfg
-	for _, id := range v.State.RulerIDsSorted() {
-		r := v.State.Rulers[id]
+	for _, id := range v.State.LeaderIDsSorted() {
+		r := v.State.Leaders[id]
 		if !r.IsAlive {
 			continue
 		}
@@ -54,7 +54,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 				// trust it.
 				quality *= 0.9 + 0.2*r.Traits.Honor
 				quality = shared.Clamp01(quality)
-				w.Set(model.KindRuler, id, "service_quality", quality,
+				w.Set(model.KindLeader, id, "service_quality", quality,
 					shared.ReadString(
 						shared.Pair("unrest", town.Unrest),
 						shared.Pair("loyalty", town.Loyalty),
@@ -69,29 +69,29 @@ func run(v *sim.View, w *sim.WriteSet) {
 			service -= c.Influence.LeadershipUpkeep
 		}
 		service = service * (1 - c.Influence.ServiceUnrestWeight*(1-quality)) * c.Influence.ServicePerDay
-		w.Add(model.KindRuler, id, "influence", service,
+		w.Add(model.KindLeader, id, "influence", service,
 			shared.ReadString(
 				shared.PairI("towns_held", townsHeld),
 				shared.Pair("service_quality", quality),
 				shared.PairB("leader", r.Leader)),
-			v.Log.RecentFor(model.KindRuler, id, []string{"service_quality", "influence", "loyalty_to_leader"}, 3),
+			v.Log.RecentFor(model.KindLeader, id, []string{"service_quality", "influence", "loyalty_to_leader"}, 3),
 			"service")
 
 		// --- renown ---
 		// Renown is standing earned by deeds, and it decays. A ruler nobody
 		// remembers has no claim on anyone's obedience.
 		renownDecay := c.Influence.RenownDecay * r.Renown
-		w.Add(model.KindRuler, id, "renown", -renownDecay,
+		w.Add(model.KindLeader, id, "renown", -renownDecay,
 			shared.PairF("renown", r.Renown), nil, "renown fades")
 
 		// Influence decays too, but slower: standing with a leader is fresher
 		// than public fame.
 		influenceDecay := c.Influence.InfluenceDecay * r.Influence
-		w.Add(model.KindRuler, id, "influence", -influenceDecay,
+		w.Add(model.KindLeader, id, "influence", -influenceDecay,
 			shared.PairF("influence", r.Influence), nil, "")
 
 		// --- loyalty to a leader ---
-		// Vassals owe service. Loyalty to the leader falls when the leader is
+		// Affiliates owe service. Loyalty to the leader falls when the leader is
 		// losing, because a ruler's calculation about their own future does not
 		// stop at loyalty. It rises when the leader is winning, which is the
 		// honest dynamic of a coalition: people join whoever is winning and
@@ -102,7 +102,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 		} else if r.SideID >= 0 {
 			side := v.State.Sides[r.SideID]
 			if side != nil {
-				// A leader who is visibly winning keeps their vassals. A leader
+				// A leader who is visibly winning keeps their affiliates. A leader
 				// who is exhausted, broke, or presiding over collapsing towns
 				// does not, and that is chain 7's mechanism: a war that empties
 				// a treasury empties a coalition before it loses a battle.
@@ -121,12 +121,12 @@ func run(v *sim.View, w *sim.WriteSet) {
 				}
 			}
 		}
-		w.Set(model.KindRuler, id, "loyalty_to_leader", shared.Clamp01(loyalty),
+		w.Set(model.KindLeader, id, "loyalty_to_leader", shared.Clamp01(loyalty),
 			shared.ReadString(
 				shared.Pair("loyalty_to_leader", r.LoyaltyToLeader),
 				shared.PairB("leader", r.Leader),
 				shared.PairI("side", r.SideID)),
-			v.Log.RecentFor(model.KindRuler, id,
+			v.Log.RecentFor(model.KindLeader, id,
 				[]string{"loyalty_to_leader", "broken_oaths", "service_quality", "influence"}, 4), "")
 	}
 }

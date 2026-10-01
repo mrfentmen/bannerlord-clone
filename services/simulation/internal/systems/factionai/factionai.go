@@ -68,13 +68,13 @@ func run(v *sim.View, w *sim.WriteSet) {
 		if strength < 0 {
 			strength = 0
 		}
-		// A vassal's strength is discounted, so a vassal is worth having without
+		// A affiliate's strength is discounted, so a affiliate is worth having without
 		// being an independent power. The discount is applied before the single
 		// write below: writing it, discounting, and writing again produced two
 		// absolute writes to one field in a tick, which the engine correctly
 		// refused as order-dependent.
-		if side.Vassal {
-			strength *= c.FactionAI.VassalStrengthShare
+		if side.Affiliate {
+			strength *= c.FactionAI.AffiliateStrengthShare
 		}
 		read := shared.ReadString(
 			shared.PairF("troops", troops),
@@ -82,7 +82,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 			shared.PairF("population", pop),
 			shared.PairF("food", food),
 			shared.PairF("metal", metal),
-			shared.PairB("vassal", side.Vassal))
+			shared.PairB("affiliate", side.Affiliate))
 		causes := v.Log.RecentFor(model.KindSide, sid,
 			[]string{"side_towns", "side_population", "side_food", "side_metal", "side_treasury"}, 4)
 		w.Set(model.KindSide, sid, "side_strength", strength, read, causes, "fielded strength")
@@ -151,8 +151,8 @@ func run(v *sim.View, w *sim.WriteSet) {
 	var ended []int
 	for _, sid := range v.State.SideIDs() {
 		side := v.State.Sides[sid]
-		// A vassal does not declare its own wars.
-		if side.Vassal {
+		// A affiliate does not declare its own wars.
+		if side.Affiliate {
 			continue
 		}
 		if (v.Tick+sid)%int(c.FactionAI.DecideEveryDays) != 0 {
@@ -303,7 +303,7 @@ func declareWar(v *sim.View, w *sim.WriteSet, side *model.Side, targetID int, sc
 	w.Set(model.KindSide, targetID, "side_enemy", float64(side.ID), read, causes, "")
 	// Going to war is popular with a ruler who wants land and unpopular with
 	// one who wants security, and it costs the leader influence to say so.
-	w.Add(model.KindRuler, side.LeaderID, "influence", -c.FactionAI.InfluenceCostOfWar*(1-shared.Clamp01(side.Stability)),
+	w.Add(model.KindLeader, side.LeaderID, "influence", -c.FactionAI.InfluenceCostOfWar*(1-shared.Clamp01(side.Stability)),
 		"declared war", nil, "cost of declaring war")
 }
 
@@ -324,12 +324,12 @@ func endWars(v *sim.View, w *sim.WriteSet, sid int, side *model.Side, reason str
 		}
 		other := v.State.Sides[otherID]
 		// Exhaustion ends a war between equals. Between unequal sides, a war
-		// ends in tribute and vassalage instead, which is how a side is beaten
+		// ends in tribute and affiliateage instead, which is how a side is beaten
 		// without being destroyed (MARCH_AND_WAR.md section 7).
 		// The war's outcome is recorded as a note on the end tick, because the
 		// outcome is a judgement about which side won rather than a field a
 		// system owns. The run report reads it from the note.
-		if other != nil && side.StrengthIndex > other.StrengthIndex*c.FactionAI.VassalStrengthRatio {
+		if other != nil && side.StrengthIndex > other.StrengthIndex*c.FactionAI.AffiliateStrengthRatio {
 			// Tribute: the loser pays, which is a real economic transfer and
 			// can bankrupt a side that has already been fighting too long.
 			tribute := 0.0
@@ -343,16 +343,16 @@ func endWars(v *sim.View, w *sim.WriteSet, sid int, side *model.Side, reason str
 				"defeated", nil, "tribute after defeat")
 			w.Add(model.KindSide, sid, "side_treasury", tribute,
 				"victorious", nil, "tribute from the defeated")
-			// A beaten side becomes a vassal, which is how a coalition's work
+			// A beaten side becomes a affiliate, which is how a coalition's work
 			// becomes permanent territory rather than a temporary raid.
-			if !other.Vassal && c.FactionAI.VassalChancePerPeace > 0 &&
-				v.Rng.Chance(c.FactionAI.VassalChancePerPeace) {
-				w.Set(model.KindSide, otherID, "is_vassal", 1, "defeated", nil, "became a vassal")
-				w.Set(model.KindSide, otherID, "vassal_of", float64(sid), "defeated", nil, "became a vassal")
-				w.Add(model.KindSide, otherID, "side_treasury", -other.Treasury*c.FactionAI.VassalTributeRate,
-					"vassalage", nil, "tribute to the overlord")
-				w.Add(model.KindSide, sid, "side_treasury", other.Treasury*c.FactionAI.VassalTributeRate,
-					"vassalage", nil, "tribute from a vassal")
+			if !other.Affiliate && c.FactionAI.AffiliateChancePerPeace > 0 &&
+				v.Rng.Chance(c.FactionAI.AffiliateChancePerPeace) {
+				w.Set(model.KindSide, otherID, "is_affiliate", 1, "defeated", nil, "became a affiliate")
+				w.Set(model.KindSide, otherID, "affiliate_of", float64(sid), "defeated", nil, "became a affiliate")
+				w.Add(model.KindSide, otherID, "side_treasury", -other.Treasury*c.FactionAI.AffiliateTributeRate,
+					"affiliateage", nil, "tribute to the overlord")
+				w.Add(model.KindSide, sid, "side_treasury", other.Treasury*c.FactionAI.AffiliateTributeRate,
+					"affiliateage", nil, "tribute from a affiliate")
 			}
 		}
 		// Peace improves relations and eases the weariness. The weariness is a

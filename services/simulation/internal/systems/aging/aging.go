@@ -31,8 +31,8 @@ func run(v *sim.View, w *sim.WriteSet) {
 		return
 	}
 
-	for _, id := range v.State.RulerIDsSorted() {
-		r := v.State.Rulers[id]
+	for _, id := range v.State.LeaderIDsSorted() {
+		r := v.State.Leaders[id]
 		if r == nil || !r.IsAlive {
 			continue
 		}
@@ -42,10 +42,10 @@ func run(v *sim.View, w *sim.WriteSet) {
 			shared.PairI("ruler", id),
 			shared.PairF("old_age", r.Age),
 		)
-		causes := v.Log.RecentFor(model.KindRuler, id,
+		causes := v.Log.RecentFor(model.KindLeader, id,
 			[]string{"ruler_age"}, 1)
 
-		w.Set(model.KindRuler, id, "ruler_age", newAge,
+		w.Set(model.KindLeader, id, "ruler_age", newAge,
 			read, causes, "yearly aging")
 
 		// Natural death check. Uses the security RNG substream for
@@ -54,7 +54,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 		if deathChance > 0 {
 			roll := v.Rng.Float64()
 			if roll < deathChance {
-				w.Set(model.KindRuler, id, "is_alive", 0,
+				w.Set(model.KindLeader, id, "is_alive", 0,
 					read, causes, "died of old age")
 			}
 		}

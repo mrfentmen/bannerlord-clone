@@ -28,22 +28,22 @@ func System() sim.System {
 
 func run(v *sim.View, w *sim.WriteSet) {
 	c := v.Cfg
-	for _, id := range v.State.ClanIDs() {
-		cl := v.State.Clans[id]
+	for _, id := range v.State.OrganizationIDs() {
+		cl := v.State.Organizations[id]
 		if cl == nil {
 			continue
 		}
 		// Recompute tier from renown. Tier only moves up via renown gains
 		// staged by other systems; this system enforces the consequences.
-		tier := model.ClanTierForRenown(cl.Renown)
+		tier := model.OrganizationTierForRenown(cl.Renown)
 		if tier != cl.Tier {
 			read := shared.ReadString(
 				shared.Pair("renown", cl.Renown),
 				shared.PairI("old_tier", cl.Tier),
 				shared.PairI("new_tier", tier),
 			)
-			causes := v.Log.RecentFor(model.KindClan, id, []string{"clan_renown"}, 3)
-			w.Set(model.KindClan, id, "clan_tier", float64(tier), read, causes,
+			causes := v.Log.RecentFor(model.KindOrganization, id, []string{"clan_renown"}, 3)
+			w.Set(model.KindOrganization, id, "clan_tier", float64(tier), read, causes,
 				"clan tier advanced")
 		}
 		// Fief-limit enforcement: overextended clans bleed loyalty and income.
@@ -51,7 +51,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 			limit := cl.FiefLimit()
 			over := len(cl.FiefIDs) - limit
 			for _, mid := range cl.MemberIDs {
-				m := v.State.Rulers[mid]
+				m := v.State.Leaders[mid]
 				if m == nil || !m.IsAlive {
 					continue
 				}
@@ -60,9 +60,9 @@ func run(v *sim.View, w *sim.WriteSet) {
 					shared.PairI("limit", limit),
 					shared.PairI("over", over),
 				)
-				causes := v.Log.RecentFor(model.KindClan, id, []string{"clan_fiefs"}, 2)
+				causes := v.Log.RecentFor(model.KindOrganization, id, []string{"clan_fiefs"}, 2)
 				penalty := c.Clan.OverextensionLoyaltyPenalty * float64(over)
-				w.Add(model.KindRuler, mid, "loyalty_to_leader", -penalty,
+				w.Add(model.KindLeader, mid, "loyalty_to_leader", -penalty,
 					read, causes, "overextended clan")
 			}
 		}

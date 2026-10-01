@@ -137,7 +137,19 @@ func (l *Log) Append(r Row) {
 		// Advance the logical start. The rows themselves stay in the backing
 		// array until it is twice full, at which point one copy amortises over
 		// maxRows appends.
-		drop := len(l.rows) - l.maxRows
+		//
+		// drop is how many rows this append pushes out, which is the distance
+		// base still has to travel to put the limit exactly at the end of the
+		// retained window. It is one per append once the window is full. It was
+		// written as len(rows)-maxRows, which is the total still to be dropped
+		// rather than the increment, so base grew by one, two, three, ... and
+		// passed len(rows) within a single window, panicking every long run at
+		// the first compaction. Length minus base is the retained count, and it
+		// is that count, not the whole backlog, that the increment measures.
+		drop := len(l.rows) - l.maxRows - l.base
+		if drop < 1 {
+			drop = 1
+		}
 		l.base += drop
 		l.droppedOldest += drop
 		if len(l.rows) > 2*l.maxRows {

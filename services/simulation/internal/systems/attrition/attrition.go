@@ -15,6 +15,7 @@ import (
 	"mbclone/simulation/internal/sim"
 	"mbclone/simulation/internal/systems/security"
 	"mbclone/simulation/internal/systems/shared"
+	"mbclone/simulation/internal/systems/template"
 )
 
 // System returns the attrition system.
@@ -131,8 +132,12 @@ func run(v *sim.View, w *sim.WriteSet) {
 		w.Add(model.KindParty, pid, "wounded", wounded, read, causes, "wounded")
 		// Wounded recover, faster with medicine. An army that runs out of
 		// medicine accumulates a permanently reduced fighting strength, which
-		// is a quiet and severe cost.
-		recovered := p.Wounded * (c.Attrition.WoundedRecoveryRate +
+		// is a quiet and severe cost. How fast depends on what the wounded are
+		// (Tier 6.2): a heavy infantryman is off his feet longer than a
+		// skirmisher, so a party's fighting strength is its present strength
+		// rather than its paper strength.
+		recovery := template.WoundedRecovery(v, p)
+		recovered := p.Wounded * (recovery +
 			c.Attrition.WoundedRecoveryMedicineWeight*medicineAdequacy)
 		w.Add(model.KindParty, pid, "wounded", -recovered, read, causes, "wounded recovering")
 		w.Add(model.KindParty, pid, "troops", recovered, read, causes, "wounded returned to duty")

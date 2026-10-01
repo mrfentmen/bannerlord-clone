@@ -196,7 +196,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 				s.Outcome = model.SiegeBreached
 				w.Set(model.KindSiege, sid, "siege_outcome", float64(model.SiegeBreached), read, causes, "walls breached")
 				w.Set(model.KindTown, t.ID, "is_besieged", 0, read, causes, "")
-				w.Add(model.KindRuler, s.DefenderID, "influence", -c.Siege.InfluenceLossOnFall,
+				w.Add(model.KindLeader, s.DefenderID, "influence", -c.Siege.InfluenceLossOnFall,
 					"town lost", nil, "town lost to assault")
 				continue
 			}
@@ -233,12 +233,12 @@ func run(v *sim.View, w *sim.WriteSet) {
 			// The town changes hands without a battle. The holder loses the
 			// town, which is the strategic consequence, and the new holder's
 			// authority starts from a conquered population's hostility.
-			w.Set(model.KindTown, t.ID, "holder", float64(attacker.RulerID), read, causes, "surrendered")
+			w.Set(model.KindTown, t.ID, "holder", float64(attacker.LeaderID), read, causes, "surrendered")
 			w.Set(model.KindTown, t.ID, "holder_side", float64(attacker.SideID), read, causes, "surrendered")
 			w.Set(model.KindTown, t.ID, "loyalty", c.Siege.LoyaltyAfterSurrender, read, causes, "a defeated population")
-			w.Add(model.KindRuler, s.DefenderID, "influence", -c.Siege.InfluenceLossOnFall,
+			w.Add(model.KindLeader, s.DefenderID, "influence", -c.Siege.InfluenceLossOnFall,
 				"town surrendered", nil, "town surrendered without a fight")
-			w.Add(model.KindRuler, attacker.RulerID, "renown", c.Influence.RenownPerVictory*c.Siege.RenownForBloodlessWin,
+			w.Add(model.KindLeader, attacker.LeaderID, "renown", c.Influence.RenownPerVictory*c.Siege.RenownForBloodlessWin,
 				"town surrendered", nil, "took a town without a battle")
 			continue
 		}
@@ -251,7 +251,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 			s.Outcome = model.SiegeStarved
 			w.Set(model.KindSiege, sid, "siege_outcome", float64(model.SiegeStarved), read, causes, "attacker withdrew")
 			w.Set(model.KindTown, t.ID, "is_besieged", 0, read, causes, "")
-			w.Add(model.KindRuler, attacker.RulerID, "influence", -c.Siege.InfluenceLossOnFailedSiege,
+			w.Add(model.KindLeader, attacker.LeaderID, "influence", -c.Siege.InfluenceLossOnFailedSiege,
 				"siege failed", nil, "could not take a walled town")
 			continue
 		}

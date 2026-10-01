@@ -96,7 +96,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 		// simulation: a ruler with real political capital can talk a crowd
 		// down. It is a real counterweight, not a free pass, because influence
 		// has to be earned first.
-		holder := v.State.Rulers[t.Holder]
+		holder := v.State.Leaders[t.Holder]
 		damping := 0.0
 		if holder != nil {
 			damping = c.Unrest.PropagandistWeight * shared.Clamp01(holder.Influence/c.Unrest.PropagandistInfluence)

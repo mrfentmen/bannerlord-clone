@@ -138,11 +138,17 @@ func Generate(cfg *config.Config, seed uint64, settlements []Settlement) *Result
 			ExchangeRate: cfg.Currency.GoldPerMoney,
 			Stability:    1,
 			Trust:        1,
-			VassalOf:     -1,
+			AffiliateOf:  -1,
 			Ally:         -1,
 			Enemy:        -1,
 			Target:       -1,
 			Coalition:    -1,
+			// Culture is this section's identity index, which selects the
+			// troop styles its parties field under (Tier 6.2). FACTIONS.md gives
+			// every section its own culture and troop style; here the section
+			// index is that identity, because the six sections are the six
+			// cultures the world has.
+			Culture: i % model.CultureCount,
 		}
 		st.Sides[side.ID] = side
 	}
@@ -194,15 +200,15 @@ func Generate(cfg *config.Config, seed uint64, settlements []Settlement) *Result
 			st.SetSideRelation(a, b, v)
 		}
 	}
-	for _, a := range st.RulerIDsSorted() {
-		for _, b := range st.RulerIDsSorted() {
+	for _, a := range st.LeaderIDsSorted() {
+		for _, b := range st.LeaderIDsSorted() {
 			if a >= b {
 				continue
 			}
 			// Rulers within one side start friendly, because they share a
 			// leader. Rulers of different sides start near neutral, with a
 			// spread.
-			ra, rb := st.Rulers[a], st.Rulers[b]
+			ra, rb := st.Leaders[a], st.Leaders[b]
 			v := 0.0
 			if ra.SideID == rb.SideID {
 				v = r.Range(cfg.Relation.StartAllyRelationMin, cfg.Relation.StartAllyRelationMax)
@@ -214,8 +220,8 @@ func Generate(cfg *config.Config, seed uint64, settlements []Settlement) *Result
 	}
 	// Each ruler's known counterpart in every other side, so the relation
 	// inheritance in the relation system has something to read.
-	for _, rid := range st.RulerIDsSorted() {
-		r := st.Rulers[rid]
+	for _, rid := range st.LeaderIDsSorted() {
+		r := st.Leaders[rid]
 		for _, oid := range st.SideIDs() {
 			if oid == r.SideID {
 				continue
@@ -276,8 +282,8 @@ func Generate(cfg *config.Config, seed uint64, settlements []Settlement) *Result
 			continue
 		}
 		t.Holder = holder
-		t.HolderSide = st.Rulers[holder].SideID
-		st.Rulers[holder].TownID = tid
+		t.HolderSide = st.Leaders[holder].SideID
+		st.Leaders[holder].TownID = tid
 	}
 
 	return &Result{State: st, Settlements: used, RealCount: real, SynthCount: len(used) - real}

@@ -8,7 +8,35 @@ import (
 	"mbclone/simulation/internal/model"
 	"mbclone/simulation/internal/rng"
 	"mbclone/simulation/internal/systems/shared"
+	"mbclone/simulation/internal/systems/template"
 )
+
+// openingTemplate picks the formation a new war party starts in. It is
+// deliberately drawn from the seeded stream rather than derived, because at
+// world generation a party has no ground and no mission yet, so there is
+// nothing for the template system's fit to be computed from. The first tick
+// after it forms, the real fit takes over and any badly chosen template is
+// refitted like any other.
+func openingTemplate(r *rng.Rng) model.PartyTemplate {
+	return model.PartyTemplate(r.Intn(model.TemplateCount))
+}
+
+// seedComposition fills a party's four class counts from its template and
+// culture, using the same table the template system uses. Seeding them here
+// rather than leaving them at zero means the first tick's march and battle
+// readings are of a real composition: four classes of zero troops would make
+// every party move at no speed and fight at no strength for a day.
+func seedComposition(cfg *config.Config, side *model.Side, p *model.Party) {
+	culture := 0
+	if side != nil && side.Culture >= 0 && side.Culture < model.CultureCount {
+		culture = side.Culture
+	}
+	n := template.ClassCounts(cfg, p.Template, culture, p.Troops)
+	p.StanceTroops = n[int(model.ClassStance)]
+	p.HeavyTroops = n[int(model.ClassHeavy)]
+	p.LightTroops = n[int(model.ClassLight)]
+	p.HorseTroops = n[int(model.ClassHorse)]
+}
 
 // synth builds a deterministic synthetic map for when no imported settlements
 // are available.
@@ -195,8 +223,8 @@ func assignFarmland(cfg *config.Config, r *rng.Rng, s []Settlement) {
 // warlord.
 func pickHolder(st *model.State, r *rng.Rng, t *model.Town) int {
 	best, bestScore := -1, 0.0
-	for _, rid := range st.RulerIDsSorted() {
-		ru := st.Rulers[rid]
+	for _, rid := range st.LeaderIDsSorted() {
+		ru := st.Leaders[rid]
 		if ru.SideID != t.SideID {
 			continue
 		}
@@ -221,8 +249,8 @@ func pickHolder(st *model.State, r *rng.Rng, t *model.Town) int {
 	}
 	if best < 0 {
 		// Fall back to any ruler of that side, so no town is ever unowned.
-		for _, rid := range st.RulerIDsSorted() {
-			if st.Rulers[rid].SideID == t.SideID {
+		for _, rid := range st.LeaderIDsSorted() {
+			if st.Leaders[rid].SideID == t.SideID {
 				best = rid
 				break
 			}
@@ -261,7 +289,7 @@ func generateRulers(cfg *config.Config, r *rng.Rng, st *model.State) {
 		ru.Traits.Mercy = shared.Clamp01(0.4 + spec.Population*0.06)
 		ru.Traits.Valor = shared.Clamp01(0.35 + (spec.Metal-spec.Gold)*0.08)
 		ru.Traits.Honor = shared.Clamp01(0.45 + spec.Money*0.05)
-		st.Rulers[ru.ID] = ru
+		st.Leaders[ru.ID] = ru
 		st.Sides[i+1].LeaderID = ru.ID
 		// A side's treasury scales with its money and gold ratings, which is
 		// what makes a rich side able to buy mercenaries and a poor one unable
@@ -309,7 +337,7 @@ func generateRulers(cfg *config.Config, r *rng.Rng, st *model.State) {
 		// are the ones who defect first. Starting everyone at 1 would mean no
 		// side ever loses anyone.
 		ru.LoyaltyToLeader = r.Range(cfg.Loyalty.StartLoyaltyMin, cfg.Loyalty.StartLoyaltyMax)
-		st.Rulers[ru.ID] = ru
+		st.Leaders[ru.ID] = ru
 		// A landholding ruler is placed at a town of their own side. Multiple
 		// rulers can share a town, which is realistic and gives the council
 		// something to be.
@@ -325,8 +353,8 @@ func generateRulers(cfg *config.Config, r *rng.Rng, st *model.State) {
 	// A ruler with no town and no mercenary status is made an officer, so the
 	// council always has a candidate who is not already aggrieved about
 	// ownership.
-	for _, rid := range st.RulerIDsSorted() {
-		ru := st.Rulers[rid]
+	for _, rid := range st.LeaderIDsSorted() {
+		ru := st.Leaders[rid]
 		if ru.TownID < 0 && !ru.IsMercenary && !ru.Leader {
 			ru.Officer = true
 			if len(towns) > 0 {
@@ -365,7 +393,7 @@ func weightedRole(r *rng.Rng, weights []float64) string {
 
 // newRuler builds a ruler with traits drawn from a spread, and a name from
 // generated syllables.
-func newRuler(cfg *config.Config, r *rng.Rng, role string, sideID int, sideName string) *model.Ruler {
+func newRuler(cfg *config.Config, r *rng.Rng, role string, sideID int, sideName string) *model.Leader {
 	traits := model.Traits{
 		Valor:       trait(r, cfg.World.RulerTraitSpread),
 		Mercy:       trait(r, cfg.World.RulerTraitSpread),
@@ -373,7 +401,7 @@ func newRuler(cfg *config.Config, r *rng.Rng, role string, sideID int, sideName 
 		Generosity:  trait(r, cfg.World.RulerTraitSpread),
 		Calculation: trait(r, cfg.World.RulerTraitSpread),
 	}
-	ru := &model.Ruler{
+	ru := &model.Leader{
 		Name:          rulerName(r, sideName),
 		SideID:        sideID,
 		Age:           r.Range(cfg.Ruler.AgeMin, cfg.Ruler.AgeMax),
@@ -419,8 +447,8 @@ func trait(r *rng.Rng, spread float64) float64 {
 // generateParties gives every ruler with land a war party, sized by influence
 // and renown (MARCH_AND_WAR.md section 8), and gives a few rulers a caravan.
 func generateParties(cfg *config.Config, r *rng.Rng, st *model.State) {
-	for _, rid := range st.RulerIDsSorted() {
-		ru := st.Rulers[rid]
+	for _, rid := range st.LeaderIDsSorted() {
+		ru := st.Leaders[rid]
 		if ru.Leader {
 			continue
 		}
@@ -449,7 +477,7 @@ func generateParties(cfg *config.Config, r *rng.Rng, st *model.State) {
 		p := &model.Party{
 			Name:           ru.Name + "'s company",
 			SideID:         ru.SideID,
-			RulerID:        ru.ID,
+			LeaderID:       ru.ID,
 			X:              x,
 			Y:              y,
 			DestX:          x,
@@ -470,7 +498,15 @@ func generateParties(cfg *config.Config, r *rng.Rng, st *model.State) {
 			DestTownParty:  -1,
 			SupplyDistance: 0,
 			IsMercenary:    ru.IsMercenary,
+			// A new army forms up in some formation or other, and the template
+			// system picks the right one for the ground it is on from the
+			// first tick after it forms (Tier 6.2). Seeding an arbitrary
+			// template means the first fit calculation has something to
+			// compare against rather than a field nobody has set.
+			Template:    openingTemplate(r),
+			ParentParty: -1,
 		}
+		seedComposition(cfg, st.Sides[ru.SideID], p)
 		p.ID = st.NewID(model.IDParty)
 		st.Parties[p.ID] = p
 		ru.PartyID = p.ID
@@ -482,7 +518,7 @@ func generateParties(cfg *config.Config, r *rng.Rng, st *model.State) {
 			cp := &model.Party{
 				Name:          ru.Name + "'s caravan",
 				SideID:        ru.SideID,
-				RulerID:       ru.ID,
+				LeaderID:      ru.ID,
 				Troops:        cfg.Logistic.CaravanGuards,
 				IsCaravan:     true,
 				Activity:      model.ActTrading,
@@ -491,7 +527,13 @@ func generateParties(cfg *config.Config, r *rng.Rng, st *model.State) {
 				DestTown:      -1,
 				DestTownParty: -1,
 				Food:          cfg.Logistic.CaravanFoodNeed * cfg.Logistic.CaravanFoodDays,
+				// A caravan's guards are escorts, not an army, so it is a
+				// light template by construction. The template system leaves
+				// caravans alone for the same reason.
+				Template:    model.TplLight,
+				ParentParty: -1,
 			}
+			seedComposition(cfg, st.Sides[ru.SideID], cp)
 			cp.ID = st.NewID(model.IDParty)
 			st.Parties[cp.ID] = cp
 		}
@@ -504,9 +546,14 @@ func generateParties(cfg *config.Config, r *rng.Rng, st *model.State) {
 	for i := 0; i < raiderCount; i++ {
 		t := st.Towns[townIDs[r.Intn(len(townIDs))]]
 		p := &model.Party{
-			Name:          "Raiders",
+			Name: "Raiders",
+			// A raider band has no side and so no culture of its own, and it
+			// reads culture zero in the template system. Its template is a
+			// light one by construction: bandits are fast and fragile, and the
+			// numbers follow from that rather than being asserted.
 			SideID:        -1,
-			RulerID:       -1,
+			LeaderID:      -1,
+			Template:      model.TplLight,
 			X:             t.X + r.Range(-60, 60),
 			Y:             t.Y + r.Range(-60, 60),
 			DestX:         t.X,
@@ -519,7 +566,9 @@ func generateParties(cfg *config.Config, r *rng.Rng, st *model.State) {
 			HomeTown:      -1,
 			DestTown:      t.ID,
 			DestTownParty: -1,
+			ParentParty:   -1,
 		}
+		seedComposition(cfg, nil, p)
 		p.ID = st.NewID(model.IDParty)
 		st.Parties[p.ID] = p
 	}
@@ -556,13 +605,13 @@ func clanName(r *rng.Rng) string {
 func generateClans(cfg *config.Config, r *rng.Rng, st *model.State) {
 	// Group rulers by side.
 	bySide := make(map[int][]int)
-	for _, id := range st.RulerIDsSorted() {
-		ru := st.Rulers[id]
+	for _, id := range st.LeaderIDsSorted() {
+		ru := st.Leaders[id]
 		if ru == nil {
 			continue
 		}
 		bySide[ru.SideID] = append(bySide[ru.SideID], id)
-		ru.ClanID = -1
+		ru.OrganizationID = -1
 	}
 	for _, sideID := range st.SideIDs() {
 		members := bySide[sideID]
@@ -574,9 +623,9 @@ func generateClans(cfg *config.Config, r *rng.Rng, st *model.State) {
 		if nClans > len(members) {
 			nClans = len(members)
 		}
-		clans := make([]*model.Clan, nClans)
+		clans := make([]*model.Organization, nClans)
 		for i := 0; i < nClans; i++ {
-			cl := &model.Clan{
+			cl := &model.Organization{
 				ID:            st.NewID(model.IDClan),
 				Name:          clanName(r),
 				SideID:        sideID,
@@ -585,16 +634,16 @@ func generateClans(cfg *config.Config, r *rng.Rng, st *model.State) {
 				FoundedTick:   0,
 			}
 			clans[i] = cl
-			st.Clans[cl.ID] = cl
+			st.Organizations[cl.ID] = cl
 		}
 		// The side leader heads clan 0.
 		side := st.Sides[sideID]
 		assigned := make(map[int]bool)
 		if side != nil {
-			if leader, ok := st.Rulers[side.LeaderID]; ok && leader != nil {
+			if leader, ok := st.Leaders[side.LeaderID]; ok && leader != nil {
 				clans[0].LeaderID = leader.ID
 				clans[0].MemberIDs = append(clans[0].MemberIDs, leader.ID)
-				leader.ClanID = clans[0].ID
+				leader.OrganizationID = clans[0].ID
 				assigned[leader.ID] = true
 			}
 		}
@@ -611,7 +660,7 @@ func generateClans(cfg *config.Config, r *rng.Rng, st *model.State) {
 				cl.LeaderID = rid
 			}
 			cl.MemberIDs = append(cl.MemberIDs, rid)
-			st.Rulers[rid].ClanID = cl.ID
+			st.Leaders[rid].OrganizationID = cl.ID
 			assigned[rid] = true
 			ci++
 		}
@@ -619,15 +668,15 @@ func generateClans(cfg *config.Config, r *rng.Rng, st *model.State) {
 		for _, cl := range clans {
 			renown := 0.0
 			for _, mid := range cl.MemberIDs {
-				if m := st.Rulers[mid]; m != nil {
+				if m := st.Leaders[mid]; m != nil {
 					renown += m.Renown
 				}
 			}
 			cl.Renown = renown
-			cl.Tier = model.ClanTierForRenown(renown)
+			cl.Tier = model.OrganizationTierForRenown(renown)
 			// Collect fiefs held by members.
 			for _, mid := range cl.MemberIDs {
-				if m := st.Rulers[mid]; m != nil && m.TownID >= 0 {
+				if m := st.Leaders[mid]; m != nil && m.TownID >= 0 {
 					cl.FiefIDs = append(cl.FiefIDs, m.TownID)
 				}
 			}

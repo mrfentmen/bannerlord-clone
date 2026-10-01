@@ -62,7 +62,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 		// is harder to trust anywhere. This is chain 9's local half; the
 		// international half is the relation system.
 		brokenOathLoss := 0.0
-		holder := v.State.Rulers[t.Holder]
+		holder := v.State.Leaders[t.Holder]
 		if holder != nil && holder.BrokenOaths > 0 {
 			brokenOathLoss = c.Loyalty.BrokenPromiseHit * shared.Clamp01(float64(holder.BrokenOaths)/3)
 		}

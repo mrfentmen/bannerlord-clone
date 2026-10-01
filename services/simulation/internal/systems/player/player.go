@@ -67,7 +67,7 @@ func applyTax(v *sim.View, w *sim.WriteSet, o sim.Order) {
 }
 
 func applyAid(v *sim.View, w *sim.WriteSet, o sim.Order) {
-	r := v.State.Rulers[o.RulerID]
+	r := v.State.Leaders[o.LeaderID]
 	if r == nil {
 		return
 	}
@@ -100,7 +100,7 @@ func applyAid(v *sim.View, w *sim.WriteSet, o sim.Order) {
 // the result: the roads are no longer patrolled.
 func applyGarrison(v *sim.View, w *sim.WriteSet, o sim.Order) {
 	t := v.State.Towns[o.TownID]
-	r := v.State.Rulers[o.RulerID]
+	r := v.State.Leaders[o.LeaderID]
 	if t == nil || r == nil {
 		return
 	}
@@ -171,7 +171,7 @@ func applyMedicine(v *sim.View, w *sim.WriteSet, o sim.Order) {
 }
 
 func applyMarch(v *sim.View, w *sim.WriteSet, o sim.Order) {
-	r := v.State.Rulers[o.RulerID]
+	r := v.State.Leaders[o.LeaderID]
 	if r == nil {
 		return
 	}
@@ -190,7 +190,7 @@ func applyMarch(v *sim.View, w *sim.WriteSet, o sim.Order) {
 }
 
 func applyTrade(v *sim.View, w *sim.WriteSet, o sim.Order) {
-	r := v.State.Rulers[o.RulerID]
+	r := v.State.Leaders[o.LeaderID]
 	if r == nil {
 		return
 	}
@@ -217,7 +217,7 @@ func applyTrade(v *sim.View, w *sim.WriteSet, o sim.Order) {
 }
 
 func applyMercenaries(v *sim.View, w *sim.WriteSet, o sim.Order) {
-	r := v.State.Rulers[o.RulerID]
+	r := v.State.Leaders[o.LeaderID]
 	if r == nil {
 		return
 	}
@@ -227,12 +227,12 @@ func applyMercenaries(v *sim.View, w *sim.WriteSet, o sim.Order) {
 	if r.Gold < v.Cfg.Currency.MercenaryGold {
 		return
 	}
-	w.Add(model.KindRuler, o.RulerID, "gold", -v.Cfg.Currency.MercenaryGold,
+	w.Add(model.KindLeader, o.LeaderID, "gold", -v.Cfg.Currency.MercenaryGold,
 		"hiring mercenaries", nil, "gold spent on mercenaries")
-	w.Add(model.KindRuler, o.RulerID, "party_money",
+	w.Add(model.KindLeader, o.LeaderID, "party_money",
 		-v.Cfg.Currency.MercenaryWage*20,
 		"hiring mercenaries", nil, "advance on mercenary wages")
-	w.Add(model.KindRuler, o.RulerID, "renown", v.Cfg.Currency.MercenaryValue,
+	w.Add(model.KindLeader, o.LeaderID, "renown", v.Cfg.Currency.MercenaryValue,
 		"hiring mercenaries", nil, "hired a company")
 }
 
@@ -244,24 +244,24 @@ func applyMercenaries(v *sim.View, w *sim.WriteSet, o sim.Order) {
 // else.
 func applyPrisoner(v *sim.View, w *sim.WriteSet, o sim.Order) {
 	c := v.Cfg
-	prisoner := v.State.Rulers[o.Target]
-	captor := v.State.Rulers[o.RulerID]
+	prisoner := v.State.Leaders[o.Target]
+	captor := v.State.Leaders[o.LeaderID]
 	if prisoner == nil || captor == nil {
 		return
 	}
 	if o.Kind == sim.OrderRansomPrisoner {
 		// A ransom is money for a life: gold to the captor, and a quieter
 		// outcome than an execution.
-		w.Add(model.KindRuler, o.RulerID, "gold", c.RulerAI.PrisonerRansomGold,
+		w.Add(model.KindLeader, o.LeaderID, "gold", c.RulerAI.PrisonerRansomGold,
 			"ransomed a prisoner", nil, "ransom received")
-		w.Set(model.KindRuler, o.Target, "captured_by", -1, "ransomed", nil, "released for ransom")
-		w.AddRelation(o.RulerID, o.Target, -c.RulerAI.PrisonerRansomRelation, "ransomed", nil, "ransom")
+		w.Set(model.KindLeader, o.Target, "captured_by", -1, "ransomed", nil, "released for ransom")
+		w.AddRelation(o.LeaderID, o.Target, -c.RulerAI.PrisonerRansomRelation, "ransomed", nil, "ransom")
 		return
 	}
 	// An execution. The prisoner dies; the broken oaths and the spreading
 	// damage are read by other systems from the shared state this leaves.
-	w.Set(model.KindRuler, o.Target, "is_alive", 0, "executed", nil, "executed")
-	w.Set(model.KindRuler, o.Target, "captured_by", -1, "executed", nil, "")
+	w.Set(model.KindLeader, o.Target, "is_alive", 0, "executed", nil, "executed")
+	w.Set(model.KindLeader, o.Target, "captured_by", -1, "executed", nil, "")
 	// Every oath the prisoner had made is broken by their death, and the
 	// relation system reads the oaths, not this system.
 	for _, oath := range v.State.Oaths {
@@ -269,13 +269,13 @@ func applyPrisoner(v *sim.View, w *sim.WriteSet, o sim.Order) {
 			w.BreakOathByPair(oath.Promisor, o.Target)
 		}
 	}
-	w.AddRelation(o.RulerID, o.Target, -c.Relation.BrokenOathRelation, "executed a prisoner", nil, "executed a ruler")
-	w.Add(model.KindRuler, o.RulerID, "broken_oaths", 1, "executed a prisoner", nil, "broke an oath by execution")
+	w.AddRelation(o.LeaderID, o.Target, -c.Relation.BrokenOathRelation, "executed a prisoner", nil, "executed a ruler")
+	w.Add(model.KindLeader, o.LeaderID, "broken_oaths", 1, "executed a prisoner", nil, "broke an oath by execution")
 }
 
 func applyWar(v *sim.View, w *sim.WriteSet, o sim.Order) {
 	c := v.Cfg
-	r := v.State.Rulers[o.RulerID]
+	r := v.State.Leaders[o.LeaderID]
 	if r == nil || r.SideID < 0 {
 		return
 	}
