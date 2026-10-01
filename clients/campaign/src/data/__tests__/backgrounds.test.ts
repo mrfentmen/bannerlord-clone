@@ -64,11 +64,27 @@ describe("start cities", () => {
     expect(START_CITIES).toHaveLength(4);
   });
 
-  it("each city has a slug, name, and description", () => {
+  it("each city has a slug, name, tagline, and description", () => {
     for (const city of START_CITIES) {
       expect(city.slug.length).toBeGreaterThan(0);
       expect(city.name.length).toBeGreaterThan(0);
+      expect(city.tagline.length).toBeGreaterThan(0);
       expect(city.description.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("each city has 3 pros and 3 cons with reasons", () => {
+    for (const city of START_CITIES) {
+      expect(city.pros).toHaveLength(3);
+      expect(city.cons).toHaveLength(3);
+      for (const pro of city.pros) {
+        expect(pro.label.length).toBeGreaterThan(0);
+        expect(pro.reason.length).toBeGreaterThan(0);
+      }
+      for (const con of city.cons) {
+        expect(con.label.length).toBeGreaterThan(0);
+        expect(con.reason.length).toBeGreaterThan(0);
+      }
     }
   });
 

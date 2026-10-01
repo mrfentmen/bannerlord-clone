@@ -284,12 +284,81 @@ export interface GameCharacter {
   biography: string;
 }
 
-/** Starting cities — the 4 we have 3D data for. */
-export const START_CITIES: { slug: string; name: string; description: string }[] = [
-  { slug: "manhattan-sample", name: "New York City", description: "8,156 buildings. The big leagues." },
-  { slug: "la-downtown", name: "Los Angeles", description: "342 buildings. Sunshine and sprawl." },
-  { slug: "houston-downtown", name: "Houston", description: "217 buildings. Oil money and heat." },
-  { slug: "miami-downtown", name: "Miami", description: "224 buildings. Neon and ocean." },
+/** Starting cities — the 4 we have 3D data for. Each has real gameplay tradeoffs. */
+export interface StartCity {
+  slug: string;
+  name: string;
+  tagline: string;
+  description: string;
+  pros: { label: string; reason: string }[];
+  cons: { label: string; reason: string }[];
+}
+
+export const START_CITIES: StartCity[] = [
+  {
+    slug: "manhattan-sample",
+    name: "New York City",
+    tagline: "The capital of everything.",
+    description: "8,156 buildings across Manhattan. The densest battlefield in America — every block is a war zone, every bodega a potential ally. If you can make it here, you can make it anywhere.",
+    pros: [
+      { label: "+30% trade profits", reason: "Wall Street money flows through every street" },
+      { label: "2x recruitment pool", reason: "8 million people — bodies are never scarce" },
+      { label: "More notable NPCs", reason: "Power brokers, fixers, and kingpins everywhere" },
+    ],
+    cons: [
+      { label: "Everything costs 2x", reason: "Rent, wages, bribes — the city taxes ambition" },
+      { label: "5 rival factions", reason: "The most contested turf in the game" },
+      { label: "Police heat is high", reason: "NYPD presence makes loud moves risky" },
+    ],
+  },
+  {
+    slug: "la-downtown",
+    name: "Los Angeles",
+    tagline: "Sprawl, sun, and second chances.",
+    description: "342 buildings in downtown LA, but the real city stretches for miles. Car culture means mobility is king — whoever controls the freeways controls the city. Hollywood money, port money, and street money all collide here.",
+    pros: [
+      { label: "+20% campaign map speed", reason: "Freeway network — everyone drives" },
+      { label: "Cheaper hideouts", reason: "Sprawl means endless cheap warehouses" },
+      { label: "Entertainment connections", reason: "Studios and labels launder money and fame" },
+    ],
+    cons: [
+      { label: "Spread-out targets", reason: "Raids take longer — distance is the enemy" },
+      { label: "Car-dependent troops", reason: "-10% morale if your crew can't drive" },
+      { label: "Earthquake risk", reason: "Random events can damage your holdings" },
+    ],
+  },
+  {
+    slug: "houston-downtown",
+    name: "Houston",
+    tagline: "Oil money and no zoning.",
+    description: "217 buildings downtown, but Houston is a city with no zoning laws — refineries next to mansions next to taco trucks. Energy money built this town, and the good ol' boy networks run deep. Space City, where everything is bigger.",
+    pros: [
+      { label: "+25% workshop output", reason: "Industrial infrastructure everywhere" },
+      { label: "Cheap land", reason: "No zoning — build whatever, wherever" },
+      { label: "Energy wealth", reason: "Oil money means rich marks to rob or befriend" },
+    ],
+    cons: [
+      { label: "Hurricane season", reason: "Storms can wipe out coastal holdings" },
+      { label: "Car sprawl", reason: "Same as LA — distance eats your day" },
+      { label: "Entrenched locals", reason: "-10 starting relation with Texas factions" },
+    ],
+  },
+  {
+    slug: "miami-downtown",
+    name: "Miami",
+    tagline: "Neon, ocean, and everybody's hustle.",
+    description: "224 buildings in downtown Miami. The gateway to Latin America — every shipment, every deal, every escape route runs through this port. Art Deco facades hide serious money. The party never stops, and neither does the grind.",
+    pros: [
+      { label: "+25% smuggling profits", reason: "Port access — the import/export capital" },
+      { label: "Tourism money", reason: "Rich visitors spend recklessly" },
+      { label: "Boat escape routes", reason: "Water gives you options land doesn't" },
+    ],
+    cons: [
+      { label: "Hurricane risk", reason: "Same Gulf storms as Houston" },
+      { label: "High cost of living", reason: "Paradise ain't cheap — 1.5x expenses" },
+      { label: "Feds watch the port", reason: "Federal presence is heavy here" },
+    ],
+  },
 ];
 
 /** Age brackets with mechanical effects. */

@@ -231,22 +231,32 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
   function cityStep(): HTMLElement {
     const frag = h("div", { class: "maker-step" });
     frag.appendChild(h("h2", { class: "title" }, "Where do you start?"));
-    frag.appendChild(h("p", { class: "caption" }, "Your home turf. You can travel anywhere after."));
+    frag.appendChild(h("p", { class: "caption" }, "Your home turf shapes your whole campaign. Each city has real tradeoffs — read them before you commit."));
 
     const grid = h("div", { class: "roles", "data-testid": "city-grid" });
     for (const city of START_CITIES) {
       const selected = startCity === city.slug;
+      const proList = h("ul", { class: "pros" });
+      for (const pro of city.pros) {
+        proList.appendChild(h("li", { title: pro.reason }, `+ ${pro.label}`));
+      }
+      const conList = h("ul", { class: "cons" });
+      for (const con of city.cons) {
+        conList.appendChild(h("li", { title: con.reason }, `- ${con.label}`));
+      }
       const btn = h(
         "button",
         {
-          class: `role${selected ? " role--selected" : ""}`,
+          class: `role city-card${selected ? " role--selected" : ""}`,
           "aria-pressed": selected ? "true" : "false",
           "data-testid": `city-${city.slug}`,
           title: city.description,
         },
         h("strong", {}, city.name),
         h("br"),
-        h("span", { class: "caption" }, city.description),
+        h("em", { class: "tagline" }, city.tagline),
+        h("p", { class: "caption city-desc" }, city.description),
+        h("div", { class: "city-pros-cons" }, proList, conList),
       );
       btn.addEventListener("click", () => {
         startCity = city.slug;
@@ -369,6 +379,17 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
       h("p", { class: "caption", style: "text-align:center" },
         `Starting city: ${city?.name ?? startCity}`),
     );
+    if (city) {
+      card.appendChild(h("p", { class: "caption", style: "text-align:center" }, city.tagline));
+      const cityEffects = h("ul", { class: "city-effects" });
+      for (const pro of city.pros) {
+        cityEffects.appendChild(h("li", { class: "pro", title: pro.reason }, `+ ${pro.label}`));
+      }
+      for (const con of city.cons) {
+        cityEffects.appendChild(h("li", { class: "con", title: con.reason }, `- ${con.label}`));
+      }
+      card.appendChild(cityEffects);
+    }
 
     const bonusEntries = Object.entries(bonusPoints).filter(([, v]) => v > 0);
     if (bonusEntries.length > 0) {
