@@ -94,7 +94,6 @@ type Town struct {
 	FoodImports      float64
 	FoodExports      float64
 	MedicineImports  float64
-	Militia          float64
 	// Arriving cargo staged by the logistics system for this tick and consumed
 	// by the food and disease systems. A town cannot act on goods that have not
 	// landed, so the seam between "on the road" and "in the larder" is a real
