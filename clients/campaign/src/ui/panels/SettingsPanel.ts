@@ -111,6 +111,32 @@ const CONTROLS: ControlDef[] = [
     },
   },
   {
+    key: "shadowQuality", tab: "graphics", label: "Shadow quality",
+    hint: "Real-time shadows from the sun. Applies immediately.",
+    keywords: ["shadow", "shadows", "sun", "lighting"],
+    kind: {
+      type: "select",
+      options: [
+        { value: "off", label: "Off" },
+        { value: "low", label: "Low (1024)" },
+        { value: "high", label: "High (2048)" },
+      ],
+    },
+  },
+  {
+    key: "viewDistance", tab: "graphics", label: "View distance",
+    hint: "How far the camera sees, with matching haze. Applies immediately.",
+    keywords: ["view", "distance", "fog", "far", "draw"],
+    kind: {
+      type: "select",
+      options: [
+        { value: "near", label: "Near" },
+        { value: "far", label: "Far" },
+        { value: "ultra", label: "Ultra" },
+      ],
+    },
+  },
+  {
     key: "masterVolume", tab: "audio", label: "Master volume",
     hint: "Overall loudness.", keywords: ["volume", "master", "loud"],
     kind: { type: "slider", min: 0, max: 1, step: 0.05, format: pct },
@@ -267,7 +293,9 @@ export function settingsPanel(options: SettingsPanelOptions): HTMLElement {
       s.antialias === b.antialias &&
       s.terrainDetail === b.terrainDetail &&
       s.maxFps === b.maxFps &&
-      s.powerPreference === b.powerPreference
+      s.powerPreference === b.powerPreference &&
+      s.shadowQuality === b.shadowQuality &&
+      s.viewDistance === b.viewDistance
     );
   }
 
@@ -346,6 +374,22 @@ export function settingsPanel(options: SettingsPanelOptions): HTMLElement {
     }
     const desc = h("div", { class: "settings__preset-desc" }, describePreset(settings.get().graphicsQuality));
     group.appendChild(desc);
+    // Auto-detect (task 13): re-run the first-launch benchmark on demand.
+    const autoBtn = h(
+      "button",
+      {
+        type: "button",
+        class: "btn btn--quiet",
+        title: "Run the hardware benchmark again and apply the preset it picks.",
+        "data-testid": "setting-autodetect",
+      },
+      "Auto-detect quality",
+    );
+    autoBtn.addEventListener("click", () => {
+      settings.set({ autoQualityDone: false });
+      location.reload();
+    });
+    group.appendChild(autoBtn);
     return group;
   }
 

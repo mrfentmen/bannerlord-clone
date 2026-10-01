@@ -22,9 +22,16 @@ import {
   PointerEventTypes,
   PostProcess,
   Scene,
+  ShadowGenerator,
   StandardMaterial,
   Vector3,
 } from "@babylonjs/core";
+import {
+  SHADOW_MAP_SIZE,
+  VIEW_DISTANCE_CONFIG,
+  type ShadowQuality,
+  type ViewDistance,
+} from "../settings/schema.js";
 import { mapColor, tokens } from "../design/tokens.js";
 import { attachMapGestures } from "../input/touch/gestures.js";
 import { resolveGrade, type QualityLevel } from "../design/grade.js";
@@ -91,6 +98,13 @@ export interface SceneHandle {
    * invert flips orbit axes. Applies live, no restart.
    */
   applyMouseSettings(sensitivity: number, invertX: boolean, invertY: boolean): void;
+  /**
+   * Real-time shadow maps from the key light (task 15). "off" removes the
+   * generator entirely. Applies live, no restart.
+   */
+  applyShadowQuality(q: ShadowQuality): void;
+  /** Draw distance: camera far plane + fog density (task 12). Applies live. */
+  applyViewDistance(v: ViewDistance): void;
   /** One line about what the map is showing, for the data-source panel. */
   summary(): string;
   towns: TownCluster[];
@@ -199,6 +213,31 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
   key.intensity = 1.15;
   key.diffuse = new Color3(0.95, 0.93, 0.86);
   key.specular = new Color3(0.2, 0.2, 0.18);
+  // The light's position only matters for shadow-camera placement — lighting
+  // itself uses the direction. Anchor it over the region centre so a shadow
+  // generator's frustum covers the terrain, and let Babylon fit the depth
+  // bounds to whatever is actually casting.
+  key.position = new Vector3(projection.width / 2, 60_000, projection.depth / 2);
+  key.autoCalcShadowZBounds = true;
+
+  // Real-time shadow maps (task 15). Off by default: today's look, unchanged.
+  let shadowGen: ShadowGenerator | null = null;
+  function setShadowQuality(q: ShadowQuality): void {
+    shadowGen?.dispose();
+    shadowGen = null;
+    terrainMesh.receiveShadows = false;
+    if (q === "off") return;
+    const gen = new ShadowGenerator(SHADOW_MAP_SIZE[q], key);
+    if (q === "high") gen.usePercentageCloserFiltering = true;
+    // Conservative biases for a kilometre-scale heightfield: enough to avoid
+    // acne, small enough not to visibly detach shadows. Untuned on real
+    // hardware — adjust if shadowing looks wrong.
+    gen.bias = 0.0005;
+    gen.normalBias = 2;
+    gen.addShadowCaster(terrainMesh);
+    terrainMesh.receiveShadows = true;
+    shadowGen = gen;
+  }
 
   const fill = new HemisphericLight("fill", new Vector3(0.2, 1, -0.1), scene);
   fill.intensity = 0.4;
@@ -206,7 +245,7 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
   fill.groundColor = new Color3(0.2, 0.19, 0.16);
 
   // -- world ----------------------------------------------------------------
-  buildTerrain({ scene, heightfield: world.heightfield, projection, samples: options.terrainSamples ?? 256 });
+  const { mesh: terrainMesh } = buildTerrain({ scene, heightfield: world.heightfield, projection, samples: options.terrainSamples ?? 256 });
   const terrainInfo = terrainSummary(world.heightfield);
 
   const network = buildNetwork(scene, world.roads, world.rail, projection, VERTICAL_SCALE);
@@ -309,6 +348,7 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       window.removeEventListener("resize", onResize);
       engine.stopRenderLoop();
       mapGestures.dispose();
+      shadowGen?.dispose();
       grain?.dispose();
       pipeline.dispose();
       scene.dispose();
@@ -379,6 +419,14 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       camera.angularSensibilityY = (1000 / s) * sy;
       camera.wheelPrecision = 3 / s;
       camera.panningSensibility = 28 / s;
+    },
+    applyShadowQuality(q) {
+      setShadowQuality(q);
+    },
+    applyViewDistance(v) {
+      const cfg = VIEW_DISTANCE_CONFIG[v];
+      camera.maxZ = cfg.maxZ;
+      scene.fogDensity = cfg.fogDensity;
     },
   };
 }

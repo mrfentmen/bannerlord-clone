@@ -17,6 +17,8 @@ const GRAPHICS_KEYS = [
   "terrainDetail",
   "maxFps",
   "powerPreference",
+  "shadowQuality",
+  "viewDistance",
 ];
 const AUDIO_KEYS = ["masterVolume", "musicVolume", "sfxVolume"];
 const GAMEPLAY_KEYS = [
@@ -94,7 +96,10 @@ describe("settingsPanel", () => {
         }
       }
     }
-    const scalars = Object.keys(DEFAULT_SETTINGS).filter((k) => k !== "version" && k !== "keyBindings");
+    // autoQualityDone is benchmark bookkeeping, not a user-facing setting.
+    const scalars = Object.keys(DEFAULT_SETTINGS).filter(
+      (k) => k !== "version" && k !== "keyBindings" && k !== "autoQualityDone",
+    );
     expect([...covered].sort()).toEqual(scalars.sort());
   });
 
@@ -181,10 +186,21 @@ describe("settingsPanel", () => {
     expect(root.querySelector('[data-testid="setting-row-mouseSensitivity"]')).not.toBeNull();
     expect(root.querySelector('[data-testid="setting-row-invertMouseX"]')).not.toBeNull();
     expect(root.querySelector('[data-testid="setting-row-renderScale"]')).toBeNull();
-    // "shadow" is the task-15 example query shape: keyword search, no tab needed.
+    // Task-15 acceptance, verbatim: searching "shadow" finds shadow quality.
+    search.value = "shadow";
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(root.querySelector('[data-testid="setting-row-shadowQuality"]')).not.toBeNull();
     search.value = "rumble";
     search.dispatchEvent(new Event("input", { bubbles: true }));
     expect(root.querySelector('[data-testid="setting-row-hapticsEnabled"]')).not.toBeNull();
+  });
+
+  it("graphics tab has the shadow, view-distance, and auto-detect controls", () => {
+    const { root } = open();
+    tab(root, "graphics");
+    expect(root.querySelector('[data-testid="setting-shadowQuality"]')).not.toBeNull();
+    expect(root.querySelector('[data-testid="setting-viewDistance"]')).not.toBeNull();
+    expect(root.querySelector('[data-testid="setting-autodetect"]')).not.toBeNull();
   });
 
   it("flags reload-needed changes with a banner", () => {

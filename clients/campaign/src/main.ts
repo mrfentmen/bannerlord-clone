@@ -61,6 +61,8 @@ import { achievementsPanel } from "./ui/panels/Achievements.js";
 import { ALL_CODEX_ENTRIES, CODEX_CATEGORIES } from "./codex/index.js";
 import { toast } from "./ui/kit.js";
 import { settings, type Settings } from "./settings/index.js";
+import { FpsBenchmark, presetForFps } from "./settings/autodetect.js";
+import { presetPatch } from "./settings/presets.js";
 
 const appEl = document.getElementById("app");
 const canvasEl = document.getElementById("map");
@@ -107,9 +109,43 @@ function applyReduceMotion(on: boolean): void {
   if (on) document.documentElement.setAttribute("data-reduce-motion", "");
   else document.documentElement.removeAttribute("data-reduce-motion");
 }
+let autoDetectStarted = false;
+
+/**
+ * First-launch quality auto-detect (task 13). Samples real rendered frames for
+ * ~2 seconds, picks the preset the hardware earns, and reloads once if a
+ * construction-time key (AA, terrain density, GPU hint) changed. Runs exactly
+ * once: the `autoQualityDone` flag persists the decision.
+ */
+function maybeAutoDetectQuality(): void {
+  if (autoDetectStarted || !scene) return;
+  if (settings.get().autoQualityDone) return;
+  autoDetectStarted = true;
+  const bench = new FpsBenchmark();
+  toast("Detecting hardware — picking graphics quality…", 3000);
+  const tick = () => {
+    if (!bench.frame()) {
+      requestAnimationFrame(tick);
+      return;
+    }
+    const fps = bench.result() ?? 0;
+    const pick = presetForFps(fps);
+    const patch = presetPatch(pick);
+    const cur = settings.get();
+    // Construction-time keys need a reload; live keys apply via subscription.
+    const needsReload =
+      patch.antialias !== cur.antialias ||
+      patch.powerPreference !== cur.powerPreference ||
+      patch.terrainDetail !== cur.terrainDetail;
+    settings.set({ ...patch, autoQualityDone: true });
+    toast(`Auto quality: ${pick} (${Math.round(fps)} fps measured)`);
+    if (needsReload) location.reload();
+  };
+  requestAnimationFrame(tick);
+}
+
 /** Applies every setting that takes effect without a restart. */
-function applySettingsLive(): void {
-  const s = settings.get();
+function applySettingsLive(): void {  const s = settings.get();
   applyUiScale(s.uiScale);
   applyReduceMotion(s.reduceMotion);
   // Audio levels are stored and validated here; the audio pipeline (Hana's lane)
@@ -118,6 +154,8 @@ function applySettingsLive(): void {
     scene.engine.setHardwareScalingLevel(s.renderScale);
     scene.setMaxFps(s.maxFps);
     scene.applyMouseSettings(s.mouseSensitivity, s.invertMouseX, s.invertMouseY);
+    scene.applyShadowQuality(s.shadowQuality);
+    scene.applyViewDistance(s.viewDistance);
   }
 }
 applyUiScale(settings.get().uiScale);
@@ -303,6 +341,7 @@ function mountCampaign(): void {
   // The scene exists by now, so graphics quality can apply to the live engine.
   // mountCampaign can run again after a snapshot reload; subscribe once.
   applySettingsLive();
+  maybeAutoDetectQuality();
   if (!settingsLive) {
     settingsLive = true;
     settings.subscribe(applySettingsLive);

@@ -21,6 +21,23 @@ export const UI_SCALE_STEPS = [90, 100, 115, 130] as const;
 export type GraphicsQuality = "low" | "medium" | "high" | "ultra";
 export type TerrainDetail = "low" | "high";
 export type PowerPreference = "default" | "low-power" | "high-performance";
+/** Real-time shadow maps on the key light. Default off: today's rendering, unchanged. */
+export type ShadowQuality = "off" | "low" | "high";
+/** Draw distance. "far" is today's tuned fog/maxZ; the others trade reach for speed. */
+export type ViewDistance = "near" | "far" | "ultra";
+
+/** Shadow map resolution per quality level ("off" creates no generator). */
+export const SHADOW_MAP_SIZE: Record<Exclude<ShadowQuality, "off">, number> = {
+  low: 1024,
+  high: 2048,
+};
+
+/** Camera far plane and fog density per view distance. "far" = the tuned look. */
+export const VIEW_DISTANCE_CONFIG: Record<ViewDistance, { maxZ: number; fogDensity: number }> = {
+  near: { maxZ: 120_000, fogDensity: 0.000016 },
+  far: { maxZ: 260_000, fogDensity: 0.0000085 },
+  ultra: { maxZ: 400_000, fogDensity: 0.000004 },
+};
 
 export interface Settings {
   version: typeof SETTINGS_VERSION;
@@ -36,6 +53,10 @@ export interface Settings {
   maxFps: 0 | 30 | 60 | 120;
   /** GPU preference at engine creation. Needs a reload. */
   powerPreference: PowerPreference;
+  /** Real-time shadows from the key light. Applied live (generator rebuild). */
+  shadowQuality: ShadowQuality;
+  /** Draw distance: camera far plane + fog density. Applied live. */
+  viewDistance: ViewDistance;
   /** Mouse orbit/zoom multiplier on the 3D canvas. Live. */
   mouseSensitivity: number;
   /** Invert mouse orbit axes. Live. */
@@ -56,6 +77,8 @@ export interface Settings {
   gamepadEnabled: boolean;
   /** Rumble on battle events (orders, hits, deployment). Best-effort. */
   hapticsEnabled: boolean;
+  /** Set once the first-launch quality benchmark has run (task 13). */
+  autoQualityDone: boolean;
   /** Custom key chords, as serialized by the input registry. */
   keyBindings: Record<string, KeyBinding[]>;
 }
@@ -68,6 +91,8 @@ export const DEFAULT_SETTINGS: Settings = {
   terrainDetail: "high",
   maxFps: 0,
   powerPreference: "default",
+  shadowQuality: "off",
+  viewDistance: "far",
   mouseSensitivity: 1,
   invertMouseX: false,
   invertMouseY: false,
@@ -80,6 +105,7 @@ export const DEFAULT_SETTINGS: Settings = {
   reduceMotion: false,
   gamepadEnabled: true,
   hapticsEnabled: true,
+  autoQualityDone: false,
   keyBindings: {},
 };
 
@@ -87,6 +113,8 @@ const GRAPHICS_QUALITIES: readonly GraphicsQuality[] = ["low", "medium", "high",
 const TERRAIN_DETAILS: readonly TerrainDetail[] = ["low", "high"];
 const MAX_FPS_VALUES: readonly Settings["maxFps"][] = [0, 30, 60, 120];
 const POWER_PREFERENCES: readonly PowerPreference[] = ["default", "low-power", "high-performance"];
+const SHADOW_QUALITIES: readonly ShadowQuality[] = ["off", "low", "high"];
+const VIEW_DISTANCES: readonly ViewDistance[] = ["near", "far", "ultra"];
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -138,6 +166,8 @@ export function parseSettings(raw: unknown): Settings {
     terrainDetail: pickEnum(v.terrainDetail, TERRAIN_DETAILS, DEFAULT_SETTINGS.terrainDetail),
     maxFps: pickOneOf(v.maxFps, MAX_FPS_VALUES, DEFAULT_SETTINGS.maxFps),
     powerPreference: pickEnum(v.powerPreference, POWER_PREFERENCES, DEFAULT_SETTINGS.powerPreference),
+    shadowQuality: pickEnum(v.shadowQuality, SHADOW_QUALITIES, DEFAULT_SETTINGS.shadowQuality),
+    viewDistance: pickEnum(v.viewDistance, VIEW_DISTANCES, DEFAULT_SETTINGS.viewDistance),
     mouseSensitivity: pickNumber(v.mouseSensitivity, 0.25, 3, DEFAULT_SETTINGS.mouseSensitivity),
     invertMouseX: v.invertMouseX === true,
     invertMouseY: v.invertMouseY === true,
@@ -153,6 +183,7 @@ export function parseSettings(raw: unknown): Settings {
     reduceMotion: v.reduceMotion === true,
     gamepadEnabled: v.gamepadEnabled !== false,
     hapticsEnabled: v.hapticsEnabled !== false,
+    autoQualityDone: v.autoQualityDone === true,
     keyBindings: pickKeyBindings(v.keyBindings),
   };
 }

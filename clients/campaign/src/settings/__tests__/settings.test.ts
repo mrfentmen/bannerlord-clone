@@ -81,6 +81,9 @@ describe("settings schema", () => {
       mouseSensitivity: 2,
       invertMouseX: true,
       invertMouseY: 1, // truthy but not boolean: strict false
+      shadowQuality: "high",
+      viewDistance: "ultra",
+      autoQualityDone: 1, // truthy but not boolean: strict false
     });
     expect(s.renderScale).toBe(1.25);
     expect(s.antialias).toBe(false);
@@ -90,6 +93,9 @@ describe("settings schema", () => {
     expect(s.mouseSensitivity).toBe(2);
     expect(s.invertMouseX).toBe(true);
     expect(s.invertMouseY).toBe(false);
+    expect(s.shadowQuality).toBe("high");
+    expect(s.viewDistance).toBe("ultra");
+    expect(s.autoQualityDone).toBe(false);
   });
 
   it("clamps and enum-falls-back the new fields on garbage", () => {

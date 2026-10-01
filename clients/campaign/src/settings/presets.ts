@@ -1,9 +1,23 @@
 /**
  * Graphics quality presets (MASTER_PLAN task 12).
  *
- * One click applies a coherent bundle of engine values. Values that the engine
- * only reads at creation (antialias, GPU preference, terrain mesh density)
- * take effect on the next load; the settings panel says so next to them.
+ * One click applies a coherent bundle of engine values — 8 settings fields,
+ * 10 underlying engine/scene values:
+ *
+ *   1. graphicsQuality ......... the bundle label itself (persisted, read at boot)
+ *   2. renderScale ............. engine.setHardwareScalingLevel (live)
+ *   3. antialias ............... MSAA flag at engine construction (reload)
+ *   4. powerPreference ......... GPU hint at engine construction (reload)
+ *   5. terrainDetail ............ terrainSamples -> buildTerrain mesh density (reload)
+ *   6. maxFps .................. render-loop frame-skip threshold (live)
+ *   7. shadowQuality ............ shadow generator enabled/disabled (live)
+ *   8. shadowQuality ............ shadow map size 1024/2048 (live)
+ *   9. viewDistance ............. camera.maxZ far plane (live)
+ *  10. viewDistance ............. scene.fogDensity (live)
+ *
+ * Values that the engine only reads at creation (antialias, GPU preference,
+ * terrain mesh density) take effect on the next load; the settings panel says
+ * so next to them.
  */
 
 import type { GraphicsQuality, Settings } from "./schema.js";
@@ -14,6 +28,8 @@ export interface GraphicsBundle {
   terrainDetail: Settings["terrainDetail"];
   maxFps: Settings["maxFps"];
   powerPreference: Settings["powerPreference"];
+  shadowQuality: Settings["shadowQuality"];
+  viewDistance: Settings["viewDistance"];
 }
 
 export const GRAPHICS_PRESETS: Record<GraphicsQuality, GraphicsBundle> = {
@@ -23,6 +39,8 @@ export const GRAPHICS_PRESETS: Record<GraphicsQuality, GraphicsBundle> = {
     terrainDetail: "low",
     maxFps: 30,
     powerPreference: "low-power",
+    shadowQuality: "off",
+    viewDistance: "near",
   },
   medium: {
     renderScale: 1.25,
@@ -30,6 +48,8 @@ export const GRAPHICS_PRESETS: Record<GraphicsQuality, GraphicsBundle> = {
     terrainDetail: "low",
     maxFps: 60,
     powerPreference: "default",
+    shadowQuality: "low",
+    viewDistance: "far",
   },
   high: {
     renderScale: 1,
@@ -37,6 +57,8 @@ export const GRAPHICS_PRESETS: Record<GraphicsQuality, GraphicsBundle> = {
     terrainDetail: "high",
     maxFps: 0,
     powerPreference: "default",
+    shadowQuality: "low",
+    viewDistance: "far",
   },
   ultra: {
     renderScale: 0.85,
@@ -44,6 +66,8 @@ export const GRAPHICS_PRESETS: Record<GraphicsQuality, GraphicsBundle> = {
     terrainDetail: "high",
     maxFps: 0,
     powerPreference: "high-performance",
+    shadowQuality: "high",
+    viewDistance: "ultra",
   },
 };
 
@@ -57,6 +81,8 @@ export function presetPatch(quality: GraphicsQuality): Partial<Settings> {
     terrainDetail: b.terrainDetail,
     maxFps: b.maxFps,
     powerPreference: b.powerPreference,
+    shadowQuality: b.shadowQuality,
+    viewDistance: b.viewDistance,
   };
 }
 
@@ -69,6 +95,8 @@ export function describePreset(quality: GraphicsQuality): string {
     b.antialias ? "AA on" : "AA off",
     `terrain ${b.terrainDetail}`,
     b.maxFps === 0 ? "uncapped" : `${b.maxFps} fps`,
+    `shadows ${b.shadowQuality}`,
+    `view ${b.viewDistance}`,
     `GPU ${b.powerPreference}`,
   ].join(" · ");
 }

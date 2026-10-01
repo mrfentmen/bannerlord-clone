@@ -365,12 +365,25 @@ export const SETTINGS_ENTRIES: CodexEntry[] = [
     "setting-graphics-engine",
     "Engine graphics values",
     "settings",
-    "Render scale, anti-aliasing, terrain detail, frame cap, GPU preference.",
+    "Render scale, anti-aliasing, terrain detail, frame cap, GPU preference, shadows, view distance.",
     [
       "Render scale sets the 3D resolution relative to the canvas: below 100% is faster, above is sharper. The frame cap limits how often the scene renders — 30 fps is the laptop-battery choice.",
+      "Shadow quality turns real-time shadows from the sun on and off — off by default, so the classic look is unchanged — and view distance trades camera reach and haze for speed. Both apply immediately.",
       "Anti-aliasing, terrain detail, and GPU preference are read once when the 3D engine starts. Changing them shows a restart banner in the settings panel; everything else applies immediately.",
     ],
-    ["setting:renderScale", "setting:antialias", "setting:terrainDetail", "setting:maxFps", "setting:powerPreference", "graphics", "engine"],
+    ["setting:renderScale", "setting:antialias", "setting:terrainDetail", "setting:maxFps", "setting:powerPreference", "setting:shadowQuality", "setting:viewDistance", "graphics", "engine"],
+    ["setting-graphics-presets"],
+  ),
+  e(
+    "setting-auto-detect",
+    "Automatic quality detection",
+    "settings",
+    "A short first-launch benchmark picks a graphics preset for the hardware.",
+    [
+      "On first launch the client renders the map for a couple of seconds, measures the frame rate, and picks the preset the hardware earns: Low on weak machines, High or Ultra on strong ones. The decision is saved and never re-runs on its own.",
+      "Re-run it any time from the Graphics tab with the Auto-detect quality button, or pick a preset by hand — your choice always wins.",
+    ],
+    ["setting:autoQualityDone", "auto-detect", "benchmark", "graphics", "presets"],
     ["setting-graphics-presets"],
   ),
   e(
