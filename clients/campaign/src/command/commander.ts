@@ -22,6 +22,20 @@ export interface Commander {
   destroy(): void;
 }
 
+/**
+ * Haptic/UI hooks for battle events (MASTER_PLAN task 7). The commander stays
+ * sim-agnostic: whoever builds the battle view wires these to the haptics
+ * layer (`createHaptics`), so orders thump and casualties sting the controller.
+ */
+export interface CommanderEvents {
+  /** An order was issued through the radial menu. */
+  onOrder?: (kind: OrderKind, unitIds: string[]) => void;
+  /** Selection changed (select-all, control group recalled, radial opened). */
+  onSelect?: () => void;
+  /** Total unit count dropped — units took losses. */
+  onHit?: () => void;
+}
+
 const RADIAL_ORDERS: OrderKind[] = ["attack", "follow", "hold", "retreat"];
 const DRAG_THRESHOLD_PX = 6;
 const CLICK_RADIUS_PX = 24;
@@ -48,7 +62,11 @@ function ensureControlGroupActions(registry: InputRegistry): void {
   }
 }
 
-export function createCommander(surface: CommandSurface, registry: InputRegistry = input): Commander {
+export function createCommander(
+  surface: CommandSurface,
+  registry: InputRegistry = input,
+  events: CommanderEvents = {},
+): Commander {
   ensureControlGroupActions(registry);
   const selection = createSelection();
   const offs: Array<() => void> = [];
@@ -64,6 +82,7 @@ export function createCommander(surface: CommandSurface, registry: InputRegistry
 
   function openRadial(): void {
     if (radial || selection.selected().length === 0) return;
+    events.onSelect?.();
     radial = createRadialMenu({
       items: RADIAL_ORDERS.map((kind) => ({ kind })),
       x: lastPointer.x,
@@ -73,6 +92,7 @@ export function createCommander(surface: CommandSurface, registry: InputRegistry
         radial = null;
         if (unitIds.length > 0) {
           surface.issueOrder({ kind, unitIds, at: Date.now() });
+          events.onOrder?.(kind, unitIds);
         }
       },
       onCancel: () => {
@@ -169,13 +189,17 @@ export function createCommander(surface: CommandSurface, registry: InputRegistry
   offs.push(
     registry.on("battle.selectAll", () => {
       selection.select(surface.units().filter((u) => u.count > 0).map((u) => u.id));
+      events.onSelect?.();
     }),
   );
   for (let n = 1; n <= 4; n++) {
     offs.push(
       registry.on(`battle.controlGroup${n}`, (ev) => {
         if (ev.keyEvent?.ctrlKey || ev.keyEvent?.metaKey) selection.assignGroup(n);
-        else selection.recallGroup(n);
+        else {
+          selection.recallGroup(n);
+          events.onSelect?.();
+        }
       }),
     );
   }
@@ -186,8 +210,13 @@ export function createCommander(surface: CommandSurface, registry: InputRegistry
   window.addEventListener("pointermove", onPointerMove);
   window.addEventListener("pointermove", beginMarquee);
   window.addEventListener("pointerup", onPointerUp);
+  let lastTotal = surface.units().reduce((s, u) => s + Math.max(0, u.count), 0);
   offs.push(surface.onUnitsChanged(() => {
-    const live = new Set(surface.units().filter((u) => u.count > 0).map((u) => u.id));
+    const units = surface.units();
+    const total = units.reduce((s, u) => s + Math.max(0, u.count), 0);
+    if (total < lastTotal) events.onHit?.(); // casualties
+    lastTotal = total;
+    const live = new Set(units.filter((u) => u.count > 0).map((u) => u.id));
     const kept = selection.selected().filter((id) => live.has(id));
     selection.select(kept);
   }));

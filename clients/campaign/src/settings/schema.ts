@@ -37,6 +37,8 @@ export interface Settings {
   /** Applied live via the `data-reduce-motion` attribute. */
   reduceMotion: boolean;
   gamepadEnabled: boolean;
+  /** Rumble on battle events (orders, hits, deployment). Best-effort. */
+  hapticsEnabled: boolean;
   /** Custom key chords, as serialized by the input registry. */
   keyBindings: Record<string, KeyBinding[]>;
 }
@@ -52,6 +54,7 @@ export const DEFAULT_SETTINGS: Settings = {
   language: "en",
   reduceMotion: false,
   gamepadEnabled: true,
+  hapticsEnabled: true,
   keyBindings: {},
 };
 
@@ -109,6 +112,7 @@ export function parseSettings(raw: unknown): Settings {
         : DEFAULT_SETTINGS.language,
     reduceMotion: v.reduceMotion === true,
     gamepadEnabled: v.gamepadEnabled !== false,
+    hapticsEnabled: v.hapticsEnabled !== false,
     keyBindings: pickKeyBindings(v.keyBindings),
   };
 }

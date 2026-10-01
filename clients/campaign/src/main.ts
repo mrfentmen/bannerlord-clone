@@ -31,6 +31,7 @@ import { createCampaignScene, type SceneHandle } from "./scene/CampaignScene.js"
 import { findRoute, shortestPath } from "./scene/network.js";
 import { createHud, dataSourcePanel, fatalError, type HudPanel, type HudState } from "./ui/hud.js";
 import { createGamepadManager, createStickCamera, moveFocus, type GamepadManager, type StickCamera, type StickSource } from "./input/gamepad/index.js";
+import { createHaptics, type Haptics } from "./input/gamepad/haptics.js";
 import { createTouchOverlay, isTouchDevice, type TouchOverlay } from "./input/touch/overlay.js";
 import { marketPanel } from "./ui/panels/MarketPanel.js";
 import { partyPanel } from "./ui/panels/PartyPanel.js";
@@ -342,6 +343,7 @@ let settingsLive = false;
 // `gamepad` field on ActionDef owns the mapping); the d-pad / left stick move
 // focus spatially so every menu works with no mouse.
 let gamepad: GamepadManager | null = null;
+let haptics: Haptics | null = null;
 let stickCamera: StickCamera | null = null;
 let gamepadBound = false;
 let touchOverlay: TouchOverlay | null = null;
@@ -369,6 +371,13 @@ function bindGamepad(): void {
     isEnabled: enabled,
   });
   gamepad.start();
+
+  // Rumble on key battle events (MASTER_PLAN task 7). The battle view wires
+  // the commander's onOrder/onSelect/onHit hooks to this when it builds one.
+  haptics = createHaptics({
+    source: gamepad,
+    isEnabled: () => settings.get().hapticsEnabled && gamepad !== null && gamepad.connected(),
+  });
 }
 
 // -- touch overlay (MASTER_PLAN task 3) --------------------------------------
@@ -683,6 +692,7 @@ function openDeployment(): void {
   openDeploymentPreview({
     onConfirm: () => {
       achievements.record("battle.deployed");
+      haptics?.play("deploy");
     },
     onChange: (placements) => {
       let placed = 0;

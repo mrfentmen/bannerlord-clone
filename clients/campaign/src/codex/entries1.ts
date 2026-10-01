@@ -326,6 +326,18 @@ export const SETTINGS_ENTRIES: CodexEntry[] = [
     [],
   ),
   e(
+    "setting-haptics-enabled",
+    "Controller rumble",
+    "settings",
+    "Gamepad rumble on battle events, on by default.",
+    [
+      "When enabled, the controller vibrates on key battle events: issuing an order through the command radial, units taking losses, and confirming a deployment.",
+      "Rumble is best-effort — desktops and browsers without a vibration actuator simply do nothing — and never blocks the game if the effect is rejected.",
+    ],
+    ["setting:hapticsEnabled", "haptics", "rumble", "vibration", "controller"],
+    [],
+  ),
+  e(
     "setting-key-bindings",
     "Key bindings storage",
     "settings",
