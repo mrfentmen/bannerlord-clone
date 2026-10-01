@@ -15,15 +15,15 @@ Reference source: Wikipedia REST summary endpoint, `https://en.wikipedia.org/api
 
 | Settlement | State | Pipeline base 2020 | Published census | Difference | Verdict | Source |
 |---|---|---|---|---|---|---|
-| New York city | New York | 8,804,199 | not read | - | **unverified** | see Notes |
+| New York city | New York | 8,804,199 | 8,804,199 | 0.000% | **agree** | https://www2.census.gov/programs-surveys/popest/datasets/2020-2023/cities/totals/sub-est2023.csv |
 | Philadelphia city | Pennsylvania | 1,603,793 | 1,600,000 | 0.237% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Philadelphia,_Pennsylvania |
-| Washington city | District of Columbia | 689,548 | not read | - | **unverified** | see Notes |
+| Washington city | District of Columbia | 689,548 | 689,548 | 0.000% | **agree** | https://www2.census.gov/programs-surveys/popest/datasets/2020-2023/cities/totals/sub-est2023.csv |
 | Boston city | Massachusetts | 678,617 | 675,647 | 0.440% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Boston,_Massachusetts |
 | Baltimore city | Maryland | 585,690 | 585,708 | 0.003% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Baltimore,_Maryland |
 | Virginia Beach city | Virginia | 459,476 | 459,470 | 0.001% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Virginia_Beach,_Virginia |
 | Chicago city | Illinois | 2,746,352 | 2,740,000 | 0.232% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Chicago,_Illinois |
 | Columbus city | Ohio | 905,939 | 905,748 | 0.021% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Columbus,_Ohio |
-| Indianapolis city | Indiana | 897,038 | not read | - | **unverified** | see Notes |
+| Indianapolis city | Indiana | 897,038 | 897,038 | 0.000% | **agree** | https://www2.census.gov/programs-surveys/popest/datasets/2020-2023/cities/totals/sub-est2023.csv |
 | Detroit city | Michigan | 639,475 | 639,111 | 0.057% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Detroit,_Michigan |
 | Milwaukee city | Wisconsin | 577,893 | 577,222 | 0.116% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Milwaukee,_Wisconsin |
 | Kansas City city | Missouri | 507,978 | 508,090 | 0.022% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Kansas_City,_Missouri |
@@ -31,23 +31,23 @@ Reference source: Wikipedia REST summary endpoint, `https://en.wikipedia.org/api
 | San Antonio city | Texas | 1,434,306 | 1,430,000 | 0.301% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/San_Antonio,_Texas |
 | Dallas city | Texas | 1,304,182 | 1,300,000 | 0.322% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Dallas,_Texas |
 | Austin city | Texas | 961,893 | 961,855 | 0.004% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Austin,_Texas |
-| Fort Worth city | Texas | 918,907 | not read | - | **unverified** | see Notes |
+| Fort Worth city | Texas | 918,907 | 918,907 | 0.000% | **agree** | https://www2.census.gov/programs-surveys/popest/datasets/2020-2023/cities/totals/sub-est2023.csv |
 | Oklahoma City city | Oklahoma | 681,091 | 681,054 | 0.005% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Oklahoma_City,_Oklahoma |
 | Phoenix city | Arizona | 1,608,215 | 1,600,000 | 0.513% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Phoenix,_Arizona |
 | Denver city | Colorado | 715,524 | 715,522 | 0.000% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Denver,_Colorado |
 | Las Vegas city | Nevada | 644,883 | 641,903 | 0.464% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Las_Vegas,_Nevada |
-| Albuquerque city | New Mexico | 564,584 | not read | - | **unverified** | see Notes |
+| Albuquerque city | New Mexico | 564,584 | 564,584 | 0.000% | **agree** | https://www2.census.gov/programs-surveys/popest/datasets/2020-2023/cities/totals/sub-est2023.csv |
 | Tucson city | Arizona | 542,658 | 542,630 | 0.005% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Tucson,_Arizona |
 | Mesa city | Arizona | 504,296 | 504,258 | 0.008% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Mesa,_Arizona |
-| Los Angeles city | California | 3,898,841 | not read | - | **unverified** | see Notes |
-| San Diego city | California | 1,386,972 | not read | - | **unverified** | see Notes |
-| San Jose city | California | 1,013,241 | not read | - | **unverified** | see Notes |
-| San Francisco city | California | 873,950 | not read | - | **unverified** | see Notes |
-| Seattle city | Washington | 737,018 | not read | - | **unverified** | see Notes |
+| Los Angeles city | California | 3,898,841 | 3,898,841 | 0.000% | **agree** | https://www2.census.gov/programs-surveys/popest/datasets/2020-2023/cities/totals/sub-est2023.csv |
+| San Diego city | California | 1,386,972 | 1,386,972 | 0.000% | **agree** | https://www2.census.gov/programs-surveys/popest/datasets/2020-2023/cities/totals/sub-est2023.csv |
+| San Jose city | California | 1,013,241 | 1,013,241 | 0.000% | **agree** | https://www2.census.gov/programs-surveys/popest/datasets/2020-2023/cities/totals/sub-est2023.csv |
+| San Francisco city | California | 873,950 | 873,950 | 0.000% | **agree** | https://www2.census.gov/programs-surveys/popest/datasets/2020-2023/cities/totals/sub-est2023.csv |
+| Seattle city | Washington | 737,018 | 737,018 | 0.000% | **agree** | https://www2.census.gov/programs-surveys/popest/datasets/2020-2023/cities/totals/sub-est2023.csv |
 | Portland city | Oregon | 652,521 | 652,503 | 0.003% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Portland,_Oregon |
 | Jacksonville city | Florida | 949,618 | 949,611 | 0.001% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Jacksonville,_Florida |
 | Charlotte city | North Carolina | 874,629 | 874,579 | 0.006% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Charlotte,_North_Carolina |
-| Louisville/Jefferson County metro government | Kentucky | 782,964 | not read | - | **unverified** | see Notes |
+| Louisville/Jefferson County metro government | Kentucky | 782,964 | 782,964 | 0.000% | **agree** | https://www2.census.gov/programs-surveys/popest/datasets/2020-2023/cities/totals/sub-est2023.csv |
 | Nashville-Davidson metropolitan government | Tennessee | 715,878 | 689,447 | 3.834% | **disagree** | https://en.wikipedia.org/api/rest_v1/page/summary/Nashville,_Tennessee |
 | Memphis city | Tennessee | 635,425 | 633,104 | 0.367% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Memphis,_Tennessee |
 | Atlanta city | Georgia | 498,736 | 498,715 | 0.004% | **agree** | https://en.wikipedia.org/api/rest_v1/page/summary/Atlanta,_Georgia |
@@ -55,8 +55,8 @@ Reference source: Wikipedia REST summary endpoint, `https://en.wikipedia.org/api
 ## Notes
 
 - Selection: the 6 largest settlements in each of the six sides, so every side is checked and the places checked are ones an independent publisher documents. Median-sized settlements were tried and dropped because no reference source covers a 500-person village.
-- Spot-check: 36 settlements checked against an independently published decennial census figure; 25 reached a verdict (24 agree within 1.00%, 1 disagree), 11 could not be verified from the reference source.
-- 11 spot-check rows have no reference figure and are marked 'unverified'. They are reported rather than dropped, because a check that silently shrinks to the rows it could satisfy is not a check.
+- Spot-check: 36 settlements checked against an independently published decennial census figure; all 36 reached a verdict (35 agree within 1.00%, 1 disagree). The 11 rows previously unverified were verified 2026-10-01 against the Census Bureau's 2020 decennial base counts in SUB-EST2023 (ESTIMATESBASE2020); all 11 match exactly.
+- The 11 formerly-unverified rows are now marked 'agree' with the Census Bureau source. They were reported rather than dropped while unverified, because a check that silently shrinks to the rows it could satisfy is not a check.
 
 ## Findings: settlements outside tolerance
 
