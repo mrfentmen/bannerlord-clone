@@ -7,7 +7,7 @@
  */
 
 import { clear, h } from "../dom.js";
-import { BACKGROUNDS, APPEARANCE_PRESETS, computeCharacterStats, type GameCharacter } from "../../data/backgrounds.js";
+import { BACKGROUNDS, APPEARANCE_PRESETS, appearancesForEthnicity, computeCharacterStats, type GameCharacter } from "../../data/backgrounds.js";
 import { ETHNICITIES } from "../../data/ethnicities.js";
 
 export interface CharacterMakerOptions {
@@ -137,11 +137,18 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
 
   function appearanceStep(): HTMLElement {
     const frag = h("div", { class: "maker-step" });
-    frag.appendChild(h("h2", { class: "title" }, "Choose your look"));
+    const ethnicity = ETHNICITIES.find((e) => e.id === ethnicityId);
+    frag.appendChild(h("h2", { class: "title" }, `Choose your look — ${ethnicity?.name ?? ""}`));
     frag.appendChild(h("p", { class: "caption" }, "Pick a face for your character."));
 
+    const presets = appearancesForEthnicity(ethnicityId);
+    // Reset to first preset of this ethnicity if current doesn't belong.
+    if (!presets.some((p) => p.id === appearanceId)) {
+      appearanceId = presets[0]?.id ?? "";
+    }
+
     const grid = h("div", { class: "roles", "data-testid": "appearance-grid" });
-    for (const preset of APPEARANCE_PRESETS) {
+    for (const preset of presets) {
       const btn = h(
         "button",
         {
@@ -203,7 +210,7 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
 
     const { skills, cash, biography } = computeCharacterStats(backgroundChoices);
     const ethnicity = ETHNICITIES.find((e) => e.id === ethnicityId);
-    const appearance = APPEARANCE_PRESETS.find((a) => a.id === appearanceId);
+    const appearance = appearancesForEthnicity(ethnicityId).find((a) => a.id === appearanceId);
 
     const card = h("div", { class: "sheet", "data-testid": "char-review" });
     card.appendChild(h("div", { style: "font-size:3rem;text-align:center" }, appearance?.icon ?? "🧑"));
