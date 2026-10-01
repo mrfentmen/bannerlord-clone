@@ -262,13 +262,22 @@ road_class_mtfcc = { I = "primary", M = "primary", S = "secondary", U = "seconda
 # splitting it; segments above this are flagged in the export for Agents 2/3.
 # Reasonable: 200..2000
 segment_warning_km = 800.0
-# How far from a settlement's centre a road endpoint may be and still be
-# treated as reaching that settlement. A road node rarely lands exactly on a
-# town, and an unmatched endpoint would otherwise make the town unreachable.
-# Chosen to be a few times the size of a large town's footprint while staying
-# far below the distance between neighbouring towns in the sparsely settled
-# West. Reasonable range: 5..50
-snap_radius_km = 20.0
+# How far from a settlement's centre a road/rail endpoint may be and still be
+# treated as reaching that settlement, per road class. Measured 2026-10-01
+# (tools/measure-snap-rates.py) against the national TIGER/Line layers with the
+# old global 20 km rule; national snap-distance percentiles were:
+#   primary:   p50= 4.71  p90=11.67  p95=14.32  p99=18.27
+#   secondary: p50= 4.20  p90=10.32  p95=12.84  p99=18.01
+#   rail:      p50= 3.59  p90=10.48  p95=13.54  p99=18.08
+# A road node rarely lands exactly on a town, and an unmatched endpoint would
+# otherwise make the town unreachable — but the 15-20 km tail is where phantom
+# snaps live (2026-09-30 audit: 63% of rail routes shorter than the great-circle
+# distance because fragments snapped to towns up to 20 km away). Each radius is
+# set just past its class's p95 so ~95%+ of real snaps survive while the
+# phantom tail is cut; settlements left disconnected are handled explicitly by
+# connector stubs / no_road flags (see docs/TRAVEL_GRAPH.md), not by widening
+# the radius again. Reasonable range per class: 5..25.
+snap_radius_km_by_class = { primary = 15.0, secondary = 12.0, rail = 10.0 }
 # Minimum fraction of the straight-line (great-circle) distance between two
 # snapped settlements that a line fragment must cover to count as a
 # town-to-town route edge. TIGER/Line splits rail into short features (yard

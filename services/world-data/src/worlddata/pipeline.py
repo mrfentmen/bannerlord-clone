@@ -704,6 +704,8 @@ def _assemble_tables(
             "distance_km": route.distance_km,
             "road_safety": route.road_safety,
             "kind": route.kind,
+            "road_class": route.road_class,
+            "travel_hours": route.travel_hours,
             "segment_count": len(route.segment_ids),
             "segment_ids": json.dumps(list(route.segment_ids)),
         }

@@ -289,6 +289,39 @@ def test_settlement_index_matches_brute_force():
             assert found is None, f"index found {found} at {probe} but nothing is within {radius_km} km"
 
 
+def test_settlement_index_max_km_narrows_but_never_widens():
+    # Tier 1A-2: per-class snap radii are enforced by narrowing nearest() below
+    # the index radius. A caller must not be able to widen the search.
+    points = {"town": (-83.0, 39.9)}
+    index = SettlementIndex(points, 10.0)
+    probe = (-83.12, 39.9)  # ~10.3 km east of town
+    found_wide, _ = index.nearest(probe)
+    assert found_wide is None  # beyond the 10 km index radius
+    found_narrow, dist = index.nearest((-83.05, 39.9), max_km=5.0)
+    assert found_narrow == "town"  # ~4.3 km, inside the narrowed radius
+    assert dist < 5.0
+    # max_km above the index radius cannot widen it.
+    found, _ = index.nearest(probe, max_km=50.0)
+    assert found is None
+
+
+def test_travel_config_requires_all_snap_radii(tmp_path):
+    # Tier 1A-2: the route stage needs a snap radius for every road class it
+    # emits; a config missing one must fail loudly at load, not mid-pipeline.
+    import re
+
+    from worlddata.config import load_config
+
+    src = (Path(__file__).resolve().parents[1] / "config" / "world_data.toml").read_text()
+    bad = re.sub(r", rail = 10\.0", "", src)
+    cfg_path = tmp_path / "world_data.toml"
+    cfg_path.write_text(bad)
+    import pytest
+
+    with pytest.raises(Exception, match="rail"):
+        load_config(cfg_path)
+
+
 # --------------------------------------------------------------------------
 # Classification: the thresholds must come from the data.
 # --------------------------------------------------------------------------

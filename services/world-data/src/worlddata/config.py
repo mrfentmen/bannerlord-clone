@@ -95,6 +95,7 @@ class TravelConfig:
     kmh_rail: float
     road_class_mtfcc: dict[str, str]
     segment_warning_km: float
+    snap_radius_km_by_class: dict[str, float]
 
     def speed_for_mtfcc(self, mtfcc: str | None) -> float:
         """Speed in km/h for a Census MTFCC road code.
@@ -367,6 +368,16 @@ def load_config(path: Path | str | None = None) -> Config:
     seed = SeedConfig(values=seed_values)
 
     travel_table = raw["travel"]
+    snap_radii = {
+        str(k): _require_positive(f"[travel].snap_radius_km_by_class.{k}", v)
+        for k, v in travel_table["snap_radius_km_by_class"].items()
+    }
+    for required_class in ("primary", "secondary", "rail"):
+        if required_class not in snap_radii:
+            raise ConfigError(
+                f"[travel].snap_radius_km_by_class is missing {required_class!r}; "
+                "the route stage needs a snap radius for every road class it emits"
+            )
     travel = TravelConfig(
         kmh_primary=_require_positive("[travel].kmh_primary_road", travel_table["kmh_primary_road"]),
         kmh_secondary=_require_positive("[travel].kmh_secondary_road", travel_table["kmh_secondary_road"]),
@@ -374,6 +385,7 @@ def load_config(path: Path | str | None = None) -> Config:
         kmh_rail=_require_positive("[travel].kmh_rail", travel_table["kmh_rail"]),
         road_class_mtfcc={str(k).upper(): str(v) for k, v in travel_table["road_class_mtfcc"].items()},
         segment_warning_km=_require_positive("[travel].segment_warning_km", travel_table["segment_warning_km"]),
+        snap_radius_km_by_class=snap_radii,
     )
 
     ratings_table = raw["ratings"]

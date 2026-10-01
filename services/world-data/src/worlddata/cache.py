@@ -26,8 +26,12 @@ from .errors import WorldDataError
 T = TypeVar("T")
 
 # Bumped when the cached dataclasses change shape, so an old cache is never read
-# into new code.
-CACHE_FORMAT_VERSION = 5
+# into new code. v6: _load_lines snaps per road class (primary/secondary/rail
+# radii) instead of one global radius — the fingerprint covers the config but
+# not the code, so without the bump a stale all-20km route cache would survive.
+# v7: Route gains road_class (longest member segment's) and travel_hours for
+# the travel-graph export and sim feed.
+CACHE_FORMAT_VERSION = 7
 
 
 def fingerprint(
