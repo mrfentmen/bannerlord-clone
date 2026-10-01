@@ -921,9 +921,14 @@ type FormationCommander struct {
 	// commander is built once per battle and the config is a pointer to one
 	// loaded file.
 	cfg *config.Config
-	// side is the army this commander orders. Every group is drawn from this
-	// side's units, and a unit on the other side in a group's list is an error
-	// at construction rather than an order nobody acts on.
+	// side is the army this commander orders.
+	//
+	// Whether a group's list really is this side's men cannot be answered here:
+	// the commander is built before the battle it will order exists, so there is
+	// no roster to check a unit id against and no way to know which side any id
+	// fights for. It is answered on the first tick, in orderGroup, where the field
+	// is finally in front of the commander, and a unit that fights for the other
+	// army is refused there rather than skipped. See orderGroup.
 	side Side
 	// groups are the standing orders, in the order the caller gave them.
 	groups []*formationGroup
@@ -1093,17 +1098,34 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 	fc := c.cfg.Formation
 	p := FormationParamsFrom(fc)
 
-	// The group's living members, in ascending id. A unit nobody may command
-	// is left out rather than ordered: a broken unit is already withdrawing and
-	// a routed one is off the attack, and a formation order that dragged either
-	// back into a slot would be fighting the morale stage for a man who is
-	// losing.
+	// The group's living members, in ascending id. A unit left out because of its
+	// CONDITION is not ordered: a broken unit is already withdrawing and a routed
+	// one is off the attack, and a formation order that dragged either back into
+	// a slot would be fighting the morale stage for a man who is losing.
+	//
+	// The other two reasons a listed unit cannot be ordered are mistakes rather
+	// than conditions, and they are refused rather than skipped. A commander is
+	// built before the battle exists, so its membership list cannot be checked
+	// against the field until the first tick it is ordered from, and that is where
+	// it is checked. Skipped instead, an id the field does not have, or one
+	// belonging to the other army, leaves the group quietly half ordered or not
+	// ordered at all, and the caller is told the order was carried out for the rest
+	// of the battle. Half a roster handed to the wrong side's commander is an
+	// entirely plausible way to write that, and it reads as a formation that will
+	// not form rather than as the mistake it is.
 	c.ids = c.ids[:0]
 	for _, id := range g.units {
 		if id < 0 || id >= len(v.Units) {
-			continue
+			return newFormationError("orderGroup", "Group.Units",
+				"unit %d is not on this field, which has %d units; a formation of men who are not "+
+					"in this battle is not a formation", id, len(v.Units))
 		}
-		if v.Units[id].Side != c.side || v.Units[id].Status != StatusFighting {
+		if v.Units[id].Side != c.side {
+			return newFormationError("orderGroup", "Group.Units",
+				"unit %d fights for side %s and this commander orders side %s; a side cannot order "+
+					"the other army's men into its formations", id, v.Units[id].Side, c.side)
+		}
+		if v.Units[id].Status != StatusFighting {
 			continue
 		}
 		c.ids = append(c.ids, id)
@@ -1121,7 +1143,8 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 	// anchor would be marching toward where it used to be.
 	ax, ay, ok := centreOfMass(v, c.ids)
 	if !ok {
-		return newFormationError("orderGroup", "units", "group %s has members but none of them is on the field", g.order.Kind)
+		return newFormationError("orderGroup", "units",
+			"group %s has %d members standing on the field and not one of them has any bodies left to stand there with", g.order.Kind, len(c.ids))
 	}
 	g.facing = g.order.Facing.resolve(ax, ay, ex, ey, haveEnemy, g.facing)
 
