@@ -17,6 +17,16 @@ matching TXT file with the exact lines spoken, in order. File naming:
 | companion | avocado_v2:miles      | Satiny Moon, soothing deep young       |
 | townsman  | avocado_v2:ronan      | Fluid Hammock, friendly casual         |
 | townswoman| avocado_v2:MAI_01     | Aria, warm friendly American           |
+| italian   | avocado_v2:vdc_14595    | Thoughtful Boot, tough New York M      |
+| irish     | avocado_v2:conor        | Polished Coin, relaxed Irish M         |
+| chinese   | avocado_v2:vd2_steady_riverstone | Steadying Riverstone, calm Chinese M |
+| korean    | avocado_v2:vd2_bright_thistle | Tart Thistle, sharp Korean F       |
+| african   | avocado_v2:NoSugar      | Calm Bridge, calm African American M   |
+| jamaican  | avocado_v2:vd2_jovial_drum | Mirthful Drum, warm Jamaican M     |
+| mexican   | avocado_v2:vd2_bold_sled| Stubborn Sled, defiant Latin Am. M     |
+| puertorican| avocado_v2:pirate-4    | Rugged Hull, rugged Caribbean M        |
+| german    | avocado_v2:vd2_dry_tambour | Dry Tambour, dry German M          |
+| russian   | avocado_v2:vdc_17383    | Jovial Cello, jovial Eastern Eur. F    |
 
 ## Batches
 
