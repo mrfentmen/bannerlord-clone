@@ -418,6 +418,71 @@ export function clanNamesForEthnicity(ethnicityId: string): ClanName[] {
   return CLAN_NAMES.filter((c) => c.ethnicityId === ethnicityId);
 }
 
+/** Starting scenarios — first quest hooks based on background choices. */
+export interface StartingScenario {
+  id: string;
+  title: string;
+  description: string;
+  /** Background option IDs that trigger this scenario. */
+  triggers: string[];
+  objective: string;
+  reward: string;
+}
+
+export const STARTING_SCENARIOS: StartingScenario[] = [
+  {
+    id: "debt-collector",
+    title: "The Debt",
+    description: "You owe money to the wrong people. They found you.",
+    triggers: ["street", "hustler", "dropout"],
+    objective: "Pay off $2,000 or deal with the collector",
+    reward: "Clear your name, gain street rep",
+  },
+  {
+    id: "family-business",
+    title: "Family Business",
+    description: "Your family's shop is failing. You're the only hope.",
+    triggers: ["suburbs", "small-business", "college"],
+    objective: "Earn $5,000 to save the shop",
+    reward: "Family workshop, +trade skill",
+  },
+  {
+    id: "military-call",
+    title: "Old Unit",
+    description: "Your old CO calls. He needs people he can trust.",
+    triggers: ["military", "cop", "athlete"],
+    objective: "Complete 3 missions for the unit",
+    reward: "Military contacts, combat gear",
+  },
+  {
+    id: "church-mission",
+    title: "Community Call",
+    description: "The neighborhood church needs protection from gangs.",
+    triggers: ["church", "projects", "organizer"],
+    objective: "Drive out the gang threat",
+    reward: "Community loyalty, recruitment bonus",
+  },
+  {
+    id: "farm-crisis",
+    title: "The Farm",
+    description: "Drought hit. The family farm is dying.",
+    triggers: ["rural", "farmhand"],
+    objective: "Find water or new income for the farm",
+    reward: "Land, +survival skill",
+  },
+];
+
+/** Get the starting scenario for a set of background choices. */
+export function scenarioForBackgrounds(backgroundChoices: Record<string, string>): StartingScenario | null {
+  const chosen = Object.values(backgroundChoices);
+  for (const scenario of STARTING_SCENARIOS) {
+    if (scenario.triggers.some((t) => chosen.includes(t))) {
+      return scenario;
+    }
+  }
+  return STARTING_SCENARIOS[0] ?? null; // Default to first
+}
+
 /** Difficulty levels with real mechanical effects. */
 export interface Difficulty {
   id: string;
