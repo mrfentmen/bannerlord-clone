@@ -477,9 +477,20 @@ func TestFormerLiteralsComeFromConfig(t *testing.T) {
 			t.Errorf("a broken force hits %.3f of shots at a floor of 0, %.3f at 0.5 and %.3f at 1; "+
 				"the floor is not scaling the hit chance", none, half, whole)
 		}
-		if !(none < steady && whole < steady) {
+		// At a floor of 1 the model says a broken shooter keeps the WHOLE hit
+		// chance, so the correct answer is "as well as a steady one" and the only
+		// defect worth failing on is a shooter with no effectiveness shooting
+		// BETTER than a steady one. A strict < was only ever satisfiable by
+		// sampling noise: 4300 shots at a rate near 0.125 is a standard error of
+		// 0.005, and this case passed by a hair for as long as the morale model
+		// kept battles short and the sample stayed small. Four standard errors is
+		// far wider than the noise and far narrower than the 0.028 the floor
+		// itself moves the rate, so a floor that is inverted or ignored still
+		// fails here.
+		const hitRateNoise = 0.02
+		if !(none < steady && whole <= steady+hitRateNoise) {
 			t.Errorf("a broken force hits %.3f to %.3f across the floor's range, against %.3f steady; "+
-				"a shooter with no effectiveness should never shoot as well as a steady one",
+				"a shooter with no effectiveness should never shoot better than a steady one",
 				none, whole, steady)
 		}
 		t.Logf("broken shooters hit %.3f of shots at a floor of 0, %.3f at 0.5 and %.3f at 1, "+
