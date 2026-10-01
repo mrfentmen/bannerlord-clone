@@ -64,7 +64,7 @@ import { marchPlanner } from "./ui/panels/MarchPlanner.js";
 import { ledgerPanel } from "./ui/panels/LedgerPanel.js";
 import { rulerCard, rulerRoster } from "./ui/panels/RulerPanel.js";
 import { startScreen } from "./ui/panels/StartScreen.js";
-import { characterMaker } from "./ui/panels/CharacterMaker.js";
+import { characterMaker, BONUS_POINTS_TOTAL } from "./ui/panels/CharacterMaker.js";
 import { runCityDemo } from "./scene/cityDemo.js";
 import { townPanel } from "./ui/panels/TownPanel.js";
 import { whyPanel } from "./ui/panels/WhyPanel.js";
@@ -112,6 +112,16 @@ import {
   startIronmanRun,
   type IronmanRunRecord,
 } from "./meta/ironman.js";
+import {
+  carryoverLines,
+  clearNewGamePlusRecord,
+  legacyBiographyLine,
+  loadNewGamePlusRecord,
+  saveNewGamePlusRecord,
+  type BankInput,
+  type NewGamePlusRecord,
+} from "./meta/newgameplus.js";
+import { legacyPanel } from "./meta/legacyPanel.js";
 import { createRouteRegistry, type FoundInput } from "./economy/routeRegistry.js";
 import {
   buildRouteModels,
@@ -297,6 +307,15 @@ const provider = providerFromConfig(config);
 let snapshot: SimSnapshot | null = null;
 let previous: SimSnapshot | null = null;
 let scene: SceneHandle | null = null;
+// -- New Game+ (MASTER_PLAN task 142) ----------------------------------------
+// The banked legacy, read once at boot. Applied to the heir's character when
+// a New Game+ campaign mounts, then consumed — a cancelled character maker
+// (which reloads the page) re-reads it from storage, so the legacy is only
+// spent on a campaign that actually starts.
+let ngplusRecord: NewGamePlusRecord | null = loadNewGamePlusRecord();
+let pendingNewGamePlus = false;
+/** Battle victories this session, for the NG+ bank preview. */
+let sessionBattlesWon = 0;
 let world: Awaited<ReturnType<typeof buildWorld>> | null = null;
 /** Ironman (MASTER_PLAN task 143): chosen on the start screen, started when the campaign mounts. */
 let pendingIronman = false;
@@ -421,13 +440,27 @@ const selectionScreen = startScreen({
   startYear: START_YEAR,
   eraLabel: eraGradeForYear(START_YEAR).years,
   loading: false,
+  newGamePlusLines: ngplusRecord ? carryoverLines(ngplusRecord) : undefined,
   onStart: (choice) => {
     // Character maker goes between faction select and campaign mount.
     pendingIronman = choice.ironman === true;
+    pendingNewGamePlus = choice.newGamePlus === true && ngplusRecord !== null;
     selectionScreen.replaceWith(
       characterMaker({
+        bonusPointsTotal:
+          pendingNewGamePlus && ngplusRecord ? BONUS_POINTS_TOTAL + ngplusRecord.bonusPoints : undefined,
         onComplete: (character) => {
           document.querySelector(".character-maker")?.remove();
+          // New Game+ (task 142): the heir inherits gold and a legacy line.
+          // Renown itself is sim-side with no client write path, so it is
+          // recorded in the biography and the carryover list, not faked
+          // into the sim.
+          const startingCash =
+            pendingNewGamePlus && ngplusRecord ? character.startingCash + ngplusRecord.gold : character.startingCash;
+          const biography =
+            pendingNewGamePlus && ngplusRecord
+              ? `${character.biography}\n\n${legacyBiographyLine(ngplusRecord)}`
+              : character.biography;
           provider.setCharacter({
             firstName: character.firstName,
             lastName: character.lastName,
@@ -440,8 +473,8 @@ const selectionScreen = startScreen({
             backgroundChoices: character.backgroundChoices,
             bonusPoints: character.bonusPoints,
             startingSkills: character.startingSkills,
-            startingCash: character.startingCash,
-            biography: character.biography,
+            startingCash,
+            biography,
           });
           void reloadSnapshot().then(() => mountCampaign());
         },
@@ -477,6 +510,7 @@ const hud = createHud({
   onOpenHeatmap: () => toggleHeatmap(),
   onOpenMemorial: () => openMemorial(),
   onOpenClanLaws: () => openClanLaws(),
+  onOpenLegacy: () => openLegacyPanel(),
   onOpenQuestTracker: () => openQuestTracker(),
   onOpenTradeRoutes: () => toggleTradeRoutes(),
   ironmanActive: () => manualSaveBlocked(ironman),
@@ -753,6 +787,14 @@ function mountCampaign(): void {
   }
   pendingIronman = false;
 
+  // -- New Game+ (MASTER_PLAN task 142) --------------------------------------
+  // The legacy is spent only now that the heir's campaign actually mounts.
+  if (pendingNewGamePlus) {
+    clearNewGamePlusRecord();
+    ngplusRecord = null;
+  }
+  pendingNewGamePlus = false;
+
   app.appendChild(hud.root);
   paint();
 
@@ -790,6 +832,7 @@ function mountCampaign(): void {
           achievements.record("battle-won");
           recordDeed("battle", "Won a battle.");
           recordHeatSite(true);
+          sessionBattlesWon += 1;
         } else if (event === "defeat") {
           haptics?.play("error");
           achievements.record("battle-lost");
@@ -1465,6 +1508,41 @@ function openAchievements(): void {
   currentPanel = "none";
   contextNode = achievementsPanel({
     store: achievements,
+    onClose: () => {
+      currentPanel = "none";
+      contextNode = null;
+      paint();
+    },
+  });
+  paint();
+}
+
+// --- New Game+ (MASTER_PLAN task 142) ------------------------------------------
+// The Legacy panel banks the current campaign. Gear names ride along empty
+// for now: nothing in the campaign layer reports won tournament prizes yet
+// (modes/prizes.ts), so the panel banks what it can honestly measure rather
+// than inventing heirlooms.
+function bankPreviewInput(): BankInput | null {
+  if (!snapshot) return null;
+  return {
+    rulerName: snapshot.player.characterName,
+    renown: snapshot.player.renown,
+    playerMoney: snapshot.player.resources.money,
+    playerGold: snapshot.player.resources.gold,
+    partyMoney: snapshot.party.money,
+    gearNames: [],
+    day: snapshot.day,
+    battlesWon: sessionBattlesWon,
+  };
+}
+
+function openLegacyPanel(): void {
+  currentPanel = "none";
+  contextNode = legacyPanel({
+    record: () => loadNewGamePlusRecord(),
+    preview: () => bankPreviewInput() ?? { rulerName: "", renown: 0, playerMoney: 0, playerGold: 0, partyMoney: 0, gearNames: [], day: 0, battlesWon: 0 },
+    onBank: (record) => saveNewGamePlusRecord(record),
+    onDiscard: () => clearNewGamePlusRecord(),
     onClose: () => {
       currentPanel = "none";
       contextNode = null;

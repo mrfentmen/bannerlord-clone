@@ -1373,13 +1373,51 @@ describe("the start screen (FACTIONS.md sections 3, 4 and 7)", () => {
 
     root.querySelector<HTMLButtonElement>("[data-testid='start-next']")!.click();
     expect(started).toHaveLength(1);
-    expect(started[0]).toEqual({ sideId: mountain.id, stateCode, role: "mercenary-captain", ironman: false });
+    expect(started[0]).toEqual({ sideId: mountain.id, stateCode, role: "mercenary-captain", ironman: false, newGamePlus: false });
 
     // Back from the confirm step, and the choices are all still there.
     root.querySelector<HTMLButtonElement>("[data-testid='step-3']")!.click();
     root.querySelector<HTMLButtonElement>("[data-testid='start-back']")!.click();
     expect(root.querySelector("[data-testid='role-grid']")).not.toBeNull();
     expect(root.querySelector<HTMLButtonElement>("[data-testid='role-mercenary-captain']")!.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("shows the banked legacy carryover on confirm and offers the heir start (task 142)", () => {
+    const started: { newGamePlus: boolean }[] = [];
+    const root = startScreen({
+      sides: snapshot.sides,
+      startYear: 2005,
+      eraLabel: "2000s",
+      newGamePlusLines: ["Heir of Asha the Bold — 3 seasons, 34 battles won, 1250 renown", "Inheritance: 2,000 gold"],
+      onStart: (choice) => started.push(choice),
+    });
+    const mountain = snapshot.sides.find((s) => s.id === "mountain-alliance")!;
+    root.querySelector<HTMLButtonElement>(`[data-testid='side-${mountain.id}']`)!.click();
+    root.querySelector<HTMLButtonElement>("[data-testid='start-next']")!.click();
+    root.querySelector<HTMLButtonElement>(`[data-testid='state-${mountain.states[0]!.code}']`)!.click();
+    root.querySelector<HTMLButtonElement>("[data-testid='start-next']")!.click();
+    root.querySelector<HTMLButtonElement>("[data-testid='role-mercenary-captain']")!.click();
+    root.querySelector<HTMLButtonElement>("[data-testid='step-3']")!.click();
+
+    // The carryover list is visible before the choice is made.
+    const lines = root.querySelector("[data-testid='start-ngplus-lines']")!;
+    expect(lines.textContent).toContain("Asha the Bold");
+    expect(lines.textContent).toContain("2,000 gold");
+
+    // Unchecked by default; checking it opts into the heir start.
+    const box = root.querySelector<HTMLInputElement>("[data-testid='start-ngplus']")!;
+    expect(box.checked).toBe(false);
+    box.click();
+    root.querySelector<HTMLButtonElement>("[data-testid='start-next']")!.click();
+    expect(started).toHaveLength(1);
+    expect(started[0]!.newGamePlus).toBe(true);
+  });
+
+  it("hides the New Game+ section when no legacy is banked", () => {
+    const root = startScreen({ sides: snapshot.sides, startYear: 2005, eraLabel: "2000s", onStart: noop });
+    root.querySelector<HTMLButtonElement>("[data-testid='step-3']")!.click();
+    expect(root.querySelector("[data-testid='start-ngplus-lines']")).toBeNull();
+    expect(root.querySelector("[data-testid='start-ngplus']")).toBeNull();
   });
 
   it("shuts a step whose choice has not been made, and says why on the button", () => {

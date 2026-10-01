@@ -53,6 +53,8 @@ export interface HudOptions {
   onOpenMemorial?: () => void;
   /** Opens the clan laws panel. Optional: the button hides without it. */
   onOpenClanLaws?: () => void;
+  /** Opens the legacy (New Game+) panel. Optional: the button hides without it. */
+  onOpenLegacy?: () => void;
   /** Expands the quest tracker card (MASTER_PLAN task 115). Optional: the button hides without it. */
   onOpenQuestTracker?: () => void;
   /** Toggles the trade routes card + map overlay (MASTER_PLAN tasks 102/103). Optional: the button hides without it. */
@@ -562,6 +564,12 @@ export function createHud(options: HudOptions): HudHandle {
       const lawsBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-clan-laws" }, "Clan laws");
       lawsBtn.addEventListener("click", () => options.onOpenClanLaws?.());
       rail.appendChild(lawsBtn);
+    }
+
+    if (options.onOpenLegacy) {
+      const legacyBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-legacy" }, "Legacy");
+      legacyBtn.addEventListener("click", () => options.onOpenLegacy?.());
+      rail.appendChild(legacyBtn);
     }
 
     if (options.onOpenTradeRoutes) {

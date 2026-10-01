@@ -46,7 +46,14 @@ export interface StartScreenOptions {
     role: StartingRole;
     /** Ironman (MASTER_PLAN task 143): one autosave, no manual saves. */
     ironman: boolean;
+    /** New Game+ (MASTER_PLAN task 142): begin as the banked legacy's heir. */
+    newGamePlus: boolean;
   }) => void;
+  /**
+   * Banked legacy carryover lines (MASTER_PLAN task 142). Shown on the
+   * confirm step when present; absent means no legacy is banked.
+   */
+  newGamePlusLines?: string[] | undefined;
   /**
    * The world survey is still being read. Renders `start-skeleton`, shaped like the
    * side grid, before the profiles arrive (CONSTITUTION.md section 3.2).
@@ -412,6 +419,38 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
     }
     frag.appendChild(summary);
 
+    // New Game+ (MASTER_PLAN task 142): the carryover list is the
+    // acceptance criterion — the player sees exactly what the heir
+    // inherits before choosing to begin as them.
+    let ngplusBox: HTMLInputElement | null = null;
+    if (options.newGamePlusLines && options.newGamePlusLines.length > 0) {
+      const lines = h("ul", { class: "start__ngplus-lines", "data-testid": "start-ngplus-lines" });
+      for (const line of options.newGamePlusLines) {
+        lines.appendChild(h("li", {}, line));
+      }
+      ngplusBox = h("input", {
+        type: "checkbox",
+        id: "start-ngplus",
+        class: "field__checkbox",
+        "data-testid": "start-ngplus",
+      }) as HTMLInputElement;
+      frag.appendChild(
+        h(
+          "div",
+          { class: "start__ngplus" },
+          h("p", { class: "label" }, "A legacy is banked"),
+          lines,
+          h(
+            "label",
+            { class: "field", for: "start-ngplus" },
+            ngplusBox,
+            h("span", { class: "field__label" }, "Begin as the heir (New Game+)"),
+            h("span", { class: "caption" }, " Inherit gold and training from the banked campaign."),
+          ),
+        ),
+      );
+    }
+
     // Ironman opt-in (MASTER_PLAN task 143): chosen once, at the confirm
     // step, because it changes what the save system may do for the run.
     const ironmanBox = h("input", {
@@ -439,7 +478,7 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
         () => go(2),
         "Start the campaign",
         () =>
-          options.onStart({ sideId, stateCode, role, ironman: ironmanBox.checked }),
+          options.onStart({ sideId, stateCode, role, ironman: ironmanBox.checked, newGamePlus: ngplusBox?.checked === true }),
         sideId !== "" && (side?.id === "wanderer" || stateCode !== ""),
       ),
     );

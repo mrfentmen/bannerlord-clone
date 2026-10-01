@@ -13,3 +13,4 @@ export * from "./a11y.js";
 export * from "./heatmap.js";
 export * from "./heatmapProjector.js";
 export * from "./ironman.js";
+export * from "./newgameplus.js";

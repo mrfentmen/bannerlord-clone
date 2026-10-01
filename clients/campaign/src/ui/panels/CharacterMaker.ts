@@ -16,13 +16,19 @@ export interface CharacterMakerOptions {
   onComplete: (character: GameCharacter) => void;
   onCancel: () => void;
   testId?: string;
+  /**
+   * Bonus attribute points the player may allocate (MASTER_PLAN task 142:
+   * New Game+ heirs get legacy training on top of the base 5).
+   */
+  bonusPointsTotal?: number | undefined;
 }
 
 const MAKER_STEPS = ["Name", "Appearance", "Age", "City", "Difficulty", "Background", "Attributes", "Review"] as const;
 type MakerStep = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
 
 const LAST_STEP: MakerStep = 7;
-const BONUS_POINTS_TOTAL = 5;
+/** Base bonus attribute points; New Game+ heirs add LEGACY_BONUS_POINTS. Exported so main.ts can compute the NG+ total. */
+export const BONUS_POINTS_TOTAL = 5;
 const SKILL_NAMES = [
   "combat",
   "leadership",
@@ -64,9 +70,11 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     return true;
   }
 
+  const bonusPointsTotal = options.bonusPointsTotal ?? BONUS_POINTS_TOTAL;
+
   function pointsRemaining(): number {
     const spent = Object.values(bonusPoints).reduce((a, b) => a + b, 0);
-    return BONUS_POINTS_TOTAL - spent;
+    return bonusPointsTotal - spent;
   }
 
   function stepBar(): HTMLElement {
@@ -396,7 +404,7 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     const remaining = pointsRemaining();
     frag.appendChild(
       h("p", { class: "caption", "data-testid": "points-remaining" },
-        `${remaining} of ${BONUS_POINTS_TOTAL} points remaining`),
+        `${remaining} of ${bonusPointsTotal} points remaining`),
     );
 
     const list = h("div", { "data-testid": "attributes-list" });
