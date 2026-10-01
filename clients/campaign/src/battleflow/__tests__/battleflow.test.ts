@@ -11,6 +11,7 @@ import { describe, it, expect, vi } from "vitest";
 import {
   BattleApiError,
   BattleFlow,
+  EncounterPoller,
   createHttpBattleApi,
   type Battle,
   type BattleApi,
@@ -56,6 +57,7 @@ function workingApi(): BattleApi {
   let battle = serverBattle();
   return {
     createEncounter: async () => serverEncounter(),
+    listEncounters: async () => [serverEncounter()],
     getEncounter: async () => serverEncounter(),
     resolveEncounter: async () => ({
       ...serverEncounter(),
@@ -102,6 +104,9 @@ function unimplementedApi(): BattleApi {
     );
   return {
     createEncounter: async () => {
+      throw err();
+    },
+    listEncounters: async () => {
       throw err();
     },
     getEncounter: async () => {
@@ -311,5 +316,156 @@ describe("createHttpBattleApi", () => {
     expect(flow.mode).toBe("local");
     expect(flow.phase).toBe("live");
     expect(flow.battle!.tick).toBe(1);
+  });
+});
+
+describe("createHttpBattleApi.listEncounters", () => {
+  it("polls GET /v1/encounters?partyId={id} and returns the parsed list", async () => {
+    let seenUrl = "";
+    const fetchImpl = (async (url: string | URL | Request) => {
+      seenUrl = String(url);
+      return new Response(JSON.stringify([serverEncounter()]), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as typeof fetch;
+    const api = createHttpBattleApi("http://localhost:9", fetchImpl);
+    const encounters = await api.listEncounters(7);
+    expect(seenUrl).toBe("http://localhost:9/v1/encounters?partyId=7");
+    expect(encounters).toHaveLength(1);
+    expect(encounters[0]!.id).toBe("enc-1");
+  });
+});
+
+describe("EncounterPoller", () => {
+  function listingApi(list: Encounter[]): BattleApi {
+    return { ...workingApi(), listEncounters: async () => list };
+  }
+
+  it("fires onNew once per new pending encounter and dedupes across ticks", async () => {
+    const seen: Encounter[] = [];
+    const poller = new EncounterPoller(listingApi([serverEncounter()]), 1, {
+      onNew: (e) => seen.push(e),
+    });
+    await poller.pollOnce();
+    await poller.pollOnce();
+    expect(seen).toHaveLength(1);
+    expect(seen[0]!.id).toBe("enc-1");
+  });
+
+  it("ignores resolved and escalated encounters", async () => {
+    const seen: Encounter[] = [];
+    const resolved: Encounter = {
+      ...serverEncounter(),
+      id: "enc-2",
+      status: "resolved",
+    };
+    const escalated: Encounter = {
+      ...serverEncounter(),
+      id: "enc-3",
+      status: "escalated",
+    };
+    const poller = new EncounterPoller(listingApi([resolved, escalated]), 1, {
+      onNew: (e) => seen.push(e),
+    });
+    const fresh = await poller.pollOnce();
+    expect(fresh).toHaveLength(0);
+    expect(seen).toHaveLength(0);
+  });
+
+  it("stays silent when the server is unreachable", async () => {
+    const errors: unknown[] = [];
+    const api: BattleApi = {
+      ...workingApi(),
+      listEncounters: async () => {
+        throw new BattleApiError("unreachable", "down", "quiet", 0);
+      },
+    };
+    const poller = new EncounterPoller(api, 1, {
+      onNew: () => {
+        throw new Error("should not fire");
+      },
+      onError: (e) => errors.push(e),
+    });
+    const fresh = await poller.pollOnce();
+    expect(fresh).toEqual([]);
+    expect(errors).toHaveLength(0);
+  });
+
+  it("routes unexpected failures to onError", async () => {
+    const errors: unknown[] = [];
+    const boom = new Error("weird");
+    const api: BattleApi = {
+      ...workingApi(),
+      listEncounters: async () => {
+        throw boom;
+      },
+    };
+    const poller = new EncounterPoller(api, 1, {
+      onNew: () => {},
+      onError: (e) => errors.push(e),
+    });
+    const fresh = await poller.pollOnce();
+    expect(fresh).toEqual([]);
+    expect(errors).toEqual([boom]);
+  });
+
+  it("start/stop toggles the running flag", () => {
+    const poller = new EncounterPoller(workingApi(), 1, { onNew: () => {} });
+    expect(poller.running).toBe(false);
+    poller.start(1000);
+    expect(poller.running).toBe(true);
+    poller.stop();
+    expect(poller.running).toBe(false);
+  });
+});
+
+describe("BattleFlow encounter polling", () => {
+  it("pollEncounters returns only pending encounters", async () => {
+    const pending = serverEncounter();
+    const resolved: Encounter = {
+      ...serverEncounter(),
+      id: "enc-9",
+      status: "resolved",
+    };
+    const api: BattleApi = {
+      ...workingApi(),
+      listEncounters: async () => [pending, resolved],
+    };
+    const flow = new BattleFlow(api, localSource, 1);
+    const found = await flow.pollEncounters();
+    expect(found).toHaveLength(1);
+    expect(found[0]!.id).toBe("enc-1");
+  });
+
+  it("pollEncounters returns [] when the server is unreachable", async () => {
+    const api: BattleApi = {
+      ...workingApi(),
+      listEncounters: async () => {
+        throw new BattleApiError("unreachable", "down", "quiet", 0);
+      },
+    };
+    const flow = new BattleFlow(api, localSource, 1);
+    await expect(flow.pollEncounters()).resolves.toEqual([]);
+  });
+
+  it("adoptEncounter starts the pre-battle arc in server mode", () => {
+    const flow = new BattleFlow(workingApi(), localSource, 1);
+    flow.adoptEncounter(serverEncounter());
+    expect(flow.phase).toBe("prebattle");
+    expect(flow.mode).toBe("server");
+    const pre = flow.prebattleView();
+    expect(pre).not.toBeNull();
+    expect(pre!.encounter.id).toBe("enc-1");
+    expect(pre!.playerIsAttacker).toBe(true);
+  });
+
+  it("adoptEncounter marks the player as defender when they are attacked", () => {
+    const flow = new BattleFlow(workingApi(), localSource, 2);
+    flow.adoptEncounter(serverEncounter()); // party 2 is the defender
+    const pre = flow.prebattleView();
+    expect(pre).not.toBeNull();
+    expect(pre!.playerIsAttacker).toBe(false);
+    expect(pre!.playerWinChance).toBeLessThan(0.5);
   });
 });

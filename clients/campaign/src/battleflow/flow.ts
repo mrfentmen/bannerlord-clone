@@ -11,6 +11,13 @@
  * The local model is a stand-in, not milo's battle sim and not the
  * server's. When the real endpoints land, the same UI code runs the
  * server mode without changes.
+ *
+ * Encounters reach the flow two ways:
+ * - `begin()` creates one by hand (kept for explicit attacks and for the
+ *   local fallback).
+ * - The server auto-triggers encounters when hostile parties meet, and
+ *   the UI picks them up via `pollEncounters()` / the `EncounterPoller`
+ *   and starts the arc with `adoptEncounter()` — no manual creation.
  */
 
 import type {
@@ -160,6 +167,38 @@ export class BattleFlow {
       }
     }
     this.#battle = null;
+    this.#phase = "prebattle";
+  }
+
+  /**
+   * Poll the server for auto-triggered pending encounters involving the
+   * player's party. Returns [] when the server is unreachable or the
+   * route is not built yet (nothing to pick up). Other failures throw.
+   */
+  async pollEncounters(): Promise<Encounter[]> {
+    try {
+      const all = await this.api.listEncounters(this.#playerPartyId);
+      return all.filter((e) => e.status === "pending");
+    } catch (err) {
+      if (err instanceof BattleApiError && err.serverBattleUnavailable) {
+        return [];
+      }
+      throw err;
+    }
+  }
+
+  /**
+   * Adopt an auto-triggered encounter (from `pollEncounters()` or the
+   * `EncounterPoller`) as the active encounter and show the pre-battle
+   * screen. This replaces manual creation: the auto-trigger generates
+   * the encounter, the flow starts its arc from it.
+   */
+  adoptEncounter(encounter: Encounter): void {
+    this.#playerIsAttacker =
+      encounter.attacker.partyId === this.#playerPartyId;
+    this.#encounter = encounter;
+    this.#battle = null;
+    this.#mode = "server";
     this.#phase = "prebattle";
   }
 

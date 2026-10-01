@@ -8,6 +8,7 @@
  *
  * Routes:
  * - POST /v1/encounters
+ * - GET  /v1/encounters?partyId={id}  (poll auto-triggered encounters)
  * - GET  /v1/encounters/{id}
  * - POST /v1/encounters/{id}/resolve
  * - POST /v1/battles
@@ -71,6 +72,14 @@ export interface BattleApi {
     attackerPartyId: number,
     defenderPartyId: number
   ): Promise<Encounter>;
+  /**
+   * Poll encounters involving a party: the server auto-triggers these when
+   * hostile parties meet, so the battle UI discovers fights this way
+   * instead of creating encounters by hand. Returns every encounter for
+   * the party — pending, resolved, and escalated — filter by status on
+   * the caller side.
+   */
+  listEncounters(partyId: number): Promise<Encounter[]>;
   getEncounter(id: string): Promise<Encounter>;
   resolveEncounter(id: string): Promise<Encounter>;
   startBattle(encounterId: string): Promise<Battle>;
@@ -176,6 +185,11 @@ export function createHttpBattleApi(
       get<Encounter>(
         `/v1/encounters/${encodeURIComponent(id)}`,
         "The encounter could not be found."
+      ),
+    listEncounters: (partyId) =>
+      get<Encounter[]>(
+        `/v1/encounters?partyId=${encodeURIComponent(String(partyId))}`,
+        "The encounters could not be listed."
       ),
     resolveEncounter: (id) =>
       post<Encounter>(
