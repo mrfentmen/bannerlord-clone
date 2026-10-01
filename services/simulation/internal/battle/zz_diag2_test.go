@@ -192,7 +192,7 @@ func report(b *Battle, side Side) {
 		if u.Role == RoleRanged && s.Ammo < 1 {
 			tUnarmed -= c.MoraleUnarmedHit * dt
 		}
-		if s.Suppression < c.SuppressionCap*recoverySuppressionBand && enemyW == 0 && s.Status == StatusFighting {
+		if s.Suppression < c.SuppressionCap*c.MoraleRecoverySuppressionBand && enemyW == 0 && s.Status == StatusFighting {
 			tRecovery += c.MoraleRecovery * dt
 		}
 		n++

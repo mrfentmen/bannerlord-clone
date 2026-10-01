@@ -152,24 +152,33 @@ func (r *Recorder) Command(v *View) error {
 	}
 	for i := range v.Commands {
 		c := v.Commands[i]
-		if !c.Set {
+		if !c.Set && !c.FormationSet {
 			// Silence, not an order. See UnitCommand.Set.
 			continue
 		}
 		u := v.Units[i]
 		kind := OrderMove
-		if c.DX == 0 && c.DY == 0 {
+		switch {
+		case !c.Set:
+			// Told which shape he is standing in and not told to move. See
+			// OrderFormation: the replay must not turn this into a hold, or
+			// every man in a formation stands still for the whole battle in the
+			// replay and not in the original.
+			kind = OrderFormation
+		case c.DX == 0 && c.DY == 0:
 			kind = OrderHold
 		}
 		o := Order{
-			Tick:   v.Tick,
-			Unit:   u.ID,
-			Side:   u.Side,
-			Kind:   kind,
-			DX:     c.DX,
-			DY:     c.DY,
-			Intent: c.Intent,
-			Source: r.source,
+			Tick:       v.Tick,
+			Unit:       u.ID,
+			Side:       u.Side,
+			Kind:       kind,
+			DX:         c.DX,
+			DY:         c.DY,
+			Intent:     c.Intent,
+			Formation:  formationOf(c),
+			Facing:     c.Facing,
+			Source:     r.source,
 		}
 		if _, ok := r.log.Append(o); !ok {
 			r.refused++
@@ -280,10 +289,15 @@ func (p *Replayer) Command(v *View) error {
 			}
 		}
 		v.Commands[o.Unit] = UnitCommand{
-			Set:    true,
-			DX:     o.DX,
-			DY:     o.DY,
-			Intent: o.Intent,
+			// A formation row carries a shape and no movement, so the movement
+			// channel stays silent for it. See OrderFormation.
+			Set:          o.Kind != OrderFormation,
+			DX:           o.DX,
+			DY:           o.DY,
+			Intent:       o.Intent,
+			Formation:    o.Formation,
+			Facing:       o.Facing,
+			FormationSet: o.Formation.Valid(),
 		}
 		p.replayed++
 	}

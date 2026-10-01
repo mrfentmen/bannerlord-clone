@@ -145,6 +145,16 @@ const (
 	IntentWithdraw
 	// IntentRout is running from the field.
 	IntentRout
+	// IntentHold is standing where the unit was told to stand: it is in a
+	// formation, it is being kept in its slot, and it is not closing on
+	// anything.
+	//
+	// It is the one intent the intent stage never reaches on its own, which is
+	// why it lives here rather than in stageIntent: no rule in the engine
+	// decides that a man should stand still, and a commander may. It is last in
+	// the enum so that every intent value already written into a saved order log
+	// still means what it meant.
+	IntentHold
 )
 
 // String names the intent for reports.
@@ -158,6 +168,8 @@ func (i Intent) String() string {
 		return "withdraw"
 	case IntentRout:
 		return "rout"
+	case IntentHold:
+		return "hold"
 	default:
 		return "unknown"
 	}

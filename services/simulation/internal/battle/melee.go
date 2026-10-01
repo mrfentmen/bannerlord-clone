@@ -17,7 +17,8 @@ import (
 //  2. Damage. Skill and closing speed set the mean, per
 //     battle.melee_damage_skill_weight and battle.melee_damage_speed_weight.
 //     The speed term is what makes a charge a decision: closing at pace hurts,
-//     and a man who arrives exhausted and slow does not.
+//     and a man who arrives exhausted and slow does not. The shape each man is
+//     standing in scales it, from the [formation] section of the balance file.
 //  3. Armour. A share of the damage is removed, capped.
 //  4. Condition. Suppression, exhaustion, and the attacker's status cut it
 //     further. A pinned man cannot get his head up, a tired man's swing is
@@ -65,14 +66,26 @@ func (b *Battle) stageMelee() {
 
 		// A shooter with no skill at hand fights with the butt of the weapon.
 		// That is a real and much weaker attack, not a refusal, and because it
-		// is expressed as a skill term it needs no branch of its own.
+		// is expressed as a skill term it needs no branch of its own. The
+		// fraction is battle.melee_ranged_skill_scale, which was a literal 0.35
+		// here.
 		skill := u.MeleeSkill
 		if u.Role == RoleRanged {
-			skill *= 0.35
+			skill *= c.MeleeRangedSkillScale
 		}
 
 		dmg := c.MeleeDamageBase + c.MeleeDamageSkillWeight*skill
-		dmg += c.MeleeDamageSpeedWeight * math.Max(0, closingRate(s, ts, dx, dy))
+		closing := math.Max(0, closingRate(s, ts, dx, dy))
+		dmg += c.MeleeDamageSpeedWeight * closing
+
+		// What the two men are standing in. A wedge hits harder at the run, a
+		// wedge caught from the side takes more, a square turns a fast mover
+		// away, and a man in skirmish order pays for being scattered. Both
+		// multipliers come from the balance file and are exactly one for a unit
+		// in no formation, so a battle nobody commanded fights exactly as it did
+		// before formations existed.
+		dmg *= b.meleeDealtScale(i, math.Hypot(s.VX, s.VY))
+		dmg *= b.meleeTakenScale(tid, target.X, target.Y, s.X, s.Y, math.Hypot(s.VX, s.VY))
 
 		dmg *= 1 - clamp(c.MeleeArmorReduction, 0, c.MeleeArmorReductionCap)
 		dmg *= 1 - clamp01(s.Suppression/c.SuppressionCap)*c.SuppressionMeleePenalty
