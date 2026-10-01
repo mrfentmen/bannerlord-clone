@@ -41,6 +41,8 @@ export interface HudOptions {
   onOpenCodex?: () => void;
   /** Opens the achievements panel. Optional: the button hides without it. */
   onOpenAchievements?: () => void;
+  /** Opens photo mode (MASTER_PLAN task 123). Optional: the button hides without it. */
+  onOpenPhotoMode?: () => void;
   /** Opens the deployment map preview. Optional: the button hides without it. */
   onOpenDeploymentPreview?: () => void;
   /**
@@ -490,6 +492,12 @@ export function createHud(options: HudOptions): HudHandle {
       const achieveBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-achievements" }, "Achievements");
       achieveBtn.addEventListener("click", () => options.onOpenAchievements?.());
       rail.appendChild(achieveBtn);
+    }
+
+    if (options.onOpenPhotoMode) {
+      const photoBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-photo-mode" }, "Photo mode");
+      photoBtn.addEventListener("click", () => options.onOpenPhotoMode?.());
+      rail.appendChild(photoBtn);
     }
 
     return rail;

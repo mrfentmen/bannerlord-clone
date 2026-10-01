@@ -82,6 +82,7 @@ import { questJournalPanel } from "./ui/panels/QuestJournal.js";
 import { createAchievementStore } from "./achievements/index.js";
 import { achievementsPanel } from "./ui/panels/Achievements.js";
 import { mountBattleUi, type BattleMount } from "./battleflow/mount.js";
+import { createPhotoMode, mountPhotoModeBar, type PhotoModeBarHandle } from "./expression/index.js";
 import { saveLoadPanel } from "./saves/mount.js";
 import { SaveUiError } from "./saves/screens.js";
 import { ALL_CODEX_ENTRIES, CODEX_CATEGORIES } from "./codex/index.js";
@@ -425,6 +426,7 @@ const hud = createHud({
   onOpenJournal: () => openJournal(),
   onOpenCodex: () => openCodex(),
   onOpenAchievements: () => openAchievements(),
+  onOpenPhotoMode: () => enterPhotoMode(),
   onOpenUiScale: (s) => settings.set({ uiScale: s }),
   onNotification: (entityId, field) => openWhy(entityId, field),
 });
@@ -437,6 +439,42 @@ function parseBattlePartyId(id: string | undefined): number {
 
 /** The full-screen battle overlay; mounted once per campaign session. */
 let battleUi: BattleMount | null = null;
+
+/**
+ * Photo mode (MASTER_PLAN task 123): hides the interface and frees the
+ * camera for a screenshot. The simulation clock is deliberately NOT paused —
+ * pausing time is the time-controls lane (Pax) — so the bar says the world
+ * keeps moving. Capture reads the Babylon canvas directly; the engine is
+ * created with `preserveDrawingBuffer: true`, so `toDataURL` sees the frame
+ * just rendered.
+ */
+let photoBar: PhotoModeBarHandle | null = null;
+
+function enterPhotoMode(): void {
+  if (photoBar || !scene) return;
+  haptics?.play("select");
+  photoBar = mountPhotoModeBar({
+    photo: createPhotoMode(),
+    onOrbit: (dYaw, dPitch) =>
+      scene?.cameraControl({ dAlpha: dYaw, dBeta: dPitch }),
+    onZoom: (factor) => scene?.cameraControl({ zoomFactor: factor }),
+    captureFrame: () => {
+      try {
+        return mapCanvas.toDataURL("image/png");
+      } catch {
+        return null;
+      }
+    },
+    setInterfaceHidden: (hidden) => {
+      app.style.display = hidden ? "none" : "";
+    },
+    suspendInput: () => input.suspend(),
+    resumeInput: () => input.resume(),
+    onExit: () => {
+      photoBar = null;
+    },
+  });
+}
 
 function mountCampaign(): void {
   if (!snapshot) return;

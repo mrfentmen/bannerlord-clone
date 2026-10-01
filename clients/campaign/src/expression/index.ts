@@ -4,6 +4,7 @@
 
 export * from "./types.js";
 export * from "./photoMode.js";
+export * from "./photoModeBar.js";
 export * from "./wardrobe.js";
 export * from "./chronicle.js";
 export * from "./music.js";
