@@ -289,8 +289,43 @@
       "category": "prop",
       "targetLengthM": 0.22,
       "notes": "Quaternius CC0"
+    },
+    {
+      "name": "operator-viper",
+      "file": "operator-viper.glb",
+      "category": "troop",
+      "targetLengthM": 1.75,
+      "notes": "Quaternius CC0, assault - orange/charcoal"
+    },
+    {
+      "name": "operator-heron",
+      "file": "operator-heron.glb",
+      "category": "troop",
+      "targetLengthM": 1.75,
+      "notes": "Quaternius CC0, medic - teal/white"
+    },
+    {
+      "name": "operator-lynx",
+      "file": "operator-lynx.glb",
+      "category": "troop",
+      "targetLengthM": 1.75,
+      "notes": "Quaternius CC0, recon - cyan/navy"
+    },
+    {
+      "name": "operator-magpie",
+      "file": "operator-magpie.glb",
+      "category": "troop",
+      "targetLengthM": 1.75,
+      "notes": "Quaternius CC0, scavenger - ochre/olive"
+    },
+    {
+      "name": "operator-jackal",
+      "file": "operator-jackal.glb",
+      "category": "troop",
+      "targetLengthM": 1.75,
+      "notes": "Quaternius CC0, locksmith - violet/black"
     }
   ],
   "source": "milo lane staging (worker/milo/simulation @ 20a7275), MANIFEST.md; see notes. Asset licensing cleared for build use per muse-bus 2026-10-01.",
-  "version": 2
+  "version": 3
 }
