@@ -114,6 +114,10 @@ func GenerateForce(cfg *config.Config, seed uint64, side Side, r Roster) ([]Unit
 		if role == RoleRanged {
 			u.Ammo = c.RosterAmmoPerUnit
 			u.AmmoStart = c.RosterAmmoPerUnit
+			// Generated troops carry the service rifle. A caller that wants
+			// carbines or marksman rifles sets Weapon on the units itself;
+			// the zero value is the rifle, so nothing else has to change.
+			u.Weapon = WeaponRifle
 		}
 		force = append(force, u)
 	}
