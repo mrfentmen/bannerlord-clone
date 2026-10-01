@@ -114,6 +114,11 @@ type Session struct {
 	result  *Result
 	// paused halts Advance; Step still works while paused.
 	paused bool
+	// rec is the recorder this session's battle is being recorded through, or nil
+	// when it is not being recorded. It is held on the session rather than being
+	// left inside the battle because the commander it wraps is replaceable and the
+	// recording is not. See Record.
+	rec *Recorder
 	// ticksSinceCasualty counts consecutive ticks with no kills or wounds.
 	// lastCasualtyTotal is the stat total it is measured against.
 	ticksSinceCasualty int
@@ -263,15 +268,96 @@ func (s *Session) Command(cmd Commander) error {
 	}
 	if s.battle.hooks == nil {
 		s.battle.hooks = &commandHooks{
-			cmd:  cmd,
+			cmd:  s.rec.wrap(cmd),
 			view: &View{Units: make([]UnitView, len(s.battle.units)), Commands: make([]UnitCommand, len(s.battle.units))},
 		}
 		return nil
 	}
 	// Replacing an existing commander. The view is already the right size and is
 	// refilled every tick, so there is nothing to resize.
-	s.battle.hooks.cmd = cmd
+	//
+	// On a recording session the recorder is what the battle calls, and the
+	// commander is what the recorder calls. Swapping the commander therefore
+	// changes what is recorded rather than stopping the recording, which is the
+	// only reading that survives a player changing his mind mid-battle: a
+	// recorder wrapped around the first commander records nothing after the first
+	// swap, and the log it produces replays a battle that stopped being fought.
+	s.battle.hooks.cmd = s.rec.wrap(cmd)
 	return nil
+}
+
+// Record starts recording this session's orders and returns the log they go into.
+//
+// The recording belongs to the session rather than to the commander, and that is
+// the whole point of it. A session battle is the only kind of battle that is
+// watched: it has phases, it can be paused, it takes orders while it runs, and the
+// commander behind it is replaceable at any tick. A recorder wrapped around one
+// commander records that commander's orders and nothing after it is replaced, so
+// the log of a battle whose player re-formed his line at tick 600 is a log of a
+// battle that ended at tick 599. Holding the recorder here means every commander
+// this session is later given is recorded, in one row stream, in tick order.
+//
+// bound is the log's row limit and zero means unbounded. A commander that orders
+// every unit every tick writes a row per unit per tick, so a long battle fills a
+// bounded log quickly; check Recorder.Refused or OrderLog.Truncated afterwards,
+// because a log that reached its bound is not replayable and does not say so.
+//
+// Recording a session that is already recording is refused rather than quietly
+// starting a second log: two logs of one battle cannot be merged into a replay,
+// and a caller who has lost the first one has a bug rather than a request.
+//
+// It may be called before a commander exists, in which case the recording starts
+// with the first commander the session is given, and a battle nobody commands
+// records nothing, which is the honest log of a battle nobody commanded.
+func (s *Session) Record(bound int, source string) (*OrderLog, error) {
+	if s.battle == nil {
+		return nil, &Error{Kind: ErrInternal, Field: "phase",
+			Detail: fmt.Sprintf("Record needs a deployed session; this one is %s and has no field to record", s.phase)}
+	}
+	if s.decided || s.phase == PhaseResolved {
+		return nil, &Error{Kind: ErrInternal, Field: "phase",
+			Detail: fmt.Sprintf("Record needs a session that is still fighting; this one is %s (%s), and a "+
+				"battle that has already been decided cannot be recorded after the fact", s.phase, s.outcome.Kind)}
+	}
+	if s.rec != nil {
+		return nil, &Error{Kind: ErrInternal, Field: "Record",
+			Detail: "this session is already recording; two logs of one battle cannot be merged into a replay, " +
+				"so a caller who has lost the first has a bug rather than a request to record again"}
+	}
+	if bound < 0 {
+		return nil, &Error{Kind: ErrInternal, Field: "bound",
+			Detail: fmt.Sprintf("an order log bound of %d rows cannot be satisfied; zero means unbounded", bound)}
+	}
+	rec, log := NewRecorder(nil, bound, source)
+	s.rec = rec
+	// A commander already attached is recorded from this tick on. It was attached
+	// before there was a recorder, so those ticks are not in this log, and the log
+	// says so by starting here rather than pretending otherwise.
+	//
+	// The seam may not exist at all yet: recording a deployed session before it is
+	// commanded is legal and is the order a caller naturally gets, because a battle
+	// is deployed before anybody decides who is fighting it. In that case the
+	// recorder is already on the session and Command will put it on the seam.
+	if s.battle.hooks != nil {
+		s.battle.hooks.cmd = s.rec.wrap(s.battle.hooks.cmd)
+	}
+	return log, nil
+}
+
+// Recorder returns the recorder this session records through, or nil when it is
+// not recording. It is how a caller asks whether a log reached its bound, which
+// is the one thing about a log that decides whether it is replayable at all.
+func (s *Session) Recorder() *Recorder { return s.rec }
+
+// wrap is the recorder's inside, or the commander itself when there is no
+// recorder. A nil recorder is not special-cased at every call site because the
+// two must not be able to disagree about what the battle calls.
+func (r *Recorder) wrap(cmd Commander) Commander {
+	if r == nil {
+		return cmd
+	}
+	r.SetInner(cmd)
+	return r
 }
 
 // Commanded reports whether a commander is attached to this battle, which is what
