@@ -187,6 +187,13 @@ type Battle struct {
 	meleeScratch, fireScratch []int
 	// attackerCount is the melee stage's concentration counter, indexed by id.
 	attackerCount []int
+	// contact is, for every unit, whether a living enemy of its own side is
+	// within a swing of it, recomputed once per tick by markContact before the
+	// intent stage reads it. It exists because two questions are asked of it and
+	// neither should pay for the other: the intent stage needs it to decide
+	// whether a unit is in contact, and the rank-blocking rule needs it to ask
+	// whether a friendly in front of it has already reached the enemy.
+	contact []bool
 	// leaderScratch holds candidate leader ids for the morale stage.
 	leaderScratch []int
 
@@ -391,6 +398,7 @@ func newBattle(cfg *config.Config, seed uint64, setup Setup) (*Battle, error) {
 	b.meleeScratch = make([]int, 0, 128)
 	b.fireScratch = make([]int, 0, 128)
 	b.attackerCount = make([]int, total)
+	b.contact = make([]bool, total)
 	b.leaderScratch = make([]int, 0, len(b.leaders)+1)
 	b.events = make([]Event, 0, 64)
 	b.maxEvents = int(c.MaxReportEvents)
@@ -685,6 +693,12 @@ func (b *Battle) tick() error {
 	// which is the coupling the snapshot exists to prevent.
 	b.meleeHash.rebuild(b.units)
 	b.fireHash.rebuild(b.units)
+
+	// Contact flags, filled once from the hashes and the snapshot the stages are
+	// about to read. They are not a stage and write nothing: they are the answer
+	// to one question, computed once so the intent stage and the rank-blocking
+	// rule inside it cannot disagree about who is touching whom.
+	b.markContact()
 
 	b.stageIntent()
 	if err := b.runCommanders(); err != nil {
