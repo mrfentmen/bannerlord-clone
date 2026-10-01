@@ -158,9 +158,15 @@ func run(v *sim.View, w *sim.WriteSet) {
 	// commit, and a side whose members all agree but who are not really hostile
 	// has no reason to. This is chain 9's outcome and it is computed, not
 	// announced.
+	// A side can only join one coalition per tick: track assignments to avoid
+	// staging two absolute writes to the same side's coalition_with field.
+	coalitionAssigned := make(map[int]bool)
 	for _, a := range v.State.SideIDs() {
 		for _, b := range v.State.SideIDs() {
 			if a >= b {
+				continue
+			}
+			if coalitionAssigned[a] || coalitionAssigned[b] {
 				continue
 			}
 			relation := v.State.SideRelation(a, b)
@@ -197,6 +203,8 @@ func run(v *sim.View, w *sim.WriteSet) {
 			causes := v.Log.RecentFor(model.KindSide, a, []string{"relation_score", "trust", "side_ally"}, 3)
 			w.Set(model.KindSide, a, "coalition_with", float64(b), read, causes, "coalition formed")
 			w.Set(model.KindSide, b, "coalition_with", float64(a), read, causes, "coalition formed")
+			coalitionAssigned[a] = true
+			coalitionAssigned[b] = true
 			// Trust falls across the network: a betrayal makes future
 			// coalitions easier, which is the lasting cost of an atrocity.
 			w.Add(model.KindSide, a, "trust", -c.Relation.TrustDecayPerBetrayal, read, causes, "")

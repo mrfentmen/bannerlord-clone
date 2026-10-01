@@ -500,8 +500,9 @@ func generateParties(cfg *config.Config, r *rng.Rng, st *model.State) {
 	// A few independent raider bands, which are the standing threat on unsafe
 	// roads even when nobody is at war.
 	raiderCount := int(r.Range(cfg.World.MinRaiderBands, cfg.World.MaxRaiderBands))
+	townIDs := st.TownIDs()
 	for i := 0; i < raiderCount; i++ {
-		t := st.Towns[r.Intn(len(st.TownIDs()))]
+		t := st.Towns[townIDs[r.Intn(len(townIDs))]]
 		p := &model.Party{
 			Name:          "Raiders",
 			SideID:        -1,

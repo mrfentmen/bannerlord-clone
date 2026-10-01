@@ -375,7 +375,7 @@ func init() {
 	register(Field{"intended_action", KindParty, ValueText, "intention", true, 0, 0, []string{
 		"none", "attack", "raid", "aid", "trade", "ally", "wait", "defend", "blockade", "peace",
 	}, 0})
-	register(Field{"decision_score", KindParty, ValueFloat, "score", false, -inf, inf, nil, 0})
+	register(Field{"decision_score", KindParty, ValueFloat, "score", true, -inf, inf, nil, 0})
 	register(Field{"dest_x", KindParty, ValueFloat, "leagues", false, 0, inf, nil, 0})
 	register(Field{"dest_y", KindParty, ValueFloat, "leagues", false, 0, inf, nil, 0})
 	register(Field{"wounded", KindParty, ValueInt, "troops", true, 0, inf, nil, 0})
