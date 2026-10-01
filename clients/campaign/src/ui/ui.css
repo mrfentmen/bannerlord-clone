@@ -1570,3 +1570,22 @@
 .kingdom__head { border-bottom:1px solid var(--line-1); padding-bottom:var(--space-2); }
 .ruler-goal__bar { height:8px; background:var(--paper-200); border-radius:var(--radius-1); overflow:hidden; }
 .ruler-goal__fill { display:block; height:100%; background:var(--accent-primary); }
+
+/* Diplomacy UI (MASTER_PLAN.md 3E). Token-only, no hex. */
+.diplomacy__list { display:flex; flex-direction:column; gap:var(--space-2); }
+.diplomacy__faction { background:var(--sheet-1); border:1px solid var(--line-1); border-radius:var(--radius-sm); padding:var(--space-2); }
+.diplomacy__faction-head { display:flex; align-items:center; gap:var(--space-2); margin-bottom:var(--space-1); }
+.diplomacy__faction-name { font-weight:600; color:var(--ink-900); }
+.diplomacy__relation { display:flex; flex-direction:column; gap:2px; }
+.diplomacy__bar { height:8px; background:var(--paper-200); border-radius:var(--radius-1); overflow:hidden; }
+.diplomacy__bar-fill { display:block; height:100%; background:var(--accent-primary); }
+.diplomacy__bar-label { font-size:0.85rem; color:var(--ink-700); }
+.diplomacy__actions { display:flex; gap:var(--space-2); margin-top:var(--space-2); flex-wrap:wrap; }
+.diplomacy__detail { display:flex; flex-direction:column; gap:var(--space-2); }
+.diplomacy__confirm { display:flex; flex-direction:column; gap:var(--space-2); }
+.diplomacy__peace { display:flex; flex-direction:column; gap:var(--space-2); }
+.diplomacy__defect { display:flex; flex-direction:column; gap:var(--space-2); }
+.diplomacy__result { display:flex; flex-direction:column; gap:var(--space-1); margin-top:var(--space-2); }
+.diplomacy__treaties { display:flex; flex-direction:column; gap:var(--space-1); }
+.diplomacy__treaty { display:flex; align-items:center; gap:var(--space-2); flex-wrap:wrap; padding:var(--space-1) 0; border-bottom:1px solid var(--line-1); }
+.diplomacy__treaty-name { font-weight:600; color:var(--ink-900); }
