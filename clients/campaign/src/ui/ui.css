@@ -2176,3 +2176,37 @@ html[data-reduce-motion] *::after {
   margin: 0;
   padding-left: 24px;
 }
+
+/* After-action report (MASTER_PLAN 2E, tasks 68-75). */
+.afteraction {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px;
+  max-width: 640px;
+  margin: 0 auto;
+  color: var(--ink-900);
+}
+.afteraction-title {
+  margin: 0;
+  font-size: 1.5rem;
+}
+.afteraction-section {
+  border: 1px solid var(--ink-300);
+  border-radius: 8px;
+  padding: 12px;
+}
+.afteraction-section h3 {
+  margin: 0 0 8px;
+}
+.afteraction-side {
+  margin-bottom: 8px;
+}
+.afteraction-timeline {
+  margin: 0;
+  padding-left: 24px;
+}
+.afteraction-close {
+  align-self: flex-start;
+  padding: 10px 24px;
+}
