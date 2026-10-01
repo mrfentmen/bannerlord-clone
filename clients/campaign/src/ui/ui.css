@@ -1649,3 +1649,9 @@
 .character-summary { margin-bottom:var(--space-4); }
 .character-relation { display:flex; justify-content:space-between; align-items:center; padding:var(--space-1) 0; border-bottom:1px solid var(--line-1); }
 .character-relation__name { color:var(--ink-900); }
+
+/* Party management (MASTER_PLAN.md 3B). Token-only: no literal colours. */
+.party-prisoner { background:var(--paper-100); border:1px solid var(--line-1); border-radius:var(--radius-sm); padding:var(--space-2); margin-bottom:var(--space-2); }
+.party-prisoner__head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:var(--space-1); }
+.party-prisoner__actions { display:flex; gap:var(--space-2); flex-wrap:wrap; }
+.party-speed-factor { display:flex; align-items:center; gap:var(--space-2); padding:var(--space-1) 0; border-bottom:1px solid var(--line-1); }
