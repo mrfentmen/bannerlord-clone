@@ -12,6 +12,9 @@ keys case-insensitively, so these unmarshal without tags):
 
     Name, State, SideID, Population, X, Y, IsPort, Terrain, Farmland, IsReal
 
+Contract version: 2 (see CONTRACT_A_CHANGELOG.md). v2 adds routes.json with
+the travel graph edges (Tier 1B-19) and supports metro bbox slices (Tier 1B-27).
+
 Field mapping, all from the pipeline's tables (no invented values):
 
   Name       display name (Census suffix stripped, same as the client wire).
@@ -55,6 +58,10 @@ from pathlib import Path
 from typing import Any
 
 from .client_wire import _load_table, display_name
+
+# Contract A version. Bump on any schema change; the sim documents which
+# version it reads. See CONTRACT_A_CHANGELOG.md.
+CONTRACT_VERSION = 2
 
 # ---------------------------------------------------------------------------
 # Constants. Declared, not magic: each has a comment saying where it comes from.
@@ -322,6 +329,7 @@ def build_sim_feed(
     # the sidecar settlements.meta.json, not in the array file.
     meta = {
         "source": "agent-1-export",
+        "contract_version": CONTRACT_VERSION,
         "licence": (
             "U.S. Government work, public domain (Title 17 U.S.C. 105). "
             "Populations: U.S. Census Bureau, Vintage 2023 sub-county "
