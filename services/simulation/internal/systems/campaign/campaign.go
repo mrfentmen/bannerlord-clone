@@ -80,6 +80,13 @@ func run(v *sim.View, w *sim.WriteSet) {
 		default:
 			// Waiting. The party rests where it stands, which the march system
 			// reads as activity=idle and turns into fatigue recovery.
+			// The player system runs first and owns the player party's
+			// activity: if it already set one this tick (a march, trade, or
+			// aid order), yield instead of staging a second absolute write
+			// the engine would reject.
+			if w.HasSet(model.KindParty, pid, "activity") {
+				break
+			}
 			w.Set(model.KindParty, pid, "activity", float64(model.ActIdle), "waiting", nil, "")
 		}
 	}

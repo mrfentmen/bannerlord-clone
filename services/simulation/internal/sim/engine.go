@@ -240,8 +240,14 @@ func (w *WriteSet) Set(kind model.Kind, id int, field string, value float64, rea
 	w.stage(write{Kind: kind, Entity: id, Field: field, Value: value, Read: read, CausedBy: causedBy, Note: note, IsSet: true})
 }
 
-// MustSet is Set for a system that has already established the value, kept
-// separate only for readability at call sites.
+// HasSet reports whether an absolute Set has already been staged for this
+// field in this tick. A system that only supplies a default value uses this
+// to yield when another system has already established the field, instead of
+// staging a second absolute write the engine would have to reject.
+func (w *WriteSet) HasSet(kind model.Kind, id int, field string) bool {
+	_, ok := w.setIndex[writeKey{kind, id, field}]
+	return ok
+}
 func (w *WriteSet) stage(x write) {
 	f, ok := model.FieldByName(x.Kind, x.Field)
 	if !ok {
