@@ -1668,3 +1668,29 @@
 .inventory-card__tier { color:var(--ink-700); }
 .inventory-card__condition { color:var(--ink-700); }
 .inventory-card__tooltip { position:absolute; z-index:1; top:100%; left:0; background:var(--ink-900); color:var(--paper-0); border-radius:var(--radius-sm); padding:var(--space-1) var(--space-2); white-space:nowrap; }
+
+/* Quest log and markers (MASTER_PLAN.md 3F). Token-only: no literal colours. */
+.quest-tabs { display:flex; gap:var(--space-1); margin-bottom:var(--space-3); }
+.quest-tab { background:var(--paper-100); border:1px solid var(--line-1); border-radius:var(--radius-sm); padding:var(--space-1) var(--space-2); cursor:pointer; color:var(--ink-700); font-family:var(--font-sans); }
+.quest-tab--active { background:var(--paper-200); border-color:var(--accent-primary); color:var(--ink-900); font-weight:600; }
+.quest-list { display:flex; flex-direction:column; gap:var(--space-3); }
+.quest-card { background:var(--paper-100); border:1px solid var(--line-1); border-radius:var(--radius-sm); padding:var(--space-3); }
+.quest-card__head { display:flex; align-items:baseline; gap:var(--space-2); margin-bottom:var(--space-1); }
+.quest-card__title { font-size:1.1rem; color:var(--ink-900); }
+.quest-card__giver { color:var(--ink-500); }
+.quest-card__badges { display:flex; gap:var(--space-1); flex-wrap:wrap; margin-bottom:var(--space-2); }
+.quest-card__desc { color:var(--ink-700); margin:0 0 var(--space-2); }
+.quest-objectives { display:flex; flex-direction:column; gap:var(--space-2); margin-bottom:var(--space-2); }
+.quest-objective__head { display:flex; justify-content:space-between; align-items:baseline; margin-bottom:var(--space-1); }
+.quest-objective__label { color:var(--ink-900); }
+.quest-objective__counter { color:var(--ink-700); }
+.quest-objective__track { height:8px; background:var(--paper-200); border-radius:var(--radius-1); overflow:hidden; }
+.quest-objective__fill { display:block; height:100%; background:var(--accent-primary); }
+.quest-objective__location { color:var(--ink-500); }
+.quest-rewards { margin-bottom:var(--space-2); }
+.quest-rewards__relations { display:flex; flex-direction:column; gap:var(--space-1); }
+.quest-reward__relation { display:flex; justify-content:space-between; align-items:center; padding:var(--space-1) 0; border-bottom:1px solid var(--line-1); }
+.quest-offer__title { margin:0 0 var(--space-1); color:var(--ink-900); }
+.quest-offer__giver { color:var(--ink-500); }
+.quest-offer__desc { color:var(--ink-700); }
+.quest-offer__actions { display:flex; gap:var(--space-2); margin-top:var(--space-3); }
