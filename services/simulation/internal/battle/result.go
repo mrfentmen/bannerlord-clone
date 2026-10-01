@@ -221,6 +221,11 @@ const (
 	EventSurrendered
 	// EventDestroyed is a unit removed from the fight, dead or wounded.
 	EventDestroyed
+	// EventShotFired is one fired shot's event bundle: muzzle flash, tracer,
+	// impact effect, and suppression crack, all encoded in the Read field.
+	// Every shot emits exactly one bundle, hit or miss, so the client can
+	// count shots and play effects from events alone.
+	EventShotFired
 )
 
 // String names the event kind.
@@ -236,6 +241,8 @@ func (k EventKind) String() string {
 		return "surrendered"
 	case EventDestroyed:
 		return "destroyed"
+	case EventShotFired:
+		return "shot"
 	default:
 		return "unknown"
 	}
