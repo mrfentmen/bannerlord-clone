@@ -42,7 +42,6 @@ import (
 	"mbclone/simulation/internal/systems/loadout"
 	"mbclone/simulation/internal/systems/logistics"
 	"mbclone/simulation/internal/systems/loyalty"
-	"mbclone/simulation/internal/systems/rebellion"
 	"mbclone/simulation/internal/systems/march"
 	"mbclone/simulation/internal/systems/market"
 	"mbclone/simulation/internal/systems/migration"
@@ -112,7 +111,6 @@ func Systems() []sim.System {
 		// --- politics ---
 		unrest.System(),
 		loyalty.System(),
-		rebellion.System(),
 		loadout.System(),
 		council.System(),
 		clan.System(),
