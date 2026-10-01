@@ -669,6 +669,15 @@ func stagePermutations(stages []string) [][]string {
 // runWithStageOrder runs a battle with an arbitrary stage order. It exists for
 // the order-independence test and is not part of the normal path: Run always uses
 // tickOrder.
+//
+// It calls beginTick and runStage rather than restating them. That is the whole
+// point of the helper being this short: an earlier version spelled out the tick
+// loop itself, and when the formation work added the per-tick shape reset, the
+// contact flags and the commander seam to tick, this copy kept running the older
+// tick and every one of the 120 orderings stopped reproducing the documented
+// battle. The test went red with 40 violations of a rule that had not changed. A
+// test that re-implements the thing it is testing is a second implementation, and
+// the second one drifts.
 func runWithStageOrder(cfg *config.Config, seed uint64, setup Setup, order []string) (*Result, error) {
 	if cfg == nil {
 		return nil, newError(ErrNilConfig, "no config")
@@ -684,27 +693,12 @@ func runWithStageOrder(cfg *config.Config, seed uint64, setup Setup, order []str
 		if outcome, decided := b.checkEnding(); decided {
 			return b.result(outcome), nil
 		}
-		for i, u := range b.units {
-			b.snap[i] = take(u)
-			b.deltas[i].reset()
-			b.attackerCount[i] = 0
+		if err := b.beginTick(); err != nil {
+			return nil, err
 		}
-		b.meleeHash.rebuild(b.units)
-		b.fireHash.rebuild(b.units)
 		for _, name := range order {
-			switch name {
-			case "intent":
-				b.stageIntent()
-			case "targeting":
-				b.stageTargeting()
-			case "aimed fire":
-				b.stageAimedFire()
-			case "melee":
-				b.stageMelee()
-			case "morale":
-				b.stageMorale()
-			default:
-				return nil, newError(ErrInternal, "unknown stage "+name)
+			if err := b.runStage(name); err != nil {
+				return nil, err
 			}
 		}
 		if err := b.commit(); err != nil {

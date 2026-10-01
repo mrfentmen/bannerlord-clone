@@ -420,3 +420,154 @@ func TestProbeContactScanDoesNotChangeTheBattle(t *testing.T) {
 		t.Errorf("closest approach was %.3f m, want %.3f m", p.minFoe, want)
 	}
 }
+
+// contactRun builds the evidence for one contact verdict: two lines that never
+// touched, and a result whose attack counters the caller sets.
+func contactRun(t *testing.T, mayEndAtRange string, res battle.Result) *Findings {
+	t.Helper()
+	cfg, p := probeFor(t, 1, 1)
+	if err := p.Command(viewOf(11,
+		[]battle.Status{battle.StatusFighting}, []battle.Status{battle.StatusFighting},
+		-60, 60)); err != nil {
+		t.Fatalf("the probe refused a view: %v", err)
+	}
+	res.Ticks = 12
+	f := &Findings{}
+	checkContact(f, Input{Config: cfg, Probe: p, Result: &res, MayEndAtRange: mayEndAtRange})
+	return f
+}
+
+// TestContactExemptionNeedsSomethingToHaveLanded is the load-bearing test for the
+// exemption, and it is a table because the bar has three rungs: a shot that hit, a
+// body put down without a hit being scored, and neither.
+//
+// The third rung is the one that matters. An exemption that let a battle pass
+// because it was DECLARED a firefight would be a hole with a label on it: the
+// skirmishers scenario could then be green while nothing at all happened in it.
+func TestContactExemptionNeedsSomethingToHaveLanded(t *testing.T) {
+	const why = "this scenario is all shooters against all melee"
+	cases := []struct {
+		name  string
+		shots float64
+		hits  float64
+		kills float64
+		want  Status
+	}{
+		{"a shot hit", 900, 110, 0, Pass},
+		{"a body was put down without a hit being scored", 900, 0, 48, Pass},
+		{"nothing landed at all", 900, 0, 0, Fail},
+		{"nothing was fired at all", 0, 0, 0, Fail},
+	}
+	for _, c := range cases {
+		t.Run(c.name, func(t *testing.T) {
+			res := battle.Result{Sides: [2]battle.SideResult{
+				{Shots: c.shots, RangedHits: c.hits, CasualtiesInflicted: c.kills},
+			}}
+			got := contactRun(t, why, res).find(RuleContact)
+			if got == nil {
+				t.Fatal("the contact rule was never reported")
+			}
+			if got.Status != c.want {
+				t.Errorf("verdict was %s, want %s: %s", got.Status, c.want, got.Note)
+			}
+			if c.want == Fail && len(got.Violations) != 1 {
+				t.Fatalf("a failure recorded %d violations, want 1", len(got.Violations))
+			}
+			if c.want == Pass && len(got.Violations) != 0 {
+				t.Errorf("a pass carried %d violations", len(got.Violations))
+			}
+		})
+	}
+}
+
+// TestContactExemptionQuotesItsReason checks that a pass through the exemption is
+// a claim a reader can check rather than a bare tick in a table. The note has to
+// name why the scenario is allowed to end at range and how the shooting carried
+// it, or "pass" is asking to be believed.
+func TestContactExemptionQuotesItsReason(t *testing.T) {
+	const why = "every unit on side A is a shooter and every unit on side B is melee"
+	res := battle.Result{Sides: [2]battle.SideResult{
+		{Shots: 974, RangedHits: 110, CasualtiesInflicted: 48},
+	}}
+	c := contactRun(t, why, res).find(RuleContact)
+	if c == nil {
+		t.Fatal("the contact rule was never reported")
+	}
+	if c.Status != Pass {
+		t.Fatalf("verdict was %s, want Pass: %s", c.Status, c.Note)
+	}
+	for _, want := range []string{why, "974 shots", "110 of them hit", "48 bodies", "No swing was thrown"} {
+		if !strings.Contains(c.Note, want) {
+			t.Errorf("the note does not mention %q, so the pass cannot be checked: %s", want, c.Note)
+		}
+	}
+}
+
+// TestContactExemptionIsNotGlobal is the guard on the guard: the same battle, with
+// the same shooting, judged by a scenario that did not ask for the exemption. If
+// the shooting could satisfy the rule on its own then the exemption would be
+// decoration and every scenario would pass whenever anybody took a shot.
+func TestContactExemptionIsNotGlobal(t *testing.T) {
+	res := battle.Result{Sides: [2]battle.SideResult{
+		{Shots: 974, RangedHits: 110, CasualtiesInflicted: 48},
+	}}
+	c := contactRun(t, "", res).find(RuleContact)
+	if c == nil {
+		t.Fatal("the contact rule was never reported")
+	}
+	if c.Status != Fail {
+		t.Fatalf("a battle with no swings passed for a scenario that requires contact: %s", c.Note)
+	}
+}
+
+// TestContactExemptionFailureNamesTheExemption: when a scenario that may end at
+// range does nothing at all, the finding has to say the exemption was available
+// and not used. Otherwise the same finding reads identically to one from a
+// scenario with no exemption, and the reader cannot tell whether the rule was
+// misapplied or simply not met.
+func TestContactExemptionFailureNamesTheExemption(t *testing.T) {
+	const why = "every unit on side A is a shooter"
+	c := contactRun(t, why, battle.Result{Sides: [2]battle.SideResult{{Shots: 900}}}).
+		find(RuleContact)
+	if c == nil {
+		t.Fatal("the contact rule was never reported")
+	}
+	if c.Status != Fail {
+		t.Fatalf("verdict was %s, want Fail", c.Status)
+	}
+	d := c.Violations[0].Detail
+	if !strings.Contains(d, "exemption was not used") {
+		t.Errorf("the finding does not say the exemption was available and unused: %s", d)
+	}
+	if !strings.Contains(d, why) {
+		t.Errorf("the finding does not quote the reason the exemption exists: %s", d)
+	}
+	for _, want := range []string{"900 shots were fired", "0 hit"} {
+		if !strings.Contains(d, want) {
+			t.Errorf("the finding does not quote %q, so the reader is not shown that nothing landed: %s",
+				want, d)
+		}
+	}
+}
+
+// TestOnlyTheFirefightScenarioClaimsTheExemption pins the exemption to the one
+// scenario built out of shooters, because an exemption is a statement about a
+// matchup and it rots quietly: a scenario that claims it and is later rebuilt as
+// two mixed forces would keep passing on shooting alone, with nobody left
+// checking that the exemption still describes it.
+func TestOnlyTheFirefightScenarioClaimsTheExemption(t *testing.T) {
+	for _, sc := range Suite {
+		claimed := sc.MayEndAtRange != ""
+		allRanged, allMelee := false, false
+		if setup, err := sc.Build(loadConfig(t), 20260930, 1); err == nil {
+			allRanged = len(setup.A) > 0 && countRanged(setup.A) == len(setup.A)
+			allMelee = len(setup.B) > 0 && countRanged(setup.B) == 0
+		}
+		if claimed && !(allRanged && allMelee) {
+			t.Errorf("scenario %q claims it may end at range, but its setup is not a side of shooters "+
+				"against a side of melee: A is all shooters=%v, B is all melee=%v. Either the "+
+				"exemption or the scenario is wrong, and both are silent if this is not checked",
+				sc.Name, allRanged, allMelee)
+		}
+	}
+}

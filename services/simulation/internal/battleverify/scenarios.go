@@ -33,6 +33,30 @@ type Scenario struct {
 	CheckSetup func(setup battle.Setup) []Violation
 	// Expect asserts that the battle did what the scenario is for.
 	Expect func(r *Report) []Violation
+	// MayEndAtRange is the reason this scenario is allowed to be decided without
+	// the two armies ever reaching a blow's reach, and the empty string means
+	// contact is required.
+	//
+	// It is a reason rather than a bool because a scenario that is allowed to end
+	// at range has to say why, on the report, next to the numbers. A bare true
+	// would print as a claim with nothing behind it, and the whole point of the
+	// contact rule is that a reader can check the claim rather than believe it.
+	//
+	// It exists at all because a scenario can be a firefight BY CONSTRUCTION. The
+	// skirmishers scenario is all shooters against all melee, and whether that
+	// matchup is decided by the arrows or by the clubs is a balance question
+	// about roster_start_distance, melee_range, and the suppression rates, not an
+	// engine fault. Holding a harness rule over it would report a tuning decision
+	// as a bug, which is the cry-wolf failure this file already argues against
+	// for morale_casualty_hit and rally_chance. See the note on scenarioMoraleShock
+	// for the same argument in the same terms.
+	//
+	// The rule is NOT thereby switched off. A scenario that may end at range must
+	// still show that the battle was fought, and the engine's own counters are
+	// what says so: shots that connected, or casualties inflicted, or a swing
+	// thrown. A battle where nothing was thrown AND nothing landed is still a
+	// failure, and says which of the two it was.
+	MayEndAtRange string
 }
 
 // Suite is every scenario, in the order they are run.
@@ -156,6 +180,7 @@ func RunScenario(cfg *config.Config, balancePath string, sc Scenario, seed uint6
 		Probe:         probe,
 		ScenarioSetup: sc.CheckSetup,
 		ScenarioRun:   sc.Expect,
+		MayEndAtRange: sc.MayEndAtRange,
 	})
 	report.Findings = findings
 	out.Report = report
@@ -381,6 +406,14 @@ var scenarioSkirmishers = Scenario{
 		return vs
 	},
 	Expect: expectDecided("the matchup is decided rather than running out of ticks"),
+	// Side A is all shooters and side B is all melee, so this matchup is decided
+	// by the arrows or by the clubs, and which of those it is comes down to
+	// roster_start_distance against the suppression rates rather than to anything
+	// the engine is or is not doing. It is allowed to end at range; it is not
+	// allowed to do nothing, and the rule still fails this scenario if the shooting
+	// neither lands nor kills.
+	MayEndAtRange: "every unit on side A is a shooter and every unit on side B is melee, so a decided " +
+		"battle here may legitimately be a shooting match",
 }
 
 // scenarioMoraleShock is the rout scenario: one side arrives shaken and comes

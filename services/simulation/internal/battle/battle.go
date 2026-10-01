@@ -676,8 +676,34 @@ func (b *Battle) fight() (*Result, error) {
 	}
 }
 
-// tick runs one tick: snapshot, stages, commit.
+// tick runs one tick in the documented order: prologue, stages, commit.
 func (b *Battle) tick() error {
+	if err := b.beginTick(); err != nil {
+		return err
+	}
+	for _, name := range tickOrder {
+		if err := b.runStage(name); err != nil {
+			return err
+		}
+	}
+	if err := b.commit(); err != nil {
+		return err
+	}
+	b.tickNo++
+	b.elapsed += b.c.TickSeconds
+	return nil
+}
+
+// beginTick is everything a tick does before any stage runs.
+//
+// It is a separate function so that the stage-order test drives the SAME prologue
+// tick does rather than a copy of it. The copy drifted: when the formation work
+// added the per-tick shape reset, the contact flags and the commander seam, the
+// test's hand-rolled loop kept running the older tick, so every one of the 120
+// orderings stopped reproducing the documented battle and the test reported 40
+// violations of a rule that was still true. Duplicating the loop was what made it
+// wrong; splitting the prologue out is what keeps it right.
+func (b *Battle) beginTick() error {
 	// The snapshot. Everything below reads this and nothing else, which is
 	// what makes the stage order irrelevant to the result.
 	for i, u := range b.units {
@@ -699,21 +725,39 @@ func (b *Battle) tick() error {
 	// to one question, computed once so the intent stage and the rank-blocking
 	// rule inside it cannot disagree about who is touching whom.
 	b.markContact()
-
-	b.stageIntent()
-	if err := b.runCommanders(); err != nil {
-		return err
-	}
-	b.stageTargeting()
-	b.stageAimedFire()
-	b.stageMelee()
-	b.stageMorale()
-	if err := b.commit(); err != nil {
-		return err
-	}
-	b.tickNo++
-	b.elapsed += b.c.TickSeconds
 	return nil
+}
+
+// runStage runs one named stage of a tick.
+//
+// The command seam sits between intent and targeting, because a commander reads
+// what the intent stage decided and hands back its own movements over it, so it is
+// named here rather than being spelled out at the call site in tick. It is in
+// tickOrder's documented list under the number 2 with a comment, and a caller
+// naming it out of turn gets the same command a caller naming a stage that does
+// not exist gets.
+func (b *Battle) runStage(name string) error {
+	switch name {
+	case "intent":
+		b.stageIntent()
+		return nil
+	case "command":
+		return b.runCommanders()
+	case "targeting":
+		b.stageTargeting()
+		return nil
+	case "aimed fire":
+		b.stageAimedFire()
+		return nil
+	case "melee":
+		b.stageMelee()
+		return nil
+	case "morale":
+		b.stageMorale()
+		return nil
+	default:
+		return newError(ErrInternal, "unknown stage "+name)
+	}
 }
 
 // checkEnding decides whether the battle is over, and if so how and why.

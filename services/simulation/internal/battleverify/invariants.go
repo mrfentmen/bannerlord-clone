@@ -36,6 +36,10 @@ type Input struct {
 	// setup and about what the battle did, nil when the caller supplied none.
 	ScenarioSetup func(battle.Setup) []Violation
 	ScenarioRun   func(*Report) []Violation
+	// MayEndAtRange is the scenario's reason for being allowed to be decided
+	// without the armies ever touching, empty when contact is required. See
+	// Scenario.MayEndAtRange for why it is a reason and not a flag.
+	MayEndAtRange string
 }
 
 // Verify runs every rule against one run's evidence and returns what each found.
@@ -179,6 +183,25 @@ func checkContact(f *Findings, in Input) {
 		return
 	}
 
+	// A scenario that is allowed to end at range still has to show a fight, and
+	// the engine's own counters are what shows it. The bar is deliberately low:
+	// one thing landed. A scenario cannot buy its way out of this rule by being
+	// declared a firefight.
+	//
+	// The numbers are quoted rather than merely counted, because a pass here is a
+	// claim that the arrows did the work, and the reader has to be able to see how
+	// many arrows and how well they hit.
+	if in.MayEndAtRange != "" {
+		shots, hits, inflicted := shootingOf(in.Result)
+		if hits > 0 || inflicted > 0 {
+			f.pass(RuleContact, note+fmt.Sprintf("; this scenario is one that may be decided at range (%s), "+
+				"and the shooting carried it: %.0f shots, %.0f of them hit, %.0f bodies put down by fire "+
+				"and shock. No swing was thrown, so the melee stage did not run in this battle",
+				in.MayEndAtRange, shots, hits, inflicted))
+			return
+		}
+	}
+
 	if p.minFoe <= melee {
 		f.fail(RuleContact, note, []Violation{{
 			Rule: RuleContact, Tick: p.minFoeAt,
@@ -190,18 +213,30 @@ func checkContact(f *Findings, in Input) {
 		return
 	}
 
+	shots, hits, inflicted := shootingOf(in.Result)
 	f.fail(RuleContact, note, []Violation{{
 		Rule: RuleContact, Tick: p.minFoeAt,
-		Detail: fmt.Sprintf("no blow was ever thrown: the closest the two armies came was %.1f m at tick %d "+
-			"(units %d and %d), which is %.0f times the %g m a blow can reach, and the battle was over at "+
-			"tick %d. The lines start %g m apart and a unit covers about %.2f m a tick at "+
-			"roster_speed_base %g, so contact needs roughly %.0f ticks of approach. The outcome below was "+
-			"therefore produced by suppression and panic at long range, and the melee stage, its damage model, "+
-			"and its formation modifiers were never executed once",
+		Detail: fmt.Sprintf("no blow was ever thrown and nothing landed either: the closest the two armies "+
+			"came was %.1f m at tick %d (units %d and %d), which is %.0f times the %g m a blow can reach, "+
+			"and the battle was over at tick %d. The lines start %g m apart and a unit covers about %.2f m a "+
+			"tick at roster_speed_base %g, so contact needs roughly %.0f ticks of approach. "+
+			"%.0f shots were fired, %.0f hit, and %.0f bodies were put down: this was not a battle fought at "+
+			"range, it was a battle in which nothing happened.%s",
 			p.minFoe, p.minFoeAt, p.minFoeA, p.minFoeB, p.minFoe/melee, melee, ticks,
 			in.Config.Battle.RosterStartDistance, tickReachOf(in.Config), in.Config.Battle.RosterSpeedBase,
-			approachTicksOf(in.Config)),
+			approachTicksOf(in.Config), shots, hits, inflicted, noSwingWorthFighting(in)),
 	}})
+}
+
+// noSwingWorthFighting is the closing sentence when a scenario was allowed to end
+// at range and did not manage even that, naming the exemption so the finding says
+// the rule was available and was not used.
+func noSwingWorthFighting(in Input) string {
+	if in.MayEndAtRange == "" {
+		return " The melee stage, its damage model, and its formation modifiers were never executed once"
+	}
+	return fmt.Sprintf(" This scenario is allowed to be decided at range (%s), and the exemption was not "+
+		"used: nothing landed, so there is no fight here to report", in.MayEndAtRange)
 }
 
 // hitsOf is the total number of hits the two sides landed, ranged and melee.
@@ -211,6 +246,24 @@ func hitsOf(res *battle.Result) float64 {
 		n += sr.RangedHits + sr.MeleeHits
 	}
 	return n
+}
+
+// shootingOf is the shots taken, the shots that hit, and the bodies the two sides
+// put down between them.
+//
+// The third number is not a shot number, and it is in the tuple on purpose. A
+// battle decided at range can end with rounds landing and nothing dying, because
+// suppression broke a side that was never touched; that is a fight, and counting
+// only hits would call it an empty one. So the rule for a scenario that may end
+// at range accepts a hit OR a casualty, and prints all three so a reader can see
+// which of them carried it.
+func shootingOf(res *battle.Result) (shots, hits, inflicted float64) {
+	for _, sr := range res.Sides {
+		shots += sr.Shots
+		hits += sr.RangedHits
+		inflicted += sr.CasualtiesInflicted
+	}
+	return shots, hits, inflicted
 }
 
 // tickReachOf is how far one unit covers in a single tick at its base speed.
