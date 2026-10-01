@@ -45,6 +45,7 @@ type Config struct {
 	Battle    Battle
 	Formation Formation
 	Command   Command
+	Vehicle   Vehicle
 }
 
 // World controls world generation.
@@ -1499,6 +1500,10 @@ type Battle struct {
 	// MaxTicks bounds the battle. Reaching it with neither side decided is a
 	// stalemate and is reported as a Draw rather than looping forever.
 	MaxTicks float64
+	// StalemateTicks is the no-casualty timeout: a battle with no kills or
+	// wounds for this many consecutive ticks is auto-resolved as a draw.
+	// No battle can run forever without anything happening.
+	StalemateTicks float64
 	// GridCellSize is the width in metres of one cell of the uniform spatial
 	// hash. It must be at least MeleeRange.
 	GridCellSize float64
@@ -1663,6 +1668,42 @@ type Battle struct {
 	// RangedSuppressionPerHit is the suppression one connecting shot adds to
 	// the target.
 	RangedSuppressionPerHit float64
+	// --- modern ballistics ---
+	// BallisticsGravity is the acceleration bullets fall at, in m/s^2. The
+	// gravity drop over a shot's flight time is a vertical miss distance, not
+	// a tuning knob: a rifle round at 200 m drops about 0.22 m.
+	BallisticsGravity float64
+	// BallisticsTargetRadius is the radius of a man-sized target in metres,
+	// against which angular spread is scored as a lateral error.
+	BallisticsTargetRadius float64
+	// BallisticsSprintSpeed is the m/s above which a shooter counts as
+	// sprinting for spread purposes.
+	BallisticsSprintSpeed float64
+	// BallisticsMoveSpreadMult and BallisticsSprintSpreadMult widen the
+	// weapon's base spread while moving and sprinting.
+	BallisticsMoveSpreadMult   float64
+	BallisticsSprintSpreadMult float64
+	// BallisticsSuppressionSpreadMult widens spread at full suppression, on
+	// top of the hit-chance penalty below: a pinned man both wobbles and
+	// keeps his head down.
+	BallisticsSuppressionSpreadMult float64
+	// BallisticsSuppressionAccuracyMult is the share of the hit chance a
+	// shooter keeps at full suppression. A pinned squad's effective DPS drops
+	// by at least half through this term alone.
+	BallisticsSuppressionAccuracyMult float64
+	// BallisticsSetStanceSpreadMult narrows spread for a stationary shooter
+	// holding position: braced, steadier than the weapon's base.
+	BallisticsSetStanceSpreadMult float64
+	// BallisticsCoverBleed is the share of a round's damage that still reaches
+	// a target behind cover the ammo penetrates.
+	BallisticsCoverBleed float64
+	// BallisticsCoverLowMult and BallisticsCoverHighMult are the hit-chance
+	// multipliers against a target behind low and high cover.
+	BallisticsCoverLowMult  float64
+	BallisticsCoverHighMult float64
+	// BallisticsRecoilMax caps accumulated recoil in radians. Firing faster
+	// than a weapon recovers is what walks full-auto fire upward.
+	BallisticsRecoilMax float64
 	// RosterAmmoPerUnit is the ammunition one ranged unit carries. Running
 	// out matters (COMBAT.md section 4).
 	RosterAmmoPerUnit float64
@@ -2123,6 +2164,98 @@ type Audit struct {
 	// run does not exhaust memory. A run that hits the limit reports how many
 	// rows it dropped rather than silently truncating.
 	LogRowLimit float64
+}
+
+// VehicleClassSpec is one row of the vehicle table: the data for a single
+// vehicle class. Every number a vehicle uses lives here or in the shared
+// Vehicle knobs below; nothing about a class is hardcoded.
+type VehicleClassSpec struct {
+	// Speed is open-ground speed in metres per second.
+	Speed float64
+	// Armor is the 0-1 share of incoming damage the hull shrugs off.
+	Armor float64
+	// FrontArmorHP is the ablative front-armor pool, damaged by ramming
+	// barricades. Range 0+, in hit points.
+	FrontArmorHP float64
+	// HullHP is the hull hit points the damage states are measured against.
+	HullHP float64
+	// Passengers is how many agents fit inside.
+	Passengers float64
+	// RamDamage is the base damage a ram at full speed deals.
+	RamDamage float64
+	// TurnRadius is the minimum turn radius in metres.
+	TurnRadius float64
+	// Mass is the vehicle's mass in kilograms, for ram physics.
+	Mass float64
+	// Open is 1 when passengers can fire personal weapons from the vehicle.
+	Open float64
+}
+
+// Vehicle holds the vehicle table: four class rows plus the shared knobs
+// for movement, ramming, passengers, morale shock, and damage states.
+type Vehicle struct {
+	Pickup     VehicleClassSpec
+	SUV        VehicleClassSpec
+	ArmoredVan VehicleClassSpec
+	Bus        VehicleClassSpec
+
+	// RoadSpeedScale multiplies open-ground speed on a road. Above 1.
+	RoadSpeedScale float64
+	// UrbanSpeedScale multiplies speed in urban terrain. Range 0-1.
+	UrbanSpeedScale float64
+	// HillSpeedScale multiplies speed on hills. Range 0-1.
+	HillSpeedScale float64
+	// ForestSpeedScale multiplies speed in forest. Near 0: forest is nearly
+	// impassable to vehicles.
+	ForestSpeedScale float64
+	// FortifiedSpeedScale multiplies speed in fortified terrain. Range 0-1.
+	FortifiedSpeedScale float64
+
+	// RamContactRadius is the metres within which a ram connects.
+	RamContactRadius float64
+	// RamMassDamageScale is the vehicle damage per kilogram of target mass
+	// rammed, before armor. Range 0+.
+	RamMassDamageScale float64
+	// TroopMassKg is the mass of one troop body for ram physics.
+	TroopMassKg float64
+	// BarricadeMassKg is the mass of a barricade for ram physics.
+	BarricadeMassKg float64
+
+	// PassengerAccuracyScale multiplies a passenger's accuracy when firing
+	// from an open vehicle. Range 0-1.
+	PassengerAccuracyScale float64
+	// DrivebySpeedPenalty is the accuracy lost per m/s of vehicle speed on
+	// top of the passenger scale. Range 0+.
+	DrivebySpeedPenalty float64
+
+	// ShockRadius is the metres around a charging vehicle that must test
+	// morale on impact.
+	ShockRadius float64
+	// ShockPower is the morale damage at the point of impact, before distance
+	// falloff and the target's steadiness. Range 0-1.
+	ShockPower float64
+	// ShockMinSpeed is the vehicle speed in m/s below which there is no
+	// shock: a parked truck frightens nobody.
+	ShockMinSpeed float64
+
+	// DisabledHPFrac is the hull fraction at or below which a vehicle is
+	// disabled and its crew bails out. Range 0-1.
+	DisabledHPFrac float64
+	// BurningHPFrac is the hull fraction at or below which a vehicle is
+	// burning and counting down to explosion. Range 0-1, below disabled.
+	BurningHPFrac float64
+	// ExplosionDelayTicks is how many ticks a burning vehicle burns before
+	// it explodes.
+	ExplosionDelayTicks float64
+	// ExplosionRadius is the metres around an exploding vehicle that take
+	// damage.
+	ExplosionRadius float64
+	// ExplosionDamage is the damage at the centre of the blast, falling off
+	// linearly to zero at the radius.
+	ExplosionDamage float64
+	// BailoutMoraleHit is the morale damage to crew bailing from a
+	// disabled-or-worse vehicle. Range 0-1.
+	BailoutMoraleHit float64
 }
 
 // Load reads and validates a balance file.

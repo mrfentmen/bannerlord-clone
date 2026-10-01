@@ -1,6 +1,10 @@
 package battle
 
-import "mbclone/simulation/internal/rng"
+import (
+	"math"
+
+	"mbclone/simulation/internal/rng"
+)
 
 // stageAimedFire resolves every shooter's shot for this tick.
 //
@@ -63,16 +67,25 @@ func (b *Battle) stageAimedFire() {
 		d.shots = 1
 		d.shotFired = true
 		d.Exhaustion += c.ExhaustionPerAttack
+		// Recoil: this shot's kick is staged for the commit, which adds it to
+		// the shooter's accumulated recoil after recovery.
+		w := weaponTable[u.Weapon]
+		d.recoilKick = w.recoilKick
 
-		if !r.Chance(b.rangedHitChance(s, ts, u)) {
+		distM := math.Sqrt(dist2(s.X-ts.X, s.Y-ts.Y))
+		ammo := w.ammo
+
+		if !r.Chance(b.ballisticHitChance(s, ts, u, distM)) {
 			// A miss costs a round and a little effort, and costs no suppression.
 			// A weapon that suppresses nothing when it misses is not a weapon that
-			// breaks formations.
+			// breaks formations. The crack of the passing round still goes in
+			// the event bundle.
+			b.bufferShotEvent(u, tid, u.Weapon, ammo, false, "none", 0, false)
 			continue
 		}
 		d.rangedHits = 1
 
-		suppression := c.RangedSuppressionShare * c.RangedSuppressionPerHit
+		suppression := c.RangedSuppressionShare * c.RangedSuppressionPerHit * ammoTable[ammo].suppressionMul
 		d.suppressionDealt = suppression
 		td := &b.deltas[tid]
 		// What the target is standing in. Only skirmish order has anything to
@@ -84,9 +97,28 @@ func (b *Battle) stageAimedFire() {
 
 		injury := 1 - c.RangedSuppressionShare
 		if injury <= 0 {
+			b.bufferShotEvent(u, tid, u.Weapon, ammo, true, "suppression", 0, false)
 			continue
 		}
-		td.HP -= b.rangedDamage(u, r) * injury
+		damage := b.rangedDamage(u, r) * injury * w.damageMul * ammoTable[ammo].damageMul
+		impact := "flesh"
+		coverFailed := false
+		// Cover: a live obstacle between shooter and target catches the round
+		// unless the ammo penetrates its barrier rating. Either way the cover
+		// loses one round of HP: rounds chew cover up.
+		if ci := b.interceptingCover(s.X, s.Y, ts.X, ts.Y); ci >= 0 {
+			var toTarget float64
+			toTarget, coverFailed = b.resolveCoverHit(ci, ammo, damage)
+			if toTarget <= 0 {
+				damage = 0
+				impact = "cover"
+			} else {
+				damage = toTarget
+				impact = "cover-penetrated"
+			}
+		}
+		td.HP -= damage
+		b.bufferShotEvent(u, tid, u.Weapon, ammo, true, impact, damage, coverFailed)
 	}
 }
 

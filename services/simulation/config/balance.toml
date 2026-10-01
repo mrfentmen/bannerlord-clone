@@ -786,6 +786,11 @@ tick_seconds = 0.25
 # which no field battle should ever need; reaching it is a real outcome and is
 # reported as one rather than hidden by an infinite loop.
 max_ticks = 20000
+# Ticks with no kills or wounds before an undecided battle is auto-resolved
+# as a draw. Range 100-500000. A battle where nothing happens for this long
+# is two crowds staring at each other; calling it a draw is the honest
+# answer, and no battle can run forever without anything happening.
+stalemate_ticks = 2000
 # Width of one cell of the uniform spatial hash, in metres. Range 1-500. Must
 # be at least melee.range, or a melee query has to scan cells it could have
 # stepped over. Larger cells mean fewer cell lookups and more units per lookup.
@@ -1032,6 +1037,42 @@ ranged_suppression_per_hit = 0.28
 # (COMBAT.md section 4): a unit at zero ammunition falls back to a much weaker
 # melee rather than firing for free.
 roster_ammo_per_unit = 220.0
+
+# --- MODERN BALLISTICS ----------------------------------------------------
+# Acceleration bullets fall at, in m/s^2. Range 0.1-30. The drop over a
+# round's flight time is a vertical miss distance: a rifle round (940 m/s)
+# at 200 m is aloft 0.21 s and falls about 0.22 m.
+ballistics_gravity = 9.81
+# Radius of a man-sized target in metres, against which angular spread is
+# scored as a lateral error. Range 0.1-2.0.
+ballistics_target_radius = 0.45
+# Speed in m/s above which a shooter counts as sprinting for spread.
+# Range 0.5-20. A sprinting suppressed shooter cannot hit beyond 30 m.
+ballistics_sprint_speed = 3.5
+# Spread multipliers while moving and sprinting. Ranges 1-20 and 1-30. Moving
+# cannot steady the aim, so both floors are 1.
+ballistics_move_spread_mult = 3.0
+ballistics_sprint_spread_mult = 6.0
+# Spread widening at full suppression. Range 0-10. A pinned man both wobbles
+# (this) and keeps his head down (the accuracy term below).
+ballistics_suppression_spread_mult = 2.0
+# Share of the hit chance kept at full suppression. Range 0-1. At 0.4 a pinned
+# squad's effective DPS drops by at least half through this term alone, before
+# the spread widening above.
+ballistics_suppression_accuracy_mult = 0.4
+# Spread multiplier for a stationary shooter holding position. Range 0.1-1.
+# Braced and unhurried, he groups tighter than the weapon's base spread.
+ballistics_set_stance_spread_mult = 0.7
+# Share of a round's damage that still reaches a target behind cover the ammo
+# penetrates. Range 0-1. The round arrives spent.
+ballistics_cover_bleed = 0.5
+# Hit-chance multipliers against targets behind low (fence, sandbags) and
+# high (wall, vehicle) cover. Ranges 0-1. High cover hides more of the man.
+ballistics_cover_low_mult = 0.65
+ballistics_cover_high_mult = 0.40
+# Cap on accumulated recoil in radians. Range 0.01-1. Firing faster than a
+# weapon recovers walks full-auto fire upward toward this cap.
+ballistics_recoil_max = 0.25
 
 # --- SUPPRESSION ----------------------------------------------------------
 # Ceiling on suppression. Range 0.1-5.0. Above 1 the unit is pinned, not
@@ -1526,3 +1567,81 @@ decision_interval_ticks = 10.0
 # Without it a formation oscillates between advance and hold around the trigger
 # range and arrives nowhere, because every decision reverses the last one.
 order_min_ticks = 20.0
+
+# Vehicles as modern cavalry. Four class rows: every per-class number lives
+# here, nothing about a class is hardcoded. Speeds are open-ground metres per
+# second; infantry walks at battle.roster_speed_base (4.2), so the pickup at
+# 12.6 crosses open ground three times faster than foot troops.
+[vehicle]
+# Pickup: fast, light, open bed. The cavalry scout.
+pickup_speed = 12.6
+pickup_armor = 0.10
+pickup_front_armor = 30.0
+pickup_hull_hp = 120.0
+pickup_passengers = 5.0
+pickup_ram_damage = 60.0
+pickup_turn_radius = 6.0
+pickup_mass = 2200.0
+pickup_open = 1.0
+# SUV: a little faster and tougher than the pickup, enclosed.
+suv_speed = 14.0
+suv_armor = 0.15
+suv_front_armor = 40.0
+suv_hull_hp = 150.0
+suv_passengers = 5.0
+suv_ram_damage = 70.0
+suv_turn_radius = 6.5
+suv_mass = 2500.0
+suv_open = 0.0
+# Armored van: slow, heavy, shrugs off small arms. The battering ram.
+armored_van_speed = 10.0
+armored_van_armor = 0.45
+armored_van_front_armor = 120.0
+armored_van_hull_hp = 300.0
+armored_van_passengers = 8.0
+armored_van_ram_damage = 110.0
+armored_van_turn_radius = 9.0
+armored_van_mass = 4500.0
+armored_van_open = 0.0
+# Bus: the troop carrier. Huge capacity, turns like a building.
+bus_speed = 9.0
+bus_armor = 0.12
+bus_front_armor = 50.0
+bus_hull_hp = 250.0
+bus_passengers = 30.0
+bus_ram_damage = 100.0
+bus_turn_radius = 14.0
+bus_mass = 12000.0
+bus_open = 0.0
+# Movement: roads fast, open ground is the baseline, forest nearly impassable.
+road_speed_scale = 1.25
+urban_speed_scale = 0.70
+hill_speed_scale = 0.50
+forest_speed_scale = 0.08
+fortified_speed_scale = 0.60
+# Ramming: contact radius in metres; vehicle damage per kilogram of target
+# mass; the mass of one troop body and of a barricade for the physics.
+ram_contact_radius = 3.0
+ram_mass_damage_scale = 0.004
+troop_mass_kg = 80.0
+barricade_mass_kg = 400.0
+# Passengers: firing from an open vehicle halves accuracy, and speed costs
+# more on top. A drive-by is possible because the floor never reaches zero.
+passenger_accuracy_scale = 0.5
+driveby_speed_penalty = 0.02
+# Morale shock: a vehicle at or above shock_min_speed forces a morale check
+# on enemy foot troops within shock_radius. ShockPower is the morale damage
+# at the point of impact.
+shock_radius = 25.0
+shock_power = 0.50
+shock_min_speed = 6.0
+# Damage states, as hull fractions. Disabled and worse bail the crew out.
+disabled_hp_frac = 0.35
+burning_hp_frac = 0.15
+# A burning vehicle explodes after this many ticks, damaging everything
+# within explosion_radius. Damage falls off linearly from explosion_damage.
+explosion_delay_ticks = 100.0
+explosion_radius = 15.0
+explosion_damage = 120.0
+# Morale damage to crew bailing from a disabled-or-worse vehicle.
+bailout_morale_hit = 0.20
