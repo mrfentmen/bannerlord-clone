@@ -269,6 +269,14 @@ segment_warning_km = 800.0
 # far below the distance between neighbouring towns in the sparsely settled
 # West. Reasonable range: 5..50
 snap_radius_km = 20.0
+# Minimum fraction of the straight-line (great-circle) distance between two
+# snapped settlements that a line fragment must cover to count as a
+# town-to-town route edge. TIGER/Line splits rail into short features (yard
+# leads, sidings, digitisation fragments); with a 20 km snap radius a 30-metre
+# fragment can snap to towns 19 km apart and become a "route" shorter than the
+# straight line, which is geometrically impossible. Fragments below this
+# fraction stay as segments but form no route edge. Reasonable range: 0.25..0.75
+min_segment_gc_fraction = 0.5
 
 # --- Road safety ------------------------------------------------------------
 # CAUSE_EFFECT.md section 3: the Security system writes road_safety. The

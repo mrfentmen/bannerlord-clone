@@ -1,0 +1,1101 @@
+{
+  "packs": [
+    {
+      "id": "kenney_city_kit_suburban",
+      "zip": "kenney_city-kit-suburban.zip",
+      "zip_sha256": "5869c35cf30b1c87bdb2d197b6d325eebadd2ef08ea27f04797e8e08d77a9a39",
+      "glb_count": 40,
+      "models": [
+        {
+          "path": "Models/GLB format/building-type-a.glb",
+          "bytes": 98604,
+          "crc32": "eded3bb3"
+        },
+        {
+          "path": "Models/GLB format/building-type-b.glb",
+          "bytes": 146720,
+          "crc32": "2875d5a0"
+        },
+        {
+          "path": "Models/GLB format/building-type-c.glb",
+          "bytes": 99592,
+          "crc32": "a2e1b64c"
+        },
+        {
+          "path": "Models/GLB format/building-type-d.glb",
+          "bytes": 147368,
+          "crc32": "8eeb39b6"
+        },
+        {
+          "path": "Models/GLB format/building-type-e.glb",
+          "bytes": 145512,
+          "crc32": "83db231c"
+        },
+        {
+          "path": "Models/GLB format/building-type-f.glb",
+          "bytes": 138536,
+          "crc32": "caa39872"
+        },
+        {
+          "path": "Models/GLB format/building-type-g.glb",
+          "bytes": 93596,
+          "crc32": "9e982a1d"
+        },
+        {
+          "path": "Models/GLB format/building-type-h.glb",
+          "bytes": 65364,
+          "crc32": "b10cf1bb"
+        },
+        {
+          "path": "Models/GLB format/building-type-i.glb",
+          "bytes": 69772,
+          "crc32": "edef15cf"
+        },
+        {
+          "path": "Models/GLB format/building-type-j.glb",
+          "bytes": 99512,
+          "crc32": "57595c4e"
+        },
+        {
+          "path": "Models/GLB format/building-type-k.glb",
+          "bytes": 89152,
+          "crc32": "647f7d22"
+        },
+        {
+          "path": "Models/GLB format/building-type-l.glb",
+          "bytes": 109232,
+          "crc32": "52ff1e7b"
+        },
+        {
+          "path": "Models/GLB format/building-type-m.glb",
+          "bytes": 96996,
+          "crc32": "7d723729"
+        },
+        {
+          "path": "Models/GLB format/building-type-n.glb",
+          "bytes": 139464,
+          "crc32": "c9434711"
+        },
+        {
+          "path": "Models/GLB format/building-type-o.glb",
+          "bytes": 114424,
+          "crc32": "a6dbbe4d"
+        },
+        {
+          "path": "Models/GLB format/building-type-p.glb",
+          "bytes": 109260,
+          "crc32": "1fb3b542"
+        },
+        {
+          "path": "Models/GLB format/building-type-q.glb",
+          "bytes": 98632,
+          "crc32": "467c0aa9"
+        },
+        {
+          "path": "Models/GLB format/building-type-r.glb",
+          "bytes": 88544,
+          "crc32": "7e31b835"
+        },
+        {
+          "path": "Models/GLB format/building-type-s.glb",
+          "bytes": 103172,
+          "crc32": "87a70575"
+        },
+        {
+          "path": "Models/GLB format/building-type-t.glb",
+          "bytes": 167512,
+          "crc32": "4431457d"
+        },
+        {
+          "path": "Models/GLB format/building-type-u.glb",
+          "bytes": 117912,
+          "crc32": "3ba4fc5e"
+        },
+        {
+          "path": "Models/GLB format/driveway-long.glb",
+          "bytes": 2952,
+          "crc32": "ea3f9086"
+        },
+        {
+          "path": "Models/GLB format/driveway-short.glb",
+          "bytes": 2956,
+          "crc32": "6fba76d0"
+        },
+        {
+          "path": "Models/GLB format/fence-1x2.glb",
+          "bytes": 16492,
+          "crc32": "0c55e974"
+        },
+        {
+          "path": "Models/GLB format/fence-1x3.glb",
+          "bytes": 21032,
+          "crc32": "9effbe69"
+        },
+        {
+          "path": "Models/GLB format/fence-1x4.glb",
+          "bytes": 25544,
+          "crc32": "822372b7"
+        },
+        {
+          "path": "Models/GLB format/fence-2x2.glb",
+          "bytes": 23872,
+          "crc32": "5231b366"
+        },
+        {
+          "path": "Models/GLB format/fence-2x3.glb",
+          "bytes": 28412,
+          "crc32": "b63412e2"
+        },
+        {
+          "path": "Models/GLB format/fence-3x2.glb",
+          "bytes": 31280,
+          "crc32": "c830e3fd"
+        },
+        {
+          "path": "Models/GLB format/fence-3x3.glb",
+          "bytes": 35820,
+          "crc32": "55333246"
+        },
+        {
+          "path": "Models/GLB format/fence-low.glb",
+          "bytes": 18552,
+          "crc32": "97446638"
+        },
+        {
+          "path": "Models/GLB format/fence.glb",
+          "bytes": 9672,
+          "crc32": "38afe7f5"
+        },
+        {
+          "path": "Models/GLB format/path-long.glb",
+          "bytes": 2940,
+          "crc32": "8ea30bbd"
+        },
+        {
+          "path": "Models/GLB format/path-short.glb",
+          "bytes": 2944,
+          "crc32": "98086afd"
+        },
+        {
+          "path": "Models/GLB format/path-stones-long.glb",
+          "bytes": 6664,
+          "crc32": "1b4d48ce"
+        },
+        {
+          "path": "Models/GLB format/path-stones-messy.glb",
+          "bytes": 5476,
+          "crc32": "4f8545a1"
+        },
+        {
+          "path": "Models/GLB format/path-stones-short.glb",
+          "bytes": 4284,
+          "crc32": "9cadcb22"
+        },
+        {
+          "path": "Models/GLB format/planter.glb",
+          "bytes": 20368,
+          "crc32": "7e85deb9"
+        },
+        {
+          "path": "Models/GLB format/tree-large.glb",
+          "bytes": 5812,
+          "crc32": "91894123"
+        },
+        {
+          "path": "Models/GLB format/tree-small.glb",
+          "bytes": 5812,
+          "crc32": "205d3269"
+        }
+      ]
+    },
+    {
+      "id": "kenney_city_kit_commercial",
+      "zip": "kenney_city-kit-commercial.zip",
+      "zip_sha256": "f8b09b081c2bb88bcc126e2dec1cb40fd0dad7e7e591b6c26aaefe96fb35276b",
+      "glb_count": 41,
+      "models": [
+        {
+          "path": "Models/GLB format/building-a.glb",
+          "bytes": 108936,
+          "crc32": "485a2710"
+        },
+        {
+          "path": "Models/GLB format/building-b.glb",
+          "bytes": 106408,
+          "crc32": "7e08a658"
+        },
+        {
+          "path": "Models/GLB format/building-c.glb",
+          "bytes": 102788,
+          "crc32": "5fbbad90"
+        },
+        {
+          "path": "Models/GLB format/building-d.glb",
+          "bytes": 95160,
+          "crc32": "77cf5d2d"
+        },
+        {
+          "path": "Models/GLB format/building-e.glb",
+          "bytes": 128208,
+          "crc32": "f3e9ebd5"
+        },
+        {
+          "path": "Models/GLB format/building-f.glb",
+          "bytes": 148952,
+          "crc32": "e98f372c"
+        },
+        {
+          "path": "Models/GLB format/building-g.glb",
+          "bytes": 166356,
+          "crc32": "ccd11114"
+        },
+        {
+          "path": "Models/GLB format/building-h.glb",
+          "bytes": 127384,
+          "crc32": "12214dd1"
+        },
+        {
+          "path": "Models/GLB format/building-i.glb",
+          "bytes": 209728,
+          "crc32": "c9c9fd93"
+        },
+        {
+          "path": "Models/GLB format/building-j.glb",
+          "bytes": 440652,
+          "crc32": "36959389"
+        },
+        {
+          "path": "Models/GLB format/building-k.glb",
+          "bytes": 246976,
+          "crc32": "cde8a7b9"
+        },
+        {
+          "path": "Models/GLB format/building-l.glb",
+          "bytes": 290516,
+          "crc32": "7c685762"
+        },
+        {
+          "path": "Models/GLB format/building-m.glb",
+          "bytes": 301004,
+          "crc32": "ffaa0294"
+        },
+        {
+          "path": "Models/GLB format/building-n.glb",
+          "bytes": 341232,
+          "crc32": "86e2b18c"
+        },
+        {
+          "path": "Models/GLB format/building-skyscraper-a.glb",
+          "bytes": 111336,
+          "crc32": "6604e99e"
+        },
+        {
+          "path": "Models/GLB format/building-skyscraper-b.glb",
+          "bytes": 138480,
+          "crc32": "a8ea4e5f"
+        },
+        {
+          "path": "Models/GLB format/building-skyscraper-c.glb",
+          "bytes": 149524,
+          "crc32": "dd450b9b"
+        },
+        {
+          "path": "Models/GLB format/building-skyscraper-d.glb",
+          "bytes": 167148,
+          "crc32": "98f3fe31"
+        },
+        {
+          "path": "Models/GLB format/building-skyscraper-e.glb",
+          "bytes": 101880,
+          "crc32": "4ff93ee3"
+        },
+        {
+          "path": "Models/GLB format/detail-awning-wide.glb",
+          "bytes": 5544,
+          "crc32": "f51c0dd2"
+        },
+        {
+          "path": "Models/GLB format/detail-awning.glb",
+          "bytes": 5528,
+          "crc32": "944247cc"
+        },
+        {
+          "path": "Models/GLB format/detail-overhang-wide.glb",
+          "bytes": 6716,
+          "crc32": "a671bee4"
+        },
+        {
+          "path": "Models/GLB format/detail-overhang.glb",
+          "bytes": 6704,
+          "crc32": "a81ff623"
+        },
+        {
+          "path": "Models/GLB format/detail-parasol-a.glb",
+          "bytes": 10320,
+          "crc32": "e8a30a18"
+        },
+        {
+          "path": "Models/GLB format/detail-parasol-b.glb",
+          "bytes": 12120,
+          "crc32": "950d0f0e"
+        },
+        {
+          "path": "Models/GLB format/low-detail-building-a.glb",
+          "bytes": 14340,
+          "crc32": "09f2c8a6"
+        },
+        {
+          "path": "Models/GLB format/low-detail-building-b.glb",
+          "bytes": 16336,
+          "crc32": "8b71f396"
+        },
+        {
+          "path": "Models/GLB format/low-detail-building-c.glb",
+          "bytes": 12284,
+          "crc32": "f4ac4c79"
+        },
+        {
+          "path": "Models/GLB format/low-detail-building-d.glb",
+          "bytes": 8716,
+          "crc32": "e9fcb87c"
+        },
+        {
+          "path": "Models/GLB format/low-detail-building-e.glb",
+          "bytes": 8240,
+          "crc32": "54bb54ca"
+        },
+        {
+          "path": "Models/GLB format/low-detail-building-f.glb",
+          "bytes": 6932,
+          "crc32": "a885880b"
+        },
+        {
+          "path": "Models/GLB format/low-detail-building-g.glb",
+          "bytes": 16320,
+          "crc32": "3008e6c0"
+        },
+        {
+          "path": "Models/GLB format/low-detail-building-h.glb",
+          "bytes": 26812,
+          "crc32": "f4044e5a"
+        },
+        {
+          "path": "Models/GLB format/low-detail-building-i.glb",
+          "bytes": 11768,
+          "crc32": "d4018bd0"
+        },
+        {
+          "path": "Models/GLB format/low-detail-building-j.glb",
+          "bytes": 16404,
+          "crc32": "ebc7e0cf"
+        },
+        {
+          "path": "Models/GLB format/low-detail-building-k.glb",
+          "bytes": 7556,
+          "crc32": "bf8734ba"
+        },
+        {
+          "path": "Models/GLB format/low-detail-building-l.glb",
+          "bytes": 12128,
+          "crc32": "2d060896"
+        },
+        {
+          "path": "Models/GLB format/low-detail-building-m.glb",
+          "bytes": 15112,
+          "crc32": "d88b5c0e"
+        },
+        {
+          "path": "Models/GLB format/low-detail-building-n.glb",
+          "bytes": 5904,
+          "crc32": "61784e5f"
+        },
+        {
+          "path": "Models/GLB format/low-detail-building-wide-a.glb",
+          "bytes": 12736,
+          "crc32": "caa41931"
+        },
+        {
+          "path": "Models/GLB format/low-detail-building-wide-b.glb",
+          "bytes": 18736,
+          "crc32": "75fe6a68"
+        }
+      ]
+    },
+    {
+      "id": "kenney_city_kit_industrial",
+      "zip": "kenney_city-kit-industrial.zip",
+      "zip_sha256": "5b381164e5760f3830a2dbee43b972deee38b2a695d091b56e238ab2910c96d2",
+      "glb_count": 37,
+      "models": [
+        {
+          "path": "Models/GLB format/building-a.glb",
+          "bytes": 177316,
+          "crc32": "9d4a9377"
+        },
+        {
+          "path": "Models/GLB format/building-b.glb",
+          "bytes": 212040,
+          "crc32": "0cd3655b"
+        },
+        {
+          "path": "Models/GLB format/building-c.glb",
+          "bytes": 175844,
+          "crc32": "4b6a220e"
+        },
+        {
+          "path": "Models/GLB format/building-d.glb",
+          "bytes": 100768,
+          "crc32": "17f38ca3"
+        },
+        {
+          "path": "Models/GLB format/building-e.glb",
+          "bytes": 129400,
+          "crc32": "ea4ab738"
+        },
+        {
+          "path": "Models/GLB format/building-f.glb",
+          "bytes": 134916,
+          "crc32": "0059717f"
+        },
+        {
+          "path": "Models/GLB format/building-g.glb",
+          "bytes": 106940,
+          "crc32": "0883600f"
+        },
+        {
+          "path": "Models/GLB format/building-h.glb",
+          "bytes": 63644,
+          "crc32": "167e025e"
+        },
+        {
+          "path": "Models/GLB format/building-i.glb",
+          "bytes": 73848,
+          "crc32": "7cf14555"
+        },
+        {
+          "path": "Models/GLB format/building-j.glb",
+          "bytes": 80792,
+          "crc32": "4ae84d5b"
+        },
+        {
+          "path": "Models/GLB format/building-k.glb",
+          "bytes": 65472,
+          "crc32": "33718dc7"
+        },
+        {
+          "path": "Models/GLB format/building-l.glb",
+          "bytes": 162424,
+          "crc32": "43a2f69c"
+        },
+        {
+          "path": "Models/GLB format/building-m.glb",
+          "bytes": 138920,
+          "crc32": "3216952c"
+        },
+        {
+          "path": "Models/GLB format/building-n.glb",
+          "bytes": 109256,
+          "crc32": "5f440111"
+        },
+        {
+          "path": "Models/GLB format/building-o.glb",
+          "bytes": 76552,
+          "crc32": "fa71416b"
+        },
+        {
+          "path": "Models/GLB format/building-p.glb",
+          "bytes": 103760,
+          "crc32": "6cfa74c0"
+        },
+        {
+          "path": "Models/GLB format/building-q.glb",
+          "bytes": 181248,
+          "crc32": "7e1a554b"
+        },
+        {
+          "path": "Models/GLB format/building-r.glb",
+          "bytes": 173056,
+          "crc32": "76dd1e53"
+        },
+        {
+          "path": "Models/GLB format/building-s.glb",
+          "bytes": 81192,
+          "crc32": "56e8f60b"
+        },
+        {
+          "path": "Models/GLB format/building-t.glb",
+          "bytes": 139896,
+          "crc32": "df617d04"
+        },
+        {
+          "path": "Models/GLB format/chimney-basic.glb",
+          "bytes": 9036,
+          "crc32": "ea3bca65"
+        },
+        {
+          "path": "Models/GLB format/chimney-large.glb",
+          "bytes": 20932,
+          "crc32": "552c61be"
+        },
+        {
+          "path": "Models/GLB format/chimney-medium.glb",
+          "bytes": 15020,
+          "crc32": "f43f6820"
+        },
+        {
+          "path": "Models/GLB format/chimney-small.glb",
+          "bytes": 10536,
+          "crc32": "64c5005e"
+        },
+        {
+          "path": "Models/GLB format/detail-tank-large.glb",
+          "bytes": 47452,
+          "crc32": "dd960846"
+        },
+        {
+          "path": "Models/GLB format/detail-tank.glb",
+          "bytes": 31436,
+          "crc32": "7714aa02"
+        },
+        {
+          "path": "Models/GLB format/shipping-container-a.glb",
+          "bytes": 36624,
+          "crc32": "dfdba240"
+        },
+        {
+          "path": "Models/GLB format/shipping-container-b.glb",
+          "bytes": 37052,
+          "crc32": "785c54e6"
+        },
+        {
+          "path": "Models/GLB format/shipping-container-c.glb",
+          "bytes": 36620,
+          "crc32": "3c8da8f3"
+        },
+        {
+          "path": "Models/GLB format/solar-panel-flat.glb",
+          "bytes": 13964,
+          "crc32": "6a3b4ac0"
+        },
+        {
+          "path": "Models/GLB format/solar-panel-landscape-group.glb",
+          "bytes": 81860,
+          "crc32": "225768cd"
+        },
+        {
+          "path": "Models/GLB format/solar-panel-landscape.glb",
+          "bytes": 21776,
+          "crc32": "61db7209"
+        },
+        {
+          "path": "Models/GLB format/solar-panel-portrait-group.glb",
+          "bytes": 81856,
+          "crc32": "03215c49"
+        },
+        {
+          "path": "Models/GLB format/solar-panel-portrait.glb",
+          "bytes": 21772,
+          "crc32": "f6d9a363"
+        },
+        {
+          "path": "Models/GLB format/water-tower.glb",
+          "bytes": 93836,
+          "crc32": "1877df3d"
+        },
+        {
+          "path": "Models/GLB format/windmill-low.glb",
+          "bytes": 46296,
+          "crc32": "4950ec81"
+        },
+        {
+          "path": "Models/GLB format/windmill.glb",
+          "bytes": 46292,
+          "crc32": "c5f471be"
+        }
+      ]
+    },
+    {
+      "id": "kenney_city_kit_roads",
+      "zip": "kenney_city-kit-roads.zip",
+      "zip_sha256": "22058af3d68173a7cf9bda9f0e243a8cef6bd68168c302ebc76327063849674e",
+      "glb_count": 95,
+      "models": [
+        {
+          "path": "Models/GLB format/bridge-pillar-wide.glb",
+          "bytes": 5488,
+          "crc32": "9ae094cf"
+        },
+        {
+          "path": "Models/GLB format/bridge-pillar.glb",
+          "bytes": 5468,
+          "crc32": "0b914502"
+        },
+        {
+          "path": "Models/GLB format/construction-barrier.glb",
+          "bytes": 7052,
+          "crc32": "ada73274"
+        },
+        {
+          "path": "Models/GLB format/construction-cone.glb",
+          "bytes": 7056,
+          "crc32": "d546a1e6"
+        },
+        {
+          "path": "Models/GLB format/construction-fence.glb",
+          "bytes": 14856,
+          "crc32": "98e1be5c"
+        },
+        {
+          "path": "Models/GLB format/construction-light.glb",
+          "bytes": 15320,
+          "crc32": "8396d0e4"
+        },
+        {
+          "path": "Models/GLB format/dumpster.glb",
+          "bytes": 24456,
+          "crc32": "42bb68da"
+        },
+        {
+          "path": "Models/GLB format/electricity-pole-single.glb",
+          "bytes": 19480,
+          "crc32": "08cd497f"
+        },
+        {
+          "path": "Models/GLB format/electricity-pole-wide.glb",
+          "bytes": 56732,
+          "crc32": "09c5e986"
+        },
+        {
+          "path": "Models/GLB format/electricity-pole.glb",
+          "bytes": 43652,
+          "crc32": "3e962190"
+        },
+        {
+          "path": "Models/GLB format/electricity-side-single.glb",
+          "bytes": 19464,
+          "crc32": "8ceeeaf6"
+        },
+        {
+          "path": "Models/GLB format/electricity-side-wide.glb",
+          "bytes": 56732,
+          "crc32": "37489ab5"
+        },
+        {
+          "path": "Models/GLB format/electricity-side.glb",
+          "bytes": 43652,
+          "crc32": "87b9adc5"
+        },
+        {
+          "path": "Models/GLB format/electricity-wires-wide.glb",
+          "bytes": 22240,
+          "crc32": "a6d83660"
+        },
+        {
+          "path": "Models/GLB format/electricity-wires.glb",
+          "bytes": 8952,
+          "crc32": "590d8097"
+        },
+        {
+          "path": "Models/GLB format/light-curved-cross.glb",
+          "bytes": 24912,
+          "crc32": "dadeab12"
+        },
+        {
+          "path": "Models/GLB format/light-curved-double.glb",
+          "bytes": 14208,
+          "crc32": "ce217ae9"
+        },
+        {
+          "path": "Models/GLB format/light-curved.glb",
+          "bytes": 9492,
+          "crc32": "0acee4cf"
+        },
+        {
+          "path": "Models/GLB format/light-square-cross.glb",
+          "bytes": 13512,
+          "crc32": "5667ce06"
+        },
+        {
+          "path": "Models/GLB format/light-square-double.glb",
+          "bytes": 9216,
+          "crc32": "4b71932f"
+        },
+        {
+          "path": "Models/GLB format/light-square.glb",
+          "bytes": 6996,
+          "crc32": "90379efb"
+        },
+        {
+          "path": "Models/GLB format/road-bend-barrier.glb",
+          "bytes": 11912,
+          "crc32": "534ce2c8"
+        },
+        {
+          "path": "Models/GLB format/road-bend-sidewalk.glb",
+          "bytes": 17024,
+          "crc32": "151594a3"
+        },
+        {
+          "path": "Models/GLB format/road-bend-square-barrier.glb",
+          "bytes": 5880,
+          "crc32": "d978b805"
+        },
+        {
+          "path": "Models/GLB format/road-bend-square.glb",
+          "bytes": 6268,
+          "crc32": "78d16639"
+        },
+        {
+          "path": "Models/GLB format/road-bend.glb",
+          "bytes": 20164,
+          "crc32": "0ad2813e"
+        },
+        {
+          "path": "Models/GLB format/road-bridge.glb",
+          "bytes": 24796,
+          "crc32": "42e8cfb5"
+        },
+        {
+          "path": "Models/GLB format/road-crossing.glb",
+          "bytes": 8700,
+          "crc32": "8d87e2f0"
+        },
+        {
+          "path": "Models/GLB format/road-crossroad-barrier.glb",
+          "bytes": 11256,
+          "crc32": "3d8a9f79"
+        },
+        {
+          "path": "Models/GLB format/road-crossroad-line.glb",
+          "bytes": 9692,
+          "crc32": "5fe4049f"
+        },
+        {
+          "path": "Models/GLB format/road-crossroad-path.glb",
+          "bytes": 18708,
+          "crc32": "5df25eff"
+        },
+        {
+          "path": "Models/GLB format/road-crossroad.glb",
+          "bytes": 10084,
+          "crc32": "85128775"
+        },
+        {
+          "path": "Models/GLB format/road-curve-barrier.glb",
+          "bytes": 17920,
+          "crc32": "b3dce466"
+        },
+        {
+          "path": "Models/GLB format/road-curve-intersection-barrier.glb",
+          "bytes": 15480,
+          "crc32": "43b128d8"
+        },
+        {
+          "path": "Models/GLB format/road-curve-intersection.glb",
+          "bytes": 22788,
+          "crc32": "3ca7426f"
+        },
+        {
+          "path": "Models/GLB format/road-curve-pavement.glb",
+          "bytes": 17044,
+          "crc32": "e52f6d76"
+        },
+        {
+          "path": "Models/GLB format/road-curve.glb",
+          "bytes": 23912,
+          "crc32": "9b807d3e"
+        },
+        {
+          "path": "Models/GLB format/road-driveway-double-barrier.glb",
+          "bytes": 8460,
+          "crc32": "8fce1c9d"
+        },
+        {
+          "path": "Models/GLB format/road-driveway-double.glb",
+          "bytes": 7664,
+          "crc32": "072a8100"
+        },
+        {
+          "path": "Models/GLB format/road-driveway-single-barrier.glb",
+          "bytes": 6272,
+          "crc32": "c7f1db88"
+        },
+        {
+          "path": "Models/GLB format/road-driveway-single.glb",
+          "bytes": 6568,
+          "crc32": "d2f556ec"
+        },
+        {
+          "path": "Models/GLB format/road-end-barrier.glb",
+          "bytes": 4028,
+          "crc32": "75240744"
+        },
+        {
+          "path": "Models/GLB format/road-end-round-barrier.glb",
+          "bytes": 16328,
+          "crc32": "cd550365"
+        },
+        {
+          "path": "Models/GLB format/road-end-round.glb",
+          "bytes": 17532,
+          "crc32": "5d415589"
+        },
+        {
+          "path": "Models/GLB format/road-end.glb",
+          "bytes": 4940,
+          "crc32": "439f9de4"
+        },
+        {
+          "path": "Models/GLB format/road-intersection-barrier.glb",
+          "bytes": 7676,
+          "crc32": "b9ee92b6"
+        },
+        {
+          "path": "Models/GLB format/road-intersection-line.glb",
+          "bytes": 7492,
+          "crc32": "19042e08"
+        },
+        {
+          "path": "Models/GLB format/road-intersection-path.glb",
+          "bytes": 13736,
+          "crc32": "28aaf0b6"
+        },
+        {
+          "path": "Models/GLB format/road-intersection.glb",
+          "bytes": 7900,
+          "crc32": "728f8d65"
+        },
+        {
+          "path": "Models/GLB format/road-roundabout-barrier.glb",
+          "bytes": 61636,
+          "crc32": "c3d933fb"
+        },
+        {
+          "path": "Models/GLB format/road-roundabout.glb",
+          "bytes": 105876,
+          "crc32": "91079b9e"
+        },
+        {
+          "path": "Models/GLB format/road-side-barrier.glb",
+          "bytes": 4200,
+          "crc32": "22bb9f4c"
+        },
+        {
+          "path": "Models/GLB format/road-side-entry-barrier.glb",
+          "bytes": 20276,
+          "crc32": "e6c47d8e"
+        },
+        {
+          "path": "Models/GLB format/road-side-entry.glb",
+          "bytes": 24288,
+          "crc32": "85470959"
+        },
+        {
+          "path": "Models/GLB format/road-side-exit-barrier.glb",
+          "bytes": 20272,
+          "crc32": "4e7cb956"
+        },
+        {
+          "path": "Models/GLB format/road-side-exit.glb",
+          "bytes": 24280,
+          "crc32": "07323f77"
+        },
+        {
+          "path": "Models/GLB format/road-side.glb",
+          "bytes": 5272,
+          "crc32": "b04fe95c"
+        },
+        {
+          "path": "Models/GLB format/road-sign-empty-hanging.glb",
+          "bytes": 12072,
+          "crc32": "336392c9"
+        },
+        {
+          "path": "Models/GLB format/road-sign-empty.glb",
+          "bytes": 5968,
+          "crc32": "feefd12b"
+        },
+        {
+          "path": "Models/GLB format/road-sign-object-stop.glb",
+          "bytes": 6600,
+          "crc32": "35cf0e70"
+        },
+        {
+          "path": "Models/GLB format/road-sign-object-street.glb",
+          "bytes": 6648,
+          "crc32": "b0ebd0c9"
+        },
+        {
+          "path": "Models/GLB format/road-sign-object-warning.glb",
+          "bytes": 7384,
+          "crc32": "9207b6d0"
+        },
+        {
+          "path": "Models/GLB format/road-sign-stop.glb",
+          "bytes": 10720,
+          "crc32": "a5702163"
+        },
+        {
+          "path": "Models/GLB format/road-sign-street.glb",
+          "bytes": 15948,
+          "crc32": "375734b9"
+        },
+        {
+          "path": "Models/GLB format/road-sign-warning.glb",
+          "bytes": 11496,
+          "crc32": "cd340f81"
+        },
+        {
+          "path": "Models/GLB format/road-slant-barrier.glb",
+          "bytes": 4052,
+          "crc32": "a3b49f87"
+        },
+        {
+          "path": "Models/GLB format/road-slant-curve-barrier.glb",
+          "bytes": 38824,
+          "crc32": "083e5b7b"
+        },
+        {
+          "path": "Models/GLB format/road-slant-curve.glb",
+          "bytes": 47880,
+          "crc32": "d0d165b2"
+        },
+        {
+          "path": "Models/GLB format/road-slant-flat-curve.glb",
+          "bytes": 55868,
+          "crc32": "dff3c0bb"
+        },
+        {
+          "path": "Models/GLB format/road-slant-flat-high.glb",
+          "bytes": 5300,
+          "crc32": "b2912464"
+        },
+        {
+          "path": "Models/GLB format/road-slant-flat.glb",
+          "bytes": 5284,
+          "crc32": "0f135f78"
+        },
+        {
+          "path": "Models/GLB format/road-slant-high-barrier.glb",
+          "bytes": 4068,
+          "crc32": "161fbbcd"
+        },
+        {
+          "path": "Models/GLB format/road-slant-high.glb",
+          "bytes": 5256,
+          "crc32": "8952c07e"
+        },
+        {
+          "path": "Models/GLB format/road-slant.glb",
+          "bytes": 5240,
+          "crc32": "e190abb9"
+        },
+        {
+          "path": "Models/GLB format/road-split-barrier.glb",
+          "bytes": 41340,
+          "crc32": "bfbe4542"
+        },
+        {
+          "path": "Models/GLB format/road-split.glb",
+          "bytes": 60128,
+          "crc32": "3577a671"
+        },
+        {
+          "path": "Models/GLB format/road-square-barrier.glb",
+          "bytes": 4048,
+          "crc32": "f2faa23e"
+        },
+        {
+          "path": "Models/GLB format/road-square.glb",
+          "bytes": 4436,
+          "crc32": "e0182c1b"
+        },
+        {
+          "path": "Models/GLB format/road-straight-barrier-end.glb",
+          "bytes": 3640,
+          "crc32": "19803d42"
+        },
+        {
+          "path": "Models/GLB format/road-straight-barrier-half.glb",
+          "bytes": 4092,
+          "crc32": "48ece282"
+        },
+        {
+          "path": "Models/GLB format/road-straight-barrier.glb",
+          "bytes": 4196,
+          "crc32": "b7c3f078"
+        },
+        {
+          "path": "Models/GLB format/road-straight-half.glb",
+          "bytes": 5264,
+          "crc32": "c38a14aa"
+        },
+        {
+          "path": "Models/GLB format/road-straight.glb",
+          "bytes": 5248,
+          "crc32": "98b33fcd"
+        },
+        {
+          "path": "Models/GLB format/sign-highway-detailed.glb",
+          "bytes": 23532,
+          "crc32": "54f83fef"
+        },
+        {
+          "path": "Models/GLB format/sign-highway-wide.glb",
+          "bytes": 13968,
+          "crc32": "5d750f46"
+        },
+        {
+          "path": "Models/GLB format/sign-highway.glb",
+          "bytes": 17288,
+          "crc32": "a72bc146"
+        },
+        {
+          "path": "Models/GLB format/tile-high.glb",
+          "bytes": 2788,
+          "crc32": "4fa795be"
+        },
+        {
+          "path": "Models/GLB format/tile-low.glb",
+          "bytes": 2800,
+          "crc32": "e5c92550"
+        },
+        {
+          "path": "Models/GLB format/tile-slant.glb",
+          "bytes": 2820,
+          "crc32": "159976b7"
+        },
+        {
+          "path": "Models/GLB format/tile-slantHigh.glb",
+          "bytes": 2832,
+          "crc32": "c505efa1"
+        },
+        {
+          "path": "Models/GLB format/traffic-light-hanging.glb",
+          "bytes": 22132,
+          "crc32": "5136bd54"
+        },
+        {
+          "path": "Models/GLB format/traffic-light-object-hanging.glb",
+          "bytes": 10876,
+          "crc32": "448be5ea"
+        },
+        {
+          "path": "Models/GLB format/traffic-light-object-horizontal.glb",
+          "bytes": 11664,
+          "crc32": "b8ad19c1"
+        },
+        {
+          "path": "Models/GLB format/traffic-light-object-vertical.glb",
+          "bytes": 12408,
+          "crc32": "f76b32c0"
+        },
+        {
+          "path": "Models/GLB format/traffic-light.glb",
+          "bytes": 20344,
+          "crc32": "c0617e42"
+        }
+      ]
+    }
+  ]
+}
