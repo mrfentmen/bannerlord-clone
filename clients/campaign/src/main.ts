@@ -19,6 +19,17 @@
 import "./design/tokens.css";
 import "./ui/ui.css";
 import { highContrastCss } from "./design/highContrast.js";
+import { installErrorBoundary } from "./ui/errorBoundary.js";
+import { installConsoleTail } from "./ui/consoleTail.js";
+import { openBugReporter } from "./ui/bugReporter.js";
+import { installOfflineIndicator } from "./ui/offlineIndicator.js";
+import { installUpdateNotifier } from "./ui/updateNotifier.js";
+import { installPerfOverlay, setPerfStatsProvider } from "./ui/perfOverlay.js";
+import { BUILD_HASH } from "./buildHash.js";
+
+// Task 25/26: the error boundary, console tail, and bug reporter are imported
+// here but installed after the canvas handles exist (see below).
+installConsoleTail();
 
 // Task 19: the high-contrast theme is generated from highContrast.ts so the
 // values the test verifies are the values the user gets.
@@ -82,6 +93,43 @@ if (!appEl) throw new Error("#app is missing from index.html");
 if (!(canvasEl instanceof HTMLCanvasElement)) throw new Error("#map is missing from index.html");
 const app = appEl;
 const mapCanvas = canvasEl;
+
+// Task 25: the global error boundary turns fatal failures into a recovery
+// overlay instead of a blank canvas. Task 26: its report action opens the bug
+// reporter with a screenshot attempt, the console tail, and live settings.
+installErrorBoundary({
+  onReport: (report) =>
+    openBugReporter(report, {
+      screenshot: () => {
+        try {
+          return mapCanvas.toDataURL("image/png");
+        } catch {
+          return null;
+        }
+      },
+      getSettings: () => settings.get(),
+      buildHash: BUILD_HASH,
+    }),
+});
+
+// Task 27: the offline banner appears within 5s of losing connectivity.
+installOfflineIndicator();
+
+// Task 29: polls /build.json and offers a reload when a newer deployment lands.
+installUpdateNotifier();
+
+// Task 30: FPS / frame-time / draw-call overlay; `?perf=1` shows it at boot.
+installPerfOverlay();
+
+// Task 28: installable fullscreen PWA. Registered in production builds only:
+// in dev the Vite server owns the assets and a worker cache would serve stale
+// modules between edits.
+if (import.meta.env.PROD && "serviceWorker" in navigator) {
+  navigator.serviceWorker.register("/sw.js").catch(() => {
+    // Offline support is a bonus, not a requirement; the game boots fine
+    // without the worker.
+  });
+}
 
 // -- city demo ---------------------------------------------------------------
 // `?city=<slug>` skips the campaign entirely and renders real OSM buildings.
@@ -284,6 +332,20 @@ scene = createCampaignScene({
   terrainSamples: settings.get().terrainDetail === "low" ? 128 : 256,
   maxFps: settings.get().maxFps,
 });
+
+// Task 30: real draw-call counts for the perf overlay, from Babylon's own
+// instrumentation. Lazily imported so the overlay module stays Babylon-free.
+void import("@babylonjs/core/Instrumentation/sceneInstrumentation.js").then(
+  ({ SceneInstrumentation }) => {
+    const instrumentation = new SceneInstrumentation(scene.scene);
+    // Draw calls need no capture flag: the constructor's render observer
+    // advances engine._drawCalls every frame unconditionally.
+    setPerfStatsProvider({ drawCalls: () => instrumentation.drawCallsCounter.current });
+  },
+  () => {
+    // Instrumentation unavailable: the overlay shows "draws n/a" instead.
+  },
+);
 
 // -- 2. the simulation --------------------------------------------------------
 
