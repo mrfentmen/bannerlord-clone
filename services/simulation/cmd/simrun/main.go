@@ -310,7 +310,7 @@ func cmdWhy(args []string) {
 	state := &model.State{
 		Year: lastYear(log), Tick: lastTick(log),
 		Towns: map[int]*model.Town{}, Villages: map[int]*model.Village{},
-		Parties: map[int]*model.Party{}, Rulers: map[int]*model.Ruler{},
+		Parties: map[int]*model.Party{}, Leaders: map[int]*model.Leader{},
 		Sides: map[int]*model.Side{}, Routes: map[int]*model.Route{},
 		Sieges: map[int]*model.Siege{}, Wars: map[int]*model.War{},
 		Relations: map[model.Pair]float64{}, SideRelations: map[model.Pair]float64{},
@@ -395,9 +395,9 @@ func printRunSummary(o *runner.Outcome) {
 	fmt.Printf("seed %d, profile %s, %d ticks (%.2f years)\n", m.Seed, m.Profile, m.Ticks, m.Years)
 	fmt.Printf("cause rows: %d (below threshold %d, dropped %d)\n", m.CauseRows, m.Suppressed, m.DroppedOldest)
 	fmt.Printf("settlements: %d real, %d synthesised\n", o.RealSettlements, o.SynthSettlements)
-	if o.PlayerRulerID >= 0 {
-		fmt.Printf("player: ruler #%d %s, town #%d %s\n", o.PlayerRulerID,
-			o.State.Name(model.KindRuler, o.PlayerRulerID), o.PlayerTownID,
+	if o.PlayerLeaderID >= 0 {
+		fmt.Printf("player: ruler #%d %s, town #%d %s\n", o.PlayerLeaderID,
+			o.State.Name(model.KindLeader, o.PlayerLeaderID), o.PlayerTownID,
 			o.State.Name(model.KindTown, o.PlayerTownID))
 	}
 	for _, n := range o.Notes {

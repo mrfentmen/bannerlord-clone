@@ -60,6 +60,65 @@ func (c *Config) validate(path string) error {
 		{"world.max_towns", c.World.MaxTowns, 1, 100000},
 		{"world.min_rulers", c.World.MinRulers, 1, 100000},
 		{"world.max_rulers", c.World.MaxRulers, 1, 100000},
+		{"template.min_troops_for_template", c.Template.MinTroopsForTemplate, 1, 100000},
+		{"template.refit_days", c.Template.RefitDays, 0, 365},
+		{"template.refit_metal_per_troop", c.Template.RefitMetalPerTroop, 0, 1000},
+		{"template.refit_morale_hit", c.Template.RefitMoraleHit, 0, 1},
+		{"template.refit_metal_per_day", c.Template.RefitMetalPerDay, 0, 10000},
+		{"template.fit_switch_threshold", c.Template.FitSwitchThreshold, 0, 1},
+		{"template.fit_relax_per_day", c.Template.FitRelaxPerDay, 0, 1},
+		{"formation.split_min_troops", c.Formation.SplitMinTroops, 1, 100000},
+		{"formation.split_min_parent_troops", c.Formation.SplitMinParentTroops, 1, 100000},
+		{"formation.split_max_share", c.Formation.SplitMaxShare, 0.01, 1},
+		{"formation.split_food_days_per_troop", c.Formation.SplitFoodSharePerTroop, 0, 100},
+		{"formation.split_morale_hit", c.Formation.SplitMoraleHit, 0, 1},
+		{"formation.merge_max_range_leagues", c.Formation.MergeMaxRangeLeagues, 0.1, 10000},
+		{"formation.merge_min_troops", c.Formation.MergeMinTroops, 1, 100000},
+		{"formation.merge_min_parent_share", c.Formation.MergeMinParentTroops, 0.01, 1},
+		{"formation.merge_morale_hit", c.Formation.MergeMoraleHit, 0, 1},
+		{"formation.auto_merge_chance", c.Formation.AutoMergeChance, 0, 1},
+		{"formation.auto_merge_troops", c.Formation.AutoMergeTroops, 0, 100000},
+	}
+	// A template whose shares are all zero describes a party with no troops,
+	// and a party with no troops cannot march or fight, so a run would be
+	// meaningless rather than merely unbalanced. The same applies to a culture
+	// row: it is what unaffiliated parties read, so an empty one would blank
+	// every raider band on the map.
+	for ti := range c.Template.TemplateShare {
+		if rowSum(c.Template.TemplateShare[ti][:]) <= 0 {
+			return fmt.Errorf("config: %s: template.share_%s_* are all zero: template %d has no composition",
+				path, templateLabels[ti], ti)
+		}
+	}
+	for ci := range c.Template.CultureShare {
+		if rowSum(c.Template.CultureShare[ci][:]) <= 0 {
+			return fmt.Errorf("config: %s: template.culture_%d_* are all zero: culture %d has no composition",
+				path, ci, ci)
+		}
+	}
+	for mi := range c.Template.MissionFit {
+		best, bestV := -1, 0.0
+		for pi, v := range c.Template.MissionFit[mi] {
+			if v > bestV {
+				best, bestV = pi, v
+			}
+		}
+		if best < 0 {
+			return fmt.Errorf("config: %s: template.mission_fit_%s_* are all zero: mission %d has no good template",
+				path, missionLabels[mi], mi)
+		}
+	}
+	for ti := range c.Template.TerrainFit {
+		best, bestV := -1, 0.0
+		for pi, v := range c.Template.TerrainFit[ti] {
+			if v > bestV {
+				best, bestV = pi, v
+			}
+		}
+		if best < 0 {
+			return fmt.Errorf("config: %s: template.terrain_fit_%s_* are all zero: terrain %d has no good template",
+				path, terrainLabels[ti], ti)
+		}
 	}
 
 	for _, b := range bounds {
@@ -92,4 +151,14 @@ func (c *Config) validate(path string) error {
 		return fmt.Errorf("config: %s: cause.min_chain_links exceeds cause.max_chain_links", path)
 	}
 	return nil
+}
+
+// rowSum totals a table row. Used by the template validation, which needs to
+// know whether a composition is empty rather than merely lopsided.
+func rowSum(row []float64) float64 {
+	t := 0.0
+	for _, v := range row {
+		t += v
+	}
+	return t
 }

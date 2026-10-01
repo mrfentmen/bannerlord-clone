@@ -102,7 +102,7 @@ func kindFromName(s string) model.Kind {
 	case "party":
 		return model.KindParty
 	case "ruler":
-		return model.KindRuler
+		return model.KindLeader
 	case "side":
 		return model.KindSide
 	case "route":
@@ -271,8 +271,8 @@ func writeSummary(cfg *config.Config, o *runner.Outcome, path string) error {
 	fmt.Fprintf(&sb, "settlements:     %d real, %d synthesised\n", o.RealSettlements, o.SynthSettlements)
 	fmt.Fprintf(&sb, "collapsed towns: %d of %d\n", m.CollapsedTowns, len(m.Towns))
 	fmt.Fprintf(&sb, "total deaths:    %.0f\n", m.TotalDeaths)
-	if o.PlayerRulerID >= 0 {
-		fmt.Fprintf(&sb, "player:          ruler #%d, town #%d\n", o.PlayerRulerID, o.PlayerTownID)
+	if o.PlayerLeaderID >= 0 {
+		fmt.Fprintf(&sb, "player:          ruler #%d, town #%d\n", o.PlayerLeaderID, o.PlayerTownID)
 	}
 	for _, n := range o.Notes {
 		fmt.Fprintf(&sb, "note:            %s\n", n)

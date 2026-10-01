@@ -33,8 +33,8 @@ func (s *State) Get(kind Kind, id int, field string) (float64, bool) {
 			return 0, false
 		}
 		return partyGet(p, field)
-	case KindRuler:
-		r, ok := s.Rulers[id]
+	case KindLeader:
+		r, ok := s.Leaders[id]
 		if !ok {
 			return 0, false
 		}
@@ -63,8 +63,8 @@ func (s *State) Get(kind Kind, id int, field string) (float64, bool) {
 			return 0, false
 		}
 		return warGet(w, field)
-	case KindClan:
-		c, ok := s.Clans[id]
+	case KindOrganization:
+		c, ok := s.Organizations[id]
 		if !ok {
 			return 0, false
 		}
@@ -101,8 +101,8 @@ func (s *State) Set(kind Kind, id int, field string, v float64) bool {
 			return false
 		}
 		return partySet(p, field, v)
-	case KindRuler:
-		r, ok := s.Rulers[id]
+	case KindLeader:
+		r, ok := s.Leaders[id]
 		if !ok {
 			return false
 		}
@@ -131,8 +131,8 @@ func (s *State) Set(kind Kind, id int, field string, v float64) bool {
 			return false
 		}
 		return warSet(w, field, v)
-	case KindClan:
-		c, ok := s.Clans[id]
+	case KindOrganization:
+		c, ok := s.Organizations[id]
 		if !ok {
 			return false
 		}
@@ -159,8 +159,8 @@ func (s *State) Exists(kind Kind, id int) bool {
 	case KindParty:
 		_, ok := s.Parties[id]
 		return ok
-	case KindRuler:
-		_, ok := s.Rulers[id]
+	case KindLeader:
+		_, ok := s.Leaders[id]
 		return ok
 	case KindSide:
 		_, ok := s.Sides[id]
@@ -174,8 +174,8 @@ func (s *State) Exists(kind Kind, id int) bool {
 	case KindWar:
 		_, ok := s.Wars[id]
 		return ok
-	case KindClan:
-		_, ok := s.Clans[id]
+	case KindOrganization:
+		_, ok := s.Organizations[id]
 		return ok
 	case KindWorkshop:
 		_, ok := s.Workshops[id]
@@ -200,16 +200,16 @@ func (s *State) Name(kind Kind, id int) string {
 		if p, ok := s.Parties[id]; ok {
 			return p.Name
 		}
-	case KindRuler:
-		if r, ok := s.Rulers[id]; ok {
+	case KindLeader:
+		if r, ok := s.Leaders[id]; ok {
 			return r.Name
 		}
 	case KindSide:
 		if d, ok := s.Sides[id]; ok {
 			return d.Name
 		}
-	case KindClan:
-		if c, ok := s.Clans[id]; ok {
+	case KindOrganization:
+		if c, ok := s.Organizations[id]; ok {
 			return c.Name
 		}
 	case KindWorkshop:
@@ -222,22 +222,35 @@ func (s *State) Name(kind Kind, id int) string {
 
 func workshopTypeName(t WorkshopType) string {
 	switch t {
-	case WorkshopSmithy:
-		return "smithy"
+	case WorkshopMachineShop:
+		return "machine shop"
 	case WorkshopTannery:
 		return "tannery"
-	case WorkshopWeavery:
-		return "weavery"
+	case WorkshopTextileMill:
+		return "textile mill"
 	case WorkshopBrewery:
 		return "brewery"
-	case WorkshopPottery:
-		return "pottery"
+	case WorkshopCeramics:
+		return "ceramics factory"
+	case WorkshopLumberMill:
+		return "lumber mill"
+	case WorkshopOilPress:
+		return "oil press"
+	case WorkshopJeweler:
+		return "jeweler"
+	case WorkshopMeatPacking:
+		return "meat packing plant"
+	case WorkshopBakery:
+		return "bakery"
+	case WorkshopCandleWorks:
+		return "candle works"
 	default:
 		return "workshop"
 	}
 }
 
-func itoa(v int) string {	if v == 0 {
+func itoa(v int) string {
+	if v == 0 {
 		return "0"
 	}
 	neg := v < 0
@@ -703,6 +716,30 @@ func partyGet(p *Party, f string) (float64, bool) {
 		return float64(p.Reason), true
 	case "ruler_troops":
 		return p.Troops, true
+	case "party_template":
+		return float64(p.Template), true
+	case "troops_stance":
+		return p.StanceTroops, true
+	case "troops_heavy":
+		return p.HeavyTroops, true
+	case "troops_light":
+		return p.LightTroops, true
+	case "troops_horse":
+		return p.HorseTroops, true
+	case "template_fit":
+		return p.TemplateFit, true
+	case "refit_days":
+		return p.RefitDays, true
+	case "is_wing":
+		return b2f(p.IsWing), true
+	case "parent_party":
+		return float64(p.ParentParty), true
+	case "wing_share":
+		return p.WingShare, true
+	case "split_share":
+		return p.SplitShare, true
+	case "merge_target":
+		return float64(p.MergeTarget), true
 	default:
 		return 0, false
 	}
@@ -796,13 +833,37 @@ func partySet(p *Party, f string, v float64) bool {
 		p.Reason = Reason(int(v))
 	case "ruler_troops":
 		p.Troops = v
+	case "party_template":
+		p.Template = PartyTemplate(int(v))
+	case "troops_stance":
+		p.StanceTroops = v
+	case "troops_heavy":
+		p.HeavyTroops = v
+	case "troops_light":
+		p.LightTroops = v
+	case "troops_horse":
+		p.HorseTroops = v
+	case "template_fit":
+		p.TemplateFit = v
+	case "refit_days":
+		p.RefitDays = v
+	case "is_wing":
+		p.IsWing = f2b(v)
+	case "parent_party":
+		p.ParentParty = int(v)
+	case "wing_share":
+		p.WingShare = v
+	case "split_share":
+		p.SplitShare = v
+	case "merge_target":
+		p.MergeTarget = int(v)
 	default:
 		return false
 	}
 	return true
 }
 
-func rulerGet(r *Ruler, f string) (float64, bool) {
+func rulerGet(r *Leader, f string) (float64, bool) {
 	switch f {
 	case "influence":
 		return r.Influence, true
@@ -844,12 +905,28 @@ func rulerGet(r *Ruler, f string) (float64, bool) {
 		return 0, true
 	case "service_quality":
 		return r.ServiceQuality, true
+	case "spouse":
+		return float64(r.SpouseID), true
+	case "father":
+		return float64(r.FatherID), true
+	case "mother":
+		return float64(r.MotherID), true
+	case "heir":
+		return float64(r.HeirID), true
+	case "is_child":
+		return b2f(r.IsChild), true
+	case "is_pregnant":
+		return b2f(r.IsPregnant), true
+	case "pregnancy_ticks":
+		return r.PregnancyTicks, true
+	case "sex":
+		return float64(r.Sex), true
 	default:
 		return 0, false
 	}
 }
 
-func rulerSet(r *Ruler, f string, v float64) bool {
+func rulerSet(r *Leader, f string, v float64) bool {
 	switch f {
 	case "influence":
 		r.Influence = v
@@ -891,6 +968,22 @@ func rulerSet(r *Ruler, f string, v float64) bool {
 		r.RelationsWith = int(v)
 	case "decision_reasons":
 		r.Reason = Reason(int(v))
+	case "spouse":
+		r.SpouseID = int(v)
+	case "father":
+		r.FatherID = int(v)
+	case "mother":
+		r.MotherID = int(v)
+	case "heir":
+		r.HeirID = int(v)
+	case "is_child":
+		r.IsChild = f2b(v)
+	case "is_pregnant":
+		r.IsPregnant = f2b(v)
+	case "pregnancy_ticks":
+		r.PregnancyTicks = v
+	case "sex":
+		r.Sex = Sex(int(v))
 	default:
 		return false
 	}
@@ -915,8 +1008,8 @@ func sideGet(d *Side, f string) (float64, bool) {
 		return d.Towns, true
 	case "side_leader":
 		return float64(d.LeaderID), true
-	case "is_vassal":
-		return b2f(d.Vassal), true
+	case "is_affiliate":
+		return b2f(d.Affiliate), true
 	case "exchange_rate":
 		return d.ExchangeRate, true
 	case "debt_total":
@@ -939,8 +1032,8 @@ func sideGet(d *Side, f string) (float64, bool) {
 		return d.Trust, true
 	case "coalition_with":
 		return float64(d.Coalition), true
-	case "vassal_of":
-		return float64(d.VassalOf), true
+	case "affiliate_of":
+		return float64(d.AffiliateOf), true
 	case "side_mercenaries":
 		return d.Mercenaries, true
 	case "income_total":
@@ -963,6 +1056,8 @@ func sideGet(d *Side, f string) (float64, bool) {
 		return d.FoodNeed, true
 	case "side_metal_need":
 		return d.MetalNeed, true
+	case "side_culture":
+		return float64(d.Culture), true
 	default:
 		return 0, false
 	}
@@ -986,8 +1081,8 @@ func sideSet(d *Side, f string, v float64) bool {
 		d.Towns = v
 	case "side_leader":
 		d.LeaderID = int(v)
-	case "is_vassal":
-		d.Vassal = f2b(v)
+	case "is_affiliate":
+		d.Affiliate = f2b(v)
 	case "exchange_rate":
 		d.ExchangeRate = v
 	case "debt_total":
@@ -1010,8 +1105,8 @@ func sideSet(d *Side, f string, v float64) bool {
 		d.Trust = v
 	case "coalition_with":
 		d.Coalition = int(v)
-	case "vassal_of":
-		d.VassalOf = int(v)
+	case "affiliate_of":
+		d.AffiliateOf = int(v)
 	case "side_mercenaries":
 		d.Mercenaries = v
 	case "income_total":
@@ -1034,6 +1129,8 @@ func sideSet(d *Side, f string, v float64) bool {
 		d.FoodNeed = v
 	case "side_metal_need":
 		d.MetalNeed = v
+	case "side_culture":
+		d.Culture = int(v)
 	default:
 		return false
 	}
@@ -1193,7 +1290,7 @@ func warSet(w *War, f string, v float64) bool {
 	return true
 }
 
-func clanGet(c *Clan, f string) (float64, bool) {
+func clanGet(c *Organization, f string) (float64, bool) {
 	switch f {
 	case "clan_renown":
 		return c.Renown, true
@@ -1216,11 +1313,11 @@ func clanGet(c *Clan, f string) (float64, bool) {
 	}
 }
 
-func clanSet(c *Clan, f string, v float64) bool {
+func clanSet(c *Organization, f string, v float64) bool {
 	switch f {
 	case "clan_renown":
 		c.Renown = v
-		c.Tier = ClanTierForRenown(v)
+		c.Tier = OrganizationTierForRenown(v)
 	case "clan_tier":
 		c.Tier = int(v)
 	case "clan_leader":
@@ -1242,7 +1339,7 @@ func workshopGet(wk *Workshop, f string) (float64, bool) {
 	case "workshop_town":
 		return float64(wk.TownID), true
 	case "workshop_owner_clan":
-		return float64(wk.OwnerClanID), true
+		return float64(wk.OwnerOrganizationID), true
 	case "workshop_type":
 		return float64(wk.Type), true
 	case "workshop_level":
@@ -1265,7 +1362,7 @@ func workshopSet(wk *Workshop, f string, v float64) bool {
 	case "workshop_town":
 		wk.TownID = int(v)
 	case "workshop_owner_clan":
-		wk.OwnerClanID = int(v)
+		wk.OwnerOrganizationID = int(v)
 	case "workshop_type":
 		wk.Type = WorkshopType(int(v))
 	case "workshop_level":

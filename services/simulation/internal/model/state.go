@@ -20,16 +20,16 @@ type State struct {
 	Tick   int
 	Season float64
 
-	Towns    map[int]*Town
-	Villages map[int]*Village
-	Parties  map[int]*Party
-	Rulers   map[int]*Ruler
-	Sides    map[int]*Side
-	Routes   map[int]*Route
-	Sieges   map[int]*Siege
-	Wars     map[int]*War
-	Clans    map[int]*Clan
-	Workshops map[int]*Workshop
+	Towns         map[int]*Town
+	Villages      map[int]*Village
+	Parties       map[int]*Party
+	Leaders       map[int]*Leader
+	Sides         map[int]*Side
+	Routes        map[int]*Route
+	Sieges        map[int]*Siege
+	Wars          map[int]*War
+	Organizations map[int]*Organization
+	Workshops     map[int]*Workshop
 
 	// NextID hands out identifiers for entities created mid-run, such as a
 	// party formed when a ruler gathers an army.
@@ -97,12 +97,12 @@ func NewState() *State {
 		Towns:         map[int]*Town{},
 		Villages:      map[int]*Village{},
 		Parties:       map[int]*Party{},
-		Rulers:        map[int]*Ruler{},
+		Leaders:       map[int]*Leader{},
 		Sides:         map[int]*Side{},
 		Routes:        map[int]*Route{},
 		Sieges:        map[int]*Siege{},
 		Wars:          map[int]*War{},
-		Clans:         map[int]*Clan{},
+		Organizations: map[int]*Organization{},
 		Workshops:     map[int]*Workshop{},
 		NextID:        map[int]int{},
 		Relations:     map[Pair]float64{},
@@ -154,12 +154,12 @@ func (s *State) Clone() *State {
 		Towns:         make(map[int]*Town, len(s.Towns)),
 		Villages:      make(map[int]*Village, len(s.Villages)),
 		Parties:       make(map[int]*Party, len(s.Parties)),
-		Rulers:        make(map[int]*Ruler, len(s.Rulers)),
+		Leaders:       make(map[int]*Leader, len(s.Leaders)),
 		Sides:         make(map[int]*Side, len(s.Sides)),
 		Routes:        make(map[int]*Route, len(s.Routes)),
 		Sieges:        make(map[int]*Siege, len(s.Sieges)),
 		Wars:          make(map[int]*War, len(s.Wars)),
-		Clans:         make(map[int]*Clan, len(s.Clans)),
+		Organizations: make(map[int]*Organization, len(s.Organizations)),
 		Workshops:     make(map[int]*Workshop, len(s.Workshops)),
 		NextID:        make(map[int]int, len(s.NextID)),
 		Relations:     make(map[Pair]float64, len(s.Relations)),
@@ -180,9 +180,9 @@ func (s *State) Clone() *State {
 		c := *v
 		out.Parties[k] = &c
 	}
-	for k, v := range s.Rulers {
+	for k, v := range s.Leaders {
 		c := *v
-		out.Rulers[k] = &c
+		out.Leaders[k] = &c
 	}
 	for k, v := range s.Sides {
 		c := *v
@@ -200,12 +200,12 @@ func (s *State) Clone() *State {
 		c := *v
 		out.Wars[k] = &c
 	}
-	for k, v := range s.Clans {
+	for k, v := range s.Organizations {
 		c := *v
 		// Deep-copy slices so the clone is independent.
 		c.MemberIDs = append([]int(nil), v.MemberIDs...)
 		c.FiefIDs = append([]int(nil), v.FiefIDs...)
-		out.Clans[k] = &c
+		out.Organizations[k] = &c
 	}
 	for k, v := range s.Workshops {
 		c := *v
@@ -238,8 +238,8 @@ func (s *State) VillageIDs() []int { return sortedKeys(s.Villages) }
 // PartyIDs returns party identifiers in ascending order.
 func (s *State) PartyIDs() []int { return sortedKeys(s.Parties) }
 
-// RulerIDsSorted returns ruler identifiers in ascending order.
-func (s *State) RulerIDsSorted() []int { return sortedKeys(s.Rulers) }
+// LeaderIDsSorted returns ruler identifiers in ascending order.
+func (s *State) LeaderIDsSorted() []int { return sortedKeys(s.Leaders) }
 
 // SideIDs returns side identifiers in ascending order.
 func (s *State) SideIDs() []int { return sortedKeys(s.Sides) }
@@ -253,8 +253,8 @@ func (s *State) SiegeIDs() []int { return sortedKeys(s.Sieges) }
 // WarIDs returns war identifiers in ascending order.
 func (s *State) WarIDs() []int { return sortedKeys(s.Wars) }
 
-// ClanIDs returns clan identifiers in ascending order.
-func (s *State) ClanIDs() []int { return sortedKeys(s.Clans) }
+// OrganizationIDs returns clan identifiers in ascending order.
+func (s *State) OrganizationIDs() []int { return sortedKeys(s.Organizations) }
 
 // WorkshopIDs returns workshop identifiers in ascending order.
 func (s *State) WorkshopIDs() []int { return sortedKeys(s.Workshops) }
