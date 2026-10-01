@@ -27,6 +27,8 @@ export interface HudOptions {
   onOpenDataSource: () => void;
   /** Opens the keybinding editor. Optional: the button hides without it. */
   onOpenControls?: () => void;
+  /** Opens the quest journal. Optional: the button hides without it. */
+  onOpenJournal?: () => void;
   /** Opens the deployment map preview. Optional: the button hides without it. */
   onOpenDeploymentPreview?: () => void;
   /**
@@ -439,6 +441,12 @@ export function createHud(options: HudOptions): HudHandle {
       const deployBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-deployment" }, "Deployment (preview)");
       deployBtn.addEventListener("click", () => options.onOpenDeploymentPreview?.());
       rail.appendChild(deployBtn);
+    }
+
+    if (options.onOpenJournal) {
+      const journalBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-journal" }, "Quest Journal");
+      journalBtn.addEventListener("click", () => options.onOpenJournal?.());
+      rail.appendChild(journalBtn);
     }
 
     return rail;

@@ -1710,3 +1710,61 @@
   .deploy__roster { flex-direction: row; overflow-x: auto; }
   .deploy__card { flex: none; }
 }
+
+/* -- quest journal ------------------------------------------------------------ */
+.journal__filters {
+  display: flex;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  align-items: center;
+  margin-bottom: var(--space-2);
+}
+.journal__tabs { display: flex; gap: var(--space-1); }
+.journal__tab.is-active { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.journal__select, .journal__search {
+  background: var(--paper-200);
+  color: var(--ink-900);
+  border: 1px solid var(--paper-300);
+  border-radius: 4px;
+  padding: var(--space-1) var(--space-2);
+}
+.journal__search { flex: 1; min-width: 12rem; }
+.journal__live { margin: 0 0 var(--space-2); color: var(--ink-500); font-size: 0.9rem; }
+.journal__main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-3);
+  min-height: 20rem;
+}
+.journal__list { display: flex; flex-direction: column; gap: var(--space-1); overflow-y: auto; max-height: 32rem; }
+.journal__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: var(--paper-200);
+  border: 1px solid var(--paper-300);
+  border-radius: 6px;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+}
+.journal__row.is-selected { outline: 2px solid var(--focus-ring); outline-offset: 1px; }
+.journal__rowtitle { font-weight: 600; }
+.journal__rowmeta { color: var(--ink-500); font-size: 0.85rem; }
+.journal__row .chip { margin-left: auto; flex: none; }
+.journal__detail { overflow-y: auto; max-height: 32rem; }
+.journal__detailtitle { margin: 0 0 var(--space-1); }
+.journal__detailmeta { margin: 0 0 var(--space-2); color: var(--ink-500); }
+.journal__subtitle { margin: var(--space-3) 0 var(--space-1); font-size: 0.95rem; }
+.journal__objectives { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.journal__objective { display: flex; gap: var(--space-2); align-items: baseline; }
+.journal__objective.is-done { color: var(--ink-500); text-decoration: line-through; }
+.journal__facts { display: grid; grid-template-columns: auto 1fr; gap: var(--space-1) var(--space-2); margin: var(--space-3) 0 0; }
+.journal__facts dt { color: var(--ink-500); }
+.journal__facts dd { margin: 0; }
+.journal__prompt { color: var(--ink-500); }
+@media (max-width: 700px) {
+  .journal__main { grid-template-columns: 1fr; }
+}
