@@ -1,14 +1,17 @@
 /**
  * Touch gestures for the 3D map canvas (MASTER_PLAN task 4).
  *
- * One-finger drag pans the map (grab-the-map: the ground follows the finger),
- * pinch zooms, and a two-finger drag pans by the midpoint. Only touch pointers
- * are intercepted — mouse keeps Babylon's default orbit/wheel behaviour.
+ * One-finger drag pans the map (grab-the-map: the ground follows the finger);
+ * two fingers pinch to zoom and twist to rotate the camera, both at once.
+ * Only touch pointers are intercepted — mouse keeps Babylon's default
+ * orbit/wheel behaviour.
  *
  * Babylon's ArcRotateCamera would otherwise orbit on a one-finger drag, so the
  * canvas's touch pointerdowns are captured on the parent and stopPropagation'd
- * before Babylon's listeners see them. The camera itself is driven through the
- * small `GestureCamera` interface, which the scene implements with its real
+ * before Babylon's listeners see them. The pointerdown is also preventDefaulted,
+ * which suppresses the browser's compatibility mouse events — a gesture never
+ * synthesizes a click. The camera itself is driven through the small
+ * `GestureCamera` interface, which the scene implements with its real
  * ArcRotateCamera; tests use a fake.
  */
 
@@ -23,6 +26,11 @@ export interface GestureCamera {
   panByWorld(dx: number, dz: number): void;
   /** Multiply the camera radius by factor (<1 zooms in). */
   zoomBy(factor: number): void;
+  /**
+   * Rotate the camera azimuth by radians. Positive dAlpha is a clockwise
+   * finger twist (screen space, y down); the ground follows the fingers.
+   */
+  rotateBy(dAlpha: number): void;
 }
 
 export interface MapGestures {
@@ -43,18 +51,26 @@ interface Tracked {
 export function attachMapGestures(element: HTMLElement, camera: GestureCamera): MapGestures {
   const pointers = new Map<number, Tracked>();
   let pinchDist = 0;
-  let pinchMid = { x: 0, y: 0 };
+  let pinchAngle = 0;
 
   function syncPinch(): void {
     const [a, b] = [...pointers.values()];
     if (!a || !b) return;
     pinchDist = Math.hypot(a.x - b.x, a.y - b.y);
-    pinchMid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
+    pinchAngle = Math.atan2(b.y - a.y, b.x - a.x);
     // Re-anchor both fingers so the mode switch doesn't jump.
     for (const p of [a, b]) {
       p.px = p.x;
       p.py = p.y;
     }
+  }
+
+  /** Smallest signed angle from `from` to `to`, in [-π, π]. */
+  function angleDelta(from: number, to: number): number {
+    let d = to - from;
+    while (d > Math.PI) d -= 2 * Math.PI;
+    while (d < -Math.PI) d += 2 * Math.PI;
+    return d;
   }
 
   function pointerDown(id: number, x: number, y: number): void {
@@ -74,13 +90,13 @@ export function attachMapGestures(element: HTMLElement, camera: GestureCamera): 
     } else if (pointers.size === 2) {
       const [a, b] = [...pointers.values()];
       if (!a || !b) return;
+      // Pinch zoom and two-finger rotate compose in one move.
       const dist = Math.hypot(a.x - b.x, a.y - b.y);
       if (dist > 0 && pinchDist > 0) camera.zoomBy(pinchDist / dist);
-      const mid = { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
-      const w = camera.screenToWorld(mid.x - pinchMid.x, mid.y - pinchMid.y);
-      camera.panByWorld(-w.dx, -w.dz);
+      const angle = Math.atan2(b.y - a.y, b.x - a.x);
+      camera.rotateBy(angleDelta(pinchAngle, angle));
       pinchDist = dist;
-      pinchMid = mid;
+      pinchAngle = angle;
     }
     p.px = p.x;
     p.py = p.y;
@@ -103,7 +119,9 @@ export function attachMapGestures(element: HTMLElement, camera: GestureCamera): 
   // -- DOM wiring -----------------------------------------------------------
   // Touch pointerdowns are intercepted on the parent in the capture phase and
   // stopped before Babylon's canvas listeners see them; otherwise a one-finger
-  // drag would orbit the camera at the same time as we pan it.
+  // drag would orbit the camera at the same time as we pan it. The
+  // preventDefault also suppresses the browser's compatibility mouse events,
+  // so a gesture never synthesizes a click (task 4 acceptance).
   const parent = element.parentElement ?? element;
   const trackedIds = new Set<number>();
 

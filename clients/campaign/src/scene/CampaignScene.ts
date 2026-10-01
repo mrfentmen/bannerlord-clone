@@ -150,8 +150,9 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
   camera.attachControl(canvas, true);
 
   // Touch gestures (MASTER_PLAN task 4): one-finger drag pans the map,
-  // pinch zooms, two-finger drag pans. Babylon's own one-finger orbit is
-  // intercepted by the gesture layer, so mouse keeps the default behaviour.
+  // two-finger pinch zooms and twists to rotate. Babylon's own one-finger
+  // orbit is intercepted by the gesture layer, so mouse keeps the default
+  // behaviour.
   const mapGestures = attachMapGestures(canvas, {
     screenToWorld(dxPx, dyPx) {
       const wpp = (2 * camera.radius * Math.tan(camera.fov / 2)) / engine.getRenderHeight();
@@ -178,6 +179,13 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       const lo = camera.lowerRadiusLimit ?? 900;
       const hi = camera.upperRadiusLimit ?? 95_000;
       camera.radius = Math.min(hi, Math.max(lo, camera.radius * factor));
+    },
+    rotateBy(dAlpha) {
+      // Increasing alpha orbits the camera clockwise (viewed from above),
+      // which reads as the ground turning counter-clockwise. A clockwise
+      // finger twist should turn the ground clockwise with the fingers, so
+      // the camera goes the other way.
+      camera.alpha -= dAlpha;
     },
   });
 
