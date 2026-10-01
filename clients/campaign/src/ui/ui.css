@@ -399,7 +399,68 @@
   .skeleton__block { animation: none; }
 }
 
-/* ---------- empty and error ---------- */
+/* ---------- subtitles (task 21) ------------------------------------------------
+ * Bottom-of-screen dialogue captions. Sizing and background come from the
+ * accessibility settings; the bar itself is deliberately plain so it stays
+ * legible over any scene.
+ */
+.subtitles {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  max-width: min(46rem, calc(100vw - 2 * var(--space-4)));
+  padding: var(--space-2) var(--space-4);
+  border-radius: var(--radius-1);
+  text-align: center;
+  z-index: 70;
+  pointer-events: none;
+}
+.subtitles--small { font-size: 0.9rem; line-height: 1.4; }
+.subtitles--medium { font-size: 1.1rem; line-height: 1.45; }
+.subtitles--large { font-size: 1.35rem; line-height: 1.5; }
+.subtitles__speaker {
+  display: block;
+  font-weight: 600;
+  font-size: 0.85em;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  margin-bottom: var(--space-1);
+}
+.subtitles--bg-off { color: var(--subtitle-text); text-shadow: 0 1px 3px rgba(0,0,0,0.9), 0 0 8px rgba(0,0,0,0.7); }
+.subtitles--bg-off .subtitles__speaker { color: var(--subtitle-speaker); }
+.subtitles--bg-translucent { background: var(--subtitle-background-translucent); color: var(--subtitle-text); }
+.subtitles--bg-translucent .subtitles__speaker { color: var(--subtitle-speaker); }
+.subtitles--bg-solid { background: var(--subtitle-background-solid); color: var(--subtitle-text); }
+.subtitles--bg-solid .subtitles__speaker { color: var(--subtitle-speaker); }
+
+/* ---------- 150% scale guards (task 17) ----------------------------------------
+ * Buttons and fields already size with min-height so they grow with the font.
+ * At 150% the remaining risks are horizontal clipping of long button labels
+ * and vertical clipping of the rail column; these rules remove both.
+ */
+html[data-ui-scale="150"] .btn {
+  white-space: normal;
+  text-align: center;
+  line-height: 1.3;
+}
+html[data-ui-scale="150"] .rail { overflow-y: auto; }
+html[data-ui-scale="150"] .sheet { max-width: 100%; }
+
+/* ---------- reduced motion (task 20) -------------------------------------------
+ * The in-app reduced-motion switch kills every CSS animation and transition,
+ * not just the ones that remembered a prefers-reduced-motion query. The 3D
+ * scene freezes its animated grain separately (scene.setReduceMotion).
+ * No shake, hit-stop, or camera sway systems exist, so there is nothing else
+ * to disable.
+ */
+html[data-reduce-motion] *,
+html[data-reduce-motion] *::before,
+html[data-reduce-motion] *::after {
+  animation: none !important;
+  transition: none !important;
+  scroll-behavior: auto !important;
+}
 
 .empty, .error {
   padding: var(--space-4);

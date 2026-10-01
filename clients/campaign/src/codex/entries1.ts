@@ -410,4 +410,27 @@ export const SETTINGS_ENTRIES: CodexEntry[] = [
     ["setting:keyBindings", "keybinding", "persistence", "local storage"],
     ["mechanic-keybinding-editor"],
   ),
+  e(
+    "setting-accessibility",
+    "Accessibility options",
+    "settings",
+    "UI scale, color vision, high contrast, subtitles, and hold-to-toggle.",
+    [
+      "UI scale runs from 80% to 150% and applies immediately; at 150% buttons wrap and the rail scrolls instead of clipping.",
+      "Color vision remaps the six faction colors so they stay distinguishable under deuteranopia, protanopia, or tritanopia — every pair is verified at CIE76 ΔE 10 or better through a deficiency simulation.",
+      "High contrast swaps the interface to a black-on-white theme with thicker focus rings.",
+      "Subtitles come in three sizes with none, translucent, or solid backgrounds, and announce politely to screen readers.",
+      "Hold-to-toggle turns hold-to-open inputs (like the Space command radial) into press-once, press-again toggles.",
+    ],
+    [
+      "setting:colorblindMode",
+      "setting:highContrast",
+      "setting:subtitleSize",
+      "setting:subtitleBackground",
+      "setting:holdToggles",
+      "accessibility",
+      "a11y",
+    ],
+    [],
+  ),
 ];

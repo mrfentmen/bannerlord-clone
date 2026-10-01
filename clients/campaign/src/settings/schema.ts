@@ -15,8 +15,14 @@ import type { KeyBinding } from "../input/actions.js";
 
 export const SETTINGS_VERSION = 1;
 
-/** The UI-scale steps the HUD offers. Anything else is clamped to the nearest. */
-export const UI_SCALE_STEPS = [90, 100, 115, 130] as const;
+/** The UI-scale steps the HUD offers (task 17: 80–150%). Anything else is clamped to the nearest. */
+export const UI_SCALE_STEPS = [80, 90, 100, 115, 130, 150] as const;
+/** Color vision deficiency remapping for faction/unit colors (task 18). */
+export type ColorblindMode = "off" | "deuteranopia" | "protanopia" | "tritanopia";
+/** Dialogue subtitle size (task 21). */
+export type SubtitleSize = "small" | "medium" | "large";
+/** Subtitle background treatment (task 21). */
+export type SubtitleBackground = "off" | "translucent" | "solid";
 
 export type GraphicsQuality = "low" | "medium" | "high" | "ultra";
 export type TerrainDetail = "low" | "high";
@@ -64,6 +70,16 @@ export interface Settings {
   invertMouseY: boolean;
   /** UI scale step; applied live via the `data-ui-scale` attribute. */
   uiScale: number;
+  /** Remaps faction/unit colors for color vision deficiency (task 18). Live. */
+  colorblindMode: ColorblindMode;
+  /** High-contrast UI theme (task 19). Applied live via `data-high-contrast`. */
+  highContrast: boolean;
+  /** Dialogue subtitle size (task 21). Live. */
+  subtitleSize: SubtitleSize;
+  /** Subtitle background treatment (task 21). Live. */
+  subtitleBackground: SubtitleBackground;
+  /** Hold-to-open inputs behave as toggles instead (task 23). Live. */
+  holdToggles: boolean;
   /** Camera pan speed multiplier. Read at dispatch time, so it applies live. */
   cameraSpeed: number;
   /** 0..1. Stored and validated here; the audio pipeline (Hana's lane) applies them. */
@@ -97,6 +113,11 @@ export const DEFAULT_SETTINGS: Settings = {
   invertMouseX: false,
   invertMouseY: false,
   uiScale: 100,
+  colorblindMode: "off",
+  highContrast: false,
+  subtitleSize: "medium",
+  subtitleBackground: "translucent",
+  holdToggles: false,
   cameraSpeed: 1,
   masterVolume: 0.8,
   musicVolume: 0.6,
@@ -113,6 +134,9 @@ const GRAPHICS_QUALITIES: readonly GraphicsQuality[] = ["low", "medium", "high",
 const TERRAIN_DETAILS: readonly TerrainDetail[] = ["low", "high"];
 const MAX_FPS_VALUES: readonly Settings["maxFps"][] = [0, 30, 60, 120];
 const POWER_PREFERENCES: readonly PowerPreference[] = ["default", "low-power", "high-performance"];
+const COLORBLIND_MODES: readonly ColorblindMode[] = ["off", "deuteranopia", "protanopia", "tritanopia"];
+const SUBTITLE_SIZES: readonly SubtitleSize[] = ["small", "medium", "large"];
+const SUBTITLE_BACKGROUNDS: readonly SubtitleBackground[] = ["off", "translucent", "solid"];
 const SHADOW_QUALITIES: readonly ShadowQuality[] = ["off", "low", "high"];
 const VIEW_DISTANCES: readonly ViewDistance[] = ["near", "far", "ultra"];
 
@@ -172,6 +196,11 @@ export function parseSettings(raw: unknown): Settings {
     invertMouseX: v.invertMouseX === true,
     invertMouseY: v.invertMouseY === true,
     uiScale: nearestStep(v.uiScale, DEFAULT_SETTINGS.uiScale),
+    colorblindMode: pickEnum(v.colorblindMode, COLORBLIND_MODES, DEFAULT_SETTINGS.colorblindMode),
+    highContrast: v.highContrast === true,
+    subtitleSize: pickEnum(v.subtitleSize, SUBTITLE_SIZES, DEFAULT_SETTINGS.subtitleSize),
+    subtitleBackground: pickEnum(v.subtitleBackground, SUBTITLE_BACKGROUNDS, DEFAULT_SETTINGS.subtitleBackground),
+    holdToggles: v.holdToggles === true,
     cameraSpeed: pickNumber(v.cameraSpeed, 0.25, 3, DEFAULT_SETTINGS.cameraSpeed),
     masterVolume: pickNumber(v.masterVolume, 0, 1, DEFAULT_SETTINGS.masterVolume),
     musicVolume: pickNumber(v.musicVolume, 0, 1, DEFAULT_SETTINGS.musicVolume),

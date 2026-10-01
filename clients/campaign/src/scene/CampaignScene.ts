@@ -105,6 +105,12 @@ export interface SceneHandle {
   applyShadowQuality(q: ShadowQuality): void;
   /** Draw distance: camera far plane + fog density (task 12). Applies live. */
   applyViewDistance(v: ViewDistance): void;
+  /**
+   * Reduced motion (task 20): freezes animated film grain. No shake, hit-stop,
+   * or camera sway systems exist in the scene, so there is nothing else to
+   * disable — UI animation is killed separately by the data-reduce-motion CSS.
+   */
+  setReduceMotion(on: boolean): void;
   /** One line about what the map is showing, for the data-source panel. */
   summary(): string;
   towns: TownCluster[];
@@ -428,6 +434,9 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       camera.maxZ = cfg.maxZ;
       scene.fogDensity = cfg.fogDensity;
     },
+    setReduceMotion(on) {
+      grain?.setReduceMotion(on);
+    },
   };
 }
 
@@ -456,6 +465,12 @@ class GradePass {
   #time = 0;
   readonly #settings: ReturnType<typeof resolveGrade>;
   readonly #warmth: number;
+  /** Task 20: reduced motion freezes the animated grain (static grain stays). */
+  #reduceMotion = false;
+
+  setReduceMotion(on: boolean): void {
+    this.#reduceMotion = on;
+  }
 
   constructor(camera: ArcRotateCamera, settings: ReturnType<typeof resolveGrade>, year: number) {
     this.#settings = settings;
@@ -484,7 +499,7 @@ class GradePass {
       effect.setFloat("grain", this.#settings.grain.intensity);
       effect.setFloat("grainSize", this.#settings.grain.size);
       effect.setFloat("monochrome", this.#settings.grain.monochrome ? 1 : 0);
-      effect.setFloat("animated", this.#settings.grain.animated ? 1 : 0);
+      effect.setFloat("animated", this.#reduceMotion ? 0 : this.#settings.grain.animated ? 1 : 0);
       effect.setColor3("shadowLift", shadow);
       effect.setFloat("shadowAmount", this.#settings.shadowLift.amount);
       effect.setColor3("highlightTint", highlight);

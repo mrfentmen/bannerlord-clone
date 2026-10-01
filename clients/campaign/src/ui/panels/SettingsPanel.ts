@@ -201,8 +201,60 @@ const CONTROLS: ControlDef[] = [
   },
   {
     key: "reduceMotion", tab: "accessibility", label: "Reduce motion",
-    hint: "Disables camera sway and non-essential animation.",
-    keywords: ["motion", "reduce", "animation", "sway"],
+    hint: "Freezes animated film grain and disables non-essential UI animation.",
+    keywords: ["motion", "reduce", "animation"],
+    kind: { type: "toggle" },
+  },
+  {
+    key: "colorblindMode", tab: "accessibility", label: "Color vision",
+    hint: "Remaps faction colors so they stay distinguishable.",
+    keywords: ["colorblind", "color", "vision", "deuteranopia", "protanopia", "tritanopia", "faction"],
+    kind: {
+      type: "select",
+      options: [
+        { value: "off", label: "Off" },
+        { value: "deuteranopia", label: "Deuteranopia (green-blind)" },
+        { value: "protanopia", label: "Protanopia (red-blind)" },
+        { value: "tritanopia", label: "Tritanopia (blue-blind)" },
+      ],
+    },
+  },
+  {
+    key: "highContrast", tab: "accessibility", label: "High contrast",
+    hint: "Black-on-white UI theme. Applies immediately.",
+    keywords: ["contrast", "high", "theme"],
+    kind: { type: "toggle" },
+  },
+  {
+    key: "subtitleSize", tab: "accessibility", label: "Subtitle size",
+    hint: "Size of dialogue subtitles.",
+    keywords: ["subtitle", "caption", "text", "size", "dialogue"],
+    kind: {
+      type: "select",
+      options: [
+        { value: "small", label: "Small" },
+        { value: "medium", label: "Medium" },
+        { value: "large", label: "Large" },
+      ],
+    },
+  },
+  {
+    key: "subtitleBackground", tab: "accessibility", label: "Subtitle background",
+    hint: "Background behind dialogue subtitles.",
+    keywords: ["subtitle", "caption", "background", "dialogue"],
+    kind: {
+      type: "select",
+      options: [
+        { value: "off", label: "None" },
+        { value: "translucent", label: "Translucent" },
+        { value: "solid", label: "Solid" },
+      ],
+    },
+  },
+  {
+    key: "holdToggles", tab: "accessibility", label: "Hold-to-open as toggle",
+    hint: "Press Space once to open the command radial, press again to confirm — no holding required.",
+    keywords: ["hold", "toggle", "radial", "command", "space"],
     kind: { type: "toggle" },
   },
 ];

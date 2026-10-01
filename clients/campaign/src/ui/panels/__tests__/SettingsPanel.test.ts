@@ -30,7 +30,15 @@ const GAMEPLAY_KEYS = [
   "hapticsEnabled",
   "language",
 ];
-const ACCESSIBILITY_KEYS = ["uiScale", "reduceMotion"];
+const ACCESSIBILITY_KEYS = [
+  "uiScale",
+  "reduceMotion",
+  "colorblindMode",
+  "highContrast",
+  "subtitleSize",
+  "subtitleBackground",
+  "holdToggles",
+];
 
 beforeEach(() => {
   document.body.innerHTML = "";

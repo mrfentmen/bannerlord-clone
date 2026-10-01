@@ -76,6 +76,19 @@ export const accent = {
 } as const;
 
 /**
+ * Subtitle bar colours (task 21). Captions sit over the 3D scene rather than
+ * over paper, so they need scene-proof colours: white text and a gold speaker
+ * name on translucent or solid black. Functional, not decorative — and the
+ * only place pure black/white appear outside high-contrast mode.
+ */
+export const subtitle = {
+  text: "#FFFFFF",
+  speaker: "#FFD97A",
+  backgroundTranslucent: "rgba(0, 0, 0, 0.62)",
+  backgroundSolid: "#000000",
+} as const;
+
+/**
  * Unit-kind colours for the deployment map and battle command UI. One muted
  * colour per kind, desaturated like the rest of the palette. The kind name on
  * the roster card and the token label are the primary signal; colour is

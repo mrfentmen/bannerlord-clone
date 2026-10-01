@@ -43,11 +43,16 @@ describe("no invented design system", () => {
     // tokens.ts holds the palette. grade.ts holds the locked colour grade, which
     // ART_DIRECTION.md section 9 specifies as numbers rather than as token names, so it
     // is part of the direction rather than a component inventing its own. tokens.css is
-    // generated from both. Everything else must use a token.
+    // generated from both. factions.ts holds the locked faction palettes (task 18)
+    // and highContrast.ts the locked high-contrast theme (task 19): both are
+    // palettes in their own right, verified by their own contrast tests.
+    // Everything else must use a token.
     const allowed = new Set([
       "src/design/tokens.ts",
       "src/design/tokens-css.ts",
       "src/design/grade.ts",
+      "src/design/factions.ts",
+      "src/design/highContrast.ts",
       "src/design/tokens.css",
       "src/data/fixture/fixtureProvider.ts",
     ]);

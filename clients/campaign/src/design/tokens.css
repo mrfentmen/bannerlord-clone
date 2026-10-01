@@ -108,6 +108,12 @@
   --accent-info: #2F6068;
   --accent-info-ink: #F2EDE1;
 
+  /* Subtitle bar colours (task 21): captions over the 3D scene. */
+  --subtitle-text: #FFFFFF;
+  --subtitle-speaker: #FFD97A;
+  --subtitle-background-translucent: rgba(0, 0, 0, 0.62);
+  --subtitle-background-solid: #000000;
+
   --status-critical: #8A3524;
   --status-critical-mark: #8A3524;
   --status-critical-fill: #7A2E20;
@@ -223,13 +229,15 @@
   --bp-tablet: 600px;
 }
 
-/* UI scale, from the 90 / 100 / 115 / 130 percent setting (UI_UX.md section 12).
+/* UI scale, from the 80 / 90 / 100 / 115 / 130 / 150 percent setting (task 17).
    Every type and space token is in rem or px off this root, so this is the one
    switch that has to exist. */
+html[data-ui-scale="80"]  { font-size: 80%; }
 html[data-ui-scale="90"]  { font-size: 90%; }
 html[data-ui-scale="100"] { font-size: 100%; }
 html[data-ui-scale="115"] { font-size: 115%; }
 html[data-ui-scale="130"] { font-size: 130%; }
+html[data-ui-scale="150"] { font-size: 150%; }
 
 * { box-sizing: border-box; }
 

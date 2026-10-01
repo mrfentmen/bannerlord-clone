@@ -18,7 +18,19 @@
 
 import "./design/tokens.css";
 import "./ui/ui.css";
+import { highContrastCss } from "./design/highContrast.js";
+
+// Task 19: the high-contrast theme is generated from highContrast.ts so the
+// values the test verifies are the values the user gets.
+{
+  const style = document.createElement("style");
+  style.id = "high-contrast-theme";
+  style.textContent = highContrastCss();
+  document.head.appendChild(style);
+}
 import { status } from "./design/tokens.js";
+import { factionPalette, PLAYABLE_SIDE_IDS } from "./design/factions.js";
+import type { ColorblindMode } from "./settings/schema.js";
 
 import { readConfig, providerFromConfig, SimulationUnavailableError } from "./data/provider.js";
 import { TEST_SOURCE_WARNING, TEST_SOURCE_DETAIL } from "./data/labels.js";
@@ -109,6 +121,24 @@ function applyReduceMotion(on: boolean): void {
   if (on) document.documentElement.setAttribute("data-reduce-motion", "");
   else document.documentElement.removeAttribute("data-reduce-motion");
 }
+/**
+ * Applies the active faction palette (task 18): sets `--faction-<side-id>` and
+ * `--faction-<side-id>-ink` custom properties plus `data-colorblind-mode`, so
+ * banners, markers, and lists can color by side without hard-coding hexes.
+ */
+function applyFactionPalette(mode: ColorblindMode): void {
+  const root = document.documentElement;
+  root.setAttribute("data-colorblind-mode", mode);
+  const pal = factionPalette(mode);
+  for (const id of PLAYABLE_SIDE_IDS) {
+    root.style.setProperty(`--faction-${id}`, pal[id]!.color);
+    root.style.setProperty(`--faction-${id}-ink`, pal[id]!.ink);
+  }
+}
+function applyHighContrast(on: boolean): void {
+  if (on) document.documentElement.setAttribute("data-high-contrast", "");
+  else document.documentElement.removeAttribute("data-high-contrast");
+}
 let autoDetectStarted = false;
 
 /**
@@ -148,6 +178,8 @@ function maybeAutoDetectQuality(): void {
 function applySettingsLive(): void {  const s = settings.get();
   applyUiScale(s.uiScale);
   applyReduceMotion(s.reduceMotion);
+  applyFactionPalette(s.colorblindMode);
+  applyHighContrast(s.highContrast);
   // Audio levels are stored and validated here; the audio pipeline (Hana's lane)
   // subscribes to the store and applies them.
   if (scene) {
@@ -156,6 +188,7 @@ function applySettingsLive(): void {  const s = settings.get();
     scene.applyMouseSettings(s.mouseSensitivity, s.invertMouseX, s.invertMouseY);
     scene.applyShadowQuality(s.shadowQuality);
     scene.applyViewDistance(s.viewDistance);
+    scene.setReduceMotion(s.reduceMotion);
   }
 }
 applyUiScale(settings.get().uiScale);

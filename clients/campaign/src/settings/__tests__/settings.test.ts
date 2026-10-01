@@ -68,7 +68,35 @@ describe("settings schema", () => {
 
   it("snaps uiScale to the nearest offered step", () => {
     expect(parseSettings({ uiScale: 112 }).uiScale).toBe(115);
-    expect(parseSettings({ uiScale: 200 }).uiScale).toBe(130);
+    expect(parseSettings({ uiScale: 200 }).uiScale).toBe(150);
+    expect(parseSettings({ uiScale: 60 }).uiScale).toBe(80);
+    expect(parseSettings({ uiScale: 150 }).uiScale).toBe(150);
+  });
+
+  it("validates the task-17–23 accessibility fields", () => {
+    const s = parseSettings({
+      colorblindMode: "deuteranopia",
+      highContrast: 1, // truthy but not boolean: strict false
+      subtitleSize: "large",
+      subtitleBackground: "solid",
+      holdToggles: true,
+    });
+    expect(s.colorblindMode).toBe("deuteranopia");
+    expect(s.highContrast).toBe(false);
+    expect(s.subtitleSize).toBe("large");
+    expect(s.subtitleBackground).toBe("solid");
+    expect(s.holdToggles).toBe(true);
+  });
+
+  it("rejects unknown accessibility enum values", () => {
+    const s = parseSettings({
+      colorblindMode: "infrared",
+      subtitleSize: "huge",
+      subtitleBackground: "blur",
+    });
+    expect(s.colorblindMode).toBe("off");
+    expect(s.subtitleSize).toBe("medium");
+    expect(s.subtitleBackground).toBe("translucent");
   });
 
   it("validates the task-8/12 graphics and mouse fields", () => {

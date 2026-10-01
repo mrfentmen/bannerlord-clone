@@ -14,6 +14,7 @@ import {
   paper,
   ink,
   accent,
+  subtitle,
   status,
   radius,
   sheet,
@@ -103,6 +104,12 @@ ${Object.entries(ink)
   --accent-info: ${accent.info};
   --accent-info-ink: ${accent.infoInk};
 
+  /* Subtitle bar colours (task 21): captions over the 3D scene. */
+  --subtitle-text: ${subtitle.text};
+  --subtitle-speaker: ${subtitle.speaker};
+  --subtitle-background-translucent: ${subtitle.backgroundTranslucent};
+  --subtitle-background-solid: ${subtitle.backgroundSolid};
+
 ${Object.entries(status)
   .map(
     ([k, v]) =>
@@ -158,13 +165,15 @@ ${typeVars()}
   --bp-tablet: ${breakpoints.tablet}px;
 }
 
-/* UI scale, from the 90 / 100 / 115 / 130 percent setting (UI_UX.md section 12).
+/* UI scale, from the 80 / 90 / 100 / 115 / 130 / 150 percent setting (task 17).
    Every type and space token is in rem or px off this root, so this is the one
    switch that has to exist. */
+html[data-ui-scale="80"]  { font-size: 80%; }
 html[data-ui-scale="90"]  { font-size: 90%; }
 html[data-ui-scale="100"] { font-size: 100%; }
 html[data-ui-scale="115"] { font-size: 115%; }
 html[data-ui-scale="130"] { font-size: 130%; }
+html[data-ui-scale="150"] { font-size: 150%; }
 
 * { box-sizing: border-box; }
 

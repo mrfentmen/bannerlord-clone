@@ -8,6 +8,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createCommander } from "../commander.js";
 import { input } from "../../input/index.js";
+import { settings } from "../../settings/index.js";
 import type { CommandSurface, CommandableUnit, Order } from "../types.js";
 
 interface FakeSurface extends CommandSurface {
@@ -111,6 +112,34 @@ describe("commander", () => {
     expect(surface.orders[0]).toMatchObject({ kind: "attack", unitIds: ["a", "b", "c"] });
     expect(document.querySelector('[data-testid="command-radial"]')).toBeNull();
     commander.destroy();
+  });
+
+  it("holdToggles makes the radial a press-press toggle (task 23)", () => {
+    settings.set({ holdToggles: true });
+    try {
+      const surface = fakeSurface();
+      const commander = createCommander(surface);
+      input.dispatch("battle.selectAll", "keyboard");
+
+      pointer(window, "pointermove", { clientX: 400, clientY: 300 });
+      input.handleKeyEvent(new KeyboardEvent("keydown", { key: " " }));
+      expect(document.querySelector('[data-testid="command-radial"]')).not.toBeNull();
+
+      // Release does NOT confirm in toggle mode: the radial stays open.
+      input.handleKeyUp(new KeyboardEvent("keyup", { key: " " }));
+      expect(document.querySelector('[data-testid="command-radial"]')).not.toBeNull();
+      expect(surface.orders).toHaveLength(0);
+
+      // Flick up, press again: confirms the highlighted order.
+      pointer(window, "pointermove", { clientX: 400, clientY: 150 });
+      input.handleKeyEvent(new KeyboardEvent("keydown", { key: " " }));
+      expect(surface.orders).toHaveLength(1);
+      expect(surface.orders[0]).toMatchObject({ kind: "attack", unitIds: ["a", "b", "c"] });
+      expect(document.querySelector('[data-testid="command-radial"]')).toBeNull();
+      commander.destroy();
+    } finally {
+      settings.set({ holdToggles: false });
+    }
   });
 
   it("the radial does not open with an empty selection", () => {

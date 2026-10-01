@@ -6,13 +6,16 @@
  * - click a unit: select it (Shift+click toggles into the selection)
  * - drag a box: select every live unit inside
  * - hold the command-menu key (Space): radial opens at the pointer; flick toward
- *   an order and release to issue it to the selected units
+ *   an order and release to issue it to the selected units (or, with the
+ *   holdToggles accessibility setting, press once to open and press again to
+ *   confirm — no holding required)
  * - 1-4: recall control group; Ctrl+1-4: assign the current selection
  * - the select-all action grabs every live unit
  */
 
 import { h } from "../ui/dom.js";
 import { input, type InputRegistry } from "../input/index.js";
+import { settings } from "../settings/index.js";
 import { createSelection, type SelectionModel } from "./selection.js";
 import { createRadialMenu, type RadialMenu } from "./radial.js";
 import type { CommandSurface, OrderKind } from "./types.js";
@@ -168,18 +171,31 @@ export function createCommander(
   };
 
   // -- input actions ------------------------------------------------------------
+  // Task 23: with `holdToggles` the command menu is a toggle — press once to
+  // open, press again (or click / Enter) to confirm — instead of hold-to-open.
   offs.push(
     registry.on(
       "battle.commandMenu",
       (ev) => {
         if (ev.keyEvent?.repeat) return;
-        openRadial();
+        if (settings.get().holdToggles) {
+          if (radial) {
+            const menu = radial;
+            radial = null;
+            menu.confirm();
+          } else {
+            openRadial();
+          }
+        } else {
+          openRadial();
+        }
       },
-      { when: () => radial === null },
+      { when: () => radial === null || settings.get().holdToggles },
     ),
   );
   offs.push(
     registry.onRelease("battle.commandMenu", () => {
+      if (settings.get().holdToggles) return; // release does nothing in toggle mode
       if (!radial) return;
       const menu = radial;
       radial = null;
