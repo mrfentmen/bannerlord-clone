@@ -1,0 +1,92 @@
+{
+  "_comment": "Main campaign questline: 'The Ohio Compact'. Player unites or conquers the valley.",
+  "title": "The Ohio Compact",
+  "description": "The old order collapsed. Ten ethnicities hold the Ohio River Valley. You will unite them \u2014 by diplomacy or by force.",
+  "quests": [
+    {
+      "id": "q01_awakening",
+      "name": "Awakening",
+      "stage": 1,
+      "description": "Create your character. Choose your ethnicity, background, and starting city.",
+      "objectives": [
+        "Complete character creation",
+        "Arrive in starting settlement"
+      ],
+      "rewards": {
+        "money": 200,
+        "renown": 10
+      }
+    },
+    {
+      "id": "q02_first_blood",
+      "name": "First Blood",
+      "stage": 2,
+      "description": "Prove yourself. Win a street tournament or clear a gang hideout.",
+      "objectives": [
+        "Win 1 tournament OR clear 1 hideout",
+        "Recruit 10 troops"
+      ],
+      "rewards": {
+        "money": 500,
+        "renown": 25
+      }
+    },
+    {
+      "id": "q03_the_compact",
+      "name": "The Compact",
+      "stage": 3,
+      "description": "Three faction leaders will meet. Earn their trust \u2014 or their fear.",
+      "objectives": [
+        "Reach 50 relation with 3 faction leaders OR defeat 3 faction parties"
+      ],
+      "rewards": {
+        "money": 1000,
+        "renown": 50,
+        "influence": 30
+      }
+    },
+    {
+      "id": "q04_rising_power",
+      "name": "Rising Power",
+      "stage": 4,
+      "description": "Your name spreads. Build your strength. Others will notice.",
+      "objectives": [
+        "Reach party size 50",
+        "Own 1 workshop or caravan",
+        "Win 5 battles"
+      ],
+      "rewards": {
+        "money": 2000,
+        "renown": 100,
+        "influence": 50
+      }
+    },
+    {
+      "id": "q05_the_choice",
+      "name": "The Choice",
+      "stage": 5,
+      "description": "The valley must unite. Will you be diplomat or conqueror?",
+      "objectives": [
+        "Choose: Diplomacy path (ally 5 factions) OR Conquest path (capture 3 settlements)"
+      ],
+      "rewards": {
+        "renown": 200,
+        "influence": 100
+      }
+    },
+    {
+      "id": "q06_united_valley",
+      "name": "United Valley",
+      "stage": 6,
+      "description": "The Ohio River Valley stands united under your banner. The work begins.",
+      "objectives": [
+        "Control or ally all 10 ethnicities"
+      ],
+      "rewards": {
+        "renown": 500,
+        "influence": 200,
+        "title": "Warden of the Valley"
+      }
+    }
+  ]
+}

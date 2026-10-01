@@ -1,0 +1,55 @@
+{
+  "_comment": "Army system: multiple parties under one commander. Port of Bannerlord's armies.",
+  "army_rules": {
+    "max_parties": 8,
+    "influence_cost_per_party": 20,
+    "cohesion_decay_per_day": 0.05,
+    "cohesion_gain_per_victory": 0.15,
+    "min_leadership_to_form": 50,
+    "max_army_size": 500
+  },
+  "army_roles": [
+    {
+      "id": "commander",
+      "name": "Commander",
+      "description": "Leads the army. Uses Leadership and Tactics."
+    },
+    {
+      "id": "vanguard",
+      "name": "Vanguard",
+      "description": "Scout party. High scouting, fast troops."
+    },
+    {
+      "id": "main_force",
+      "name": "Main Force",
+      "description": "Bulk of the army. Infantry and ranged."
+    },
+    {
+      "id": "rear_guard",
+      "name": "Rear Guard",
+      "description": "Protects supply lines. Defensive troops."
+    },
+    {
+      "id": "flankers",
+      "name": "Flankers",
+      "description": "Mobile strike force. Cavalry/vehicles."
+    }
+  ],
+  "cohesion_effects": {
+    "high": {
+      "threshold": 0.7,
+      "morale_bonus": 0.15,
+      "speed_bonus": 0.1
+    },
+    "medium": {
+      "threshold": 0.4,
+      "morale_bonus": 0.0,
+      "speed_bonus": 0.0
+    },
+    "low": {
+      "threshold": 0.0,
+      "morale_bonus": -0.2,
+      "desertion_risk": 0.1
+    }
+  }
+}

@@ -1,0 +1,365 @@
+{
+  "_comment": "20 unique companion NPCs. Like Bannerlord's wanderers: named, backstoried, hireable.",
+  "companions": [
+    {
+      "id": "marcus_reed",
+      "name": "Marcus Reed",
+      "title": "The Ex-Cop",
+      "ethnicity": "african",
+      "backstory": "15 years on the force. Quit when the precinct went crooked. Knows every street in Columbus.",
+      "skills": {
+        "leadership": 60,
+        "tactics": 55,
+        "crossbow": 70
+      },
+      "traits": [
+        "honest",
+        "disciplined"
+      ],
+      "location": "Columbus",
+      "hire_cost": 500
+    },
+    {
+      "id": "sofia_marchetti",
+      "name": "Sofia Marchetti",
+      "title": "The Fixer",
+      "ethnicity": "italian",
+      "backstory": "Ran numbers for the family. Now runs them for herself. Nothing happens in Hamilton she doesn't know about.",
+      "skills": {
+        "trade": 75,
+        "roguery": 65,
+        "charm": 60
+      },
+      "traits": [
+        "calculating",
+        "connected"
+      ],
+      "location": "Hamilton",
+      "hire_cost": 600
+    },
+    {
+      "id": "chen_wei",
+      "name": "Chen Wei",
+      "title": "The Doctor",
+      "ethnicity": "chinese",
+      "backstory": "ER surgeon before the collapse. Now patches up whoever can pay. Steady hands, steady nerve.",
+      "skills": {
+        "medicine": 85,
+        "steward": 40,
+        "charm": 50
+      },
+      "traits": [
+        "compassionate",
+        "precise"
+      ],
+      "location": "Athens",
+      "hire_cost": 700
+    },
+    {
+      "id": "kim_jisoo",
+      "name": "Kim Jisoo",
+      "title": "The Sniper",
+      "ethnicity": "korean",
+      "backstory": "Competition shooter. Olympic trials before everything fell apart. Can thread a needle at 200 yards.",
+      "skills": {
+        "bow": 80,
+        "scouting": 65,
+        "athletics": 55
+      },
+      "traits": [
+        "patient",
+        "focused"
+      ],
+      "location": "Columbus",
+      "hire_cost": 650
+    },
+    {
+      "id": "sean_obrien",
+      "name": "Sean O'Brien",
+      "title": "The Brawler",
+      "ethnicity": "irish",
+      "backstory": "Bare-knuckle champ, three counties. Drinks too much, hits too hard, loyal to the bone.",
+      "skills": {
+        "one_handed": 75,
+        "athletics": 70,
+        "leadership": 40
+      },
+      "traits": [
+        "brave",
+        "reckless"
+      ],
+      "location": "Marion",
+      "hire_cost": 450
+    },
+    {
+      "id": "maria_santos",
+      "name": "Maria Santos",
+      "title": "The Driver",
+      "ethnicity": "mexican",
+      "backstory": "Drove trucks cross-country for a decade. Knows every back road from Lexington to Cincinnati.",
+      "skills": {
+        "riding": 80,
+        "scouting": 55,
+        "trade": 50
+      },
+      "traits": [
+        "reliable",
+        "tough"
+      ],
+      "location": "Lexington-Fayette urban county",
+      "hire_cost": 500
+    },
+    {
+      "id": "dmitri_volkov",
+      "name": "Dmitri Volkov",
+      "title": "The Engineer",
+      "ethnicity": "russian",
+      "backstory": "Soviet-trained combat engineer. Came over in the 90s. Can breach anything or build anything.",
+      "skills": {
+        "engineering": 85,
+        "smithing": 70,
+        "tactics": 50
+      },
+      "traits": [
+        "methodical",
+        "grim"
+      ],
+      "location": "Cincinnati",
+      "hire_cost": 750
+    },
+    {
+      "id": "hans_mueller",
+      "name": "Hans Mueller",
+      "title": "The Quartermaster",
+      "ethnicity": "german",
+      "backstory": "Logistics officer, Army Reserve. Runs supply like a Swiss watch. Nothing wasted, nothing lost.",
+      "skills": {
+        "steward": 80,
+        "trade": 60,
+        "leadership": 55
+      },
+      "traits": [
+        "organized",
+        "stern"
+      ],
+      "location": "Florence",
+      "hire_cost": 600
+    },
+    {
+      "id": "jamal_carter",
+      "name": "Jamal Carter",
+      "title": "The Scout",
+      "ethnicity": "african",
+      "backstory": "Grew up running packages through Dayton. Knows every alley, rooftop, and shortcut.",
+      "skills": {
+        "scouting": 75,
+        "athletics": 70,
+        "roguery": 60
+      },
+      "traits": [
+        "quick",
+        "streetwise"
+      ],
+      "location": "Dayton",
+      "hire_cost": 400
+    },
+    {
+      "id": "li_mei",
+      "name": "Li Mei",
+      "title": "The Herbalist",
+      "ethnicity": "chinese",
+      "backstory": "Traditional medicine practitioner. Her remedies work when the pharmacies are empty.",
+      "skills": {
+        "medicine": 70,
+        "trade": 55,
+        "scouting": 45
+      },
+      "traits": [
+        "wise",
+        "gentle"
+      ],
+      "location": "Athens",
+      "hire_cost": 550
+    },
+    {
+      "id": "patrick_kelly",
+      "name": "Patrick Kelly",
+      "title": "The Enforcer",
+      "ethnicity": "irish",
+      "backstory": "Debt collector for the wrong people. Now collects for the right ones. Usually.",
+      "skills": {
+        "two_handed": 70,
+        "intimidation": 65,
+        "athletics": 60
+      },
+      "traits": [
+        "intimidating",
+        "loyal"
+      ],
+      "location": "Marion",
+      "hire_cost": 480
+    },
+    {
+      "id": "rosa_rivera",
+      "name": "Rosa Rivera",
+      "title": "The Negotiator",
+      "ethnicity": "puerto_rican",
+      "backstory": "Community organizer. Can talk anyone into anything. Or out of it.",
+      "skills": {
+        "charm": 80,
+        "leadership": 60,
+        "trade": 55
+      },
+      "traits": [
+        "charismatic",
+        "empathetic"
+      ],
+      "location": "Springfield",
+      "hire_cost": 580
+    },
+    {
+      "id": "tony_soprano_jr",
+      "name": "Tony Jr.",
+      "title": "The Heir",
+      "ethnicity": "italian",
+      "backstory": "Old family name, new world. Trying to build something that lasts longer than his father's empire did.",
+      "skills": {
+        "leadership": 65,
+        "tactics": 60,
+        "charm": 55
+      },
+      "traits": [
+        "ambitious",
+        "honorable"
+      ],
+      "location": "Hamilton",
+      "hire_cost": 620
+    },
+    {
+      "id": "deshawn_williams",
+      "name": "Deshawn Williams",
+      "title": "The Mechanic",
+      "ethnicity": "african",
+      "backstory": "Can fix anything with wheels. Learned in his uncle's shop, perfected on the road.",
+      "skills": {
+        "smithing": 75,
+        "riding": 65,
+        "engineering": 50
+      },
+      "traits": [
+        "practical",
+        "humorous"
+      ],
+      "location": "Dayton",
+      "hire_cost": 520
+    },
+    {
+      "id": "yuki_tanaka",
+      "name": "Yuki Tanaka",
+      "title": "The Blade",
+      "ethnicity": "korean",
+      "backstory": "Kendo champion. Her katana is family steel, folded a thousand times. So is she.",
+      "skills": {
+        "one_handed": 85,
+        "athletics": 70,
+        "tactics": 55
+      },
+      "traits": [
+        "disciplined",
+        "honorable"
+      ],
+      "location": "Columbus",
+      "hire_cost": 700
+    },
+    {
+      "id": "carlos_mendez",
+      "name": "Carlos Mendez",
+      "title": "The Smuggler",
+      "ethnicity": "mexican",
+      "backstory": "Moved product across the border for years. Now moves it across county lines. Same skills.",
+      "skills": {
+        "roguery": 75,
+        "riding": 70,
+        "trade": 60
+      },
+      "traits": [
+        "cunning",
+        "charming"
+      ],
+      "location": "Lexington-Fayette urban county",
+      "hire_cost": 590
+    },
+    {
+      "id": "natasha_petrova",
+      "name": "Natasha Petrova",
+      "title": "The Medic",
+      "ethnicity": "russian",
+      "backstory": "Combat medic, two tours. Seen worse than this. Probably.",
+      "skills": {
+        "medicine": 75,
+        "crossbow": 60,
+        "athletics": 55
+      },
+      "traits": [
+        "tough",
+        "compassionate"
+      ],
+      "location": "Cincinnati",
+      "hire_cost": 640
+    },
+    {
+      "id": "fritz_weber",
+      "name": "Fritz Weber",
+      "title": "The Builder",
+      "ethnicity": "german",
+      "backstory": "Master carpenter. Built half the barns in Boone County. Now builds barricades.",
+      "skills": {
+        "engineering": 70,
+        "smithing": 65,
+        "steward": 50
+      },
+      "traits": [
+        "diligent",
+        "quiet"
+      ],
+      "location": "Florence",
+      "hire_cost": 540
+    },
+    {
+      "id": "keisha_johnson",
+      "name": "Keisha Johnson",
+      "title": "The Runner",
+      "ethnicity": "jamaican",
+      "backstory": "Track star, state finals. Now runs messages no one else can deliver.",
+      "skills": {
+        "athletics": 85,
+        "scouting": 60,
+        "roguery": 55
+      },
+      "traits": [
+        "fast",
+        "brave"
+      ],
+      "location": "Huntington",
+      "hire_cost": 470
+    },
+    {
+      "id": "marley_brown",
+      "name": "Marley Brown",
+      "title": "The Peacemaker",
+      "ethnicity": "jamaican",
+      "backstory": "Was a don's right hand. Walked away. Now tries to keep the peace he used to break.",
+      "skills": {
+        "charm": 70,
+        "leadership": 65,
+        "one_handed": 60
+      },
+      "traits": [
+        "wise",
+        "reformed"
+      ],
+      "location": "Huntington",
+      "hire_cost": 610
+    }
+  ]
+}

@@ -1,0 +1,131 @@
+{
+  "_comment": "Clearable gang hideouts. Each: location, gang type, difficulty, rewards.",
+  "hideouts": [
+    {
+      "id": "abandoned_mall",
+      "name": "Abandoned Mall",
+      "near": "Columbus",
+      "gang": "raiders",
+      "difficulty": 1,
+      "troops": 15,
+      "rewards": {
+        "money": 300,
+        "loot": [
+          "tools",
+          "textiles"
+        ]
+      },
+      "description": "Squatters turned raiders. Easy clearing for new parties."
+    },
+    {
+      "id": "warehouse_district",
+      "name": "Warehouse District",
+      "near": "Cincinnati",
+      "gang": "smugglers",
+      "difficulty": 2,
+      "troops": 25,
+      "rewards": {
+        "money": 600,
+        "loot": [
+          "arms",
+          "fuel"
+        ]
+      },
+      "description": "Well-armed smugglers. Good loot if you can take it."
+    },
+    {
+      "id": "projects_tower",
+      "name": "Projects Tower",
+      "near": "Dayton",
+      "gang": "street_gang",
+      "difficulty": 2,
+      "troops": 30,
+      "rewards": {
+        "money": 500,
+        "loot": [
+          "medicine",
+          "arms"
+        ]
+      },
+      "description": "Fortified high-rise. Room-to-room fighting."
+    },
+    {
+      "id": "truck_stop",
+      "name": "Truck Stop",
+      "near": "Lexington-Fayette urban county",
+      "gang": "highwaymen",
+      "difficulty": 3,
+      "troops": 40,
+      "rewards": {
+        "money": 900,
+        "loot": [
+          "fuel",
+          "tools",
+          "arms"
+        ]
+      },
+      "description": "Highway robbers. Hit caravans on the interstate."
+    },
+    {
+      "id": "industrial_park",
+      "name": "Industrial Park",
+      "near": "Hamilton",
+      "gang": "raiders",
+      "difficulty": 3,
+      "troops": 45,
+      "rewards": {
+        "money": 1000,
+        "loot": [
+          "metal",
+          "tools",
+          "fuel"
+        ]
+      },
+      "description": "Large compound. Multiple buildings to clear."
+    },
+    {
+      "id": "river_camp",
+      "name": "River Camp",
+      "near": "Huntington",
+      "gang": "river_pirates",
+      "difficulty": 4,
+      "troops": 60,
+      "rewards": {
+        "money": 1500,
+        "loot": [
+          "arms",
+          "medicine",
+          "grain"
+        ]
+      },
+      "description": "Pirates on the Ohio River. Hit supply barges."
+    }
+  ],
+  "gang_types": {
+    "raiders": {
+      "name": "Raiders",
+      "aggression": 0.8,
+      "typical_troops": "street toughs"
+    },
+    "smugglers": {
+      "name": "Smugglers",
+      "aggression": 0.5,
+      "typical_troops": "hustlers"
+    },
+    "street_gang": {
+      "name": "Street Gang",
+      "aggression": 0.7,
+      "typical_troops": "brawlers"
+    },
+    "highwaymen": {
+      "name": "Highwaymen",
+      "aggression": 0.6,
+      "typical_troops": "riders"
+    },
+    "river_pirates": {
+      "name": "River Pirates",
+      "aggression": 0.9,
+      "typical_troops": "veterans"
+    }
+  }
+}

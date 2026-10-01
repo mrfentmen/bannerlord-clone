@@ -1,0 +1,49 @@
+{
+  "_comment": "Fighting tournaments in major cities. Regular events with prize money.",
+  "tournaments": [
+    {
+      "id": "columbus_fight_night",
+      "name": "Columbus Fight Night",
+      "city": "Columbus",
+      "frequency_days": 14,
+      "entry_fee": 100,
+      "prize": 1000,
+      "rounds": 4,
+      "rules": "melee_only",
+      "description": "Biweekly underground tournament. Melee weapons only."
+    },
+    {
+      "id": "cincinnati_brawl",
+      "name": "Cincinnati Brawl",
+      "city": "Cincinnati",
+      "frequency_days": 21,
+      "entry_fee": 150,
+      "prize": 1500,
+      "rounds": 5,
+      "rules": "melee_only",
+      "description": "Monthly brawl. Winner takes all."
+    },
+    {
+      "id": "dayton_pit",
+      "name": "Dayton Pit",
+      "city": "Dayton",
+      "frequency_days": 7,
+      "entry_fee": 50,
+      "prize": 400,
+      "rounds": 3,
+      "rules": "fists_only",
+      "description": "Weekly bare-knuckle fights. No weapons."
+    },
+    {
+      "id": "lexington_showdown",
+      "name": "Lexington Showdown",
+      "city": "Lexington-Fayette urban county",
+      "frequency_days": 30,
+      "entry_fee": 200,
+      "prize": 2500,
+      "rounds": 6,
+      "rules": "anything_goes",
+      "description": "Monthly championship. Anything goes. Big money."
+    }
+  ]
+}

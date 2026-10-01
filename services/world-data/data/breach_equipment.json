@@ -1,0 +1,63 @@
+{
+  "_comment": "Breach equipment for compound assaults. Port of Bannerlord's siege engines.",
+  "equipment": [
+    {
+      "id": "battering_ram",
+      "name": "Battering Ram",
+      "type": "ram",
+      "cost": 800,
+      "build_days": 5,
+      "metal_cost": 50,
+      "breach_power": 1.0,
+      "crew_required": 8,
+      "description": "Vehicle-mounted ram. Smashes gates and weak walls."
+    },
+    {
+      "id": "explosives_kit",
+      "name": "Explosives Kit",
+      "type": "explosive",
+      "cost": 1200,
+      "build_days": 3,
+      "metal_cost": 20,
+      "breach_power": 1.5,
+      "crew_required": 2,
+      "engineering_required": 50,
+      "description": "Breaching charges. Fast but requires Engineering skill."
+    },
+    {
+      "id": "grappling_ladders",
+      "name": "Grappling Ladders",
+      "type": "ladder",
+      "cost": 300,
+      "build_days": 2,
+      "metal_cost": 10,
+      "breach_power": 0.5,
+      "crew_required": 4,
+      "description": "Scale walls. Vulnerable to defenders."
+    },
+    {
+      "id": "armored_bulldozer",
+      "name": "Armored Bulldozer",
+      "type": "vehicle",
+      "cost": 5000,
+      "build_days": 14,
+      "metal_cost": 200,
+      "breach_power": 2.0,
+      "crew_required": 3,
+      "fuel_per_day": 20,
+      "description": "The ultimate breacher. Slow, loud, unstoppable."
+    },
+    {
+      "id": "cutting_torch",
+      "name": "Cutting Torch",
+      "type": "tool",
+      "cost": 600,
+      "build_days": 1,
+      "metal_cost": 5,
+      "breach_power": 0.8,
+      "crew_required": 1,
+      "engineering_required": 25,
+      "description": "Cuts through metal doors and fences. Quiet but slow."
+    }
+  ]
+}

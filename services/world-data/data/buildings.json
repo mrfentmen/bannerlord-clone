@@ -1,0 +1,118 @@
+{
+  "_comment": "Constructible settlement buildings. Each: cost, build time, effects.",
+  "buildings": [
+    {
+      "id": "market_stalls",
+      "name": "Market Stalls",
+      "cost": 500,
+      "build_days": 7,
+      "effects": {
+        "trade_profit": 0.15,
+        "prosperity": 0.1
+      },
+      "description": "+15% trade profit, +10% prosperity"
+    },
+    {
+      "id": "clinic",
+      "name": "Clinic",
+      "cost": 800,
+      "build_days": 14,
+      "effects": {
+        "heal_rate": 0.25,
+        "disease_resist": 0.2
+      },
+      "description": "Faster healing, disease resistance"
+    },
+    {
+      "id": "workshop",
+      "name": "Workshop",
+      "cost": 1000,
+      "build_days": 14,
+      "effects": {
+        "industry_output": 0.3,
+        "trade_goods": [
+          "tools",
+          "textiles"
+        ]
+      },
+      "description": "Produces tools and textiles"
+    },
+    {
+      "id": "barracks",
+      "name": "Barracks",
+      "cost": 1200,
+      "build_days": 21,
+      "effects": {
+        "garrison_capacity": 0.5,
+        "recruit_speed": 0.25
+      },
+      "description": "+50% garrison, faster recruitment"
+    },
+    {
+      "id": "walls",
+      "name": "Perimeter Walls",
+      "cost": 2000,
+      "build_days": 30,
+      "effects": {
+        "siege_defense": 0.4,
+        "security": 0.3
+      },
+      "description": "Harder to breach, safer streets"
+    },
+    {
+      "id": "granary",
+      "name": "Granary",
+      "cost": 600,
+      "build_days": 10,
+      "effects": {
+        "food_storage": 0.5,
+        "spoilage": -0.2
+      },
+      "description": "More food storage, less spoilage"
+    },
+    {
+      "id": "garage",
+      "name": "Garage",
+      "cost": 900,
+      "build_days": 12,
+      "effects": {
+        "vehicle_repair": 0.3,
+        "fuel_efficiency": 0.15
+      },
+      "description": "Vehicle maintenance hub"
+    },
+    {
+      "id": "school",
+      "name": "School",
+      "cost": 700,
+      "build_days": 14,
+      "effects": {
+        "loyalty": 0.15,
+        "recruit_quality": 0.2
+      },
+      "description": "Happier, better-educated recruits"
+    },
+    {
+      "id": "tavern",
+      "name": "Tavern",
+      "cost": 400,
+      "build_days": 7,
+      "effects": {
+        "morale": 0.15,
+        "rumor_chance": 0.3
+      },
+      "description": "Morale boost, hear rumors/quests"
+    },
+    {
+      "id": "armory",
+      "name": "Armory",
+      "cost": 1500,
+      "build_days": 21,
+      "effects": {
+        "weapon_quality": 0.25,
+        "ammo_production": 0.3
+      },
+      "description": "Better weapons, ammo supply"
+    }
+  ]
+}

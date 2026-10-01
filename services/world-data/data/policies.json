@@ -1,0 +1,69 @@
+{
+  "_comment": "Faction-wide policies. Each has effects and requirements to enact.",
+  "policies": [
+    {
+      "id": "open_markets",
+      "name": "Open Markets",
+      "cost_influence": 50,
+      "effects": {
+        "trade_profit": 0.2,
+        "tax_income": 0.1
+      },
+      "description": "+20% trade profit, +10% tax income. Merchants love you."
+    },
+    {
+      "id": "martial_law",
+      "name": "Martial Law",
+      "cost_influence": 80,
+      "effects": {
+        "security": 0.3,
+        "loyalty": -0.15,
+        "recruit_speed": 0.25
+      },
+      "description": "+30% security, +25% recruitment, but -15% loyalty."
+    },
+    {
+      "id": "free_clinics",
+      "name": "Free Clinics",
+      "cost_influence": 60,
+      "effects": {
+        "disease_resist": 0.3,
+        "loyalty": 0.1,
+        "tax_income": -0.1
+      },
+      "description": "Disease resistance, happier people, less tax."
+    },
+    {
+      "id": "militia_act",
+      "name": "Militia Act",
+      "cost_influence": 40,
+      "effects": {
+        "militia_size": 0.5,
+        "garrison_cost": -0.2
+      },
+      "description": "Larger cheap militias. Weaker than professionals."
+    },
+    {
+      "id": "war_taxes",
+      "name": "War Taxes",
+      "cost_influence": 70,
+      "effects": {
+        "tax_income": 0.3,
+        "loyalty": -0.2,
+        "unrest": 0.15
+      },
+      "description": "+30% taxes for war. People hate it."
+    },
+    {
+      "id": "sanctuary",
+      "name": "Sanctuary Policy",
+      "cost_influence": 55,
+      "effects": {
+        "immigration": 0.4,
+        "loyalty": 0.05,
+        "security": -0.1
+      },
+      "description": "Attracts newcomers. Strains security."
+    }
+  ]
+}
