@@ -241,6 +241,12 @@ func (w *WriteSet) stage(x write) {
 		k := writeKey{x.Kind, x.Entity, x.Field}
 		if prevIdx, dup := w.setIndex[k]; dup {
 			prev := w.writes[prevIdx]
+			// Same value from two systems is not order-dependent; allow it.
+			// This happens when e.g. succession dissolves a clan and security
+			// processes a rebellion for the same town in one tick.
+			if prev.Value == x.Value {
+				return
+			}
 			w.errors = append(w.errors, fmt.Sprintf(
 				"two absolute writes to %s#%d.%s in one tick (%q and %q): "+
 					"the result would depend on system order",
