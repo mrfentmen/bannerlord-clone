@@ -1,0 +1,9 @@
+{"kind":"battle_script","version":1,"name":"both-sides-ordered-8v8","seed":106003,"a":{"units":8,"label":"the Company","terrain":"open"},"b":{"units":8,"label":"the Host","terrain":"open"},"steps":8}
+{"tick":0,"unit":0,"order":"formation","intent":"advance","dx":0,"dy":0,"formation":"column","facing":0,"note":""}
+{"tick":0,"unit":8,"order":"formation","intent":"advance","dx":0,"dy":0,"formation":"line","facing":0,"note":""}
+{"tick":10,"unit":1,"order":"move","intent":"advance","dx":1.1,"dy":-0.2,"formation":"","facing":0,"note":""}
+{"tick":10,"unit":9,"order":"move","intent":"advance","dx":-1.1,"dy":0.2,"formation":"","facing":0,"note":""}
+{"tick":40,"unit":2,"order":"hold","intent":"hold","dx":0,"dy":0,"formation":"","facing":0,"note":""}
+{"tick":40,"unit":10,"order":"formation","intent":"engage","dx":0,"dy":0,"formation":"square","facing":0,"note":""}
+{"tick":90,"unit":3,"order":"move","intent":"advance","dx":0.5,"dy":0.5,"formation":"","facing":0,"note":""}
+{"tick":90,"unit":11,"order":"move","intent":"advance","dx":-0.5,"dy":-0.5,"formation":"","facing":0,"note":""}
