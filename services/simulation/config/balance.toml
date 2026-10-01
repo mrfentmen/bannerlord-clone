@@ -736,7 +736,7 @@ log_row_limit = 400000.0       # cause rows retained per run. Range 10000-500000
 #
 # ### THE SIZE KNOBS, AND WHAT EACH ONE IS NOT
 #
-# Nine numbers in this section are about size, and they are easy to confuse with
+# Ten numbers in this section are about size, and they are easy to confuse with
 # one another. The table is the difference.
 #
 # | Key | What it sets | What it is NOT | Hard range | Sane range |
@@ -750,12 +750,20 @@ log_row_limit = 400000.0       # cause rows retained per run. Range 10000-500000
 # | grid_max_cells | cells one spatial index may hold | not a simulation limit; going over coarsens the cell, which is always correct | 4-4000000 | 1024-262144 |
 # | max_report_events | events a report keeps before counting the rest | not a simulation bound; the tick loop never reads it | 1-1000000 | 16-4096 |
 # | roster_leaders_per_unit | units one commander is worth | not a cap on commanders; every force gets at least one | 1-100000 | 50-500 |
+# | roster_front_aspect | how wide a force of n is laid out, against how deep | not a unit count and not a field size; it is a shape, and it is what makes a bigger force wider rather than deeper | 0.1-50 | 1.5-6 |
 #
 # To change the size of the verification battle, change reference_units_per_side
 # and nothing else. To let a real campaign field a bigger force, change
 # max_units_per_side. To move a run onto a smaller machine, change
-# grid_max_cells. Those three do different jobs and were three different numbers
-# for most of this file's life.
+# grid_max_cells. To change the SHAPE a force of a given size arrives in,
+# change roster_front_aspect. Those four do different jobs and were four
+# different numbers, three of them in code, for most of this file's life.
+#
+# What is deliberately NOT in this table, because it is not a size: the
+# scratch-buffer capacities in the engine (128 candidate ids, 64 events) are
+# allocation hints that grow on demand and change no result, and the four-cell
+# floor on grid_max_cells is an arithmetic consequence of the index adding a one
+# cell margin on each axis rather than a choice anybody should make.
 #
 # Every value in the Hard range column is enforced by internal/config at load
 # time, with an error that names the key, so an impossible size is a startup
@@ -823,8 +831,29 @@ max_report_events = 4096
 # This one used to be a literal 250 written independently in two packages, which
 # is the shape of bug section 1.2 exists to prevent: the two copies could drift
 # and a report would show a command structure nobody chose. There is now one
-# function, battle.LeaderCount, and both callers ask it.
+# function, battle.LeaderCount, and both callers ask it. A THIRD copy was found
+# in the verification harness later, carrying a comment that said the copies no
+# longer existed; it asked LeaderCount like the others and the comment became
+# true.
 roster_leaders_per_unit = 250.0
+# How far behind their front line a side's commanders stand, as a fraction of
+# roster_formation_depth. Range 0-1. At a third of the formation's depth a
+# commander is among his men and not in front of them, which is what lets his
+# steadying reach the units fighting rather than the empty ground they are
+# advancing over. It was a literal 0.34 in roster.go.
+roster_leader_depth_fraction = 0.34
+# Half-width of the deliberate jitter along a command line, in multiples of
+# roster_frontage. Range 0-2. A perfectly even line of officers is not a line of
+# officers; zero puts them on a ruler-straight line. It was a literal 0.5 in
+# roster.go.
+roster_leader_jitter_fraction = 0.5
+# Share of the requested influence a generated commander gets at worst, and the
+# share above that they may be given at best. Ranges 0-1 and 0-1. A caller asks
+# for a command's standing and gets a staff of individuals rather than one
+# officer repeated: at the shipped pair the worst commander gets 0.7 of what was
+# asked for and the best 1.3 of it. They were literals 0.7 and 0.6 in roster.go.
+roster_leader_influence_floor = 0.7
+roster_leader_influence_spread = 0.6
 # How far apart commanders are spread along their front line, in multiples of
 # roster_frontage. HARD range 0.01-10000; SANE range 4-40. The spacing exists
 # because battle.morale_leader_steadying takes the STRONGEST leader in range
@@ -867,6 +896,12 @@ roster_speed_skill_weight = 0.9
 # Share of a generated force that is ranged-capable. Range 0-1.0. The rest are
 # melee troops. A modern mixed force sits around 0.25.
 roster_ranged_share = 0.25
+# How much of a caller's Roster.MoraleBias moves a generated unit's morale, on
+# the 0-1 morale scale. Range 0-1. The bias itself is a relative shift, so this
+# is the scale that turns a hungry, unpaid army arriving with worse morale into
+# a number of points rather than a label. A bias of 1 is this much morale; 0
+# ignores the bias entirely. It was a literal 0.25 in roster.go.
+roster_morale_bias_scale = 0.25
 # Mean and spread of generated melee skill on a 0-1 scale. Ranges 0-1 and
 # 0.01-0.5. A real force is not homogeneous, and a spread of zero would make
 # troop quality a constant rather than a decision.
@@ -896,6 +931,19 @@ roster_start_distance = 900.0
 # 1-200. Sets how deep the crowd is, and so how many units a ranged volley
 # passes through.
 roster_formation_depth = 4.0
+# How wide a force is laid out against how deep it is: a side of n units is put
+# in a block with roughly this many columns for every row. Range 0.1-50, SANE
+# 1.5-6. A force of n gets n/frontAspect columns and n/that rows, so this is
+# the shape of a force at ANY size rather than a size itself: raising it makes
+# every force wider and shallower, lowering it makes it deeper.
+#
+# It was a literal 3 in battle.go, and it is on this table rather than buried
+# with the unit-generation constants because it is the one layout number that
+# changes what a battle MEANS as the size knob is turned: at 3 a hundred a side
+# arrives as a 44 m line and five hundred a side as a 100 m one, and how many
+# enemies can reach a unit at once is how wide that is. It changes no array
+# size and no limit, so nothing in the engine has to know the force is larger.
+roster_front_aspect = 3.0
 
 # --- MELEE -----------------------------------------------------------------
 # Reach of a melee swing, in metres. Range 0.5-20. Also the smallest engagement
@@ -904,6 +952,13 @@ melee_range = 2.6
 # Seconds between one unit's swings. Range 0.05-10. A swing is one attack
 # opportunity, not one animation; the client may animate it over more time.
 melee_swing_seconds = 1.1
+# Share of its own skill a shooter brings to a swing. Range 0-1. COMBAT.md
+# section 4 keeps melee in the game for close quarters, so a unit that has run
+# out of ammunition fights with the butt of the weapon: a real and much weaker
+# attack, not a refusal. It is expressed as a skill term so it needs no branch
+# of its own in the hot loop. At 0 a shooter's swing is a formality and at 1 it
+# is as good as a trooper's. It was a literal 0.35 in melee.go.
+melee_ranged_skill_scale = 0.35
 # Mean damage of a connecting melee blow, before skill, armour, and momentum.
 # Range 1-500. Expressed as hit points, matching roster_hp_base.
 melee_damage_base = 22.0
@@ -943,6 +998,22 @@ ranged_range = 240.0
 ranged_min_range = 12.0
 # Seconds between one unit's shots. Range 0.05-10.
 ranged_fire_interval = 1.4
+# Chance a shot connects, at zero ranged skill, and the share of a point of
+# ranged skill added to it. Ranges 0-1 each. At the shipped pair an unskilled
+# shooter connects one time in four and a perfect one seven times in ten, which
+# leaves room for every other term to matter without skill being the whole
+# answer. Both were literals 0.25 and 0.45 in aimedfire.go, so the hit chance of
+# the game's only shooting model was the one number in this section that no
+# balance pass could reach.
+ranged_hit_chance_base = 0.25
+ranged_hit_chance_skill_weight = 0.45
+# Worst share of the hit chance a shooter keeps when its effectiveness is zero,
+# that is when it is broken or routed. Range 0-1. A shaken man shoots badly
+# without being under fire at all, which is why status scales his aim as well as
+# his damage, but "badly" is not "cannot shoot": at 0.5 a routed shooter is half
+# as dangerous as a steady one, at 0 he is harmless and routing would be free.
+# It was the literal 0.5 in aimedfire.go.
+ranged_hit_effectiveness_floor = 0.5
 # Mean damage of one connecting shot. Range 1-500.
 ranged_damage_base = 17.0
 # Damage per point of attacker ranged skill. Range 0-200.
@@ -1003,6 +1074,12 @@ morale_ratio_weight = 9.0
 # Morale gained per tick by a healthy, unopposed, supplied unit. Range 0-5.
 # Under fire nobody recovers, which is why this only counts at low suppression.
 morale_recovery = 0.28
+# Share of full suppression below which a unit counts as out of contact for the
+# purpose of recovering morale. Range 0-1. Below this band a unit that is also
+# unopposed and uncommitted creeps back toward steady. At what point a man under
+# fire has his head down is a matter of what "under fire" means rather than a
+# rate, but it is still a number and it was the literal 0.05 in morale.go.
+morale_recovery_suppression_band = 0.05
 # Morale lost per tick by a unit that is out of ammunition and cannot fight
 # back. Range 0-10.
 morale_unarmed_hit = 0.45

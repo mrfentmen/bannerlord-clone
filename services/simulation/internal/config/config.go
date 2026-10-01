@@ -1535,6 +1535,10 @@ type Battle struct {
 	// RosterRangedShare is the share of a generated force that carries a
 	// ranged weapon. The rest are melee troops.
 	RosterRangedShare float64
+	// RosterMoraleBiasScale turns Roster.MoraleBias into morale points, so a
+	// caller can send a worse army than the file describes without editing
+	// the file.
+	RosterMoraleBiasScale float64
 	// RosterMeleeSkillMean and RosterMeleeSkillSpread set generated melee
 	// skill on a 0-1 scale. The spread is what stops troop quality from being
 	// a constant.
@@ -1563,6 +1567,11 @@ type Battle struct {
 	// which sets how deep the crowd is and how many units a volley passes
 	// through.
 	RosterFormationDepth float64
+	// RosterFrontAspect is how wide a force is laid out against how deep:
+	// a side of n units gets about sqrt(n*aspect) columns. It is the shape of
+	// a force at any size rather than a size itself, and it is what decides
+	// how many enemies can reach a unit at once.
+	RosterFrontAspect float64
 	// RosterLeadersPerUnit is how many units one commander is worth when a
 	// generated force is given a command structure: a side of n units gets
 	// 1 + n/RosterLeadersPerUnit commanders.
@@ -1572,6 +1581,21 @@ type Battle struct {
 	// term takes the strongest leader in range, not the sum, so commanders must
 	// be spread rather than stacked.
 	RosterLeaderSpread float64
+	// RosterLeaderDepthFraction is how far behind the front line commanders
+	// stand, as a share of RosterFormationDepth, so a commander is among the
+	// men he steadies rather than in front of them.
+	RosterLeaderDepthFraction float64
+	// RosterLeaderJitterFraction is the half-width of the deliberate scatter
+	// along a command line, in multiples of RosterFrontage. Zero gives a
+	// ruler-straight line of officers.
+	RosterLeaderJitterFraction float64
+	// RosterLeaderInfluenceFloor and RosterLeaderInfluenceSpread give a
+	// generated command a range of standings rather than one officer
+	// repeated: the least is the floor, the most is floor plus spread, and
+	// both are shares of the influence the caller asked for, so the best of a
+	// staff may be more standing than the request asked for.
+	RosterLeaderInfluenceFloor  float64
+	RosterLeaderInfluenceSpread float64
 
 	// --- melee ---
 	// MeleeRange is the reach of a swing in metres, and the smallest
@@ -1580,6 +1604,9 @@ type Battle struct {
 	// MeleeSwingSeconds is the seconds between one unit's swings: one attack
 	// opportunity, not one animation.
 	MeleeSwingSeconds float64
+	// MeleeRangedSkillScale is the share of its own skill a shooter brings to
+	// a swing, so a unit out of ammunition fights with the butt of the weapon.
+	MeleeRangedSkillScale float64
 	// MeleeDamageBase is the mean damage of a connecting blow before skill,
 	// armour, and momentum, in hit points.
 	MeleeDamageBase float64
@@ -1613,6 +1640,15 @@ type Battle struct {
 	RangedMinRange float64
 	// RangedFireInterval is the seconds between one unit's shots.
 	RangedFireInterval float64
+	// RangedHitChanceBase is the chance a shot connects at zero ranged skill,
+	// and RangedHitChanceSkillWeight is the share of a point of skill added to
+	// it. Together they are the whole skill term of the shooting model.
+	RangedHitChanceBase       float64
+	RangedHitChanceSkillWeight float64
+	// RangedHitEffectivenessFloor is the worst share of the hit chance a
+	// shooter keeps when its effectiveness is zero, that is when it is broken
+	// or routed: worse, but not harmless.
+	RangedHitEffectivenessFloor float64
 	// RangedDamageBase is the mean damage of one connecting shot.
 	RangedDamageBase float64
 	// RangedDamageSkillWeight is the damage per point of attacker ranged skill.
@@ -1670,6 +1706,10 @@ type Battle struct {
 	// MoraleRecovery is the morale gained per tick by a healthy, unopposed,
 	// supplied unit. Under fire nobody recovers.
 	MoraleRecovery float64
+	// MoraleRecoverySuppressionBand is the share of full suppression below
+	// which a unit counts as out of contact for the purpose of recovering
+	// morale: at what point a man under fire has his head down.
+	MoraleRecoverySuppressionBand float64
 	// MoraleUnarmedHit is the morale lost per tick by a unit that is out of
 	// ammunition and cannot fight back.
 	MoraleUnarmedHit float64

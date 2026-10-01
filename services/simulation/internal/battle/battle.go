@@ -389,14 +389,25 @@ func newBattle(cfg *config.Config, seed uint64, setup Setup) (*Battle, error) {
 //
 // dir is -1 for side A, which advances toward positive x, and +1 for side B.
 // Rows lie back from the front line, so row r sits r*depth behind it, and
-// columns spread across the frontage. The block's width comes from the count:
-// for n units the frontage is chosen so the block is about three times wider
-// than it is deep, because that is what a line looks like and because a wide
-// formation finds more targets per volley while a deep one concentrates fire.
+// columns spread across the frontage. The block's width comes from the count and
+// from battle.roster_front_aspect: for n units the block is laid out about that
+// many times wider than it is deep, because that is what a line looks like and
+// because a wide formation finds more targets per volley while a deep one
+// concentrates fire.
+//
+// The aspect is a config value and was a literal 3 in this file. It is on the
+// size table in balance.toml rather than among the unit-generation constants
+// because it is the one layout number that changes what a battle means as the
+// size knob is turned: at 3 a hundred a side arrives as a 44 m line and five
+// hundred a side as a 100 m one, and how many enemies can reach a unit at once
+// is how wide that is. Its effects are all balance and all of them are in the
+// balance file; the only reason it was in code is that somebody thought a shape
+// was not a number.
 //
 // The jitter comes from a named substream, so laying out a force does not
 // disturb any other draw and the same seed always lays out the same block.
 func (b *Battle) layout(side Side, dir float64) {
+	c := b.c
 	mine := make([]*Unit, 0, len(b.units))
 	for _, u := range b.units {
 		if u.Side == side {
@@ -407,16 +418,16 @@ func (b *Battle) layout(side Side, dir float64) {
 	if n == 0 {
 		return
 	}
-	cols := int(sqrtApprox(float64(n) * frontAspect))
+	cols := int(sqrtApprox(float64(n) * c.RosterFrontAspect))
 	if cols < 1 {
 		cols = 1
 	}
 	if cols > n {
 		cols = n
 	}
-	halfFront := float64(cols) * b.c.RosterFrontage / 2
-	depth := b.c.RosterFormationDepth
-	startX := b.c.RosterStartDistance / 2
+	halfFront := float64(cols) * c.RosterFrontage / 2
+	depth := c.RosterFormationDepth
+	startX := c.RosterStartDistance / 2
 
 	lay := b.rng.Derive("layout-" + side.String())
 	for i, u := range mine {
@@ -432,13 +443,11 @@ func (b *Battle) layout(side Side, dir float64) {
 	}
 }
 
-// frontAspect is the frontage-to-depth ratio a starting formation is laid out
-// to: three units wide for every one deep. It is a layout choice about how a
-// force arrives on the field, not a rule about fighting, so it is a named
-// constant in this file rather than a balance knob. The consequences of the
-// shape are all balance, and all of them are in balance.toml: how many men a
-// volley reaches, how many can reach one defender, and how wide a flank is.
-const frontAspect = 3
+// frontAspect is gone. It was a literal 3 in this file and it is now
+// battle.roster_front_aspect in the balance file, because CONSTITUTION.md
+// section 1.2 has no exceptions and because a shape is as much a balance
+// decision as a rate. The reasoning it carried is kept on the layout function
+// above, which is where it is used.
 
 // validateConstants rejects a balance file whose battle constants cannot
 // produce a coherent fight. config.validate checks many of these at load;
@@ -466,6 +475,17 @@ func validateConstants(c *config.Battle) error {
 		{"max_attackers_per_target", c.MaxAttackersPerTarget, 0, 1000000, "the concentration limit must be a count"},
 		{"surrender_strength_fraction", c.SurrenderStrengthFraction, 0, 1, "a surrender threshold outside 0-1 is not a fraction"},
 		{"rout_strength_fraction", c.RoutStrengthFraction, 0, 1, "a rout threshold outside 0-1 is not a fraction"},
+		{"roster_front_aspect", c.RosterFrontAspect, 0.1, 50, "a force laid out at or below this width is a column, and every size assumption downstream becomes a special case"},
+		{"roster_leader_depth_fraction", c.RosterLeaderDepthFraction, 0, 1, "a commander stands behind his front line by a share of its depth"},
+		{"roster_leader_jitter_fraction", c.RosterLeaderJitterFraction, 0, 2, "a command line's scatter is a share of a frontage"},
+		{"roster_leader_influence_floor", c.RosterLeaderInfluenceFloor, 0, 1, "a commander's influence is a share of what was asked for"},
+		{"roster_leader_influence_spread", c.RosterLeaderInfluenceSpread, 0, 1, "the spread of a command's influence is a share of what was asked for"},
+		{"roster_morale_bias_scale", c.RosterMoraleBiasScale, 0, 1, "a morale bias is a share of the 0-1 morale scale"},
+		{"melee_ranged_skill_scale", c.MeleeRangedSkillScale, 0, 1, "a shooter's share of its own skill at a swing is a share, not a multiplier"},
+		{"ranged_hit_chance_base", c.RangedHitChanceBase, 0, 1, "a chance outside 0-1 is not a chance"},
+		{"ranged_hit_chance_skill_weight", c.RangedHitChanceSkillWeight, 0, 1, "skill adds a share of a chance"},
+		{"ranged_hit_effectiveness_floor", c.RangedHitEffectivenessFloor, 0, 1, "the share of a hit chance a shaken shooter keeps is a share"},
+		{"morale_recovery_suppression_band", c.MoraleRecoverySuppressionBand, 0, 1, "the suppression band at which a man gets his head up is a share of full suppression"},
 	}
 	for _, ck := range checks {
 		if ck.value < ck.lo || ck.value > ck.hi {
