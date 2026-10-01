@@ -77,6 +77,45 @@ export interface RosterOptions {
 type RankFilter = RulerState["tier"] | "all";
 type StandingFilter = "all" | "friendly" | "neutral" | "hostile";
 
+/**
+ * How the roster is drawn when there are eight hundred of them.
+ *
+ * `RULERS.md` section 9 asks for a roster of every ruler on the record, and section 2
+ * says the world holds three hundred to eight hundred names. A DOM node per name is not
+ * a roster at that size: it is a scrollbar that stutters, because each scroll tick
+ * relayouts every card that has ever been built. So the list is windowed. The spacer is
+ * the full height of the filtered set, so the scrollbar is honest about how much there
+ * is, and only the rows actually on screen — plus a few either side, so a fast flick
+ * never shows bare paper — are ever in the document.
+ *
+ * **The assumption is a fixed row height.** A roster card is one line of name and
+ * renown, one caption line, and a status chip beside a holding: 22 + 16 + 20 of type,
+ * plus two 4px gaps and 8px of padding inside the card, which is 82px of card. On the
+ * 4px grid `ROSTER_ROW_HEIGHT_PX` rounds that up to 88, so a card is never clipped even
+ * if a face metric lands a pixel differently. `ROSTER_ROW_PITCH_PX` adds the `--space-2`
+ * gap that `.rulers` puts between cards, and that pitch is what every piece of the
+ * windowing arithmetic uses. A card that grew a fourth line would move these two
+ * constants and nothing else — which is why they are named, exported and asserted on
+ * rather than scattered through the maths.
+ *
+ * Paging is the fallback, not a second list. `ROSTER_PAGE_SIZE` rows at a time, driven
+ * by real buttons, for a player who would rather jump than sweep, or who is on a
+ * keyboard and cannot scroll the list at all. It drives the same window, so the two can
+ * never disagree about what is on screen.
+ */
+export const ROSTER_ROW_HEIGHT_PX = 88;
+const ROSTER_ROW_GAP_PX = 8;
+export const ROSTER_ROW_PITCH_PX = ROSTER_ROW_HEIGHT_PX + ROSTER_ROW_GAP_PX;
+export const ROSTER_PAGE_SIZE = 50;
+/** Rows kept above and below the screen, so a fast flick does not show bare paper. */
+const ROSTER_OVERSCAN_ROWS = 3;
+/**
+ * The height of the scroll window, and the height assumed when there is no layout to
+ * measure — which is every DOM without a layout engine, jsdom included. Six rows of
+ * pitch, so the fallback is a whole number of cards rather than a partial one.
+ */
+const ROSTER_VIEWPORT_PX = ROSTER_ROW_PITCH_PX * 6;
+
 export function rulerRoster(options: RosterOptions): HTMLElement {
   if (options.loading) return rosterSkeleton();
 
@@ -160,30 +199,246 @@ export function rulerRoster(options: RosterOptions): HTMLElement {
     return true;
   }
 
+  // -- the windowed list ----------------------------------------------------
+  //
+  // Three pieces of state carry the whole thing: what the filters kept, which slice of
+  // it is on screen, and where keyboard focus is. Everything else is derived from those,
+  // so the pager and the scrollbar cannot end up telling different stories.
+
+  /** Every ruler the current filters kept, in roster order. */
+  let filtered: RulerState[] = [];
+  /** Row pitch in px. The one place the fixed-height assumption is spent. */
+  const rowPitch = ROSTER_ROW_PITCH_PX;
+  /** The slice last painted, as a cheap "has anything changed" key. */
+  let paintedKey = "";
+  /** The row the keyboard is on, or null when the list itself holds focus. */
+  let focusIndex: number | null = null;
+  /** A scroll event that has not been turned into a repaint yet. */
+  let pendingFrame = 0;
+
+  /** The height of the scroll window, with the laid-out height preferred. */
+  function viewHeight(): number {
+    const measured = list.clientHeight;
+    return measured > 0 ? measured : ROSTER_VIEWPORT_PX;
+  }
+
+  /**
+   * The rows to paint, in roster indices.
+   *
+   * The screen rows come first, then `ROSTER_OVERSCAN_ROWS` either side, so a flick
+   * lands on paper rather than on a gap. The visible span is measured rather than
+   * counted, which is what lets the same code run in a browser and in a DOM with no
+   * layout engine at all.
+   */
+  function windowRange(): { first: number; last: number } {
+    const total = filtered.length;
+    const view = viewHeight();
+    const top = Math.max(0, list.scrollTop);
+    const first = Math.max(0, Math.floor(top / rowPitch) - ROSTER_OVERSCAN_ROWS);
+    const last = Math.min(total, Math.ceil((top + view) / rowPitch) + ROSTER_OVERSCAN_ROWS);
+    return { first, last: Math.max(first, last) };
+  }
+
+  function pageCount(): number {
+    return Math.max(1, Math.ceil(filtered.length / ROSTER_PAGE_SIZE));
+  }
+
+  /**
+   * Which page the list is on.
+   *
+   * Derived from the scroll offset rather than stored, so scrolling by hand and paging
+   * by button land in the same place. The bottom of the list is the last page even when
+   * the offset maths says otherwise, which is the case where the final page is shorter
+   * than the window and the browser refuses to scroll any further.
+   */
+  function currentPage(): number {
+    const pages = pageCount();
+    if (pages <= 1) return 1;
+    const floorTop = Math.max(0, filtered.length * rowPitch - viewHeight());
+    if (list.scrollTop >= floorTop - 1) return pages;
+    return Math.min(pages, Math.floor(Math.max(0, list.scrollTop) / (ROSTER_PAGE_SIZE * rowPitch)) + 1);
+  }
+
+  function syncPager(): void {
+    const pages = pageCount();
+    const page = currentPage();
+    pageLabel.textContent = `${page} of ${pages}`;
+    prevPage.disabled = page <= 1;
+    nextPage.disabled = page >= pages;
+  }
+
+  /**
+   * Move the window, then repaint.
+   *
+   * The repaint is forced rather than left to the scroll event, because a page turn is
+   * a deliberate act and must not wait for the browser to get round to telling us we
+   * scrolled.
+   */
+  function goToPage(page: number): void {
+    const clamped = Math.min(Math.max(1, page), pageCount());
+    list.scrollTop = (clamped - 1) * ROSTER_PAGE_SIZE * rowPitch;
+    paintWindow(true);
+    syncPager();
+  }
+
+  /**
+   * Paint the rows on screen.
+   *
+   * Skipped entirely when the window has not moved, which is most scroll events: the
+   * cost of a flick through eight hundred rulers is one repaint per row of travel, not
+   * one per event. When it does run it rebuilds a dozen nodes, never the whole roster.
+   */
+  function paintWindow(force = false): void {
+    const total = filtered.length;
+    const { first, last } = windowRange();
+    const key = `${first}:${last}:${total}:${options.selectedId}`;
+    if (!force && key === paintedKey) return;
+    paintedKey = key;
+
+    sizer.style.height = `${total * rowPitch}px`;
+
+    // Focus is restored rather than left to the browser, because the node that had it
+    // is about to be replaced. `list.contains` has to be asked before the clear.
+    const hadFocus = list.contains(document.activeElement);
+    clear(sizer);
+    for (let index = first; index < last; index += 1) {
+      const ruler = filtered[index];
+      if (ruler) sizer.appendChild(rosterRow(ruler, index, total));
+    }
+    if (hadFocus) {
+      const row =
+        focusIndex === null ? null : sizer.querySelector<HTMLElement>(`[data-roster-index='${focusIndex}'] .ruler`);
+      (row ?? list).focus({ preventScroll: true });
+    }
+  }
+
+  function onScroll(): void {
+    if (pendingFrame) return;
+    pendingFrame = requestAnimationFrame(() => {
+      pendingFrame = 0;
+      paintWindow();
+      syncPager();
+    });
+  }
+
+  /** The roster index the keyboard is on, or -1 when focus has not entered a row. */
+  function activeIndex(): number {
+    const active = document.activeElement;
+    if (active instanceof Element) {
+      const row = active.closest("[data-roster-index]");
+      const raw = row?.getAttribute("data-roster-index");
+      if (raw !== null && raw !== undefined) {
+        const parsed = Number(raw);
+        if (Number.isInteger(parsed)) return parsed;
+      }
+    }
+    return -1;
+  }
+
+  /** Scroll a row into the window, and put the keyboard on it. */
+  function focusRow(index: number, align: "nearest" | "top" = "nearest"): void {
+    const total = filtered.length;
+    if (total === 0) return;
+    const clamped = Math.min(Math.max(0, index), total - 1);
+    const view = viewHeight();
+    const top = clamped * rowPitch;
+    if (align === "top") list.scrollTop = top;
+    else if (top < list.scrollTop) list.scrollTop = top;
+    else if (top + ROSTER_ROW_HEIGHT_PX > list.scrollTop + view) {
+      list.scrollTop = top + ROSTER_ROW_HEIGHT_PX - view;
+    }
+    focusIndex = clamped;
+    // Repaint only when the row is not already in the document. Rebuilding on every
+    // arrow press would throw away and remake a dozen cards per keystroke, and with them
+    // the very node the keyboard is sitting on. Asking the document rather than the
+    // window maths is what makes this correct: the maths describes where the window
+    // *would* be after the scroll above, and the document describes where the cards
+    // *are*.
+    const row = () => sizer.querySelector<HTMLElement>(`[data-roster-index='${clamped}'] .ruler`);
+    if (!row()) paintWindow(true);
+    row()?.focus({ preventScroll: true });
+    syncPager();
+  }
+
+  /**
+   * The keyboard, for a list the Tab key cannot walk.
+   *
+   * Only the rows on screen are focusable, because only the rows on screen exist. So
+   * the arrows, Home, End and Page Up/Down are what actually move through eight hundred
+   * rulers. Page Up/Down and Home/End put the row they land on at the top of the window
+   * rather than nudging it into view, because that is what makes the pager's page number
+   * agree with where the keyboard is: a row that lands at the bottom edge is on the page
+   * above it, and saying so would be a small lie.
+   */
+  function onKeyDown(event: KeyboardEvent): void {
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+    const total = filtered.length;
+    if (total === 0) return;
+    const from = activeIndex();
+    let target: number;
+    let align: "nearest" | "top" = "nearest";
+    switch (event.key) {
+      case "ArrowDown":
+        target = from + 1;
+        break;
+      case "ArrowUp":
+        target = from - 1;
+        break;
+      case "Home":
+        target = 0;
+        align = "top";
+        break;
+      case "End":
+        target = total - 1;
+        align = "top";
+        break;
+      case "PageDown":
+        target = from + ROSTER_PAGE_SIZE;
+        align = "top";
+        break;
+      case "PageUp":
+        target = from - ROSTER_PAGE_SIZE;
+        align = "top";
+        break;
+      default:
+        return;
+    }
+    event.preventDefault();
+    focusRow(target, align);
+  }
+
+  function clearFilters(): void {
+    sideFilter = "all";
+    rankFilter = "all";
+    standingFilter = "all";
+    search = "";
+    sideSelect.value = "all";
+    rankSelect.value = "all";
+    relSelect.value = "all";
+    searchField.value = "";
+    render();
+  }
+
+  function showEmpty(headline: string, detail: string, action?: HTMLElement): void {
+    clear(empty);
+    empty.appendChild(emptyState(headline, detail, action));
+    setShown(empty, true, "block");
+    setShown(list, false, "block");
+    setShown(pager, false, "flex");
+  }
+
   function render(): void {
-    clear(body);
-    const filters = h("div", { class: "field-row roster__filters" });
-    filters.append(
-      field("Side", "roster-side", sideSelect),
-      field("Rank", "roster-rank", rankSelect),
-      field("Standing", "roster-relation", relSelect),
-      h(
-        "div",
-        { class: "field roster__search" },
-        h("label", { class: "field__label label", for: "roster-search" }, "Find"),
-        searchField,
-      ),
-    );
-    body.appendChild(filters);
+    const total = options.rulers.length;
+    filtered = options.rulers.filter(matches);
 
-    const filtered = options.rulers.filter(matches);
-
-    if (options.rulers.length === 0) {
-      body.appendChild(
-        emptyState(
-          "No rulers on the record.",
-          "The simulation has not written anyone yet. Start the clock, or take the snapshot again.",
-        ),
+    // The chrome is built once and never torn down. Rebuilding it would mean detaching
+    // the search field the player is typing into on every keystroke, which throws the
+    // caret away — the one bug a filter box cannot have.
+    if (total === 0) {
+      countLine.textContent = "";
+      showEmpty(
+        "No rulers on the record.",
+        "The simulation has not written anyone yet. Start the clock, or take the snapshot again.",
       );
       return;
     }
@@ -191,41 +446,167 @@ export function rulerRoster(options: RosterOptions): HTMLElement {
     // The count is stated whether or not anything was filtered out, so a filter that
     // silently hides the whole world is visible as such. The figures lead, because the
     // count is the number being read and the noun is the noise around it.
-    body.appendChild(
-      h(
-        "p",
-        { class: "caption roster__count", "data-testid": "roster-count", role: "status" },
-        filtered.length === options.rulers.length
-          ? `${options.rulers.length} on the record.`
-          : `${filtered.length} of ${options.rulers.length} on the record match these filters.`,
-      ),
-    );
+    countLine.textContent =
+      filtered.length === total
+        ? `${total} on the record.`
+        : `${filtered.length} of ${total} on the record match these filters.`;
 
     if (filtered.length === 0) {
-      body.appendChild(
-        emptyState(
-          "No rulers match those filters.",
-          "Widen the side, the rank or the standing filter to see more of the world.",
-          h("button", { type: "button", class: "btn", "data-testid": "roster-clear" }, "Clear the filters"),
-        ),
+      showEmpty(
+        "No rulers match those filters.",
+        "Widen the side, the rank or the standing filter to see more of the world.",
+        h("button", { type: "button", class: "btn", "data-testid": "roster-clear" }, "Clear the filters"),
       );
-      body.querySelector<HTMLButtonElement>("[data-testid='roster-clear']")?.addEventListener("click", () => {
-        sideFilter = "all";
-        rankFilter = "all";
-        standingFilter = "all";
-        search = "";
-        sideSelect.value = "all";
-        rankSelect.value = "all";
-        relSelect.value = "all";
-        searchField.value = "";
-        render();
-      });
+      empty.querySelector<HTMLButtonElement>("[data-testid='roster-clear']")?.addEventListener("click", clearFilters);
       return;
     }
 
-    const list = h("div", { class: "rulers", "data-testid": "ruler-list" });
-    for (const ruler of filtered) list.appendChild(rosterCard(ruler));
-    body.appendChild(list);
+    clear(empty);
+    setShown(empty, false, "block");
+    setShown(list, true, "block");
+    setShown(pager, true, "flex");
+    list.scrollTop = 0;
+    focusIndex = null;
+    paintedKey = "";
+    paintWindow(true);
+    syncPager();
+  }
+
+  // -- the chrome ------------------------------------------------------------
+  //
+  // Built once, before the first render, because `render` only ever changes what is in
+  // them.
+
+  /**
+   * Show or hide a region, saying so in the accessibility tree as well as on screen.
+   *
+   * `hidden` alone is not enough, because a class that sets `display` beats the user
+   * agent's rule for `[hidden]` and the region would stay on screen while announcing
+   * itself as gone. So the attribute carries the semantics and the inline `display`
+   * carries the layout, and both are written here rather than left to cascade order.
+   */
+  function setShown(node: HTMLElement, shown: boolean, display: string): void {
+    node.hidden = !shown;
+    node.style.display = shown ? display : "none";
+  }
+
+  const filters = h("div", { class: "field-row roster__filters" });
+  filters.append(
+    field("Side", "roster-side", sideSelect),
+    field("Rank", "roster-rank", rankSelect),
+    field("Standing", "roster-relation", relSelect),
+    h(
+      "div",
+      { class: "field roster__search" },
+      h("label", { class: "field__label label", for: "roster-search" }, "Find"),
+      searchField,
+    ),
+  );
+
+  const countLine = h("p", { class: "caption roster__count", "data-testid": "roster-count", role: "status" });
+
+  const pageLabel = h("span", { class: "data roster__page", "data-testid": "roster-page" }, "1 of 1");
+  const prevPage = h(
+    "button",
+    {
+      type: "button",
+      class: "btn",
+      "data-testid": "roster-page-prev",
+      "aria-label": "Previous page of rulers",
+    },
+    "Previous page",
+  );
+  const nextPage = h(
+    "button",
+    {
+      type: "button",
+      class: "btn",
+      "data-testid": "roster-page-next",
+      "aria-label": "Next page of rulers",
+    },
+    "Next page",
+  );
+  prevPage.addEventListener("click", () => goToPage(currentPage() - 1));
+  nextPage.addEventListener("click", () => goToPage(currentPage() + 1));
+
+  // The pager sits under the window rather than over it, on a hairline rule like every
+  // other section break in the client. The figures are `data`, so they are mono with
+  // tabular figures and the readout does not change width as the count changes — which
+  // is the whole reason ART_DIRECTION.md section 3.1 has a numeral face at all. The
+  // spacing is `space-2`/`space-3` and nothing else; no value here is invented.
+  const pager = h(
+    "nav",
+    {
+      class: "roster__pager",
+      "data-testid": "roster-pager",
+      "aria-label": "Roster pages",
+      style: [
+        "display:flex",
+        "align-items:center",
+        "justify-content:space-between",
+        "gap:var(--space-2)",
+        `margin-top:var(--space-2)`,
+        `padding-top:var(--space-2)`,
+        "border-top:1px solid var(--paper-300)",
+      ].join(";"),
+    },
+    prevPage,
+    h("p", { class: "caption roster__page-line", style: "margin:0" }, "Page ", pageLabel),
+    nextPage,
+  );
+
+  // The scroll window. `max-height` is the one number here, and it is the same one the
+  // windowing maths falls back to when there is no layout to measure, so the two can
+  // never disagree about how many rows are on screen.
+  const sizer = h("div", {
+    class: "ruler-roster__sizer",
+    role: "presentation",
+    style: "position:relative;width:100%",
+  });
+  const list = h(
+    "div",
+    {
+      class: "rulers ruler-roster__window",
+      "data-testid": "ruler-list",
+      role: "list",
+      "aria-label": "Rulers on the record",
+      tabindex: "0",
+      style: [
+        "display:block",
+        "position:relative",
+        "overflow-y:auto",
+        "overscroll-behavior:contain",
+        `max-height:${ROSTER_VIEWPORT_PX}px`,
+      ].join(";"),
+    },
+    sizer,
+  );
+  list.addEventListener("scroll", onScroll, { passive: true });
+  list.addEventListener("keydown", onKeyDown);
+  list.addEventListener("focusin", (event) => {
+    const target = event.target;
+    const row = target instanceof Element ? target.closest("[data-roster-index]") : null;
+    const raw = row?.getAttribute("data-roster-index");
+    focusIndex = raw === null || raw === undefined ? null : Number(raw);
+  });
+
+  const empty = h("div", { class: "roster__empty", hidden: true, style: "display:none" });
+
+  body.append(filters, countLine, list, pager, empty);
+
+  function rosterRow(ruler: RulerState, index: number, total: number): HTMLElement {
+    const row = h("div", {
+      class: "ruler-roster__row",
+      role: "listitem",
+      // A windowed list is still a list of everything, and these are what say so to a
+      // screen reader: eight hundred rows exist even though a dozen are in the document.
+      "aria-setsize": String(total),
+      "aria-posinset": String(index + 1),
+      "data-roster-index": String(index),
+      style: `position:absolute;top:${index * rowPitch}px;left:0;right:0;height:${ROSTER_ROW_HEIGHT_PX}px`,
+    });
+    row.appendChild(rosterCard(ruler));
+    return row;
   }
 
   function rosterCard(ruler: RulerState): HTMLElement {
@@ -240,6 +621,7 @@ export function rulerRoster(options: RosterOptions): HTMLElement {
         // The whole card is the control, so the name is its accessible name and the
         // supporting facts ride along as the value.
         "aria-label": `${ruler.name}, ${TIER_LABEL[ruler.tier]} of the ${ruler.factionName}, ${standingText(ruler.relationToPlayer)}`,
+        style: `height:${ROSTER_ROW_HEIGHT_PX}px`,
       },
       h(
         "span",

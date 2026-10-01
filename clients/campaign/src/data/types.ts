@@ -432,3 +432,178 @@ export interface ConnectionStatus {
   detail: string;
   attempt: number;
 }
+
+// =============================================================================
+// ENTITY REFERENCES
+//
+// The known limitation this replaces: a ledger line's `causedBy` is a cause-log id,
+// which names a *write* rather than a thing in the world, so the ledger could only
+// print it as text. An `EntityRef` names the thing itself, so a line can be a link.
+//
+// The id format, one per kind, and stable across days and across restarts because it
+// is derived from the entity's own world id and never from its position, its array
+// index or its name:
+//
+//   settlement  stl:<slug>    stl:golden          stl:idaho-springs
+//   ruler       rlr:<slug>    rlr:ruler-3
+//   party       pty:<slug>    pty:party-player
+//   route       rte:<from>-><to>   rte:golden->longmont
+//
+// A slug is lowercase alphanumerics in dash-separated words (`[a-z0-9]+(-[a-z0-9]+)*`),
+// which is what the imported world data already uses for settlement ids. A route is two
+// slugs joined by `->`, because a dash cannot be the join: `idaho-springs` would
+// otherwise be unreadable as a pair. Every prefix is exactly three characters, so a
+// serialised id is greppable and readable in a log without a parser.
+//
+// The codec that reads and writes these ids lives with the ledger panel for now. It is
+// the only module permitted to hold it, and it is pure, so moving it to
+// `src/data/entity-ref.ts` is a file move and not a rewrite.
+// =============================================================================
+
+/** The four kinds of thing a ledger entry can point at. */
+export type EntityKind = "settlement" | "ruler" | "party" | "route";
+
+/** The three-character prefix that opens a serialised entity id, per kind. */
+export type EntityRefPrefix = "stl" | "rlr" | "pty" | "rte";
+
+/**
+ * A typed pointer at one thing in the world.
+ *
+ * `kind` and `id` are separate fields so a caller cannot build a settlement reference
+ * out of a ruler's id by typing it in the wrong place: the pair is the reference, and
+ * the prefix only appears when the id is serialised.
+ */
+export interface EntityRef {
+  readonly kind: EntityKind;
+  readonly id: string;
+}
+
+/** A ledger line that names the entities it belongs to. */
+export interface ReferencedLedgerLine extends LedgerLine {
+  /**
+   * The entities this line accounts for, in the order the simulation wrote them.
+   *
+   * Optional on purpose: `LedgerLine` is the contract as it stands today, and a line
+   * with nothing to point at is a line that still has to render.
+   */
+  readonly refs?: readonly EntityRef[];
+}
+
+/**
+ * The ledger, when its lines carry entity references.
+ *
+ * Every plain `Ledger` satisfies this, because `refs` is optional — which is what lets
+ * the panel take the richer type without the simulation having to be rewritten first.
+ */
+export interface ReferencedLedger extends Omit<Ledger, "income" | "expenses"> {
+  readonly income: readonly ReferencedLedgerLine[];
+  readonly expenses: readonly ReferencedLedgerLine[];
+}
+
+/**
+ * Display names for entity references, keyed by the serialised id (`stl:golden`).
+ *
+ * A name that is missing from this index is a stale reference, not an error: the
+ * simulation has retired the entity and the ledger still names it.
+ */
+export type EntityNameIndex = Readonly<Record<string, string>>;
+
+// -- the codec -----------------------------------------------------------------
+
+/** The prefix each kind opens its serialised id with. */
+export const ENTITY_REF_PREFIX: Readonly<Record<EntityKind, EntityRefPrefix>> = {
+  settlement: "stl",
+  ruler: "rlr",
+  party: "pty",
+  route: "rte",
+};
+
+const KIND_BY_PREFIX: Readonly<Record<EntityRefPrefix, EntityKind>> = {
+  stl: "settlement",
+  rlr: "ruler",
+  pty: "party",
+  rte: "route",
+};
+
+/** What the four kinds are called in a sentence. Copy, not a token. */
+export const ENTITY_KIND_LABEL: Readonly<Record<EntityKind, string>> = {
+  settlement: "settlement",
+  ruler: "ruler",
+  party: "party",
+  route: "route",
+};
+
+/** How a route names its two ends. A dash cannot do it; see the note above. */
+const ROUTE_JOIN = "->";
+
+/**
+ * One slug: lowercase alphanumerics in dash-separated words.
+ *
+ * This is the shape the imported world data already gives settlement ids
+ * (`idaho-springs`, `central-city`), so no id has to be renamed to satisfy it. Leading,
+ * trailing and doubled dashes are rejected, because two ids that differ only in those
+ * look identical on a printed line and are different entities everywhere else.
+ */
+const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
+
+/** Long enough for `party-player-player-player-convoy`, short enough to read. */
+const SLUG_MAX = 64;
+
+/**
+ * Ids that are the *shape* of an id and never an id.
+ *
+ * A serialised reference arrives over the wire and can be anything, and the one thing
+ * this client must never print is a leaked JavaScript value. `stl:undefined` satisfies
+ * the slug grammar perfectly well — it is lowercase — so the grammar alone would let it
+ * through and the panel would print "undefined" as though it were a place. Rejecting the
+ * three words by name is cheaper and more honest than trying to detect the leak later.
+ */
+const RESERVED_ID = new Set(["undefined", "null", "nan", "none", "nil", "unknown"]);
+
+function slugOk(slug: string): boolean {
+  return slug.length > 0 && slug.length <= SLUG_MAX && SLUG.test(slug) && !RESERVED_ID.has(slug);
+}
+
+/**
+ * Whether a `{ kind, id }` pair is a reference this client is willing to navigate to.
+ *
+ * `unknown` rather than `EntityRef`, because the input is untrusted: an HTTP payload
+ * and a fixture both arrive as whatever the sender wrote, and a type guard that assumes
+ * its argument is already an `EntityRef` is an assertion dressed up as a check.
+ */
+export function isEntityRef(value: unknown): value is EntityRef {
+  if (typeof value !== "object" || value === null) return false;
+  const candidate = value as { kind?: unknown; id?: unknown };
+  if (typeof candidate.kind !== "string" || typeof candidate.id !== "string") return false;
+  if (!(candidate.kind in ENTITY_REF_PREFIX)) return false;
+  if (candidate.kind === "route") {
+    const ends = candidate.id.split(ROUTE_JOIN);
+    return ends.length === 2 && ends.every(slugOk);
+  }
+  return slugOk(candidate.id);
+}
+
+/**
+ * Read a serialised id back into a reference.
+ *
+ * Returns `null` for anything malformed rather than throwing and rather than returning a
+ * half-built reference: an unparseable id is a stale reference, and the caller's job is
+ * to degrade, not to recover. `stl:` with nothing after the prefix, `stl:Golden` with a
+ * capital, `nope:golden` with an unknown prefix and `stl:golden->longmont` claiming to be
+ * a settlement are all rejected.
+ */
+export function parseEntityRefId(raw: unknown): EntityRef | null {
+  if (typeof raw !== "string") return null;
+  const cut = raw.indexOf(":");
+  if (cut !== 3) return null;
+  const prefix = raw.slice(0, 3) as EntityRefPrefix;
+  const kind = KIND_BY_PREFIX[prefix];
+  if (kind === undefined) return null;
+  const ref: EntityRef = { kind, id: raw.slice(4) };
+  return isEntityRef(ref) ? ref : null;
+}
+
+/** The serialised form, for a key in an `EntityNameIndex` and for a log line. */
+export function formatEntityRefId(ref: EntityRef): string {
+  return `${ENTITY_REF_PREFIX[ref.kind]}:${ref.id}`;
+}

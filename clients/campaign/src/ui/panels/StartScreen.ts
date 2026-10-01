@@ -47,6 +47,39 @@ export interface StartScreenOptions {
 const STEPS = ["Side", "State", "Role", "Confirm"] as const;
 type Step = 0 | 1 | 2 | 3;
 
+/**
+ * The test id of the region that draws a step. Where the keyboard goes on a step change.
+ *
+ * Prefixed `start-` rather than `step-`, because `step-0` through `step-3` are the step
+ * bar's own test ids and `paperwork.test.ts` selects those with `[data-testid^='step-']`:
+ * a region called `step-panel-1` is picked up by that query and the step bar counts five
+ * buttons. An id that reads the same way and answers to a different query is the only way
+ * two families of ids can share a prefix.
+ */
+function stepRegionTestId(at: Step): string {
+  return `start-step-${at}`;
+}
+
+/** The id of a step's heading, so the region is named by the thing it is about. */
+function stepHeadingId(at: Step): string {
+  return `start-head-${at}`;
+}
+
+/**
+ * The four keys that walk a one-of-many choice, in the direction the grid is read.
+ *
+ * The three card grids are single-choice groups of real buttons, so `Tab` already reaches
+ * every card and `Enter` already chooses one. The arrows are the grid affordance on top
+ * of that: seven side cards, each carrying five ratings and two lists, is a long row to
+ * tab through, and a player comparing two sections wants to walk it. Direction is
+ * collapsed to next/previous on purpose — the grid reflows to one column below 900px, and
+ * a radio group whose left/right means "different rows on a wide screen" and "the same
+ * thing on a narrow one" is a widget nobody can learn. That is the ARIA radio contract,
+ * and the role here is the one the panel already uses for a card: a pressed button.
+ */
+const NEXT_KEYS = new Set(["ArrowRight", "ArrowDown"]);
+const PREV_KEYS = new Set(["ArrowLeft", "ArrowUp"]);
+
 const DIFFICULTY_STATUS: Record<string, StatusKind> = {
   "Easy to Medium": "good",
   Medium: "warning",
@@ -59,14 +92,55 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
   let stateCode = "";
   let role: StartingRole = "ruler-in-waiting";
 
-  const root = h("div", { class: "start", "data-testid": "start-screen" });
+  const root = h("div", { class: "start", "data-testid": "start-screen", tabindex: "-1" });
+
+  /**
+   * The control that should hold the keyboard once the next render is on screen.
+   *
+   * Every step redraws from scratch, and an element that leaves the document takes the
+   * focus with it: `document.activeElement` falls back to `<body>`, and the next `Tab`
+   * restarts from the top of the page. That is the whole difference between this screen
+   * being operable from the keyboard and not — choosing a side is a click that happens to
+   * be a re-render, and a keyboard player who loses their place on every comparison cannot
+   * compare anything. So the control that had focus is named here before the redraw and
+   * put back after it, and it is named by test id because that is the one handle on these
+   * cards that survives the element being thrown away and built again.
+   */
+  let wantedFocus: string | null = null;
 
   function currentSide(): SideState | undefined {
     return options.sides.find((s) => s.id === sideId);
   }
 
+  /**
+   * Finds a control by test id, exactly, without building a selector out of data.
+   *
+   * A state code is real data, and `querySelector('[data-testid=CO]')` is a syntax error
+   * the first time a code carries a character the selector grammar reserves. Comparing the
+   * attribute value instead cannot go wrong, and these grids are a dozen nodes.
+   */
+  function byTestId(scope: HTMLElement, testId: string): HTMLElement | null {
+    for (const el of Array.from(scope.querySelectorAll<HTMLElement>("[data-testid]"))) {
+      if (el.dataset.testid === testId) return el;
+    }
+    return null;
+  }
+
+  /** Hands the keyboard to the control the last action asked for. */
+  function settleFocus(): void {
+    const wanted = wantedFocus;
+    wantedFocus = null;
+    if (!wanted) return;
+    byTestId(root, wanted)?.focus();
+  }
+
   function go(next: Step): void {
     step = next;
+    // The step changed, so what the player was reading changed with it. The keyboard goes
+    // to the region the new step drew rather than staying on the control that got them
+    // here: that is what makes the change announced, and it puts the next Tab inside the
+    // step rather than back out at the step bar.
+    wantedFocus = stepRegionTestId(next);
     render();
   }
 
@@ -93,6 +167,11 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
   }
 
   function render(): void {
+    paint();
+    settleFocus();
+  }
+
+  function paint(): void {
     clear(root);
     const side = currentSide();
 
@@ -101,7 +180,9 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
       h(
         "header",
         { class: "start__head" },
-        h("h1", { class: "display" }, "Take a side. Then live with it."),
+        // The heading is the screen's focus target when it opens, so it is the one heading
+        // on the screen that can be focused without a tab stop of its own.
+        h("h1", { class: "display", tabindex: "-1", "data-testid": "start-title" }, "Take a side. Then live with it."),
         h(
           "p",
           { class: "lede start__lede" },
@@ -169,10 +250,7 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
   // -- step 1: side -----------------------------------------------------------
 
   function stepSide(): HTMLElement {
-    const frag = h("section", { class: "start__step" });
-    frag.appendChild(
-      h("h2", { class: "title" }, "Pick a side"),
-    );
+    const frag = stepRegion(0, "Pick a side");
     frag.appendChild(
       h(
         "p",
@@ -182,6 +260,7 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
     );
     const grid = h("div", { class: "sides", "data-testid": "side-grid" });
     for (const s of options.sides) grid.appendChild(sideCard(s));
+    wireCardKeys(grid);
     frag.appendChild(grid);
     frag.appendChild(navRow(null, "Choose a side to continue", () => go(1), sideId !== ""));
     return frag;
@@ -238,6 +317,7 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
       // different section, and leaving it selected would start the player somewhere
       // they did not choose.
       stateCode = s.states[0]?.code ?? "";
+      wantedFocus = `side-${s.id}`;
       render();
     });
     return card;
@@ -246,8 +326,7 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
   // -- step 2: state ----------------------------------------------------------
 
   function stepState(side: SideState): HTMLElement {
-    const frag = h("section", { class: "start__step" });
-    frag.appendChild(h("h2", { class: "title" }, `Pick a state in the ${side.name}`));
+    const frag = stepRegion(1, `Pick a state in the ${side.name}`);
     frag.appendChild(
       h(
         "p",
@@ -273,6 +352,7 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
 
     const grid = h("div", { class: "states", "data-testid": "state-grid" });
     for (const s of side.states) grid.appendChild(stateCard(s));
+    wireCardKeys(grid);
     frag.appendChild(grid);
     frag.appendChild(navRow(() => go(0), "Continue", () => go(2), stateCode !== ""));
     return frag;
@@ -308,6 +388,7 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
     );
     card.addEventListener("click", () => {
       stateCode = s.code;
+      wantedFocus = `state-${s.code}`;
       render();
     });
     return card;
@@ -316,8 +397,7 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
   // -- step 3: role -----------------------------------------------------------
 
   function stepRole(): HTMLElement {
-    const frag = h("section", { class: "start__step" });
-    frag.appendChild(h("h2", { class: "title" }, "Pick a starting role"));
+    const frag = stepRegion(2, "Pick a starting role");
     frag.appendChild(
       h(
         "p",
@@ -347,10 +427,12 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
       );
       card.addEventListener("click", () => {
         role = r.id;
+        wantedFocus = `role-${r.id}`;
         render();
       });
       grid.appendChild(card);
     }
+    wireCardKeys(grid);
     frag.appendChild(grid);
     frag.appendChild(navRow(() => go(1), "Continue", () => go(3), true));
     return frag;
@@ -363,8 +445,7 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
     const state = side?.states.find((s) => s.code === stateCode);
     const roleInfo = STARTING_ROLES.find((r) => r.id === role);
 
-    const frag = h("section", { class: "start__step" });
-    frag.appendChild(h("h2", { class: "title" }, "Confirm"));
+    const frag = stepRegion(3, "Confirm");
 
     // A summary on one sheet of paper, because this is the last thing read before the
     // clock starts and it should look like the form it is.
@@ -408,6 +489,57 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
   }
 
   // -- shared furniture -------------------------------------------------------
+
+  /**
+   * A step's region, named by its own heading and focusable without a tab stop.
+   *
+   * `tabindex="-1"` is what makes this a legitimate focus target rather than a place the
+   * keyboard can be parked: it takes focus when `go` asks for it and never appears in the
+   * tab sequence itself. Naming it with `aria-labelledby` is what turns the focus move
+   * into an announcement — an unnamed region focused silently says nothing, which would
+   * leave the step change as invisible to a screen reader as it is invisible to nobody
+   * else.
+   */
+  function stepRegion(at: Step, heading: string): HTMLElement {
+    const region = h("section", {
+      class: "start__step",
+      tabindex: "-1",
+      role: "region",
+      "aria-labelledby": stepHeadingId(at),
+      "data-testid": stepRegionTestId(at),
+    });
+    region.appendChild(h("h2", { class: "title", id: stepHeadingId(at) }, heading));
+    return region;
+  }
+
+  /**
+   * Arrow-key movement across one of the three card grids.
+   *
+   * Delegated to the grid rather than wired per card, so a grid cannot end up with the
+   * handler on some of its cards and not others. Moving with the arrow selects as it goes,
+   * which is the one-of-many contract: the grid is a pressed button per card, and the
+   * card the arrow lands on is the card that gets chosen. Selection redraws the step and
+   * hands the keyboard back to the card it just landed on, which is what `wantedFocus` in
+   * the click handlers is for.
+   */
+  function wireCardKeys(grid: HTMLElement): void {
+    grid.addEventListener("keydown", (ev) => {
+      const key = (ev as KeyboardEvent).key;
+      const forward = NEXT_KEYS.has(key);
+      const back = PREV_KEYS.has(key);
+      if (!forward && !back && key !== "Home" && key !== "End") return;
+      const card = (ev.target as HTMLElement | null)?.closest("button");
+      if (!card || !grid.contains(card)) return;
+      const cards = Array.from(grid.querySelectorAll<HTMLElement>("button"));
+      const at = cards.indexOf(card);
+      if (at < 0) return;
+      const to = key === "Home" ? 0 : key === "End" ? cards.length - 1 : (at + (forward ? 1 : -1) + cards.length) % cards.length;
+      // No dead ends: from the last card, forward wraps to the first. A grid where the
+      // arrow stops is a grid the keyboard user has to guess the edges of.
+      ev.preventDefault();
+      cards[to]?.click();
+    });
+  }
 
   function navRow(
     onBack: (() => void) | null,
@@ -474,7 +606,28 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
   // who has picked a section will be inside it.
   stateCode = options.sides[0]?.states[0]?.code ?? "";
   render();
+  // The screen takes focus as it opens, on its own heading. Not the first side card —
+  // that is a choice, and opening a screen must not make one — and not the continue
+  // button, because landing a keyboard on the affirmative is how a player commits to a
+  // campaign they have not read.
+  const heading = byTestId(root, "start-title");
+  if (heading) focusHeadingWhenMounted(root, heading);
   return root;
+}
+
+/**
+ * Hands focus to a start-screen heading once the root is in the document.
+ *
+ * Shared by the live screen and its failure state, which have the same opening problem:
+ * both are built and then appended by their caller, so a `.focus()` inside the factory
+ * lands on a detached node and does nothing at all. `queueMicrotask` is the earliest
+ * moment the caller has had the chance to append, and `isConnected` is checked because a
+ * screen built and never mounted, as in the tests, has nothing to focus.
+ */
+function focusHeadingWhenMounted(root: HTMLElement, heading: HTMLElement): void {
+  queueMicrotask(() => {
+    if (root.isConnected) heading.focus();
+  });
 }
 
 /**
@@ -485,9 +638,10 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
  * or a developer string in anything the player can read.
  */
 export function startScreenError(detail: string, onRetry: () => void): HTMLElement {
-  const root = h("div", { class: "start", "data-testid": "start-screen" });
+  const root = h("div", { class: "start", "data-testid": "start-screen", tabindex: "-1" });
   const inner = h("div", { class: "start__inner" });
-  inner.appendChild(h("h1", { class: "display" }, "The sections did not load"));
+  const heading = h("h1", { class: "display", tabindex: "-1" }, "The sections did not load");
+  inner.appendChild(heading);
   inner.appendChild(
     errorState({
       message: "The list of sections did not arrive. Nothing can be chosen until it does.",
@@ -497,6 +651,9 @@ export function startScreenError(detail: string, onRetry: () => void): HTMLEleme
     }),
   );
   root.appendChild(inner);
+  // Same rule as the live screen: focus lands on the heading, which is what announces
+  // that the screen failed and not the button that would retry it.
+  focusHeadingWhenMounted(root, heading);
   return root;
 }
 

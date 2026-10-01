@@ -6,6 +6,33 @@
  * src/design/__tests__/palette.test.ts, which fails on any hex literal.
  */
 
+/* ---------- focus (ART_DIRECTION.md section 12) ----------
+ *
+ * The focus ring is mandatory and locked: "visibly focusable with a 2px `stamp-blue`
+ * focus ring offset 2px", which is the `--focus-ring` token. `tokens.css` applies it with
+ * a bare `:focus-visible { box-shadow: var(--focus-ring) }`, and that rule has two holes
+ * in it, both of them specificity rather than intent:
+ *
+ *   - It is specificity 0-1-0 and `tokens.css` is imported *before* this file, so any
+ *     component rule here that sets `box-shadow` at 0-1-0 comes later in source order and
+ *     wins it. `.side` (sheet-0) and `.field__input` (well-inset) both do.
+ *   - `.side[aria-pressed="true"]` is 0-2-0 and beats it on specificity alone, before
+ *     source order is even considered.
+ *
+ * Either way a focused control silently loses its ring and shows only its own shadow,
+ * which is the one thing a focus indicator must never be mistaken for. The start screen's
+ * side cards are the worst case: the screen opens with a side already chosen, so the card
+ * the keyboard lands on is selected and shadowed at the same time. These re-assert the
+ * ring on exactly the controls that carry a shadow of their own, ahead of it so the
+ * elevation stays visible behind the ring. No colour, width or offset is invented here —
+ * it is the locked token, unchanged, and nothing is set on a control that had no shadow
+ * before.
+ */
+
+.side:focus-visible { box-shadow: var(--sheet-0), var(--focus-ring); }
+.side[aria-pressed="true"]:focus-visible { box-shadow: var(--sheet-2), var(--focus-ring); }
+.field__input:focus-visible { box-shadow: var(--well-inset), var(--focus-ring); }
+
 /* ---------- panels ---------- */
 
 .panel {

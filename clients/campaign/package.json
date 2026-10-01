@@ -8,6 +8,8 @@
     "dev": "vite",
     "dev:fixtures": "vite --mode fixtures",
     "build": "tsc --noEmit && vite build && node tools/check-no-fixtures.mjs",
+    "build:visualize": "BUNDLE_VISUALIZE=1 vite build",
+    "build:visualize:data": "BUNDLE_VISUALIZE=1 BUNDLE_VISUALIZE_TEMPLATE=raw-data vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "tsc --noEmit",
@@ -27,6 +29,7 @@
     "@playwright/test": "^1.63.0",
     "@types/node": "^22.20.0",
     "jsdom": "^30.1.1",
+    "rollup-plugin-visualizer": "^7.1.1",
     "typescript": "^5.9.0",
     "vite": "^7.1.0",
     "vitest": "^4.0.0"

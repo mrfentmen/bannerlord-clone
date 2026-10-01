@@ -16,16 +16,42 @@
  * rest is arithmetic on a number the player can already see on this panel, printed
  * next to the value it came from — the same rule the town panel follows, and for the
  * same reason: the client runs no simulation of its own.
+ *
+ * **The read is a machine, not a boolean.** The same four phases the town panel runs on
+ * live in `skeletons.ts` next to the shapes, so the two panels cannot end up with two
+ * different ideas of what "loading" means:
+ *
+ *   idle ──▶ loading ──▶ ready
+ *               │
+ *               └──────▶ error ──(retry)──▶ loading
+ *
+ * The skeleton goes up before the request goes out (CONSTITUTION.md section 3.2) and
+ * the complaint only replaces it once the request has actually failed (section 1.3).
+ * The slow read is the provider's business; a panel with a timer in it could only be
+ * tested against its own timer.
  */
 
 import { h, row, sectionHeader } from "../dom.js";
 import { emptyState, errorState, gauge, panel, stamp, statusChip, dataTable, type Column, type StatusKind } from "../kit.js";
-import { partySkeleton } from "./skeletons.js";
+import {
+  failedLoad,
+  idleLoad,
+  loadingLoad,
+  partySkeletonBody,
+  readyLoad,
+  type LoadPhase,
+  type LoadState,
+} from "./skeletons.js";
 import { asBottomSheet, stackable } from "./narrow.js";
-import type { PartyState, ResourceWarning, TroopStack } from "../../data/types.js";
+import { SimulationUnavailableError } from "../../data/provider.js";
+import type { PartyState, ResourceWarning, SimulationProvider, TroopStack } from "../../data/types.js";
 
 /** The empty-wagon copy, verbatim from ART_DIRECTION.md section 10.2. */
 const NOTHING_TO_HAUL = "Caravan holds no goods. Buy something in a market before hauling.";
+
+/** The title bar while the roll is on its way, rather than a company nobody has named. */
+const READING_TITLE = "Party";
+const NO_PARTY_TITLE = "No party";
 
 export interface PartyPanelOptions {
   /** `null` when nothing is under the player's command. */
@@ -38,32 +64,193 @@ export interface PartyPanelOptions {
    * alongside the ones this panel derives from its own figures.
    */
   warnings?: ResourceWarning[];
-  /** The party roll is still being read. `party-skeleton` goes up first. */
+  /**
+   * The data source seam. Give the panel a provider and it will go and read the roll
+   * itself, which is what makes the retry button honest: a retry that re-renders the
+   * same missing data is a lie told to the player.
+   */
+  provider?: SimulationProvider;
+  /**
+   * The party roll is still being read. `party-skeleton` goes up first, which mirrors
+   * this panel's sections so the context region does not change height when the roll
+   * lands.
+   */
   loading?: boolean;
   testId?: string;
 }
 
+export interface PartyPanelHandle {
+  root: HTMLElement;
+  /** Where the read has got to. One of the four phases in `skeletons.ts`. */
+  phase(): LoadPhase;
+  /** Re-read the roll. Backs the "Try again" button. */
+  reload(): Promise<void>;
+  /** Resolves when the read in flight has answered. Already resolved if none is. */
+  settled(): Promise<void>;
+}
+
+/**
+ * The party panel. Returns the root element, which is all the context region has ever
+ * needed from it; `partyPanelWithLoad` is the same panel with the read exposed.
+ */
 export function partyPanel(options: PartyPanelOptions): HTMLElement {
-  if (options.loading) return partySkeleton(options.party?.name ?? "Party");
+  return partyPanelWithLoad(options).root;
+}
 
-  const { party, previous } = options;
-  if (!party) return partyPanelEmpty(options);
-
+export function partyPanelWithLoad(options: PartyPanelOptions): PartyPanelHandle {
   const { root, body } = panel({
-    title: party.name,
+    title: READING_TITLE,
     testId: options.testId ?? "party-panel",
     ...(options.onClose ? { onClose: options.onClose } : {}),
   });
   root.querySelector(".panel__close")?.remove();
   asBottomSheet(root);
+  const title = root.querySelector<HTMLElement>(".panel__title")!;
 
+  /** Where the roll comes from. Absent, the panel only ever draws what it was handed. */
+  const source = options.provider;
+  const canRead = source !== undefined;
+
+  let state: LoadState<PartyState> = starting();
+  let previous = options.previous ?? null;
+  /**
+   * The simulation's own warnings for this party, or null when the snapshot that answers
+   * the read should supply them. Kept beside the roll deliberately: warnings raised
+   * against figures the panel is no longer showing would be worse than showing none.
+   */
+  let simulationWarnings: ResourceWarning[] | null = options.warnings ?? null;
+  /** Guards against a late answer overwriting a newer one. */
+  let loadToken = 0;
+  let inFlight: Promise<void> = Promise.resolve();
+
+  /**
+   * Where the panel starts.
+   *
+   * A panel asked for a roll it does not have, and able to go and get one, is about to
+   * be answered: its first frame is the skeleton and not a complaint about data that was
+   * never on its way. A caller that passes `loading` has asked for that same frame
+   * itself. Anything else draws what it was given.
+   */
+  function starting(): LoadState<PartyState> {
+    const seed: LoadState<PartyState> = options.party ? readyLoad(options.party) : idleLoad<PartyState>();
+    return options.loading === true || (canRead && options.party === null) ? loadingLoad(seed) : seed;
+  }
+
+  function transition(next: LoadState<PartyState>): void {
+    state = next;
+    render();
+  }
+
+  /**
+   * Ask the simulation for the roll again.
+   *
+   * The token is the ordering rule: an answer that arrives after the player has already
+   * asked again belongs to a request nobody is waiting for, so it is dropped rather than
+   * drawn over a fresher figure.
+   */
+  function reload(): Promise<void> {
+    if (source === undefined) return Promise.resolve();
+    const token = ++loadToken;
+    transition(loadingLoad(state));
+    const read = fetchRoll(source, token);
+    inFlight = read;
+    return read;
+  }
+
+  async function fetchRoll(source: SimulationProvider, token: number): Promise<void> {
+    try {
+      const snapshot = await source.getSnapshot();
+      if (token !== loadToken) return; // A newer request already answered.
+      // Every provider is a seam, and a seam can be an HTTP reply from a server this
+      // client did not write. Read it as what it can be rather than as the type says.
+      const roll = snapshot.party as PartyState | null;
+      if (!roll) {
+        transition(failedLoad<PartyState>(noRollRecord(), "getSnapshot carried no party roll."));
+        return;
+      }
+      // The roll on screen before the answer is what the trend arrows compare against.
+      previous = state.value ?? previous;
+      // The warnings come off the same snapshot the roll did, so a caller that handed
+      // none is not left with an empty tray beside a fresh roll.
+      simulationWarnings =
+        options.warnings ?? snapshot.warnings.filter((w) => w.entityId === roll.id || w.entityId === "");
+      transition(readyLoad(roll));
+    } catch (err) {
+      if (token !== loadToken) return;
+      const refused = err instanceof SimulationUnavailableError;
+      transition(
+        failedLoad<PartyState>(
+          refused ? err.playerMessage : noRoll(),
+          refused ? err.developerDetail : String(err),
+          refused ? err.retryable : true,
+        ),
+      );
+    }
+  }
+
+  function render(): void {
+    title.textContent = state.value?.name ?? (state.phase === "idle" ? NO_PARTY_TITLE : READING_TITLE);
+    body.replaceChildren();
+
+    // Drawn before the request, and held until the request answers.
+    if (state.phase === "loading") {
+      body.appendChild(partySkeletonBody());
+      return;
+    }
+    if (state.phase === "error") {
+      body.appendChild(partyPanelFailure(state.failure ?? noRoll(), state.detail, state.retryable ? () => void reload() : null));
+      return;
+    }
+    // `idle` with nothing to show, which is the one state that is not a failure.
+    if (state.value === null) {
+      body.appendChild(emptyNode());
+      return;
+    }
+    drawParty(body, state.value, previous, options, simulationWarnings ?? []);
+  }
+
+  /** Nothing under command. The way out of the state is what to do next, in plain words. */
+  function emptyNode(): HTMLElement {
+    return emptyState(
+      "No party under your command.",
+      "Troops, supplies and wages appear once a company is raised. Take a ruler from the roster, or raise a company of your own.",
+    );
+  }
+
+  render();
+  // Gated on the state, not on `loading`: the panel asked for is the one that needs a
+  // read, and `loading` is true precisely because it is already in one.
+  if (state.phase === "loading") void reload();
+
+  return {
+    root,
+    phase: () => state.phase,
+    reload,
+    settled: () => inFlight,
+  };
+}
+
+/**
+ * The party sheet itself, drawn into `body`.
+ *
+ * Nothing here reads or writes the load state: given a roll, this is the whole panel, and
+ * the read is the caller's business. That split is why the shortages section can be drawn
+ * from a figure the panel already had while a fresh roll was on its way.
+ */
+function drawParty(
+  body: HTMLElement,
+  party: PartyState,
+  previous: PartyState | null,
+  options: PartyPanelOptions,
+  fromSimulation: ResourceWarning[],
+): void {
   const headcount = party.troops.reduce((a, t) => a + t.count, 0);
   const dailyWages = party.troops.reduce((a, t) => a + t.count * t.wage, 0);
   // One person-day of rations per person per day, the unit CAUSE_EFFECT.md section 2
   // uses for food everywhere in this client.
   const dailyFood = headcount * 0.85;
   const daysOfFood = dailyFood > 0 ? party.food / dailyFood : 0;
-  const warnings = collectWarnings(party, { headcount, dailyWages, dailyFood, daysOfFood }, options.warnings ?? []);
+  const warnings = collectWarnings(party, { headcount, dailyWages, dailyFood, daysOfFood }, fromSimulation);
 
   body.appendChild(
     h(
@@ -254,43 +441,36 @@ export function partyPanel(options: PartyPanelOptions): HTMLElement {
       ),
     );
   }
-
-  return root;
 }
 
-/** Nothing under command. The roster is the way out of the state, so it is offered. */
-function partyPanelEmpty(options: PartyPanelOptions): HTMLElement {
-  const { root, body } = panel({
-    title: "No party",
-    testId: options.testId ?? "party-panel",
-    ...(options.onClose ? { onClose: options.onClose } : {}),
-  });
-  root.querySelector(".panel__close")?.remove();
-  asBottomSheet(root);
-  body.appendChild(
-    h(
-      "div",
-      { style: "margin-top:var(--space-2)" },
-      emptyState(
-        "No party under your command.",
-        "Troops, supplies and wages appear once a company is raised. Take a ruler from the roster, or raise a company of your own.",
-      ),
-    ),
-  );
-  return root;
+/** The failure copy, ART_DIRECTION.md section 10.2, for a read that never arrived. */
+function noRoll(): string {
+  return "The party roll did not load. The connection to the simulation was refused.";
+}
+
+/**
+ * The other failure. The snapshot answered, so nothing refused the connection: it came
+ * back without a roll on it. Saying the connection was refused here would blame the wrong
+ * thing, and the player would go looking for a server that is working fine.
+ */
+function noRollRecord(): string {
+  return "The party roll did not load. The simulation answered, and it carries no roll for your company.";
 }
 
 /**
  * The party panel's error state: a plain sentence and a way to recover
- * (CONSTITUTION.md section 1.3). The cause goes to the console, not to the screen.
+ * (CONSTITUTION.md section 1.3). `onRetry` is null when repeating the request would not
+ * help. The cause goes to the console, not to the screen.
+ */
+function partyPanelFailure(message: string, detail: string, onRetry: (() => void) | null): HTMLElement {
+  return errorState({ message, detail, ...(onRetry ? { onRetry } : {}), testId: "party-error" });
+}
+
+/**
+ * The party panel's error state, shared with the HUD so both read the same.
  */
 export function partyPanelError(detail: string, onRetry: () => void): HTMLElement {
-  return errorState({
-    message: "The party roll did not load. The connection to the simulation was refused.",
-    detail,
-    onRetry,
-    testId: "party-error",
-  });
+  return partyPanelFailure(noRoll(), detail, onRetry);
 }
 
 function whyBtn(field: string, onClick: () => void): HTMLElement {
@@ -298,6 +478,7 @@ function whyBtn(field: string, onClick: () => void): HTMLElement {
   btn.addEventListener("click", onClick);
   return btn;
 }
+
 
 /** Whole dollars, for the balances a player thinks in. */
 function money(v: number): string {

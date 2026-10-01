@@ -26,12 +26,39 @@ import { h, sectionHeader } from "../dom.js";
 import { dataTable, emptyState, errorState, panel, statusChip, type Column, type StatusKind } from "../kit.js";
 import { asBottomSheet } from "./narrow.js";
 import { ledgerSkeletonBody } from "./panel-skeletons.js";
-import type { Ledger as LedgerState, LedgerLine, ResourceId, ResourceWarning } from "../../data/types.js";
+import {
+  ENTITY_KIND_LABEL,
+  formatEntityRefId,
+  isEntityRef,
+  type EntityNameIndex,
+  type EntityRef,
+  type Ledger as LedgerState,
+  type ReferencedLedgerLine,
+  type ReferencedLedger,
+  type ResourceId,
+  type ResourceWarning,
+} from "../../data/types.js";
 
 export interface LedgerPanelOptions {
-  ledger: LedgerState;
+  /**
+   * Display names for the entities ledger lines point at, keyed by the serialised id
+   * (`stl:golden`). Optional, and a ledger without it still renders every line — the
+   * links simply degrade, one per missing name, which is the honest reading of a name
+   * the client does not have rather than a reason to drop the whole panel.
+   */
+  entities?: EntityNameIndex;
+  ledger: LedgerState | ReferencedLedger;
   warnings: ResourceWarning[];
   onWhy?: (entityId: string, field: string) => void;
+  /**
+   * Fired when the player follows an entity link in a ledger line.
+   *
+   * This is the panel's existing callback seam — the same shape `onWhy` and `onClose`
+   * already use, and no new global bus. The panel navigates nowhere itself: it is handed
+   * the day's figures, and a panel that quietly changed the screen behind itself would
+   * be a second thing deciding what the player is looking at.
+   */
+  onSelect?: (ref: EntityRef) => void;
   onClose?: () => void;
   /**
    * The day is still closing. Renders `ledger-skeleton`, drawn before the numbers
@@ -69,7 +96,7 @@ export function ledgerPanel(options: LedgerPanelOptions): HTMLElement {
   body.appendChild(netBlock(options.ledger, options.warnings));
 
   // -- income and expense lines ---------------------------------------------
-  body.appendChild(linesBlock(options.ledger));
+  body.appendChild(linesBlock(options.ledger, options.entities ?? {}, options.onSelect));
 
   return root;
 }
@@ -154,7 +181,14 @@ function daysPhrase(days: number): string {
 
 // -- net change per day -------------------------------------------------------
 
-function netBlock(ledger: LedgerState, warnings: ResourceWarning[]): HTMLElement {
+/**
+ * The net-change table.
+ *
+ * Takes the union rather than plain `Ledger` because `ReferencedLedger` carries its
+ * line lists as `readonly`, and a table that only reads them does not need to be able
+ * to write them.
+ */
+function netBlock(ledger: LedgerState | ReferencedLedger, warnings: ResourceWarning[]): HTMLElement {
   const block = sectionHeader("Net change per day");
   const rows = NET_ORDER.map((resource) => ({
     resource,
@@ -229,7 +263,11 @@ function directionText(perDay: number): string {
 
 // -- income and expense lines ------------------------------------------------
 
-function linesBlock(ledger: LedgerState): HTMLElement {
+function linesBlock(
+  ledger: LedgerState | ReferencedLedger,
+  entities: EntityNameIndex,
+  onSelect: ((ref: EntityRef) => void) | undefined,
+): HTMLElement {
   const block = sectionHeader("Where it comes from and where it goes");
   if (ledger.income.length === 0 && ledger.expenses.length === 0) {
     block.appendChild(
@@ -244,13 +282,19 @@ function linesBlock(ledger: LedgerState): HTMLElement {
   // with a copy behind it.
   const cols = h("div", { class: "ledger__cols triplicate" });
   cols.append(
-    lineList("Income", ledger.income, "ledger-income"),
-    lineList("Expense", ledger.expenses, "ledger-expenses"),
+    lineList("Income", ledger.income, "ledger-income", entities, onSelect),
+    lineList("Expense", ledger.expenses, "ledger-expenses", entities, onSelect),
   );
   block.appendChild(cols);
   return block;
 }
-function lineList(caption: string, lines: LedgerLine[], testId: string): HTMLElement {
+function lineList(
+  caption: string,
+  lines: readonly ReferencedLedgerLine[],
+  testId: string,
+  entities: EntityNameIndex,
+  onSelect: ((ref: EntityRef) => void) | undefined,
+): HTMLElement {
   const wrap = h("section", { class: "ledger__group" });
   wrap.appendChild(h("h4", { class: "section-header" }, caption));
   if (lines.length === 0) {
@@ -274,18 +318,111 @@ function lineList(caption: string, lines: LedgerLine[], testId: string): HTMLEle
     const label = h("span", { class: "ledger__item-label" }, line.label);
     // A line that carries a cause id was written by a system that recorded why, so the
     // id is printed verbatim in mono (ECONOMY.md section 10: the Why panel can explain
-    // any shortage). It is an identifier, not a control: this panel is handed the day's
-    // figures without the entity they belong to, so there is nothing honest to navigate
-    // to from here. The app wires the drill from the panel that does have it.
+    // any shortage). It is an identifier, not a control: the cause log names a *write*,
+    // not a place, so there is nothing honest to navigate to from here.
     const ref = line.causedBy
       ? h("code", { class: "why__id data-sm ledger__ref", "data-testid": `ledger-ref-${line.id}` }, line.causedBy)
       : null;
     list.appendChild(
-      h("li", {}, h("span", { class: "ledger__item" }, label, ref ?? null, amount)),
+      h(
+        "li",
+        {},
+        h(
+          "span",
+          { class: "ledger__item" },
+          label,
+          // The entities this line accounts for. These *are* things in the world, so
+          // unlike the cause id they can be links — provided the client holds a name for
+          // them, and provided somewhere was handed a way to act on the click.
+          entityLinks(line, entities, onSelect),
+          ref ?? null,
+          amount,
+        ),
+      ),
     );
   }
   wrap.appendChild(list);
   return wrap;
+}
+
+// -- entity links --------------------------------------------------------------
+
+/**
+ * The entities a ledger line points at, each as a link or as a marked-up dead end.
+ *
+ * Three rules decide what comes out, and each of them is a case that really happens:
+ *
+ *  - A line with no `refs` prints nothing. `LedgerLine` is the contract as it stands and
+ *    most lines in it carry no entity at all, so the common case has to be free.
+ *  - A reference the client has no name for prints as text with the ○ glyph and a
+ *    `title`, not as a button. A button that opens nothing is worse than no button: it
+ *    tells the player the ledger knows something it does not know.
+ *  - A reference that is not a well-formed `EntityRef` is treated the same way. The
+ *    value came off the wire, so "malformed" is a runtime answer rather than a type
+ *    error, and `isEntityRef` is what makes that distinction without a cast.
+ */
+function entityLinks(
+  line: ReferencedLedgerLine,
+  entities: EntityNameIndex,
+  onSelect: ((ref: EntityRef) => void) | undefined,
+): DocumentFragment | null {
+  if (!line.refs || line.refs.length === 0) return null;
+  const out = document.createDocumentFragment();
+  line.refs.forEach((ref, index) => {
+    const node = entityNode(ref, entities, onSelect, `ledger-entity-${line.id}-${index}`);
+    if (node) out.appendChild(node);
+  });
+  return out;
+}
+
+function entityNode(
+  ref: EntityRef,
+  entities: EntityNameIndex,
+  onSelect: ((ref: EntityRef) => void) | undefined,
+  testId: string,
+): HTMLElement | null {
+  if (!isEntityRef(ref)) return null;
+  const key = formatEntityRefId(ref);
+  const name = entities[key];
+
+  if (name === undefined || onSelect === undefined) {
+    // A stale reference. The glyph carries the state, the word carries it again, and the
+    // tooltip names what is missing — three signals, per ART_DIRECTION.md section 5.3,
+    // so it reads with no colour vision and with the mouse nowhere near it. The id stays
+    // in mono because that is exactly what it is: an identifier, not a name we invented.
+    return h(
+      "span",
+      {
+        class: "ledger__stale",
+        "data-testid": testId,
+        "data-ref": key,
+        title: `This line names a ${ENTITY_KIND_LABEL[ref.kind]} this copy of the ledger does not hold. ${key}`,
+      },
+      h("span", { class: "ledger__stale-glyph", "aria-hidden": "true" }, "○"),
+      h("span", { class: "ledger__stale-word" }, "Stale reference"),
+      h("span", { class: "ledger__ref data-sm" }, key),
+    );
+  }
+
+  // A link. A real `<button type="button">` rather than an `<a href="#">`: there is no
+  // URL to go to — the target is a selection in this client, not a page — and a fake
+  // href is a control that lies about being one. The accessible name carries the kind,
+  // so a screen-reader user hears "settlement Golden" and not two identical "Golden"s
+  // from two different lines of the same account.
+  const button = h(
+    "button",
+    {
+      type: "button",
+      class: "btn btn--quiet ledger__entity",
+      "data-testid": testId,
+      "data-ref": key,
+      "aria-label": `${ENTITY_KIND_LABEL[ref.kind]} ${name}`,
+      title: `${name}, ${ENTITY_KIND_LABEL[ref.kind]} · ${key}`,
+    },
+    name,
+  );
+  button.addEventListener("click", () => onSelect(ref));
+  return button;
 }
 
 // -- formatting ---------------------------------------------------------------

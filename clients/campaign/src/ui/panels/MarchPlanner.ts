@@ -10,12 +10,18 @@
  * (CAUSE_EFFECT.md section 9), and the client must not compute a second opinion.
  */
 
-import { h } from "../dom.js";
+import { announce, h, liveRegion } from "../dom.js";
 import { emptyState, errorState, panel, statusChip, type StatusKind } from "../kit.js";
 import { asBottomSheet } from "./narrow.js";
 import { marchSkeletonBody } from "./panel-skeletons.js";
 import type { MarchPlan, PartyState, SettlementOption, SimulationProvider } from "../../data/types.js";
 import { SimulationUnavailableError } from "../../data/provider.js";
+
+/** The panel's title. Also its accessible name: `kit.panel` gives it a heading, not a name. */
+const TITLE = "March planner";
+
+/** The destination field's handle. A stable id, because the node outlives every render. */
+const TARGET_ID = "march-target";
 
 export interface MarchPlannerOptions {
   party: PartyState;
@@ -38,11 +44,28 @@ export function marchPlanner(options: MarchPlannerOptions): MarchPlannerHandle {
     options.destinations.find((d) => d.id === clientId)?.simulationId ?? null;
 
   const { root, body } = panel({
-    title: "March planner",
+    title: TITLE,
     testId: options.testId ?? "march-planner",
     ...(options.onClose ? { onClose: options.onClose } : {}),
   });
   asBottomSheet(root);
+  // `kit.panel` gives the sheet an `h2` and no name, which leaves it an unnamed `section`:
+  // a landmark a screen reader cannot list and a keyboard user cannot be told about. The
+  // title is already the panel's name, so it is named with it.
+  root.setAttribute("aria-label", TITLE);
+
+  /**
+   * Announcements, for the prices.
+   *
+   * The keyboard stays on the destination field while the price is being asked for, which
+   * is right — that is where the player's hands are — and means nothing is announced when
+   * the answer lands. So the answer is said: a route, a time and a day are the whole point
+   * of this panel and a player who never looks at the meter must still hear them. It is
+   * polite rather than assertive because a price is never an emergency; the warnings for
+   * that are on screen in full regardless.
+   */
+  const prices = liveRegion("");
+  root.appendChild(prices);
 
   // Default to the nearest destination the simulation can write an order for. A place
   // with no town record is a legitimate thing to see in the list and a useless thing
@@ -65,9 +88,22 @@ export function marchPlanner(options: MarchPlannerOptions): MarchPlannerHandle {
   /** The last pricing failure, or `null`. Held in state so `render` can draw it. */
   let priceError: { message: string; detail: string } | null = null;
 
+  /**
+   * The control that should hold the keyboard once the next render is on screen.
+   *
+   * Every render replaces the whole body, and an element that leaves the document takes
+   * the focus with it: `document.activeElement` falls back to `<body>` and the next `Tab`
+   * restarts from the top of the page. Changing the destination is the single most common
+   * thing to do in this panel and it re-renders twice — once for the skeleton, once for
+   * the price — so a panel that did not put the keyboard back would throw it away on the
+   * first thing the player does. `null` means "hold whatever was held", which is the
+   * common case: the re-render is not the event, the choice is.
+   */
+  let wantedFocus: string | null = null;
+
   const target = h(
     "select",
-    { id: "march-target", class: "field__input label", "data-testid": "march-target" },
+    { id: TARGET_ID, class: "field__input label", "data-testid": TARGET_ID },
     options.destinations.map((d) =>
       h("option", { value: d.id, selected: d.id === selected }, `${d.name} — ${d.distanceHint}`),
     ),
@@ -77,10 +113,94 @@ export function marchPlanner(options: MarchPlannerOptions): MarchPlannerHandle {
     // Changing the destination disarms any armed order. An armed order is a statement
     // about a specific place, and it must not survive being pointed somewhere else.
     confirming = false;
+    // The field the player is standing on is the field they must come back to when the
+    // price lands. `MarketPanel` already sets this precedent for the quantity input.
+    wantedFocus = TARGET_ID;
     void replan();
   });
 
+  /**
+   * Escape, in the order the panel's own decisions are stacked.
+   *
+   * An armed order is a decision in progress, so Escape backs out of that decision before
+   * it backs out of the panel: one press is an alias for "Change the plan", which is the
+   * same escape hatch already sitting on the same row, and only a second press closes.
+   * `stopPropagation` is what keeps the host's own Escape handler from doing both at once
+   * — it sits on `window`, above this panel, and would otherwise fire on the same press.
+   *
+   * With no `onClose` there is nothing to close, and nothing is stopped: the host owns the
+   * panel's lifetime and its global Escape handler is the correct thing to let through.
+   */
+  root.addEventListener("keydown", (ev) => {
+    if (ev.key !== "Escape") return;
+    if (confirming) {
+      ev.preventDefault();
+      ev.stopPropagation();
+      confirming = false;
+      render();
+      return;
+    }
+    if (!options.onClose) return;
+    ev.preventDefault();
+    ev.stopPropagation();
+    options.onClose();
+  });
+
   function render(): void {
+    const held = heldFocus();
+    paint();
+    settleFocus(held);
+  }
+
+  /** The test id of the control the keyboard is on, or `null` if it is not in the panel. */
+  function heldFocus(): string | null {
+    const el = document.activeElement;
+    if (!(el instanceof HTMLElement) || !body.contains(el)) return null;
+    return el.dataset.testid ?? el.id ?? null;
+  }
+
+  /**
+   * Puts the keyboard back after a re-render.
+   *
+   * Nothing is grabbed when nothing was held: the panel itself carries the focus while it
+   * is loading, and a re-render that ended the load must not move the keyboard off it and
+   * onto the order button, which is the one control in here that spends money. Only a
+   * control that was genuinely in the body and is genuinely gone gets a replacement.
+   *
+   * The destination field is a single node built once and re-appended by every render, so
+   * it is focused through the reference rather than through a fresh lookup — the node the
+   * player was on and the node that is back on screen are the same object. Anything else
+   * that has gone falls back to the panel's first control, which in every state that loses
+   * one is the single action that state offers: the retry after a failure, the arm button
+   * after an Escape. The panel itself is the last resort, for a state with no control in it
+   * at all, because `<body>` is worse than either — `Tab` from there restarts the page.
+   */
+  function settleFocus(held: string | null): void {
+    const wanted = wantedFocus ?? held;
+    wantedFocus = null;
+    if (!wanted) return;
+    if (wanted === TARGET_ID) {
+      target.focus();
+      return;
+    }
+    const el = byTestId(wanted);
+    if (el) {
+      el.focus();
+      return;
+    }
+    const first = body.querySelector<HTMLElement>("button");
+    if (first) first.focus();
+    else root.focus();
+  }
+
+  function byTestId(testId: string): HTMLElement | null {
+    for (const el of Array.from(body.querySelectorAll<HTMLElement>("[data-testid]"))) {
+      if (el.dataset.testid === testId) return el;
+    }
+    return null;
+  }
+
+  function paint(): void {
     body.replaceChildren();
 
     // A pricing failure is drawn first, and it is drawn by `render` rather than
@@ -279,10 +399,12 @@ export function marchPlanner(options: MarchPlannerOptions): MarchPlannerHandle {
       );
       arm.addEventListener("click", () => {
         confirming = true;
-        render();
         // Focus the commit, not the cancel. The default focus on a confirmation is the
-        // affirmative one, and the dangerous default is the one you do not mean.
-        body.querySelector<HTMLButtonElement>("[data-testid='march-commit-confirm']")?.focus();
+        // affirmative one, and the dangerous default is the one you do not mean — so the
+        // arm button names the destination the keyboard is being handed to, rather than
+        // leaving it to whichever control happens to come first in the body.
+        wantedFocus = "march-commit-confirm";
+        render();
       });
       wrap.appendChild(arm);
       wrap.appendChild(
@@ -340,8 +462,11 @@ export function marchPlanner(options: MarchPlannerOptions): MarchPlannerHandle {
     const cancel = h("button", { type: "button", class: "btn", "data-testid": "march-cancel" }, "Change the plan");
     cancel.addEventListener("click", () => {
       confirming = false;
+      // The keyboard goes back to the button that armed the order, not to the first
+      // control in the panel, so a player who backed out lands on the decision they were
+      // making rather than at the top of a form they have already read.
+      wantedFocus = "march-commit";
       render();
-      body.querySelector<HTMLButtonElement>("[data-testid='march-commit']")?.focus();
     });
     row.append(confirm, cancel);
     wrap.appendChild(row);
@@ -377,6 +502,13 @@ export function marchPlanner(options: MarchPlannerOptions): MarchPlannerHandle {
       if (token !== planToken) return;
       plan = result;
       priceError = null;
+      // Said, not just drawn. The route, the time and the day it lands are what the panel
+      // exists to report, and a player who is on the destination field when they arrive
+      // has not been told any of it.
+      announce(
+        prices,
+        `${result.destinationName}. ${result.distanceKm.toFixed(0)} kilometres, ${result.days} ${result.days === 1 ? "day" : "days"}, arriving day ${result.arrivalDay}. ${supplyText(result)}`,
+      );
     } catch (err) {
       if (token !== planToken) return;
       const message = err instanceof SimulationUnavailableError ? err.playerMessage : "The march could not be priced.";
@@ -386,6 +518,10 @@ export function marchPlanner(options: MarchPlannerOptions): MarchPlannerHandle {
       // Held in state rather than written straight into the body, because `render` runs
       // again in the `finally` below and would wipe a node appended here.
       priceError = { message, detail };
+      // The destination field is not drawn in the failure state, so the keyboard would
+      // have nothing to return to. The retry is the only action this state offers and it
+      // is the safe default: it asks for a price again, it does not give an order.
+      wantedFocus = "march-error-retry";
     } finally {
       if (token === planToken) {
         planning = false;
@@ -407,7 +543,19 @@ export function marchPlanner(options: MarchPlannerOptions): MarchPlannerHandle {
       });
       committing = false;
       confirming = false;
+      // Redraw before handing the order on. The retry path comes straight back into this
+      // function without a render of its own, so a retry that *succeeds* would otherwise
+      // leave the panel showing the refusal for an order that was in fact given — with the
+      // only control on screen being one more retry. The price on screen is the price that
+      // was agreed, and the host normally replaces the panel from `onCommitted`; this only
+      // matters when it does not, and a stale failure is worse than a stale price.
+      render();
       options.onCommitted?.(plan);
+      // The host replaces this panel the moment the order lands, and the node the keyboard
+      // was on goes with it — leaving the focus on `<body>`, from which Tab starts the
+      // page again. So it is parked on the panel first, which at least says where the
+      // keyboard is until the host has something to put it on.
+      root.focus();
     } catch (err) {
       committing = false;
       const message = err instanceof SimulationUnavailableError ? err.playerMessage : "The order to march was refused.";
@@ -425,10 +573,27 @@ export function marchPlanner(options: MarchPlannerOptions): MarchPlannerHandle {
           testId: "march-commit-error",
         }),
       );
+      // The confirm button that was pressed is gone with the rest of the body. Focus goes
+      // to the retry: it is the action this state exists to offer, and it is the same
+      // order, not a new one.
+      byTestId("march-commit-error-retry")?.focus();
     }
   }
 
   void replan();
+  // The panel takes focus once it is in the document, which `kit.panel` cannot do for
+  // itself: the host builds the panel, then mounts it, so a `.focus()` in here lands on a
+  // detached node. Checked for connection because a panel built and never mounted, as in
+  // the tests, has nothing to take focus. `root` carries `tabindex="-1"` from `kit.panel`,
+  // so this is a focus target and not a new tab stop in the middle of the HUD.
+  //
+  // Guarded on nothing having claimed the keyboard inside the panel already, because this
+  // runs after the first price request has already been answered: a request that came
+  // back a failure puts the keyboard on the retry, and an open panel must not drag it off
+  // that and back onto the sheet.
+  queueMicrotask(() => {
+    if (root.isConnected && !body.contains(document.activeElement)) root.focus();
+  });
   return { root, refresh: () => void replan() };
 }
 
