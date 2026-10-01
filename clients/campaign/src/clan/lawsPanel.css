@@ -1,0 +1,86 @@
+/**
+ * Clan laws panel styles (clan/lawsPanel.ts).
+ *
+ * Every value comes from src/design/tokens.css — no invented colours,
+ * fonts, or spacing.
+ */
+
+.laws__group {
+  border: none;
+  margin: 0 0 var(--space-3);
+  padding: 0;
+}
+
+.laws__legend {
+  margin-bottom: var(--space-2);
+  padding: 0;
+}
+
+.laws__option {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--paper-300);
+  cursor: pointer;
+}
+
+.laws__option:last-child {
+  border-bottom: none;
+}
+
+.laws__option input[type="radio"] {
+  margin-top: var(--space-1);
+  accent-color: var(--accent-primary);
+}
+
+.laws__option-text {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.laws__effect {
+  color: var(--ink-500);
+}
+
+.laws__outlook {
+  margin: var(--space-3) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--paper-300);
+  border-radius: var(--radius-2);
+  background: var(--paper-100);
+}
+
+.laws__heir {
+  margin: 0 0 var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.laws__split {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.laws__split-row {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.laws__confirm {
+  margin-top: var(--space-2);
+  padding: var(--space-2);
+  border: 1px solid var(--status-critical);
+  border-radius: var(--radius-2);
+}
+
+.laws__confirm p {
+  margin: 0 0 var(--space-2);
+}

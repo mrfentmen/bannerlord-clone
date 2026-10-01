@@ -94,6 +94,7 @@ import { mountBattleUi, type BattleMount } from "./battleflow/mount.js";
 import { createPhotoMode, mountPhotoModeBar, type PhotoModeBarHandle } from "./expression/index.js";
 import { chroniclePanel, seasonForDay } from "./expression/chroniclePanel.js";
 import { createMemorial, memorialPanel } from "./afteraction/index.js";
+import { lawsPanel, DEFAULT_LAWS, type ClanLaws } from "./clan/index.js";
 import type { ChronicleEvent, Oath } from "./expression/chronicle.js";
 import {
   boundsForWorld,
@@ -464,6 +465,7 @@ const hud = createHud({
   onOpenChronicle: () => openChronicle(),
   onOpenHeatmap: () => toggleHeatmap(),
   onOpenMemorial: () => openMemorial(),
+  onOpenClanLaws: () => openClanLaws(),
   onOpenQuestTracker: () => openQuestTracker(),
   onOpenTradeRoutes: () => toggleTradeRoutes(),
   onOpenUiScale: (s) => settings.set({ uiScale: s }),
@@ -1200,6 +1202,66 @@ function openChronicle(): void {
 
 // -- War memorial (Rowan, MASTER_PLAN task 75) --------------------------------
 const memorial = createMemorial();
+
+// -- Clan laws (MASTER_PLAN task 82): inheritance + marriage policy, -------
+// persisted locally. Corrupt or out-of-range values fall back to the
+// ancient laws (primogeniture / alliance-first) rather than crashing.
+const CLAN_LAWS_KEY = "fentmen.clanLaws.v1";
+
+const INHERITANCE_LAWS: ClanLaws["inheritance"][] = ["primogeniture", "ultimogeniture", "partible", "elective"];
+const MARRIAGE_POLICIES: ClanLaws["marriagePolicy"][] = ["alliance-first", "love-match", "dowry-first"];
+
+function loadClanLaws(): ClanLaws {
+  try {
+    const raw = localStorage.getItem(CLAN_LAWS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<ClanLaws>;
+      if (parsed && INHERITANCE_LAWS.includes(parsed.inheritance as ClanLaws["inheritance"]) &&
+          MARRIAGE_POLICIES.includes(parsed.marriagePolicy as ClanLaws["marriagePolicy"])) {
+        return { inheritance: parsed.inheritance!, marriagePolicy: parsed.marriagePolicy! };
+      }
+    }
+  } catch {
+    // Corrupted entry: fall back to the ancient laws.
+  }
+  return { ...DEFAULT_LAWS };
+}
+
+let clanLaws: ClanLaws = loadClanLaws();
+
+function persistClanLaws(): void {
+  try {
+    localStorage.setItem(CLAN_LAWS_KEY, JSON.stringify(clanLaws));
+  } catch {
+    // Storage full or blocked: keep the laws in memory for the session.
+  }
+}
+
+function openClanLaws(): void {
+  currentPanel = "none";
+  const { root } = lawsPanel({
+    laws: () => clanLaws,
+    onChange: (next) => {
+      clanLaws = next;
+      persistClanLaws();
+    },
+    onReset: () => {
+      clanLaws = { ...DEFAULT_LAWS };
+      persistClanLaws();
+    },
+    // No clan roster source yet (the family tree, task 76, records members);
+    // the panel shows the honest empty state until one exists.
+    roster: () => null,
+    holdings: () => world?.data.settlements.map((s) => s.name) ?? [],
+    onClose: () => {
+      currentPanel = "none";
+      contextNode = null;
+      paint();
+    },
+  });
+  contextNode = root;
+  paint();
+}
 
 function openMemorial(): void {
   currentPanel = "none";

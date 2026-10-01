@@ -49,6 +49,8 @@ export interface HudOptions {
   onOpenHeatmap?: () => void;
   /** Opens the war memorial. Optional: the button hides without it. */
   onOpenMemorial?: () => void;
+  /** Opens the clan laws panel. Optional: the button hides without it. */
+  onOpenClanLaws?: () => void;
   /** Expands the quest tracker card (MASTER_PLAN task 115). Optional: the button hides without it. */
   onOpenQuestTracker?: () => void;
   /** Toggles the trade routes card + map overlay (MASTER_PLAN tasks 102/103). Optional: the button hides without it. */
@@ -532,6 +534,12 @@ export function createHud(options: HudOptions): HudHandle {
       const memorialBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-memorial" }, "Memorial");
       memorialBtn.addEventListener("click", () => options.onOpenMemorial?.());
       rail.appendChild(memorialBtn);
+    }
+
+    if (options.onOpenClanLaws) {
+      const lawsBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-clan-laws" }, "Clan laws");
+      lawsBtn.addEventListener("click", () => options.onOpenClanLaws?.());
+      rail.appendChild(lawsBtn);
     }
 
     if (options.onOpenTradeRoutes) {
