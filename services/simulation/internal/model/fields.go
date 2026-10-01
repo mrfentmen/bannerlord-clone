@@ -581,4 +581,6 @@ func init() {
 	// --- prisoner fields (Tier 2.3) ---
 	register(Field{"prisoners", KindParty, ValueFloat, "troops", true, 0, inf, nil, 0})
 	register(Field{"prisoner_conformity", KindParty, ValueFloat, "share", false, 0, 1, nil, 0})
+	// --- family fields (Tier 2.1) ---
+	register(Field{"pregnancy_days", KindLeader, ValueFloat, "days", false, -1, 300, nil, 0})
 }

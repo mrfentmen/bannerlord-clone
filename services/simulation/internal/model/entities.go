@@ -416,6 +416,9 @@ type Leader struct {
 	// symmetric: both rulers name each other, and the marriage system is
 	// the only writer of both.
 	SpouseID int
+	// PregnancyDays tracks gestation: -1 = not pregnant, 0+ = days pregnant.
+	// Only meaningful for one partner (the lower ID in the pair).
+	PregnancyDays float64
 	// FatherID and MotherID are the rulers who bore this one, or -1 for a
 	// ruler who started the world with no recorded parents. Set at birth and
 	// never changed, so a family tree can be walked in either direction.
