@@ -215,16 +215,17 @@ func run(v *sim.View, w *sim.WriteSet) {
 			loserWoundedFrac = 0.8
 		}
 		winnerWounded := winnerLoss * winnerWoundedFrac
-		winnerKilled := winnerLoss - winnerWounded
 		loserWounded := loserLoss * loserWoundedFrac
-		loserKilled := loserLoss - loserWounded
 
-		w.Add(model.KindParty, winner.ID, "troops", -winnerKilled,
-			read, causes, "battle killed")
+		// Troops lose the total casualties (killed + wounded).
+		// Wounded go to the wounded pool (recoverable via medicine).
+		// Killed are permanent losses.
+		w.Add(model.KindParty, winner.ID, "troops", -winnerLoss,
+			read, causes, "battle casualties")
 		w.Add(model.KindParty, winner.ID, "wounded", winnerWounded,
 			read, causes, "battle wounded")
-		w.Add(model.KindParty, loser.ID, "troops", -loserKilled,
-			read, causes, "battle killed")
+		w.Add(model.KindParty, loser.ID, "troops", -loserLoss,
+			read, causes, "battle casualties")
 		w.Add(model.KindParty, loser.ID, "wounded", loserWounded,
 			read, causes, "battle wounded")
 		// Victor gains renown; feeds clan renown (Tier 1).
