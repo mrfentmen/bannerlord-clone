@@ -151,5 +151,19 @@ func run(v *sim.View, w *sim.WriteSet) {
 			[]string{"age"}, 3)
 		w.Add(model.KindLeader, lid, "ruler_age", 1.0/365.0,
 			read, causes, "aging")
+
+		// Natural death: chance increases with age.
+		// Base mortality: negligible before 50, rising sharply after 70.
+		if l.Age > 50 {
+			deathChance := 0.0001 * (l.Age - 50) * (l.Age - 50)
+			if rng.Chance(deathChance) {
+				w.Set(model.KindLeader, lid, "is_alive", 0,
+					read, causes, "natural death")
+				// Heir succession: if they have an heir designated,
+				// the heir inherits. Otherwise, the oldest adult child.
+				// (Simplified: just log the death; succession handled by
+				// the succession system if it exists.)
+			}
+		}
 	}
 }
