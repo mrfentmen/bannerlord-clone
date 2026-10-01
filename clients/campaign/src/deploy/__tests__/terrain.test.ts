@@ -6,11 +6,13 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  applyFormation,
   cellColor,
   cellIndexAt,
   patchToPixel,
   pixelToPatch,
   samplePatch,
+  terrainNotes,
   validatePlacement,
 } from "../terrain.js";
 import type { BattlePatch } from "../types.js";
@@ -133,5 +135,78 @@ describe("sample preview patch", () => {
     // Attacker zone sits on the south half; reinforcement edge is south.
     expect(a.y + a.height_m).toBeLessThan(0);
     expect(p.spawn_zones.reinforcement_edge).toBe("south");
+  });
+});
+
+describe("terrainNotes (task 36)", () => {
+  it("always leads with the biome and lists real features", () => {
+    const notes = terrainNotes(samplePatch("test"));
+    expect(notes[0]!.label).toBe("Biome");
+    expect(notes[0]!.detail).toMatch(/line of sight/); // forest blurb
+    const labels = notes.map((n) => n.label);
+    expect(labels.some((l) => l === "River" || l === "Water")).toBe(true); // western band
+    expect(labels).toContain("Forest"); // seeded tree stands
+  });
+
+  it("stays quiet about absent features", () => {
+    const patch = makePatch({ water_mask: new Array(4096).fill(false), cover_objects: [] });
+    const labels = terrainNotes(patch).map((n) => n.label);
+    expect(labels).not.toContain("River");
+    expect(labels).not.toContain("Water");
+    expect(labels).not.toContain("Forest");
+  });
+
+  it("flags hills when relief is large", () => {
+    const h = new Array(4096).fill(0);
+    h[0] = 100;
+    const labels = terrainNotes(makePatch({ heightfield: h })).map((n) => n.label);
+    expect(labels).toContain("Hills");
+  });
+});
+
+describe("applyFormation (task 35)", () => {
+  const zone = { x: -500, y: -950, width_m: 1000, height_m: 300 };
+  const units = [
+    { unitId: "a", radius_m: 30 },
+    { unitId: "b", radius_m: 30 },
+    { unitId: "c", radius_m: 30 },
+  ];
+
+  it("lays a line along the east-west axis", () => {
+    const spots = applyFormation(zone, units, "line");
+    expect(spots.map((s) => s.unitId)).toEqual(["a", "b", "c"]);
+    expect(new Set(spots.map((s) => s.y)).size).toBe(1);
+    const xs = spots.map((s) => s.x).sort((p, q) => p - q);
+    expect(xs[1]! - xs[0]!).toBeGreaterThan(50);
+  });
+
+  it("lays a column along the north-south axis, lead unit northmost", () => {
+    const spots = applyFormation(zone, units, "column");
+    expect(new Set(spots.map((s) => s.x)).size).toBe(1);
+    expect(spots[0]!.y).toBeGreaterThan(spots[2]!.y);
+  });
+
+  it("lays a wedge with the point north and wings trailing", () => {
+    const spots = applyFormation(zone, units, "wedge");
+    const [point, left, right] = spots as unknown as [{ x: number; y: number }, { x: number; y: number }, { x: number; y: number }];
+    expect(point.y).toBeGreaterThan(left.y);
+    expect(point.y).toBeGreaterThan(right.y);
+    expect(left.x).toBeLessThan(point.x);
+    expect(right.x).toBeGreaterThan(point.x);
+  });
+
+  it("keeps every slot inside the zone", () => {
+    for (const preset of ["line", "column", "wedge"] as const) {
+      for (const s of applyFormation(zone, units, preset)) {
+        expect(s.x).toBeGreaterThanOrEqual(zone.x);
+        expect(s.x).toBeLessThanOrEqual(zone.x + zone.width_m);
+        expect(s.y).toBeGreaterThanOrEqual(zone.y);
+        expect(s.y).toBeLessThanOrEqual(zone.y + zone.height_m);
+      }
+    }
+  });
+
+  it("returns nothing for no units", () => {
+    expect(applyFormation(zone, [], "line")).toEqual([]);
   });
 });

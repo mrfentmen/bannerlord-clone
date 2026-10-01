@@ -11,6 +11,7 @@ import {
   type BattlePatch,
   type Biome,
   type CoverObject,
+  type FormationPreset,
   type InvalidReason,
   type SpawnRect,
   type ValidationResult,
@@ -142,6 +143,140 @@ export function cellColor(patch: BattlePatch, index: number): [number, number, n
   ];
 }
 
+// -- terrain notes (task 36) -----------------------------------------------------
+
+/** One line in the deployment screen's terrain summary. */
+export interface TerrainNote {
+  /** Short heading, e.g. "River". */
+  label: string;
+  /** One-sentence tactical detail, e.g. "western band — impassable". */
+  detail: string;
+}
+
+const BIOME_BLURB: Record<Biome, string> = {
+  city: "streets and blocks — hard cover everywhere, cavalry struggles to maneuver",
+  forest: "dense stands — line of sight breaks past a few dozen metres",
+  plains: "open ground — cavalry and archers own this field",
+  snow: "deep drifts — everything moves slower, tracks are easy to read",
+  river: "braided channels — crossings are chokepoints, banks are mud",
+  desert: "open sand — heat exhausts heavy infantry, dust hides movement",
+  hills: "rolling high ground — whoever holds the crest shoots further",
+  swamp: "bogs and reeds — solid ground is rare and obvious",
+  coastal: "sand and surf — one flank is the water, no one outflanks the sea",
+  industrial: "yards and warehouses — corridors between structures",
+};
+
+/**
+ * Summarizes the patch as biome + notable features: water, forest, hills,
+ * urban cover. Pure and deterministic; the view renders the list verbatim.
+ */
+export function terrainNotes(patch: BattlePatch): TerrainNote[] {
+  const notes: TerrainNote[] = [
+    { label: "Biome", detail: BIOME_BLURB[patch.biome] },
+  ];
+
+  let water = 0;
+  for (let i = 0; i < PATCH_CELLS; i++) if (patch.water_mask[i]) water++;
+  const waterPct = Math.round((water / PATCH_CELLS) * 100);
+  if (water > 0) {
+    notes.push({
+      label: waterPct >= 15 ? "River" : "Water",
+      detail:
+        waterPct >= 15
+          ? `about ${waterPct}% of the field — impassable to ground units, crossings are chokepoints`
+          : `scattered pools, about ${waterPct}% of the field — impassable to ground units`,
+    });
+  }
+
+  const trees = patch.cover_objects.filter((c) => c.type === "tree").length;
+  if (trees >= 10) {
+    notes.push({
+      label: "Forest",
+      detail: `${trees} mapped stands — blocks line of sight, slows cavalry`,
+    });
+  }
+  const rocks = patch.cover_objects.filter((c) => c.type === "rock").length;
+  if (rocks >= 10) {
+    notes.push({ label: "Rocks", detail: `${rocks} outcrops — infantry cover, breaks charges` });
+  }
+  const urban = patch.cover_objects.filter((c) => c.type === "building" || c.type === "wall").length;
+  if (urban >= 5) {
+    notes.push({ label: "Structures", detail: `${urban} buildings/walls — hard cover, street fighting` });
+  }
+
+  let min = Infinity;
+  let max = -Infinity;
+  for (let i = 0; i < PATCH_CELLS; i += 8) {
+    const v = patch.heightfield[i] ?? 0;
+    if (v < min) min = v;
+    if (v > max) max = v;
+  }
+  const relief = Math.round(max - min);
+  if (relief >= 30) {
+    notes.push({
+      label: "Hills",
+      detail: `${relief} m of relief — the crest outranges the valley floor`,
+    });
+  }
+  return notes;
+}
+
+// -- formation presets (task 35) ------------------------------------------------
+
+/** Units to arrange: id plus footprint for spacing. */
+export interface FormationUnit {
+  unitId: string;
+  radius_m: number;
+}
+
+/**
+ * Lays out units inside a deployment zone in the chosen preset. North is up;
+ * the enemy is assumed north, so formations face +y. Pure: the view validates
+ * each position with `validatePlacement` and reports the ones that fail.
+ */
+export function applyFormation(
+  zone: SpawnRect,
+  units: FormationUnit[],
+  preset: FormationPreset,
+): { unitId: string; x: number; y: number }[] {
+  if (units.length === 0) return [];
+  const spacing = Math.max(...units.map((u) => u.radius_m * 2)) + 15;
+  const cx = zone.x + zone.width_m / 2;
+  const cy = zone.y + zone.height_m / 2;
+  const out: { unitId: string; x: number; y: number }[] = [];
+
+  if (preset === "line") {
+    // Shoulder to shoulder along the east-west axis, centred.
+    const total = (units.length - 1) * spacing;
+    units.forEach((u, i) => {
+      out.push({ unitId: u.unitId, x: Math.round(cx - total / 2 + i * spacing), y: Math.round(cy) });
+    });
+  } else if (preset === "column") {
+    // Single file north-south, lead unit closest to the enemy.
+    const total = (units.length - 1) * spacing;
+    units.forEach((u, i) => {
+      out.push({ unitId: u.unitId, x: Math.round(cx), y: Math.round(cy + total / 2 - i * spacing) });
+    });
+  } else {
+    // Wedge: point unit forward (north), pairs fanning back and out.
+    units.forEach((u, i) => {
+      if (i === 0) {
+        out.push({ unitId: u.unitId, x: Math.round(cx), y: Math.round(cy + spacing / 2) });
+      } else {
+        const rank = Math.ceil(i / 2);
+        const side = i % 2 === 1 ? -1 : 1;
+        out.push({
+          unitId: u.unitId,
+          x: Math.round(cx + side * rank * spacing * 0.9),
+          y: Math.round(cy + spacing / 2 - rank * spacing * 0.9),
+        });
+      }
+    });
+  }
+  return out;
+}
+
+/** Fetch a real wire patch; throws with a plain message on any problem. */
 // -- wire loading --------------------------------------------------------------
 
 /** Fetch a real wire patch; throws with a plain message on any problem. */

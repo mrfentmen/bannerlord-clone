@@ -4,16 +4,20 @@
  */
 
 export { openDeployment, type DeploymentMapHandle } from "./DeploymentMap.js";
-export { fetchPatch, samplePatch } from "./terrain.js";
+export { fetchPatch, samplePatch, terrainNotes, applyFormation } from "./terrain.js";
+export type { TerrainNote, FormationUnit } from "./terrain.js";
 export type {
   BattlePatch,
   Biome,
   CoverObject,
   DeploymentMapOptions,
+  EnemyUnit,
+  FormationPreset,
   InvalidReason,
   Placement,
   ReinforcementEdge,
   RosterUnit,
+  SavedDeployment,
   SpawnRect,
   SpawnZones,
   UnitKind,
@@ -26,10 +30,10 @@ import { samplePatch } from "./terrain.js";
 import type { RosterUnit } from "./types.js";
 
 const PREVIEW_ROSTER: RosterUnit[] = [
-  { id: "inf-1", label: "1st Infantry", kind: "infantry", count: 120, radius_m: 30 },
-  { id: "inf-2", label: "2nd Infantry", kind: "infantry", count: 100, radius_m: 30 },
-  { id: "arc-1", label: "Longbowmen", kind: "archers", count: 60, radius_m: 25 },
-  { id: "cav-1", label: "Outriders", kind: "cavalry", count: 40, radius_m: 35 },
+  { id: "inf-1", label: "1st Infantry", kind: "infantry", count: 120, radius_m: 30, health: 92, morale: 78 },
+  { id: "inf-2", label: "2nd Infantry", kind: "infantry", count: 100, radius_m: 30, health: 85, morale: 71 },
+  { id: "arc-1", label: "Longbowmen", kind: "archers", count: 60, radius_m: 25, health: 100, morale: 88 },
+  { id: "cav-1", label: "Outriders", kind: "cavalry", count: 40, radius_m: 35, health: 76, morale: 64 },
 ];
 
 import type { Placement } from "./types.js";

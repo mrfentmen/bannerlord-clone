@@ -1985,3 +1985,31 @@ html[data-reduce-motion] *::after {
 /* Performance overlay (task 30). */
 .perf-overlay { position: fixed; left: var(--space-2); bottom: var(--space-2); z-index: 195; display: flex; align-items: center; gap: var(--space-2); padding: var(--space-1) var(--space-2); background: var(--ink-900); color: var(--paper-100); border-radius: var(--radius-sm); font-family: var(--font-mono, monospace); font-size: 0.78rem; font-variant-numeric: tabular-nums; opacity: 0.92; }
 .perf-overlay__close { background: transparent; border: none; color: var(--paper-100); cursor: pointer; font-size: 0.78rem; padding: 0 var(--space-1); }
+
+/* Deployment extras: tasks 33-38. */
+.deploy__card { flex-direction: column; align-items: stretch; }
+.deploy__cardhead { display: flex; align-items: center; gap: var(--space-2); }
+.deploy__meters { display: flex; gap: var(--space-3); }
+.deploy__meter { display: flex; align-items: center; gap: var(--space-1); font-size: 0.75rem; opacity: 0.9; }
+.deploy__meterlabel { opacity: 0.7; }
+.deploy__metertrack { display: inline-block; width: 64px; height: 6px; background: var(--ink-500); border-radius: 3px; overflow: hidden; }
+.deploy__meterfill { display: block; height: 100%; }
+.deploy__meterna { opacity: 0.5; }
+.deploy__panels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); margin-top: var(--space-3); }
+.deploy__panel { background: var(--ink-700); border: 1px solid var(--ink-500); border-radius: 6px; padding: var(--space-2) var(--space-3); }
+.deploy__paneltitle { margin: 0 0 var(--space-1); font-size: 0.95rem; }
+.deploy__notes, .deploy__enemy, .deploy__saved, .deploy__reasons { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: var(--space-1); }
+.deploy__note { font-size: 0.85rem; }
+.deploy__enemyrow { display: flex; align-items: center; gap: var(--space-2); font-size: 0.9rem; }
+.deploy__muted { opacity: 0.65; font-size: 0.85rem; margin: var(--space-1) 0; }
+.deploy__formrow { display: flex; gap: var(--space-2); margin-bottom: var(--space-2); flex-wrap: wrap; }
+.deploy__savename { flex: 1; min-width: 120px; padding: var(--space-1) var(--space-2); border: 1px solid var(--ink-500); border-radius: 4px; background: var(--ink-800); color: inherit; font: inherit; }
+.deploy__savedrow { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); }
+.deploy__reasons { color: var(--status-warning-mark); font-size: 0.85rem; }
+.deploy__reasons:empty { display: none; }
+.deploy__footer { flex-wrap: wrap; }
+.deploy__footer .btn--primary { margin-left: auto; }
+.deploy__footer .btn--primary:disabled { opacity: 0.45; cursor: not-allowed; }
+@media (max-width: 900px) {
+  .deploy__panels { grid-template-columns: 1fr; }
+}

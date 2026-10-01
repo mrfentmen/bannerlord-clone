@@ -71,6 +71,31 @@ export interface RosterUnit {
   count: number;
   /** Footprint radius in metres, for collision against cover. */
   radius_m: number;
+  /**
+   * Task 33: unit condition shown on the roster card. 0-100; absent when the
+   * caller (milo's sim / party state) does not report it — the card then
+   * shows "—" instead of inventing a number.
+   */
+  health?: number;
+  /** Task 33: as health, 0-100, absent when unreported. */
+  morale?: number;
+}
+
+/** Task 34: the other side's roster. Types + counts only — the enemy is not placeable. */
+export interface EnemyUnit {
+  kind: UnitKind;
+  label?: string;
+  count: number;
+}
+
+/** Task 35: deploy-time formation presets. */
+export type FormationPreset = "line" | "column" | "wedge";
+
+/** Task 38: a named, reusable deployment. */
+export interface SavedDeployment {
+  name: string;
+  savedAt: string;
+  placements: Placement[];
 }
 
 export interface Placement {
@@ -95,10 +120,14 @@ export interface DeploymentMapOptions {
   patch: BattlePatch;
   /** The player's units available to place. */
   roster: RosterUnit[];
+  /** Task 34: the enemy army list, shown for scouting, never placeable. */
+  enemyRoster?: EnemyUnit[];
   /** Fired on every placement change (place, move, remove). */
   onChange?: (placements: Placement[]) => void;
   /** Called when the player confirms the deployment. */
   onConfirm?: (placements: Placement[]) => void;
   /** Called when the player closes the view without confirming. */
   onClose?: () => void;
+  /** Task 38: storage hook for named deployments; defaults to localStorage. */
+  storage?: Pick<Storage, "getItem" | "setItem" | "removeItem">;
 }
