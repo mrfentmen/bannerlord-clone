@@ -63,6 +63,11 @@ export interface SceneOptions {
   year: number;
   quality: QualityLevel;
   onSelect: (settlementId: string) => void;
+  /** Engine creation options from settings (tasks 8/12): need a reload. */
+  antialias?: boolean;
+  powerPreference?: WebGLPowerPreference;
+  terrainSamples?: number;
+  maxFps?: number;
 }
 
 export interface SceneHandle {
@@ -79,6 +84,13 @@ export interface SceneHandle {
   showRoute(points: Vector3[]): void;
   setPartyPosition(x: number, z: number, heading: number): void;
   setPartyVisible(visible: boolean): void;
+  /** Frame cap; skips renders that arrive too soon. */
+  setMaxFps(fps: number): void;
+  /**
+   * Mouse camera feel (task 8): sensitivity scales orbit + wheel zoom speed,
+   * invert flips orbit axes. Applies live, no restart.
+   */
+  applyMouseSettings(sensitivity: number, invertX: boolean, invertY: boolean): void;
   /** One line about what the map is showing, for the data-source panel. */
   summary(): string;
   towns: TownCluster[];
@@ -98,7 +110,12 @@ export interface CameraDelta {
 
 export function createCampaignScene(options: SceneOptions): SceneHandle {
   const { canvas, world, projection } = options;
-  const engine = new Engine(canvas, true, { preserveDrawingBuffer: true, stencil: true }, true);
+  const engine = new Engine(
+    canvas,
+    options.antialias ?? true,
+    { preserveDrawingBuffer: true, stencil: true, powerPreference: options.powerPreference ?? "default" },
+    true,
+  );
   const scene = new Scene(engine);
   scene.clearColor = Color4.FromHexString(`${mapColor.sky}ff`);
   // Haze, not soup. At map scale the camera is 10 to 90 km from the far side of the
@@ -181,7 +198,7 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
   fill.groundColor = new Color3(0.2, 0.19, 0.16);
 
   // -- world ----------------------------------------------------------------
-  buildTerrain({ scene, heightfield: world.heightfield, projection });
+  buildTerrain({ scene, heightfield: world.heightfield, projection, samples: options.terrainSamples ?? 256 });
   const terrainInfo = terrainSummary(world.heightfield);
 
   const network = buildNetwork(scene, world.roads, world.rail, projection, VERTICAL_SCALE);
@@ -258,7 +275,16 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
     if (typeof id === "string") options.onSelect(id);
   });
 
+  // Frame cap (settings maxFps, task 12): skip renders that arrive too soon.
+  let maxFps = options.maxFps ?? 0;
+  let lastFrameAt = 0;
+
   engine.runRenderLoop(() => {
+    if (maxFps > 0) {
+      const now = performance.now();
+      if (now - lastFrameAt < 1000 / maxFps) return;
+      lastFrameAt = now;
+    }
     if (grain) grain.tick(engine.getDeltaTime());
     sizePartyPin(pin, camera.radius, engine.getRenderHeight());
     scene.render();
@@ -332,6 +358,19 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
         `${terrainInfo.max.toFixed(0)} m at ${terrainInfo.resolution.toFixed(0)} m/px · ` +
         `${graph.nodes.length.toLocaleString("en-US")} road nodes`
       );
+    },
+    setMaxFps(fps) {
+      maxFps = Math.max(0, fps);
+    },
+    applyMouseSettings(sensitivity, invertX, invertY) {
+      // Babylon's stock defaults; sensitivity divides them (higher = faster).
+      const sx = invertX ? -1 : 1;
+      const sy = invertY ? -1 : 1;
+      const s = Math.max(0.25, sensitivity);
+      camera.angularSensibilityX = (1000 / s) * sx;
+      camera.angularSensibilityY = (1000 / s) * sy;
+      camera.wheelPrecision = 3 / s;
+      camera.panningSensibility = 28 / s;
     },
   };
 }

@@ -27,6 +27,7 @@ export interface HudOptions {
   onOpenDataSource: () => void;
   /** Opens the keybinding editor. Optional: the button hides without it. */
   onOpenControls?: () => void;
+  onOpenSettings?: () => void;
   /**
    * Current gamepad label for the rail status line (task 1). Null when no
    * controller is connected; the line hides without it.
@@ -444,6 +445,12 @@ export function createHud(options: HudOptions): HudHandle {
       const controlsBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-controls" }, "Controls & keys");
       controlsBtn.addEventListener("click", () => options.onOpenControls?.());
       rail.appendChild(controlsBtn);
+    }
+
+    if (options.onOpenSettings) {
+      const settingsBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-settings" }, "Settings");
+      settingsBtn.addEventListener("click", () => options.onOpenSettings?.());
+      rail.appendChild(settingsBtn);
     }
 
     const padLabel = options.gamepadLabel?.() ?? null;

@@ -30,3 +30,4 @@ export const settings: SettingsStore = createSettingsStore(appStorage());
 
 export * from "./schema.js";
 export * from "./store.js";
+export * from "./presets.js";

@@ -19,11 +19,28 @@ export const SETTINGS_VERSION = 1;
 export const UI_SCALE_STEPS = [90, 100, 115, 130] as const;
 
 export type GraphicsQuality = "low" | "medium" | "high" | "ultra";
+export type TerrainDetail = "low" | "high";
+export type PowerPreference = "default" | "low-power" | "high-performance";
 
 export interface Settings {
   version: typeof SETTINGS_VERSION;
-  /** Render resolution scaling. Applied live to the Babylon engine. */
+  /** Preset selector (task 12): one click applies the bundle in presets.ts. */
   graphicsQuality: GraphicsQuality;
+  /** Render resolution scale: 1 = native, >1 = sharper/slower. Live. */
+  renderScale: number;
+  /** MSAA at engine creation. Needs a reload. */
+  antialias: boolean;
+  /** Terrain mesh density. Needs a reload. */
+  terrainDetail: TerrainDetail;
+  /** Frame cap: 0 = uncapped. Live. */
+  maxFps: 0 | 30 | 60 | 120;
+  /** GPU preference at engine creation. Needs a reload. */
+  powerPreference: PowerPreference;
+  /** Mouse orbit/zoom multiplier on the 3D canvas. Live. */
+  mouseSensitivity: number;
+  /** Invert mouse orbit axes. Live. */
+  invertMouseX: boolean;
+  invertMouseY: boolean;
   /** UI scale step; applied live via the `data-ui-scale` attribute. */
   uiScale: number;
   /** Camera pan speed multiplier. Read at dispatch time, so it applies live. */
@@ -46,6 +63,14 @@ export interface Settings {
 export const DEFAULT_SETTINGS: Settings = {
   version: SETTINGS_VERSION,
   graphicsQuality: "high",
+  renderScale: 1,
+  antialias: true,
+  terrainDetail: "high",
+  maxFps: 0,
+  powerPreference: "default",
+  mouseSensitivity: 1,
+  invertMouseX: false,
+  invertMouseY: false,
   uiScale: 100,
   cameraSpeed: 1,
   masterVolume: 0.8,
@@ -59,6 +84,9 @@ export const DEFAULT_SETTINGS: Settings = {
 };
 
 const GRAPHICS_QUALITIES: readonly GraphicsQuality[] = ["low", "medium", "high", "ultra"];
+const TERRAIN_DETAILS: readonly TerrainDetail[] = ["low", "high"];
+const MAX_FPS_VALUES: readonly Settings["maxFps"][] = [0, 30, 60, 120];
+const POWER_PREFERENCES: readonly PowerPreference[] = ["default", "low-power", "high-performance"];
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -66,6 +94,10 @@ function isRecord(v: unknown): v is Record<string, unknown> {
 
 function pickEnum<T extends string>(v: unknown, allowed: readonly T[], fallback: T): T {
   return typeof v === "string" && (allowed as readonly string[]).includes(v) ? (v as T) : fallback;
+}
+
+function pickOneOf<T>(v: unknown, allowed: readonly T[], fallback: T): T {
+  return (allowed as readonly unknown[]).includes(v) ? (v as T) : fallback;
 }
 
 function pickNumber(v: unknown, min: number, max: number, fallback: number): number {
@@ -101,6 +133,14 @@ export function parseSettings(raw: unknown): Settings {
   return {
     version: SETTINGS_VERSION,
     graphicsQuality: pickEnum(v.graphicsQuality, GRAPHICS_QUALITIES, DEFAULT_SETTINGS.graphicsQuality),
+    renderScale: pickNumber(v.renderScale, 0.5, 2, DEFAULT_SETTINGS.renderScale),
+    antialias: v.antialias !== false,
+    terrainDetail: pickEnum(v.terrainDetail, TERRAIN_DETAILS, DEFAULT_SETTINGS.terrainDetail),
+    maxFps: pickOneOf(v.maxFps, MAX_FPS_VALUES, DEFAULT_SETTINGS.maxFps),
+    powerPreference: pickEnum(v.powerPreference, POWER_PREFERENCES, DEFAULT_SETTINGS.powerPreference),
+    mouseSensitivity: pickNumber(v.mouseSensitivity, 0.25, 3, DEFAULT_SETTINGS.mouseSensitivity),
+    invertMouseX: v.invertMouseX === true,
+    invertMouseY: v.invertMouseY === true,
     uiScale: nearestStep(v.uiScale, DEFAULT_SETTINGS.uiScale),
     cameraSpeed: pickNumber(v.cameraSpeed, 0.25, 3, DEFAULT_SETTINGS.cameraSpeed),
     masterVolume: pickNumber(v.masterVolume, 0, 1, DEFAULT_SETTINGS.masterVolume),

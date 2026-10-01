@@ -26,6 +26,7 @@ export type InputActionId =
   // -- interface ------------------------------------------------------------
   | "ui.cancel"
   | "ui.confirm"
+  | "ui.settings"
   // -- campaign map ----------------------------------------------------------
   | "map.panUp"
   | "map.panDown"
@@ -92,6 +93,9 @@ export const ACTION_DEFS: readonly ActionDef[] = [
   def("ui.confirm", "Confirm", "interface",
     "Accepts the focused choice or dialog.", [{ key: "Enter" }],
     { gamepad: [0] }),
+  def("ui.settings", "Open settings", "interface",
+    "Opens the settings panel. Unbound by default — assign a key in the keybinding editor.",
+    []),
 
   def("map.panUp", "Pan map up", "campaign-map",
     "Moves the campaign camera north.", [{ key: "ArrowUp" }, { key: "w" }],

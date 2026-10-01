@@ -71,6 +71,44 @@ describe("settings schema", () => {
     expect(parseSettings({ uiScale: 200 }).uiScale).toBe(130);
   });
 
+  it("validates the task-8/12 graphics and mouse fields", () => {
+    const s = parseSettings({
+      renderScale: 1.25,
+      antialias: false,
+      terrainDetail: "low",
+      maxFps: 60,
+      powerPreference: "high-performance",
+      mouseSensitivity: 2,
+      invertMouseX: true,
+      invertMouseY: 1, // truthy but not boolean: strict false
+    });
+    expect(s.renderScale).toBe(1.25);
+    expect(s.antialias).toBe(false);
+    expect(s.terrainDetail).toBe("low");
+    expect(s.maxFps).toBe(60);
+    expect(s.powerPreference).toBe("high-performance");
+    expect(s.mouseSensitivity).toBe(2);
+    expect(s.invertMouseX).toBe(true);
+    expect(s.invertMouseY).toBe(false);
+  });
+
+  it("clamps and enum-falls-back the new fields on garbage", () => {
+    const s = parseSettings({
+      renderScale: 99,
+      antialias: "no",
+      terrainDetail: "ultra-hd",
+      maxFps: 144,
+      powerPreference: "nuclear",
+      mouseSensitivity: -5,
+    });
+    expect(s.renderScale).toBe(2); // clamped, not defaulted
+    expect(s.antialias).toBe(true);
+    expect(s.terrainDetail).toBe(DEFAULT_SETTINGS.terrainDetail);
+    expect(s.maxFps).toBe(DEFAULT_SETTINGS.maxFps);
+    expect(s.powerPreference).toBe(DEFAULT_SETTINGS.powerPreference);
+    expect(s.mouseSensitivity).toBe(0.25); // clamped to range floor
+  });
+
   it("accepts undefined/null/strings as empty", () => {
     expect(parseSettings(undefined)).toEqual({ ...DEFAULT_SETTINGS });
     expect(parseSettings("nope")).toEqual({ ...DEFAULT_SETTINGS });

@@ -46,6 +46,18 @@ export const CONTROL_ENTRIES: CodexEntry[] = [
     ["mechanic-keybinding-editor"],
   ),
   e(
+    "action-ui-settings",
+    "Open settings",
+    "controls",
+    "Opens the settings panel. Unbound by default.",
+    [
+      "Settings also lives in the HUD rail. The action exists so you can give it a key in the keybinding editor — it ships unbound so it never steals a chord you already use.",
+      "The panel applies changes live: drag a slider and the map behind it responds. Cancel reverts everything to how it was when you opened the panel.",
+    ],
+    ["action:ui.settings", "settings", "preferences", "options"],
+    ["setting-mouse", "setting-graphics-presets"],
+  ),
+  e(
     "action-map-pan-up",
     "Pan map up",
     "controls",
@@ -335,6 +347,42 @@ export const SETTINGS_ENTRIES: CodexEntry[] = [
       "Rumble is best-effort — desktops and browsers without a vibration actuator simply do nothing — and never blocks the game if the effect is rejected.",
     ],
     ["setting:hapticsEnabled", "haptics", "rumble", "vibration", "controller"],
+    [],
+  ),
+  e(
+    "setting-mouse",
+    "Mouse sensitivity and inversion",
+    "settings",
+    "Orbit and zoom speed on the 3D canvas, plus invert-axis toggles.",
+    [
+      "Mouse sensitivity scales how fast the mouse orbits the campaign camera and how fast the wheel zooms. The invert toggles flip the orbit axes without touching keyboard, gamepad, or touch camera controls.",
+      "Changes apply immediately — drag the slider and feel it on the map behind the panel.",
+    ],
+    ["setting:mouseSensitivity", "setting:invertMouseX", "setting:invertMouseY", "mouse", "sensitivity", "invert"],
+    [],
+  ),
+  e(
+    "setting-graphics-engine",
+    "Engine graphics values",
+    "settings",
+    "Render scale, anti-aliasing, terrain detail, frame cap, GPU preference.",
+    [
+      "Render scale sets the 3D resolution relative to the canvas: below 100% is faster, above is sharper. The frame cap limits how often the scene renders — 30 fps is the laptop-battery choice.",
+      "Anti-aliasing, terrain detail, and GPU preference are read once when the 3D engine starts. Changing them shows a restart banner in the settings panel; everything else applies immediately.",
+    ],
+    ["setting:renderScale", "setting:antialias", "setting:terrainDetail", "setting:maxFps", "setting:powerPreference", "graphics", "engine"],
+    ["setting-graphics-presets"],
+  ),
+  e(
+    "setting-graphics-presets",
+    "Graphics quality presets",
+    "settings",
+    "One click applies a full engine bundle: Low, Medium, High, Ultra.",
+    [
+      "Each preset is a bundle of five engine values: render scale, anti-aliasing, terrain detail, frame-rate cap, and GPU preference. Low renders at reduced resolution with a 30 fps cap for old hardware; Ultra renders above native resolution with the high-performance GPU.",
+      "Anti-aliasing, terrain detail, and GPU preference are read when the 3D engine starts, so they take effect after a reload — the settings panel says so next to each.",
+    ],
+    ["setting:graphicsQuality", "preset", "quality", "graphics", "low", "medium", "high", "ultra"],
     [],
   ),
   e(

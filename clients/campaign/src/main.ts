@@ -34,6 +34,7 @@ import { createGamepadManager, createStickCamera, moveFocus, type GamepadManager
 import { createHaptics, type Haptics } from "./input/gamepad/haptics.js";
 import { createTouchOverlay, isTouchDevice, type TouchOverlay } from "./input/touch/overlay.js";
 import { marketPanel } from "./ui/panels/MarketPanel.js";
+import { settingsPanel } from "./ui/panels/SettingsPanel.js";
 import { partyPanel } from "./ui/panels/PartyPanel.js";
 import { marchPlanner } from "./ui/panels/MarchPlanner.js";
 import { ledgerPanel } from "./ui/panels/LedgerPanel.js";
@@ -114,12 +115,9 @@ function applySettingsLive(): void {
   // Audio levels are stored and validated here; the audio pipeline (Hana's lane)
   // subscribes to the store and applies them.
   if (scene) {
-    const level =
-      s.graphicsQuality === "low" ? 1.5
-      : s.graphicsQuality === "medium" ? 1.25
-      : s.graphicsQuality === "ultra" ? 0.85
-      : 1;
-    scene.engine.setHardwareScalingLevel(level);
+    scene.engine.setHardwareScalingLevel(s.renderScale);
+    scene.setMaxFps(s.maxFps);
+    scene.applyMouseSettings(s.mouseSensitivity, s.invertMouseX, s.invertMouseY);
   }
 }
 applyUiScale(settings.get().uiScale);
@@ -210,6 +208,10 @@ scene = createCampaignScene({
   year: START_YEAR,
   quality: config.quality,
   onSelect: (id) => selectSettlement(id),
+  antialias: settings.get().antialias,
+  powerPreference: settings.get().powerPreference,
+  terrainSamples: settings.get().terrainDetail === "low" ? 128 : 256,
+  maxFps: settings.get().maxFps,
 });
 
 // -- 2. the simulation --------------------------------------------------------
@@ -281,6 +283,7 @@ const hud = createHud({
   onSkipToArrival: () => void skipToArrival(),
   onOpenDataSource: () => openDataSource(),
   onOpenControls: () => openControls(),
+  onOpenSettings: () => openSettings(),
   onOpenDeploymentPreview: () => openDeployment(),
   onOpenJournal: () => openJournal(),
   onOpenCodex: () => openCodex(),
@@ -431,6 +434,8 @@ function bindInputActions(): void {
     contextNode = null;
     paint();
   });
+
+  input.on("ui.settings", () => openSettings());
 
   // Touch A behaves like gamepad A: keyboard Enter is left alone — it already
   // activates natively, and this guard keeps the two from double-firing.
@@ -652,6 +657,18 @@ function openDataSource(): void {
       paint();
     },
     onRetry: () => void reloadSnapshot(),
+  });
+  paint();
+}
+
+function openSettings(): void {
+  currentPanel = "none";
+  contextNode = settingsPanel({
+    onClose: () => {
+      currentPanel = "none";
+      contextNode = null;
+      paint();
+    },
   });
   paint();
 }
