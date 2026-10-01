@@ -3,6 +3,7 @@ package battle
 import (
 	"fmt"
 	"math"
+	"strings"
 	"testing"
 	"time"
 
@@ -1071,6 +1072,93 @@ func TestEachOrderMovesTheFormationTheWayItSays(t *testing.T) {
 		t.Errorf("a hold walked %+.2f m in %d ticks, which is more than the %.2f m a formation "+
 			"tidies itself at hold_speed (%.2f m/s) in that time; a hold is a shuffle, not a march",
 			walked[OrderFormationHold], probe-settle, tidy, cfg.Formation.HoldSpeed)
+	}
+}
+
+// TestAGroupOfMenWhoAreNotThereIsRefused is the rule that a formation of nobody
+// is an error and not a quiet no-op.
+//
+// A group's membership is a list of battle ids, and the commander is built before
+// the battle exists, so the only place the list can be checked against the field
+// is the first tick it is ordered from. That is where it is checked. A unit that
+// is not on the field, or that fights for the other army, is a caller mistake
+// that is visible on the tick it is made and invisible for the rest of the
+// battle: the group is skipped, every one of its members is ignored, and the
+// battle goes on exactly as if the order had never been given. The caller is
+// told the order was carried out. That is the silent stub this codebase treats
+// as a bug, and it is the easiest one to write, because half a side's roster is
+// an entirely plausible thing to hand to a commander by mistake.
+//
+// The status filter beside these two is deliberately NOT here: a broken or
+// routed man is a real unit on the right side that the morale stage owns, and
+// leaving him alone is the rule, not a mistake.
+func TestAGroupOfMenWhoAreNotThereIsRefused(t *testing.T) {
+	cfg := loadConfig(t)
+	// Six side A units and six side B, so a group that names a B id has a
+	// perfectly good id to name and is still wrong.
+	const aUnits, bUnits = 6, 6
+	view := func() *View {
+		v := &View{
+			Elapsed:     1,
+			TickSeconds: cfg.Battle.TickSeconds,
+			Units:       make([]UnitView, aUnits+bUnits),
+			Commands:    make([]UnitCommand, aUnits+bUnits),
+		}
+		for i := range v.Units {
+			side := SideA
+			if i >= aUnits {
+				side = SideB
+			}
+			v.Units[i] = UnitView{
+				ID: i, Side: side, Status: StatusFighting, Troops: 10, Speed: 4,
+				X: -300 + float64(i%aUnits)*4, Y: float64(i/aUnits) * 2,
+			}
+		}
+		return v
+	}
+	cases := []struct {
+		name   string
+		units  []int
+		field  string
+		expect string
+	}{
+		{name: "a unit that is not on this field", units: []int{0, aUnits + bUnits}, field: "Group.Units", expect: "12"},
+		{name: "a unit that fights for the other army", units: []int{0, aUnits}, field: "Group.Units", expect: "side B"},
+		{name: "a group of nobody who exists", units: []int{aUnits + bUnits - 1}, field: "Group.Units", expect: "11"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			cmd, err := NewFormationCommander(cfg, SideA, []Group{
+				{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold}, Units: tc.units},
+			})
+			if err != nil {
+				t.Fatalf("building the formation commander failed: %v", err)
+			}
+			// The build cannot know: the battle does not exist yet. The order
+			// comes from a session that has not deployed.
+			v := view()
+			err = cmd.Command(v)
+			if err == nil {
+				t.Fatalf("the commander ordered a group of %v and reported success; %d of %d order slots "+
+					"were spoken to and the rest of the order was thrown away",
+					tc.units, countSpoken(v.Commands), len(v.Commands))
+			}
+			if !strings.Contains(err.Error(), tc.field) || !strings.Contains(err.Error(), tc.expect) {
+				t.Errorf("the error does not name %s and %q: %v", tc.field, tc.expect, err)
+			}
+		})
+	}
+	// And the control: the same commander naming units that ARE there is ordered
+	// without complaint, so the refusals above are about the membership and not
+	// about the shape.
+	ok, err := NewFormationCommander(cfg, SideA, []Group{
+		{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold}, Units: []int{0, 1, 2}},
+	})
+	if err != nil {
+		t.Fatalf("building the formation commander failed: %v", err)
+	}
+	if err := ok.Command(view()); err != nil {
+		t.Fatalf("a group of three real side A units was refused: %v", err)
 	}
 }
 
