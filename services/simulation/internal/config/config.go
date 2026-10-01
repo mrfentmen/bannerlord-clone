@@ -1,6 +1,10 @@
 package config
 
-import "path/filepath"
+import (
+	"path/filepath"
+
+	"mbclone/simulation/internal/model"
+)
 
 // Config is the complete set of tunable simulation constants. Every field is
 // populated from the balance file; there are no in-code defaults, so a value
@@ -43,9 +47,13 @@ type Config struct {
 	Campaign  Campaign
 	Ruler     Ruler
 	Clan      Clan
+	Heir      Heir
+	Family    Family
 	Workshop  Workshop
 	Battle    Battle
 	Crime     Crime
+	Template  Template
+	Formation Formation
 }
 
 // World controls world generation.
@@ -59,10 +67,10 @@ type World struct {
 	TownsPerState float64
 	// VillagesPerTown is how many food-producing villages surround each town.
 	VillagesPerTown float64
-	// RulersPerTown is the average number of named rulers generated per town,
+	// LeadersPerTown is the average number of named rulers generated per town,
 	// plus the leaders. RULERS.md section 1 targets 300-800 total; the world
 	// generator scales to hit that band rather than fixing a per-town count.
-	RulersPerTown float64
+	LeadersPerTown float64
 	// MinRulers and MaxRulers clamp the total roster size to the RULERS.md
 	// band of 300 to 800.
 	MinRulers float64
@@ -813,7 +821,7 @@ type Influence struct {
 	// BrokenOathInfluence is influence lost by breaking a pledge, the political
 	// half of chain 9.
 	BrokenOathInfluence float64
-	// DefectionInfluenceLoss is influence lost when a vassal leaves.
+	// DefectionInfluenceLoss is influence lost when a affiliate leaves.
 	DefectionInfluenceLoss float64
 	// InfluenceDecay is how fast unused influence fades.
 	InfluenceDecay float64
@@ -843,7 +851,7 @@ type Influence struct {
 	// job. Without it a leader would accumulate power without limit.
 	LeadershipUpkeep float64
 	// LoyaltyWearinessWeight, LoyaltyTreasuryWeight, and LoyaltyVictoryWeight
-	// are how a leader's fortunes move vassal loyalty. A leader who is visibly
+	// are how a leader's fortunes move affiliate loyalty. A leader who is visibly
 	// winning keeps their people; one who is exhausted and broke does not.
 	// This is chain 7's political mechanism: a war empties a coalition before
 	// it loses a battle.
@@ -1233,7 +1241,7 @@ type RulerAI struct {
 	// balance rule.
 	DefectWeight float64
 	// DefectLeaderWeariness and DefectLeaderDebt are how much a leader's
-	// exhaustion and debts make their own vassals leave.
+	// exhaustion and debts make their own affiliates leave.
 	DefectLeaderWeariness float64
 	DefectLeaderDebt      float64
 	// DefectOwnCollapse is how much a ruler's own collapsing town pushes them
@@ -1340,8 +1348,8 @@ type FactionAI struct {
 	WarWearinessFromBattle float64
 	// TributeShare is the share of a defeated side's treasury demanded.
 	TributeShare float64
-	// VassalTributeRate is what a vassal side pays daily.
-	VassalTributeRate float64
+	// AffiliateTributeRate is what a affiliate side pays daily.
+	AffiliateTributeRate float64
 	// RaidThreshold is the relation below which a side starts raiding.
 	RaidThreshold float64
 	// TradePactBonusPerDay is the daily relation gain from a trade pact.
@@ -1383,15 +1391,15 @@ type FactionAI struct {
 	PeaceRelationGain float64
 	// IntensityPerBattle is how much a battle raises a war's intensity.
 	IntensityPerBattle float64
-	// VassalStrengthRatio is the strength advantage needed to impose vassalage
+	// AffiliateStrengthRatio is the strength advantage needed to impose affiliateage
 	// rather than mere peace.
-	VassalStrengthRatio float64
-	// VassalStrengthShare is the fraction of a vassal's strength that counts
-	// against it, so a vassal is worth having without being a power.
-	VassalStrengthShare float64
-	// VassalChancePerPeace is the chance a badly beaten side becomes a vassal
+	AffiliateStrengthRatio float64
+	// AffiliateStrengthShare is the fraction of a affiliate's strength that counts
+	// against it, so a affiliate is worth having without being a power.
+	AffiliateStrengthShare float64
+	// AffiliateChancePerPeace is the chance a badly beaten side becomes a affiliate
 	// at the end of a war.
-	VassalChancePerPeace float64
+	AffiliateChancePerPeace float64
 	// InfluenceCostOfWar is what declaring a war costs the leader, so war is
 	// not free politically even when it is popular.
 	InfluenceCostOfWar float64
@@ -1489,13 +1497,143 @@ type Campaign struct {
 type Clan struct {
 	// OverextensionLoyaltyPenalty is the loyalty lost per fief over the
 	// clan's tier limit, per member per tick. This is the anti-snowball
-	// mechanism: holding everything costs you your vassals' loyalty.
+	// mechanism: holding everything costs you your affiliates' loyalty.
 	OverextensionLoyaltyPenalty float64
 	// RenownPerVictory is the clan renown gained when a member wins a battle.
 	RenownPerVictory float64
 	// HouseholdGrowthPerYear is the annual household size increase, feeding
 	// the succession/marriage systems (Tier 5).
 	HouseholdGrowthPerYear float64
+}
+
+// Heir configures inheritance and the player's succession (Tier 1.4).
+//
+// Tier 1.4 is the item docs/missing-vs-bannerlord.md recorded as "Missing. No
+// heir concept anywhere. Player death ends the campaign." Everything here
+// exists so that a ruler's death is a transfer of control rather than the end
+// of a run, and so that a dynasty with no heir is a real way to lose
+// everything rather than a formality.
+type Heir struct {
+	// AdultAge is the age at which a child stops being a child and becomes
+	// eligible to hold land, marry, and inherit. Below it a child is a
+	// member of the household, not a candidate, which is what stops a
+	// council from appointing a five-year-old to a town.
+	AdultAge float64
+	// AutoDesignateChance is the daily chance a ruler with at least one
+	// eligible child and no designated heir names one. Designation is
+	// automatic because a player who never opens the family panel would
+	// otherwise have no heir at all, and a run in which the player's
+	// campaign always ends at their character's death is not a game.
+	AutoDesignateChance float64
+	// AutoDesignateMinAge is the age a child must reach before being
+	// eligible to be named, so an heir is someone who could actually take
+	// the fief rather than an infant who will be dead before they are grown.
+	AutoDesignateMinAge float64
+	// HeirRenownShare is the share of a dead ruler's renown the heir
+	// inherits. At 1.0 the name and the deeds both pass on, which is what
+	// docs/tasks-del.md item 179 asks for ("continue as heir with renown
+	// intact"); below 1.0 a dynasty starts each generation weaker.
+	HeirRenownShare float64
+	// HeirInfluenceShare is the share of the dead ruler's influence that
+	// passes with the fief. Influence is standing with a leader, and a
+	// successor inherits the leader's regard for the seat rather than the
+	// predecessor's personal following, so this is well under one.
+	HeirInfluenceShare float64
+	// HeirGoldShare and HeirMoneyShare are the shares of the dead ruler's
+	// personal reserves that pass to the heir. Gold buys mercenaries and
+	// money pays a garrison, so a successor who inherits a fief with an
+	// empty treasury inherits a problem, not a gift.
+	HeirGoldShare  float64
+	HeirMoneyShare float64
+	// LoyaltyAfterInheritance is the loyalty a fief starts at with a new
+	// holder. A honeymoon rather than a reset, for the reason the council
+	// system gives: the heir inherits the town's problems along with its
+	// people, and a fief that snapped back to full loyalty the moment its
+	// lord died would be a fief whose politics nothing could touch.
+	LoyaltyAfterInheritance float64
+	// InheritParty is whether a heir also takes the dead ruler's war party.
+	// A mercenary company does not follow a corpse, so this is on by
+	// default: the heir is left holding a fief and a claim on men who may
+	// not come, which is a real and common way to lose ground.
+	InheritParty float64
+	// MinInheritorsForFiefSplit is how many eligible heirs a dead ruler
+	// needs before the fief is shared between them rather than given whole
+	// to one. A ruler with two grown children and a clear favourite does not
+	// split; a ruler with five does, which is the mechanism behind
+	// RULERS.md section 8's "or split among rivals".
+	MinInheritorsForFiefSplit float64
+}
+
+// Family configures marriage, pregnancy, and birth (Tier 1.6).
+//
+// FEATURES.md section 9 lists "Marriage, romance, children, heirs" as a V2
+// item marked Partial against RULERS.md sections 6 and 8. This is the half of
+// it that makes a dynasty grow rather than merely not die out: a marriage
+// binds two houses, a pregnancy is a timed state, and the child that comes
+// out of it is an ordinary ruler who can grow up and inherit.
+type Family struct {
+	// MarriageMinAge and MarriageMaxAge bound who is courtable. The upper
+	// bound matters as much as the lower one: without it every ruler
+	// marries as soon as they are old enough, and the whole roster pairs
+	// off in the first year of a run, which is a world of couples rather
+	// than a world with families in it.
+	MarriageMinAge float64
+	MarriageMaxAge float64
+	// MarriageRangeLeagues is how far a ruler will look for a partner.
+	// Distance is what makes a match a decision rather than a pairing.
+	MarriageRangeLeagues float64
+	// MarriageDailyChance is the per-day chance a marriageable ruler with
+	// no spouse begins courting. Deliberately small: courtship is a
+	// decision, and a system that married every eligible ruler every day
+	// would be a marriage rate, not a courtship.
+	MarriageDailyChance float64
+	// CourtRelationWeight is how much two rulers already liking each other
+	// raises the chance the match happens, and CourtTierWeight is how much
+	// standing does. A match is more likely between people who get on and
+	// between people of similar rank, which is why a war between a great
+	// house and a petty one produces fewer matches than its casualty list
+	// suggests.
+	CourtRelationWeight float64
+	CourtTierWeight     float64
+	// MarriageRelationGain is the relation a married pair gains, and
+	// MarriageAllianceBonus is the side-to-side relation a marriage across
+	// two factions is worth. The second is the alliance: a marriage
+	// between houses of two sides is the cheapest peace there is, which is
+	// why a faction at war with no strong reason to fight will take one.
+	MarriageRelationGain      float64
+	MarriageAllianceBonus     float64
+	MarriageNonAggressionPact float64
+	// ConceptionChance is the daily chance a married couple of childbearing
+	// age conceives. It is a chance per day rather than a fixed interval
+	// because a couple's circumstances change: a famine, a long campaign, or
+	// a spouse's death all bear on how likely a child is, and a fixed
+	// schedule would be a birth calendar.
+	ConceptionChance float64
+	// GestationDays is how long a pregnancy runs. docs/tasks-del.md item
+	// 216 says 36 days on the 84-day-year calendar; this simulation's year
+	// is 365 days, so the equivalent real interval is what is used here.
+	GestationDays float64
+	// MaxChildren is how many living children a couple may have. A cap
+	// rather than a decline, so a long-lived prolific couple is the thing
+	// that produces a large dynasty, which is the honest shape of it.
+	MaxChildren float64
+	// ChildInfluence is a newborn's opening influence. Small but not zero:
+	// a child of a great house is known from birth, which is why a great
+	// house's children are a political fact before they are a military one.
+	ChildInfluence float64
+	// ChildRenownInheritance is the share of a parent's renown a newborn
+	// starts with, on top of the HeirRenownShare the heir receives on the
+	// parent's death. A child inherits a name; an heir inherits a claim.
+	ChildRenownInheritance float64
+	// WidowedRemarryDelay is how many days a bereaved ruler waits before
+	// courting again, so a death does not put a ruler back on the market the
+	// same day and turn grief into a mechanic.
+	WidowedRemarryDelay float64
+	// SameSidePenalty is the daily-chance multiplier applied when both
+	// candidates serve the same side. Marrying within a faction is normal
+	// and unremarkable, so it should be the ordinary case rather than
+	// something the courtship has to work around.
+	SameSidePenalty float64
 }
 
 // Workshop configures clan-owned production (Tier 3).
@@ -1529,6 +1667,159 @@ type Crime struct {
 	ProsperityErosion float64
 	// UnrestPerCrime is the unrest gained per unit crime per tick.
 	UnrestPerCrime float64
+}
+
+// Template configures party composition and refitting (Tier 6.2).
+//
+// A template is four troop-class shares, and this section holds everything
+// that decides which one a party fields and what changing costs. The shares
+// themselves live in balance.toml as template_share_* keys, and the culture
+// and terrain adjustments as culture_* and terrain_* keys, because a balance
+// number in this file is a number nobody can tune without recompiling
+// (CONSTITUTION.md section 1.2).
+type Template struct {
+	// MinTroopsForTemplate is the party size below which no template is
+	// enforced. A dozen men are not an army that can afford to be heavy or
+	// light infantry; without this floor every hamlet militia would
+	// re-form itself daily.
+	MinTroopsForTemplate float64
+	// RefitDays is how many days a party spends moving from one template to
+	// another before the new mix is fully in effect. Refitting is an
+	// operation with a duration, so a party cannot chase a marginal fit.
+	RefitDays float64
+	// RefitMetalPerTroop is the metal a party spends per soldier to refit.
+	// Metal is the currency that makes this a real cost: a party that cannot
+	// pay stays as it is.
+	RefitMetalPerTroop float64
+	// RefitMoraleHit is the morale lost per soldier on a refit, because men
+	// handed new equipment and new drill are not pleased about it.
+	RefitMoraleHit float64
+	// RefitMetalPerDay is the metal a refit consumes each day it runs, so a
+	// long refit costs more than a short one even at the same size.
+	RefitMetalPerDay float64
+	// FitSwitchThreshold is how much better another template's fit must be
+	// before a party changes. Below it the party keeps what it has, which is
+	// what stops a party oscillating between two templates on marginal
+	// differences in terrain.
+	FitSwitchThreshold float64
+	// FitRelaxPerDay is how fast fit is recomputed, as a share per day. Fit is
+	// a moving average rather than an instantaneous reading so that a party
+	// crossing one difficult stretch does not tear itself apart.
+	FitRelaxPerDay float64
+	// SpeedPerClass and CombatPerClass are what each troop class is worth to
+	// a march and to a battle. A class contributes its count times these
+	// multipliers, so changing a composition changes what the march and battle
+	// systems read without either of them knowing templates exist.
+	SpeedPerClass  [model.ClassCount]float64
+	CombatPerClass [model.ClassCount]float64
+	// WoundedRecoveryPerClass is how fast a wounded man of each class
+	// recovers, because a heavy infantryman takes longer to get back on his
+	// feet than a skirmisher and a party's combat value is its present
+	// strength rather than its paper strength.
+	WoundedRecoveryPerClass [model.ClassCount]float64
+	// TemplateShare is the base composition of each template: a row per
+	// template, a column per troop class. Rows need not sum to one; the
+	// template system normalises them.
+	TemplateShare [model.TemplateCount][model.ClassCount]float64
+	// CultureShare is how each culture bends the template shares, one row
+	// per culture. FACTIONS.md gives every section its own troop style, and
+	// this is where that difference is expressed rather than assumed away.
+	CultureShare [model.CultureCount][model.ClassCount]float64
+	// TerrainSpeedPerClass is how much each class is slowed by each terrain,
+	// indexed terrain then class. A horse column crossing mountains is the
+	// slowest thing on the map and a light one is barely affected, which is
+	// what makes ground part of a refit decision rather than trivia.
+	TerrainSpeedPerClass [model.TerrainCount][model.ClassCount]float64
+	// TerrainFit is how well each template suits each terrain, indexed
+	// terrain then template. This is the score the refit compares.
+	TerrainFit [model.TerrainCount][model.TemplateCount]float64
+	// MissionFit is the same for what the party is doing, indexed mission
+	// then template: besieging a wall wants different troops from escorting a
+	// caravan, and the party that misreads that pays for it in battle.
+	MissionFit [MissionCount][model.TemplateCount]float64
+}
+
+// MissionCount is how many mission kinds a party can be on. The template and
+// class counts come from the model package rather than being restated here:
+// a config table indexed by a locally-declared count would silently stop
+// matching the entity model the moment either side gained a row.
+const MissionCount = 5
+
+// Mission identifies what a party is currently doing, for the purpose of
+// picking a template. It is deliberately coarser than the Activity enum:
+// Activity has nine values but only a handful imply a different ideal
+// composition, and a template table with nine near-identical rows would be a
+// table nobody could read.
+type Mission int
+
+const (
+	MissionField Mission = iota
+	MissionSiege
+	MissionScreen
+	MissionEscort
+	MissionGarrison
+)
+
+// Formation configures party split and merge (Tier 6.3).
+type Formation struct {
+	// SplitMinTroops is the smallest share of a party that can be detached as
+	// a wing. Below it the "wing" is a handful of stragglers that costs more
+	// to feed than it contributes.
+	SplitMinTroops float64
+	// SplitMinParentTroops is the strength the parent must keep after the
+	// detachment. Without it a ruler could strip a war party to nothing by
+	// splitting it repeatedly, which would be free troops created and
+	// destroyed.
+	SplitMinParentTroops float64
+	// SplitMaxShare is the largest share of a party one wing may take, so
+	// detachment cannot be used to move an entire army a league at a time
+	// without it showing as a march.
+	SplitMaxShare float64
+	// SplitFoodSharePerTroop is how many days of food a detached troop is
+	// given. A wing that leaves with nothing starves, which is a real cost of
+	// splitting rather than a bookkeeping artefact.
+	SplitFoodSharePerTroop float64
+	// SplitMoraleHit is the morale the parent loses when a wing detaches,
+	// because soldiers leaving with the wing is not morale-neutral for those
+	// who stay.
+	SplitMoraleHit float64
+	// SplitWingMorale is the morale a new wing starts at, below the parent's:
+	// a detachment is a reduction in size and an uncertain command.
+	SplitWingMorale float64
+	// MergeMaxRangeLeagues is how close two parties must be to consolidate.
+	// Merging parties that are a hundred leagues apart would be a teleport.
+	MergeMaxRangeLeagues float64
+	// MergeMinTroops is the size below which a party is folded into a larger
+	// one rather than left alone, so a map does not silt up with parties of
+	// three men that pay upkeep for nothing.
+	MergeMinTroops float64
+	// MergeMinParentTroops is the share of the combined force the surviving
+	// party must keep for a merge to count as consolidation rather than a
+	// takeover.
+	MergeMinParentTroops float64
+	// MergeMoraleHit is the morale lost on consolidation, smaller than the
+	// split's: getting two columns into one line is work, but it is work that
+	// ends with everyone together.
+	MergeMoraleHit float64
+	// MergeRequiresSameSide stops a merge between hostile parties, which would
+	// otherwise be a way to resolve a battle without a battle.
+	MergeRequiresSameSide bool
+	// MergeRequiresIdle requires both parties to be doing nothing before they
+	// can consolidate, so an army cannot absorb a column that is mid-march
+	// and silently change where its troops are.
+	MergeRequiresIdle bool
+	// MergeDelayDays is how long a party must be idle before it will
+	// consolidate, so that two parties passing each other do not merge by
+	// accident.
+	MergeDelayDays float64
+	// AutoMergeChance is the daily probability an eligible small party
+	// consolidates into a larger one when the player has not ordered it. It
+	// is low on purpose: consolidation should mostly be a decision.
+	AutoMergeChance float64
+	// AutoMergeTroops is the largest party that will be folded in
+	// automatically. Anything larger waits for an order, because a player
+	// should not lose a war party to housekeeping.
+	AutoMergeTroops float64
 }
 
 // Cause configures the cause log itself.
