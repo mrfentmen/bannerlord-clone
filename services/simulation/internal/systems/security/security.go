@@ -186,6 +186,57 @@ func run(v *sim.View, w *sim.WriteSet) {
 		w.Set(model.KindRoute, rid, "route_safety", safety, read, causes, "")
 		w.Set(model.KindRoute, rid, "route_patrol", patrol, read, causes, "")
 	}
+
+	// --- militia (Tier 2.1) ---
+	// Free town defense: +2 base daily, +prosperity/1000, 2.5% daily retire.
+	// Costs no upkeep, eats no food, only defends. This is the single reason
+	// a town is not trivially captured.
+	for _, id := range v.State.TownIDs() {
+		t := v.State.Towns[id]
+		if t == nil {
+			continue
+		}
+		spawn := 2.0 + t.Prosperity/1000.0
+		retire := t.Militia * 0.025
+		delta := spawn - retire
+		if delta != 0 {
+			read := shared.ReadString(
+				shared.Pair("prosperity", t.Prosperity),
+				shared.Pair("militia", t.Militia),
+			)
+			causes := v.Log.RecentFor(model.KindTown, id, []string{"prosperity"}, 2)
+			w.Add(model.KindTown, id, "militia", delta, read, causes,
+				"militia muster and retirement")
+		}
+	}
+
+	// --- rebellion (Tier 2.2) ---
+	// Below the loyalty threshold, daily chance the fief flips to rebels.
+	// Low-loyalty militia fights at up to +200% strength for the rebels.
+	for _, id := range v.State.TownIDs() {
+		t := v.State.Towns[id]
+		if t == nil || t.Loyalty >= c.Security.RebellionLoyaltyThreshold {
+			continue
+		}
+		if v.Rng.Float64() >= c.Security.RebellionDailyChance {
+			continue
+		}
+		// The town rebels: it becomes independent (side -1) with its militia
+		// as the rebel garrison. The former holder loses the fief.
+		read := shared.ReadString(
+			shared.Pair("loyalty", t.Loyalty),
+			shared.PairI("old_side", t.SideID),
+			shared.Pair("militia", t.Militia),
+		)
+		causes := v.Log.RecentFor(model.KindTown, id,
+			[]string{"loyalty", "unrest"}, 4)
+		w.Set(model.KindTown, id, "holder_side", -1, read, causes,
+			"rebellion: town casts off its ruler")
+		// Militia swells with rebel fervor: up to +200% at zero loyalty.
+		fervor := 1.0 + 2.0*(1.0-t.Loyalty/c.Security.RebellionLoyaltyThreshold)
+		w.Set(model.KindTown, id, "militia", t.Militia*fervor, read, causes,
+			"rebel militia surge")
+	}
 }
 
 // nearestRoute returns the route whose midpoint is closest to a position.

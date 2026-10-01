@@ -58,6 +58,13 @@ type Town struct {
 	Garrison        float64
 	GarrisonConduct float64
 	GarrisonMorale  float64
+	// Militia is the free town defense force (Tier 2.1). Spawns daily from
+	// prosperity, costs no upkeep, eats no food, only defends the town.
+	// It does not march; it is the reason a town is not trivially captured.
+	Militia         float64
+	// Crime is the town's criminality level 0-1 (Tier 5). High crime erodes
+	// prosperity and feeds unrest.
+	Crime           float64
 	RoadSafety      float64
 	Money           float64
 	Gold            float64
@@ -142,6 +149,11 @@ type Village struct {
 	RaidMemory float64
 	Yield      float64
 	Link       int
+	// Hearths is the village's hearth tier (Tier 3.1). From Bannerlord:
+	// villages have hearth levels that scale production. Higher hearths
+	// mean more output per worker, representing better tools, organization,
+	// and infrastructure.
+	Hearths    int
 }
 
 // Activity is what a party is doing, matching the activity field enum.
@@ -290,6 +302,8 @@ type Ruler struct {
 	// ServiceQuality is how competently this ruler governs, computed by the
 	// influence system from the state of their own holdings.
 	ServiceQuality float64
+	// ClanID is the clan this ruler belongs to. -1 means clanless.
+	ClanID int
 }
 
 // Side is one of the six playable sections from FACTIONS.md.
@@ -331,6 +345,101 @@ type Side struct {
 	// FoodNeed and MetalNeed are the computed deficits that motivate war.
 	FoodNeed  float64
 	MetalNeed float64
+}
+
+// Clan is a first-class dynasty entity (Tier 1.1). Members share renown and
+// holdings; the clan's tier gates what the clan may hold (Tier 1.2/1.3).
+// A clan belongs to one side; rulers belong to one clan.
+type Clan struct {
+	ID int
+	Name string
+	// LeaderID is the ruler ID of the clan head.
+	LeaderID int
+	// SideID is the faction this clan serves.
+	SideID int
+	// MemberIDs are ruler IDs in this clan, including the leader.
+	MemberIDs []int
+	// Renown is the clan's shared renown; drives Tier.
+	Renown float64
+	// Tier is computed from Renown against ClanTierThresholds (Tier 1.2).
+	Tier int
+	// HouseholdSize counts non-combatant family/retainers; feeds
+	// succession and marriage systems (Tier 5).
+	HouseholdSize int
+	// FoundedTick records when the clan was created.
+	FoundedTick int
+	// FiefIDs are town IDs held by this clan's members.
+	FiefIDs []int
+}
+
+// ClanTierThresholds maps clan tier to the renown required.
+// From Bannerlord: 0/50/150/350/900/2350/6150.
+var ClanTierThresholds = []float64{0, 50, 150, 350, 900, 2350, 6150}
+
+// ClanFiefLimits maps clan tier to max fiefs held. Tier 6 is uncapped (-1).
+// This is the anti-overextension mechanism: DESIGN.md section 2 step 7 and
+// RISKS.md section 5 name overextension as a risk with no enforcement.
+var ClanFiefLimits = []int{1, 2, 3, 4, 6, 8, -1}
+
+// ClanTierForRenown returns the highest tier whose threshold is met.
+func ClanTierForRenown(renown float64) int {
+	tier := 0
+	for i, th := range ClanTierThresholds {
+		if renown >= th {
+			tier = i
+		}
+	}
+	return tier
+}
+
+// FiefLimit returns the max fiefs for a tier, or -1 for uncapped.
+func (c *Clan) FiefLimit() int {
+	if c.Tier < len(ClanFiefLimits) {
+		return ClanFiefLimits[c.Tier]
+	}
+	return -1
+}
+
+// IsOverextended reports whether the clan holds more fiefs than its tier allows.
+func (c *Clan) IsOverextended() bool {
+	limit := c.FiefLimit()
+	return limit >= 0 && len(c.FiefIDs) > limit
+}
+
+// WorkshopType is what a workshop produces.
+type WorkshopType int
+
+const (
+	WorkshopSmithy WorkshopType = iota
+	WorkshopTannery
+	WorkshopWeavery
+	WorkshopBrewery
+	WorkshopPottery
+)
+
+// Workshop is a clan-owned production building in a town (Tier 3.2).
+// It converts raw goods (metal, hides, wool, grain, clay) into finished
+// goods (weapons, leather, cloth, beer, pottery), generating income for
+// the owning clan. From Bannerlord: workshops are the player's economic
+// engine, and here they are the clans' too.
+type Workshop struct {
+	ID int
+	// TownID is where the workshop is built.
+	TownID int
+	// OwnerClanID is the clan that owns it. -1 for unowned.
+	OwnerClanID int
+	// Type determines input/output goods.
+	Type WorkshopType
+	// Level is 1-3, scaling throughput.
+	Level int
+	// Workers employed.
+	Workers float64
+	// Stockpile of input goods.
+	InputStock float64
+	// Stockpile of output goods awaiting sale.
+	OutputStock float64
+	// Income generated last tick.
+	LastIncome float64
 }
 
 // SideIntent is a side's strategic posture.

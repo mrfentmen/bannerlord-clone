@@ -80,7 +80,10 @@ func run(v *sim.View, w *sim.WriteSet) {
 			// RaidMemory is a decaying counter: a raided village takes months
 			// to recover, so raiding has lasting bite.
 			raidPenalty := 1 - shared.Clamp(vl.RaidMemory/60, 0, 0.8)
-			villageYield += vl.Yield * raidPenalty
+			// Hearths (Tier 3.1): production scales with hearth tier.
+			// 1 hearth = 1.0x, 2 = 1.5x, 3 = 2.0x, 4 = 2.5x, 5 = 3.0x.
+			hearthMult := 1.0 + 0.5*float64(vl.Hearths-1)
+			villageYield += vl.Yield * raidPenalty * hearthMult
 		}
 		prod += villageYield
 

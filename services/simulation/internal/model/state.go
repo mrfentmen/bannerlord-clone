@@ -28,6 +28,8 @@ type State struct {
 	Routes   map[int]*Route
 	Sieges   map[int]*Siege
 	Wars     map[int]*War
+	Clans    map[int]*Clan
+	Workshops map[int]*Workshop
 
 	// NextID hands out identifiers for entities created mid-run, such as a
 	// party formed when a ruler gathers an army.
@@ -100,6 +102,8 @@ func NewState() *State {
 		Routes:        map[int]*Route{},
 		Sieges:        map[int]*Siege{},
 		Wars:          map[int]*War{},
+		Clans:         map[int]*Clan{},
+		Workshops:     map[int]*Workshop{},
 		NextID:        map[int]int{},
 		Relations:     map[Pair]float64{},
 		SideRelations: map[Pair]float64{},
@@ -117,6 +121,8 @@ const (
 	IDRoute
 	IDSiege
 	IDWar
+	IDClan
+	IDWorkshop
 )
 
 // NewID returns the next unused identifier for a kind.
@@ -153,6 +159,8 @@ func (s *State) Clone() *State {
 		Routes:        make(map[int]*Route, len(s.Routes)),
 		Sieges:        make(map[int]*Siege, len(s.Sieges)),
 		Wars:          make(map[int]*War, len(s.Wars)),
+		Clans:         make(map[int]*Clan, len(s.Clans)),
+		Workshops:     make(map[int]*Workshop, len(s.Workshops)),
 		NextID:        make(map[int]int, len(s.NextID)),
 		Relations:     make(map[Pair]float64, len(s.Relations)),
 		SideRelations: make(map[Pair]float64, len(s.SideRelations)),
@@ -191,6 +199,17 @@ func (s *State) Clone() *State {
 	for k, v := range s.Wars {
 		c := *v
 		out.Wars[k] = &c
+	}
+	for k, v := range s.Clans {
+		c := *v
+		// Deep-copy slices so the clone is independent.
+		c.MemberIDs = append([]int(nil), v.MemberIDs...)
+		c.FiefIDs = append([]int(nil), v.FiefIDs...)
+		out.Clans[k] = &c
+	}
+	for k, v := range s.Workshops {
+		c := *v
+		out.Workshops[k] = &c
 	}
 	for k, v := range s.NextID {
 		out.NextID[k] = v
@@ -233,6 +252,12 @@ func (s *State) SiegeIDs() []int { return sortedKeys(s.Sieges) }
 
 // WarIDs returns war identifiers in ascending order.
 func (s *State) WarIDs() []int { return sortedKeys(s.Wars) }
+
+// ClanIDs returns clan identifiers in ascending order.
+func (s *State) ClanIDs() []int { return sortedKeys(s.Clans) }
+
+// WorkshopIDs returns workshop identifiers in ascending order.
+func (s *State) WorkshopIDs() []int { return sortedKeys(s.Workshops) }
 
 func sortedKeys[V any](m map[int]V) []int {
 	out := make([]int, 0, len(m))

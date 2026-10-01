@@ -534,4 +534,105 @@ const (
 	tierMercenary = 4
 )
 
+// clanNameParts generates clan names from a side name.
+var clanNameAdjectives = []string{
+	"Iron", "Blood", "Stone", "Wolf", "Raven", "Oak", "Storm", "Ember",
+	"Frost", "Thorn", "Ash", "Cinder", "Gale", "Hollow", "Vex", "Grim",
+}
+
+var clanNameNouns = []string{
+	"hold", "march", "watch", "shield", "blade", "crown", "fist", "eye",
+	"fang", "claw", "wing", "root", "brand", "oath", "wraith", "bane",
+}
+
+func clanName(r *rng.Rng) string {
+	return clanNameAdjectives[r.Intn(len(clanNameAdjectives))] +
+		clanNameNouns[r.Intn(len(clanNameNouns))]
+}
+
+// generateClans creates dynasties for each side and assigns rulers to them.
+// The side leader heads the first clan; other rulers are distributed.
+// Clan renown starts as the sum of member renown.
+func generateClans(cfg *config.Config, r *rng.Rng, st *model.State) {
+	// Group rulers by side.
+	bySide := make(map[int][]int)
+	for _, id := range st.RulerIDsSorted() {
+		ru := st.Rulers[id]
+		if ru == nil {
+			continue
+		}
+		bySide[ru.SideID] = append(bySide[ru.SideID], id)
+		ru.ClanID = -1
+	}
+	for _, sideID := range st.SideIDs() {
+		members := bySide[sideID]
+		if len(members) == 0 {
+			continue
+		}
+		// 2-4 clans per side, scaled by ruler count.
+		nClans := 2 + r.Intn(3)
+		if nClans > len(members) {
+			nClans = len(members)
+		}
+		clans := make([]*model.Clan, nClans)
+		for i := 0; i < nClans; i++ {
+			cl := &model.Clan{
+				ID:            st.NewID(model.IDClan),
+				Name:          clanName(r),
+				SideID:        sideID,
+				MemberIDs:     []int{},
+				HouseholdSize: 3 + r.Intn(8),
+				FoundedTick:   0,
+			}
+			clans[i] = cl
+			st.Clans[cl.ID] = cl
+		}
+		// The side leader heads clan 0.
+		side := st.Sides[sideID]
+		assigned := make(map[int]bool)
+		if side != nil {
+			if leader, ok := st.Rulers[side.LeaderID]; ok && leader != nil {
+				clans[0].LeaderID = leader.ID
+				clans[0].MemberIDs = append(clans[0].MemberIDs, leader.ID)
+				leader.ClanID = clans[0].ID
+				assigned[leader.ID] = true
+			}
+		}
+		// Distribute the rest round-robin for deterministic spread.
+		ci := 0
+		for _, rid := range members {
+			if assigned[rid] {
+				continue
+			}
+			// Find the next clan with a leader, else clan 0.
+			target := ci % nClans
+			cl := clans[target]
+			if cl.LeaderID == 0 {
+				cl.LeaderID = rid
+			}
+			cl.MemberIDs = append(cl.MemberIDs, rid)
+			st.Rulers[rid].ClanID = cl.ID
+			assigned[rid] = true
+			ci++
+		}
+		// Compute renown and tier.
+		for _, cl := range clans {
+			renown := 0.0
+			for _, mid := range cl.MemberIDs {
+				if m := st.Rulers[mid]; m != nil {
+					renown += m.Renown
+				}
+			}
+			cl.Renown = renown
+			cl.Tier = model.ClanTierForRenown(renown)
+			// Collect fiefs held by members.
+			for _, mid := range cl.MemberIDs {
+				if m := st.Rulers[mid]; m != nil && m.TownID >= 0 {
+					cl.FiefIDs = append(cl.FiefIDs, m.TownID)
+				}
+			}
+		}
+	}
+}
+
 var _ = fmt.Sprintf

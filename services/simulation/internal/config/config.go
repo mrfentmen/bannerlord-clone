@@ -42,6 +42,10 @@ type Config struct {
 	Audit     Audit
 	Campaign  Campaign
 	Ruler     Ruler
+	Clan      Clan
+	Workshop  Workshop
+	Battle    Battle
+	Crime     Crime
 }
 
 // World controls world generation.
@@ -691,6 +695,13 @@ type Security struct {
 	// TerrainSafetyDrag is how much rough terrain lowers route safety, at full
 	// roughness.
 	TerrainSafetyDrag float64
+	// RebellionDailyChance is the daily probability a town below 25 loyalty
+	// rebels (Tier 2.2). A disloyal town that never rebels is a toothless
+	// threat; this is the teeth.
+	RebellionDailyChance float64
+	// RebellionLoyaltyThreshold is the loyalty below which rebellion is
+	// possible. From Bannerlord: below 25, the town is in open revolt risk.
+	RebellionLoyaltyThreshold float64
 }
 
 // Logistics runs caravans on routes.
@@ -1472,6 +1483,52 @@ type Campaign struct {
 	// FortifyMoraleBonus is the morale a town gains from being fortified, which
 	// is small and real: walls make a garrison feel safer.
 	FortifyMoraleBonus float64
+}
+
+// Clan configures the dynasty system (Tier 1).
+type Clan struct {
+	// OverextensionLoyaltyPenalty is the loyalty lost per fief over the
+	// clan's tier limit, per member per tick. This is the anti-snowball
+	// mechanism: holding everything costs you your vassals' loyalty.
+	OverextensionLoyaltyPenalty float64
+	// RenownPerVictory is the clan renown gained when a member wins a battle.
+	RenownPerVictory float64
+	// HouseholdGrowthPerYear is the annual household size increase, feeding
+	// the succession/marriage systems (Tier 5).
+	HouseholdGrowthPerYear float64
+}
+
+// Workshop configures clan-owned production (Tier 3).
+type Workshop struct {
+	// ProfitMargin is the share of gross sales that becomes clan income.
+	// The rest covers wages, materials, and the town's cut.
+	ProfitMargin float64
+	// MaxPerTown caps workshops in one town, so a single rich town cannot
+	// become the entire economy.
+	MaxPerTown float64
+}
+
+// Battle configures auto-resolved field battles (Tier 4).
+type Battle struct {
+	// RenownPerVictory is the personal renown for winning a battle.
+	RenownPerVictory float64
+	// CaptureThreshold is the surviving-troop share below which the defeated
+	// leader can be captured.
+	CaptureThreshold float64
+	// CaptureChance is the probability of capture when below threshold.
+	CaptureChance float64
+}
+
+// Crime configures urban criminality (Tier 5).
+type Crime struct {
+	// DeterrencePerCoverage is how much troop coverage reduces target crime.
+	DeterrencePerCoverage float64
+	// AdjustmentRate is how fast crime moves toward its target per tick.
+	AdjustmentRate float64
+	// ProsperityErosion is the prosperity lost per unit crime per tick.
+	ProsperityErosion float64
+	// UnrestPerCrime is the unrest gained per unit crime per tick.
+	UnrestPerCrime float64
 }
 
 // Cause configures the cause log itself.

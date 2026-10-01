@@ -175,6 +175,10 @@ func Generate(cfg *config.Config, seed uint64, settlements []Settlement) *Result
 	// --- rulers ---
 	generateRulers(cfg, r, st)
 
+	// --- clans (Tier 1) ---
+	// Dynasties own renown and holdings; must run after rulers exist.
+	generateClans(cfg, r, st)
+
 	// --- initial relations ---
 	// Sides start with a spread of opinions, so some are hostile from the
 	// start and some are merely indifferent. Without any spread, the first war
@@ -354,6 +358,14 @@ func newVillage(cfg *config.Config, r *rng.Rng, t *model.Town) *model.Village {
 	vl.Yield = pop * cfg.Food.BaseYieldPerWorker * cfg.Labor.HealthyWorkerShare * cfg.World.VillageYieldShare
 	vl.Food = pop * cfg.World.VillageFoodDays
 	vl.Link = t.ID
+	// Hearths (Tier 3.1): 1-3, weighted toward 1-2. Richer regions get
+	// higher hearths, which scale production.
+	vl.Hearths = 1
+	if roll := r.Float64(); roll < 0.15 {
+		vl.Hearths = 3
+	} else if roll < 0.45 {
+		vl.Hearths = 2
+	}
 	return vl
 }
 

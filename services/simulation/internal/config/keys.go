@@ -274,6 +274,8 @@ func (l *loader) load(c *Config) {
 	c.Security.RaiderTroopPerStrength = l.f64("security.raider_troop_per_strength")
 	c.Security.RaiderSafetyDrag = l.f64("security.raider_safety_drag")
 	c.Security.TerrainSafetyDrag = l.f64("security.terrain_safety_drag")
+	c.Security.RebellionDailyChance = l.f64("security.rebellion_daily_chance")
+	c.Security.RebellionLoyaltyThreshold = l.f64("security.rebellion_loyalty_threshold")
 
 	// --- logistics ---
 	c.Logistic.SpeedPerDay = l.f64("logistics.speed_per_day")
@@ -597,4 +599,24 @@ func (l *loader) load(c *Config) {
 	c.Campaign.MedicineUnitPrice = l.f64("campaign.medicine_unit_price")
 	c.Campaign.FortifyMetalPerLevel = l.f64("campaign.fortify_metal_per_level")
 	c.Campaign.FortifyMoraleBonus = l.f64("campaign.fortify_morale_bonus")
+
+	// --- clan ---
+	c.Clan.OverextensionLoyaltyPenalty = l.f64("clan.overextension_loyalty_penalty")
+	c.Clan.RenownPerVictory = l.f64("clan.renown_per_victory")
+	c.Clan.HouseholdGrowthPerYear = l.f64("clan.household_growth_per_year")
+
+	// --- workshop ---
+	c.Workshop.ProfitMargin = l.f64("workshop.profit_margin")
+	c.Workshop.MaxPerTown = l.f64("workshop.max_per_town")
+
+	// --- battle ---
+	c.Battle.RenownPerVictory = l.f64("battle.renown_per_victory")
+	c.Battle.CaptureThreshold = l.f64("battle.capture_threshold")
+	c.Battle.CaptureChance = l.f64("battle.capture_chance")
+
+	// --- crime ---
+	c.Crime.DeterrencePerCoverage = l.f64("crime.deterrence_per_coverage")
+	c.Crime.AdjustmentRate = l.f64("crime.adjustment_rate")
+	c.Crime.ProsperityErosion = l.f64("crime.prosperity_erosion")
+	c.Crime.UnrestPerCrime = l.f64("crime.unrest_per_crime")
 }

@@ -21,8 +21,11 @@ import (
 	"mbclone/simulation/internal/config"
 	"mbclone/simulation/internal/sim"
 	"mbclone/simulation/internal/systems/attrition"
+	"mbclone/simulation/internal/systems/battle"
 	"mbclone/simulation/internal/systems/campaign"
+	"mbclone/simulation/internal/systems/clan"
 	"mbclone/simulation/internal/systems/council"
+	"mbclone/simulation/internal/systems/crime"
 	"mbclone/simulation/internal/systems/currency"
 	"mbclone/simulation/internal/systems/demography"
 	"mbclone/simulation/internal/systems/disease"
@@ -41,9 +44,11 @@ import (
 	"mbclone/simulation/internal/systems/security"
 	"mbclone/simulation/internal/systems/siege"
 	"mbclone/simulation/internal/systems/starvation"
+	"mbclone/simulation/internal/systems/succession"
 	"mbclone/simulation/internal/systems/supply"
 	"mbclone/simulation/internal/systems/unrest"
 	"mbclone/simulation/internal/systems/upkeep"
+	"mbclone/simulation/internal/systems/workshop"
 )
 
 // Systems returns every system in the documented order.
@@ -77,19 +82,26 @@ func Systems() []sim.System {
 		supply.System(),
 		attrition.System(),
 		upkeep.System(),
+		battle.System(),
 		siege.System(),
 
 		// --- politics ---
 		unrest.System(),
 		loyalty.System(),
 		council.System(),
+		clan.System(),
+		crime.System(),
 		influence.System(),
 		relation.System(),
 		rulerai.System(),
 		factionai.System(),
+		succession.System(),
 
 		// --- turning intentions into movement ---
 		campaign.System(),
+
+		// --- production buildings (Tier 3) ---
+		workshop.System(),
 
 		// --- last, so it aggregates the deaths and movement every other
 		// system staged this tick ---

@@ -334,6 +334,8 @@ raider_band_min = 40.0          # size below which a band is criminals rather th
 raider_troop_per_strength = 2.2 # troops bought per unit of raider pressure. Range 0.5-8.0.
 raider_safety_drag = 0.85       # how sharply raiders cut route safety, as a divisor. Range 0.1-3.0. Saturates: enough raiders make a road impassable.
 terrain_safety_drag = 0.45      # how much rough terrain lowers route safety at full roughness. Range 0-1.0.
+rebellion_daily_chance = 0.25     # daily rebellion chance below 25 loyalty (Tier 2.2). Range 0-1.0.
+rebellion_loyalty_threshold = 25.0 # loyalty below which rebellion is possible. Range 0-100.
 
 # ---------------------------------------------------------------------------
 # LOGISTICS SYSTEM — caravans on real routes
@@ -688,6 +690,33 @@ aid_order_share = 0.55           # share of a party's larder loaded for a player
 medicine_unit_price = 0.9        # cost of one dose at a price of one. Range 0.1-10.0. Times the town's medicine price, so scarcity is priced.
 fortify_metal_per_level = 40.0   # metal one level of fortification costs. Range 5-500.
 fortify_morale_bonus = 0.03      # morale a town gains from being fortified. Range 0-0.2. Small and real.
+
+[clan]
+# Dynasty system (Tier 1). Clans gate holdings by renown tier and punish
+# overextension with loyalty decay.
+overextension_loyalty_penalty = 0.02  # loyalty lost per excess fief per member per tick. Range 0-0.1.
+renown_per_victory = 5.0              # clan renown gained per member battle victory. Range 0-50.
+household_growth_per_year = 0.5       # annual household size increase. Range 0-5.
+
+[workshop]
+# Clan-owned production (Tier 3). Workshops turn raw goods into finished
+# goods and income for the owning clan.
+profit_margin = 0.35     # share of gross sales becoming clan income. Range 0-1.0.
+max_per_town = 4.0       # cap on workshops in one town. Range 1-10.
+
+[battle]
+# Auto-resolved field battles (Tier 4). When hostile parties meet, the
+# simulation resolves the fight deterministically.
+renown_per_victory = 8.0    # personal renown for winning a battle. Range 0-50.
+capture_threshold = 0.2      # surviving-troop share below which capture is possible. Range 0-1.0.
+capture_chance = 0.4         # probability of capture when below threshold. Range 0-1.0.
+
+[crime]
+# Urban criminality (Tier 5). Crime grows in rich, under-policed towns.
+deterrence_per_coverage = 8.0  # how much troop coverage reduces target crime. Range 0-20.
+adjustment_rate = 0.05          # how fast crime moves toward target per tick. Range 0-1.0.
+prosperity_erosion = 0.02       # prosperity lost per unit crime per tick. Range 0-0.1.
+unrest_per_crime = 0.1          # unrest gained per unit crime per tick. Range 0-1.0.
 
 [cause]
 # A row per float operation would be unreadable; a chain that cannot be

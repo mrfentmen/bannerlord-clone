@@ -63,6 +63,18 @@ func (s *State) Get(kind Kind, id int, field string) (float64, bool) {
 			return 0, false
 		}
 		return warGet(w, field)
+	case KindClan:
+		c, ok := s.Clans[id]
+		if !ok {
+			return 0, false
+		}
+		return clanGet(c, field)
+	case KindWorkshop:
+		wk, ok := s.Workshops[id]
+		if !ok {
+			return 0, false
+		}
+		return workshopGet(wk, field)
 	}
 	return 0, false
 }
@@ -119,6 +131,18 @@ func (s *State) Set(kind Kind, id int, field string, v float64) bool {
 			return false
 		}
 		return warSet(w, field, v)
+	case KindClan:
+		c, ok := s.Clans[id]
+		if !ok {
+			return false
+		}
+		return clanSet(c, field, v)
+	case KindWorkshop:
+		wk, ok := s.Workshops[id]
+		if !ok {
+			return false
+		}
+		return workshopSet(wk, field, v)
 	}
 	return false
 }
@@ -150,6 +174,12 @@ func (s *State) Exists(kind Kind, id int) bool {
 	case KindWar:
 		_, ok := s.Wars[id]
 		return ok
+	case KindClan:
+		_, ok := s.Clans[id]
+		return ok
+	case KindWorkshop:
+		_, ok := s.Workshops[id]
+		return ok
 	}
 	return false
 }
@@ -178,12 +208,36 @@ func (s *State) Name(kind Kind, id int) string {
 		if d, ok := s.Sides[id]; ok {
 			return d.Name
 		}
+	case KindClan:
+		if c, ok := s.Clans[id]; ok {
+			return c.Name
+		}
+	case KindWorkshop:
+		if wk, ok := s.Workshops[id]; ok {
+			return workshopTypeName(wk.Type) + " " + itoa(id)
+		}
 	}
 	return kind.String() + " " + itoa(id)
 }
 
-func itoa(v int) string {
-	if v == 0 {
+func workshopTypeName(t WorkshopType) string {
+	switch t {
+	case WorkshopSmithy:
+		return "smithy"
+	case WorkshopTannery:
+		return "tannery"
+	case WorkshopWeavery:
+		return "weavery"
+	case WorkshopBrewery:
+		return "brewery"
+	case WorkshopPottery:
+		return "pottery"
+	default:
+		return "workshop"
+	}
+}
+
+func itoa(v int) string {	if v == 0 {
 		return "0"
 	}
 	neg := v < 0
@@ -243,6 +297,10 @@ func townGet(t *Town, f string) (float64, bool) {
 		return t.TaxRate, true
 	case "garrison":
 		return t.Garrison, true
+	case "militia":
+		return t.Militia, true
+	case "crime":
+		return t.Crime, true
 	case "garrison_conduct":
 		return t.GarrisonConduct, true
 	case "garrison_morale":
@@ -393,6 +451,10 @@ func townSet(t *Town, f string, v float64) bool {
 		t.TaxRate = v
 	case "garrison":
 		t.Garrison = v
+	case "militia":
+		t.Militia = v
+	case "crime":
+		t.Crime = v
 	case "garrison_conduct":
 		t.GarrisonConduct = v
 	case "garrison_morale":
@@ -529,6 +591,8 @@ func villageGet(v *Village, f string) (float64, bool) {
 		return v.Yield, true
 	case "village_link":
 		return float64(v.Link), true
+	case "village_hearths":
+		return float64(v.Hearths), true
 	}
 	return 0, false
 }
@@ -547,6 +611,8 @@ func villageSet(v *Village, f string, x float64) bool {
 		v.Yield = x
 	case "village_link":
 		v.Link = int(x)
+	case "village_hearths":
+		v.Hearths = int(x)
 	default:
 		return false
 	}
@@ -1125,6 +1191,93 @@ func warSet(w *War, f string, v float64) bool {
 		w.BattlesThisTick = v
 	case "war_reason":
 		w.Reason = WarReason(int(v))
+	default:
+		return false
+	}
+	return true
+}
+
+func clanGet(c *Clan, f string) (float64, bool) {
+	switch f {
+	case "clan_renown":
+		return c.Renown, true
+	case "clan_tier":
+		return float64(c.Tier), true
+	case "clan_leader":
+		return float64(c.LeaderID), true
+	case "clan_side":
+		return float64(c.SideID), true
+	case "clan_members":
+		return float64(len(c.MemberIDs)), true
+	case "clan_household":
+		return float64(c.HouseholdSize), true
+	case "clan_fiefs":
+		return float64(len(c.FiefIDs)), true
+	default:
+		return 0, false
+	}
+}
+
+func clanSet(c *Clan, f string, v float64) bool {
+	switch f {
+	case "clan_renown":
+		c.Renown = v
+		c.Tier = ClanTierForRenown(v)
+	case "clan_tier":
+		c.Tier = int(v)
+	case "clan_leader":
+		c.LeaderID = int(v)
+	case "clan_side":
+		c.SideID = int(v)
+	case "clan_household":
+		c.HouseholdSize = int(v)
+	default:
+		return false
+	}
+	return true
+}
+
+func workshopGet(wk *Workshop, f string) (float64, bool) {
+	switch f {
+	case "workshop_town":
+		return float64(wk.TownID), true
+	case "workshop_owner_clan":
+		return float64(wk.OwnerClanID), true
+	case "workshop_type":
+		return float64(wk.Type), true
+	case "workshop_level":
+		return float64(wk.Level), true
+	case "workshop_workers":
+		return wk.Workers, true
+	case "workshop_input_stock":
+		return wk.InputStock, true
+	case "workshop_output_stock":
+		return wk.OutputStock, true
+	case "workshop_income":
+		return wk.LastIncome, true
+	default:
+		return 0, false
+	}
+}
+
+func workshopSet(wk *Workshop, f string, v float64) bool {
+	switch f {
+	case "workshop_town":
+		wk.TownID = int(v)
+	case "workshop_owner_clan":
+		wk.OwnerClanID = int(v)
+	case "workshop_type":
+		wk.Type = WorkshopType(int(v))
+	case "workshop_level":
+		wk.Level = int(v)
+	case "workshop_workers":
+		wk.Workers = v
+	case "workshop_input_stock":
+		wk.InputStock = v
+	case "workshop_output_stock":
+		wk.OutputStock = v
+	case "workshop_income":
+		wk.LastIncome = v
 	default:
 		return false
 	}

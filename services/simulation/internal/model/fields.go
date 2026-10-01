@@ -32,6 +32,8 @@ const (
 	KindRoute
 	KindSiege
 	KindWar
+	KindClan
+	KindWorkshop
 )
 
 // String names the kind for error messages and log output.
@@ -53,6 +55,10 @@ func (k Kind) String() string {
 		return "siege"
 	case KindWar:
 		return "war"
+	case KindClan:
+		return "clan"
+	case KindWorkshop:
+		return "workshop"
 	default:
 		return "unknown"
 	}
@@ -258,6 +264,8 @@ func init() {
 	register(Field{"garrison", KindTown, ValueInt, "troops", true, 0, inf, nil, 0})
 	register(Field{"garrison_conduct", KindTown, ValueFloat, "share", true, zero, one, nil, 0})
 	register(Field{"garrison_morale", KindTown, ValueFloat, "share", true, -1, one, nil, 0})
+	register(Field{"militia", KindTown, ValueInt, "troops", true, 0, inf, nil, 0})
+	register(Field{"crime", KindTown, ValueFloat, "share", true, zero, one, nil, 0})
 	register(Field{"road_safety", KindTown, ValueFloat, "share", true, zero, one, nil, 0})
 	register(Field{"money", KindTown, ValueFloat, "money", true, -inf, inf, nil, 0})
 	register(Field{"gold", KindTown, ValueFloat, "gold", true, zero, inf, nil, 0})
@@ -289,6 +297,7 @@ func init() {
 	register(Field{"food_exports", KindTown, ValueFloat, "person-days/day", true, 0, inf, nil, 0})
 	register(Field{"medicine_imports", KindTown, ValueFloat, "doses/day", true, 0, inf, nil, 0})
 	register(Field{"militia", KindTown, ValueInt, "troops", true, 0, inf, nil, 0})
+	register(Field{"crime", KindTown, ValueFloat, "share", true, zero, one, nil, 0})
 	// arriving_cargo_* are staged by the logistics system and consumed by the
 	// food and disease systems. They are the seam between a caravan arriving
 	// and a town being fed or treated, and they are untracked because the
@@ -335,6 +344,7 @@ func init() {
 	register(Field{"village_raid_memory", KindVillage, ValueInt, "days", false, 0, inf, nil, 0})
 	register(Field{"village_yield", KindVillage, ValueFloat, "person-days/day", false, 0, inf, nil, 0})
 	register(Field{"village_link", KindVillage, ValueInt, "town", false, -1, inf, nil, 0})
+	register(Field{"village_hearths", KindVillage, ValueInt, "tier", true, 1, 5, nil, 0})
 	// --- party fields: parties, armies, and caravans share this shape ---
 	register(Field{"troops", KindParty, ValueInt, "troops", true, 0, inf, nil, 0})
 	register(Field{"party_food", KindParty, ValueFloat, "person-days", true, 0, inf, nil, 0})
@@ -497,4 +507,21 @@ func init() {
 	register(Field{"war_reason", KindWar, ValueText, "reason", true, 0, 0, []string{
 		"border", "revenge", "resources", "defence", "alliance", "opportunity",
 	}, 0})
+	// --- clan fields (Tier 1) ---
+	register(Field{"clan_renown", KindClan, ValueFloat, "renown", true, 0, inf, nil, 0})
+	register(Field{"clan_tier", KindClan, ValueInt, "tier", true, 0, 6, nil, 0})
+	register(Field{"clan_leader", KindClan, ValueRulerRef, "ruler", true, -1, inf, nil, 0})
+	register(Field{"clan_side", KindClan, ValueSideRef, "side", true, -1, inf, nil, 0})
+	register(Field{"clan_members", KindClan, ValueInt, "members", true, 0, inf, nil, 0})
+	register(Field{"clan_household", KindClan, ValueInt, "people", true, 0, inf, nil, 0})
+	register(Field{"clan_fiefs", KindClan, ValueInt, "fiefs", true, 0, inf, nil, 0})
+	// --- workshop fields (Tier 3) ---
+	register(Field{"workshop_town", KindWorkshop, ValueInt, "town", true, -1, inf, nil, 0})
+	register(Field{"workshop_owner_clan", KindWorkshop, ValueInt, "clan", true, -1, inf, nil, 0})
+	register(Field{"workshop_type", KindWorkshop, ValueInt, "type", true, 0, 4, nil, 0})
+	register(Field{"workshop_level", KindWorkshop, ValueInt, "level", true, 1, 3, nil, 0})
+	register(Field{"workshop_workers", KindWorkshop, ValueInt, "workers", true, 0, inf, nil, 0})
+	register(Field{"workshop_input_stock", KindWorkshop, ValueFloat, "goods", true, 0, inf, nil, 0})
+	register(Field{"workshop_output_stock", KindWorkshop, ValueFloat, "goods", true, 0, inf, nil, 0})
+	register(Field{"workshop_income", KindWorkshop, ValueFloat, "money", false, 0, inf, nil, 0})
 }
