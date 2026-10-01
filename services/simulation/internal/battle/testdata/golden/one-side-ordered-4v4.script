@@ -1,0 +1,5 @@
+{"kind":"battle_script","version":1,"name":"one-side-ordered-4v4","seed":106002,"a":{"units":4,"label":"the Company","terrain":"open"},"b":{"units":4,"label":"the Host","terrain":"open"},"steps":4}
+{"tick":0,"unit":0,"order":"hold","intent":"hold","dx":0,"dy":0,"formation":"","facing":0,"note":""}
+{"tick":4,"unit":1,"order":"formation","intent":"advance","dx":0,"dy":0,"formation":"wedge","facing":0,"note":""}
+{"tick":60,"unit":2,"order":"move","intent":"advance","dx":0.75,"dy":0,"formation":"","facing":0,"note":""}
+{"tick":120,"unit":3,"order":"hold","intent":"hold","dx":0,"dy":0,"formation":"","facing":0,"note":""}
