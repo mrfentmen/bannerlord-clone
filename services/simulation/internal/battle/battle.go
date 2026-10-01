@@ -161,6 +161,13 @@ type Battle struct {
 	snap []snapshot
 	// deltas is the per-tick staging buffer, reset at the top of each tick.
 	deltas []delta
+	// formations is the shape each unit was last ordered into, published by the
+	// command seam and read by the melee and aimed-fire stages. It is reset at
+	// the top of every tick, so a unit nobody commanded this tick is in no shape
+	// rather than in whatever shape it was in last tick: a formation effect that
+	// outlived the order that caused it would be a bonus a man kept for the rest
+	// of the battle after his officer had broken his line up.
+	formations []formationState
 
 	// meleeScratch and fireScratch are reused candidate buffers, so a tick
 	// allocates nothing at all once the battle is under way.
@@ -353,6 +360,7 @@ func newBattle(cfg *config.Config, seed uint64, setup Setup) (*Battle, error) {
 	b.fireHash = newHash(c.RangedGridCellSize, int(c.GridMaxCells))
 	b.snap = make([]snapshot, total)
 	b.deltas = make([]delta, total)
+	b.formations = make([]formationState, total)
 	b.meleeScratch = make([]int, 0, 128)
 	b.fireScratch = make([]int, 0, 128)
 	b.attackerCount = make([]int, total)
@@ -602,6 +610,8 @@ func (b *Battle) tick() error {
 		b.snap[i] = take(u)
 		b.deltas[i].reset()
 		b.attackerCount[i] = 0
+		// No shape until a commander publishes one. See Battle.formations.
+		b.formations[i] = formationState{}
 	}
 
 	// The hashes are rebuilt from committed state once, before any stage runs.

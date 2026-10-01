@@ -1349,6 +1349,72 @@ flank_sweep_deg = 75.0
 # formation spends real time exposed on their flank before it attacks.
 flank_sweep_rate_deg = 6.0
 
+# --- what each shape does in contact -----------------------------------------
+# The five shapes are not the same shape to fight in, and these are the numbers
+# that make them different. internal/battle reads them: a formation order tells
+# every unit in a group which slot to stand on, and the shape a man is standing
+# in changes what happens to him when he is hit. A wedge goes in harder and is
+# caught from the side. A square turns a fast mover away and cannot follow him up.
+# Skirmish order is hard to pin down with aimed fire and pays for it in the
+# hand-to-hand. Line and column are the reference shapes: they add nothing and
+# take nothing away, and that is stated here rather than left to a missing case
+# in the code, because "there is no rule for this shape" and "the rule is 1.0"
+# are different facts and only one of them is a decision.
+#
+# A wedge is the only shape with a front it protects, so it is the only one that
+# needs an arc; a line has a front too and does not get one, because a line's
+# weakness is its flanks and everyone already knows that. A square needs a speed
+# to define what it stops, and a skirmisher's weakness is the same whichever way
+# he is hit, so neither of those shapes needs an arc as well.
+
+# Share of extra melee damage a wedge deals while it is moving at charge speed.
+# The point of a wedge is that the men at the tip arrive first and hit harder, and
+# the closing-speed term in the damage formula already pays a man for arriving
+# fast; this is on top of that, and it is the whole reason to choose a wedge over
+# a line to go in with. Range 0-3. Zero is a wedge that breaks a line and hits it
+# exactly as hard as a line would, which is not what a wedge is for.
+wedge_charge_damage_bonus = 0.25
+# How much harder a wedge takes a blow that arrives from outside its front arc.
+# A wedge has no flanks in the ordinary sense, and that is its virtue: every man
+# is either at the point or in the ranks behind it, so once the enemy is past the
+# tip the whole body of it is open from the side. Range 0-3, and above 1 is the
+# penalty. Below 1 would be a wedge that is safer from the flank than from the
+# front, which is a shape nobody has ever wanted.
+wedge_flank_taken_scale = 1.4
+# How wide the protected front of a wedge is, in degrees, centred on the bearing
+# the formation faces. 360 would be a wedge that cannot be caught from the side
+# at all, which is not a wedge. Range 30-360. 120 leaves the rear three quarters
+# open, which is about what a real one does.
+wedge_flank_arc_deg = 120.0
+# Speed, in metres per second, above which a man counts as a fast mover against a
+# square: a charge at the run, or a vehicle. That is what a square is built to
+# stop, and it stops it by being a wall of men who are already standing still
+# while he is still arriving. Range 0.1-25. Below about the charge speed the
+# square would be refusing a threat that a line handles perfectly well.
+square_fast_mover_speed = 4.0
+# Share of a melee blow that reaches a square from a fast mover. A square is a
+# wall and not a spear: the men in it are braced, side by side, with nothing in
+# front of them but other men. Range 0-1. Below 0.5 is a wall; at 1 the square
+# would be a dead constant and the shape would be a label.
+square_fast_mover_taken_scale = 0.55
+# Share of a formation pace a square moves at. A square is a shape a commander
+# builds and keeps, not one he crosses open ground in: the men cannot turn
+# quickly and cannot spread, so the movement is the price of standing shoulder to
+# shoulder. Range 0.05-1. At 1 it is a line wearing a different name.
+square_move_speed_scale = 0.7
+# Share of aimed-fire suppression that lands on men in skirmish order. Spread out
+# is the entire point of it, and suppression is the weapon that breaks a
+# formation (COMBAT.md section 6), so a burst that would pin a line pins one man
+# in three. Range 0-1. At 1 a skirmish line breaks exactly as a line does and
+# the shape buys nothing.
+skirmish_suppression_taken_scale = 0.4
+# Share of the melee damage done to men in skirmish order that they actually pay.
+# Scattered men are not shoulder to shoulder, so a man in loose order fights
+# several others at once and every one of them is in reach of him, and the same
+# for them. Range 0.5-3. Below 1 would be skirmish order as an advantage rather
+# than a bargain, which is the bargain it is.
+skirmish_melee_taken_scale = 1.35
+
 # ---------------------------------------------------------------------------
 # COMMAND — the tactics layer above the formations
 # ---------------------------------------------------------------------------
