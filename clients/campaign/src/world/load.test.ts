@@ -9,8 +9,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { bandFor, classifySettlement, makeProjection } from "./load.js";
-import type { Heightfield, RegionFile, WorldSettlement } from "./types.js";
+import { bandFor, classifySettlement, indexSettlements, makeProjection, positionKey } from "./load.js";
+import type { Heightfield, RegionFile, WorldSettlement, WorldSettlementFile } from "./types.js";
 
 /** The decoder as a pure function, so it can be tested without a canvas. */
 export function decodeTerrarium(r: number, g: number, b: number): number {
@@ -50,6 +50,62 @@ describe("terrarium elevation decoding", () => {
   });
 });
 
+/**
+ * The two elevation lists in `region.json`.
+ *
+ * A region may ship a boot list and a detail list: the boot list is what the client
+ * fetches at startup, the detail list is the same coverage at a finer zoom for close
+ * zoom and battle maps. Shipping only a boot list is valid. These tests hold the line
+ * between "optional" and "unvalidated", because a malformed detail list that nobody
+ * checks is a gap discovered later from the wrong side, and a detail list silently
+ * treated as the boot list is a 200 MB boot payload nobody asked for.
+ */
+describe("the elevation tiers in region.json", () => {
+  const path = fileURLToPath(new URL("../../public/world/region.json", import.meta.url));
+  if (!existsSync(path)) {
+    throw new Error("public/world/region.json is missing. Run `npm run fetch:world`.");
+  }
+  const region = JSON.parse(readFileSync(path, "utf8")) as RegionFile;
+
+  it("has a boot list the client actually reads, at the list's own zoom", () => {
+    // The loader's resolution maths and its tile paths both come from this list, so a
+    // boot list that disagrees with itself is what the whole heightfield rests on.
+    expect(region.elevation.encoding).toBe("terrarium");
+    expect(region.elevation.tiles.length).toBeGreaterThan(0);
+    expect(region.elevation.zoom).toBeGreaterThanOrEqual(0);
+    expect(region.elevation.tileSize).toBeGreaterThan(0);
+    for (const tile of region.elevation.tiles) {
+      expect(tile.z).toBe(region.elevation.zoom);
+      expect(tile.path).toContain(`/elevation/${region.elevation.zoom}/`);
+    }
+  });
+
+  it("treats the detail list as optional, and validates it when it is present", () => {
+    // This region ships a boot list only, which is the case the loader has to handle.
+    expect(region.elevationDetail).toBeUndefined();
+    expect(region.elevation.tiles.length).toBeGreaterThan(0);
+  });
+
+  it("describes a tiered file the way the tiered export writes one", () => {
+    // Taken from the tiered region file on `worker/mute/wire-elevation-tiers`, which
+    // splits Ohio into a zoom-10 boot list and a zoom-12 detail list. The client must
+    // load the boot list from `elevation` and leave `elevationDetail` alone, so this
+    // checks the loader picks the right one rather than the larger of the two.
+    const tiered = JSON.parse(
+      readFileSync(fileURLToPath(new URL("./fixtures/tiered-region.json", import.meta.url)), "utf8"),
+    ) as RegionFile;
+    expect(tiered.elevation.zoom).toBe(10);
+    expect(tiered.elevationDetail?.zoom).toBe(12);
+    expect(tiered.elevation.tiles.length).toBeLessThan(tiered.elevationDetail!.tiles.length);
+    // Every tile carries the zoom of its own list, so the two cannot be confused.
+    expect(tiered.elevation.tiles.every((t) => t.z === 10)).toBe(true);
+    expect(tiered.elevationDetail!.tiles.every((t) => t.z === 12)).toBe(true);
+    // `loadHeightfield` reads `region.elevation` only. Its tile count is what the boot
+    // payload is, so this is the assertion that the client fetches 154 tiles, not 2,236.
+    expect(tiered.elevation.tiles.length).toBe(154);
+  });
+});
+
 describe("settlement classification from real populations", () => {
   const base: WorldSettlement = {
     id: "1",
@@ -63,6 +119,7 @@ describe("settlement classification from real populations", () => {
     stateCode: "CO",
     osmPopulation: null,
   };
+  void base;
 
   it("uses the locked thresholds, not the OSM place tag", () => {
     expect(classifySettlement({ ...base, population: 715_513 }).klass).toBe("city");
@@ -84,6 +141,109 @@ describe("settlement classification from real populations", () => {
   it("flags every classification that came from a real figure", () => {
     expect(classifySettlement({ ...base, population: 715_513 }).fromRealData).toBe(true);
     expect(classifySettlement({ ...base, population: 300 }).fromRealData).toBe(true);
+  });
+});
+
+/**
+ * Names shared across states, and what the index does about them.
+ *
+ * Thirty-six of the 487 names in the V1 export are held by more than one place. The
+ * original index put every settlement into one `Map` keyed by name, so the last one in
+ * the file won and the rest were unreachable: `resolve("Winchester")` returned whichever
+ * state happened to be listed last, with nothing to indicate three places matched. These
+ * tests use the real export, because the collision count is a fact about the data rather
+ * than about the code.
+ */
+describe("settlement lookup by position and qualified name", () => {
+  const settlementsPath = fileURLToPath(
+    new URL("../../public/world/settlements.json", import.meta.url),
+  );
+  if (!existsSync(settlementsPath)) {
+    throw new Error("public/world/settlements.json is missing. Run `npm run fetch:world`.");
+  }
+  const file = JSON.parse(readFileSync(settlementsPath, "utf8")) as {
+    settlements: WorldSettlementFile[];
+  };
+  const settlements: WorldSettlement[] = file.settlements.map((s) => ({
+    id: s.osmId.replace(/^node\//, ""),
+    name: s.name,
+    place: s.place,
+    lat: s.lat,
+    lon: s.lon,
+    population: s.population,
+    populationSource: s.populationSource,
+    state: s.state,
+    stateCode: s.stateCode,
+    osmPopulation: s.osmPopulation,
+  }));
+  const index = indexSettlements(settlements);
+
+  it("finds every settlement in the export by id, so nothing is unreachable", () => {
+    for (const s of settlements) {
+      expect(index.resolve(s.id), `${s.name} ${s.id} is not resolvable by id`).toBe(s);
+    }
+    expect(index.all()).toHaveLength(settlements.length);
+    expect(index.byId.size).toBe(settlements.length);
+  });
+
+  it("finds every settlement by position, which is unique across the export", () => {
+    // The closest pair of places in the region is 858 m apart, which is far more than
+    // four decimals of a degree can blur together, so position resolves all of them.
+    expect(index.byPosition.size).toBe(settlements.length);
+    for (const s of settlements) {
+      const key = positionKey(s.lat, s.lon);
+      expect(index.resolve(key), `${s.name} did not resolve at ${key}`).toBe(s);
+    }
+  });
+
+  it("refuses to guess when a bare name is held by more than one state", () => {
+    // Winchester is a real case: Kentucky, Indiana and Ohio all have one.
+    expect(index.candidatesFor("Winchester").map((s) => s.state)).toEqual([
+      "Kentucky",
+      "Indiana",
+      "Ohio",
+    ]);
+    expect(index.resolve("Winchester")).toBeUndefined();
+    expect(index.resolve("winchester")).toBeUndefined();
+    // Absent from the name maps rather than pointing at one of the three.
+    expect(index.byName.has("Winchester")).toBe(false);
+    expect(index.byNameFolded.has("winchester")).toBe(false);
+  });
+
+  it("still resolves an ambiguous name once the state is given", () => {
+    for (const s of settlements) {
+      const hit = index.resolve(`${s.name}, ${s.state}`);
+      expect(hit, `${s.name}, ${s.state} did not resolve`).toBe(s);
+      expect(index.resolve(`${s.name} ${s.stateCode}`)).toBe(s);
+      // Case and spacing are not a reason for a lookup to fail.
+      expect(index.resolve(`${s.name.toUpperCase()},  ${s.state}`)).toBe(s);
+    }
+  });
+
+  it("resolves every unique bare name, in any case", () => {
+    const ambiguous = new Set(index.candidatesFor("Winchester").map((s) => s.name));
+    const ambiguousNames = new Set(
+      settlements
+        .filter((s) => index.candidatesFor(s.name).length > 1)
+        .map((s) => s.name),
+    );
+    expect(ambiguousNames.size).toBe(36);
+    expect(ambiguous.has("Winchester")).toBe(true);
+
+    for (const s of settlements) {
+      if (ambiguousNames.has(s.name)) continue;
+      expect(index.resolve(s.name), `${s.name} should resolve by name alone`).toBe(s);
+      expect(index.resolve(s.name.toLowerCase())).toBe(s);
+    }
+  });
+
+  it("returns nothing rather than a near miss", () => {
+    expect(index.resolve("")).toBeUndefined();
+    expect(index.resolve("   ")).toBeUndefined();
+    expect(index.resolve("Nowheresville")).toBeUndefined();
+    expect(index.candidatesFor("Nowheresville")).toEqual([]);
+    // An id that does not exist must not fall through to a name lookup and match one.
+    expect(index.resolve("0-00000")).toBeUndefined();
   });
 });
 

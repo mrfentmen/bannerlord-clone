@@ -13,17 +13,36 @@
 /** Real public datasets. See `public/world/DATA-MANIFEST.md`. */
 export type DataProvenance = "aws-terrarium" | "openstreetmap" | "us-census" | "agent-1-export";
 
+/** One terrarium tile list in `region.json`: the boot list or the detail list. */
+export interface ElevationTileList {
+  encoding: "terrarium";
+  formula: string;
+  zoom: number;
+  tileSize: number;
+  tiles: { z: number; x: number; y: number; path: string }[];
+}
+
 /** `region.json`. The client reads its bounds and tile list from here, never a constant. */
 export interface RegionFile {
   name: string;
   bbox: { south: number; west: number; north: number; east: number };
-  elevation: {
-    encoding: "terrarium";
-    formula: string;
-    zoom: number;
-    tileSize: number;
-    tiles: { z: number; x: number; y: number; path: string }[];
-  };
+  /**
+   * The boot list: every tile needed to draw the whole region at startup. Read at
+   * full length by `loadHeightfield`, which fetches all of it and fails loudly on a
+   * missing tile rather than drawing a hole.
+   */
+  elevation: ElevationTileList;
+  /**
+   * The detail list: the same coverage at a finer zoom, for close-zoom terrain and
+   * battle maps.
+   *
+   * Optional because a boot list is enough to run the campaign map, and because a
+   * release that ships only `elevation` is a valid region file. When it is present the
+   * client validates it and records that it exists; it does not stream it, since
+   * progressive loading is not built yet. That is a stated gap rather than a silent
+   * one: nothing reads these tiles today, so nothing can quietly depend on them.
+   */
+  elevationDetail?: ElevationTileList;
   retrieved: string;
   /**
    * What can honestly be said about which state this region is in.
@@ -63,20 +82,58 @@ export interface WorldSettlementFile {
 }
 
 /**
- * A settlement lookup that accepts more than one kind of id.
+ * A settlement lookup that accepts more than one kind of key.
  *
  * The client's own id for a settlement is the OSM node id, because that is what
  * survives a re-fetch. The simulation's id for the same place is its own business:
  * Contract B does not promise the client will use the client's ids. Rather than assume
- * it will, the client indexes settlements by id, by exact name, and by normalised name,
- * and resolves whichever it is handed. A mismatch shows up as a settlement that
- * silently cannot be routed to, which is exactly the kind of thing that would be very
- * expensive to find later.
+ * it will, the client indexes settlements by id, by position, and by name, and resolves
+ * whichever it is handed. A mismatch shows up as a settlement that silently cannot be
+ * routed to, which is exactly the kind of thing that would be very expensive to find
+ * later.
+ *
+ * Names are the reason this cannot be a plain `Map<string, WorldSettlement>` keyed by
+ * name. Thirty-six names in the V1 region are held by more than one place: there is an
+ * Albany in Indiana and an Albany in Ohio, a Winchester in each of Kentucky, Indiana and
+ * Ohio. Keying by bare name made the last one in the file win and the other disappear,
+ * so `resolve("Winchester")` returned whichever the file happened to list last and
+ * nothing said otherwise. A settlement index that silently drops a town is the exact
+ * failure mode the rest of this file works to avoid, so name lookups are:
+ *
+ *  - exact and position keys, which are unique and always resolve;
+ *  - `Name, State` and `Name ST` for every settlement, which is unique per state and
+ *    resolves even when the bare name is shared;
+ *  - a bare name only when the region holds exactly one place with it.
+ *
+ * An ambiguous bare name resolves to `undefined` rather than to a guess.
+ * `candidatesFor(name)` returns every place carrying that name so a caller can offer the
+ * choice instead of making it silently.
  */
 export interface SettlementIndex {
+  /** OSM node id, the client's own stable id. Unique across the region. */
   byId: Map<string, WorldSettlement>;
+  /** `lat,lon` rounded to four decimals, unique in the region. See `positionKey`. */
+  byPosition: Map<string, WorldSettlement>;
+  /**
+   * Bare name, exact as written in the export, for names exactly one place carries.
+   * Ambiguous names are absent rather than pointing at one of their holders.
+   */
   byName: Map<string, WorldSettlement>;
+  /** Lowercased bare name, same rule: absent when the name is ambiguous. */
+  byNameFolded: Map<string, WorldSettlement>;
+  /** `name, state` and `name st`, for every settlement. Unique per state, so never ambiguous. */
+  byStateName: Map<string, WorldSettlement>;
+  /** Bare name to every settlement carrying it. Includes the unambiguous ones. */
+  byNameAll: Map<string, WorldSettlement[]>;
+  /**
+   * Resolve any key this index holds: an OSM id, `lat,lon`, `Name, State`, `Name ST`,
+   * or an unambiguous bare name in any case. `undefined` when nothing matches, and also
+   * when a bare name is ambiguous, because returning one of several places would be a
+   * guess dressed as an answer.
+   */
   resolve(idOrName: string): WorldSettlement | undefined;
+  /** Every place carrying `name`, for a caller that can ask the player to choose. */
+  candidatesFor(name: string): WorldSettlement[];
   all(): WorldSettlement[];
 }
 

@@ -8,6 +8,7 @@
  */
 
 import type {
+  ElevationTileList,
   Heightfield,
   NetworkFile,
   RegionFile,
@@ -227,20 +228,113 @@ export function makeProjection(region: RegionFile, hf: Heightfield): Projection 
  * A place with no real population figure gets `village` and a flag, never a
  * guessed population. Eleven places in the V1 region land here.
  */
+/**
+ * Key a settlement by where it is, so two places sharing a name stay distinct.
+ *
+ * Four decimals of a degree is roughly 11 m of latitude and 8.5 m of longitude at this
+ * region's latitude, which is finer than any gap between two real places in it: the
+ * closest pair in the V1 export is 858 m apart. Precision is chosen from the data rather
+ * than assumed, because a key coarse enough to merge two places is the same bug as a
+ * key that only looks like it distinguishes them.
+ */
+export function positionKey(lat: number, lon: number): string {
+  return `${lat.toFixed(4)},${lon.toFixed(4)}`;
+}
+
+/**
+ * Normalise a lookup key: trimmed, whitespace-collapsed, lowercased.
+ *
+ * The collapse matters because the qualified forms are built with a comma-space here
+ * and may arrive without one. Two spellings of the same place have to reach the same
+ * entry, or a lookup quietly fails on punctuation.
+ */
+function foldKey(input: string): string {
+  return input.trim().replace(/\s+/g, " ").toLowerCase();
+}
+
+/**
+ * Every key a settlement answers to, in the order they should be tried.
+ *
+ * The exact name and position come first because they are unambiguous by construction.
+ * The bare name is deliberately last: it is only consulted when the region holds exactly
+ * one place with it, which `resolve` checks rather than this function.
+ */
+function keysFor(s: WorldSettlement): { qualified: string[]; foldedName: string } {
+  const qualified: string[] = [];
+  const name = s.name.trim();
+  for (const state of [s.state, s.stateCode]) {
+    if (!state) continue;
+    qualified.push(`${name}, ${state}`, `${name} ${state}`);
+  }
+  return { qualified: qualified.map(foldKey), foldedName: foldKey(s.name) };
+}
+
 /** Build the settlement lookup described in `SettlementIndex`. */
 export function indexSettlements(settlements: WorldSettlement[]): SettlementIndex {
   const byId = new Map<string, WorldSettlement>();
-  const byName = new Map<string, WorldSettlement>();
+  const byPosition = new Map<string, WorldSettlement>();
+  const byStateName = new Map<string, WorldSettlement>();
+  const byNameAll = new Map<string, WorldSettlement[]>();
+
   for (const s of settlements) {
     byId.set(s.id, s);
-    byName.set(s.name, s);
-    byName.set(s.name.toLowerCase(), s);
+
+    // A duplicate here would mean two OSM nodes at one surveyed position, which is not a
+    // collision to paper over: first one wins and the rest are dropped by `Map.set`,
+    // which is why the ids are the primary key and this one is only a convenience.
+    const position = positionKey(s.lat, s.lon);
+    if (!byPosition.has(position)) byPosition.set(position, s);
+
+    const { qualified, foldedName } = keysFor(s);
+    for (const key of qualified) {
+      if (!byStateName.has(key)) byStateName.set(key, s);
+    }
+
+    const group = byNameAll.get(foldedName);
+    if (group) group.push(s);
+    else byNameAll.set(foldedName, [s]);
   }
+
+  // A bare name is only indexed when it identifies exactly one place. The 36 shared names
+  // in the V1 region are absent from both name maps, which is what makes an ambiguous
+  // lookup fail instead of returning whichever place the file listed last.
+  const byName = new Map<string, WorldSettlement>();
+  const byNameFolded = new Map<string, WorldSettlement>();
+  for (const [folded, group] of byNameAll) {
+    if (group.length !== 1) continue;
+    const only = group[0]!;
+    byName.set(only.name, only);
+    byNameFolded.set(folded, only);
+  }
+
+  const candidatesFor = (name: string): WorldSettlement[] => byNameAll.get(foldKey(name)) ?? [];
+
   return {
     byId,
+    byPosition,
     byName,
+    byNameFolded,
+    byStateName,
+    byNameAll,
+    candidatesFor,
     resolve(input) {
-      return byId.get(input) ?? byName.get(input) ?? byName.get(input.toLowerCase());
+      const trimmed = input.trim();
+      if (trimmed === "") return undefined;
+      // Ids and positions are exact and come first: they are the keys that cannot be wrong.
+      const byIdHit = byId.get(trimmed);
+      if (byIdHit) return byIdHit;
+      const byPositionHit = byPosition.get(trimmed);
+      if (byPositionHit) return byPositionHit;
+
+      const folded = foldKey(trimmed);
+      const byStateNameHit = byStateName.get(folded);
+      if (byStateNameHit) return byStateNameHit;
+
+      // An ambiguous bare name falls through to `undefined`. The caller can call
+      // `candidatesFor` and ask which one was meant; picking one here would be the
+      // silent failure this index exists to prevent.
+      const group = byNameAll.get(folded);
+      return group?.length === 1 ? group[0] : undefined;
     },
     all: () => settlements,
   };
@@ -359,11 +453,38 @@ function validateRegion(region: RegionFile): void {
       false,
     );
   }
-  if (region.elevation.encoding !== "terrarium") {
+  validateTileList(region.elevation, "elevation");
+  // The detail list is optional and unread today, but a region file that ships one has
+  // to be well formed or the gap is discovered later, from the wrong side. The client
+  // does not fetch these tiles, so a missing detail tile is not this load's failure; a
+  // malformed list is, because nothing could ever consume it.
+  if (region.elevationDetail) validateTileList(region.elevationDetail, "elevationDetail");
+}
+
+function validateTileList(list: ElevationTileList, field: string): void {
+  if (list.encoding !== "terrarium") {
     throw new WorldDataError(
       "decode",
-      `The world survey uses an elevation format this client cannot read (${region.elevation.encoding}).`,
-      `region.json elevation.encoding is ${region.elevation.encoding}, expected terrarium`,
+      `The world survey uses an elevation format this client cannot read (${list.encoding}).`,
+      `region.json ${field}.encoding is ${list.encoding}, expected terrarium`,
+      false,
+    );
+  }
+  if (!Number.isInteger(list.zoom) || list.zoom < 0 || !Number.isInteger(list.tileSize) || list.tileSize <= 0) {
+    throw new WorldDataError(
+      "decode",
+      "The world survey lists elevation tiles at a size this client cannot read.",
+      `region.json ${field} has zoom ${list.zoom} and tileSize ${list.tileSize}`,
+      false,
+    );
+  }
+  // An empty boot list is caught in `loadHeightfield`, where the player message is about
+  // missing terrain. An empty detail list is a fact about the file, so it is checked here.
+  if (field === "elevationDetail" && !Array.isArray(list.tiles)) {
+    throw new WorldDataError(
+      "decode",
+      "The world survey's detailed terrain list is damaged.",
+      `region.json ${field}.tiles is not an array`,
       false,
     );
   }
@@ -390,6 +511,23 @@ function validateSettlements(file: SettlementsFile): void {
         false,
       );
     }
+  }
+  // Two nodes carrying one id would make the id index drop a settlement without saying
+  // so, and the client's id is the id. Duplicate names are not an error: thirty-six of
+  // them are shared across states in the V1 region, and `indexSettlements` handles that
+  // by refusing to resolve an ambiguous bare name.
+  const seenIds = new Set<string>();
+  for (const s of file.settlements) {
+    const id = s.osmId.replace(/^node\//, "");
+    if (seenIds.has(id)) {
+      throw new WorldDataError(
+        "decode",
+        `The settlement survey lists ${s.name} twice under one id, so the map cannot tell them apart.`,
+        `settlements.json has two entries with id ${id}`,
+        false,
+      );
+    }
+    seenIds.add(id);
   }
 }
 

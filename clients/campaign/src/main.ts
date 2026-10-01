@@ -283,6 +283,19 @@ function settlement(idOrName: string): WorldSettlement | undefined {
 }
 
 /**
+ * The places a bare name could mean, when it could mean more than one.
+ *
+ * Thirty-six names in the V1 region are shared across states, and the index refuses to
+ * resolve an ambiguous one rather than picking whichever the export listed last. So
+ * when a lookup comes back empty, this says whether that was because the name is shared
+ * or because there is no such place, which are different problems for the panel below to
+ * describe.
+ */
+function settlementCandidates(name: string): WorldSettlement[] {
+  return world?.settlements.candidatesFor(name) ?? [];
+}
+
+/**
  * The simulation's id for a place, given the client's id or the other way round.
  *
  * Both directions are needed and both are cheap, because the client's ids and the
@@ -302,11 +315,29 @@ function simIdOf(place: WorldSettlement | undefined): string | null {
 /** Client settlement id -> the town the simulation runs for it. */
 let townByPlaceId = new Map<string, TownState>();
 
+/**
+ * Towns whose settlement the client could not resolve to one place.
+ *
+ * A town lands here when the simulation named a settlement with a bare name that more
+ * than one state in this region also carries, since the index will not choose between
+ * them. Kept so the condition is visible in the console rather than being a town that
+ * silently never appears in the march planner, which is the failure this guards against.
+ */
+let unresolvedTowns: string[] = [];
+
 function reindexTowns(): void {
   townByPlaceId = new Map();
+  unresolvedTowns = [];
   for (const town of snapshot?.towns ?? []) {
     const place = settlement(town.settlementId);
     if (place) townByPlaceId.set(place.id, town);
+    else unresolvedTowns.push(town.settlementId);
+  }
+  if (unresolvedTowns.length > 0) {
+    console.warn(
+      `${unresolvedTowns.length} simulation towns could not be matched to a single place on the map: ` +
+        `${unresolvedTowns.join(", ")}. Names shared across states resolve only as "Name, State".`,
+    );
   }
 }
 
@@ -328,10 +359,50 @@ function selectSettlement(id: string): void {
     scene.focus(p.x, p.z, klass === "city" ? 20_000 : klass === "town" ? 13_000 : 7_500);
   }
   currentPanel = town ? "town" : "none";
-  contextNode = town ? townNode(town) : noSimulationRecordNode(place?.name ?? id);
+  contextNode = town ? townNode(town) : missingSettlementNode(place, id);
   syncParty();
   paint();
   if (place) hud.announcer.textContent = `${place.name} selected.`;
+}
+
+/**
+ * The panel for a settlement the index could not resolve.
+ *
+ * Two different situations land here and the player deserves to be told which: the
+ * settlement exists but the simulation has no town for it, or the name is shared by
+ * places in more than one state and the index refused to choose. The second case is
+ * stated with the states named rather than silently picking one, because picking one is
+ * how a march order ends up at the wrong town.
+ */
+function missingSettlementNode(place: WorldSettlement | undefined, id: string): Node {
+  if (place) return noSimulationRecordNode(place.name);
+  const candidates = settlementCandidates(id);
+  if (candidates.length < 2) return noSimulationRecordNode(id);
+
+  const box = document.createElement("div");
+  box.className = "sheet panel";
+  box.setAttribute("data-testid", "ambiguous-settlement");
+  const body = document.createElement("div");
+  body.className = "panel__body";
+  const head = document.createElement("h2");
+  head.className = "panel__title";
+  head.textContent = `${candidates[0]!.name}, in more than one state`;
+  const p = document.createElement("p");
+  p.className = "caption";
+  p.textContent =
+    `${candidates.length} places in this region are called ${candidates[0]!.name}, so the name on its own does not ` +
+    "identify one of them. The client will not pick one for you. Choose the settlement on the map, or ask for it " +
+    "by name and state, which does identify a single place.";
+  const list = document.createElement("ul");
+  list.className = "panel__list";
+  for (const candidate of candidates) {
+    const item = document.createElement("li");
+    item.textContent = `${candidate.name} — ${candidate.state ?? candidate.stateCode ?? "state unrecorded"}`;
+    list.appendChild(item);
+  }
+  body.append(head, p, list);
+  box.appendChild(body);
+  return box;
 }
 
 function noSimulationRecordNode(name: string): Node {
@@ -467,9 +538,11 @@ function rebuildContext(): void {
   const town = selectedSettlement ? townFor(selectedSettlement) : undefined;
 
   switch (currentPanel) {
-    case "town":
-      contextNode = town ? townNode(town) : noSimulationRecordNode(settlement(selectedSettlement ?? "")?.name ?? "No town");
+    case "town": {
+      const selected = settlement(selectedSettlement ?? "");
+      contextNode = town ? townNode(town) : missingSettlementNode(selected, selectedSettlement ?? "No town");
       return;
+    }
     case "market": {
       if (!town) {
         contextNode = noSimulationRecordNode("No market here");
