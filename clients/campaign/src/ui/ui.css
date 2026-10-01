@@ -1637,3 +1637,76 @@
   background: color-mix(in srgb, var(--accent-info) 18%, transparent);
   pointer-events: none;
 }
+
+/* -- deployment map ----------------------------------------------------------- */
+.deploy {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  background: var(--ink-900);
+  color: var(--paper-0);
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-3);
+  gap: var(--space-2);
+}
+.deploy__header { display: flex; align-items: baseline; gap: var(--space-3); flex-wrap: wrap; }
+.deploy__title { margin: 0; font-size: 1.25rem; }
+.deploy__sub { margin: 0; opacity: 0.75; }
+.deploy__preview {
+  margin: 0;
+  padding: var(--space-1) var(--space-2);
+  background: var(--status-critical-fill);
+  color: var(--status-critical-ink);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  border-radius: 4px;
+}
+.deploy__main {
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 240px;
+  gap: var(--space-3);
+}
+.deploy__mapwrap {
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+}
+.deploy__canvas {
+  border: 1px solid var(--ink-500);
+  border-radius: 6px;
+  cursor: crosshair;
+  touch-action: none;
+}
+.deploy__canvas:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+.deploy__hint { margin: 0; min-height: 1.5em; opacity: 0.85; text-align: center; }
+.deploy__roster { display: flex; flex-direction: column; gap: var(--space-2); overflow-y: auto; }
+.deploy__card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  background: var(--ink-700);
+  border: 1px solid var(--ink-500);
+  border-radius: 6px;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+.deploy__card:disabled { opacity: 0.45; cursor: default; }
+.deploy__card.is-placing { outline: 2px solid var(--focus-ring); }
+.deploy__dot { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+.deploy__cardname { font-weight: 600; }
+.deploy__cardmeta { margin-left: auto; opacity: 0.7; font-size: 0.85rem; }
+.deploy__footer { display: flex; align-items: center; gap: var(--space-3); }
+.deploy__count { margin: 0; }
+@media (max-width: 700px) {
+  .deploy__main { grid-template-columns: 1fr; grid-template-rows: minmax(0, 1fr) auto; }
+  .deploy__roster { flex-direction: row; overflow-x: auto; }
+  .deploy__card { flex: none; }
+}

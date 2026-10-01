@@ -75,6 +75,20 @@ export const accent = {
   infoInk: "#F2EDE1",
 } as const;
 
+/**
+ * Unit-kind colours for the deployment map and battle command UI. One muted
+ * colour per kind, desaturated like the rest of the palette. The kind name on
+ * the roster card and the token label are the primary signal; colour is
+ * secondary, so the five stay distinguishable without being neon.
+ */
+export const unitKind = {
+  infantry: "#4E6E94",
+  archers: "#5E7A4E",
+  cavalry: "#9A8548",
+  siege: "#9E6B40",
+  militia: "#7E838A",
+} as const;
+
 export const type = {
   display: { size: 30, line: 34, weight: 800, tracking: "-0.02em", family: "sans" },
   title: { size: 20, line: 26, weight: 700, tracking: "-0.01em", family: "sans" },
@@ -160,6 +174,7 @@ export const tokens = {
   ink,
   status,
   accent,
+  unitKind,
   type,
   font,
   radius,

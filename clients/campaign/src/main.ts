@@ -48,6 +48,7 @@ import type {
 } from "./data/types.js";
 import { input } from "./input/index.js";
 import { keybindingEditor } from "./ui/panels/KeybindingEditor.js";
+import { openDeploymentPreview } from "./deploy/index.js";
 import { settings } from "./settings/index.js";
 
 const appEl = document.getElementById("app");
@@ -269,6 +270,7 @@ const hud = createHud({
   onSkipToArrival: () => void skipToArrival(),
   onOpenDataSource: () => openDataSource(),
   onOpenControls: () => openControls(),
+  onOpenDeploymentPreview: () => openDeploymentPreview(),
   onOpenUiScale: (s) => settings.set({ uiScale: s }),
   onNotification: (entityId, field) => openWhy(entityId, field),
 });
