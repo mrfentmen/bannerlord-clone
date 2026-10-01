@@ -610,6 +610,207 @@ func (s *orderSpy) Command(v *View) error {
 	return nil
 }
 
+// TestADisplacedManWalksBackToHisSlot is the cohesion rule, which is the other
+// half of what a formation is: the shape does not only have to be drawn, the men
+// in it have to be pulled back into it after the fighting has shoved them about.
+//
+// The view is built by hand with one man pushed out of his place and the rest
+// standing exactly on theirs, and the order is a hold, so nothing about the
+// anchor is moving and every movement measured here is cohesion and nothing
+// else.
+//
+// The expected slot is measured against the anchor the commander uses, which is
+// the group's centre of mass and not the origin the men started from. That
+// distinction is the whole reason the anchor is a centre of mass: a man shoved
+// twelve metres north drags the anchor north with him, so his slot moves too, and
+// a test that measured against the origin would be measuring a shape the
+// commander never drew.
+//
+// Two things have to hold at once. The man who is out of his place is told to
+// walk toward his slot, with the order pointing at the slot rather than merely
+// being non-zero. And a man standing inside the cohesion tolerance is left
+// alone, because a formation that orders a man in his slot to walk in his slot
+// is a formation layer arguing with itself every tick.
+func TestADisplacedManWalksBackToHisSlot(t *testing.T) {
+	cfg := loadConfig(t)
+	const n = 6
+	p := FormationParamsFrom(cfg.Formation)
+	slots, err := FormationLayout(FormationLine, n, p)
+	if err != nil {
+		t.Fatalf("laying out a line of %d failed: %v", n, err)
+	}
+	// One tick of a man walking at hold pace, which is the ceiling on the step a
+	// cohesion order asks for.
+	paceStep := cfg.Formation.HoldSpeed * cfg.Battle.TickSeconds
+	tolerance := cohesionTolerance(FormationLine, p)
+
+	// Two men are displaced, one north and one south by the same distance, so
+	// the group's centre of mass does not move and the anchor is where the men
+	// started. That keeps the measurement about cohesion: with one man shoved the
+	// anchor follows him, every slot in the formation moves with it, and every
+	// man in it is then out of his place for a reason that has nothing to do with
+	// cohesion.
+	const north, south = 2, 4
+	for _, c := range []struct {
+		name string
+		// off is how far north of his slot the northern man is standing, and how
+		// far south of his the southern one is.
+		off float64
+	}{
+		{"two men a long way out of their places", 12},
+		{"two men just out of their places", tolerance * 1.5},
+		{"two men inside the tolerance", tolerance * 0.5},
+	} {
+		v := &View{
+			Elapsed:     0,
+			TickSeconds: cfg.Battle.TickSeconds,
+			Units:       make([]UnitView, n+1),
+			Commands:    make([]UnitCommand, n+1),
+		}
+		for i := range slots {
+			x, y := slots[i].place(0, 0, 0)
+			switch i {
+			case north:
+				y += c.off
+			case south:
+				y -= c.off
+			}
+			v.Units[i] = UnitView{
+				ID: i, Side: SideA, Status: StatusFighting, Troops: 1,
+				Speed: cfg.Battle.RosterSpeedBase, X: x, Y: y,
+			}
+		}
+		v.Units[n] = UnitView{
+			ID: n, Side: SideB, Status: StatusFighting, Troops: 1,
+			Speed: cfg.Battle.RosterSpeedBase, X: 400, Y: 0,
+		}
+		// The anchor the commander will work from, rebuilt here the same way it
+		// builds it: the bodies-weighted centre of the group's living members.
+		ax, ay, ok := centreOfMass(v, []int{0, 1, 2, 3, 4, 5})
+		if !ok {
+			t.Fatalf("%s: the group has no weight in it", c.name)
+		}
+		// Both displaced men, measured the same way.
+		type want struct {
+			id           int
+			dx, dy, dist float64
+		}
+		wants := make([]want, 0, 2)
+		for _, id := range []int{north, south} {
+			sx, sy := slots[id].place(ax, ay, 0)
+			dx, dy := sx-v.Units[id].X, sy-v.Units[id].Y
+			wants = append(wants, want{id: id, dx: dx, dy: dy, dist: math.Hypot(dx, dy)})
+		}
+
+		ids := make([]int, n)
+		for i := range ids {
+			ids[i] = i
+		}
+		// The bearing is pinned rather than left to square up to the enemy, so
+		// the slot this test measures against is the slot the layout gives and
+		// not a shape the test has to reproduce the commander's angle for.
+		cmd, err := NewFormationCommander(cfg, SideA, []Group{
+			{Order: GroupOrder{
+				Kind:   FormationLine,
+				Order:  OrderFormationHold,
+				Facing: Facing{Fixed: true, Bearing: 0},
+			}, Units: ids},
+		})
+		if err != nil {
+			t.Fatalf("%s: building the commander failed: %v", c.name, err)
+		}
+		if err := cmd.Command(v); err != nil {
+			t.Fatalf("%s: ordering the field failed: %v", c.name, err)
+		}
+		inside := wants[0].dist <= tolerance
+		for _, w := range wants {
+			got := v.Commands[w.id]
+			gotDist := math.Hypot(got.DX, got.DY)
+			if inside {
+				// Inside the tolerance: he is standing in his slot and must be
+				// left to the engine's own rules.
+				if got.Set {
+					t.Errorf("%s: unit %d is %.3f m from his slot, inside the %.3f m tolerance, and was "+
+						"told to walk %g, %g; a formation that orders a man in his slot to walk in his "+
+						"slot is arguing with itself every tick", c.name, w.id, w.dist, tolerance,
+						got.DX, got.DY)
+				}
+				continue
+			}
+			if !got.Set {
+				t.Errorf("%s: unit %d was displaced %.3f m and was given no order at all, so nothing "+
+					"pulls him back into the shape; a formation is the shape plus the cohesion that "+
+					"keeps men in it", c.name, w.id, w.dist)
+				continue
+			}
+			if gotDist <= 0 {
+				t.Errorf("%s: unit %d was told to stand still", c.name, w.id)
+				continue
+			}
+			// The order has to point at the slot, not merely be some movement:
+			// the dot product of the two unit vectors is one only when they are
+			// parallel.
+			if dot := (got.DX*w.dx + got.DY*w.dy) / (gotDist * w.dist); dot < 1-1e-9 {
+				t.Errorf("%s: unit %d was ordered %g, %g, which does not point at his slot %g m away",
+					c.name, w.id, got.DX, got.DY, w.dist)
+				continue
+			}
+			// One tick of pace, and never past the slot.
+			if math.Abs(gotDist-paceStep) > 1e-9 {
+				t.Errorf("%s: unit %d is %.3f m from his slot and was told to walk %.4f m; one tick at "+
+					"hold_speed (%.2f m/s) is %.4f m", c.name, w.id, w.dist, gotDist,
+					cfg.Formation.HoldSpeed, paceStep)
+			}
+			if gotDist > w.dist+1e-9 {
+				t.Errorf("%s: unit %d is %.3f m from his slot and was told to walk %.3f m, which is past "+
+					"it; he would arrive, reverse on the next tick, and shiver in place", c.name, w.id,
+					w.dist, gotDist)
+			}
+			t.Logf("%-38s: unit %d displaced %.3f m, told to walk %.4f m toward his slot at hold pace",
+				c.name, w.id, w.dist, gotDist)
+		}
+		if inside {
+			t.Logf("%-38s: both men inside the %.3f m tolerance, so neither was given a movement order",
+				c.name, tolerance)
+		}
+		// Everyone else is standing exactly on his slot and must be left alone.
+		for i := range slots {
+			if i == north || i == south || !v.Commands[i].Set {
+				continue
+			}
+			t.Errorf("%s: unit %d is standing on his slot and was told to walk %g, %g; a man in his "+
+				"place who is told to keep walking is a formation arguing with itself", c.name, i,
+				v.Commands[i].DX, v.Commands[i].DY)
+		}
+	}
+
+	// The cap at the slot distance is what stops a man reversing every tick, and
+	// with the shipped numbers it can never be reached: a cohesion tolerance of
+	// one front spacing is larger than a whole tick of every order's pace, so the
+	// cap is a safety property rather than a live branch. That is worth stating as
+	// a fact about the config rather than assuming, because a longer tick or a
+	// faster charge would turn it into a live branch and a formation that shivers
+	// in place.
+	for _, c := range []struct {
+		order FormationOrder
+		pace  float64
+	}{
+		{OrderFormationHold, cfg.Formation.HoldSpeed},
+		{OrderFormationAdvance, cfg.Formation.AdvanceSpeed},
+		{OrderFormationCharge, cfg.Formation.ChargeSpeed},
+		{OrderFormationRetreat, cfg.Formation.RetreatSpeed},
+	} {
+		step := c.pace * cfg.Battle.TickSeconds
+		if step > tolerance {
+			t.Logf("note: %s covers %.3f m in a tick against a %.3f m tolerance, so a man just out of "+
+				"place can be told to walk past his slot and will reverse on the next tick", c.order, step, tolerance)
+			continue
+		}
+		t.Logf("%-8s: %.3f m a tick against a %.3f m tolerance, so no cohesion order can overshoot a slot",
+			c.order, step, tolerance)
+	}
+}
+
 // spyRun fights one battle with the given order on side A and returns the spy.
 func spyRun(t *testing.T, cfg *config.Config, seed uint64, setup Setup, order FormationOrder) *orderSpy {
 	t.Helper()
