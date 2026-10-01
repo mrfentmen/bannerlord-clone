@@ -40,6 +40,8 @@ func run(v *sim.View, w *sim.WriteSet) {
 			applyTrade(v, w, o)
 		case sim.OrderHireMercenaries:
 			applyMercenaries(v, w, o)
+		case sim.OrderRecruitTroops:
+			applyRecruit(v, w, o)
 		case sim.OrderExecutePrisoner, sim.OrderRansomPrisoner, sim.OrderReleasePrisoner:
 			applyPrisoner(v, w, o)
 		case sim.OrderDeclareWar, sim.OrderSuePeace:
@@ -234,6 +236,55 @@ func applyMercenaries(v *sim.View, w *sim.WriteSet, o sim.Order) {
 		"hiring mercenaries", nil, "advance on mercenary wages")
 	w.Add(model.KindLeader, o.LeaderID, "renown", v.Cfg.Currency.MercenaryValue,
 		"hiring mercenaries", nil, "hired a company")
+}
+
+// applyRecruit recruits volunteers from a town into the leader's party.
+// Costs gold per troop, limited by town prosperity (more prosperous towns
+// have more willing recruits) and the leader's available gold.
+func applyRecruit(v *sim.View, w *sim.WriteSet, o sim.Order) {
+	r := v.State.Leaders[o.LeaderID]
+	t := v.State.Towns[o.TownID]
+	if r == nil || t == nil {
+		return
+	}
+	// Find the leader's party.
+	var party *model.Party
+	for _, pid := range v.State.PartyIDs() {
+		p := v.State.Parties[pid]
+		if p != nil && p.LeaderID == r.ID {
+			party = p
+			break
+		}
+	}
+	if party == nil {
+		return
+	}
+	// Available recruits scale with prosperity and town size.
+	available := int(t.Prosperity * 20)
+	if available < 1 {
+		available = 1
+	}
+	want := int(o.Amount)
+	if want < 1 {
+		want = 1
+	}
+	if want > available {
+		want = available
+	}
+	// Cost: 10 gold per recruit (base).
+	cost := float64(want * 10)
+	if r.Gold < cost {
+		// Recruit as many as affordable.
+		want = int(r.Gold / 10)
+		if want < 1 {
+			return
+		}
+		cost = float64(want * 10)
+	}
+	w.Add(model.KindLeader, o.LeaderID, "gold", -cost,
+		"recruiting troops", nil, "gold spent on recruits")
+	w.Add(model.KindParty, party.ID, "troops", float64(want),
+		"recruited volunteers", nil, "new recruits joined")
 }
 
 // applyPrisoner resolves a captured ruler, which is chain 9's trigger. An
