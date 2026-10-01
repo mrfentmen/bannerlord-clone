@@ -26,6 +26,7 @@ from . import datasets as dataset_registry
 from . import cache as stage_cache
 from . import postgres, schema as schema_module
 from .transforms.classify import Classification
+from .transforms.notables import generate_notables
 from .config import Config, load_config
 from .errors import WorldDataError
 from .export import write_export
@@ -690,6 +691,11 @@ def _assemble_tables(
         for seed in seeds
     ]
 
+    # Notables: quest-givers, recruit sources, loyalty shapers
+    # (QUESTS_AND_NOTABLES.md section 2). Pure function of the seeds,
+    # deterministic across runs.
+    notable_rows = generate_notables(seeds)
+
     route_rows = [
         {
             "route_id": route.route_id,
@@ -865,6 +871,7 @@ def _assemble_tables(
         ],
         "section_ratings": rating_rows,
         "settlements": settlement_rows,
+        "notables": notable_rows,
         "routes": route_rows,
         # A factory, not a list: the national road and rail network is too large
         # to hold in memory, and three consumers need these rows.
