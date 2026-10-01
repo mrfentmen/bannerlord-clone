@@ -32,12 +32,16 @@ import { createHud, dataSourcePanel, fatalError, type HudPanel, type HudState } 
 import { marketPanel } from "./ui/panels/MarketPanel.js";
 import { partyPanel } from "./ui/panels/PartyPanel.js";
 import { marchPlanner } from "./ui/panels/MarchPlanner.js";
+import { createMarchTracker } from "./ui/march-tracker.js";
+import { createEncounterModal } from "./ui/encounters.js";
 import { ledgerPanel } from "./ui/panels/LedgerPanel.js";
 import { rulerCard, rulerRoster } from "./ui/panels/RulerPanel.js";
 import { startScreen } from "./ui/panels/StartScreen.js";
 import { townPanel } from "./ui/panels/TownPanel.js";
 import { whyPanel } from "./ui/panels/WhyPanel.js";
 import type {
+  MarchInterruption,
+  MarchPlan,
   SettlementOption,
   SimSnapshot,
   TickUpdate,
@@ -99,6 +103,12 @@ interface Travel {
   days: number;
 }
 let travel: Travel | null = null;
+/**
+ * The plan currently priced in the march planner, if any. The planner tells us
+ * through `onPlanReady`; while the planner is open and nothing is committed,
+ * the map draws this route as a preview of what the order would do.
+ */
+let previewPlan: MarchPlan | null = null;
 
 const bootNote = document.getElementById("boot-note");
 const setBootNote = (text: string): void => {
@@ -208,6 +218,7 @@ const hud = createHud({
 function mountCampaign(): void {
   if (!snapshot) return;
   app.appendChild(hud.root);
+  mountMarchTracker();
   paint();
 
   window.addEventListener("keydown", (ev) => {
@@ -254,6 +265,10 @@ function mountCampaign(): void {
       snapshot = applyTick(snapshot, update);
       if (currentPanel === "town" || currentPanel === "party" || currentPanel === "ledger") {
         rebuildContext();
+      }
+      marchTracker?.update(snapshot.party, snapshot.day);
+      for (const interruption of update.interruptions ?? []) {
+        marchTracker?.interrupt(interruption);
       }
       syncParty();
       paint();
@@ -365,8 +380,92 @@ function townNode(town: TownState): Node {
 
 // -- panels ------------------------------------------------------------------
 
+// -- active march tracker ------------------------------------------------------
+// A persistent overlay: the march progress, the ETA countdown, interruption
+// alerts, and the call-off button. It lives outside the HUD's re-rendered
+// regions so a tick never wipes it mid-read.
+
+let marchTracker: { update(party: SimSnapshot["party"], day: number): void; interrupt(i: MarchInterruption): void } | null = null;
+
+function mountMarchTracker(): void {
+  if (marchTracker || !snapshot) return;
+  const handle = createMarchTracker({
+    provider,
+    callbacks: {
+      onFaceInterruption: (interruption) => openRaiderEncounter(interruption),
+    },
+  });
+  const mount = document.createElement("div");
+  mount.className = "march-tracker-mount";
+  mount.appendChild(handle.root);
+  app.appendChild(mount);
+  marchTracker = handle;
+  handle.update(snapshot.party, snapshot.day);
+}
+
+/**
+ * The encounter option for a road ambush: the raiders who hit the column get
+ * a face. Talk, flee, and bribe all resolve here; attack is hidden because the
+ * battle scene is not wired into the campaign client yet.
+ */
+function openRaiderEncounter(interruption: MarchInterruption): void {
+  if (!snapshot) return;
+  const party = snapshot.party;
+  const troops = party.troops.reduce((a, t) => a + t.count, 0);
+  const raiderTroops = Math.max(4, Math.round((interruption.strength ?? 80) / 8));
+  const demand = Math.round(raiderTroops * 6);
+  const modal = createEncounterModal(
+    {
+      encounterId: interruption.id,
+      player: {
+        id: party.id,
+        name: party.name,
+        bossName: party.leaderName,
+        troops,
+        strength: Math.round(troops * 5),
+        speed: Math.min(1, party.speedKmPerDay / 50),
+        isPlayer: true,
+      },
+      enemy: {
+        id: `raiders-${interruption.id}`,
+        name: "Road raiders",
+        bossName: "Raider chief",
+        troops: raiderTroops,
+        strength: interruption.strength ?? 80,
+        speed: 0.55,
+        isPlayer: false,
+      },
+      playerGold: Math.round(snapshot.player.resources.money),
+    },
+    {
+      onTalk: () => {},
+      onTrade: () => {},
+      onAttack: () => {},
+      onFlee: async () => {
+        // The column's speed against the raiders', straight up.
+        const escaped = Math.min(1, party.speedKmPerDay / 50) > 0.55;
+        return escaped
+          ? { escaped: true, message: "The column breaks contact and leaves the raiders behind." }
+          : { escaped: false, message: "The raiders cut off the road. There is no running from this one." };
+      },
+      onBribe: async (_encounterId, gold) =>
+        gold >= demand
+          ? { accepted: true, goldTaken: demand, message: `The chief pockets ${demand} gold and waves the column through.` }
+          : { accepted: false, goldTaken: 0, message: `The chief laughs at ${gold} gold. The price is ${demand}.` },
+      fetchDialogue: async () => [
+        { speaker: "Raider chief", text: "Nice column you got here. Shame if the road ate it." },
+        { speaker: "Raider chief", text: "Pay the toll or bleed on the gravel. Your call." },
+      ],
+      onDismiss: () => {},
+    },
+    { hideTrade: true, hideAttack: true },
+  );
+  app.appendChild(modal.root);
+}
+
 function openPanel(panel: HudPanel): void {
   currentPanel = panel;
+  if (panel !== "march") previewPlan = null;
   if (panel === "why" && !lastWhy) {
     const worst = snapshot ? [...snapshot.towns].sort((a, b) => b.unrest - a.unrest)[0] : undefined;
     if (worst) lastWhy = { entityId: worst.id, field: "unrest" };
@@ -453,7 +552,12 @@ function rebuildContext(): void {
         party: snap.party,
         destinations: destinationsFor(),
         provider,
+        onPlanReady: (plan) => {
+          previewPlan = plan;
+          syncParty();
+        },
         onCommitted: () => {
+          previewPlan = null;
           currentPanel = "party";
           rebuildContext();
           paint();
@@ -636,7 +740,14 @@ function syncParty(): void {
         scene.setPartyVisible(true);
       }
     }
-    scene.showRoute([]);
+    // No march under way. If the planner has a priced plan, preview its route
+    // on the map so the player sees what the order would do before committing.
+    if (previewPlan && currentPanel === "march" && fromPlace && world) {
+      const preview = findRoute(world.graph, fromPlace.id, previewPlan.destinationSettlementId);
+      scene.showRoute(preview.found ? preview.worldPath : []);
+    } else {
+      scene.showRoute([]);
+    }
     return;
   }
 

@@ -1514,3 +1514,43 @@
   background: var(--status-critical-fill);
   color: var(--status-critical-ink);
 }
+
+.march-tracker {
+  padding: var(--space-3);
+}
+
+.march-tracker__body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.march-tracker__head {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.march-tracker__alert {
+  padding: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: var(--status-warning-fill);
+  color: var(--status-warning-ink);
+  margin-bottom: var(--space-2);
+}
+
+.march-tracker-mount {
+  position: absolute;
+  left: var(--space-3);
+  bottom: var(--space-3);
+  width: min(360px, calc(100% - var(--space-3) * 2));
+  z-index: 20;
+  pointer-events: auto;
+  background: var(--sheet-bg);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-pop);
+}
+
+.march-tracker-mount:empty {
+  display: none;
+}

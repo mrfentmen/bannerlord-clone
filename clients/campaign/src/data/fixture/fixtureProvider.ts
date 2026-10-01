@@ -20,10 +20,13 @@
 
 import { buildFixtureSides } from "./sides.js";
 import type {
+  CancelMarchResult,
   CauseRow,
   ConnectionStatus,
   GoodId,
   Ledger,
+  MarchCommitResult,
+  MarchInterruption,
   MarketGood,
   MarketState,
   MarchPlan,
@@ -165,6 +168,7 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     trade: async (request) => state.trade(request),
     planMarch: async (request) => state.planMarch(request),
     commitMarch: async (request) => state.commitMarch(request),
+    cancelMarch: async (marchId) => state.cancelMarch(marchId),
     why: async (entityId, field) => state.why(entityId, field),
     subscribeTicks: (onTick, onStatus) => state.subscribe(onTick, onStatus),
   };
@@ -181,6 +185,19 @@ class FixtureState {
   #towns = new Map<string, TownState>();
   #markets = new Map<string, MarketState>();
   #party!: PartyState;
+  /** The march the party is currently walking, if any. `MARCH_AND_WAR.md` section 11. */
+  #activeMarch: {
+    marchId: string;
+    destinationSettlementId: string;
+    destinationName: string;
+    daysTotal: number;
+    costFood: number;
+    costMoney: number;
+    costMetal: number;
+    roadDanger: number;
+    /** Interruptions already raised, so the road only bites once per kind per march. */
+    raisedKinds: Set<"ambush" | "blocked">;
+  } | null = null;
   #rulers: RulerState[] = [];
   #warnings: ResourceWarning[] = [];
   #notifications: Notification[] = [];
@@ -716,14 +733,28 @@ class FixtureState {
     };
   }
 
-  async commitMarch(request: MarchRequest): Promise<void> {
+  async commitMarch(request: MarchRequest): Promise<MarchCommitResult> {
     const plan = await this.planMarch(request);
     if (plan.unmapped) {
       throw new Error(`Cannot march to ${plan.destinationName}: no surveyed road.`);
     }
-    this.#party.destination = { settlementId: request.destinationSettlementId, name: plan.destinationName };
+    this.#sequence += 1;
+    const marchId = `march-${String(this.#sequence).padStart(4, "0")}`;
+    this.#activeMarch = {
+      marchId,
+      destinationSettlementId: request.destinationSettlementId,
+      destinationName: plan.destinationName,
+      daysTotal: plan.days,
+      costFood: plan.cost.food,
+      costMoney: plan.cost.money,
+      costMetal: plan.cost.metal,
+      roadDanger: plan.roadDanger,
+      raisedKinds: new Set(),
+    };
+    this.#party.destination = { settlementId: request.destinationSettlementId, name: plan.destinationName, marchId, daysTotal: plan.days };
     this.#party.marchingSinceDay = this.#day;
     this.#party.food = round2(this.#party.food - plan.cost.food);
+    this.#party.metal = round2(this.#party.metal - plan.cost.metal);
     this.#player.resources.money = round2(this.#player.resources.money - plan.cost.money);
     this.#notifications.push({
       id: `n-march-${this.#sequence}`,
@@ -734,6 +765,46 @@ class FixtureState {
       field: "destination",
     });
     this.#emit({ tick: this.#tick, day: this.#day, party: structuredClone(this.#party), notifications: structuredClone(this.#notifications.slice(-6)) });
+    return { marchId };
+  }
+
+  async cancelMarch(marchId: string): Promise<CancelMarchResult> {
+    const march = this.#activeMarch;
+    if (!march || march.marchId !== marchId) {
+      throw new Error("There is no active march by that name. It may already have arrived or been called off.");
+    }
+    const daysOut = this.#day - (this.#party.marchingSinceDay ?? this.#day);
+    const daysRemaining = Math.max(0, march.daysTotal - daysOut);
+    // Supplies paid up front come back in proportion to the road not walked.
+    const fraction = march.daysTotal > 0 ? daysRemaining / march.daysTotal : 0;
+    const refundedFood = round2(march.costFood * fraction);
+    const refundedMoney = round2(march.costMoney * fraction);
+    const refundedMetal = round2(march.costMetal * fraction);
+    this.#party.food = round2(this.#party.food + refundedFood);
+    this.#player.resources.money = round2(this.#player.resources.money + refundedMoney);
+    this.#party.metal = round2(this.#party.metal + refundedMetal);
+    this.#activeMarch = null;
+    this.#party.destination = null;
+    this.#party.marchingSinceDay = null;
+    this.#sequence += 1;
+    this.#notifications.push({
+      id: `n-cancel-${this.#sequence}`,
+      day: this.#day,
+      priority: "informational",
+      text: `The march on ${march.destinationName} was called off. ${formatFood(refundedFood)} and ${formatMoney(refundedMoney)} came back with the column.`,
+      entityId: this.#party.id,
+      field: "destination",
+    });
+    this.#emit({ tick: this.#tick, day: this.#day, party: structuredClone(this.#party), notifications: structuredClone(this.#notifications.slice(-6)) });
+    return {
+      marchId,
+      destinationName: march.destinationName,
+      daysRemaining,
+      daysTotal: march.daysTotal,
+      refundedFood,
+      refundedMoney,
+      refundedMetal,
+    };
   }
 
   subscribe(onTick: (t: TickUpdate) => void, onStatus: (s: ConnectionStatus) => void): () => void {
@@ -813,20 +884,46 @@ class FixtureState {
     }
 
     // Party marches if ordered: the position advances and food comes down.
+    const interruptions: MarchInterruption[] = [];
     if (this.#party.destination) {
       this.#party.food = round2(Math.max(0, this.#party.food - this.#party.troops.reduce((a, t) => a + t.count, 0) * 0.85));
       this.#party.fatigue = round2(clamp(this.#party.fatigue + 0.02, 0, 1));
-      if ((this.#day - (this.#party.marchingSinceDay ?? this.#day)) >= 3) {
+      const march = this.#activeMarch;
+      const daysOut = this.#day - (this.#party.marchingSinceDay ?? this.#day);
+      // The road can bite: on dangerous roads an ambush or a blocked road may
+      // strike once per kind per march. The roll is seeded, so tests can rely on it.
+      if (march && daysOut >= 1 && march.roadDanger >= 0.5 && this.#random() < march.roadDanger * 0.3) {
+        const kind = march.raisedKinds.has("ambush") ? "blocked" : "ambush";
+        march.raisedKinds.add(kind);
+        this.#sequence += 1;
+        if (kind === "ambush") {
+          const stolen = round2(Math.max(0, this.#party.food) * 0.15);
+          this.#party.food = round2(this.#party.food - stolen);
+          this.#party.morale = round2(clamp(this.#party.morale - 0.15, 0, 1));
+          const text = `Raiders hit the column on the road to ${march.destinationName} and made off with ${formatFood(stolen)}.`;
+          interruptions.push({ id: `i-${this.#sequence}`, marchId: march.marchId, kind, day: this.#day, description: text, strength: Math.round(40 + march.roadDanger * 120) });
+          this.#notifications.push({ id: `n-ambush-${this.#sequence}`, day: this.#day, priority: "critical", text, entityId: this.#party.id, field: "morale" });
+        } else {
+          march.daysTotal += 1;
+          this.#party.fatigue = round2(clamp(this.#party.fatigue + 0.1, 0, 1));
+          const text = `A rockslide blocks the road to ${march.destinationName}. The column loses a day clearing it.`;
+          interruptions.push({ id: `i-${this.#sequence}`, marchId: march.marchId, kind, day: this.#day, description: text });
+          this.#notifications.push({ id: `n-blocked-${this.#sequence}`, day: this.#day, priority: "important", text, entityId: this.#party.id, field: "destination" });
+        }
+      }
+      const total = march?.daysTotal ?? 3;
+      if (daysOut >= total) {
         this.#party.destination = null;
         this.#party.marchingSinceDay = null;
         this.#party.position = { x: 0, z: 0 };
+        this.#activeMarch = null;
         this.#notifications.push({ id: `n-arrive-${this.#sequence}`, day: this.#day, priority: "informational", text: "The party made camp.", entityId: this.#party.id, field: "position" });
       }
     }
 
     this.#rebuildLedger();
     this.#refreshWarnings();
-    this.#emit({ tick: this.#tick, day: this.#day, towns: townDeltas, party: structuredClone(this.#party), ledger: structuredClone(this.#ledger), warnings: structuredClone(this.#warnings) });
+    this.#emit({ tick: this.#tick, day: this.#day, towns: townDeltas, party: structuredClone(this.#party), ledger: structuredClone(this.#ledger), warnings: structuredClone(this.#warnings), ...(interruptions.length > 0 ? { interruptions } : {}) });
   }
 
   #emit(update: TickUpdate): void {

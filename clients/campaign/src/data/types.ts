@@ -131,7 +131,14 @@ export interface PartyState {
   leaderName: string;
   factionId: string;
   position: { x: number; z: number };
-  destination: { settlementId: string; name: string } | null;
+  destination: {
+    settlementId: string;
+    name: string;
+    /** The march id from the commit response. Absent when the sim did not report one. */
+    marchId?: string;
+    /** Planned length in days. The tracker uses it for the ETA countdown. */
+    daysTotal?: number;
+  } | null;
   route: { x: number; z: number }[];
   /** Day the march started. `null` when stationary. */
   marchingSinceDay: number | null;
@@ -292,6 +299,35 @@ export interface MarchPlan {
   unmapped: boolean;
 }
 
+/** What `POST /v1/march/commit` hands back. `MARCH_AND_WAR.md` section 11. */
+export interface MarchCommitResult {
+  /** The march id. The client uses it to track, cancel, and match interruptions. */
+  marchId: string;
+}
+
+/** Something happened to an active march on the road. `MARCH_AND_WAR.md` section 11. */
+export interface MarchInterruption {
+  id: string;
+  marchId: string;
+  kind: "ambush" | "blocked";
+  day: number;
+  /** Plain-language account of what happened, from the sim. */
+  description: string;
+  /** Raiders' estimated strength for an ambush. Absent for a blocked road. */
+  strength?: number;
+}
+
+/** What cancelling a march hands back. `MARCH_AND_WAR.md` section 11. */
+export interface CancelMarchResult {
+  marchId: string;
+  destinationName: string;
+  daysRemaining: number;
+  daysTotal: number;
+  refundedFood: number;
+  refundedMoney: number;
+  refundedMetal: number;
+}
+
 export interface TradeRequest {
   partyId: string;
   townId: string;
@@ -403,6 +439,8 @@ export interface TickUpdate {
   warnings?: ResourceWarning[];
   notifications?: Notification[];
   causeRows?: CauseRow[];
+  /** March interruptions raised on this tick: ambush or blocked road. */
+  interruptions?: MarchInterruption[];
 }
 
 /** The full read and write surface the client needs from the simulation. */
@@ -413,7 +451,10 @@ export interface SimulationProvider {
   getSnapshot(): Promise<SimSnapshot>;
   trade(request: TradeRequest): Promise<TradeResult>;
   planMarch(request: MarchRequest): Promise<MarchPlan>;
-  commitMarch(request: MarchRequest): Promise<void>;
+  /** Commit a march. Resolves with the march id; the planner closes on success. */
+  commitMarch(request: MarchRequest): Promise<MarchCommitResult>;
+  /** Cancel an active march. Unspent supplies come back as a partial refund. */
+  cancelMarch(marchId: string): Promise<CancelMarchResult>;
   why(entityId: string, field: string): Promise<WhyChain>;
   subscribeTicks(onTick: (tick: TickUpdate) => void, onStatus: (status: ConnectionStatus) => void): () => void;
 }

@@ -106,8 +106,17 @@ function fmtGold(n: number): string {
  * Open the encounter modal. Task 82: the caller triggers this within one
  * tick of contact, so "the modal appears within 1 tick of contact" is a
  * property of the caller, asserted here by construction.
+ *
+ * `hideTrade` / `hideAttack` remove options that make no sense for the
+ * encounter: raiders who just hit a column are not here to trade, and the
+ * battle scene is not wired into the campaign client yet, so there is no
+ * honest attack target to offer them.
  */
-export function createEncounterModal(state: EncounterState, cb: EncounterCallbacks): EncounterHandle {
+export function createEncounterModal(
+  state: EncounterState,
+  cb: EncounterCallbacks,
+  opts: { hideTrade?: boolean; hideAttack?: boolean } = {},
+): EncounterHandle {
   const region = liveRegion();
   const root = h("div", { class: "encounter-modal", role: "dialog", "aria-modal": "true", "aria-label": "Encounter" });
   let current = state;
@@ -144,20 +153,30 @@ export function createEncounterModal(state: EncounterState, cb: EncounterCallbac
         "div",
         { class: "encounter-options" },
         button("Talk", () => void showTalk(), { variant: "plain", testId: "encounter-talk" }),
-        button("Trade", () => {
-          cb.onTrade(current.encounterId);
-          cb.onDismiss(current.encounterId, "traded");
-          destroy();
-        }, { variant: "plain", testId: "encounter-trade" }),
-        button("Attack", () => {
-          cb.onAttack(current.encounterId);
-          cb.onDismiss(current.encounterId, "attacked");
-          destroy();
-        }, { variant: "primary", testId: "encounter-attack" }),
+        ...(opts.hideTrade
+          ? []
+          : [
+              button("Trade", () => {
+                cb.onTrade(current.encounterId);
+                cb.onDismiss(current.encounterId, "traded");
+                destroy();
+              }, { variant: "plain", testId: "encounter-trade" }),
+            ]),
+        ...(opts.hideAttack
+          ? []
+          : [
+              button("Attack", () => {
+                cb.onAttack(current.encounterId);
+                cb.onDismiss(current.encounterId, "attacked");
+                destroy();
+              }, { variant: "primary", testId: "encounter-attack" }),
+            ]),
         button("Flee", () => void doFlee(), { variant: "plain", testId: "encounter-flee", disabled: busy }),
         button("Bribe", () => showBribe(), { variant: "plain", testId: "encounter-bribe" }),
       ),
-      h("div", { class: "encounter-note label" }, "Attack starts the battle with these rosters."),
+      ...(opts.hideAttack
+        ? []
+        : [h("div", { class: "encounter-note label" }, "Attack starts the battle with these rosters.")]),
     );
     return body;
   }

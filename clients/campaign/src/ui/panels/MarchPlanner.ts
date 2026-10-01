@@ -21,7 +21,9 @@ export interface MarchPlannerOptions {
   destinations: SettlementOption[];
   provider: SimulationProvider;
   onClose?: () => void;
-  onCommitted?: (plan: MarchPlan) => void;
+  /** Fired when a plan is priced (or cleared), so the caller can draw the route polyline on the map. */
+  onPlanReady?: (plan: MarchPlan | null) => void;
+  onCommitted?: (plan: MarchPlan, marchId: string) => void;
   onError?: (message: string) => void;
   testId?: string;
 }
@@ -212,6 +214,7 @@ export function marchPlanner(options: MarchPlannerOptions): MarchPlannerHandle {
       plan = null;
       planning = false;
       planningUnavailable = true;
+      options.onPlanReady?.(null);
       render();
       return;
     }
@@ -219,6 +222,7 @@ export function marchPlanner(options: MarchPlannerOptions): MarchPlannerHandle {
     const token = ++planToken;
     planning = true;
     plan = null;
+    options.onPlanReady?.(null);
     render();
     try {
       const result = await options.provider.planMarch({
@@ -228,6 +232,8 @@ export function marchPlanner(options: MarchPlannerOptions): MarchPlannerHandle {
       });
       if (token !== planToken) return;
       plan = result;
+      // The plan is priced: let the caller draw the route polyline on the map.
+      options.onPlanReady?.(plan);
     } catch (err) {
       if (token !== planToken) return;
       const message = err instanceof SimulationUnavailableError ? err.playerMessage : "The march could not be priced.";
@@ -248,12 +254,14 @@ export function marchPlanner(options: MarchPlannerOptions): MarchPlannerHandle {
     const simId = simIdFor(selected);
     if (!simId) return;
     try {
-      await options.provider.commitMarch({
+      const result = await options.provider.commitMarch({
         partyId: options.party.id,
         destinationSettlementId: simId,
         departure: "now",
       });
-      if (plan) options.onCommitted?.(plan);
+      if (plan) options.onCommitted?.(plan, result.marchId);
+      // The order is written. The planner's job is done: close it.
+      options.onClose?.();
     } catch (err) {
       const message = err instanceof SimulationUnavailableError ? err.playerMessage : "The order to march was refused.";
       const detail = err instanceof SimulationUnavailableError ? err.developerDetail : String(err);

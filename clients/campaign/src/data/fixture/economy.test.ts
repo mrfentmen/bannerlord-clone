@@ -8,7 +8,7 @@
  * here rather than ship.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { createFixtureSimulationProvider } from "./index.js";
 
 describe("trading moves prices, and prices move unrest", () => {
@@ -245,5 +245,79 @@ describe("the march planner prices before it commits", () => {
     expect(snap.party.marchingSinceDay).toBe(snap.day);
     // The cost is drawn down at the moment of commitment, as the planner said it would.
     expect(snap.party.food).toBeLessThan(46);
+  });
+
+  it("hands back a march id on commit", async () => {
+    const provider = createFixtureSimulationProvider();
+    const result = await provider.commitMarch({
+      partyId: "party-player",
+      destinationSettlementId: "denver",
+      departure: "now",
+    });
+    expect(result.marchId).toMatch(/^march-/);
+    const snap = await provider.getSnapshot();
+    expect(snap.party.destination?.marchId).toBe(result.marchId);
+    expect(snap.party.destination?.daysTotal).toBeGreaterThan(0);
+  });
+
+  it("cancelling a march refunds the unwalked share of the supplies", async () => {
+    const provider = createFixtureSimulationProvider();
+    const before = await provider.getSnapshot();
+    const { marchId } = await provider.commitMarch({
+      partyId: "party-player",
+      destinationSettlementId: "longmont",
+      departure: "now",
+    });
+    const committed = await provider.getSnapshot();
+    expect(committed.party.destination?.name).toBe("Longmont");
+    const plan = await provider.planMarch({
+      partyId: "party-player",
+      destinationSettlementId: "longmont",
+      departure: "now",
+    });
+    const result = await provider.cancelMarch(marchId);
+    expect(result.marchId).toBe(marchId);
+    expect(result.destinationName).toBe("Longmont");
+    expect(result.daysTotal).toBe(plan.days);
+    // Called off immediately: the whole prepaid cost comes back.
+    expect(result.daysRemaining).toBe(plan.days);
+    expect(result.refundedFood).toBeCloseTo(plan.cost.food, 1);
+    expect(result.refundedMoney).toBeCloseTo(plan.cost.money, 1);
+    const after = await provider.getSnapshot();
+    expect(after.party.destination).toBeNull();
+    expect(after.party.food).toBeCloseTo(before.party.food, 1);
+  });
+
+  it("refuses to cancel a march that is not under way", async () => {
+    const provider = createFixtureSimulationProvider();
+    await expect(provider.cancelMarch("march-9999")).rejects.toThrow(/no active march/i);
+  });
+
+  it("raises an interruption on a dangerous road", async () => {
+    vi.useFakeTimers();
+    try {
+      // Seed 1 is fixed: the seeded road roll bites on the march to Longmont.
+      const provider = createFixtureSimulationProvider({ seed: 1 });
+      const interruptions: { kind: string; marchId: string }[] = [];
+      const unsub = provider.subscribeTicks(
+        (t) => {
+          for (const i of t.interruptions ?? []) interruptions.push({ kind: i.kind, marchId: i.marchId });
+        },
+        () => {},
+      );
+      const { marchId } = await provider.commitMarch({
+        partyId: "party-player",
+        destinationSettlementId: "longmont",
+        departure: "now",
+      });
+      await vi.advanceTimersByTimeAsync(2000);
+      await vi.advanceTimersByTimeAsync(2000);
+      expect(interruptions.length).toBeGreaterThan(0);
+      expect(interruptions[0]!.marchId).toBe(marchId);
+      expect(["ambush", "blocked"]).toContain(interruptions[0]!.kind);
+      unsub();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

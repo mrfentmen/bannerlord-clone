@@ -18,7 +18,9 @@
  */
 
 import type {
+  CancelMarchResult,
   ConnectionStatus,
+  MarchCommitResult,
   MarchPlan,
   MarchRequest,
   SimSnapshot,
@@ -190,8 +192,12 @@ export class HttpSimulationProvider implements SimulationProvider {
     return this.#post<MarchPlan>("/v1/march/plan", request, "The march could not be planned.");
   }
 
-  async commitMarch(request: MarchRequest): Promise<void> {
-    await this.#post<{ accepted: true }>("/v1/march/commit", request, "The order to march was not accepted.");
+  async commitMarch(request: MarchRequest): Promise<MarchCommitResult> {
+    return this.#post<MarchCommitResult>("/v1/march/commit", request, "The order to march was not accepted.");
+  }
+
+  async cancelMarch(marchId: string): Promise<CancelMarchResult> {
+    return this.#post<CancelMarchResult>("/v1/march/cancel", { marchId }, "The march could not be called off.");
   }
 
   async why(entityId: string, field: string): Promise<WhyChain> {
