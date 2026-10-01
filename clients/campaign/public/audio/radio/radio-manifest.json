@@ -1,0 +1,78 @@
+{
+  "version": 1,
+  "description": "Procedural radio stations for the Bannerlord-style game",
+  "stations": [
+    {
+      "id": "station-street",
+      "name": "Street Radio",
+      "file": "audio/radio/station-street.mp3",
+      "master": "content/audio/radio/station-street.wav",
+      "duration_s": 120.0,
+      "sample_rate": 44100,
+      "channels": 1,
+      "bits": 16,
+      "sha256": "792f8b8fec43c531cd0a5385fc1f89b8534dd12314e1d58539bc0ed54116ac43",
+      "mp3_sha256": "ac2c52d350ddcff1aaca1d62969ba5b96f053659ea71092b309b7fb7d512f015",
+      "loop": true,
+      "category": "music",
+      "description": "92 BPM boom-bap loop with street-report chatter accents",
+      "license": "CC0",
+      "source": "original, procedurally generated on project VM (numpy synthesis)",
+      "author": "Milo audio synth",
+      "generator": "tools/radio/synth.py",
+      "synthesis": {
+        "function": "build_street",
+        "seed": 401
+      },
+      "lufs": -16.0
+    },
+    {
+      "id": "station-night",
+      "name": "Night Shift",
+      "file": "audio/radio/station-night.mp3",
+      "master": "content/audio/radio/station-night.wav",
+      "duration_s": 120.0,
+      "sample_rate": 44100,
+      "channels": 1,
+      "bits": 16,
+      "sha256": "c6000252b1a7a5921cfbef0b94a5a328f7442f9752cd699d9203e931d822e2ac",
+      "mp3_sha256": "117f446cc8fa3449bfbdf27db9ca3934189816f0cbe7d2e3e3c1399f8f44884f",
+      "loop": true,
+      "category": "music",
+      "description": "Dark ambient late-night electronic bed",
+      "license": "CC0",
+      "source": "original, procedurally generated on project VM (numpy synthesis)",
+      "author": "Milo audio synth",
+      "generator": "tools/radio/synth.py",
+      "synthesis": {
+        "function": "build_night",
+        "seed": 402
+      },
+      "lufs": -16.0
+    },
+    {
+      "id": "station-talk",
+      "name": "Corner Talk",
+      "file": "audio/radio/station-talk.mp3",
+      "master": "content/audio/radio/station-talk.wav",
+      "duration_s": 150.0,
+      "sample_rate": 44100,
+      "channels": 1,
+      "bits": 16,
+      "sha256": "61d0df5a66a458d6163267bf945cd7fdad8604f111f25981d1848ca3c7ee4e6d",
+      "mp3_sha256": "b9e17450013a0c46899cf3c641ea0c9a4c9e37c7a37c430ddae8ffc1de43f733",
+      "loop": true,
+      "category": "talk",
+      "description": "Talk-radio texture: abstract DJ chatter over lo-fi bed",
+      "license": "CC0",
+      "source": "original, procedurally generated on project VM (numpy synthesis)",
+      "author": "Milo audio synth",
+      "generator": "tools/radio/synth.py",
+      "synthesis": {
+        "function": "build_talk",
+        "seed": 403
+      },
+      "lufs": -16.0
+    }
+  ]
+}
