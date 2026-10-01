@@ -720,6 +720,8 @@ func (e *Engine) apply(s *model.State, w *WriteSet) error {
 			delete(s.Sieges, d.ID)
 		case model.KindWar:
 			delete(s.Wars, d.ID)
+		case model.KindClan:
+			delete(s.Clans, d.ID)
 		}
 	}
 	return nil
