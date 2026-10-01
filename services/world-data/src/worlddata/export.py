@@ -46,6 +46,7 @@ TABLE_NAMES: tuple[str, ...] = (
     "sections",
     "section_ratings",
     "settlements",
+    "notables",
     "routes",
     "route_segments",
     "state_boundaries",
