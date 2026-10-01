@@ -1101,21 +1101,21 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 	g.facing = g.order.Facing.resolve(ax, ay, ex, ey, haveEnemy, g.facing)
 
 	// The anchor is where the shape is centred, and where each man's slot is
-	// placed. For every order but a fall-back it is simply where the men are:
-	// a formation is not a place its commander picked, it is the shape of the
-	// men he has. A fall-back is the exception, because a withdrawal is the one
-	// order that is about where the body of troops ends up rather than how it
-	// is arranged, and a shape that stood still while it was ordered back would
-	// be a standing shape with its back to the enemy.
+	// placed. For a hold it is simply where the men are: a formation is not a
+	// place its commander picked, it is the shape of the men he has, and a hold
+	// tidies that shape where it stands. Every other order is about WHERE the
+	// body of troops ends up rather than only about how it is arranged, and the
+	// anchor is what carries it there: an advance and a charge push it toward
+	// the enemy, a fall-back pulls it away, and a shape whose anchor does not
+	// move is a shape that was drawn correctly and obeyed not at all.
 	anchorX, anchorY := ax, ay
 	// walking is set when the order is about WHERE the formation ends up rather
-	// than only about how it is arranged. A hold tidies a shape where it stands
-	// and an advance lets the engine's own rules close the gap, so for both of
-	// those a man already in his slot correctly gets no order. A fall-back is
+	// than only about how it is arranged. A hold tidies a shape where it stands,
+	// so a man already in his slot correctly gets no order. The other three are
 	// different: the shape has to leave, and the only thing that moves it is the
-	// anchor being pulled away from the enemy, so a man in his slot has to be
-	// told to walk with it. See the in-slot branch below for why the tolerance
-	// cannot stand in the way of that.
+	// anchor being carried one tick's worth of pace, so a man in his slot has to
+	// be told to walk with it. See the in-slot branch below for why the
+	// tolerance cannot stand in the way of that.
 	walking := false
 	// stepPace is how fast a man walks toward his slot, and it is the whole
 	// difference between the orders: an advance walks the shape forward, a
@@ -1128,8 +1128,29 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 		if g.order.Order == OrderFormationCharge {
 			standoff, closing = fc.ChargeStandoff, fc.ChargeSpeed
 		}
-		if gap := math.Hypot(ex-ax, ey-ay); haveEnemy && isFinite(gap) && gap > standoff {
+		if gap := math.Hypot(ex-ax, ey-ay); haveEnemy && isFinite(gap) && gap > standoff && gap > 0 {
 			stepPace = closing
+			// The shape walks forward by the distance it covers in one tick at
+			// its own closing pace. One tick's worth is the whole bound, and it
+			// needs no separate constant: the pace and the tick length are
+			// already numbers in the balance file, and a formation cannot outrun
+			// its own pace however long the battle runs. The per-unit step is
+			// clamped to the distance to the slot as well, so this cannot carry a
+			// man past his own place even if the two disagree.
+			//
+			// WHY THE ANCHOR HAS TO MOVE AT ALL. The anchor is the group's centre
+			// of mass, which is where the men are, so slots laid out around it
+			// are exactly where the men already are: a formation whose anchor is
+			// left alone satisfies the in-slot test on the tick after it forms and
+			// is given no orders ever again. It only appeared to advance because
+			// the enemy's approach kept shoving men out of their slots and every
+			// man who was shoved returned to it at the faster pace, which is an
+			// advance that depends on being attacked to happen at all. A charge
+			// had the same shape of problem one pace higher.
+			if push := closing * v.TickSeconds; push > 0 && isFinite(push) {
+				anchorX, anchorY = ax+(ex-ax)/gap*push, ay+(ey-ay)/gap*push
+				walking = true
+			}
 		} else {
 			// In contact, or nothing to close on: the shape stops closing and
 			// stands where it is. It does not stop tidying itself, so a line
