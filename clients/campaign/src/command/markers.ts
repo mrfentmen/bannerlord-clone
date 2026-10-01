@@ -7,6 +7,7 @@
  */
 
 import { h } from "../ui/dom.js";
+import { registerFlashSource } from "../feedback/photosensitive.js";
 
 export interface Markers {
   /** Task 44: drop a ping at screen (sx, sy); fades after 5 s. */
@@ -27,6 +28,16 @@ export function createMarkers(overlay: HTMLElement): Markers {
   const timers: ReturnType<typeof setTimeout>[] = [];
   let waypointLayer: HTMLElement | null = null;
   let rallyEl: HTMLElement | null = null;
+  // Task 24 (photosensitivity): the ping ring is a 1 s CSS animation run
+  // 5 times (1 Hz), registered once so the flash audit sees it. Reduced
+  // motion kills it via the global data-reduce-motion CSS kill-switch.
+  registerFlashSource({
+    id: "cmd-ping",
+    label: "Command ping ring",
+    kind: "css",
+    maxRateHz: 1,
+    note: "cmd-ping-pulse keyframes, 1 s period x5 iterations; killed by data-reduce-motion",
+  });
 
   function track(el: HTMLElement, ms?: number): void {
     owned.push(el);

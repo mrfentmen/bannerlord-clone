@@ -2,10 +2,17 @@
  * Task 56: low-health vignette. A red pulse at the screen edges while the
  * player is near death; its strength scales with missing health and it
  * vanishes at full health. Pure presentation — the sim reports hp.
+ *
+ * Task 24 (photosensitivity): the pulse is a 1.1 s CSS animation (~0.91 Hz),
+ * registered in the flash registry. Under reduced motion the global
+ * `data-reduce-motion` kill-switch in ui.css stops the animation entirely.
  */
 
 import { h } from "../ui/dom.js";
 import type { FeedbackSource, Unsubscribe } from "./types.js";
+import { registerFlashSource, unregisterFlashSource } from "./photosensitive.js";
+
+const FLASH_PROFILE_ID = "fb-vignette-pulse";
 
 export interface HealthVignette {
   root: HTMLElement;
@@ -15,6 +22,13 @@ export interface HealthVignette {
 export function createHealthVignette(source: FeedbackSource): HealthVignette {
   const veil = h("div", { class: "fb-vignette", "data-testid": "fb-vignette" });
   veil.hidden = true;
+  registerFlashSource({
+    id: FLASH_PROFILE_ID,
+    label: "Low-health vignette pulse",
+    kind: "css",
+    maxRateHz: 1 / 1.1,
+    note: "fb-vignette-pulse keyframes, 1.1 s period; killed by data-reduce-motion",
+  });
   const unsubs: Unsubscribe[] = [
     source.onPlayerHealth((hp, max) => {
       const missing = max <= 0 ? 0 : Math.min(1, Math.max(0, 1 - hp / max));
@@ -28,6 +42,7 @@ export function createHealthVignette(source: FeedbackSource): HealthVignette {
     root: veil,
     destroy() {
       for (const u of unsubs) u();
+      unregisterFlashSource(FLASH_PROFILE_ID);
       veil.remove();
     },
   };

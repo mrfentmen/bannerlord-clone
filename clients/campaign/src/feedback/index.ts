@@ -16,6 +16,22 @@ import { createObjectiveMarkers, type ObjectiveMarkers } from "./objectiveMarker
 import { createEdgeIndicators, type EdgeIndicators } from "./edgeIndicators.js";
 import { createHealthVignette, type HealthVignette } from "./healthVignette.js";
 import { createImpactFX, type ImpactFX } from "./impact.js";
+export {
+  MAX_FLASH_HZ,
+  MIN_FLASH_INTERVAL_MS,
+  auditPhotosensitivity,
+  createFlashGate,
+  flashGate,
+  formatPhotosensitivityReport,
+  listFlashSources,
+  registerFlashSource,
+  registerPhotosensitivityCommand,
+  unregisterFlashSource,
+  type FlashAuditFinding,
+  type FlashGate,
+  type FlashKind,
+  type FlashProfile,
+} from "./photosensitive.js";
 
 export interface BattleFeedbackOptions {
   /** Element the screen shake applies to (the canvas wrapper). Without it,
