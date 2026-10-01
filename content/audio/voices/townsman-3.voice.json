@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "id": "townsman-3",
+  "kind": "batch",
+  "file": "townsman-3.mp3",
+  "voice_id": "avocado_v2:ronan",
+  "character": "Fluid Hammock",
+  "class": "townsman",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 16.8,
+  "loudness_lufs": -25.6,
+  "lines": [
+    {
+      "index": 0,
+      "text": "The well broke again. We are drinking rainwater till Thursday.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "greeting"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "My mule outran the constable. Whole street saw it.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "greeting"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "Market was supposed to open at six. It opened at nine. Whatever.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "greeting"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "They say the ferry is fixed. They said that last month too.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "greeting"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "Somebody's goat is loose in the chapel. Mass is cancelled.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "greeting"
+      ]
+    }
+  ]
+}

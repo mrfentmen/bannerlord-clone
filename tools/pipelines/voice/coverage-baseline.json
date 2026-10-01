@@ -1,0 +1,103 @@
+{
+  "total_pairs": 62,
+  "covered_pairs": 38,
+  "coverage_pct": 61.3,
+  "missing": [
+    {
+      "notable": "bartender",
+      "topic": "rumor"
+    },
+    {
+      "notable": "barter",
+      "topic": "greeting"
+    },
+    {
+      "notable": "barter",
+      "topic": "farewell"
+    },
+    {
+      "notable": "captain",
+      "topic": "victory"
+    },
+    {
+      "notable": "captain",
+      "topic": "rally"
+    },
+    {
+      "notable": "companion",
+      "topic": "combat"
+    },
+    {
+      "notable": "companion",
+      "topic": "victory"
+    },
+    {
+      "notable": "gunner",
+      "topic": "victory"
+    },
+    {
+      "notable": "infantry",
+      "topic": "victory"
+    },
+    {
+      "notable": "infantry",
+      "topic": "casualty"
+    },
+    {
+      "notable": "leader",
+      "topic": "threat"
+    },
+    {
+      "notable": "leader",
+      "topic": "greeting"
+    },
+    {
+      "notable": "merchant",
+      "topic": "greeting"
+    },
+    {
+      "notable": "merchant",
+      "topic": "farewell"
+    },
+    {
+      "notable": "persuade",
+      "topic": "greeting"
+    },
+    {
+      "notable": "rebel",
+      "topic": "greeting"
+    },
+    {
+      "notable": "scout",
+      "topic": "victory"
+    },
+    {
+      "notable": "shopkeeper",
+      "topic": "greeting"
+    },
+    {
+      "notable": "shopkeeper",
+      "topic": "farewell"
+    },
+    {
+      "notable": "siege-attacker",
+      "topic": "victory"
+    },
+    {
+      "notable": "siege-defender",
+      "topic": "victory"
+    },
+    {
+      "notable": "townsman",
+      "topic": "rumor"
+    },
+    {
+      "notable": "townswoman",
+      "topic": "rumor"
+    },
+    {
+      "notable": "troop",
+      "topic": "victory"
+    }
+  ]
+}

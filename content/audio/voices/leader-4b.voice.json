@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "id": "leader-4b",
+  "kind": "batch",
+  "file": "leader-4b.mp3",
+  "voice_id": "unknown",
+  "character": "Leader",
+  "class": "leader",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 21.65,
+  "loudness_lufs": -24.9,
+  "lines": [
+    {
+      "index": 0,
+      "text": "Friend, you have got thirty seconds of my charm left. Use them well.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "Atlanta is open for business and business is me.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "I do not lose partners. I collect them, and I keep them fed.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "You want in? Step closer. You want out? Step faster.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "This town, this road, this whole corridor. All of it is negotiable.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    }
+  ]
+}

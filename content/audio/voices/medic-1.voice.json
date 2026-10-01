@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "id": "medic-1",
+  "kind": "batch",
+  "file": "medic-1.mp3",
+  "voice_id": "avocado_v2:vdc_2561",
+  "character": "Tender Cushion",
+  "class": "medic",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 18.17,
+  "loudness_lufs": -23.1,
+  "lines": [
+    {
+      "index": 0,
+      "text": "Somebody is hit, in the ditch, in the ditch.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat",
+        "casualty"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "Tourniquet first, then we move him. Do not move him yet.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat",
+        "casualty"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "Keep talking to me, look at me, not at the road.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat",
+        "casualty"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "He is breathing. Tell everybody he is breathing, it matters.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat",
+        "casualty"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "I need two guys to carry him out and I need them now.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat",
+        "casualty"
+      ]
+    }
+  ]
+}

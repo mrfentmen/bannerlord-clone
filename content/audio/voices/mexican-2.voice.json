@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "id": "mexican-2",
+  "kind": "batch",
+  "file": "mexican-2.mp3",
+  "voice_id": "avocado_v2:vd2_bold_sled",
+  "character": "Stubborn Sled",
+  "class": "mexican",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 14.11,
+  "loudness_lufs": -25.9,
+  "lines": [
+    {
+      "index": 0,
+      "text": "My hands built this town. They can hold it too.",
+      "emotion": "determined",
+      "context_tags": [
+        "rally"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "Heart of fire, feet of thunder. Move.",
+      "emotion": "determined",
+      "context_tags": [
+        "rally"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "Nobody takes what we built. Not today.",
+      "emotion": "determined",
+      "context_tags": [
+        "rally"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "Family is watching. Make them proud.",
+      "emotion": "determined",
+      "context_tags": [
+        "rally"
+      ]
+    }
+  ]
+}

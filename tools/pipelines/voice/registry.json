@@ -1,0 +1,246 @@
+{
+  "notables": [
+    {
+      "id": "african",
+      "character": "Calm Bridge",
+      "topics": [
+        "rally"
+      ]
+    },
+    {
+      "id": "announcer",
+      "character": "Lofty Throne",
+      "topics": [
+        "radio"
+      ]
+    },
+    {
+      "id": "bartender",
+      "character": "Weathered Hinge",
+      "topics": [
+        "tavern",
+        "greeting",
+        "rumor"
+      ]
+    },
+    {
+      "id": "barter",
+      "character": "Barter",
+      "topics": [
+        "bargain",
+        "greeting",
+        "farewell"
+      ]
+    },
+    {
+      "id": "captain",
+      "character": "Solemn Pillar",
+      "topics": [
+        "combat",
+        "order",
+        "victory",
+        "rally"
+      ]
+    },
+    {
+      "id": "chinese",
+      "character": "Steadying Riverstone",
+      "topics": [
+        "rally"
+      ]
+    },
+    {
+      "id": "companion",
+      "character": "Satiny Moon",
+      "topics": [
+        "idle",
+        "combat",
+        "victory"
+      ]
+    },
+    {
+      "id": "execution",
+      "character": "Execution",
+      "topics": [
+        "threat"
+      ]
+    },
+    {
+      "id": "german",
+      "character": "Dry Tambour",
+      "topics": [
+        "rally"
+      ]
+    },
+    {
+      "id": "gunner",
+      "character": "Intense Cymbal",
+      "topics": [
+        "combat",
+        "victory"
+      ]
+    },
+    {
+      "id": "infantry",
+      "character": "Gruff Brick",
+      "topics": [
+        "combat",
+        "victory",
+        "casualty"
+      ]
+    },
+    {
+      "id": "irish",
+      "character": "Polished Coin",
+      "topics": [
+        "rally"
+      ]
+    },
+    {
+      "id": "italian",
+      "character": "Thoughtful Boot",
+      "topics": [
+        "rally"
+      ]
+    },
+    {
+      "id": "jamaican",
+      "character": "Mirthful Drum",
+      "topics": [
+        "rally"
+      ]
+    },
+    {
+      "id": "korean",
+      "character": "Tart Thistle",
+      "topics": [
+        "rally"
+      ]
+    },
+    {
+      "id": "leader",
+      "character": "Leader",
+      "topics": [
+        "quest_offer",
+        "threat",
+        "greeting"
+      ]
+    },
+    {
+      "id": "medic",
+      "character": "Tender Cushion",
+      "topics": [
+        "combat",
+        "casualty"
+      ]
+    },
+    {
+      "id": "merchant",
+      "character": "Merchant",
+      "topics": [
+        "bargain",
+        "greeting",
+        "farewell"
+      ]
+    },
+    {
+      "id": "mexican",
+      "character": "Stubborn Sled",
+      "topics": [
+        "rally"
+      ]
+    },
+    {
+      "id": "persuade",
+      "character": "Persuade",
+      "topics": [
+        "bargain",
+        "quest_offer",
+        "greeting"
+      ]
+    },
+    {
+      "id": "puertorican",
+      "character": "Rugged Hull",
+      "topics": [
+        "rally"
+      ]
+    },
+    {
+      "id": "rebel",
+      "character": "Cranky Sandpaper",
+      "topics": [
+        "threat",
+        "idle",
+        "greeting"
+      ]
+    },
+    {
+      "id": "russian",
+      "character": "Jovial Cello",
+      "topics": [
+        "rally"
+      ]
+    },
+    {
+      "id": "scout",
+      "character": "Bold Flag",
+      "topics": [
+        "combat",
+        "contact",
+        "victory"
+      ]
+    },
+    {
+      "id": "shopkeeper",
+      "character": "Gracious Scarf",
+      "topics": [
+        "bargain",
+        "greeting",
+        "farewell"
+      ]
+    },
+    {
+      "id": "siege-attacker",
+      "character": "Siege Attacker",
+      "topics": [
+        "combat",
+        "victory"
+      ]
+    },
+    {
+      "id": "siege-defender",
+      "character": "Siege Defender",
+      "topics": [
+        "combat",
+        "victory"
+      ]
+    },
+    {
+      "id": "townsman",
+      "character": "Fluid Hammock",
+      "topics": [
+        "town",
+        "greeting",
+        "rumor"
+      ]
+    },
+    {
+      "id": "townswoman",
+      "character": "Aria",
+      "topics": [
+        "town",
+        "greeting",
+        "rumor"
+      ]
+    },
+    {
+      "id": "troop",
+      "character": "Warm Pebble",
+      "topics": [
+        "combat",
+        "victory"
+      ]
+    }
+  ]
+}

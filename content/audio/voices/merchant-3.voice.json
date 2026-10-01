@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "id": "merchant-3",
+  "kind": "batch",
+  "file": "merchant-3.mp3",
+  "voice_id": "unknown",
+  "character": "Merchant",
+  "class": "merchant",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 27.53,
+  "loudness_lufs": -20.9,
+  "lines": [
+    {
+      "index": 0,
+      "text": "Step up, step up. The truck came early and the prices came low.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "I have got exactly three of these left and six people who want them.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "Trade me the boots and we will call it even. I have been wanting boots.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "Everything on this table crossed three counties to meet you. Buy it something.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "Cash, scrip, or a favor from your captain. I prefer cash.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 5,
+      "text": "Come back Sunday. Sunday is when the real stuff arrives and the fake stuff leaves.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "id": "leader-6",
+  "kind": "batch",
+  "file": "leader-6.mp3",
+  "voice_id": "unknown",
+  "character": "Leader",
+  "class": "leader",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 27.24,
+  "loudness_lufs": -20.9,
+  "lines": [
+    {
+      "index": 0,
+      "text": "If you want my protection, understand what it costs before you ask for it.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "I have never raised my voice. I have never needed to. Listen carefully.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "When the corridor holds, it holds because everyone in it knows the terms.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "If you break faith with me, you will find the terms were the kind part.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "Precision is not coldness. It is respect, delivered on time.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    }
+  ]
+}
