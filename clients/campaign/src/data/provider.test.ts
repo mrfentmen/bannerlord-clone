@@ -12,10 +12,16 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   HttpSimulationProvider,
+  RECONNECT_DELAYS_MS,
+  SAME_ORIGIN_API_PATH,
   SimulationUnavailableError,
   createSimulationProvider,
+  providerFromConfig,
   readConfig,
+  reconnectDelayMs,
+  wsUrlFor,
 } from "./provider.js";
+import { SNAPSHOT_SCHEMA_MAX, SNAPSHOT_SCHEMA_MIN, SNAPSHOT_SCHEMA_VERSION, WHY_MAX_EDGES } from "./wire.js";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return {
@@ -26,13 +32,28 @@ function jsonResponse(body: unknown, status = 200): Response {
   } as unknown as Response;
 }
 
-function providerWith(fetchImpl: typeof fetch, wsUrl = "ws://127.0.0.1:8080/ws"): HttpSimulationProvider {
+function providerWith(fetchImpl: typeof fetch, wsUrl = "ws://sim.invalid/ws"): HttpSimulationProvider {
   return new HttpSimulationProvider({ kind: "http", httpUrl: "http://sim.invalid", wsUrl, fetchImpl });
+}
+
+/**
+ * A provider whose per-call timeout is instant rather than eight seconds, so the tests
+ * below do not spend real time waiting for a hang they are only asserting on.
+ */
+function fastProviderWith(fetchImpl: typeof fetch, timeoutMs = 5): HttpSimulationProvider {
+  return new HttpSimulationProvider({
+    kind: "http",
+    httpUrl: "http://sim.invalid",
+    wsUrl: "ws://sim.invalid/ws",
+    fetchImpl,
+    timeoutMs,
+  });
 }
 
 /** A snapshot that passes every check, for the tests that need a good baseline. */
 function goodSnapshot(): Record<string, unknown> {
   return {
+    schemaVersion: SNAPSHOT_SCHEMA_VERSION,
     day: 1,
     year: 2005,
     eraTier: 4,
@@ -44,7 +65,7 @@ function goodSnapshot(): Record<string, unknown> {
       influence: 3,
       renown: 1,
     },
-    party: { troops: [], morale: 0.9 },
+    party: { id: "p1", name: "Caravan", troops: [], morale: 0.9 },
     ledger: { day: 1, income: [], expenses: [], netPerDay: { money: 1 } },
     towns: [],
     markets: {},
@@ -97,11 +118,72 @@ describe("an untrusted snapshot is checked before the UI sees it", () => {
   }
 
   it("does not put a file path or a developer name in the player-facing sentence", async () => {
-    const provider = providerWith(vi.fn(async () => jsonResponse({ day: "x" })) as unknown as typeof fetch);
+    const provider = providerWith(vi.fn(async () => jsonResponse({ ...goodSnapshot(), day: "x" })) as unknown as typeof fetch);
     const error = (await provider.getSnapshot().catch((e: unknown) => e)) as SimulationUnavailableError;
     for (const banned of [/undefined/, /\bNaN\b/, /\bnull\b/, /\/src\//, /\.ts\b/, /Error/, /Something went wrong/]) {
       expect(banned.test(error.playerMessage), `player message contains ${banned}: ${error.playerMessage}`).toBe(false);
     }
+  });
+
+  it("refuses a town list whose third entry is broken, naming which one", async () => {
+    // The whole point of checking element by element: "towns is invalid" sends a
+    // developer back to the server, and "town 2 has no name" does not.
+    const payload = {
+      ...goodSnapshot(),
+      towns: [
+        { id: "t1", settlementId: "s1", name: "Golden", klass: "town", unrest: 0.2, loyalty: 0.7, security: 0.6, taxRate: 0.1, stateTaxRate: 0.05, updatedTick: 3, buildings: [] },
+        { id: "t2", settlementId: "s2", name: "Aurora", klass: "town", unrest: 0.2, loyalty: 0.7, security: 0.6, taxRate: 0.1, stateTaxRate: 0.05, updatedTick: 3, buildings: [] },
+        { id: "t3", settlementId: "s3", klass: "town", unrest: 0.2, loyalty: 0.7, security: 0.6, taxRate: 0.1, stateTaxRate: 0.05, updatedTick: 3, buildings: [] },
+      ],
+    };
+    const provider = providerWith(vi.fn(async () => jsonResponse(payload)) as unknown as typeof fetch);
+    const error = (await provider.getSnapshot().catch((e: unknown) => e)) as SimulationUnavailableError;
+    expect(error).toBeInstanceOf(SimulationUnavailableError);
+    expect(error.developerDetail).toMatch(/town 2 has no name/);
+  });
+});
+
+describe("a snapshot from a different schema version is refused as a skew", () => {
+  it("says the world is too new rather than listing fields it has never heard of", async () => {
+    const provider = providerWith(
+      vi.fn(async () => jsonResponse({ ...goodSnapshot(), schemaVersion: SNAPSHOT_SCHEMA_MAX + 5 })) as unknown as typeof fetch,
+    );
+    const error = (await provider.getSnapshot().catch((e: unknown) => e)) as SimulationUnavailableError;
+    expect(error).toBeInstanceOf(SimulationUnavailableError);
+    // "Update the game", not "field X is not a number": the latter would be a list of
+    // complaints about a perfectly good snapshot written by a newer simulation.
+    expect(error.playerMessage).toMatch(/newer than this version of the game/);
+    expect(error.retryable, "updating is the fix, retrying is not").toBe(false);
+    expect(error.developerDetail).toMatch(/too new/);
+  });
+
+  it("says the world is too old", async () => {
+    const provider = providerWith(
+      vi.fn(async () => jsonResponse({ ...goodSnapshot(), schemaVersion: SNAPSHOT_SCHEMA_MIN - 1 })) as unknown as typeof fetch,
+    );
+    const error = (await provider.getSnapshot().catch((e: unknown) => e)) as SimulationUnavailableError;
+    expect(error.playerMessage).toMatch(/older version of the simulation/);
+    expect(error.developerDetail).toMatch(/too old/);
+  });
+
+  it("accepts every version in the supported range", async () => {
+    for (let version = SNAPSHOT_SCHEMA_MIN; version <= SNAPSHOT_SCHEMA_MAX; version += 1) {
+      const provider = providerWith(
+        vi.fn(async () => jsonResponse({ ...goodSnapshot(), schemaVersion: version })) as unknown as typeof fetch,
+      );
+      const snapshot = await provider.getSnapshot();
+      expect(snapshot.schemaVersion, `version ${version}`).toBe(version);
+    }
+  });
+
+  it("treats a missing version as a malformed payload, not as a skew", async () => {
+    // Telling a player to update the game because of a server bug would send them away
+    // from the one thing that would fix it.
+    const { schemaVersion: _dropped, ...withoutVersion } = goodSnapshot();
+    const provider = providerWith(vi.fn(async () => jsonResponse(withoutVersion)) as unknown as typeof fetch);
+    const error = (await provider.getSnapshot().catch((e: unknown) => e)) as SimulationUnavailableError;
+    expect(error.playerMessage).not.toMatch(/update the game/i);
+    expect(error.developerDetail).toMatch(/failed validation.*schemaVersion/s);
   });
 });
 
@@ -137,6 +219,56 @@ describe("a cause chain is checked before the Why panel walks it", () => {
     const provider = providerWith(vi.fn(async () => jsonResponse(body)) as unknown as typeof fetch);
     const error = (await provider.why("x", "y").catch((e: unknown) => e)) as SimulationUnavailableError;
     expect(error).toBeInstanceOf(SimulationUnavailableError);
+  });
+});
+
+describe("a chain deeper than a reader can follow is cut, and says so", () => {
+  /** A chain of `depth` rows, each caused by the next, newest first. */
+  function deepChain(depth: number): unknown {
+    const rows = Array.from({ length: depth }, (_unused, index) => ({
+      id: `c-${index}`,
+      tick: index,
+      day: index,
+      entityId: "town-golden",
+      entityName: "Golden",
+      field: "unrest",
+      old: 0.1 + index * 0.01,
+      new: 0.2 + index * 0.01,
+      system: "unrest",
+      causedBy: index + 1 < depth ? [`c-${index + 1}`] : [],
+      summary: `Step ${index}.`,
+    }));
+    return { entityId: "town-golden", field: "unrest", rows, related: [], totalDepth: depth, truncated: false };
+  }
+
+  it("keeps a chain that fits and does not claim to have cut it", async () => {
+    const provider = providerWith(vi.fn(async () => jsonResponse(deepChain(10))) as unknown as typeof fetch);
+    const chain = await provider.why("town-golden", "unrest");
+    expect(chain.rows).toHaveLength(10);
+    expect(chain.truncated).toBe(false);
+    expect(chain.droppedEdges).toBe(0);
+  });
+
+  it("cuts a chain past the cap and counts what it dropped", async () => {
+    const provider = providerWith(vi.fn(async () => jsonResponse(deepChain(80))) as unknown as typeof fetch);
+    const chain = await provider.why("town-golden", "unrest");
+    expect(chain.rows.length, "the walk has to stay followable").toBeLessThanOrEqual(WHY_MAX_EDGES);
+    expect(chain.truncated, "a quiet cut looks exactly like a chain that ended").toBe(true);
+    expect(chain.droppedEdges).toBeGreaterThan(0);
+    expect(chain.totalDepth, "the full depth is still reported").toBe(80);
+  });
+
+  it("says how many edges went, so the panel can print the count rather than shrug", async () => {
+    const provider = providerWith(vi.fn(async () => jsonResponse(deepChain(80))) as unknown as typeof fetch);
+    const chain = await provider.why("town-golden", "unrest");
+    expect(chain.droppedEdges).toBe(80 - WHY_MAX_EDGES);
+    expect(chain.totalDepth, "the depth the simulation holds is still reported").toBe(80);
+  });
+
+  it("keeps the row nearest the player, because that is the question that was asked", async () => {
+    const provider = providerWith(vi.fn(async () => jsonResponse(deepChain(80))) as unknown as typeof fetch);
+    const chain = await provider.why("town-golden", "unrest");
+    expect(chain.rows[0]?.id).toBe("c-0");
   });
 });
 
@@ -226,6 +358,60 @@ describe("every failure is handled, not swallowed (section 1.3)", () => {
     expect(error).toBeInstanceOf(SimulationUnavailableError);
     expect(error.playerMessage).toMatch(/nothing this client can read/i);
   });
+
+  it("gives up on a hung endpoint rather than spinning forever", async () => {
+    // `fetch` against a server that accepted the connection and then stopped writing will
+    // hang for as long as the socket lives. An infinite spinner is the failure this
+    // prevents; a retryable error with the retry affordance is the honest response.
+    const hung = vi.fn(
+      (_url: string, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        }),
+    );
+    const provider = fastProviderWith(hung as unknown as typeof fetch, 5);
+    const started = Date.now();
+    const error = (await provider.getSnapshot().catch((e: unknown) => e)) as SimulationUnavailableError;
+    expect(error).toBeInstanceOf(SimulationUnavailableError);
+    expect(error.retryable, "a hang usually clears on its own").toBe(true);
+    // "Stopped answering" rather than "is not answering": the two mean different things
+    // to a player deciding whether to wait or to reload.
+    expect(error.playerMessage).toMatch(/stopped answering/i);
+    expect(error.developerDetail).toMatch(/aborted after 5ms/);
+    expect(Date.now() - started, "the wait must be the timeout, not longer").toBeLessThan(2_000);
+  });
+
+  it("aborts a hung POST as well as a hung GET", async () => {
+    const hung = vi.fn(
+      (_url: string, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        }),
+    );
+    const provider = fastProviderWith(hung as unknown as typeof fetch, 5);
+    const error = (await provider
+      .trade({ partyId: "p", townId: "t", goodId: "grain", side: "buy", quantity: 1, expectedDay: 1 })
+      .catch((e: unknown) => e)) as SimulationUnavailableError;
+    expect(error).toBeInstanceOf(SimulationUnavailableError);
+    expect(error.playerMessage).toMatch(/stopped answering/i);
+  });
+
+  it("actually sends an abort signal, so the hang is ended rather than merely reported", async () => {
+    // Without this the abort would be decoration: the promise would still be pending
+    // forever, and the error would only arrive because the test's own timeout fired.
+    let sawSignal: AbortSignal | undefined;
+    const hung = vi.fn(
+      (_url: string, init?: RequestInit) =>
+        new Promise<Response>((_resolve, reject) => {
+          sawSignal = init?.signal ?? undefined;
+          init?.signal?.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+        }),
+    );
+    const provider = fastProviderWith(hung as unknown as typeof fetch, 5);
+    await provider.getSnapshot().catch(() => undefined);
+    expect(sawSignal, "no signal reached fetch").toBeDefined();
+    expect(sawSignal?.aborted, "the signal was never fired").toBe(true);
+  });
 });
 
 describe("fixtures stay out of a production path", () => {
@@ -262,8 +448,120 @@ describe("fixtures stay out of a production path", () => {
     expect(() => createSimulationProvider({ kind: "guess" as never })).toThrow(SimulationUnavailableError);
   });
 
+  it("refuses to construct the fixture outside a dev-only build", () => {
+    // The third gate, at the point of construction rather than at the point of reading
+    // the environment. `vite.config.ts` has already replaced the module in a production
+    // build, so this is the belt to that pair of braces: even a caller that bypassed
+    // `readConfig` gets a refusal with a sentence, not a module that throws on use.
+    const error = (() => {
+      try {
+        createSimulationProvider({ kind: "fixture" });
+        return null;
+      } catch (err) {
+        return err as SimulationUnavailableError;
+      }
+    })();
+    // This test process runs in mode "test", which is not a fixture build.
+    expect(error).toBeInstanceOf(SimulationUnavailableError);
+    expect(error?.playerMessage).toMatch(/development build/i);
+    expect(error?.retryable, "no retrying will make a production build a dev build").toBe(false);
+  });
+
   it("names the HTTP provider for the data-source panel", () => {
     expect(providerWith(vi.fn() as unknown as typeof fetch).label).toBe("Live simulation");
+  });
+});
+
+describe("the simulation's address is checked before it is used", () => {
+  it("falls back to the same-origin /api path in a production build", () => {
+    // Not merely a default: the production bundle must contain no `127.0.0.1`, because a
+    // shipped game pointing at the player's own loopback address is a bug that only
+    // shows up on someone else's machine.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      // In this process the build mode is "test", which is not a fixture build, so the
+      // production default is the one under test.
+      expect(readConfig({}).simulationHttpUrl).toBe(SAME_ORIGIN_API_PATH);
+      expect(readConfig({}).simulationHttpUrl).not.toMatch(/127\.0\.0\.1/);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("keeps an address the environment gave, once it parses", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      expect(readConfig({ VITE_SIMULATION_HTTP_URL: "https://sim.example.com" }).simulationHttpUrl).toBe(
+        "https://sim.example.com",
+      );
+      // A trailing slash is dropped rather than doubled into `//v1/snapshot`.
+      expect(readConfig({ VITE_SIMULATION_HTTP_URL: "https://sim.example.com/" }).simulationHttpUrl).toBe(
+        "https://sim.example.com",
+      );
+      expect(warn, "a valid address must not warn").not.toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("refuses a malformed address and says so, rather than fetching nothing", async () => {
+    // A bad URL is worse than no URL: it produces a request to nowhere behind a
+    // plausible path, and the failure reads as "the simulation is down".
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      for (const bad of ["not a url", "http//missing-colon", "ftp://files.example.com", "://nope"]) {
+        const config = readConfig({ VITE_SIMULATION_HTTP_URL: bad });
+        expect(config.simulationHttpUrl, `"${bad}" was accepted`).toBe(SAME_ORIGIN_API_PATH);
+      }
+      expect(warn, "a misconfigured build should say so in the console").toHaveBeenCalled();
+      expect(String(warn.mock.calls[0]?.[0])).toMatch(/VITE_SIMULATION_HTTP_URL/);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("derives the tick socket from the HTTP address, so one variable configures both", () => {
+    expect(wsUrlFor("http://127.0.0.1:8080")).toBe("ws://127.0.0.1:8080/ws");
+    expect(wsUrlFor("https://sim.example.com")).toBe("wss://sim.example.com/ws");
+    expect(wsUrlFor("https://sim.example.com/")).toBe("wss://sim.example.com/ws");
+  });
+
+  it("builds a socket URL for the same-origin default, which has no scheme of its own", () => {
+    // `/api` is the production default and a WebSocket is not fetch, so it cannot be left
+    // relative. The page's own origin is the only honest thing to build it from, and the
+    // scheme has to follow the page's: `wss` on an https page, or the browser refuses the
+    // connection as mixed content.
+    expect(wsUrlFor(SAME_ORIGIN_API_PATH, "https://play.example.com")).toBe("wss://play.example.com/api/ws");
+    expect(wsUrlFor(SAME_ORIGIN_API_PATH, "http://localhost:5178")).toBe("ws://localhost:5178/api/ws");
+  });
+
+  it("keeps a separately-configured socket, and refuses a malformed one", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      expect(readConfig({ VITE_SIMULATION_WS_URL: "wss://sim.example.com/live" }).simulationWsUrl).toBe(
+        "wss://sim.example.com/live",
+      );
+      // Not a socket scheme: falling back to the HTTP host is better than building
+      // `http://` into a WebSocket URL and failing at the handshake.
+      expect(readConfig({ VITE_SIMULATION_WS_URL: "http://sim.example.com/ws" }).simulationWsUrl).toBe(
+        wsUrlFor(SAME_ORIGIN_API_PATH),
+      );
+      expect(warn).toHaveBeenCalled();
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("reads the configured address at startup, which is what main.ts does", () => {
+    // `providerFromConfig` is the seam: the address that is read is the one that is used,
+    // so a build cannot read one host and talk to another.
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const config = readConfig({ VITE_SIMULATION_HTTP_URL: "http://sim.example.com:9000" });
+      expect(providerFromConfig(config)).toBeInstanceOf(HttpSimulationProvider);
+    } finally {
+      warn.mockRestore();
+    }
   });
 });
 
@@ -331,5 +629,112 @@ describe("the tick subscription reports instead of dropping frames silently", ()
     socket.onopen?.({});
     expect(JSON.parse(socket.sent[0]!)).toEqual({ type: "subscribe", channel: "ticks" });
     socket.onclose?.({});
+  });
+
+  describe("reconnect backs off, and the attempt count is visible", () => {
+    /** A provider whose socket factory hands out a fresh fake each attempt. */
+    function backingOffProvider(): { provider: HttpSimulationProvider; sockets: ReturnType<typeof fakeSocket>[] } {
+      const sockets: ReturnType<typeof fakeSocket>[] = [];
+      const provider = new HttpSimulationProvider({
+        kind: "http",
+        httpUrl: "http://sim.invalid",
+        wsUrl: "ws://sim.invalid/ws",
+        socketFactory: () => {
+          const socket = fakeSocket();
+          sockets.push(socket);
+          return socket as never;
+        },
+      });
+      return { provider, sockets };
+    }
+
+    it("holds at 30 seconds rather than growing without limit", () => {
+      // The schedule is one exported list so the HUD can show "next attempt in Ns" from
+      // the same numbers the provider actually uses, rather than a second guess that
+      // drifts out of step with it.
+      expect(RECONNECT_DELAYS_MS).toEqual([1000, 2000, 4000, 8000, 16000, 30000]);
+      expect(reconnectDelayMs(1), "first retry is quick enough not to feel broken").toBe(1000);
+      expect(reconnectDelayMs(3)).toBe(4000);
+      expect(reconnectDelayMs(6)).toBe(30000);
+      expect(reconnectDelayMs(50), "bounded, however long it has been down").toBe(30000);
+    });
+
+    it("counts every failed attempt, so the player can see it is trying", () => {
+      vi.useFakeTimers();
+      try {
+        const { provider, sockets } = backingOffProvider();
+        const attempts: number[] = [];
+        const stop = provider.subscribeTicks(
+          () => {},
+          (status) => {
+            if (status.state === "reconnecting") attempts.push(status.attempt);
+          },
+        );
+        for (let i = 0; i < 4; i += 1) {
+          sockets[sockets.length - 1]?.onclose?.({ code: 1006 });
+          vi.advanceTimersToNextTimer();
+        }
+        stop();
+        expect(attempts).toEqual([1, 2, 3, 4]);
+        // One socket per attempt: a reconnect that reused the closed socket would be a
+        // reconnect that never succeeds.
+        expect(sockets).toHaveLength(5);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("does not retry a socket the caller closed deliberately", () => {
+      vi.useFakeTimers();
+      try {
+        const { provider, sockets } = backingOffProvider();
+        const statuses: string[] = [];
+        const stop = provider.subscribeTicks(() => {}, (status) => statuses.push(status.state));
+        stop();
+        sockets[0]?.onclose?.({ code: 1000 });
+        vi.advanceTimersByTime(60_000);
+        expect(sockets, "unsubscribing must not bring the socket back").toHaveLength(1);
+        expect(statuses.filter((s) => s === "reconnecting"), "a deliberate close is not a failure").toHaveLength(0);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("stops retrying once told to, so a closed tab does not keep a timer alive", () => {
+      vi.useFakeTimers();
+      try {
+        const { provider, sockets } = backingOffProvider();
+        const stop = provider.subscribeTicks(() => {}, () => {});
+        sockets[0]?.onclose?.({});
+        expect(vi.getTimerCount(), "a reconnect is pending").toBeGreaterThan(0);
+        stop();
+        expect(vi.getTimerCount(), "unsubscribing must clear the pending retry").toBe(0);
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    it("counts attempts from zero again after a successful connect", () => {
+      // An attempt count that never resets would show "attempt 47" to a player whose
+      // connection has been fine for an hour.
+      vi.useFakeTimers();
+      try {
+        const { provider, sockets } = backingOffProvider();
+        const attempts: number[] = [];
+        const stop = provider.subscribeTicks(
+          () => {},
+          (status) => {
+            if (status.state === "connected") attempts.push(status.attempt);
+          },
+        );
+        sockets[0]?.onclose?.({});
+        vi.advanceTimersToNextTimer();
+        sockets[1]?.onopen?.({});
+        expect(attempts, "a fresh connection reports attempt 0").toEqual([0]);
+        stop();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
   });
 });

@@ -27,6 +27,7 @@ import type {
   ConstructionResult,
   ImproveRelationRequest,
   ImproveRelationResult,
+  MarchCommitResult,
   MarchPlan,
   MarchRequest,
   PlayerCharacter,
@@ -35,7 +36,9 @@ import type {
   SimSnapshot,
   SimulationProvider,
   TalkToNotableResult,
+  TaxOrderResult,
   TickUpdate,
+  TimeScaleResult,
   TradeRequest,
   TradeResult,
   UpgradeTroopsRequest,
@@ -43,6 +46,41 @@ import type {
   WhyChain,
 } from "./types.js";
 import { createFixtureSimulationProvider } from "./fixture/index.js";
+import {
+  battleXpProblem,
+  constructionResultProblem,
+  improveRelationRequestProblem,
+  improveRelationResultProblem,
+  marchCommitProblem,
+  marchPlanProblem,
+  recruitRequestProblem,
+  recruitResultProblem,
+  schemaVersionProblem,
+  skipToArrivalProblem,
+  SNAPSHOT_SCHEMA_MAX,
+  SNAPSHOT_SCHEMA_MIN,
+  snapshotProblem,
+  talkResultProblem,
+  taxResultProblem,
+  tickFrameProblem,
+  timeScaleProblem,
+  tradeRequestProblem,
+  tradeResultProblem,
+  upgradeRequestProblem,
+  upgradeResultProblem,
+  whyChainProblem,
+  WHY_MAX_EDGES,
+} from "./wire.js";
+
+/**
+ * What a tax conflict reads as when the server sent no reason of its own.
+ *
+ * A 409 on a tax order is not a transport failure: the simulation is the authority on
+ * its own state, and what it means here is that the ruler moved the rate between the
+ * player reading it and the player setting it. "The world moved on" is true but useless;
+ * the player needs to know who moved it and that they can set it again.
+ */
+const TAX_CONFLICT = "The taxes were changed by the ruler before that order arrived. The panel now shows the rate in force; set it again if you still want yours.";
 
 /** A failure the UI can show a player, with a way to recover (CONSTITUTION.md §1.3). */
 export class SimulationUnavailableError extends Error {
@@ -71,6 +109,28 @@ export interface WebSocketLike {
   onmessage: ((ev: { data: unknown }) => void) | null;
 }
 
+/** How long one HTTP call may take before the client gives up on it, in milliseconds. */
+export const REQUEST_TIMEOUT_MS = 8_000;
+
+/**
+ * How long to wait before each reconnect attempt, in order.
+ *
+ * Exported rather than computed inline so the HUD's "retrying, attempt N" line can show
+ * when the next attempt is due from the same numbers the provider uses. A second copy of
+ * this sequence would drift, and a drifting countdown is worse than none.
+ *
+ * The last value is the cap. A dead server neither logs without limit nor takes long to
+ * pick back up on the first retry.
+ */
+export const RECONNECT_DELAYS_MS = [1000, 2000, 4000, 8000, 16000, 30000] as const;
+
+/** The wait before reconnect attempt `attempt` (1 for the first retry). */
+export function reconnectDelayMs(attempt: number): number {
+  if (!Number.isFinite(attempt) || attempt < 1) return RECONNECT_DELAYS_MS[0];
+  const at = Math.min(Math.round(attempt), RECONNECT_DELAYS_MS.length) - 1;
+  return RECONNECT_DELAYS_MS[at]!;
+}
+
 export interface CreateProviderOptions {
   kind: ProviderKind;
   httpUrl?: string;
@@ -78,6 +138,12 @@ export interface CreateProviderOptions {
   /** Supplied by tests. Application code never sets it. */
   fetchImpl?: typeof fetch;
   socketFactory?: (url: string) => WebSocketLike;
+  /**
+   * Supplied by tests to make the per-call timeout instant rather than eight seconds.
+   * Application code never sets it; a bundle that had this set would be lying about how
+   * long it is willing to wait.
+   */
+  timeoutMs?: number;
 }
 
 export function createSimulationProvider(options: CreateProviderOptions): SimulationProvider {
@@ -85,6 +151,18 @@ export function createSimulationProvider(options: CreateProviderOptions): Simula
     case "http":
       return new HttpSimulationProvider(options);
     case "fixture":
+      // Task 26: the fixture is behind an explicit dev-only flag. `isFixtureBuild()` is
+      // `vite.config.ts`'s own `isDev`, and it is the check that decides whether the real
+      // fixture code is in the bundle at all. Asking for it outside those two modes gets
+      // a refusal rather than a module that was replaced at build time, which is the same
+      // refusal with a better sentence.
+      if (!isFixtureBuild()) {
+        throw new SimulationUnavailableError(
+          "Test data cannot be used outside a development build.",
+          `createSimulationProvider asked for the fixture in build mode "${currentMode()}", which is not a fixture build.`,
+          false,
+        );
+      }
       return createFixtureSimulationProvider();
     default: {
       // Exhaustive: adding a kind forces a decision here rather than a fallthrough.
@@ -123,12 +201,114 @@ export function readConfig(env: Record<string, string | boolean | undefined> = i
   return {
     simulationSource: wantsFixture ? "fixture" : "http",
     worldDataUrl: typeof env.VITE_WORLD_DATA_URL === "string" ? env.VITE_WORLD_DATA_URL : "/world",
-    simulationHttpUrl:
-      typeof env.VITE_SIMULATION_HTTP_URL === "string" ? env.VITE_SIMULATION_HTTP_URL : "http://127.0.0.1:8080",
-    simulationWsUrl:
-      typeof env.VITE_SIMULATION_WS_URL === "string" ? env.VITE_SIMULATION_WS_URL : "ws://127.0.0.1:8080/ws",
+    simulationHttpUrl: readHttpUrl(env),
+    simulationWsUrl: readWsUrl(env),
     quality,
   };
+}
+
+/** The same-origin path the simulation is reached on when nothing says otherwise. */
+export const SAME_ORIGIN_API_PATH = "/api";
+
+/**
+ * Where the simulation's HTTP API lives.
+ *
+ * Three rules, in order:
+ *
+ *  1. A production build gets the same-origin `/api`. The bundle is served by whatever
+ *     hosts the game, and the simulation sits behind that host's own routing, so there is
+ *     no port to hard-code and no localhost string to ship. This is also why the default
+ *     is not `http://127.0.0.1:8080` everywhere: a production bundle containing that
+ *     would talk to the player's own machine.
+ *  2. A development build defaults to the local simulation on port 8080, which is where
+ *     Agent 2's server runs and is what `npm run dev` should just work against.
+ *  3. Whatever the environment says is checked before it is used. A malformed URL is
+ *     worse than no URL: it produces a request to nowhere with a plausible-looking path,
+ *     and the failure reads as "the simulation is down" rather than "this build is
+ *     misconfigured".
+ */
+function readHttpUrl(env: Record<string, string | boolean | undefined>): string {
+  const raw = typeof env.VITE_SIMULATION_HTTP_URL === "string" ? env.VITE_SIMULATION_HTTP_URL.trim() : "";
+  const fallback = isFixtureBuild() ? "http://127.0.0.1:8080" : SAME_ORIGIN_API_PATH;
+  if (raw === "") return fallback;
+  if (!isUsableHttpUrl(raw)) {
+    console.warn(
+      `[campaign-client] VITE_SIMULATION_HTTP_URL is not a usable http(s) URL (${JSON.stringify(raw)}). ` +
+        `Falling back to ${fallback}. Set it to an absolute URL such as http://127.0.0.1:8080, ` +
+        "or leave it unset to use the same-origin /api path.",
+    );
+    return fallback;
+  }
+  return raw.replace(/\/$/, "");
+}
+
+/**
+ * The tick socket, derived from the HTTP URL when it is not set separately.
+ *
+ * A socket is not a fetch and cannot be same-origin-relative, so the ws:// form of the
+ * HTTP URL is the right default: one variable configures both, and a player who pointed
+ * the client at their own host does not also have to remember to move the socket.
+ */
+function readWsUrl(env: Record<string, string | boolean | undefined>): string {
+  const raw = typeof env.VITE_SIMULATION_WS_URL === "string" ? env.VITE_SIMULATION_WS_URL.trim() : "";
+  if (raw !== "") {
+    if (isUsableWsUrl(raw)) return raw;
+    console.warn(
+      `[campaign-client] VITE_SIMULATION_WS_URL is not a usable ws(s):// URL (${JSON.stringify(raw)}). ` +
+        "Falling back to the same host as VITE_SIMULATION_HTTP_URL.",
+    );
+  }
+  return wsUrlFor(readHttpUrl(env));
+}
+
+/**
+ * `http://host:port` -> `ws://host:port/ws`.
+ *
+ * `origin` is a parameter rather than a read of the global because this has to be
+ * checkable: a WebSocket cannot be left relative, so the same-origin default has to be
+ * resolved against something, and a test needs to say what that something is rather than
+ * depending on where it runs. It defaults to the page's own origin.
+ */
+export function wsUrlFor(httpUrl: string, origin?: string): string {
+  const base = httpUrl.replace(/\/$/, "");
+  if (base.startsWith("https://")) return `wss://${base.slice("https://".length)}/ws`;
+  if (base.startsWith("http://")) return `ws://${base.slice("http://".length)}/ws`;
+  // A relative path such as `/api`, which is the production default. There is no scheme
+  // to preserve, so the socket has to be built from the page's own origin.
+  const from = origin ?? (typeof location === "undefined" ? "" : location.origin);
+  return `${from.replace(/^http/, "ws")}${base}/ws`;
+}
+
+/**
+ * Whether a string is a URL this client can actually fetch.
+ *
+ * `new URL` is the check rather than a regular expression, because it is the same parser
+ * `fetch` will use. A regex that agreed with `new URL` on everything except the cases it
+ * had not been told about would be worse than no check.
+ */
+function isUsableHttpUrl(raw: string): boolean {
+  if (raw.startsWith("/")) return true; // Same-origin path, which the production default uses.
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return false;
+  }
+  return parsed.protocol === "http:" || parsed.protocol === "https:";
+}
+
+function isUsableWsUrl(raw: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(raw);
+  } catch {
+    return false;
+  }
+  return parsed.protocol === "ws:" || parsed.protocol === "wss:";
+}
+
+function currentMode(): string {
+  return typeof import.meta.env.MODE === "string" ? import.meta.env.MODE : "production";
 }
 
 /**
@@ -137,7 +317,7 @@ export function readConfig(env: Record<string, string | boolean | undefined> = i
  * fixtures` is a real build the end-to-end suite needs, and `PROD` is true for it.
  */
 function isFixtureBuild(): boolean {
-  const mode = typeof import.meta.env.MODE === "string" ? import.meta.env.MODE : "production";
+  const mode = currentMode();
   return mode === "development" || mode === "fixtures";
 }
 
@@ -165,16 +345,18 @@ export class HttpSimulationProvider implements SimulationProvider {
   readonly #wsUrl: string;
   readonly #fetch: typeof fetch;
   readonly #openSocket: (url: string) => WebSocketLike;
+  readonly #timeoutMs: number;
   #socket: WebSocketLike | null = null;
   #retry: ReturnType<typeof setTimeout> | null = null;
   #closed = false;
   #attempt = 0;
 
   constructor(options: CreateProviderOptions) {
-    this.#httpUrl = (options.httpUrl ?? "http://127.0.0.1:8080").replace(/\/$/, "");
-    this.#wsUrl = options.wsUrl ?? "ws://127.0.0.1:8080/ws";
+    this.#httpUrl = (options.httpUrl ?? SAME_ORIGIN_API_PATH).replace(/\/$/, "");
+    this.#wsUrl = options.wsUrl ?? wsUrlFor(this.#httpUrl);
     this.#fetch = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
     this.#openSocket = options.socketFactory ?? ((url: string) => new WebSocket(url) as unknown as WebSocketLike);
+    this.#timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
   }
 
   async getSnapshot(): Promise<SimSnapshot> {
@@ -184,27 +366,73 @@ export class HttpSimulationProvider implements SimulationProvider {
   }
 
   async trade(request: TradeRequest): Promise<TradeResult> {
-    return this.#post<TradeResult>("/v1/trade", request, "The trade did not go through.");
+    requireRequest(tradeRequestProblem(request), "trade order", "The trade could not be written down.");
+    return this.#post<TradeResult>("/v1/trade", request, "The trade did not go through.", tradeResultProblem);
   }
 
   async recruit(request: RecruitRequest): Promise<RecruitResult> {
-    return this.#post<RecruitResult>("/v1/recruit", request, "The hire did not go through.");
+    requireRequest(recruitRequestProblem(request), "hire order", "The hire could not be written down.");
+    return this.#post<RecruitResult>("/v1/recruit", request, "The hire did not go through.", recruitResultProblem);
   }
 
   async talkToNotable(settlementId: string, notableId: string): Promise<TalkToNotableResult> {
-    return this.#post<TalkToNotableResult>("/v1/notables/talk", { settlementId, notableId }, "They would not see you.");
+    return this.#post<TalkToNotableResult>(
+      "/v1/notables/talk",
+      { settlementId, notableId },
+      "They would not see you.",
+      talkResultProblem,
+    );
   }
 
   async improveRelation(request: ImproveRelationRequest): Promise<ImproveRelationResult> {
-    return this.#post<ImproveRelationResult>("/v1/notables/relation", request, "The gesture fell flat.");
+    requireRequest(improveRelationRequestProblem(request), "gesture", "That gesture could not be written down.");
+    return this.#post<ImproveRelationResult>(
+      "/v1/notables/relation",
+      request,
+      "The gesture fell flat.",
+      improveRelationResultProblem,
+    );
   }
 
-  setTimeScale(daysPerRealSecond: number): void {
-    void this.#post<{ accepted: true }>("/v1/time-scale", { daysPerRealSecond }, "The clock did not change speed.");
+  /**
+   * Ask the simulation to run at a given speed, and wait for the answer.
+   *
+   * This used to be fire-and-forget, which meant a refused speed change left the dial
+   * showing a clock the simulation was not running. Now the call resolves with the
+   * server's verdict, and `accepted: false` becomes an error the caller has to handle —
+   * `main.ts` puts the dial back where it was and says why.
+   */
+  async setTimeScale(daysPerRealSecond: number): Promise<TimeScaleResult> {
+    if (!Number.isFinite(daysPerRealSecond) || daysPerRealSecond < 0) {
+      throw new SimulationUnavailableError(
+        "The clock can only run forwards or stop.",
+        `setTimeScale(${daysPerRealSecond}) is not a speed.`,
+        false,
+      );
+    }
+    const result = await this.#post<TimeScaleResult>(
+      "/v1/time-scale",
+      { daysPerRealSecond },
+      "The clock did not change speed.",
+      timeScaleProblem,
+    );
+    if (!result.accepted) {
+      throw new SimulationUnavailableError(
+        result.reason ?? "The simulation would not change speed.",
+        `POST /v1/time-scale -> refused ${daysPerRealSecond}: ${result.reason ?? "no reason given"}`,
+        false,
+      );
+    }
+    return result;
   }
 
   async skipToArrival(): Promise<{ daysAdvanced: number }> {
-    return this.#post<{ daysAdvanced: number }>("/v1/skip-to-arrival", {}, "The clock did not skip.");
+    return this.#post<{ daysAdvanced: number }>(
+      "/v1/skip-to-arrival",
+      {},
+      "The clock did not skip.",
+      skipToArrivalProblem,
+    );
   }
 
   setEthnicity(ethnicityId: string): void {
@@ -216,31 +444,60 @@ export class HttpSimulationProvider implements SimulationProvider {
   }
 
   async awardBattleXp(input: BattleXpInput): Promise<BattleXpAward[]> {
-    return this.#post<BattleXpAward[]>("/v1/troops/battle-xp", input, "The XP did not land.");
+    return this.#post<BattleXpAward[]>("/v1/troops/battle-xp", input, "The XP did not land.", battleXpProblem);
   }
 
   async upgradeTroops(request: UpgradeTroopsRequest): Promise<UpgradeTroopsResult> {
-    return this.#post<UpgradeTroopsResult>("/v1/troops/upgrade", request, "The promotion did not go through.");
+    requireRequest(upgradeRequestProblem(request), "promotion order", "The promotion could not be written down.");
+    return this.#post<UpgradeTroopsResult>(
+      "/v1/troops/upgrade",
+      request,
+      "The promotion did not go through.",
+      upgradeResultProblem,
+    );
   }
 
-  async setTaxRate(townId: string, rate: number): Promise<void> {
-    await this.#post<void>("/v1/town/tax", { townId, rate }, "The tax order did not go through.");
+  async setTaxRate(townId: string, rate: number): Promise<TaxOrderResult> {
+    return this.#post<TaxOrderResult>("/v1/town/tax", { townId, rate }, TAX_CONFLICT, taxResultProblem, TAX_CONFLICT);
   }
 
-  async setStateTaxRate(state: string, rate: number): Promise<void> {
-    await this.#post<void>("/v1/state/tax", { state, rate }, "The state tax order did not go through.");
+  async setStateTaxRate(state: string, rate: number): Promise<TaxOrderResult> {
+    return this.#post<TaxOrderResult>("/v1/state/tax", { state, rate }, TAX_CONFLICT, taxResultProblem, TAX_CONFLICT);
   }
 
   async startConstruction(townId: string, buildingId: string): Promise<ConstructionResult> {
-    return this.#post<ConstructionResult>("/v1/town/construct", { townId, buildingId }, "The construction order did not go through.");
+    return this.#post<ConstructionResult>(
+      "/v1/town/construct",
+      { townId, buildingId },
+      "The construction order did not go through.",
+      constructionResultProblem,
+    );
   }
 
+  /**
+   * Price a march: the polyline the planner draws on the map, when it arrives, and what
+   * it will cost. Nothing is drawn from this reply without a validated route, because the
+   * map reads `route[i].x` directly.
+   */
   async planMarch(request: MarchRequest): Promise<MarchPlan> {
-    return this.#post<MarchPlan>("/v1/march/plan", request, "The march could not be planned.");
+    return this.#post<MarchPlan>("/v1/march/plan", request, "The march could not be planned.", marchPlanProblem);
   }
 
-  async commitMarch(request: MarchRequest): Promise<void> {
-    await this.#post<{ accepted: true }>("/v1/march/commit", request, "The order to march was not accepted.");
+  /**
+   * Give the march order, and wait for the simulation to say it took.
+   *
+   * Resolving with `void` was the bug this fixes: the panel could not tell an accepted
+   * march from one that never arrived, so a refused order left the party drawn as though
+   * it were on the road. The march id is returned because it is the record the cause
+   * chain can be walked from later.
+   */
+  async commitMarch(request: MarchRequest): Promise<MarchCommitResult> {
+    return this.#post<MarchCommitResult>(
+      "/v1/march/commit",
+      request,
+      "The order to march was not accepted.",
+      marchCommitProblem,
+    );
   }
 
   async why(entityId: string, field: string): Promise<WhyChain> {
@@ -249,13 +506,25 @@ export class HttpSimulationProvider implements SimulationProvider {
     return decodeWhyChain(body, url);
   }
 
-  /** One GET, with every failure turned into a `SimulationUnavailableError`. */
+  /**
+   * One GET, bounded in time, with every failure turned into a `SimulationUnavailableError`.
+   *
+   * The abort is the point of this method. `fetch` against a server that has accepted the
+   * connection and then stopped writing will hang for as long as the socket lives, which
+   * on a laptop is long enough for the player to conclude the game has frozen and reload.
+   * Eight seconds is longer than any of these endpoints has ever legitimately taken, so
+   * hitting it means something is wrong, and the retry affordance is the honest response.
+   */
   async #getJson(url: string, playerMessage: string): Promise<unknown> {
     let response: Response;
+    const call = this.#fetch(url, {
+      headers: { accept: "application/json" },
+      signal: this.#newTimeoutSignal(url),
+    });
     try {
-      response = await this.#fetch(url, { headers: { accept: "application/json" } });
+      response = await call;
     } catch (err) {
-      throw new SimulationUnavailableError(playerMessage, `GET ${url} threw: ${String(err)}`);
+      throw this.#transportError(playerMessage, `GET ${url} threw`, err);
     }
     if (!response.ok) {
       throw new SimulationUnavailableError(playerMessage, `GET ${url} -> HTTP ${response.status} ${response.statusText}`);
@@ -270,17 +539,34 @@ export class HttpSimulationProvider implements SimulationProvider {
     }
   }
 
-  async #post<T>(path: string, body: unknown, playerMessage: string): Promise<T> {
+  /**
+   * One POST, bounded in time.
+   *
+   * `check` is the endpoint's own validator rather than one shared cast, because each of
+   * these replies is read field by field by a different panel and the panels are what
+   * break when a field is missing. `conflictMessage` is what the player is told when the
+   * simulation answers 409, which is per-endpoint too: a tax conflict means the ruler
+   * moved first, which is a different fact from a stale-day conflict on a march.
+   */
+  async #post<T>(
+    path: string,
+    body: unknown,
+    playerMessage: string,
+    check?: (raw: unknown) => string | null,
+    conflictMessage?: string,
+  ): Promise<T> {
     const url = `${this.#httpUrl}${path}`;
     let response: Response;
+    const call = this.#fetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json", accept: "application/json" },
+      body: JSON.stringify(body),
+      signal: this.#newTimeoutSignal(url),
+    });
     try {
-      response = await this.#fetch(url, {
-        method: "POST",
-        headers: { "content-type": "application/json", accept: "application/json" },
-        body: JSON.stringify(body),
-      });
+      response = await call;
     } catch (err) {
-      throw new SimulationUnavailableError(playerMessage, `POST ${url} threw: ${String(err)}`);
+      throw this.#transportError(playerMessage, `POST ${url} threw`, err);
     }
     if (response.status === 409) {
       // The simulation is the authority on its own state. A conflict is a real
@@ -296,7 +582,7 @@ export class HttpSimulationProvider implements SimulationProvider {
         whyUnreadable = ` and the reason in the reply could not be read (${String(err)})`;
       }
       throw new SimulationUnavailableError(
-        reason ?? "The world moved on before that order arrived.",
+        reason ?? conflictMessage ?? "The world moved on before that order arrived.",
         `POST ${url} -> HTTP 409${whyUnreadable}`,
         false,
       );
@@ -313,7 +599,53 @@ export class HttpSimulationProvider implements SimulationProvider {
         `JSON.parse of the reply to POST ${url} threw: ${String(err)}`,
       );
     }
+    if (check) {
+      const problem = check(reply);
+      if (problem) {
+        throw new SimulationUnavailableError(
+          "The world simulation accepted that order but sent an answer this client cannot read.",
+          `POST ${url} returned a reply that failed validation: ${problem}`,
+          false,
+        );
+      }
+    }
     return reply as T;
+  }
+
+  /**
+   * An abort signal that fires after the per-call timeout.
+   *
+   * The timer is attached to the signal itself and cleared by its own abort handler, so a
+   * fast reply does not leave a timer running for the eight seconds it would otherwise
+   * have kept the event loop alive. Nothing is cleared here on purpose: `AbortSignal`
+   * has no `dispose`, and the timer is the cheapest possible thing to let expire.
+   */
+  #newTimeoutSignal(url: string): AbortSignal {
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      controller.abort(new Error(`no answer from ${url} within ${this.#timeoutMs}ms`));
+    }, this.#timeoutMs);
+    controller.signal.addEventListener("abort", () => clearTimeout(timer), { once: true });
+    return controller.signal;
+  }
+
+  /**
+   * Turn a transport failure into something the player can read.
+   *
+   * An abort is separated from every other transport failure because it means something
+   * different to the player: not "the simulation is not answering" but "it stopped
+   * answering". Both are retryable, so both offer the retry affordance, but the sentence
+   * says which one happened so nobody sits waiting on a server that has already gone.
+   */
+  #transportError(playerMessage: string, what: string, err: unknown): SimulationUnavailableError {
+    const aborted = err instanceof Error && (err.name === "AbortError" || err.name === "TimeoutError");
+    if (aborted) {
+      return new SimulationUnavailableError(
+        "The world simulation stopped answering part-way through. That usually clears on its own.",
+        `${what}: the call was aborted after ${this.#timeoutMs}ms with no reply (${String(err)})`,
+      );
+    }
+    return new SimulationUnavailableError(playerMessage, `${what}: ${String(err)}`);
   }
 
   /**
@@ -376,10 +708,7 @@ export class HttpSimulationProvider implements SimulationProvider {
 
   #scheduleReconnect(connect: () => void): void {
     if (this.#closed) return;
-    // 1s, 2s, 4s, 8s, 16s, then hold at 30s. Bounded, so a dead server neither logs
-    // without limit nor takes long to pick back up.
-    const delay = Math.min(30_000, 1000 * 2 ** Math.min(this.#attempt, 5));
-    this.#retry = setTimeout(connect, delay);
+    this.#retry = setTimeout(connect, reconnectDelayMs(this.#attempt));
   }
 
   /**
@@ -409,69 +738,35 @@ export class HttpSimulationProvider implements SimulationProvider {
 // This mirrors `validateRegion` / `validateSettlements` / `validateNetwork` in
 // `src/world/load.ts`, deliberately: one house pattern for untrusted payloads, not two.
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === "number" && Number.isFinite(value);
-}
-
-function isString(value: unknown): value is string {
-  return typeof value === "string" && value.length > 0;
-}
-
-/** The first thing wrong with a payload, as a developer-readable sentence. */
-function snapshotProblem(raw: unknown): string | null {
-  if (!isRecord(raw)) return "the reply is not a JSON object";
-  if (!isFiniteNumber(raw.day)) return "day is not a number";
-  if (!isFiniteNumber(raw.year)) return "year is not a number";
-  if (raw.eraTier !== 1 && raw.eraTier !== 2 && raw.eraTier !== 3 && raw.eraTier !== 4) {
-    return "eraTier is not one of 1, 2, 3 or 4";
-  }
-  if (!isRecord(raw.player)) return "player is missing";
-  if (!isString(raw.player.characterName)) return "player.characterName is missing";
-  if (!isRecord(raw.player.resources)) return "player.resources is missing";
-  for (const id of ["money", "gold", "food", "metal", "medicine"]) {
-    if (!isFiniteNumber(raw.player.resources[id])) return `player.resources.${id} is not a number`;
-  }
-  if (!isRecord(raw.party)) return "party is missing";
-  if (!Array.isArray(raw.party.troops)) return "party.troops is not a list";
-  if (!isFiniteNumber(raw.party.morale)) return "party.morale is not a number";
-  if (!isRecord(raw.ledger)) return "ledger is missing";
-  if (!isRecord(raw.ledger.netPerDay)) return "ledger.netPerDay is missing";
-  for (const key of ["towns", "sides", "rulers", "warnings", "notifications"]) {
-    if (!Array.isArray(raw[key])) return `${key} is not a list`;
-  }
-  for (const key of ["markets", "causeLog"]) {
-    if (!isRecord(raw[key])) return `${key} is not a table`;
-  }
-  return null;
-}
-
-function whyChainProblem(raw: unknown): string | null {
-  if (!isRecord(raw)) return "the reply is not a JSON object";
-  if (!isString(raw.entityId)) return "entityId is missing";
-  if (!Array.isArray(raw.rows)) return "rows is not a list";
-  if (!Array.isArray(raw.related)) return "related is not a list";
-  for (const [index, row] of raw.rows.entries()) {
-    if (!isRecord(row)) return `row ${index} is not a JSON object`;
-    if (!isString(row.id)) return `row ${index} has no id`;
-    if (!isFiniteNumber(row.tick)) return `row ${index} has no tick`;
-    if (!isFiniteNumber(row.old) || !isFiniteNumber(row.new)) return `row ${index} has no before or after figure`;
-    if (!Array.isArray(row.causedBy)) return `row ${index} has no cause list`;
-  }
-  return null;
-}
-
-function tickFrameProblem(raw: unknown): string | null {
-  if (!isRecord(raw)) return "the frame is not a JSON object";
-  if (!isFiniteNumber(raw.tick)) return "tick is not a number";
-  if (!isFiniteNumber(raw.day)) return "day is not a number";
-  return null;
+/**
+ * A request the client built and found malformed.
+ *
+ * Non-retryable by construction: the same object will fail the same way every time, so
+ * offering a retry would be offering a button that cannot work.
+ */
+function requireRequest(problem: string | null, what: string, playerMessage: string): void {
+  if (!problem) return;
+  throw new SimulationUnavailableError(playerMessage, `The ${what} is not a shape this client can send: ${problem}`, false);
 }
 
 function decodeSnapshot(raw: unknown, url: string): SimSnapshot {
+  // The version is checked first and on its own. A payload from a newer simulation is
+  // missing fields this client has never heard of, so field-checking it produces a list
+  // of complaints about a perfectly good snapshot; the honest answer to a world built for
+  // a later client is that this client is too old for it.
+  const versionProblem = schemaVersionProblem(raw);
+  if (versionProblem) {
+    const tooNew = versionProblem === "too new";
+    const sent = (raw as { schemaVersion?: unknown }).schemaVersion;
+    throw new SimulationUnavailableError(
+      tooNew
+        ? "This world is newer than this version of the game. Update the game to keep playing this campaign."
+        : "This world was saved by an older version of the simulation. The data predates what this build can read.",
+      `GET ${url} returned a snapshot at schema version ${String(sent)}, which is ${versionProblem}. ` +
+        `This client reads ${SNAPSHOT_SCHEMA_MIN} to ${SNAPSHOT_SCHEMA_MAX}.`,
+      false,
+    );
+  }
   const problem = snapshotProblem(raw);
   if (problem) {
     throw new SimulationUnavailableError(
@@ -483,6 +778,21 @@ function decodeSnapshot(raw: unknown, url: string): SimSnapshot {
   return raw as SimSnapshot;
 }
 
+/**
+ * A cause chain, trimmed to what a reader can follow.
+ *
+ * The cap lives here rather than in the panel so that it is one number the whole client
+ * shares and no panel can forget to apply. The newest rows are kept and the oldest
+ * dropped: a cause chain reads backwards from the effect, so the row nearest the player
+ * is the first one and the far end is the oldest history — which is the part that can be
+ * summarized without losing the answer.
+ *
+ * The cut leaves the deepest kept row pointing at causes the client no longer holds. That
+ * is deliberate rather than tidied away: pruning the dangling row instead would cascade
+ * up the whole chain and empty it, and quietly dropping its causes would be precisely the
+ * silent edit this project exists to refuse. So the chain is cut, `droppedEdges` counts
+ * what went, and the panel prints an "older history dropped" note at the cut.
+ */
 function decodeWhyChain(raw: unknown, url: string): WhyChain {
   const problem = whyChainProblem(raw);
   if (problem) {
@@ -492,5 +802,15 @@ function decodeWhyChain(raw: unknown, url: string): WhyChain {
       false,
     );
   }
-  return raw as WhyChain;
+  const chain = raw as WhyChain;
+  const held = chain.rows.length;
+  if (held <= WHY_MAX_EDGES) {
+    return { ...chain, droppedEdges: 0 };
+  }
+  return {
+    ...chain,
+    rows: chain.rows.slice(0, WHY_MAX_EDGES),
+    truncated: true,
+    droppedEdges: held - WHY_MAX_EDGES,
+  };
 }

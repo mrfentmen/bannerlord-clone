@@ -89,10 +89,25 @@ export interface BuildingInfo {
   nextDays: number;
 }
 
-/** The answer to a construction order. */
+/**
+ * The answer to a construction order.
+ *
+ * The second half is only present when `ok` is true, and it is what the project card
+ * counts down to: `completionTick` is the tick the tier finishes on and `daysLeft` is
+ * the simulation's own remaining-time figure. Both come from the simulation because the
+ * client does not know what a day is worth to a mason.
+ */
 export interface ConstructionResult {
   ok: boolean;
   message: string;
+  /** The building queued, by id. Absent on a refusal. */
+  buildingId?: string;
+  /** The building's display name, so the card can print it without a lookup. */
+  buildingName?: string;
+  /** The tick the project completes on. Absent on a refusal. */
+  completionTick?: number;
+  /** Days remaining as the simulation counts them. Absent on a refusal. */
+  daysLeft?: number;
 }
 
 export interface TownState {
@@ -528,6 +543,48 @@ export interface MarchPlan {
   unmapped: boolean;
 }
 
+/**
+ * A march the simulation accepted, and the record it filed.
+ *
+ * `marchId` is why this is not `Promise<void>`: an accepted march is a thing in the
+ * simulation's log that the cause chain can be walked from later, and a client that
+ * threw the id away could never link the march to the unrest it caused on the road.
+ */
+export interface MarchCommitResult {
+  marchId: string;
+  destinationName: string;
+  /** The in-game day the party is expected to arrive. */
+  arrivalDay: number;
+  /** Days on the road. */
+  days: number;
+}
+
+/**
+ * The authoritative result of a tax order.
+ *
+ * The simulation clamps (a town is 0 to 0.5, a state 0 to 0.15) and it is the only thing
+ * that knows what it clamped to, so the panel shows `rate` — what came back — rather
+ * than what the player asked for.
+ */
+export interface TaxOrderResult {
+  rate: number;
+}
+
+/**
+ * The simulation's answer to a speed change.
+ *
+ * `accepted: false` is an error, not a quiet no-op. A speed the dial shows but the
+ * simulation did not take is the one desync this client cannot have, so the caller has
+ * to be told and has to put the dial back.
+ */
+export interface TimeScaleResult {
+  accepted: boolean;
+  /** The speed actually in force, which is only there when `accepted` is true. */
+  daysPerRealSecond?: number;
+  /** Why the simulation refused, in its own words. */
+  reason?: string;
+}
+
 export interface TradeRequest {
   partyId: string;
   townId: string;
@@ -587,9 +644,25 @@ export interface WhyChain {
   /** How many rows the simulation actually holds, before any truncation. */
   totalDepth: number;
   truncated: boolean;
+  /**
+   * Edges dropped to keep the chain followable, oldest first.
+   *
+   * `0` when nothing was dropped. The Why panel prints this rather than a bare
+   * "truncated", because a chain that quietly ends is indistinguishable from a chain
+   * that really ended, and that is the one ambiguity this project exists to remove.
+   */
+  droppedEdges?: number;
 }
 
 export interface SimSnapshot {
+  /**
+   * The snapshot schema version this payload was written against.
+   *
+   * Present so the client can refuse a world it does not understand *before* it starts
+   * field-checking fields the newer version may not even have, which is what turns a
+   * version skew into a blank panel. See `SNAPSHOT_SCHEMA_MIN` / `MAX` in `wire.ts`.
+   */
+  schemaVersion: number;
   /** In-game clock. */
   day: number;
   year: number;
@@ -669,7 +742,9 @@ export interface PlayerCharacter {
   biography: string;
 }
 
-export interface SimulationProvider {  readonly kind: "http" | "fixture";
+/** The full read and write surface the client needs from the simulation. */
+export interface SimulationProvider {
+  readonly kind: "http" | "fixture";
   /** Shown in the data-source panel so the player knows what they are looking at. */
   readonly label: string;
   getSnapshot(): Promise<SimSnapshot>;
@@ -680,9 +755,20 @@ export interface SimulationProvider {  readonly kind: "http" | "fixture";
   /** Raise a notable's relation with a gift or a favor. */
   improveRelation(request: ImproveRelationRequest): Promise<ImproveRelationResult>;
   planMarch(request: MarchRequest): Promise<MarchPlan>;
-  commitMarch(request: MarchRequest): Promise<void>;
-  /** Days of game time per real second. Zero pauses the clock. */
-  setTimeScale(daysPerRealSecond: number): void;
+  /**
+   * Give the order. Resolves with the simulation's record of the march, and rejects if
+   * the march was not accepted, so a party that did not set off is never drawn as though
+   * it had.
+   */
+  commitMarch(request: MarchRequest): Promise<MarchCommitResult>;
+  /**
+   * Days of game time per real second. Zero pauses the clock.
+   *
+   * Returns a promise because the dial must not move until the simulation has agreed to
+   * the speed. A rejected change leaves the caller's clock where it was rather than
+   * showing a speed the world is not running at.
+   */
+  setTimeScale(daysPerRealSecond: number): Promise<TimeScaleResult>;
   /** Run the clock until the party's march completes. Resolves with days advanced. */
   skipToArrival(): Promise<{ daysAdvanced: number }>;
   /** Set the player's ethnicity (culture). Applies bonuses from that point on. */
@@ -693,10 +779,16 @@ export interface SimulationProvider {  readonly kind: "http" | "fixture";
   awardBattleXp(input: BattleXpInput): Promise<BattleXpAward[]>;
   /** Promote a troop stack to the next tier, spending banked XP and gold. */
   upgradeTroops(request: UpgradeTroopsRequest): Promise<UpgradeTroopsResult>;
-  /** Set a town's tax rate (0-0.5). The holder's order; the simulation clamps it. */
-  setTaxRate(townId: string, rate: number): Promise<void>;
-  /** Set the state-level tax rate for every town in a US state. */
-  setStateTaxRate(state: string, rate: number): Promise<void>;
+  /**
+   * Set a town's tax rate (0-0.5). The holder's order; the simulation clamps it and
+   * answers with the rate actually in force.
+   */
+  setTaxRate(townId: string, rate: number): Promise<TaxOrderResult>;
+  /**
+   * Set the state-level tax rate for every town in a US state. Clamped harder than a
+   * town's, and answered the same way.
+   */
+  setStateTaxRate(state: string, rate: number): Promise<TaxOrderResult>;
   /** Queue a settlement project in a town. One project at a time. */
   startConstruction(townId: string, buildingId: string): Promise<ConstructionResult>;
   why(entityId: string, field: string): Promise<WhyChain>;

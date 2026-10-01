@@ -29,6 +29,7 @@ import type {
   Ledger,
   MarketGood,
   MarketState,
+  MarchCommitResult,
   MarchPlan,
   MarchRequest,
   Notable,
@@ -53,9 +54,12 @@ import type {
   UpgradeTroopsRequest,
   UpgradeTroopsResult,
   ConstructionResult,
+  TaxOrderResult,
+  TimeScaleResult,
   WhyChain,
 } from "../types.js";
 import { troopStackPower, troopTier } from "../types.js";
+import { SNAPSHOT_SCHEMA_VERSION } from "../wire.js";
 
 /** Marker strings. `tools/check-no-fixtures.mjs` greps the production bundle for
  *  these, so this module cannot be smuggled into a shipped build unnoticed. */
@@ -219,7 +223,7 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     improveRelation: async (request) => state.improveRelation(request),
     planMarch: async (request) => state.planMarch(request),
     commitMarch: async (request) => state.commitMarch(request),
-    setTimeScale: (daysPerRealSecond) => state.setTimeScale(daysPerRealSecond),
+    setTimeScale: async (daysPerRealSecond) => state.setTimeScale(daysPerRealSecond),
     skipToArrival: async () => state.skipToArrival(),
     setEthnicity: (ethnicityId) => state.setEthnicity(ethnicityId),
     setCharacter: (character) => state.setCharacter(character),
@@ -590,6 +594,9 @@ class FixtureState {
     const party = structuredClone(this.#party);
     party.morale = Math.min(1, Math.max(0, party.morale + fx.partyMoraleBonus + fx.desertMoralePenalty));
     return {
+      // Stamped like the real server does, so the client's version gate is exercised by
+      // the fixture too rather than only by a hand-written test payload.
+      schemaVersion: SNAPSHOT_SCHEMA_VERSION,
       day: this.#day,
       year: this.#year,
       eraTier: 4,
@@ -1086,15 +1093,36 @@ class FixtureState {
     };
   }
 
-  async commitMarch(request: MarchRequest): Promise<void> {
+  /**
+   * Give the march order and file it as a record.
+   *
+   * The march id is not decoration: it goes into the cause log as the id of the row that
+   * wrote the party's destination, so "why is my party on the road" is walkable from the
+   * id the client was handed. That is the whole premise, and it only works if the commit
+   * hands the id back rather than throwing it away.
+   */
+  async commitMarch(request: MarchRequest): Promise<MarchCommitResult> {
     const plan = await this.planMarch(request);
     if (plan.unmapped) {
       throw new Error(`Cannot march to ${plan.destinationName}: no surveyed road.`);
     }
+    const marchId = `march-${this.#sequence + 1}`;
     this.#party.destination = { settlementId: request.destinationSettlementId, name: plan.destinationName };
     this.#party.marchingSinceDay = this.#day;
     this.#party.food = round2(this.#party.food - plan.cost.food);
     this.#player.resources.money = round2(this.#player.resources.money - plan.cost.money);
+    // Written against the `destination` field, because that is the field the HUD asks
+    // about: `why(partyId, "destination")` reaches this row and no other.
+    const causedBy = this.#row(
+      "destination",
+      this.#party.id,
+      this.#party.name,
+      0,
+      1,
+      "Player",
+      [],
+      `The order to march on ${plan.destinationName} was given and accepted: ${plan.days} days, arriving day ${plan.arrivalDay}.`,
+    );
     this.#notifications.push({
       id: `n-march-${this.#sequence}`,
       day: this.#day,
@@ -1102,8 +1130,10 @@ class FixtureState {
       text: `Marching on ${plan.destinationName}. ${plan.days} days, ${formatDistance(plan.distanceKm)}.`,
       entityId: this.#party.id,
       field: "destination",
+      causedBy,
     });
     this.#emit({ tick: this.#tick, day: this.#day, party: structuredClone(this.#party), notifications: structuredClone(this.#notifications.slice(-6)) });
+    return { marchId, destinationName: plan.destinationName, arrivalDay: plan.arrivalDay, days: plan.days };
   }
 
   subscribe(onTick: (t: TickUpdate) => void, onStatus: (s: ConnectionStatus) => void): () => void {
@@ -1409,8 +1439,15 @@ class FixtureState {
   /**
    * Days of game time per real second. Zero pauses the clock. The dial in the HUD
    * is the only caller; the simulation does not guess at speeds on its own.
+   *
+   * Returns the accepted speed rather than nothing, to match the HTTP provider's
+   * contract: the caller is owed an answer either way, and the HUD moves the dial on the
+   * answer rather than on the click.
    */
-  setTimeScale(daysPerRealSecond: number): void {
+  setTimeScale(daysPerRealSecond: number): TimeScaleResult {
+    if (!Number.isFinite(daysPerRealSecond) || daysPerRealSecond < 0) {
+      throw new Error(`Time scale must be zero or a positive number, got ${daysPerRealSecond}`);
+    }
     if (this.#timer !== null) {
       clearInterval(this.#timer);
       this.#timer = null;
@@ -1418,6 +1455,7 @@ class FixtureState {
     if (daysPerRealSecond > 0) {
       this.#timer = setInterval(() => this.#step(), 1000 / daysPerRealSecond);
     }
+    return { accepted: true, daysPerRealSecond };
   }
 
   /**
@@ -1439,16 +1477,35 @@ class FixtureState {
     this.#player.ethnicityId = ethnicityId;
   }
 
-  /** Holder's order: set a town's tax rate, clamped to 0-0.5. */
-  async setTaxRate(townId: string, rate: number): Promise<void> {
+  /**
+   * Holder's order: set a town's tax rate, clamped to 0-0.5.
+   *
+   * Answers with the rate actually in force rather than the one asked for, which is the
+   * whole reason this returns a value: the stepper shows what the simulation decided, so
+   * an order that was clamped is visible as a clamped number rather than as the player
+   * having got what they typed.
+   */
+  async setTaxRate(townId: string, rate: number): Promise<TaxOrderResult> {
     const town = this.#towns.get(townId);
     if (!town) throw new Error(`Unknown town ${townId}`);
+    const before = town.taxRate;
     town.taxRate = Math.min(0.5, Math.max(0, rate));
     town.updatedTick = this.#tick;
+    this.#row(
+      "taxRate",
+      town.id,
+      town.name,
+      before,
+      town.taxRate,
+      "Player",
+      [],
+      `${town.name}'s tax rate was set to ${(town.taxRate * 100).toFixed(1)} percent.`,
+    );
+    return { rate: town.taxRate };
   }
 
   /** Holder's order: set the state-level rate for every town in a US state. */
-  async setStateTaxRate(state: string, rate: number): Promise<void> {
+  async setStateTaxRate(state: string, rate: number): Promise<TaxOrderResult> {
     const clamped = Math.min(0.15, Math.max(0, rate));
     let any = false;
     for (const town of this.#towns.values()) {
@@ -1459,9 +1516,16 @@ class FixtureState {
       }
     }
     if (!any) throw new Error(`No towns in state ${state}`);
+    return { rate: clamped };
   }
 
-  /** Holder's order: queue a settlement project. One at a time, costs town money. */
+  /**
+   * Holder's order: queue a settlement project. One at a time, costs town money.
+   *
+   * An acceptance carries the tick the project finishes on, because the project card
+   * counts down to it and the client has no way to know how many ticks a mason needs.
+   * A refusal carries the reason and no countdown, since there is nothing to count down.
+   */
   async startConstruction(townId: string, buildingId: string): Promise<ConstructionResult> {
     const town = this.#towns.get(townId);
     if (!town) return { ok: false, message: `Unknown town ${townId}.` };
@@ -1482,7 +1546,14 @@ class FixtureState {
     town.constructionBuilding = buildingId;
     town.constructionDaysLeft = Math.max(1, Math.round(cost * BUILDING_DAYS_PER_COST));
     town.updatedTick = this.#tick;
-    return { ok: true, message: `${def.name} tier ${info.level + 1} started in ${town.name} (${town.constructionDaysLeft} days).` };
+    return {
+      ok: true,
+      message: `${def.name} tier ${info.level + 1} started in ${town.name} (${town.constructionDaysLeft} days).`,
+      buildingId,
+      buildingName: def.name,
+      completionTick: this.#tick + town.constructionDaysLeft,
+      daysLeft: town.constructionDaysLeft,
+    };
   }
 
   #buildingName(id: string): string {
