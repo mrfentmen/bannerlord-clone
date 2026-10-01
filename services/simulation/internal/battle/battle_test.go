@@ -64,6 +64,25 @@ func loadConfig(t testing.TB) *config.Config {
 	return cfg
 }
 
+// copiedConfig returns a private copy of the balance config, for a test that
+// intends to change a constant in it.
+//
+// loadConfig caches one *config.Config for the whole test binary and hands the
+// SAME pointer to every test in the run. That is the right thing for a test that
+// only reads, and it is a trap for a test that writes: mutating through the
+// returned pointer rewrites the config every later test will load, and a case
+// like "set tick_seconds to zero and expect an error" leaves tick_seconds at
+// zero for the rest of the binary. Every other test then fails with a confusing
+// error about a constant nobody touched, and the suite result means nothing.
+//
+// So a test that breaks a constant copies first. Battle is a struct of scalars,
+// so copying the Config copies it.
+func copiedConfig(t testing.TB) *config.Config {
+	t.Helper()
+	c := *loadConfig(t)
+	return &c
+}
+
 // findBalanceFile walks up from the test's working directory looking for
 // config/balance.toml.
 func findBalanceFile() (string, error) {
@@ -426,16 +445,30 @@ func TestBattleSizeIsConfigurable(t *testing.T) {
 	t.Run("a raised limit is accepted unchanged", func(t *testing.T) {
 		// Prove the limit is the only thing standing between the engine and a
 		// bigger battle: raise it, run the same oversized force, succeed.
-		raised := loadConfig(t)
+		//
+		// The force is sized from the ORIGINAL limit, not the raised one. It used
+		// to read the limit back out of the raised config, which builds a force
+		// of raised+1 units and then correctly fails against the raised limit:
+		// the test was proving the opposite of what it says, and passing a
+		// smaller force than it intended to.
+		original := int(cfg.Battle.MaxUnitsPerSide)
+		oversized := original + 1
+		raised := copiedConfig(t)
 		raised.Battle.MaxUnitsPerSide = cfg.Battle.MaxUnitsPerSide * 2
-		limit := int(raised.Battle.MaxUnitsPerSide)
-		setup, err := standardForce(t, raised, 3, limit+1)
+		if int(raised.Battle.MaxUnitsPerSide) <= oversized {
+			t.Fatalf("the test needs the raised limit (%d) to exceed the oversized force (%d)",
+				int(raised.Battle.MaxUnitsPerSide), oversized)
+		}
+		setup, err := standardForce(t, raised, 3, oversized)
 		if err != nil {
 			t.Fatalf("force: %v", err)
 		}
 		if _, err := Run(raised, 3, setup); err != nil {
-			t.Fatalf("with the limit raised to %g the same force still failed: %v", raised.Battle.MaxUnitsPerSide, err)
+			t.Fatalf("with the limit raised to %g the same force still failed: %v",
+				raised.Battle.MaxUnitsPerSide, err)
 		}
+		t.Logf("a %d unit a side force was refused at a limit of %d and accepted at %d",
+			oversized, original, int(raised.Battle.MaxUnitsPerSide))
 	})
 }
 
@@ -604,7 +637,7 @@ func TestInvalidConfigRejected(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			cfg := loadConfig(t)
+			cfg := copiedConfig(t)
 			tc.break_(&cfg.Battle)
 			res, err := Run(cfg, 1, Setup{A: good, B: other})
 			if err == nil {
