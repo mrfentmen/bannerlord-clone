@@ -8,7 +8,8 @@
 
 import { clear, h } from "../dom.js";
 import { BACKGROUNDS, appearancesForEthnicity, computeCharacterStats,
-  START_CITIES, AGE_BRACKETS, DIFFICULTIES, clanNamesForEthnicity, type GameCharacter } from "../../data/backgrounds.js";
+  START_CITIES, AGE_BRACKETS, DIFFICULTIES, clanNamesForEthnicity,
+  scenarioForBackgrounds, type GameCharacter } from "../../data/backgrounds.js";
 import { ETHNICITIES } from "../../data/ethnicities.js";
 
 export interface CharacterMakerOptions {
@@ -505,6 +506,18 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     card.appendChild(h("p", {}, `Starting cash: $${cash.toLocaleString()}`));
     card.appendChild(h("h4", {}, "Biography"));
     card.appendChild(h("p", { class: "caption" }, biography));
+
+    // Starting scenario based on background.
+    const scenario = scenarioForBackgrounds(backgroundChoices);
+    if (scenario) {
+      card.appendChild(h("h4", {}, "Your first quest"));
+      const scenarioBox = h("div", { style: "background:#2a1a1a;border-left:4px solid #ff6b6b;padding:12px;margin:8px 0;border-radius:4px" });
+      scenarioBox.appendChild(h("strong", {}, scenario.title));
+      scenarioBox.appendChild(h("p", { class: "caption" }, scenario.description));
+      scenarioBox.appendChild(h("p", {}, `Objective: ${scenario.objective}`));
+      scenarioBox.appendChild(h("p", { class: "caption" }, `Reward: ${scenario.reward}`));
+      card.appendChild(scenarioBox);
+    }
 
     frag.appendChild(card);
     return frag;
