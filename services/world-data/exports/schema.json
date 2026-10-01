@@ -2,8 +2,8 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Mount and Blade clone - Phase 0 world data",
   "description": "Schema of the world data produced by services/world-data. Inferred from the exported rows, so it describes what was produced rather than what was intended. Field definitions come from CAUSE_EFFECT.md section 2 for town fields and SPEC.md section 3 for the entity model.",
-  "generated_at": "2026-09-30T20:37:53Z",
-  "generated_at_iso": "2026-09-30T20:40:57.397680+00:00",
+  "generated_at": "2026-10-01T03:11:55Z",
+  "generated_at_iso": "2026-10-01T03:14:27.569500+00:00",
   "pipeline_version": "1.0.0",
   "census_year": 2020,
   "estimates_vintage": 2023,
@@ -922,7 +922,7 @@
     },
     {
       "table": "routes",
-      "row_count": 13274,
+      "row_count": 10325,
       "sampled_rows_for_types": 500,
       "column_count": 8,
       "columns": [
@@ -932,8 +932,8 @@
           "nullable": false,
           "examples": [
             "32.010378401572076",
-            "2.730439732167008",
-            "2.092150507856718"
+            "5.9298881772287055",
+            "15.548247477665077"
           ]
         },
         {
@@ -943,7 +943,7 @@
           "examples": [
             "01-00124",
             "01-00460",
-            "01-00460"
+            "01-00820"
           ]
         },
         {
@@ -962,8 +962,8 @@
           "nullable": false,
           "examples": [
             "0.5339948107992138",
-            "0.5486347801339164",
-            "0.5494765274709363"
+            "0.29959683529089726",
+            "0.5461027923635163"
           ]
         },
         {
@@ -972,8 +972,8 @@
           "nullable": false,
           "examples": [
             "rail:01-00124->01-33856",
-            "rail:01-00460->01-21136",
-            "rail:01-00460->01-31384"
+            "rail:01-00460->01-52776",
+            "rail:01-00820->01-34024"
           ]
         },
         {
@@ -992,8 +992,8 @@
           "nullable": false,
           "examples": [
             "[\"rail-11030115297122\"]",
-            "[\"rail-1106258666489\"]",
-            "[\"rail-1106258666479\", \"rail-1106258666495\"]"
+            "[\"rail-11081149056\"]",
+            "[\"rail-11016954150392\", \"rail-11019640481938\"]"
           ]
         },
         {
@@ -1002,8 +1002,8 @@
           "nullable": false,
           "examples": [
             "01-33856",
-            "01-21136",
-            "01-31384"
+            "01-52776",
+            "01-34024"
           ]
         }
       ]
@@ -1321,7 +1321,7 @@
     },
     {
       "table": "terrain_samples",
-      "row_count": 13181,
+      "row_count": 13189,
       "sampled_rows_for_types": 500,
       "column_count": 5,
       "columns": [

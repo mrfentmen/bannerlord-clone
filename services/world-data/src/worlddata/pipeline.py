@@ -133,6 +133,32 @@ def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _match_boundary(row, place_by_key, by_name_state):
+    """Match a settlement row to its Census place polygon.
+
+    Most settlements match by place FIPS. Consolidated governments
+    (Indianapolis, Louisville/Jefferson County, Nashville-Davidson, ...) carry
+    no place FIPS in the Census population file, so their settlement id is
+    ``<state>-nm-<name>``; the boundary file holds the same place under
+    ``<name> (balance)``, which is the same urban area minus the separately
+    incorporated towns. Without this fallback those settlements ship with null
+    coordinates and are invisible to the map, the route graph, and terrain
+    sampling despite carrying full simulation state.
+
+    The ``by_name_state`` index is keyed by (state FIPS, place name) because
+    PlaceBoundary carries no state name; lookups must use ``row.state_fips``.
+    """
+    boundary = place_by_key.get(row.settlement_id)
+    if boundary is not None:
+        return boundary
+    boundary = by_name_state.get((row.state_fips, row.name))
+    if boundary is not None:
+        return boundary
+    if "-nm-" in row.settlement_id:
+        return by_name_state.get((row.state_fips, row.name + " (balance)"))
+    return None
+
+
 def run(
     config: Config | None = None,
     *,
@@ -297,7 +323,7 @@ def run(
     }
     settlement_points: dict[str, tuple[float, float]] = {}
     for row in kept:
-        boundary = place_by_key.get(row.settlement_id) or by_name_state.get((row.state_name, row.name))
+        boundary = _match_boundary(row, place_by_key, by_name_state)
         if boundary is not None:
             settlement_points[row.settlement_id] = (boundary.longitude, boundary.latitude)
     result.log(
@@ -329,7 +355,7 @@ def run(
     seeds: list[SettlementSeed] = []
     missing_boundary = 0
     for row in kept:
-        boundary = place_by_key.get(row.settlement_id) or by_name_state.get((row.state_name, row.name))
+        boundary = _match_boundary(row, place_by_key, by_name_state)
         if boundary is None:
             missing_boundary += 1
         profile = profile_by_fips[row.state_fips]

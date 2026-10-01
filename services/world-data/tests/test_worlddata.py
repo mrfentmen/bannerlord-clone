@@ -970,3 +970,44 @@ def test_every_dataset_declares_its_source_and_licence():
         assert dataset.licence
         assert dataset.used_for
         assert dataset.version
+
+
+def test_match_boundary_falls_back_to_balance_for_consolidated_governments():
+    """Consolidated governments (no place FIPS) match their '(balance)' polygon.
+
+    Regression test for the 2026-09-30 audit finding: 8 '-nm-' settlements
+    (Indianapolis, Louisville, Nashville-Davidson, ...) shipped with null
+    coordinates because the boundary file names their polygon
+    '<name> (balance)'.
+    """
+    from types import SimpleNamespace
+
+    from worlddata.pipeline import _match_boundary
+
+    balance = SimpleNamespace(name="Indianapolis city (balance)")
+    by_key = {}
+    # The real index is keyed by (state FIPS, name): PlaceBoundary carries no
+    # state name.
+    by_name = {("18", "Indianapolis city (balance)"): balance}
+
+    row = SimpleNamespace(
+        settlement_id="18-nm-Indianapolis city",
+        state_fips="18",
+        state_name="Indiana",
+        name="Indianapolis city",
+    )
+    assert _match_boundary(row, by_key, by_name) is balance
+
+    # Ordinary FIPS and name matches still take precedence.
+    fips_boundary = SimpleNamespace(name="Somewhere city")
+    by_key2 = {"18-12345": fips_boundary}
+    row2 = SimpleNamespace(
+        settlement_id="18-12345", state_fips="18", state_name="Indiana", name="Somewhere city"
+    )
+    assert _match_boundary(row2, by_key2, by_name) is fips_boundary
+
+    # A non-nm settlement with no match stays unmatched (nulls, not a guess).
+    row3 = SimpleNamespace(
+        settlement_id="18-99999", state_fips="18", state_name="Indiana", name="Nowhere town"
+    )
+    assert _match_boundary(row3, {}, {}) is None

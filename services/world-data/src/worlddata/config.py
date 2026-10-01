@@ -95,6 +95,7 @@ class TravelConfig:
     kmh_rail: float
     road_class_mtfcc: dict[str, str]
     segment_warning_km: float
+    min_segment_gc_fraction: float
 
     def speed_for_mtfcc(self, mtfcc: str | None) -> float:
         """Speed in km/h for a Census MTFCC road code.
@@ -374,6 +375,9 @@ def load_config(path: Path | str | None = None) -> Config:
         kmh_rail=_require_positive("[travel].kmh_rail", travel_table["kmh_rail"]),
         road_class_mtfcc={str(k).upper(): str(v) for k, v in travel_table["road_class_mtfcc"].items()},
         segment_warning_km=_require_positive("[travel].segment_warning_km", travel_table["segment_warning_km"]),
+        min_segment_gc_fraction=_require_fraction(
+            "[travel].min_segment_gc_fraction", travel_table["min_segment_gc_fraction"]
+        ),
     )
 
     ratings_table = raw["ratings"]

@@ -408,12 +408,13 @@ def load_routes(
         "the export can seek to a segment instead of rescanning the file."
     )
 
-    routes = _build_route_edges(segments)
+    routes, phantom_note = _build_route_edges(segments, settlement_points, config)
     connected = sum(1 for route in routes if route.from_settlement_id and route.to_settlement_id)
     notes.append(
         f"Built {len(routes)} settlement-to-settlement route edges from {len(segments)} imported lines "
         f"({connected} have settlements at both ends)."
     )
+    notes.append(phantom_note)
     notes.append(
         "Road length is the sum of great-circle distances between consecutive real vertices of the Census "
         "centreline. It is not a posted-mileage figure and will be shorter on mountainous terrain than a "
@@ -422,8 +423,27 @@ def load_routes(
     return segments, routes, notes
 
 
-def _build_route_edges(segments: list[RouteSegment]) -> list[Route]:
-    """Turn snapped segments into undirected settlement-to-settlement routes."""
+def _build_route_edges(
+    segments: list[RouteSegment],
+    settlement_points: dict[str, Coord],
+    config: Config,
+) -> list[Route]:
+    """Turn snapped segments into undirected settlement-to-settlement routes.
+
+    Two guards keep phantom edges out of the route graph:
+
+    1. A member segment must cover a substantial fraction of the straight-line
+       distance between its two snapped settlements
+       (``travel.min_segment_gc_fraction``). A 30-metre rail siding whose
+       endpoints snap to towns 19 km away is a local fragment, not a
+       town-to-town connection; without this guard it becomes a route whose
+       recorded length is shorter than the straight line, which is
+       geometrically impossible.
+    2. A route's distance is floored at the great-circle distance between its
+       endpoints. Real infrastructure can only be longer than the straight
+       line, never shorter.
+    """
+    min_fraction = config.travel.min_segment_gc_fraction
     grouped: dict[tuple[str, str, str], list[RouteSegment]] = {}
     for segment in segments:
         if segment.from_settlement_id is None or segment.to_settlement_id is None:
@@ -436,12 +456,21 @@ def _build_route_edges(segments: list[RouteSegment]) -> list[Route]:
         grouped.setdefault((left, right, segment.kind), []).append(segment)
 
     routes: list[Route] = []
+    dropped_phantom = 0
     for (left, right, kind), members in sorted(grouped.items()):
-        length = sum(segment.length_km for segment in members)
+        gc_km = haversine_km(settlement_points[left], settlement_points[right])
+        plausible = [s for s in members if s.length_km >= min_fraction * gc_km]
+        dropped_phantom += len(members) - len(plausible)
+        if not plausible:
+            continue
+        length = sum(segment.length_km for segment in plausible)
+        # Geometric floor: no path between two points is shorter than the
+        # straight line between them.
+        length = max(length, gc_km)
         # Length-weighted mean safety: a short dangerous spur should not drag a
         # long safe highway down as hard as a long dangerous one would lift it.
         safety = (
-            sum(segment.road_safety * segment.length_km for segment in members) / length if length > 0 else 0.0
+            sum(segment.road_safety * segment.length_km for segment in plausible) / length if length > 0 else 0.0
         )
         routes.append(
             Route(
@@ -450,11 +479,16 @@ def _build_route_edges(segments: list[RouteSegment]) -> list[Route]:
                 to_settlement_id=right,
                 distance_km=length,
                 road_safety=safety,
-                segment_ids=tuple(segment.segment_id for segment in members),
+                segment_ids=tuple(segment.segment_id for segment in plausible),
                 kind=kind,
             )
         )
-    return routes
+    notes_phantom = (
+        f"Dropped {dropped_phantom} line fragments whose length covers less than "
+        f"{min_fraction:.0%} of the straight-line distance between their snapped "
+        f"settlements (local spurs/sidings, not town-to-town connections)."
+    )
+    return routes, notes_phantom
 
 
 def segment_bounds(store: GeometryStore, segment: RouteSegment) -> tuple[tuple[float, float], tuple[float, float]] | None:
