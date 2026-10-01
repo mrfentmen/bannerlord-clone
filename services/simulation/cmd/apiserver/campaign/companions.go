@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"sort"
 	"strings"
+	"sync"
 )
 
-// Companion roles for party staff.
 type CompanionRole string
 
 const (
@@ -43,7 +43,6 @@ const (
 	RecruitWinFight   = "win_fight"
 )
 
-// Companion is a named hireable NPC.
 type Companion struct {
 	ID           string
 	Name         string
@@ -62,7 +61,6 @@ type Companion struct {
 	LeftReason   string
 }
 
-// CompanionView is the JSON shape for the API.
 type CompanionView struct {
 	ID           string         `json:"id"`
 	Name         string         `json:"name"`
@@ -86,6 +84,11 @@ type companionState struct {
 	tavernCache map[int][]string
 }
 
+var (
+	companionStatesMu sync.Mutex
+	companionStates   = map[*Campaign]*companionState{}
+)
+
 func newCompanionState() *companionState {
 	cs := &companionState{
 		byID:        make(map[string]*Companion, len(companionPool)),
@@ -99,13 +102,16 @@ func newCompanionState() *companionState {
 }
 
 func (c *Campaign) ensureCompanions() *companionState {
-	if c.companions == nil {
-		c.companions = newCompanionState()
+	companionStatesMu.Lock()
+	defer companionStatesMu.Unlock()
+	cs, ok := companionStates[c]
+	if !ok {
+		cs = newCompanionState()
+		companionStates[c] = cs
 	}
-	return c.companions
+	return cs
 }
 
-// TavernCompanions returns 0-3 companions available in a town tavern.
 func (c *Campaign) TavernCompanions(ctx context.Context, townID int) ([]CompanionView, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -174,7 +180,6 @@ func pickTavernCompanions(cs *companionState, townName string, townID int) []str
 	return picked
 }
 
-// HireCompanion recruits under the companion's condition.
 func (c *Campaign) HireCompanion(ctx context.Context, companionID string) (*CompanionView, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -232,7 +237,6 @@ func (c *Campaign) HireCompanion(ctx context.Context, companionID string) (*Comp
 	return &v, nil
 }
 
-// ListHiredCompanions returns companions in the party.
 func (c *Campaign) ListHiredCompanions(ctx context.Context) ([]CompanionView, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -248,7 +252,6 @@ func (c *Campaign) ListHiredCompanions(ctx context.Context) ([]CompanionView, er
 	return out, nil
 }
 
-// AssignCompanionRole sets a party role.
 func (c *Campaign) AssignCompanionRole(ctx context.Context, companionID string, role CompanionRole) (*CompanionView, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
