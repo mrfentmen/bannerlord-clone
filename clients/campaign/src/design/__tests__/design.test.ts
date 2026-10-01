@@ -46,7 +46,9 @@ describe("no invented design system", () => {
     // generated from both. factions.ts holds the locked faction palettes (task 18)
     // and highContrast.ts the locked high-contrast theme (task 19): both are
     // palettes in their own right, verified by their own contrast tests.
-    // Everything else must use a token.
+    // Everything else must use a token. src/clan/bannerPalette.ts holds the
+    // locked heraldic palette for the clan banner designer (task 81): a
+    // palette in its own right, like factions.ts.
     const allowed = new Set([
       "src/design/tokens.ts",
       "src/design/tokens-css.ts",
@@ -55,6 +57,7 @@ describe("no invented design system", () => {
       "src/design/highContrast.ts",
       "src/design/tokens.css",
       "src/data/fixture/fixtureProvider.ts",
+      "src/clan/bannerPalette.ts",
     ]);
     const offenders: string[] = [];
     for (const file of sourceFiles(UI)) {

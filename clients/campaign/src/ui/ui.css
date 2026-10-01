@@ -2210,3 +2210,39 @@ html[data-reduce-motion] *::after {
   align-self: flex-start;
   padding: 10px 24px;
 }
+
+/* Clan & family (MASTER_PLAN 3A, tasks 76-84). */
+.clan-tree {
+  width: 100%;
+  overflow: auto;
+  border: 1px solid var(--ink-300);
+  border-radius: 8px;
+  background: var(--paper-0);
+}
+.clan-tree-svg {
+  width: 100%;
+  min-height: 320px;
+}
+.clan-tree-edge {
+  stroke: var(--ink-300);
+  stroke-width: 2;
+}
+.clan-tree-node rect {
+  fill: var(--paper-0);
+  stroke: var(--accent-primary);
+  stroke-width: 2;
+}
+.clan-tree-node text {
+  fill: var(--ink-900);
+  font-size: 13px;
+}
+.clan-tree-node.is-dead rect {
+  fill: var(--ink-300);
+  stroke: var(--ink-500);
+}
+.clan-tree-node.is-dead text {
+  fill: var(--ink-500);
+}
+.clan-tree-years {
+  font-size: 11px;
+}
