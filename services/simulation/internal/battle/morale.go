@@ -202,7 +202,7 @@ func (b *Battle) stageMorale() {
 		if u.Role == RoleRanged && s.Ammo < 1 {
 			d.Morale -= c.MoraleUnarmedHit * dt
 		}
-		if s.Suppression < c.SuppressionCap*recoverySuppressionBand &&
+		if s.Suppression < c.SuppressionCap*c.MoraleRecoverySuppressionBand &&
 			enemy == 0 && s.Status == StatusFighting {
 			d.Morale += c.MoraleRecovery * dt
 		}
@@ -211,14 +211,17 @@ func (b *Battle) stageMorale() {
 	}
 }
 
-// recoverySuppressionBand is the share of full suppression below which a unit is
-// considered out of contact for the purpose of recovering morale.
+// recoverySuppressionBand is gone. It is now
+// battle.morale_recovery_suppression_band in the balance file. The reasoning it
+// carried is kept, because it is the answer to why a threshold inside a rule
+// still belongs in the balance file.
 //
-// It is a threshold inside a rule rather than a tunable rate, so it is a named
-// constant here and not a balance knob: at what point a man under fire has got
-// his head down is a matter of what "under fire" means, not a number a designer
-// tunes. Below this band a unit with no enemy in sight creeps back toward steady.
-const recoverySuppressionBand = 0.05
+// It is a threshold inside a rule rather than a tunable rate: at what point a
+// man under fire has got his head down is a matter of what "under fire" means,
+// not a rate a designer tunes. It was still a number that decided whether a
+// shaken line could recover, and CONSTITUTION.md section 1.2 has no exception
+// for numbers that are easy to reason about. Below this band a unit with no
+// enemy in sight creeps back toward steady.
 
 // resolveCondition turns a unit's morale into a status, and decides whether it
 // rallies or surrenders.

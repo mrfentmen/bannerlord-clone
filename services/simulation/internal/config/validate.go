@@ -108,18 +108,37 @@ func (c *Config) validate(path string) error {
 		{"battle.roster_hp_base", c.Battle.RosterHPBase, 0.001, 100000},
 		{"battle.roster_speed_base", c.Battle.RosterSpeedBase, 0.001, 1000},
 		{"battle.roster_ranged_share", c.Battle.RosterRangedShare, 0, 1},
+		{"battle.roster_morale_bias_scale", c.Battle.RosterMoraleBiasScale, 0, 1},
 		{"battle.roster_morale_start", c.Battle.RosterMoraleStart, 0, 1},
 		{"battle.roster_troops_per_unit", c.Battle.RosterTroopsPerUnit, 0.001, 100000},
 		{"battle.roster_leaders_per_unit", c.Battle.RosterLeadersPerUnit, 1, 100000},
 		{"battle.roster_leader_spread", c.Battle.RosterLeaderSpread, 0.01, 10000},
+		// The layout shape of a force of any size. The floor is above zero
+		// because a force laid out with no width at all is a column one unit
+		// deep, which every other size assumption in the engine then has to
+		// make a special case for.
+		{"battle.roster_front_aspect", c.Battle.RosterFrontAspect, 0.1, 50},
+		{"battle.roster_leader_depth_fraction", c.Battle.RosterLeaderDepthFraction, 0, 1},
+		{"battle.roster_leader_jitter_fraction", c.Battle.RosterLeaderJitterFraction, 0, 2},
+		{"battle.roster_leader_influence_floor", c.Battle.RosterLeaderInfluenceFloor, 0, 1},
+		{"battle.roster_leader_influence_spread", c.Battle.RosterLeaderInfluenceSpread, 0, 1},
 		{"battle.melee_range", c.Battle.MeleeRange, 0.01, 1000},
 		{"battle.melee_swing_seconds", c.Battle.MeleeSwingSeconds, 0.001, 1000},
+		{"battle.melee_ranged_skill_scale", c.Battle.MeleeRangedSkillScale, 0, 1},
 		{"battle.ranged_range", c.Battle.RangedRange, 0, 100000},
 		{"battle.ranged_fire_interval", c.Battle.RangedFireInterval, 0.001, 1000},
+		// The whole skill term of the shooting model, in three numbers. They
+		// are bounded as shares because each one is a share of a chance:
+		// base is the chance at no skill, weight is the share of a point of
+		// skill, and floor is what a shooter with no effectiveness keeps.
+		{"battle.ranged_hit_chance_base", c.Battle.RangedHitChanceBase, 0, 1},
+		{"battle.ranged_hit_chance_skill_weight", c.Battle.RangedHitChanceSkillWeight, 0, 1},
+		{"battle.ranged_hit_effectiveness_floor", c.Battle.RangedHitEffectivenessFloor, 0, 1},
 		{"battle.suppression_cap", c.Battle.SuppressionCap, 0.001, 100},
 		{"battle.morale_break_threshold", c.Battle.MoraleBreakThreshold, 0, 1},
 		{"battle.morale_rout_threshold", c.Battle.MoraleRoutThreshold, 0, 1},
 		{"battle.morale_ratio_neutral", c.Battle.MoraleRatioNeutral, 0.001, 0.999},
+		{"battle.morale_recovery_suppression_band", c.Battle.MoraleRecoverySuppressionBand, 0, 1},
 		{"battle.rally_chance", c.Battle.RallyChance, 0, 1},
 		{"battle.rally_routed_chance", c.Battle.RallyRoutedChance, 0, 1},
 		{"battle.melee_max_targets", c.Battle.MeleeMaxTargets, 0, 1000},
@@ -245,6 +264,12 @@ func (c *Config) validate(path string) error {
 // would make every melee query scan cells it could have stepped over, and a
 // rout threshold above the break threshold would mean units route before they
 // break, which is the wrong order and would make the morale report lie.
+//
+// The size relations are here too, and they are the ones that make the size
+// knob honest: a reference run above the limit it exercises, a count that is not
+// a whole count, and a pair of shares that add past one each produce a file
+// whose numbers are individually legal and jointly a battle that cannot be run
+// or a model that cannot be tuned.
 func validateBattleRelations(path string, b *Battle) error {
 	if b.GridCellSize < b.MeleeRange {
 		return fmt.Errorf("config: %s: battle.grid_cell_size (%g) is below battle.melee_range (%g); "+
@@ -268,6 +293,24 @@ func validateBattleRelations(path string, b *Battle) error {
 	}
 	if b.MaxTicks < 1 {
 		return fmt.Errorf("config: %s: battle.max_ticks must be at least 1", path)
+	}
+	// The skill term of the shooting model must be a chance at both ends of
+	// the skill scale. A base plus a weight over one is a shooter who cannot
+	// miss at full skill, which is not a difficulty setting.
+	if b.RangedHitChanceBase+b.RangedHitChanceSkillWeight > 1 {
+		return fmt.Errorf("config: %s: battle.ranged_hit_chance_base (%g) plus "+
+			"battle.ranged_hit_chance_skill_weight (%g) is over 1; a perfect shooter would hit "+
+			"every shot, so skill would be the only thing that mattered and it could not be tuned",
+			path, b.RangedHitChanceBase, b.RangedHitChanceSkillWeight)
+	}
+	// Morale recovery is gated on suppression being below this band, so a
+	// band at or above the cap lets a pinned unit recover and the suppression
+	// term stops being able to keep anyone down.
+	if b.MoraleRecoverySuppressionBand >= 1 {
+		return fmt.Errorf("config: %s: battle.morale_recovery_suppression_band (%g) is 1 or more; "+
+			"a unit at full suppression counts as out of contact, so suppression could never keep "+
+			"morale from recovering",
+			path, b.MoraleRecoverySuppressionBand)
 	}
 	// The next four are whole-number checks rather than range checks, and they
 	// exist because each of these values is converted to an int somewhere and a
