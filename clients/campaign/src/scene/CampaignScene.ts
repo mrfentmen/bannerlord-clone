@@ -69,6 +69,11 @@ export interface SceneHandle {
   engine: Engine;
   dispose(): void;
   focus(x: number, z: number, radius?: number): void;
+  /**
+   * Twin-stick camera deltas, applied immediately (task 2). The scene owns the
+   * camera, so limits live here next to the ArcRotateCamera they constrain.
+   */
+  cameraControl(delta: CameraDelta): void;
   /** Draw the planned march route. An empty array clears it. */
   showRoute(points: Vector3[]): void;
   setPartyPosition(x: number, z: number, heading: number): void;
@@ -76,6 +81,18 @@ export interface SceneHandle {
   /** One line about what the map is showing, for the data-source panel. */
   summary(): string;
   towns: TownCluster[];
+}
+
+/** Per-frame camera deltas for the twin-stick driver (task 2). */
+export interface CameraDelta {
+  /** Pan the target in world units. */
+  panX?: number;
+  panZ?: number;
+  /** Orbit deltas in radians: dAlpha = azimuth, dBeta = polar tilt. */
+  dAlpha?: number;
+  dBeta?: number;
+  /** Multiply the radius by this (>1 zooms out). */
+  zoomFactor?: number;
 }
 
 export function createCampaignScene(options: SceneOptions): SceneHandle {
@@ -232,6 +249,26 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
     focus(x, z, radius) {
       camera.setTarget(new Vector3(x, projection.heightAt(x, z) * VERTICAL_SCALE, z));
       if (radius !== undefined) camera.radius = radius;
+    },
+    cameraControl(delta) {
+      if (delta.panX || delta.panZ) {
+        const tx = camera.target.x + (delta.panX ?? 0);
+        const tz = camera.target.z + (delta.panZ ?? 0);
+        camera.setTarget(new Vector3(tx, projection.heightAt(tx, tz) * VERTICAL_SCALE, tz));
+      }
+      if (delta.dAlpha) camera.alpha += delta.dAlpha;
+      if (delta.dBeta) {
+        // ArcRotateCamera enforces its beta limits on the next render; clamp
+        // here too so a hard stick flick can't park it past the stops.
+        const lo = camera.lowerBetaLimit ?? 0.2;
+        const hi = camera.upperBetaLimit ?? 1.45;
+        camera.beta = Math.min(hi, Math.max(lo, camera.beta + delta.dBeta));
+      }
+      if (delta.zoomFactor && delta.zoomFactor !== 1) {
+        const lo = camera.lowerRadiusLimit ?? 900;
+        const hi = camera.upperRadiusLimit ?? 95_000;
+        camera.radius = Math.min(hi, Math.max(lo, camera.radius * delta.zoomFactor));
+      }
     },
     showRoute(points) {
       routeMesh?.dispose();
