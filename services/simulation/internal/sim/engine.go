@@ -57,9 +57,9 @@ type View struct {
 type Order struct {
 	// Kind selects what the order does.
 	Kind OrderKind
-	// TownID and LeaderID scope the order; -1 means unset.
-	TownID   int
-	LeaderID int
+	// TownID and RulerID scope the order; -1 means unset.
+	TownID  int
+	RulerID int
 	// Amount carries a magnitude, meaning depends on Kind.
 	Amount float64
 	// Target is a second entity, for a gift or a target town.
@@ -82,17 +82,11 @@ const (
 	OrderGift
 	// OrderHireMercenaries hires a company with gold.
 	OrderHireMercenaries
-	// OrderRecruitTroops recruits volunteers from a town into the party.
-	// Costs gold, limited by town prosperity and available recruits.
-	OrderRecruitTroops
 	// OrderExecutePrisoner executes a captured ruler, which is chain 9's
 	// trigger and is a policy decision, not a system call.
 	OrderExecutePrisoner
 	// OrderRansomPrisoner ransoms a captured ruler.
 	OrderRansomPrisoner
-	// OrderReleasePrisoner releases a captured ruler, granting relation
-	// with their faction (the honorable political tool).
-	OrderReleasePrisoner
 	// OrderDeclareWar starts a war between two sides.
 	OrderDeclareWar
 	// OrderSuePeace ends a war.
@@ -241,12 +235,6 @@ func (w *WriteSet) stage(x write) {
 		k := writeKey{x.Kind, x.Entity, x.Field}
 		if prevIdx, dup := w.setIndex[k]; dup {
 			prev := w.writes[prevIdx]
-			// Same value from two systems is not order-dependent; allow it.
-			// This happens when e.g. succession dissolves a clan and security
-			// processes a rebellion for the same town in one tick.
-			if prev.Value == x.Value {
-				return
-			}
 			w.errors = append(w.errors, fmt.Sprintf(
 				"two absolute writes to %s#%d.%s in one tick (%q and %q): "+
 					"the result would depend on system order",
@@ -415,7 +403,7 @@ func (e *Engine) applyRelation(s *model.State, rw relationWrite, isSide bool) {
 	// A relation belongs to both parties equally, but the log records it once,
 	// against the first of the pair, with the other named in the read record.
 	// Recording it twice would make a single change look like two events.
-	kind := model.KindLeader
+	kind := model.KindRuler
 	unit := "opinion of ruler #" + itoa(rw.B)
 	if isSide {
 		kind = model.KindSide
@@ -724,16 +712,16 @@ func (e *Engine) apply(s *model.State, w *WriteSet) error {
 			delete(s.Villages, d.ID)
 		case model.KindParty:
 			delete(s.Parties, d.ID)
-		case model.KindLeader:
-			delete(s.Leaders, d.ID)
+		case model.KindRuler:
+			delete(s.Rulers, d.ID)
 		case model.KindRoute:
 			delete(s.Routes, d.ID)
 		case model.KindSiege:
 			delete(s.Sieges, d.ID)
 		case model.KindWar:
 			delete(s.Wars, d.ID)
-		case model.KindOrganization:
-			delete(s.Organizations, d.ID)
+		case model.KindClan:
+			delete(s.Clans, d.ID)
 		}
 	}
 	return nil

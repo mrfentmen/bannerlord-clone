@@ -66,21 +66,19 @@ func run(v *sim.View, w *sim.WriteSet) {
 		if price < 0.1 {
 			price = 0.1
 		}
-		sold := wk.OutputStock + produced
+		available := wk.OutputStock + produced
+		sold := 0.0
 		revenue := 0.0
 		if t.Blockade < 0.5 && t.Money > 0 {
-			// The town buys what it can afford.
+			// The town buys what it can afford. If it cannot buy anything the
+			// output simply stays in the stockpile, so both branches differ only
+			// in how much leaves it.
 			affordable := t.Money / price
+			sold = available
 			if sold > affordable {
 				sold = affordable
 			}
 			revenue = sold * price * c.Workshop.ProfitMargin
-			wk.OutputStock = wk.OutputStock + produced - sold
-			wk.InputStock -= produced
-		} else {
-			// Cannot sell: stockpile grows.
-			wk.OutputStock += produced
-			wk.InputStock -= produced
 		}
 		read := shared.ReadString(
 			shared.Pair("workers", wk.Workers),
@@ -90,10 +88,14 @@ func run(v *sim.View, w *sim.WriteSet) {
 		)
 		causes := v.Log.RecentFor(model.KindWorkshop, id,
 			[]string{"workshop_workers", "workshop_input_stock"}, 3)
-		w.Set(model.KindWorkshop, id, "workshop_output_stock", wk.OutputStock,
-			read, causes, "")
-		w.Set(model.KindWorkshop, id, "workshop_input_stock", wk.InputStock,
-			read, causes, "")
+		// Stocks move as deltas read off committed state, never by writing to
+		// wk. Mutating the entity here would commit before the engine applies
+		// the write set, letting a later system in this tick see the change and
+		// leaving a failed tick half-applied.
+		w.Add(model.KindWorkshop, id, "workshop_output_stock", produced-sold,
+			read, causes, "workshop output")
+		w.Add(model.KindWorkshop, id, "workshop_input_stock", -produced,
+			read, causes, "workshop inputs consumed")
 		w.Set(model.KindWorkshop, id, "workshop_income", revenue,
 			read, causes, "workshop sales")
 		// Income flows to the owning clan's leader.
