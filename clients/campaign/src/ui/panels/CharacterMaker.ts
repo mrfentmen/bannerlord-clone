@@ -1,15 +1,13 @@
 /**
  * The character maker: Bannerlord-style creation for modern America.
  *
- * Steps: Name → Appearance → Age → City → Background → Attributes → Review.
+ * Steps: Name → Appearance → Background (4 categories) → Review.
  * Each background choice grants skill bonuses and shapes the biography.
  * The result feeds into the campaign start.
  */
 
 import { clear, h } from "../dom.js";
-import { BACKGROUNDS, appearancesForEthnicity, computeCharacterStats,
-  START_CITIES, AGE_BRACKETS, DIFFICULTIES, clanNamesForEthnicity,
-  scenarioForBackgrounds, type GameCharacter } from "../../data/backgrounds.js";
+import { BACKGROUNDS, APPEARANCE_PRESETS, computeCharacterStats, type GameCharacter } from "../../data/backgrounds.js";
 import { ETHNICITIES } from "../../data/ethnicities.js";
 
 export interface CharacterMakerOptions {
@@ -18,34 +16,16 @@ export interface CharacterMakerOptions {
   testId?: string;
 }
 
-const MAKER_STEPS = ["Name", "Appearance", "Age", "City", "Difficulty", "Background", "Attributes", "Review"] as const;
-type MakerStep = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
-
-const LAST_STEP: MakerStep = 7;
-const BONUS_POINTS_TOTAL = 5;
-const SKILL_NAMES = [
-  "combat",
-  "leadership",
-  "trade",
-  "medicine",
-  "engineering",
-  "athletics",
-  "streetwise",
-  "stealth",
-  "survival",
-] as const;
+const MAKER_STEPS = ["Name", "Appearance", "Background", "Review"] as const;
+type MakerStep = 0 | 1 | 2 | 3;
 
 export function characterMaker(options: CharacterMakerOptions): HTMLElement {
   let step: MakerStep = 0;
   let firstName = "";
   let lastName = "";
   let gender: "male" | "female" = "male";
-  let appearanceId = appearancesForEthnicity(ETHNICITIES[0]!.id)[0]?.id ?? "";
+  let appearanceId = APPEARANCE_PRESETS[0]!.id;
   let ethnicityId = ETHNICITIES[0]!.id;
-  let age = 30;
-  let startCity = "manhattan-sample";
-  let difficulty = "normal";
-  let bonusPoints: Record<string, number> = {};
   let backgroundChoices: Record<string, string> = {};
   // Default to first option in each category.
   for (const cat of BACKGROUNDS) {
@@ -62,11 +42,6 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
   function canProceed(): boolean {
     if (step === 0) return firstName.trim().length > 0 && lastName.trim().length > 0;
     return true;
-  }
-
-  function pointsRemaining(): number {
-    const spent = Object.values(bonusPoints).reduce((a, b) => a + b, 0);
-    return BONUS_POINTS_TOTAL - spent;
   }
 
   function stepBar(): HTMLElement {
@@ -151,58 +126,22 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
       );
       btn.addEventListener("click", () => {
         ethnicityId = e.id;
-        // Reset appearance to this ethnicity's first preset.
-        appearanceId = appearancesForEthnicity(ethnicityId)[0]?.id ?? "";
         render();
       });
       egrid.appendChild(btn);
     }
 
     frag.append(firstInput, lastInput, h("h3", {}, "Gender"), genderRow, egrid);
-
-    // Clan name suggestions based on heritage.
-    const clans = clanNamesForEthnicity(ethnicityId);
-    if (clans.length > 0) {
-      frag.appendChild(h("h3", {}, "Clan names — pick one or write your own"));
-      const cgrid = h("div", { class: "roles", "data-testid": "char-clan-grid" });
-      for (const clan of clans) {
-        const btn = h(
-          "button",
-          {
-            class: "role",
-            "data-testid": `char-clan-${clan.name}`,
-            title: clan.meaning,
-          },
-          h("strong", {}, clan.name),
-          h("br"),
-          h("span", { class: "caption" }, clan.meaning),
-        );
-        btn.addEventListener("click", () => {
-          lastName = clan.name;
-          lastInput.value = clan.name;
-          nextBtn.disabled = !canProceed();
-        });
-        cgrid.appendChild(btn);
-      }
-      frag.appendChild(cgrid);
-    }
     return frag;
   }
 
   function appearanceStep(): HTMLElement {
     const frag = h("div", { class: "maker-step" });
-    const ethnicity = ETHNICITIES.find((e) => e.id === ethnicityId);
-    frag.appendChild(h("h2", { class: "title" }, `Choose your look — ${ethnicity?.name ?? ""}`));
+    frag.appendChild(h("h2", { class: "title" }, "Choose your look"));
     frag.appendChild(h("p", { class: "caption" }, "Pick a face for your character."));
 
-    const presets = appearancesForEthnicity(ethnicityId);
-    // Reset to first preset of this ethnicity if current doesn't belong.
-    if (!presets.some((p) => p.id === appearanceId)) {
-      appearanceId = presets[0]?.id ?? "";
-    }
-
     const grid = h("div", { class: "roles", "data-testid": "appearance-grid" });
-    for (const preset of presets) {
+    for (const preset of APPEARANCE_PRESETS) {
       const btn = h(
         "button",
         {
@@ -225,147 +164,16 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     return frag;
   }
 
-  function ageStep(): HTMLElement {
-    const frag = h("div", { class: "maker-step" });
-    frag.appendChild(h("h2", { class: "title" }, "How old are you?"));
-    frag.appendChild(h("p", { class: "caption" }, "Age shapes your starting skills and cash. Every stage of life has tradeoffs."));
-
-    const grid = h("div", { class: "roles", "data-testid": "age-grid" });
-    for (const bracket of AGE_BRACKETS) {
-      // Use the midpoint of the bracket as the representative age.
-      const mid = Math.floor((bracket.min + bracket.max) / 2);
-      const selected = age >= bracket.min && age <= bracket.max;
-      const proList = h("ul", { class: "pros" });
-      for (const pro of bracket.pros) {
-        proList.appendChild(h("li", { title: pro.reason }, `+ ${pro.label}`));
-      }
-      const conList = h("ul", { class: "cons" });
-      for (const con of bracket.cons) {
-        conList.appendChild(h("li", { title: con.reason }, `- ${con.label}`));
-      }
-      const btn = h(
-        "button",
-        {
-          class: `role${selected ? " role--selected" : ""}`,
-          "aria-pressed": selected ? "true" : "false",
-          "data-testid": `age-${bracket.min}-${bracket.max}`,
-          title: bracket.description,
-        },
-        h("strong", {}, bracket.label),
-        h("br"),
-        h("em", { class: "tagline" }, bracket.tagline),
-        h("p", { class: "caption" }, bracket.description),
-        h("div", { class: "city-pros-cons" }, proList, conList),
-      );
-      btn.addEventListener("click", () => {
-        age = mid;
-        render();
-      });
-      grid.appendChild(btn);
-    }
-    frag.appendChild(grid);
-    return frag;
-  }
-
-  function cityStep(): HTMLElement {
-    const frag = h("div", { class: "maker-step" });
-    frag.appendChild(h("h2", { class: "title" }, "Where do you start?"));
-    frag.appendChild(h("p", { class: "caption" }, "Your home turf shapes your whole campaign. Each city has real tradeoffs — read them before you commit."));
-
-    const grid = h("div", { class: "roles", "data-testid": "city-grid" });
-    for (const city of START_CITIES) {
-      const selected = startCity === city.slug;
-      const proList = h("ul", { class: "pros" });
-      for (const pro of city.pros) {
-        proList.appendChild(h("li", { title: pro.reason }, `+ ${pro.label}`));
-      }
-      const conList = h("ul", { class: "cons" });
-      for (const con of city.cons) {
-        conList.appendChild(h("li", { title: con.reason }, `- ${con.label}`));
-      }
-      const btn = h(
-        "button",
-        {
-          class: `role city-card${selected ? " role--selected" : ""}`,
-          "aria-pressed": selected ? "true" : "false",
-          "data-testid": `city-${city.slug}`,
-          title: city.description,
-        },
-        h("strong", {}, city.name),
-        h("br"),
-        h("em", { class: "tagline" }, city.tagline),
-        h("p", { class: "caption city-desc" }, city.description),
-        h("div", { class: "city-pros-cons" }, proList, conList),
-      );
-      btn.addEventListener("click", () => {
-        startCity = city.slug;
-        render();
-      });
-      grid.appendChild(btn);
-    }
-    frag.appendChild(grid);
-    return frag;
-  }
-
-  function difficultyStep(): HTMLElement {
-    const frag = h("div", { class: "maker-step" });
-    frag.appendChild(h("h2", { class: "title" }, "How hard should it be?"));
-    frag.appendChild(h("p", { class: "caption" }, "Difficulty affects enemy strength, economy, and glory. Be honest with yourself."));
-
-    const grid = h("div", { class: "roles", "data-testid": "difficulty-grid" });
-    for (const diff of DIFFICULTIES) {
-      const selected = difficulty === diff.id;
-      const proList = h("ul", { class: "pros" });
-      for (const pro of diff.pros) {
-        proList.appendChild(h("li", { title: pro.reason }, `+ ${pro.label}`));
-      }
-      const conList = h("ul", { class: "cons" });
-      for (const con of diff.cons) {
-        conList.appendChild(h("li", { title: con.reason }, `- ${con.label}`));
-      }
-      const btn = h(
-        "button",
-        {
-          class: `role${selected ? " role--selected" : ""}`,
-          "aria-pressed": selected ? "true" : "false",
-          "data-testid": `difficulty-${diff.id}`,
-          title: diff.description,
-        },
-        h("strong", {}, diff.label),
-        h("br"),
-        h("em", { class: "tagline" }, diff.tagline),
-        h("p", { class: "caption" }, diff.description),
-        h("div", { class: "city-pros-cons" }, proList, conList),
-      );
-      btn.addEventListener("click", () => {
-        difficulty = diff.id;
-        render();
-      });
-      grid.appendChild(btn);
-    }
-    frag.appendChild(grid);
-    return frag;
-  }
-
   function backgroundStep(): HTMLElement {
     const frag = h("div", { class: "maker-step" });
     frag.appendChild(h("h2", { class: "title" }, "Your story"));
-    frag.appendChild(h("p", { class: "caption" }, "Each choice grants skill bonuses and starting cash. Pick the life that made you."));
+    frag.appendChild(h("p", { class: "caption" }, "Each choice shapes your starting skills."));
 
     for (const category of BACKGROUNDS) {
       frag.appendChild(h("h3", {}, category.question));
       const grid = h("div", { class: "roles", "data-testid": `bg-${category.id}` });
       for (const opt of category.options) {
         const selected = backgroundChoices[category.id] === opt.id;
-        const skillList = h("ul", { class: "pros" });
-        for (const [skill, bonus] of Object.entries(opt.skills)) {
-          skillList.appendChild(h("li", {}, `+${bonus} ${skill}`));
-        }
-        if (opt.cash !== 0) {
-          skillList.appendChild(
-            h("li", {}, `${opt.cash > 0 ? "+" : ""}$${opt.cash} starting cash`),
-          );
-        }
         const btn = h(
           "button",
           {
@@ -377,7 +185,6 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
           h("strong", {}, opt.label),
           h("br"),
           h("span", { class: "caption" }, opt.description),
-          skillList,
         );
         btn.addEventListener("click", () => {
           backgroundChoices[category.id] = opt.id;
@@ -390,112 +197,21 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     return frag;
   }
 
-  function attributesStep(): HTMLElement {
-    const frag = h("div", { class: "maker-step" });
-    frag.appendChild(h("h2", { class: "title" }, "Spend your bonus points"));
-    const remaining = pointsRemaining();
-    frag.appendChild(
-      h("p", { class: "caption", "data-testid": "points-remaining" },
-        `${remaining} of ${BONUS_POINTS_TOTAL} points remaining`),
-    );
-
-    const list = h("div", { "data-testid": "attributes-list" });
-    for (const skill of SKILL_NAMES) {
-      const pts = bonusPoints[skill] ?? 0;
-      const row = h("div", { class: "attr-row", style: "display:flex;align-items:center;gap:8px;margin:4px 0" });
-      row.appendChild(h("span", { style: "flex:1" }, skill));
-      const minus = h(
-        "button",
-        {
-          class: "btn",
-          "data-testid": `attr-minus-${skill}`,
-          disabled: pts <= 0 ? true : undefined,
-          "aria-label": `Remove point from ${skill}`,
-        },
-        "−",
-      ) as HTMLButtonElement;
-      minus.addEventListener("click", () => {
-        const cur = bonusPoints[skill] ?? 0;
-        if (cur > 0) {
-          bonusPoints[skill] = cur - 1;
-          if (bonusPoints[skill] === 0) delete bonusPoints[skill];
-          render();
-        }
-      });
-      const val = h("span", { "data-testid": `attr-value-${skill}`, style: "min-width:2ch;text-align:center" },
-        String(pts));
-      const plus = h(
-        "button",
-        {
-          class: "btn",
-          "data-testid": `attr-plus-${skill}`,
-          disabled: remaining <= 0 ? true : undefined,
-          "aria-label": `Add point to ${skill}`,
-        },
-        "+",
-      ) as HTMLButtonElement;
-      plus.addEventListener("click", () => {
-        if (pointsRemaining() > 0) {
-          bonusPoints[skill] = (bonusPoints[skill] ?? 0) + 1;
-          render();
-        }
-      });
-      row.append(minus, val, plus);
-      list.appendChild(row);
-    }
-    frag.appendChild(list);
-    return frag;
-  }
-
   function reviewStep(): HTMLElement {
     const frag = h("div", { class: "maker-step" });
     frag.appendChild(h("h2", { class: "title" }, "Review your character"));
 
-    const { skills, cash, biography } = computeCharacterStats(backgroundChoices, age, bonusPoints);
+    const { skills, cash, biography } = computeCharacterStats(backgroundChoices);
     const ethnicity = ETHNICITIES.find((e) => e.id === ethnicityId);
-    const appearance = appearancesForEthnicity(ethnicityId).find((a) => a.id === appearanceId);
-    const bracket = AGE_BRACKETS.find((b) => age >= b.min && age <= b.max);
-    const city = START_CITIES.find((c) => c.slug === startCity);
+    const appearance = APPEARANCE_PRESETS.find((a) => a.id === appearanceId);
 
-    const card = h("div", { class: "sheet portrait-panel", "data-testid": "char-review" });
-    // Portrait preview — large icon with appearance details.
-    const portrait = h("div", { class: "portrait", style: "text-align:center;padding:16px;background:linear-gradient(135deg,rgb(26,26,46),rgb(22,33,62));border-radius:12px;margin-bottom:16px" });
-    portrait.appendChild(h("div", { style: "font-size:5rem;line-height:1" }, appearance?.icon ?? "🧑"));
-    portrait.appendChild(h("div", { style: "font-size:1.2rem;font-weight:bold;margin-top:8px;color:rgb(255,255,255)" }, `${firstName} ${lastName}`));
-    portrait.appendChild(h("div", { style: "color:rgb(170,170,170);font-size:0.9rem" }, appearance?.label ?? ""));
-    portrait.appendChild(h("div", { style: "color:rgb(136,136,136);font-size:0.8rem;font-style:italic" }, appearance?.description ?? ""));
-    card.appendChild(portrait);
+    const card = h("div", { class: "sheet", "data-testid": "char-review" });
+    card.appendChild(h("div", { style: "font-size:3rem;text-align:center" }, appearance?.icon ?? "🧑"));
     card.appendChild(h("h3", { style: "text-align:center" }, `${firstName} ${lastName}`));
     card.appendChild(
       h("p", { class: "caption", style: "text-align:center" },
-        `${gender === "male" ? "Male" : "Female"} · ${bracket?.label ?? ""} · ${ethnicity?.name ?? ""} · ${appearance?.label ?? ""}`),
+        `${gender === "male" ? "Male" : "Female"} · ${ethnicity?.name ?? ""} · ${appearance?.label ?? ""}`),
     );
-    const diff = DIFFICULTIES.find((d) => d.id === difficulty);
-    card.appendChild(
-      h("p", { class: "caption", style: "text-align:center" },
-        `Starting city: ${city?.name ?? startCity} · Difficulty: ${diff?.label ?? difficulty}`),
-    );
-    if (city) {
-      card.appendChild(h("p", { class: "caption", style: "text-align:center" }, city.tagline));
-      const cityEffects = h("ul", { class: "city-effects" });
-      for (const pro of city.pros) {
-        cityEffects.appendChild(h("li", { class: "pro", title: pro.reason }, `+ ${pro.label}`));
-      }
-      for (const con of city.cons) {
-        cityEffects.appendChild(h("li", { class: "con", title: con.reason }, `- ${con.label}`));
-      }
-      card.appendChild(cityEffects);
-    }
-
-    const bonusEntries = Object.entries(bonusPoints).filter(([, v]) => v > 0);
-    if (bonusEntries.length > 0) {
-      card.appendChild(h("h4", {}, "Bonus points"));
-      const bonusList = h("ul", {});
-      for (const [skill, pts] of bonusEntries) {
-        bonusList.appendChild(h("li", {}, `${skill}: +${pts}`));
-      }
-      card.appendChild(bonusList);
-    }
 
     card.appendChild(h("h4", {}, "Starting skills"));
     const skillList = h("ul", {});
@@ -506,18 +222,6 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     card.appendChild(h("p", {}, `Starting cash: $${cash.toLocaleString()}`));
     card.appendChild(h("h4", {}, "Biography"));
     card.appendChild(h("p", { class: "caption" }, biography));
-
-    // Starting scenario based on background.
-    const scenario = scenarioForBackgrounds(backgroundChoices);
-    if (scenario) {
-      card.appendChild(h("h4", {}, "Your first quest"));
-      const scenarioBox = h("div", { style: "background:rgb(42,26,26);border-left:4px solid rgb(255,107,107);padding:12px;margin:8px 0;border-radius:4px" });
-      scenarioBox.appendChild(h("strong", {}, scenario.title));
-      scenarioBox.appendChild(h("p", { class: "caption" }, scenario.description));
-      scenarioBox.appendChild(h("p", {}, `Objective: ${scenario.objective}`));
-      scenarioBox.appendChild(h("p", { class: "caption" }, `Reward: ${scenario.reward}`));
-      card.appendChild(scenarioBox);
-    }
 
     frag.appendChild(card);
     return frag;
@@ -532,11 +236,7 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     const body = h("div", { class: "maker-body" });
     if (step === 0) body.appendChild(nameStep());
     else if (step === 1) body.appendChild(appearanceStep());
-    else if (step === 2) body.appendChild(ageStep());
-    else if (step === 3) body.appendChild(cityStep());
-    else if (step === 4) body.appendChild(difficultyStep());
-    else if (step === 5) body.appendChild(backgroundStep());
-    else if (step === 6) body.appendChild(attributesStep());
+    else if (step === 2) body.appendChild(backgroundStep());
     else body.appendChild(reviewStep());
     root.appendChild(body);
 
@@ -550,7 +250,7 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
       cancel.addEventListener("click", () => options.onCancel());
       nav.appendChild(cancel);
     }
-    if (step < LAST_STEP) {
+    if (step < 3) {
       nextBtn = h("button", {
         class: "btn btn--primary",
         "data-testid": "maker-next",
@@ -563,7 +263,7 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     } else {
       const done = h("button", { class: "btn btn--primary", "data-testid": "maker-done" }, "Start Game");
       done.addEventListener("click", () => {
-        const { skills, cash, biography } = computeCharacterStats(backgroundChoices, age, bonusPoints);
+        const { skills, cash, biography } = computeCharacterStats(backgroundChoices);
         options.onComplete({
           firstName: firstName.trim(),
           lastName: lastName.trim(),
@@ -571,10 +271,6 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
           appearanceId,
           ethnicityId,
           backgroundChoices: { ...backgroundChoices },
-          bonusPoints: { ...bonusPoints },
-          startCity,
-          age,
-          difficulty,
           startingSkills: skills,
           startingCash: cash,
           biography,
