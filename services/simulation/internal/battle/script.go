@@ -654,6 +654,32 @@ func (s *Script) label() string {
 	return s.A.Label
 }
 
+// NewScript builds an order script in Go rather than decoding one from a file.
+//
+// It exists because a caller cannot otherwise write one: Script's roster fields
+// are scriptRoster, which is unexported because it is a file format's spelling of
+// a Roster rather than the engine's. Without this, a script could only ever come
+// out of a decoder, so every caller who wanted a battle of their own choosing had
+// to build a script string first and hand it back to itself.
+//
+// name is the script's name, which is where the battle's label comes from when
+// neither side carries one (see label). It is free text and never parsed.
+func NewScript(name string, seed uint64, a, b Roster) *Script {
+	return &Script{
+		Name: name,
+		Seed: seed,
+		A:    scriptWithRoster(a, "", ""),
+		B:    scriptWithRoster(b, "", ""),
+	}
+}
+
+// Roster returns the battle.Roster each side of the script describes.
+//
+// The engine's spelling of what DecodeScript read, for a caller that decoded a
+// script and then needs to hand the same rosters to something that takes
+// Roster. It is the inverse of the translation in NewScript.
+func (s *Script) Rosters() (a, b Roster) { return s.A.Roster(), s.B.Roster() }
+
 // RunScript fights the battle a script describes and records it.
 //
 // It goes through Record, not through RunCommanded with a bespoke commander, and that

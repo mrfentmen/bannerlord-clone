@@ -55,6 +55,10 @@ func main() {
 		fmt.Print(simrun.OrderReport())
 	case "balance":
 		cmdBalance(args)
+	case "battle":
+		os.Exit(simrun.BattleRecordCmd(args, os.Stdout, os.Stderr, loadConfigFor))
+	case "replay":
+		os.Exit(simrun.ReplayCmd(args, os.Stdout, os.Stderr, loadConfigFor))
 	default:
 		usage()
 		os.Exit(2)
@@ -70,11 +74,22 @@ func usage() {
   chains   -seed N                                 chain check for one run
   order                                          print the documented system order
   balance  -log FILE                               field distribution of a run
+  battle   -seed N [-a-units N] [-b-units N]      fight a battle and record it
+  replay   -battle ID                             re-run a recorded battle and diff it
 
   -settlements PATH   settlement feed for run/sweep/chains
                       (default `+simfeed.DefaultPath+`; "-" for the synthesised map)
 
-profiles: `+profileList()+`
+  battles are recorded under `+simrun.DefaultBattleDir+` unless -dir says otherwise:
+
+  battle   -seed 7 -a-units 40 -b-units 40        records battle-7
+  replay   -battle battle-7                       replays it and reports MATCHED or MISMATCH
+  replay   -list                                  what is recorded
+
+  replay exits 0 on a match, 1 on a mismatch, 2 on a bad command line, and 3 when
+  the record could not be replayed at all.
+
+  profiles: `+profileList()+`
 `)
 }
 
@@ -87,15 +102,30 @@ func profileList() string {
 }
 
 func loadConfig(path string) *config.Config {
+	cfg, err := loadConfigFor(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	return cfg
+}
+
+// loadConfigFor is loadConfig as an error rather than an exit, for the two
+// commands that live in internal/simrun and are called from a test.
+//
+// The exit stays in loadConfig because the campaign commands want it and have
+// always had it. The battle commands report a config that will not load the same
+// way they report a record that will not replay, because a person who mistyped
+// -config needs to be told which of the two they did.
+func loadConfigFor(path string) (*config.Config, error) {
 	if path == "" {
 		path = filepath.Join("config", "balance.toml")
 	}
 	cfg, err := config.Load(path)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "config: %v\n", err)
-		os.Exit(1)
+		return nil, fmt.Errorf("config %s: %w", path, err)
 	}
-	return cfg
+	return cfg, nil
 }
 
 // loadFeed reads the settlement feed a run should build its map from, and the
