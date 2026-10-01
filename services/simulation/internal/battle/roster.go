@@ -88,7 +88,7 @@ func GenerateForce(cfg *config.Config, seed uint64, side Side, r Roster) ([]Unit
 		// force rather than an arbitrary one.
 		meleeSkill = clamp01(meleeSkill)
 		rangedSkill = clamp01(rangedSkill)
-		morale := clamp01(c.RosterMoraleStart + c.RosterMoraleSpread*gen.Normal(0, 1) + r.MoraleBias*0.25)
+		morale := clamp01(c.RosterMoraleStart + c.RosterMoraleSpread*gen.Normal(0, 1) + r.MoraleBias*c.RosterMoraleBiasScale)
 
 		maxHP := c.RosterHPBase + c.RosterHPSkillWeight*(meleeSkill-c.RosterMeleeSkillMean)
 		if maxHP <= 1 {
@@ -170,18 +170,21 @@ func GenerateLeaders(cfg *config.Config, seed uint64, side Side, count int, infl
 	}
 	frontX := c.RosterStartDistance / 2
 	for i := 0; i < count; i++ {
-		// Behind the front line by a third of the formation depth, so a leader
-		// is among his men and not in front of them.
-		x := -dir * (frontX - c.RosterFormationDepth*0.34)
+		// Behind the front line by battle.roster_leader_depth_fraction of the
+		// formation depth, so a leader is among his men and not in front of
+		// them. The fraction was a literal 0.34 here.
+		x := -dir * (frontX - c.RosterFormationDepth*c.RosterLeaderDepthFraction)
 		spread := float64(i) - float64(count-1)/2
 		y := spread * c.RosterFrontage * c.RosterLeaderSpread
 		// A little jitter so a command is not a perfectly even line of officers.
-		y += (gen.Float64() - 0.5) * c.RosterFrontage
+		// Its half-width was a literal half a frontage here.
+		y += (gen.Float64() - 0.5) * c.RosterFrontage * c.RosterLeaderJitterFraction
 		out = append(out, Leader{
-			Side:      side,
-			Influence: math.Max(0, influence*(0.7+0.6*gen.Float64())),
-			X:         x,
-			Y:         y,
+			Side: side,
+			Influence: math.Max(0, influence*(c.RosterLeaderInfluenceFloor+
+				c.RosterLeaderInfluenceSpread*gen.Float64())),
+			X: x,
+			Y: y,
 		})
 	}
 	return out

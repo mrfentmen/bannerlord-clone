@@ -86,24 +86,29 @@ func (b *Battle) stageAimedFire() {
 
 // rangedHitChance is the chance a shot connects.
 //
-// Skill sets the base, at 0.25 for a shooter with no skill and 0.70 for a
-// perfect one, which leaves room for every other term to matter without skill
-// being the whole answer. Suppression on the shooter suppresses its aim;
-// suppression on the target makes it easier to hit. A broken or routed shooter
-// shoots badly without being under fire at all, which is why its status scales
-// the chance as well as the damage.
+// Skill sets the base, at battle.ranged_hit_chance_base for a shooter with no
+// skill and base+weight for a perfect one, which leaves room for every other
+// term to matter without skill being the whole answer. Both numbers were
+// literals 0.25 and 0.45 in this function, which made the hit chance of the
+// game's only shooting model the one thing in the [battle] section no balance
+// pass could reach. Suppression on the shooter suppresses its aim; suppression
+// on the target makes it easier to hit. A broken or routed shooter shoots badly
+// without being under fire at all, which is why its status scales the chance as
+// well as the damage.
 //
 // Exhaustion is deliberately not a term here. A tired man's aim is not worse
 // than a rested one's; his swing of the trigger is heavier. Exhaustion is
 // applied to damage instead, in rangedDamage, where it belongs.
 func (b *Battle) rangedHitChance(s, ts *snapshot, u *Unit) float64 {
 	c := b.c
-	chance := 0.25 + 0.45*u.RangedSkill
+	chance := c.RangedHitChanceBase + c.RangedHitChanceSkillWeight*u.RangedSkill
 	chance *= 1 - clamp01(s.Suppression/c.SuppressionCap)*c.SuppressionRangedPenalty
 	chance *= 1 - clamp01(ts.Suppression/c.SuppressionCap)*c.SuppressionRangedPenalty
-	// Halved at zero effectiveness, floored at half, so a shaken shooter is
-	// worse rather than incompetent.
-	chance *= 0.5 + 0.5*u.effectiveness(c)
+	// Kept above battle.ranged_hit_effectiveness_floor, and at it when there is
+	// no effectiveness at all, so a shaken shooter is worse rather than
+	// incompetent. It was a literal 0.5 and 0.5 here.
+	floor := c.RangedHitEffectivenessFloor
+	chance *= floor + (1-floor)*u.effectiveness(c)
 	return clamp01(chance)
 }
 

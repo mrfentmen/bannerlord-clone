@@ -1108,6 +1108,15 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 	// is arranged, and a shape that stood still while it was ordered back would
 	// be a standing shape with its back to the enemy.
 	anchorX, anchorY := ax, ay
+	// walking is set when the order is about WHERE the formation ends up rather
+	// than only about how it is arranged. A hold tidies a shape where it stands
+	// and an advance lets the engine's own rules close the gap, so for both of
+	// those a man already in his slot correctly gets no order. A fall-back is
+	// different: the shape has to leave, and the only thing that moves it is the
+	// anchor being pulled away from the enemy, so a man in his slot has to be
+	// told to walk with it. See the in-slot branch below for why the tolerance
+	// cannot stand in the way of that.
+	walking := false
 	// stepPace is how fast a man walks toward his slot, and it is the whole
 	// difference between the orders: an advance walks the shape forward, a
 	// charge walks it faster, a hold walks nobody anywhere but a man who has
@@ -1130,12 +1139,17 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 	case OrderFormationRetreat:
 		stepPace = fc.RetreatSpeed
 		if d := math.Hypot(ax-ex, ay-ey); haveEnemy && isFinite(d) && d > 0 {
-			// Pulled away from the enemy by the configured distance a fall-back
-			// moves in a tick, which is the pace the men are walking, so the
-			// shape withdraws at the speed it can actually be walked back at and
-			// a man already in his slot stays in it.
+			// Pulled away from the enemy by the distance a fall-back covers in one
+			// tick, which is the pace the men are walking, so the shape withdraws
+			// at the speed it can actually be walked back at.
+			//
+			// The pull is bounded by retreat_distance as well as by the pace: a
+			// long tick, or a fast withdrawal, must not throw a formation bodily
+			// across the field, and the bound is what says how far one tick is
+			// allowed to carry a shape.
 			pull := math.Min(fc.RetreatDistance, fc.RetreatSpeed*v.TickSeconds)
 			anchorX, anchorY = ax+(ax-ex)/d*pull, ay+(ay-ey)/d*pull
+			walking = true
 		}
 	}
 	// A square is the only shape that cannot keep up with the pace it is given.
@@ -1162,12 +1176,28 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 		sx, sy := slots[i].place(anchorX, anchorY, g.facing)
 		dx, dy := sx-u.X, sy-u.Y
 		dist := math.Hypot(dx, dy)
-		if !isFinite(dist) || dist <= tolerance {
-			// Standing in his slot, or as close to it as the shape's own
-			// spacing allows. The unit is left to the engine's rules for
-			// movement, because a man in his place who is in contact still has
-			// to fight and spread, and the shape is not a reason to stop doing
-			// that. The shape is still published: he is in it either way.
+		// A man is left to the engine's own rules when he is in his slot, or as
+		// close to it as the shape's own spacing allows, because a man in his
+		// place who is in contact still has to fight and spread, and the shape
+		// is not a reason to stop doing that. The shape is still published: he is
+		// in it either way.
+		//
+		// The one order that overrides this is a fall-back, and it has to. The
+		// shape's position is set by its anchor, the anchor is the group's centre
+		// of mass, and the centre of mass is where the men currently are. A
+		// withdrawal moves the anchor away from the enemy, but the men only ever
+		// close on the distance from their current position to a slot that is one
+		// pull further back than they were, and that distance is smaller than the
+		// cohesion tolerance. So a formed formation satisfies the in-slot test
+		// every tick, is given no orders, and stands still: a withdrawal that
+		// withdraws nothing. Measuring it in a whole battle shows the retreat
+		// ending up nearer the enemy than the advance it was ordered to run from.
+		//
+		// So for an order that is about where the shape goes, the tolerance is
+		// not consulted and a man in his slot is told to walk with the shape.
+		// He is still never told to walk PAST his slot: the cap below is what
+		// stops a man reversing every tick, and it is the same cap either way.
+		if (!isFinite(dist) || dist <= tolerance) && !walking {
 			cmd.Set = false
 		} else {
 			// The cohesion step: toward the slot, at the formation's pace, and
