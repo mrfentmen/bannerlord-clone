@@ -273,7 +273,11 @@ def build_sim_feed(
         "settlements that should be forest/swamp are mapped to Plain."
     )
 
-    payload = {
+    # Contract: settlements.json is a bare JSON array whose objects use the exact
+    # Go field names of worldgen.Settlement, so Go can decode it directly with
+    # json.Unmarshal(raw, &[]worldgen.Settlement{}). Provenance metadata lives in
+    # the sidecar settlements.meta.json, not in the array file.
+    meta = {
         "source": "agent-1-export",
         "licence": (
             "U.S. Government work, public domain (Title 17 U.S.C. 105). "
@@ -288,9 +292,10 @@ def build_sim_feed(
             "equirectangular around bbox centre "
             f"({clon:.4f}, {clat:.4f}), 1 league = 3 statute miles"
         ),
-        "settlements": feed,
+        "settlement_count": len(feed),
     }
-    (out / "settlements.json").write_text(json.dumps(payload))
+    (out / "settlements.json").write_text(json.dumps(feed))
+    (out / "settlements.meta.json").write_text(json.dumps(meta))
     return SimFeedResult(
         out_dir=out,
         region_name=region_name,

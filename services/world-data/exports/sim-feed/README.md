@@ -9,7 +9,8 @@ designed to consume verbatim (`services/simulation/internal/worldgen/worldgen.go
 
 | File | Contents |
 |---|---|
-| `settlements.json` | 487 V1-region settlements as `worldgen.Settlement` JSON |
+| `settlements.json` | **Bare JSON array** of 487 V1-region settlements as `worldgen.Settlement` JSON — decodes directly with `json.Unmarshal(raw, &[]worldgen.Settlement{})` |
+| `settlements.meta.json` | Provenance sidecar: source, licence, retrieved date, region, projection, settlement count |
 
 ## Shape
 

@@ -138,18 +138,23 @@ def test_build_sim_feed_matches_go_struct(tiny_dist: Path, tmp_path: Path):
     assert result.warnings  # the forest/swamp gap note is always logged
 
     payload = json.loads((out / "settlements.json").read_text())
-    assert payload["source"] == "agent-1-export"
-    assert "public domain" in payload["licence"]
-    assert payload["region"] == "Test Valley"
-    assert payload["retrieved"] == "2026-09-30"
+    # Contract: the file is a bare JSON array decodable as []worldgen.Settlement.
+    assert isinstance(payload, list), type(payload).__name__
+
+    meta = json.loads((out / "settlements.meta.json").read_text())
+    assert meta["source"] == "agent-1-export"
+    assert "public domain" in meta["licence"]
+    assert meta["region"] == "Test Valley"
+    assert meta["retrieved"] == "2026-09-30"
+    assert meta["settlement_count"] == 2
 
     # Exact Go field names of worldgen.Settlement -- no more, no less.
     expected_keys = {"Name", "State", "SideID", "Population", "X", "Y",
                      "IsPort", "Terrain", "Farmland", "IsReal"}
-    for row in payload["settlements"]:
+    for row in payload:
         assert set(row.keys()) == expected_keys, set(row.keys()) ^ expected_keys
 
-    by_name = {r["Name"]: r for r in payload["settlements"]}
+    by_name = {r["Name"]: r for r in payload}
     port = by_name["Portville"]
     hill = by_name["Hilltown"]
 
@@ -178,7 +183,7 @@ def test_build_sim_feed_matches_go_struct(tiny_dist: Path, tmp_path: Path):
     assert hill["Y"] == pytest.approx(-0.5 * 110.57 / KM_PER_LEAGUE, rel=1e-6)
 
     # Biggest first.
-    assert payload["settlements"][0]["Name"] == "Portville"
+    assert payload[0]["Name"] == "Portville"
 
 
 def test_build_sim_feed_unknown_section_warns(tiny_dist: Path, tmp_path: Path):
@@ -191,4 +196,4 @@ def test_build_sim_feed_unknown_section_warns(tiny_dist: Path, tmp_path: Path):
     result = build_sim_feed(tiny_dist, tmp_path / "sim-feed")
     assert any("mystery_pact" in w for w in result.warnings)
     payload = json.loads((tmp_path / "sim-feed" / "settlements.json").read_text())
-    assert payload["settlements"][0]["SideID"] == 0
+    assert payload[0]["SideID"] == 0
