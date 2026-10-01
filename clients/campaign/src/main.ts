@@ -46,6 +46,9 @@ import type {
   TickUpdate,
   TownState,
 } from "./data/types.js";
+import { input } from "./input/index.js";
+import { keybindingEditor } from "./ui/panels/KeybindingEditor.js";
+import { settings } from "./settings/index.js";
 
 const appEl = document.getElementById("app");
 const canvasEl = document.getElementById("map");
@@ -70,26 +73,46 @@ if (citySlug) {
   });
 } else {
 
-// -- UI scale, persisted ------------------------------------------------------
+// -- settings ---------------------------------------------------------------
+// One versioned blob in localStorage, created before anything renders so the UI
+// scale applies on the first frame. The migration inside the store absorbs the
+// legacy `campaign.uiScale` key; it is removed afterwards so it cannot drift.
+
+input.load(settings.get().keyBindings);
+input.onBindingsChanged(() => {
+  settings.set({ keyBindings: input.serialize() });
+});
+try {
+  localStorage.removeItem("campaign.uiScale");
+} catch {
+  // Session-only anyway; nothing to clean.
+}
 
 function applyUiScale(scale: number): void {
   document.documentElement.setAttribute("data-ui-scale", String(scale));
-  try {
-    localStorage.setItem("campaign.uiScale", String(scale));
-  } catch {
-    // Storage disabled. The scale applies for this session; it just is not remembered,
-    // which is not worth interrupting the player over.
+}
+function applyReduceMotion(on: boolean): void {
+  if (on) document.documentElement.setAttribute("data-reduce-motion", "");
+  else document.documentElement.removeAttribute("data-reduce-motion");
+}
+/** Applies every setting that takes effect without a restart. */
+function applySettingsLive(): void {
+  const s = settings.get();
+  applyUiScale(s.uiScale);
+  applyReduceMotion(s.reduceMotion);
+  // Audio levels are stored and validated here; the audio pipeline (Hana's lane)
+  // subscribes to the store and applies them.
+  if (scene) {
+    const level =
+      s.graphicsQuality === "low" ? 1.5
+      : s.graphicsQuality === "medium" ? 1.25
+      : s.graphicsQuality === "ultra" ? 0.85
+      : 1;
+    scene.engine.setHardwareScalingLevel(level);
   }
 }
-function loadUiScale(): number {
-  try {
-    const n = Number(localStorage.getItem("campaign.uiScale"));
-    return [90, 100, 115, 130].includes(n) ? n : 100;
-  } catch {
-    return 100;
-  }
-}
-applyUiScale(loadUiScale());
+applyUiScale(settings.get().uiScale);
+applyReduceMotion(settings.get().reduceMotion);
 
 // -- configuration -----------------------------------------------------------
 
@@ -245,7 +268,8 @@ const hud = createHud({
   },
   onSkipToArrival: () => void skipToArrival(),
   onOpenDataSource: () => openDataSource(),
-  onOpenUiScale: (s) => applyUiScale(s),
+  onOpenControls: () => openControls(),
+  onOpenUiScale: (s) => settings.set({ uiScale: s }),
   onNotification: (entityId, field) => openWhy(entityId, field),
 });
 
@@ -253,43 +277,14 @@ function mountCampaign(): void {
   if (!snapshot) return;
   app.appendChild(hud.root);
   paint();
-
-  window.addEventListener("keydown", (ev) => {
-    if (ev.key === "Escape") {
-      currentPanel = "none";
-      contextNode = null;
-      paint();
-      return;
-    }
-    // Tab cycles settlements only while the map has focus. Hijacking it everywhere
-    // would take keyboard traversal away from the panels, which is the opposite of
-    // what UI_UX.md section 11 asks for.
-    if (ev.key === "Tab" && mapCanvas === document.activeElement) {
-      const ids = world?.data.settlements.map((s) => s.id) ?? [];
-      if (ids.length === 0) return;
-      const at = selectedSettlement ? ids.indexOf(selectedSettlement) : -1;
-      const next = ids[(at + (ev.shiftKey ? ids.length - 1 : 1)) % ids.length]!;
-      ev.preventDefault();
-      selectSettlement(next);
-      mapCanvas.focus();
-      return;
-    }
-    const pan: Record<string, [number, number]> = {
-      ArrowLeft: [-1, 0],
-      ArrowRight: [1, 0],
-      ArrowUp: [0, -1],
-      ArrowDown: [0, 1],
-    };
-    const move = pan[ev.key];
-    if (move && selectedSettlement) {
-      const place = settlement(selectedSettlement);
-      if (place && scene) {
-        const p = worldData.projection.toWorld(place.lat, place.lon);
-        scene.focus(p.x + move[0] * 3000, p.z + move[1] * 3000);
-        ev.preventDefault();
-      }
-    }
-  });
+  bindInputActions();
+  // The scene exists by now, so graphics quality can apply to the live engine.
+  // mountCampaign can run again after a snapshot reload; subscribe once.
+  applySettingsLive();
+  if (!settingsLive) {
+    settingsLive = true;
+    settings.subscribe(applySettingsLive);
+  }
 
   provider.subscribeTicks(
     (update) => {
@@ -314,6 +309,64 @@ function mountCampaign(): void {
   const worst = [...snapshot.towns].sort((a, b) => b.unrest - a.unrest)[0];
   if (worst) selectSettlement(worst.settlementId);
   if (scene && world) scene.focus(world.projection.width / 2, world.projection.depth / 2, 34_000);
+}
+
+// -- input actions -----------------------------------------------------------
+// Every gameplay key routes through the input registry; there are no raw key
+// reads below. The chords live in `src/input/actions.ts`, the keybinding editor
+// rewrites them at runtime, and gamepad/touch dispatch the same action ids.
+let inputBound = false;
+let settingsLive = false;
+
+function bindInputActions(): void {
+  if (inputBound) return;
+  inputBound = true;
+
+  input.on("ui.cancel", () => {
+    currentPanel = "none";
+    contextNode = null;
+    paint();
+  });
+
+  const cycleSettlement = (dir: 1 | -1): void => {
+    const ids = world?.data.settlements.map((s) => s.id) ?? [];
+    if (ids.length === 0) return;
+    const at = selectedSettlement ? ids.indexOf(selectedSettlement) : -1;
+    const next = ids[(at + dir + ids.length) % ids.length]!;
+    selectSettlement(next);
+    mapCanvas.focus();
+  };
+  // Tab keeps its normal meaning inside panels: settlement cycling only fires
+  // while the map canvas itself has keyboard focus.
+  const mapFocused = (): boolean => mapCanvas === document.activeElement;
+  input.on("map.nextSettlement", () => cycleSettlement(1), { when: mapFocused });
+  input.on("map.prevSettlement", () => cycleSettlement(-1), { when: mapFocused });
+
+  const PAN_STEP = 3000;
+  const panBy = (dx: number, dz: number): void => {
+    if (!selectedSettlement) return;
+    const place = settlement(selectedSettlement);
+    if (place && scene) {
+      // Camera speed is read at dispatch time: changing it applies immediately.
+      const step = PAN_STEP * settings.get().cameraSpeed;
+      const p = worldData.projection.toWorld(place.lat, place.lon);
+      scene.focus(p.x + dx * step, p.z + dz * step);
+    }
+  };
+  const hasSelection = (): boolean => selectedSettlement !== null;
+  input.on("map.panLeft", () => panBy(-1, 0), { when: hasSelection });
+  input.on("map.panRight", () => panBy(1, 0), { when: hasSelection });
+  input.on("map.panUp", () => panBy(0, -1), { when: hasSelection });
+  input.on("map.panDown", () => panBy(0, 1), { when: hasSelection });
+
+  window.addEventListener("keydown", (ev) => {
+    input.handleKeyEvent(ev);
+  });
+  // Key releases route through the registry too, for hold-to-open patterns
+  // (command radial menu). No preventDefault: nothing downstream needs it.
+  window.addEventListener("keyup", (ev) => {
+    input.handleKeyUp(ev);
+  });
 }
 
 /**
@@ -487,6 +540,18 @@ function openDataSource(): void {
       paint();
     },
     onRetry: () => void reloadSnapshot(),
+  });
+  paint();
+}
+
+function openControls(): void {
+  currentPanel = "none";
+  contextNode = keybindingEditor({
+    onClose: () => {
+      currentPanel = "none";
+      contextNode = null;
+      paint();
+    },
   });
   paint();
 }

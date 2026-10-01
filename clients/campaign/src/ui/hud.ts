@@ -25,6 +25,8 @@ export interface HudOptions {
   /** Jump the clock to the end of the party's current march. Optional: the button hides without it. */
   onSkipToArrival?: () => void;
   onOpenDataSource: () => void;
+  /** Opens the keybinding editor. Optional: the button hides without it. */
+  onOpenControls?: () => void;
   /**
    * Applies one of the four text-size settings.
    *
@@ -424,6 +426,12 @@ export function createHud(options: HudOptions): HudHandle {
     const dataBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-data-source" }, "Where does this data come from?");
     dataBtn.addEventListener("click", () => options.onOpenDataSource());
     rail.appendChild(dataBtn);
+
+    if (options.onOpenControls) {
+      const controlsBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-controls" }, "Controls & keys");
+      controlsBtn.addEventListener("click", () => options.onOpenControls?.());
+      rail.appendChild(controlsBtn);
+    }
 
     return rail;
   }
