@@ -145,14 +145,14 @@ func RunScenario(cfg *config.Config, balancePath string, sc Scenario, seed uint6
 		return out
 	}
 
-	report := buildReport(sc, cfg, balancePath, seed, scale, setup, res, probe, wall, wallPlain)
+	report := buildReport(sc, cfg, balancePath, seed, scale, setup, res, plain, probe, wall, wallPlain)
 	findings := Verify(Input{
 		Config:        cfg,
 		Setup:         setup,
 		Result:        res,
 		PlainResult:   plain,
 		Hash:          report.Hash,
-		PlainHash:     ResultHash(plain),
+		PlainHash:     report.PlainHash,
 		Probe:         probe,
 		ScenarioSetup: sc.CheckSetup,
 		ScenarioRun:   sc.Expect,
@@ -165,8 +165,15 @@ func RunScenario(cfg *config.Config, balancePath string, sc Scenario, seed uint6
 
 // buildReport assembles the report for a finished run from the engine's result
 // and the harness's measurements.
+//
+// The uncommanded run is an argument rather than something re-derived inside,
+// because the report has to print its hash. It used not to, and the result was a
+// report that said "repeat: not run" on every single line of every run while the
+// probe-neutral check two dozen lines further down said the two runs agreed. Both
+// statements cannot be true, and the one the reader would believe first is the one
+// the report itself contradicts.
 func buildReport(sc Scenario, cfg *config.Config, balancePath string, seed uint64, scale float64,
-	setup battle.Setup, res *battle.Result, p *Probe, wall, wallPlain time.Duration) *Report {
+	setup battle.Setup, res, plain *battle.Result, p *Probe, wall, wallPlain time.Duration) *Report {
 	r := &Report{
 		Scenario:        sc.Name,
 		Line:            sc.Line,
@@ -179,10 +186,12 @@ func buildReport(sc Scenario, cfg *config.Config, balancePath string, seed uint6
 		MaxTicks:        cfg.Battle.MaxTicks,
 		MaxUnitsPerSide: cfg.Battle.MaxUnitsPerSide,
 		MaxStep:         cfg.Battle.MaxStepPerTick,
+		MeleeRange:      cfg.Battle.MeleeRange,
 		Result:          res,
 		Wall:            wall,
 		WallPlain:       wallPlain,
 		Hash:            ResultHash(res),
+		PlainHash:       ResultHash(plain),
 		Probe:           p,
 	}
 	r.Winner = res.Outcome.Kind.String()
@@ -423,7 +432,7 @@ var scenarioMoraleShock = Scenario{
 		}
 		return vs
 	},
-Expect: func(r *Report) []Violation {
+	Expect: func(r *Report) []Violation {
 		vs := expectDecided("a shaken side's battle still resolves")(r)
 		if r.Result.Stats.Routs == 0 {
 			vs = append(vs, Violation{Rule: RuleScenario, Tick: -1,
@@ -468,9 +477,11 @@ func expectDecided(what string) func(*Report) []Violation {
 
 // evenSetup builds a battle with an even command on both sides.
 //
-// The leader count follows the engine's own rule of thumb, one per two hundred and
-// fifty units, so a scaled scenario keeps the same command density and a size
-// sweep measures size rather than command structure.
+// The leader count follows battle.LeaderCount, which reads
+// battle.roster_leaders_per_unit, so a scaled scenario keeps the same command
+// density and a size sweep measures size rather than command structure. It used
+// to say "one per two hundred and fifty units" here as well as in setupFrom,
+// which is the same number written in a third place.
 func evenSetup(cfg *config.Config, seed uint64, unitsA, unitsB int, label string, args ...any) (battle.Setup, error) {
 	a, err := battle.GenerateForce(cfg, seed, battle.SideA, battle.Roster{Units: unitsA})
 	if err != nil {
@@ -484,17 +495,28 @@ func evenSetup(cfg *config.Config, seed uint64, unitsA, unitsB int, label string
 }
 
 // setupFrom attaches a command and the ground to two generated forces.
+//
+// The leader count is battle.LeaderCount and the standing those commanders are
+// given is battle.morale_leader_influence_reference, both read from the balance
+// file. This function used to carry its own copy of both: a literal 250 men a
+// commander and a literal 260 of standing, which are the shipped defaults of
+// those two keys. A third copy of a constant the balance file already owns is
+// how a size sweep ends up measuring the harness's idea of command structure
+// rather than the engine's, and it made the comment in balance.toml — that the
+// copies no longer exist — untrue. Every caller that wants a different command
+// structure changes the balance file now.
 func setupFrom(cfg *config.Config, seed uint64, a, b []battle.Unit, label string) battle.Setup {
-	leaders := 1 + len(a)/250
-	if n := 1 + len(b)/250; n > leaders {
+	leaders := battle.LeaderCount(cfg, len(a))
+	if n := battle.LeaderCount(cfg, len(b)); n > leaders {
 		leaders = n
 	}
+	influence := cfg.Battle.MoraleLeaderInfluenceReference
 	return battle.Setup{
 		A: a,
 		B: b,
 		Leaders: append(
-			battle.GenerateLeaders(cfg, seed, battle.SideA, leaders, 260),
-			battle.GenerateLeaders(cfg, seed, battle.SideB, leaders, 260)...),
+			battle.GenerateLeaders(cfg, seed, battle.SideA, leaders, influence),
+			battle.GenerateLeaders(cfg, seed, battle.SideB, leaders, influence)...),
 		Terrain: battle.TerrainOpen,
 		Label:   label,
 	}

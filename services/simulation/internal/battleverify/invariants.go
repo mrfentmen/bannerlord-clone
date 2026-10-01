@@ -61,6 +61,7 @@ func Verify(in Input) *Findings {
 	}
 
 	checkPerTick(f, log, in.Probe)
+	checkContact(f, in)
 	checkCasualties(f, in)
 	checkUnitsAccounted(f, in)
 	checkWinner(f, in)
@@ -96,6 +97,117 @@ func checkPerTick(f *Findings, log *violationLog, p *Probe) {
 		}
 		f.pass(c.rule, c.note)
 	}
+}
+
+// checkContact is that the battle was actually fought.
+//
+// The brief's four required invariants are all about internal consistency: hit
+// points, bounds, arithmetic, the winner, the tick bound. A battle in which the
+// two armies never come within reach of each other satisfies every one of them.
+// It adds up, it stays in bounds, one side wins, the tick count is legal, and the
+// report is a clean row of passes describing a fight that never happened.
+//
+// So this rule asks the question the other four cannot: did anybody swing? It is
+// the difference between a simulation that fights and one that resolves, and it is
+// checked against the engine's own two numbers rather than against a threshold
+// somebody picked. The reach is battle.melee_range, the same constant the melee
+// stage compares distance against, and the swings are the engine's own counter, so
+// there is no balance judgement in the verdict at all: either a blow was thrown or
+// none was.
+//
+// Three outcomes, because they are three different faults:
+//
+//   - A swing was thrown. The battle was fought. Pass.
+//   - The armies closed to a blow's reach and nothing was thrown. That is a
+//     targeting or status fault, not a movement one, and it is reported as such
+//     because the two have entirely different fixes.
+//   - The armies never closed to a blow's reach. That is a movement fault, or the
+//     two constants that govern it are set so that contact cannot happen inside
+//     battle.max_ticks. The report quotes both, and the closing arithmetic, so the
+//     reader can see which without reading any code.
+func checkContact(f *Findings, in Input) {
+	if in.Probe == nil {
+		f.skip(RuleContact, "this run had no probe attached, so the distance between the armies was "+
+			"never measured and whether the battle was fought is not checkable from the result alone")
+		return
+	}
+	p := in.Probe
+	if !p.minFoeSet {
+		f.fail(RuleContact, "the battle published no state, so no contact could be measured", []Violation{{
+			Rule: RuleContact, Tick: -1,
+			Detail: "the probe saw no published ticks at all",
+		}})
+		return
+	}
+
+	melee := in.Config.Battle.MeleeRange
+	swings := 0.0
+	for _, sr := range in.Result.Sides {
+		swings += sr.Swings
+	}
+	ticks := in.Result.Ticks
+
+	note := fmt.Sprintf("the closest two units that could strike each other ever came was %.1f m, against a "+
+		"battle.melee_range of %g m, over %d published ticks; the engine's own counter says %.0f swings were "+
+		"thrown and %.0f connected", p.minFoe, melee, p.ticks, swings, hitsOf(in.Result))
+
+	if swings > 0 {
+		f.pass(RuleContact, note)
+		return
+	}
+
+	if p.minFoe <= melee {
+		f.fail(RuleContact, note, []Violation{{
+			Rule: RuleContact, Tick: p.minFoeAt,
+			Detail: fmt.Sprintf("units %d and %d closed to %.2f m, inside the %g m reach of a blow, on %d "+
+				"published ticks, and the melee stage threw no swings at all. The armies met and nothing hit "+
+				"them, so this is a fault in targeting or in which statuses the melee stage will swing at, "+
+				"not in movement", p.minFoeA, p.minFoeB, p.minFoe, melee, p.contactTicks),
+		}})
+		return
+	}
+
+	f.fail(RuleContact, note, []Violation{{
+		Rule: RuleContact, Tick: p.minFoeAt,
+		Detail: fmt.Sprintf("no blow was ever thrown: the closest the two armies came was %.1f m at tick %d "+
+			"(units %d and %d), which is %.0f times the %g m a blow can reach, and the battle was over at "+
+			"tick %d. The lines start %g m apart and a unit covers about %.2f m a tick at "+
+			"roster_speed_base %g, so contact needs roughly %.0f ticks of approach. The outcome below was "+
+			"therefore produced by suppression and panic at long range, and the melee stage, its damage model, "+
+			"and its formation modifiers were never executed once",
+			p.minFoe, p.minFoeAt, p.minFoeA, p.minFoeB, p.minFoe/melee, melee, ticks,
+			in.Config.Battle.RosterStartDistance, tickReachOf(in.Config), in.Config.Battle.RosterSpeedBase,
+			approachTicksOf(in.Config)),
+	}})
+}
+
+// hitsOf is the total number of hits the two sides landed, ranged and melee.
+func hitsOf(res *battle.Result) float64 {
+	var n float64
+	for _, sr := range res.Sides {
+		n += sr.RangedHits + sr.MeleeHits
+	}
+	return n
+}
+
+// tickReachOf is how far one unit covers in a single tick at its base speed.
+func tickReachOf(c *config.Config) float64 {
+	return c.Battle.RosterSpeedBase * c.Battle.TickSeconds
+}
+
+// approachTicksOf is how many ticks the two lines need to walk half the start
+// distance each before they can touch.
+//
+// It is the number the failure message needs and nothing more: it assumes both
+// sides close at base speed with no charge, which is the slowest plausible approach
+// and so the safe direction for a claim about how long contact takes. A charge
+// brings it down, a withdrawal or a rout puts it off entirely.
+func approachTicksOf(c *config.Config) float64 {
+	perTick := tickReachOf(c)
+	if perTick <= 0 {
+		return 0
+	}
+	return c.Battle.RosterStartDistance / 2 / perTick
 }
 
 // checkCasualties is the required rule that casualty counts add up.
@@ -440,14 +552,15 @@ func checkScenario(f *Findings, in Input) {
 	// and the kind of wrong that makes a real failure look like a bug in the
 	// message rather than in the battle.
 	report := &Report{
-		Result:        in.Result,
-		Setup:         in.Setup,
-		Hash:          in.Hash,
-		MaxTicks:      in.Config.Battle.MaxTicks,
-		TickSeconds:   in.Config.Battle.TickSeconds,
-		MaxStep:       in.Config.Battle.MaxStepPerTick,
+		Result:          in.Result,
+		Setup:           in.Setup,
+		Hash:            in.Hash,
+		MaxTicks:        in.Config.Battle.MaxTicks,
+		TickSeconds:     in.Config.Battle.TickSeconds,
+		MaxStep:         in.Config.Battle.MaxStepPerTick,
 		MaxUnitsPerSide: in.Config.Battle.MaxUnitsPerSide,
-		ConfigVersion: in.Result.ConfigVersion,
+		MeleeRange:      in.Config.Battle.MeleeRange,
+		ConfigVersion:   in.Result.ConfigVersion,
 	}
 	for _, side := range []battle.Side{battle.SideA, battle.SideB} {
 		i := sideIndex(side)
