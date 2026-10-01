@@ -93,12 +93,12 @@ type FrozenRoster struct {
 // Advance until PhaseResolved. Every step validates its preconditions and
 // every phase change goes through the transition table.
 type Session struct {
-	id      string
-	phase   Phase
-	tick    int
+	id       string
+	phase    Phase
+	tick     int
 	attacker PartyRef
 	defender PartyRef
-	rosters [2]FrozenRoster
+	rosters  [2]FrozenRoster
 	// terrainSeed names the ground the battle is fought on. The core only
 	// models open terrain today; the seed is carried so the terrain-grid task
 	// can generate from it without changing this contract.
@@ -220,6 +220,66 @@ func freezeRoster(party PartyRef, units []Unit, leaders []Leader, side Side) Fro
 	return FrozenRoster{Party: party, Units: cp, Leaders: lc, Bodies: bodies}
 }
 
+// Command hands the running battle a commander, which is how anything reaches a
+// battle from outside it: a formation layer, a tactics AI, a script, a player's
+// orders. Without this the session is a battle nobody can give an order to, and
+// the only way to command one is RunCommanded, which fights the battle to its
+// end in a single call and has no phases, no pause, and no step.
+//
+// It is the same seam RunCommanded uses, not a second one: the battle publishes
+// the field to the commander once a tick and applies what comes back over the
+// movements the intent stage staged, which is the order of operations a commander
+// has to be able to rely on. A commander given here therefore behaves exactly as
+// it would in a RunCommanded battle, and the formation layer is one such
+// commander.
+//
+// When to call it is the caller's choice within two limits. Before Deploy there
+// is no battle to command and the call is refused, because the view is sized
+// against the forces the battle actually has. After the session is resolved
+// there is nothing left to order and the call is refused too, because a
+// commander attached to a finished battle would read as though its orders were
+// being considered. Between those two points it may be called again to replace
+// the commander: a session mid-battle is exactly where a player changes their
+// mind, and refusing that would mean the orders of a battle could only ever be
+// the ones chosen before it started.
+//
+// The view is allocated once, here, against the forces this battle has, and
+// refilled in place on every tick by the battle. A commanded session allocates
+// nothing per tick, which is the same promise RunCommanded makes.
+func (s *Session) Command(cmd Commander) error {
+	if cmd == nil {
+		return &Error{Kind: ErrInternal, Field: "Commander",
+			Detail: "Command needs a commander; nil would leave the battle being fought by nobody, which is " +
+				"what a session with no commander already is. Pass the commander you want, or do not call this"}
+	}
+	if s.battle == nil {
+		return &Error{Kind: ErrInternal, Field: "phase",
+			Detail: fmt.Sprintf("Command needs a deployed session; this one is %s and has no field to publish yet", s.phase)}
+	}
+	if s.decided || s.phase == PhaseResolved {
+		return &Error{Kind: ErrInternal, Field: "phase",
+			Detail: fmt.Sprintf("Command needs a session that is still fighting; this one is %s (%s), and its "+
+				"orders would be read by nobody", s.phase, s.outcome.Kind)}
+	}
+	if s.battle.hooks == nil {
+		s.battle.hooks = &commandHooks{
+			cmd:  cmd,
+			view: &View{Units: make([]UnitView, len(s.battle.units)), Commands: make([]UnitCommand, len(s.battle.units))},
+		}
+		return nil
+	}
+	// Replacing an existing commander. The view is already the right size and is
+	// refilled every tick, so there is nothing to resize.
+	s.battle.hooks.cmd = cmd
+	return nil
+}
+
+// Commanded reports whether a commander is attached to this battle, which is what
+// a caller reads to tell a battle it is steering from one it is only watching.
+func (s *Session) Commanded() bool {
+	return s.battle != nil && s.battle.hooks != nil
+}
+
 // BeginFighting moves a deployed session into the fighting phase. Ticks only
 // advance after this call; a deployed battle that never begins is a battle
 // that never happened.
@@ -301,12 +361,12 @@ func (s *Session) EventsDropped() int {
 
 // ID, Phase, Tick, Seed, and TerrainSeed expose the session's identity.
 func (s *Session) ID() string          { return s.id }
-func (s *Session) Phase() Phase         { return s.phase }
-func (s *Session) Tick() int            { return s.tick }
+func (s *Session) Phase() Phase        { return s.phase }
+func (s *Session) Tick() int           { return s.tick }
 func (s *Session) Seed() uint64        { return s.seed }
-func (s *Session) TerrainSeed() uint64  { return s.terrainSeed }
-func (s *Session) Attacker() PartyRef   { return s.attacker }
-func (s *Session) Defender() PartyRef   { return s.defender }
+func (s *Session) TerrainSeed() uint64 { return s.terrainSeed }
+func (s *Session) Attacker() PartyRef  { return s.attacker }
+func (s *Session) Defender() PartyRef  { return s.defender }
 
 // Roster returns the frozen roster for a side. The returned roster's slices
 // are the session's own; callers must not mutate them.
