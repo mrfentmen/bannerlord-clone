@@ -445,6 +445,24 @@ region_name = "Ohio River Valley (OH/KY metro cluster)"
 region_bbox = [-85.30, 37.10, -81.60, 40.60]
 slice_name = "Ohio + Kentucky (Great Lakes Union / Southern Compact)"
 slice_states = ["Ohio", "Kentucky"]
+
+# Tier 2B-59: Four priority metro bounding boxes.
+# Each is [west, south, east, north] in WGS84 decimal degrees.
+[metros.nyc]
+name = "New York City (5 boroughs)"
+bbox = [-74.30, 40.40, -73.70, 40.90]
+
+[metros.los_angeles]
+name = "Los Angeles metro"
+bbox = [-118.70, 33.70, -117.80, 34.30]
+
+[metros.houston]
+name = "Houston metro"
+bbox = [-95.80, 29.50, -94.80, 30.20]
+
+[metros.miami]
+name = "Miami metro"
+bbox = [-80.40, 25.60, -80.00, 26.00]
 # Elevation tiles are downloaded only for this region. Countrywide SRTM is
 # ~1,000 tiles of ~7 MB each, which is not a Phase 0 cost. Agents 3 and 4 can
 # widen this list in this file; nothing else needs to change.
