@@ -1,11 +1,4 @@
 // Package api serves the campaign client's HTTP contract.
-//
-// It is a thin layer on purpose. The simulation lives in
-// `mbclone/simulation/cmd/apiserver/campaign` and every number this package sends
-// came from there or from the balance config; nothing here computes a price, a
-// wage, a distance, or a date. What this package owns is the boundary: routing,
-// JSON decoding, the error envelope, CORS, and turning a campaign Fault into a
-// status code.
 package api
 
 import (
@@ -21,7 +14,6 @@ import (
 	"mbclone/simulation/cmd/apiserver/wire"
 )
 
-// Server serves the campaign client over HTTP.
 type Server struct {
 	camp           *campaign.Campaign
 	log            *log.Logger
@@ -30,14 +22,12 @@ type Server struct {
 	requestTimeout time.Duration
 }
 
-// Options configures the server.
 type Options struct {
-	Logger *log.Logger
-	CORSOrigin string
+	Logger         *log.Logger
+	CORSOrigin     string
 	RequestTimeout time.Duration
 }
 
-// New builds the server and its routes.
 func New(camp *campaign.Campaign, opts Options) *Server {
 	if opts.Logger == nil {
 		opts.Logger = log.Default()
@@ -49,22 +39,17 @@ func New(camp *campaign.Campaign, opts Options) *Server {
 		opts.RequestTimeout = 30 * time.Second
 	}
 	s := &Server{
-		camp:           camp,
-		log:            opts.Logger,
-		mux:            http.NewServeMux(),
-		corsOrigin:     opts.CORSOrigin,
-		requestTimeout: opts.RequestTimeout,
+		camp: camp, log: opts.Logger, mux: http.NewServeMux(),
+		corsOrigin: opts.CORSOrigin, requestTimeout: opts.RequestTimeout,
 	}
 	s.routes()
 	return s
 }
 
-// Handler returns the HTTP handler, with CORS and logging wrapped around it.
 func (s *Server) Handler() http.Handler {
 	return s.withCORS(s.withLogging(s.mux))
 }
 
-// ServeHTTP lets the server be used directly as an http.Handler.
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	s.Handler().ServeHTTP(w, r)
 }
@@ -116,4 +101,142 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /v1/prisoners/{id}/execute", s.postPrisonerExecute)
 	s.mux.HandleFunc("GET /v1/health", s.getHealth)
 	s.mux.HandleFunc("/", s.notFound)
+}
+
+type ErrorBody struct {
+	Error struct {
+		Code    string `json:"code"`
+		Message string `json:"message"`
+	} `json:"error"`
+	Reason string `json:"reason,omitempty"`
+}
+
+func (s *Server) writeJSON(w http.ResponseWriter, status int, body any) {
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.WriteHeader(status)
+	if body == nil {
+		_, _ = w.Write([]byte("{}"))
+		return
+	}
+	if err := json.NewEncoder(w).Encode(body); err != nil {
+		s.log.Printf("apiserver: writing the reply failed: %v", err)
+	}
+}
+
+func (s *Server) writeFault(w http.ResponseWriter, err error) {
+	var fault *campaign.Fault
+	if !errors.As(err, &fault) {
+		s.log.Printf("apiserver: unhandled failure: %v", err)
+		fault = &campaign.Fault{
+			Code: campaign.CodeInternal, Message: err.Error(),
+			Reason: "The world simulation could not answer that.",
+		}
+	}
+	var body ErrorBody
+	body.Error.Code = fault.Code
+	body.Error.Message = fault.Message
+	body.Reason = fault.Reason
+	s.log.Printf("apiserver: %s: %s (%s)", fault.Code, fault.Message, fault.Reason)
+	s.writeJSON(w, fault.Status(), body)
+}
+
+func (s *Server) notFound(w http.ResponseWriter, r *http.Request) {
+	s.writeFault(w, &campaign.Fault{
+		Code: campaign.CodeNotFound, Message: "not found",
+		Reason: "That path is not part of the campaign API.",
+	})
+}
+
+func (s *Server) decode(w http.ResponseWriter, r *http.Request, into any) bool {
+	defer r.Body.Close()
+	dec := json.NewDecoder(r.Body)
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(into); err != nil {
+		s.writeFault(w, &campaign.Fault{
+			Code: campaign.CodeBadRequest, Message: err.Error(),
+			Reason: "The request body could not be read.",
+		})
+		return false
+	}
+	return true
+}
+
+func (s *Server) order(w http.ResponseWriter, r *http.Request, run func() (any, error)) {
+	ctx, cancel := s.deadline(r)
+	defer cancel()
+	_ = ctx
+	out, err := run()
+	if err != nil {
+		s.writeFault(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, out)
+}
+
+func (s *Server) withCORS(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", s.corsOrigin)
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (r *statusRecorder) WriteHeader(code int) {
+	r.status = code
+	r.ResponseWriter.WriteHeader(code)
+}
+
+func (s *Server) withLogging(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		rec := &statusRecorder{ResponseWriter: w, status: http.StatusOK}
+		next.ServeHTTP(rec, r)
+		if rec.status >= 400 {
+			s.log.Printf("apiserver: %s %s -> %d in %s",
+				r.Method, r.URL.RequestURI(), rec.status, time.Since(start).Round(time.Millisecond))
+		}
+	})
+}
+
+type HealthBody struct {
+	Status           string          `json:"status"`
+	Clock            wire.ClockState `json:"clock"`
+	SkippedDays      int             `json:"skippedDays"`
+	Error            string          `json:"error,omitempty"`
+	Systems          []string        `json:"systems"`
+	EventSubscribers int             `json:"eventSubscribers"`
+}
+
+func (s *Server) getHealth(w http.ResponseWriter, r *http.Request) {
+	body := HealthBody{
+		Status: "ok", Clock: s.camp.Clock(), SkippedDays: s.camp.SkippedDays(),
+		EventSubscribers: s.camp.Bus().Subscribers(),
+	}
+	if err := s.camp.LastError(); err != nil {
+		body.Status = "halted"
+		body.Error = err.Error()
+	}
+	body.Systems = s.camp.SystemNames()
+	s.writeJSON(w, http.StatusOK, body)
+}
+
+func queryField(r *http.Request, name string) string {
+	return strings.TrimSpace(r.URL.Query().Get(name))
+}
+
+func (s *Server) deadline(r *http.Request) (context.Context, context.CancelFunc) {
+	if s.requestTimeout <= 0 {
+		return context.WithCancel(r.Context())
+	}
+	return context.WithTimeout(r.Context(), s.requestTimeout)
 }
