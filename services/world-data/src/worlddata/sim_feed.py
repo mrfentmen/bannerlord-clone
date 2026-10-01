@@ -166,8 +166,14 @@ def build_sim_feed(
     out_dir: Path,
     exports_dir: Path | None = None,
     retrieved: str | None = None,
+    bbox: tuple[float, float, float, float] | None = None,
+    region_name_override: str | None = None,
 ) -> SimFeedResult:
-    """Write the simulation's settlement feed for the V1 region."""
+    """Write the simulation's settlement feed for a region.
+
+    By default uses the V1 region from the regions table. Pass bbox as
+    (south, west, north, east) to override with a metro slice (Tier 1B-27).
+    """
     dist = Path(dist_dir)
     exports = Path(exports_dir) if exports_dir else dist / "exports"
     if not exports.is_dir():
@@ -179,15 +185,19 @@ def build_sim_feed(
     retrieved = retrieved or date.today().isoformat()
     warnings: list[str] = []
 
-    regions = _load_table(dist, exports, "regions")
-    if not regions:
-        raise ValueError("regions table is empty; the pipeline must record a V1 region")
-    region = regions[0]
-    south = float(region["bbox_south"])
-    west = float(region["bbox_west"])
-    north = float(region["bbox_north"])
-    east = float(region["bbox_east"])
-    region_name = str(region["region_name"])
+    if bbox is not None:
+        south, west, north, east = bbox
+        region_name = region_name_override or "metro-slice"
+    else:
+        regions = _load_table(dist, exports, "regions")
+        if not regions:
+            raise ValueError("regions table is empty; the pipeline must record a V1 region")
+        region = regions[0]
+        south = float(region["bbox_south"])
+        west = float(region["bbox_west"])
+        north = float(region["bbox_north"])
+        east = float(region["bbox_east"])
+        region_name = str(region["region_name"])
     clon, clat = (west + east) / 2.0, (south + north) / 2.0
 
     settlements_all = _load_table(dist, exports, "settlements")
