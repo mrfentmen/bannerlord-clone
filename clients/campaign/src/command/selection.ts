@@ -15,7 +15,7 @@ export interface SelectionModel {
   clear(): void;
   /** Box-select: every live unit whose position falls inside the field rect. */
   boxSelect(units: CommandableUnit[], x0: number, z0: number, x1: number, z1: number): string[];
-  /** Bind the current selection to control group n (1-4). */
+  /** Bind the current selection to control group n (1-9). */
   assignGroup(n: number): void;
   /** Recall control group n into the selection. */
   recallGroup(n: number): void;
@@ -69,7 +69,7 @@ export function createSelection(): SelectionModel {
     },
 
     assignGroup(n) {
-      if (n < 1 || n > 4 || selected.length === 0) return;
+      if (n < 1 || n > 9 || selected.length === 0) return;
       groups.set(n, [...selected]);
     },
 

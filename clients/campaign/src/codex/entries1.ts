@@ -213,6 +213,28 @@ export const CONTROL_ENTRIES: CodexEntry[] = [
     ["mechanic-unit-selection"],
   ),
   e(
+    "action-battle-set-rally-point",
+    "Set rally point",
+    "controls",
+    "Chooses where reinforcements gather.",
+    [
+      "Arms rally mode: your next click on the field plants the flag, and reinforcements path to it. Press Esc to stand down without planting. The flag persists until you plant a new one or the battle ends.",
+    ],
+    ["action:battle.setRallyPoint", "rally", "reinforcements", "flag"],
+    ["mechanic-battle-basics"],
+  ),
+  e(
+    "action-battle-retreat-horn",
+    "Retreat horn",
+    "controls",
+    "Sounds the general retreat: every live unit routs to the map edge.",
+    [
+      "One order for the whole force — every live unit breaks for the nearest friendly map edge. There is no recall: once the horn sounds, the battle is a rout. Use it when the field is lost and the army is not.",
+    ],
+    ["action:battle.retreatHorn", "retreat", "horn", "rout"],
+    ["mechanic-battle-basics"],
+  ),
+  e(
     "mechanic-keybinding-editor",
     "Keybinding editor",
     "controls",
@@ -220,7 +242,7 @@ export const CONTROL_ENTRIES: CodexEntry[] = [
     [
       "Every action in the controls section can be rebound. Click a binding chip, press the new key or chord, and it is live immediately — bindings persist in local storage and survive reloads.",
       "If two actions claim the same chord you get an inline conflict warning; resolve it or accept the overlap deliberately. Per-action reset and reset-all restore the defaults. Escape cancels a capture in progress.",
-      "Control groups (Ctrl+1..4 to assign, 1..4 to recall) are registered at runtime by the command layer, so they appear in the editor once the battle UI has loaded them.",
+      "Control groups (Ctrl+1..9 to assign, 1..9 to recall) are registered at runtime by the command layer, so they appear in the editor once the battle UI has loaded them.",
     ],
     ["keybinding", "rebind", "controls", "settings"],
     ["action-ui-cancel", "mechanic-control-groups"],

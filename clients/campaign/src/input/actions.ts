@@ -43,7 +43,9 @@ export type InputActionId =
   | "battle.orderFollow"
   | "battle.orderRetreat"
   | "battle.selectAll"
-  | "battle.ping";
+  | "battle.ping"
+  | "battle.setRallyPoint"
+  | "battle.retreatHorn";
 
 export interface ActionDef {
   /**
@@ -124,13 +126,21 @@ export const ACTION_DEFS: readonly ActionDef[] = [
     "Hold to open the radial order menu, flick to issue the order.", [{ key: " " }],
     { gamepad: [4] }),
   def("battle.orderAttack", "Order: attack", "battle-command",
-    "Selected units attack the target.", [{ key: "f" }]),
+    "Selected units attack the target.", [{ key: "f" }, { key: "F1" }],
+    { preventDefault: true }),
   def("battle.orderHold", "Order: hold position", "battle-command",
-    "Selected units hold where they stand.", [{ key: "h" }]),
+    "Selected units hold where they stand.", [{ key: "h" }, { key: "F3" }],
+    { preventDefault: true }),
   def("battle.orderFollow", "Order: follow", "battle-command",
-    "Selected units follow the target.", [{ key: "g" }]),
+    "Selected units follow the target.", [{ key: "g" }, { key: "F2" }],
+    { preventDefault: true }),
   def("battle.orderRetreat", "Order: retreat", "battle-command",
-    "Selected units break for the map edge.", [{ key: "r" }]),
+    "Selected units break for the map edge.", [{ key: "r" }, { key: "F4" }],
+    { preventDefault: true }),
+  def("battle.setRallyPoint", "Set rally point", "battle-command",
+    "Reinforcements gather where you next click.", [{ key: "t" }]),
+  def("battle.retreatHorn", "Sound the retreat horn", "battle-command",
+    "Every live unit routs to the map edge. One order, no take-backs.", [{ key: "x" }]),
   def("battle.selectAll", "Select all units", "battle-command",
     "Selects every unit under your command.", [{ key: "a", ctrl: true }]),
   def("battle.ping", "Ping the map", "battle-command",

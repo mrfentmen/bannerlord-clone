@@ -17,13 +17,17 @@ export interface CommandableUnit {
   z: number;
 }
 
-export type OrderKind = "attack" | "follow" | "hold" | "retreat" | "rally";
+export type OrderKind = "attack" | "follow" | "hold" | "retreat" | "rally" | "move";
 
 export interface Order {
   kind: OrderKind;
   unitIds: string[];
   /** Where the order points, when it points somewhere. */
   target?: { x: number; z: number };
+  /** Task 43: multi-leg waypoints, in order. Present on "move" orders. */
+  waypoints?: { x: number; z: number }[];
+  /** Task 46: the scene's estimate of how long the order takes to arrive, ms. */
+  delayMs?: number;
   /** ms since epoch, for delay visualization downstream. */
   at: number;
 }
@@ -34,6 +38,21 @@ export const ORDER_LABEL: Record<OrderKind, string> = {
   hold: "Hold",
   retreat: "Retreat",
   rally: "Rally",
+  move: "Move",
+};
+
+/**
+ * Task 47: what the unit card shows for a unit's last known order. This is the
+ * commander's view — the last order *issued* — not the sim's ground truth;
+ * the panel labels it "last order" so nobody mistakes it for live telemetry.
+ */
+export const STANCE_LABEL: Record<OrderKind, string> = {
+  attack: "advancing",
+  follow: "following",
+  hold: "holding",
+  retreat: "routing",
+  rally: "rallying",
+  move: "marching",
 };
 
 /**
@@ -51,4 +70,10 @@ export interface CommandSurface {
   /** Orders the selected units receive; the scene consumes them. */
   issueOrder(order: Order): void;
   onUnitsChanged(fn: () => void): () => void;
+  /**
+   * Task 48: the battlefield extents, used to aim the retreat horn at the
+   * nearest friendly map edge. Optional — without it the horn issues a
+   * targetless retreat and the sim resolves "rout to the map edge".
+   */
+  fieldBounds?(): { minX: number; maxX: number; minZ: number; maxZ: number };
 }
