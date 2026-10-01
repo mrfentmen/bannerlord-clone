@@ -56,6 +56,30 @@ import (
 // response is to state the limit rather than to weaken the hash until it survives
 // it, which would mean hashing rounded values and hiding exactly the class of bug
 // this is here to catch.
+//
+// # WHAT A DIFFERENT HASH DOES AND DOES NOT PROVE, AND WHAT AN IDENTICAL ONE DOES NOT
+//
+// Two runs agreeing means the battle was reproduced. Two runs disagreeing means
+// something differed, and ResultStateDiff says where.
+//
+// What an identical pair does NOT prove is that the two runs were sensitive to
+// everything, because the engine's own arithmetic absorbs a change it cannot
+// represent. The measured case: Battle.commit adds an ordered step to a unit's
+// position, u.X += d.DX, and a unit's X is hundreds of metres from its start line,
+// where one ULP of float64 is about 3e-14 m. Changing an order's DX by less than
+// that produces a replay whose every unit finishes on bit-identical coordinates,
+// so the hashes are equal. It is not a hole in the hash and it is not
+// nondeterminism: the same order log produces the same bits every time, and
+// TestVerifyReportsAMismatchWhenTheLogSaysSomethingElse shows the comparison
+// reporting a divergence the moment the change is large enough to survive.
+//
+// The distinction worth keeping is between the two hashes. OrderLog.Hash reads the
+// exact bit pattern of every order field, so a one ULP edit to a recorded order
+// changes the log's digest and a file carrying it is refused. Result.Hash can only
+// report a difference the engine carried through to a unit's final state. A log is
+// therefore checked at both levels, and a caller comparing two results should read
+// an equal hash as "these two runs produced the same battle", not as "nothing about
+// these two runs could have been different".
 
 // hashUnitState folds every unit's final gameplay state into a running digest.
 //
