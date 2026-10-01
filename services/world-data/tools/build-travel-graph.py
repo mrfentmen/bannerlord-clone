@@ -110,6 +110,35 @@ def main() -> int:
             }
         )
 
+    # Merge connector edges (Tier 1A-3): settlement->network stubs for
+    # isolated settlements, tagged method="connector".
+    connectors_path = DIST / "connectors.jsonl.gz"
+    n_conn = 0
+    if connectors_path.exists():
+        for row in _read_jsonl_gz(connectors_path):
+            a, b = row["from_settlement_id"], row["to_settlement_id"]
+            if a not in settlements or b not in settlements:
+                skipped += 1
+                continue
+            edges.append(
+                {
+                    "id": f"connector:{a}->{b}",
+                    "from": a,
+                    "to": b,
+                    "length_km": row["length_km"],
+                    "road_class": row.get("road_class", "secondary"),
+                    "kind": row["kind"],
+                    "method": "connector",
+                    "minutes": round(row.get("travel_hours", 0.0) * 60.0, 2),
+                    "terrain": _terrain(
+                        settlements[a].get("elevation_m"),
+                        settlements[b].get("elevation_m"),
+                    ),
+                }
+            )
+            n_conn += 1
+        print(f"merged {n_conn} connector edges", flush=True)
+
     DIST.mkdir(parents=True, exist_ok=True)
     out = DIST / "travel-graph.json"
     graph = {
