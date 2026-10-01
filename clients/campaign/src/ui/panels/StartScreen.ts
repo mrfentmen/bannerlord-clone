@@ -40,7 +40,13 @@ export interface StartScreenOptions {
   sides: SideState[];
   startYear: number;
   eraLabel: string;
-  onStart: (choice: { sideId: string; stateCode: string; role: StartingRole }) => void;
+  onStart: (choice: {
+    sideId: string;
+    stateCode: string;
+    role: StartingRole;
+    /** Ironman (MASTER_PLAN task 143): one autosave, no manual saves. */
+    ironman: boolean;
+  }) => void;
   /**
    * The world survey is still being read. Renders `start-skeleton`, shaped like the
    * side grid, before the profiles arrive (CONSTITUTION.md section 3.2).
@@ -406,11 +412,34 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
     }
     frag.appendChild(summary);
 
+    // Ironman opt-in (MASTER_PLAN task 143): chosen once, at the confirm
+    // step, because it changes what the save system may do for the run.
+    const ironmanBox = h("input", {
+      type: "checkbox",
+      id: "start-ironman",
+      class: "field__checkbox",
+      "data-testid": "start-ironman",
+    }) as HTMLInputElement;
+    frag.appendChild(
+      h(
+        "label",
+        { class: "field start__ironman", for: "start-ironman" },
+        ironmanBox,
+        h("span", { class: "field__label" }, "Ironman run"),
+        h(
+          "span",
+          { class: "caption" },
+          " One autosave, no manual saves. The run cannot be reloaded or branched.",
+        ),
+      ),
+    );
+
     frag.appendChild(
       navRow(
         () => go(2),
         "Start the campaign",
-        () => options.onStart({ sideId, stateCode, role }),
+        () =>
+          options.onStart({ sideId, stateCode, role, ironman: ironmanBox.checked }),
         sideId !== "" && (side?.id === "wanderer" || stateCode !== ""),
       ),
     );

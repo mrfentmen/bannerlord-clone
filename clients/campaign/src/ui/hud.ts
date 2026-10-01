@@ -67,6 +67,12 @@ export interface HudOptions {
    */
   onOpenUiScale: (scale: number) => void;
   onNotification: (entityId: string, field: string) => void;
+  /**
+   * Ironman (MASTER_PLAN task 143). True while an ironman run is live; the
+   * top bar shows the badge. A getter, so starting a run mid-session shows
+   * up without rebuilding the HUD.
+   */
+  ironmanActive?: () => boolean;
 }
 
 export type HudPanel = "town" | "market" | "party" | "march" | "ledger" | "roster" | "why" | "none";
@@ -197,6 +203,14 @@ export function createHud(options: HudOptions): HudHandle {
         { class: "topbar__clock" },
         h("span", { class: "caption", "data-testid": "hud-date" }, dateLabel(snapshot.day, snapshot.year)),
         h("span", { class: "caption" }, `Era tier ${snapshot.eraTier}`),
+        // Ironman badge (MASTER_PLAN task 143): the run mode is always
+        // visible, like the date and era tier beside it.
+        options.ironmanActive?.()
+          ? statusChip("critical", "IRONMAN", {
+              testId: "ironman-badge",
+              title: "Ironman run: one autosave, no manual saves, no reloads.",
+            })
+          : null,
       ),
     );
 

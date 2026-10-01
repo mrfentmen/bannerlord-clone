@@ -89,12 +89,14 @@ function mount(
   opts: {
     manager?: SaveManager;
     onLoad?: (s: SimSnapshot) => void | Promise<void>;
+    ironmanActive?: boolean;
   } = {},
 ) {
   const panel = saveLoadPanel({
     ...(opts.manager ? { manager: opts.manager } : {}),
     currentSnapshot: () => fakeSnapshot(42),
     onLoad: opts.onLoad ?? (() => {}),
+    ...(opts.ironmanActive ? { ironmanActive: true } : {}),
   });
   document.body.appendChild(panel.root);
   return panel;
@@ -271,5 +273,17 @@ describe("saveLoadPanel", () => {
       "the game could not take it",
     );
     expect(err.textContent).not.toContain("no provider restore");
+  });
+
+  it("ironman hides the save row and named slots, leaving the autosave", async () => {
+    const manager = new SaveManager();
+    await manager.saveSlot("Cheat backup", fakeSnapshot(2));
+    const { root } = mount({ manager, ironmanActive: true });
+    await settle();
+    expect(byTestId(root, "ironman-save-notice")).not.toBeNull();
+    expect(byTestId(root, "save-name-input")).toBeNull();
+    expect(byTestId(root, "save-button")).toBeNull();
+    // The named slot is hidden even though it exists in storage.
+    expect(root.textContent).not.toContain("Cheat backup");
   });
 });

@@ -38,6 +38,13 @@ export interface SaveLoadPanelOptions {
   /** Apply a loaded snapshot to the running game. */
   onLoad: (snapshot: SimSnapshot) => void | Promise<void>;
   onClose?: () => void;
+  /**
+   * Ironman (MASTER_PLAN task 143): a single autosave, no manual saves. When
+   * true the save row and the named-slot list are hidden and only the
+   * autosave slot can be loaded. The autosave itself is written by the
+   * game's normal autosave path, not by this panel.
+   */
+  ironmanActive?: boolean;
 }
 
 const DELETE_ARM_MS = 5000;
@@ -146,17 +153,25 @@ export function saveLoadPanel(options: SaveLoadPanelOptions): {
     h(
       "div",
       { class: "save-row" },
-      h(
-        "div",
-        { class: "field" },
-        h(
-          "label",
-          { class: "field__label", for: "save-load-name" },
-          "Save name",
-        ),
-        nameInput,
-      ),
-      saveBtn,
+      options.ironmanActive
+        ? h(
+            "p",
+            { class: "caption", "data-testid": "ironman-save-notice" },
+            "Ironman: one autosave. Manual saves are disabled for this run.",
+          )
+        : [
+            h(
+              "div",
+              { class: "field" },
+              h(
+                "label",
+                { class: "field__label", for: "save-load-name" },
+                "Save name",
+              ),
+              nameInput,
+            ),
+            saveBtn,
+          ],
     ),
     errorBox,
   );
@@ -302,16 +317,20 @@ export function saveLoadPanel(options: SaveLoadPanelOptions): {
       );
       replace(
         listBox,
-        named.length > 0
-          ? named.map((card) => slotRow(card))
-          : h(
-              "li",
-              {},
-              emptyState(
-                "No saves yet",
-                "Give your campaign a name above and press Save.",
+        // Ironman runs get the one autosave above and nothing else: no
+        // manual slots to save into, none to reload from.
+        options.ironmanActive
+          ? h("li", {}, h("p", { class: "caption" }, "Named slots are disabled on ironman runs."))
+          : named.length > 0
+            ? named.map((card) => slotRow(card))
+            : h(
+                "li",
+                {},
+                emptyState(
+                  "No saves yet",
+                  "Give your campaign a name above and press Save.",
+                ),
               ),
-            ),
       );
     } catch (err) {
       showError(err);

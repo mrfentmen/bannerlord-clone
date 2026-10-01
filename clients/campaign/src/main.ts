@@ -106,6 +106,12 @@ import {
 } from "./meta/heatmap.js";
 import { heatmapPanel, type HeatmapPanelHandle } from "./meta/heatmapPanel.js";
 import { makeWorldProjector } from "./meta/heatmapProjector.js";
+import {
+  clearIronmanRun,
+  manualSaveBlocked,
+  startIronmanRun,
+  type IronmanRunRecord,
+} from "./meta/ironman.js";
 import { createRouteRegistry, type FoundInput } from "./economy/routeRegistry.js";
 import {
   buildRouteModels,
@@ -292,6 +298,9 @@ let snapshot: SimSnapshot | null = null;
 let previous: SimSnapshot | null = null;
 let scene: SceneHandle | null = null;
 let world: Awaited<ReturnType<typeof buildWorld>> | null = null;
+/** Ironman (MASTER_PLAN task 143): chosen on the start screen, started when the campaign mounts. */
+let pendingIronman = false;
+let ironman: IronmanRunRecord | null = null;
 let selectedSettlement: string | null = null;
 let selectedRuler: string | null = null;
 let currentPanel: HudPanel = "none";
@@ -412,8 +421,9 @@ const selectionScreen = startScreen({
   startYear: START_YEAR,
   eraLabel: eraGradeForYear(START_YEAR).years,
   loading: false,
-  onStart: (_choice) => {
+  onStart: (choice) => {
     // Character maker goes between faction select and campaign mount.
+    pendingIronman = choice.ironman === true;
     selectionScreen.replaceWith(
       characterMaker({
         onComplete: (character) => {
@@ -469,6 +479,7 @@ const hud = createHud({
   onOpenClanLaws: () => openClanLaws(),
   onOpenQuestTracker: () => openQuestTracker(),
   onOpenTradeRoutes: () => toggleTradeRoutes(),
+  ironmanActive: () => manualSaveBlocked(ironman),
   onOpenUiScale: (s) => settings.set({ uiScale: s }),
   onNotification: (entityId, field) => openWhy(entityId, field),
 });
@@ -730,6 +741,18 @@ function enterPhotoMode(): void {
 
 function mountCampaign(): void {
   if (!snapshot) return;
+
+  // -- Ironman (MASTER_PLAN task 143) --------------------------------------
+  // The run starts with the campaign, on the sim's own day. A fresh
+  // non-ironman campaign retires any stale record so a crashed ironman run
+  // cannot leak its single-autosave rule into the next one.
+  if (pendingIronman) {
+    ironman = startIronmanRun(snapshot.day);
+  } else if (ironman === null) {
+    clearIronmanRun();
+  }
+  pendingIronman = false;
+
   app.appendChild(hud.root);
   paint();
 
@@ -1165,6 +1188,7 @@ function openSettings(): void {
 function openSaveLoad(): void {
   currentPanel = "none";
   const { root } = saveLoadPanel({
+    ironmanActive: manualSaveBlocked(ironman),
     currentSnapshot: () => {
       if (!snapshot) throw new Error("No snapshot to save yet.");
       return snapshot;

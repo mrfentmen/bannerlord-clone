@@ -1373,7 +1373,7 @@ describe("the start screen (FACTIONS.md sections 3, 4 and 7)", () => {
 
     root.querySelector<HTMLButtonElement>("[data-testid='start-next']")!.click();
     expect(started).toHaveLength(1);
-    expect(started[0]).toEqual({ sideId: mountain.id, stateCode, role: "mercenary-captain" });
+    expect(started[0]).toEqual({ sideId: mountain.id, stateCode, role: "mercenary-captain", ironman: false });
 
     // Back from the confirm step, and the choices are all still there.
     root.querySelector<HTMLButtonElement>("[data-testid='step-3']")!.click();
