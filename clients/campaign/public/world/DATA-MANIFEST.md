@@ -187,6 +187,15 @@ exist in any real form yet. See section 1.
   before Agent 1 landed. If Agent 1 picks a different region, the client reads the
   region from `region.json` and does not care — the tile list, the bbox, and the
   elevation encoding all come from that file, not from a constant.
+- **2026-09-30: the authoritative replacement landed.** `region.json`,
+  `settlements.json`, and `network.json` in this directory are now the pipeline's
+  Ohio River Valley (OH/KY metro cluster) wire files, copied verbatim from
+  `services/world-data/exports/wire/` (487 settlements, 439 roads, 4,653 rail
+  segments, 2,236 zoom-12 terrarium tiles). The Colorado stopgap files are
+  superseded; `tools/fetch-world-data.mjs` is retained only as their provenance.
+  Note: `src/data/fixture/fixtureProvider.ts` still hardcodes its 12 Colorado
+  fixture towns — that narrative now disagrees with the world map and is a
+  campaign-client-lane follow-up, not a data error.
 - **The client expects** `region.json`, `settlements.json`, and `network.json` at the
   shapes in `src/world/types.ts`. That file is the proposed wire format and is the
   contract this client offers Agent 1 in return. It is a strict subset of Contract A:

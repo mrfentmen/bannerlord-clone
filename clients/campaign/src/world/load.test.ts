@@ -34,9 +34,10 @@ describe("terrarium elevation decoding", () => {
   });
 
   it("reads a real region file with a real tile list", () => {
-    // The region is the Colorado Front Range: 1500 m on the plains to over 4400 m on
-    // the continental divide. A decoder that is subtly wrong still returns numbers, so
-    // what catches it is the tile list being real rather than a hand-written example.
+    // The region is the Ohio River Valley (OH/KY metro cluster): low river
+    // floodplain rising to plateau ridges. A decoder that is subtly wrong still
+    // returns numbers, so what catches it is the tile list being real rather
+    // than a hand-written example.
     const path = fileURLToPath(new URL("../../public/world/region.json", import.meta.url));
     if (!existsSync(path)) {
       throw new Error("public/world/region.json is missing. Run `npm run fetch:world`.");
