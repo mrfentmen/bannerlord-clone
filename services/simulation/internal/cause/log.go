@@ -134,12 +134,12 @@ func (l *Log) Append(r Row) {
 		return
 	}
 	if len(l.rows) > l.maxRows {
-		// Advance the logical start. The rows themselves stay in the backing
-		// array until it is twice full, at which point one copy amortises over
-		// maxRows appends.
-		drop := len(l.rows) - l.maxRows
-		l.base += drop
-		l.droppedOldest += drop
+		// Advance the logical start by exactly one: the append that just
+		// happened pushed one row past the cap, so exactly one oldest row
+		// falls off. (Adding the total excess here would advance the base
+		// triangularly and run it past the end of the buffer.)
+		l.base++
+		l.droppedOldest++
 		if len(l.rows) > 2*l.maxRows {
 			l.compact()
 		}
