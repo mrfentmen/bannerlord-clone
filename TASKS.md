@@ -141,9 +141,9 @@ Granular checklist matching PHASES.md. Check items off when done and log each co
 - [ ] Notables in towns and villages, with quest giving and recruits
 - [ ] Ten starter quest types
 - [ ] Bandit types by region
-- [ ] Map encounter menus (attack, flee, talk, bribe)
+- [ ] Map encounter menus (attack, flee, talk, bribe) — battle API endpoints pushed (encounters/battles), encounter auto-resolve + battle sim logic pushed; UI pending
 - [ ] Time controls (pause, normal, fast)
-- [ ] Save, load, autosave
+- [x] Save, load, autosave (SaveManager in clients/campaign/src/data/saves.ts — IndexedDB named slots, autosave, export/import; UI pending)
 - [ ] Town menu (market, town hall, bar, motor pool, clinic)
 - [ ] Era system: start year and tech unlock tiers
 
