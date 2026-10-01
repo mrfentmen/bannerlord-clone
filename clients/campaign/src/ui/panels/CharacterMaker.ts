@@ -459,11 +459,11 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
 
     const card = h("div", { class: "sheet portrait-panel", "data-testid": "char-review" });
     // Portrait preview — large icon with appearance details.
-    const portrait = h("div", { class: "portrait", style: "text-align:center;padding:16px;background:linear-gradient(135deg,#1a1a2e,#16213e);border-radius:12px;margin-bottom:16px" });
+    const portrait = h("div", { class: "portrait", style: "text-align:center;padding:16px;background:linear-gradient(135deg,rgb(26,26,46),rgb(22,33,62));border-radius:12px;margin-bottom:16px" });
     portrait.appendChild(h("div", { style: "font-size:5rem;line-height:1" }, appearance?.icon ?? "🧑"));
-    portrait.appendChild(h("div", { style: "font-size:1.2rem;font-weight:bold;margin-top:8px;color:#fff" }, `${firstName} ${lastName}`));
-    portrait.appendChild(h("div", { style: "color:#aaa;font-size:0.9rem" }, appearance?.label ?? ""));
-    portrait.appendChild(h("div", { style: "color:#888;font-size:0.8rem;font-style:italic" }, appearance?.description ?? ""));
+    portrait.appendChild(h("div", { style: "font-size:1.2rem;font-weight:bold;margin-top:8px;color:rgb(255,255,255)" }, `${firstName} ${lastName}`));
+    portrait.appendChild(h("div", { style: "color:rgb(170,170,170);font-size:0.9rem" }, appearance?.label ?? ""));
+    portrait.appendChild(h("div", { style: "color:rgb(136,136,136);font-size:0.8rem;font-style:italic" }, appearance?.description ?? ""));
     card.appendChild(portrait);
     card.appendChild(h("h3", { style: "text-align:center" }, `${firstName} ${lastName}`));
     card.appendChild(
@@ -511,7 +511,7 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     const scenario = scenarioForBackgrounds(backgroundChoices);
     if (scenario) {
       card.appendChild(h("h4", {}, "Your first quest"));
-      const scenarioBox = h("div", { style: "background:#2a1a1a;border-left:4px solid #ff6b6b;padding:12px;margin:8px 0;border-radius:4px" });
+      const scenarioBox = h("div", { style: "background:rgb(42,26,26);border-left:4px solid rgb(255,107,107);padding:12px;margin:8px 0;border-radius:4px" });
       scenarioBox.appendChild(h("strong", {}, scenario.title));
       scenarioBox.appendChild(h("p", { class: "caption" }, scenario.description));
       scenarioBox.appendChild(h("p", {}, `Objective: ${scenario.objective}`));
