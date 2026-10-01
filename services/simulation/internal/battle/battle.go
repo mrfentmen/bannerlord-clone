@@ -928,7 +928,21 @@ func (b *Battle) commit() error {
 		// breaks, rallies, and breaks again over the battle counts three times,
 		// which is the honest reading: that is how many separate decisions its
 		// officers had to make.
-		if u.Status != s.Status && u.alive() {
+		// The guard is the OLD status, not the new one. It used to be u.alive(),
+		// which asks whether the unit is on the field AFTER the change, and that
+		// made the surrender arm of this switch unreachable: a man who surrenders
+		// is no longer OnField, so the only status the switch could not count was
+		// the one it existed to count. Every surrender in the battle reached the
+		// event log and none of them reached the result, so a report said a side
+		// surrendered nobody while its own log said otherwise, and
+		// units-accounted-for failed on a battle that was otherwise sound.
+		//
+		// s.Status is the right thing to test because the loop above has already
+		// skipped every unit that was destroyed or surrendered at the top of the
+		// tick, so a unit reaching here was on the field when the tick began.
+		// StatusDestroyed is never staged: destruction goes through destroy()
+		// further down, which is why a unit cannot fall out of this switch.
+		if u.Status != s.Status {
 			switch u.Status {
 			case StatusBroken:
 				b.stats.Breaks++
