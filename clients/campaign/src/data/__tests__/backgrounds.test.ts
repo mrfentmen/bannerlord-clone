@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BACKGROUNDS, APPEARANCE_PRESETS, computeCharacterStats } from "../backgrounds.js";
+import { BACKGROUNDS, APPEARANCE_PRESETS, appearancesForEthnicity, computeCharacterStats } from "../backgrounds.js";
 
 describe("backgrounds", () => {
   it("has 4 categories", () => {
@@ -53,13 +53,26 @@ describe("backgrounds", () => {
 });
 
 describe("appearance presets", () => {
-  it("has 6 presets", () => {
-    expect(APPEARANCE_PRESETS).toHaveLength(6);
+  it("has 40 presets (4 per ethnicity)", () => {
+    expect(APPEARANCE_PRESETS).toHaveLength(40);
   });
 
-  it("each has an icon", () => {
+  it("each ethnicity has 4 presets", () => {
+    const ethnicities = ["italian", "irish", "chinese", "korean", "african",
+      "jamaican", "mexican", "puerto_rican", "german", "russian"];
+    for (const e of ethnicities) {
+      expect(appearancesForEthnicity(e)).toHaveLength(4);
+    }
+  });
+
+  it("each has an icon and ethnicity", () => {
     for (const p of APPEARANCE_PRESETS) {
       expect(p.icon.length).toBeGreaterThan(0);
+      expect(p.ethnicityId.length).toBeGreaterThan(0);
     }
+  });
+
+  it("returns empty for unknown ethnicity", () => {
+    expect(appearancesForEthnicity("nonexistent")).toHaveLength(0);
   });
 });
