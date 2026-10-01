@@ -87,6 +87,9 @@ const (
 	OrderExecutePrisoner
 	// OrderRansomPrisoner ransoms a captured ruler.
 	OrderRansomPrisoner
+	// OrderReleasePrisoner releases a captured ruler, granting relation
+	// with their faction (the honorable political tool).
+	OrderReleasePrisoner
 	// OrderDeclareWar starts a war between two sides.
 	OrderDeclareWar
 	// OrderSuePeace ends a war.

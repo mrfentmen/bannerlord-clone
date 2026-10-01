@@ -1212,6 +1212,9 @@ type RulerAI struct {
 	PrisonerRansomGold float64
 	// PrisonerRansomRelation is the relation cost of ransoming.
 	PrisonerRansomRelation float64
+	// PrisonerReleaseRelation is the relation gain from releasing a prisoner.
+	// Positive, because release is the honorable political tool.
+	PrisonerReleaseRelation float64
 	// DecideEveryDays is how often a ruler makes a decision. Deciding daily
 	// would make rulers twitchy; every few days is what makes a campaign feel
 	// like a decision rather than a reflex.
