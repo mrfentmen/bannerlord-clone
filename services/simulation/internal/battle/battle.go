@@ -213,10 +213,24 @@ type Battle struct {
 // section 2.1, and it is a value rather than a comment so a report can print it
 // and a test can assert it.
 //
-// The order does not affect the result. Every stage reads the snapshot taken at
-// the top of the tick and writes to a delta buffer, so no stage can observe
-// another stage's output. The order is fixed anyway, because a fixed order is
-// what makes each stage's code readable and its output traceable.
+// # WHAT THE ORDER DOES AND DOES NOT BUY, WHICH IS NOT NOTHING
+//
+// Three of these five stages are independent of the others and two of them are
+// not, and it used to be claimed here that all five were.
+//
+// The intent stage and the morale stage read the snapshot taken at the top of the
+// tick and write deltas nothing else reads, so they can be moved anywhere in the
+// tick without changing a battle. The targeting stage cannot be moved freely: it
+// writes each unit's meleeTarget and rangedTarget into the delta buffer, and the
+// melee and aimed-fire stages read those choices back out of it. Choosing a target
+// and acting on it are one decision split across two functions, so targeting runs
+// before both of them, and running either of them first would have them act on
+// whatever the previous tick happened to leave in the buffer.
+//
+// So the order below is fixed for two separate reasons, only one of which is
+// readability. TestStageOrderDoesNotMatter proves the exact rule over all 120
+// orderings of these five stages, so the dependency is tested rather than trusted,
+// and a stage that later starts reading another stage's output fails there.
 //
 //  1. intent      advance, engage, withdraw, or rout, from morale and contact
 //  2. command     hand the field to a commander, if there is one, and take

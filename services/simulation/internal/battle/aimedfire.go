@@ -22,10 +22,16 @@ import "mbclone/simulation/internal/rng"
 //
 // The stage reads the snapshot and writes to the delta buffer. A unit destroyed
 // earlier in this tick still fires in it, and a unit that spends its last round
-// at commit time still gets its shot this tick. That is deliberate and is the
-// same rule every stage follows: within a tick, a unit acts on what it could see
-// when the tick began. It is why the order of the stages cannot change the
-// outcome.
+// at commit time still gets its shot this tick. That is deliberate and is the same
+// rule every stage follows: within a tick, a unit acts on what it could see when
+// the tick began.
+//
+// The one thing read here that is NOT from the snapshot is the target the targeting
+// stage chose, read out of the delta buffer below. That is a real dependency and
+// the reason these two stages are not interchangeable: this one cannot run before
+// that one. Nothing else about the tick's order reaches this stage, and the
+// comment that used to sit here claimed the whole order was free, which was not
+// true and is checked by TestStageOrderDoesNotMatter.
 func (b *Battle) stageAimedFire() {
 	c := b.c
 	r := b.rngFor("aimed-fire")

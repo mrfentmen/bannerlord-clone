@@ -169,16 +169,16 @@ func (r *Recorder) Command(v *View) error {
 			kind = OrderHold
 		}
 		o := Order{
-			Tick:       v.Tick,
-			Unit:       u.ID,
-			Side:       u.Side,
-			Kind:       kind,
-			DX:         c.DX,
-			DY:         c.DY,
-			Intent:     c.Intent,
-			Formation:  formationOf(c),
-			Facing:     c.Facing,
-			Source:     r.source,
+			Tick:      v.Tick,
+			Unit:      u.ID,
+			Side:      u.Side,
+			Kind:      kind,
+			DX:        c.DX,
+			DY:        c.DY,
+			Intent:    c.Intent,
+			Formation: formationOf(c),
+			Facing:    c.Facing,
+			Source:    r.source,
 		}
 		if _, ok := r.log.Append(o); !ok {
 			r.refused++
@@ -490,10 +490,19 @@ func Verify(cfg *config.Config, rec *Recording, original *Result) (*ReplayCheck,
 	if err != nil {
 		return nil, err
 	}
+	// A recording with no log is the same thing Replay already treats it as: a
+	// battle nobody ordered. Read the count off the same value Replay used, rather
+	// than off rec.Log, so that the two cannot disagree about whether there was a
+	// log at all. Reading rec.Log here directly would panic on a nil log that
+	// Replay had just accepted.
+	orders := 0
+	if rec.Log != nil {
+		orders = rec.Log.Len()
+	}
 	check := &ReplayCheck{
 		Seed:          rec.Seed,
 		ConfigVersion: cfg.Version,
-		Orders:        rec.Log.Len(),
+		Orders:        orders,
 		Ticks:         got.Ticks,
 		Got:           got.HashString(),
 		ReplayHash:    got.HashString(),
@@ -520,6 +529,44 @@ func Verify(cfg *config.Config, rec *Recording, original *Result) (*ReplayCheck,
 		check.Diff, _ = ResultStateDiff(original, got)
 	}
 	return check, nil
+}
+
+// VerifyEncoded is Verify for a log that has been through a file.
+//
+// It exists because Record hands back a Recording that holds the Setup as a live
+// value, and a caller that has saved the log to disk and come back later has a
+// []byte, a seed, and a config version, and nothing else: the Setup is not encoded
+// (see Recording). Without this, every caller has to hand-assemble a Recording
+// from those pieces, and the assembly is exactly the step where a caller pairs a
+// log with the wrong seed.
+//
+// So VerifyEncoded takes the bytes, decodes them, takes the seed and the balance
+// version FROM THE FILE rather than from the caller, and runs the same check Verify
+// does. setup is still the caller's to supply: for a force built by GenerateForce
+// the seed rebuilds it, and for a force a caller assembled by hand the caller is
+// the only one who knows it. Replay's roster fingerprint is what proves the setup
+// passed here is the one the log was recorded against, so a caller who rebuilds
+// from the wrong seed is refused rather than trusted.
+//
+// The three failure modes are kept apart on purpose, because they mean different
+// things to whoever has to act on them:
+//
+//   - a corrupt file is an error, from DecodeOrderLog;
+//   - a log that cannot be replayed at all (wrong roster, wrong balance version,
+//     refused rows) is an error, from Replay;
+//   - a replay that ran and disagreed is a ReplayCheck with Match false, which is a
+//     finding and not a failure of the call.
+func VerifyEncoded(cfg *config.Config, encoded []byte, setup Setup, original *Result) (*ReplayCheck, error) {
+	log, seed, configVersion, err := DecodeOrderLog(encoded)
+	if err != nil {
+		return nil, err
+	}
+	return Verify(cfg, &Recording{
+		Seed:          seed,
+		ConfigVersion: configVersion,
+		Setup:         setup,
+		Log:           log,
+	}, original)
 }
 
 // String renders a check as the two or three lines a harness prints.
