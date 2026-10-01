@@ -45,3 +45,4 @@ assets/originals/
 # Agent scratch
 /tmp/
 *.tmp
+clients/campaign/public/world/elevation/
