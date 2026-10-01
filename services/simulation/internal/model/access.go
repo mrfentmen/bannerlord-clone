@@ -349,8 +349,6 @@ func townGet(t *Town, f string) (float64, bool) {
 		return t.FoodExports, true
 	case "medicine_imports":
 		return t.MedicineImports, true
-	case "militia":
-		return t.Militia, true
 	case "arriving_cargo_food":
 		return t.ArrivingFood, true
 	case "arriving_cargo_medicine":
@@ -503,8 +501,6 @@ func townSet(t *Town, f string, v float64) bool {
 		t.FoodExports = v
 	case "medicine_imports":
 		t.MedicineImports = v
-	case "militia":
-		t.Militia = v
 	case "arriving_cargo_food":
 		t.ArrivingFood = v
 	case "arriving_cargo_medicine":

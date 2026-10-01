@@ -296,8 +296,6 @@ func init() {
 	register(Field{"food_imports", KindTown, ValueFloat, "person-days/day", true, 0, inf, nil, 0})
 	register(Field{"food_exports", KindTown, ValueFloat, "person-days/day", true, 0, inf, nil, 0})
 	register(Field{"medicine_imports", KindTown, ValueFloat, "doses/day", true, 0, inf, nil, 0})
-	register(Field{"militia", KindTown, ValueInt, "troops", true, 0, inf, nil, 0})
-	register(Field{"crime", KindTown, ValueFloat, "share", true, zero, one, nil, 0})
 	// arriving_cargo_* are staged by the logistics system and consumed by the
 	// food and disease systems. They are the seam between a caravan arriving
 	// and a town being fed or treated, and they are untracked because the

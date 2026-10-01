@@ -13,6 +13,8 @@
 package battle
 
 import (
+	"sort"
+
 	"mbclone/simulation/internal/model"
 	"mbclone/simulation/internal/sim"
 	"mbclone/simulation/internal/systems/shared"
@@ -32,12 +34,88 @@ func strength(p *model.Party, leader *model.Ruler) float64 {
 	base := p.Troops
 	// Morale scales effectiveness 0.5x to 1.5x.
 	moraleMult := 1.0 + shared.Clamp(p.Morale, -1, 1)*0.5
-	// Leader valor adds up to 30%.
+	// Leader valor adds up to 30%. A party can have no leader on the state: a
+	// raider band has RulerID -1, and a map lookup of a missing key is the nil
+	// pointer, so the check has to be here rather than assumed away.
 	valorMult := 1.0
 	if leader != nil {
 		valorMult = 1.0 + leader.Traits.Valor*0.3
 	}
 	return base * moraleMult * valorMult
+}
+
+// hostile reports whether two sides are at odds, which is the precondition for
+// a field battle.
+//
+// The relation matrix is keyed by an unordered pair, normalised by MakePair so
+// that (3,7) and (7,3) are one key. Indexing it with a hand-built Pair instead
+// of going through State.SideRelation therefore looks up a key that is not
+// there whenever the first id is the larger one, and a missing key reads as
+// zero, which is not less than zero, so a genuinely hostile pair is silently
+// treated as friendly. That is order-dependent, so the same two sides would
+// fight or decline to fight depending on which party's id came first.
+func hostile(v *sim.View, sideA, sideB int) bool {
+	if sideA < 0 || sideB < 0 {
+		// An unaffiliated party, such as a raider band, is on nobody's side and
+		// so is hostile to nobody.
+		return false
+	}
+	if sideA == sideB {
+		return false
+	}
+	return v.State.SideRelation(sideA, sideB) < 0
+}
+
+// findPair picks the two parties that fight in one town: the strongest hostile
+// pair present, meaning the pair with the greatest combined strength. Everyone
+// else is a bystander this tick.
+//
+// It enumerates hostile pairs rather than picking the strongest party and then
+// looking for an enemy of it, because the second approach quietly loses
+// battles. Anchoring on the strongest party means that party must be one of
+// the two, so a town whose strongest force has no enemy present fights nothing
+// at all, even when two weaker rivals in the same town are at each other's
+// throats. An unaffiliated raider band that happens to be the largest thing in
+// town suppresses every real battle in it, because no side is hostile to a
+// side of -1.
+//
+// Comparing pairs is also symmetric, so which party becomes the attacker
+// cannot depend on the order the parties were visited in, and no candidate is
+// discarded before it has been weighed against an enemy.
+//
+// Ties go to the first pair found, and pids is in ascending order, so a town
+// with two equally strong hostile pairs always resolves the same way.
+func findPair(v *sim.View, pids []int) (*model.Party, float64, *model.Party, float64) {
+	var bestA, bestB *model.Party
+	bestStrA, bestStrB, bestTotal := 0.0, 0.0, 0.0
+	for i, pidA := range pids {
+		pa := v.State.Parties[pidA]
+		if pa == nil {
+			continue
+		}
+		strA := strength(pa, v.State.Rulers[pa.RulerID])
+		for _, pidB := range pids[i+1:] {
+			pb := v.State.Parties[pidB]
+			if pb == nil || !hostile(v, pa.SideID, pb.SideID) {
+				continue
+			}
+			strB := strength(pb, v.State.Rulers[pb.RulerID])
+			total := strA + strB
+			if total <= bestTotal {
+				continue
+			}
+			// The stronger party is the attacker, so the cause log's
+			// attacker and defender records mean what they say. Equal
+			// strengths keep the ascending id first, which is reproducible.
+			if strA >= strB {
+				bestA, bestStrA, bestB, bestStrB = pa, strA, pb, strB
+			} else {
+				bestA, bestStrA, bestB, bestStrB = pb, strB, pa, strA
+			}
+			bestTotal = total
+		}
+	}
+	return bestA, bestStrA, bestB, bestStrB
 }
 
 func run(v *sim.View, w *sim.WriteSet) {
@@ -49,42 +127,35 @@ func run(v *sim.View, w *sim.WriteSet) {
 		if p == nil || p.Troops <= 0 || p.DestTown < 0 {
 			continue
 		}
+		// A destination that names no town is a party marching into somewhere
+		// that no longer exists, and there is nothing to fight over.
+		if v.State.Towns[p.DestTown] == nil {
+			continue
+		}
 		byTown[p.DestTown] = append(byTown[p.DestTown], pid)
 	}
-	for townID, pids := range byTown {
+	// Towns are visited in ascending id order. A map range in Go is
+	// deliberately randomised, and every battle below draws from this tick's
+	// substream, so an unsorted range would hand each town a different set of
+	// rolls on every run. That is the reproducibility guarantee (AI.md
+	// section 1) failing through a loop rather than through a decision.
+	townIDs := make([]int, 0, len(byTown))
+	for townID := range byTown {
+		townIDs = append(townIDs, townID)
+	}
+	sort.Ints(townIDs)
+	for _, townID := range townIDs {
+		pids := byTown[townID]
 		if len(pids) < 2 {
 			continue
 		}
-		// Find hostile pairs. For simplicity, the two strongest hostile
-		// parties fight; others are bystanders this tick.
-		var bestA, bestB int = -1, -1
-		bestStrA, bestStrB := 0.0, 0.0
-		for _, pid := range pids {
-			p := v.State.Parties[pid]
-			leader := v.State.Rulers[p.RulerID]
-			s := strength(p, leader)
-			// Check hostility against current best.
-			hostile := false
-			if bestA >= 0 {
-				pa := v.State.Parties[bestA]
-				if v.State.SideRelations[model.Pair{A: pa.SideID, B: p.SideID}] < 0 {
-					hostile = true
-				}
-			}
-			if bestA < 0 || (hostile && s > bestStrA) {
-				bestA, bestStrA = pid, s
-			} else if bestB < 0 || s > bestStrB {
-				// Check if hostile to A.
-				pa := v.State.Parties[bestA]
-				if v.State.SideRelations[model.Pair{A: pa.SideID, B: p.SideID}] < 0 {
-					bestB, bestStrB = pid, s
-				}
-			}
-		}
-		if bestA < 0 || bestB < 0 {
+		// The two strongest hostile parties fight; others are bystanders this
+		// tick. With no hostile pair there is no battle, which is the common
+		// case in a town holding one side's parties.
+		pa, bestStrA, pb, bestStrB := findPair(v, pids)
+		if pa == nil || pb == nil {
 			continue
 		}
-		pa, pb := v.State.Parties[bestA], v.State.Parties[bestB]
 		la, lb := v.State.Rulers[pa.RulerID], v.State.Rulers[pb.RulerID]
 		// Resolve: casualty rate scales with the loser's relative weakness.
 		// The winner takes 10-30% casualties; the loser 40-80%.
@@ -125,7 +196,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 			read, causes, "battle casualties")
 		// Victor gains renown; feeds clan renown (Tier 1).
 		if winnerLeader != nil {
-			renownGain := c.Battle.RenownPerVictory * (1.0 + (1.0-winnerShare))
+			renownGain := c.Battle.RenownPerVictory * (1.0 + (1.0 - winnerShare))
 			w.Add(model.KindRuler, winnerLeader.ID, "renown", renownGain,
 				read, causes, "battle victory")
 			// Clan renown too.
@@ -136,12 +207,18 @@ func run(v *sim.View, w *sim.WriteSet) {
 						"clan member victory")
 				}
 			}
-			w.Add(model.KindRuler, winnerLeader.ID, "victories", 1,
+			// The registered field name is renown_victories; "victories" is its
+			// display unit. Staging the unit as the name would fail the field
+			// registry check and abort the tick.
+			w.Add(model.KindRuler, winnerLeader.ID, "renown_victories", 1,
 				read, causes, "battle victory")
 		}
-		// Defeated leader may be captured.
-		if loserLeader != nil && loser.Troops-loserLoss < c.Battle.CaptureThreshold*loser.Troops {
-			if v.Rng.Float64() < c.Battle.CaptureChance {
+		// Defeated leader may be captured. A capture names the captor, so
+		// there is nothing to write when the winner has no leader on the
+		// state: a raider band that wins has no ruler to hold anyone.
+		if winnerLeader != nil && loserLeader != nil &&
+			loser.Troops-loserLoss < c.Battle.CaptureThreshold*loser.Troops {
+			if v.Rng.Chance(c.Battle.CaptureChance) {
 				w.Set(model.KindRuler, loserLeader.ID, "captured_by",
 					float64(winnerLeader.ID), read, causes,
 					"captured in battle")
