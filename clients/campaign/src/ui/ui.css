@@ -1497,7 +1497,9 @@ html[data-reduce-motion] *::after {
 .start__step { margin: 0; }
 .start__note { margin: 0 0 var(--space-3); max-width: 62ch; }
 .start__nav { margin-top: var(--space-5); }
-.start__subhead { margin: 0 0 var(--space-1); }
+.start__tip { display: flex; gap: var(--space-3); align-items: baseline; max-width: 62ch; margin: var(--space-5) auto 0; padding: var(--space-3) var(--space-4); border: 1px solid var(--ink-300); border-radius: var(--radius-sm); background: var(--paper-200); color: var(--ink-700); font-size: var(--type-body-size); }
+.start__tip-label { flex: none; font-size: var(--type-caption-size); font-weight: var(--type-label-weight); letter-spacing: var(--type-section-tracking); text-transform: uppercase; color: var(--ink-900); }
+.start__tip-text { margin: 0; }
 
 .side__danger-key, .role__starts-key, .start__confirm-danger .label { display: block; margin-bottom: var(--space-1); }
 .side__danger-text { margin: 0; }

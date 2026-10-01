@@ -7,3 +7,4 @@ export * from "./tutorial.js";
 export * from "./firstBattle.js";
 export * from "./help.js";
 export * from "./guides.js";
+export * from "./loadingTips.js";

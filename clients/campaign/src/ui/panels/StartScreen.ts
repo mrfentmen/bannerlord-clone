@@ -29,6 +29,12 @@ import { emptyState, errorState, statusChip, type StatusKind } from "../kit.js";
 import { startRoleSkeletonBody, startSkeletonBody, startStateSkeletonBody } from "./panel-skeletons.js";
 import { STARTING_ROLES } from "../../data/sides.js";
 import type { SideState, StartingRole, StateProfile } from "../../data/types.js";
+import {
+  createTipRotator,
+  TIP_STORE_KEY,
+  type LoadingTip,
+  type TipStorage,
+} from "../../onboarding/loadingTips.js";
 
 export interface StartScreenOptions {
   sides: SideState[];
@@ -116,6 +122,10 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
       // The skeleton is the real three-column grid of side cards, not a grey block, so
       // the screen does not reflow when the profiles arrive.
       inner.appendChild(startSkeletonBody());
+      // Task 125: a loading tip under the skeleton, rotated while the world streams
+      // in. The rotator's persisted window keeps any tip from repeating within ten
+      // loads; in-screen rotation never repeats the tip currently showing.
+      inner.appendChild(loadingTip(root));
       root.appendChild(inner);
       return;
     }
@@ -475,6 +485,54 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
   stateCode = options.sides[0]?.states[0]?.code ?? "";
   render();
   return root;
+}
+
+/**
+ * Task 125: the loading tip shown under the start-screen skeleton.
+ *
+ * The first tip comes from a rotator over the persisted recent-tip window, so
+ * no tip repeats within ten loads even across reloads. While the screen stays
+ * attached it rotates every five seconds, never repeating the tip on screen.
+ * Reduced-motion users get the single static tip — rotation is vestibular
+ * motion they asked out of. The interval self-clears once the screen leaves
+ * the document, so a removed boot screen never keeps a timer alive.
+ */
+function loadingTip(root: HTMLElement): HTMLElement {
+  const rotator = createTipRotator(tipStorage());
+  let current: LoadingTip = rotator.next();
+  const textEl = h("span", { class: "start__tip-text", "data-testid": "loading-tip" }, current.text);
+  const aside = h(
+    "aside",
+    { class: "start__tip", "aria-live": "polite" },
+    h("span", { class: "start__tip-label" }, "Tip"),
+    textEl,
+  );
+  const reduceMotion =
+    typeof window !== "undefined" &&
+    typeof window.matchMedia === "function" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!reduceMotion) {
+    const timer = window.setInterval(() => {
+      if (!root.isConnected) {
+        window.clearInterval(timer);
+        return;
+      }
+      current = rotator.nextInSession(current);
+      textEl.textContent = current.text;
+    }, 5000);
+  }
+  return aside;
+}
+
+/** localStorage behind a probe: blocked contexts degrade to the in-memory window. */
+function tipStorage(): TipStorage | null {
+  try {
+    if (typeof localStorage === "undefined") return null;
+    localStorage.getItem(TIP_STORE_KEY);
+    return localStorage;
+  } catch {
+    return null;
+  }
 }
 
 /**
