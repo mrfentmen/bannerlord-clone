@@ -35,7 +35,15 @@ export interface HudOptions {
   onNotification: (entityId: string, field: string) => void;
 }
 
-export type HudPanel = "town" | "market" | "party" | "march" | "ledger" | "roster" | "why" | "none";
+/**
+ * The panels the context region can hold.
+ *
+ * `barter` is in here rather than being opened straight from the town panel because it
+ * needs a town *and* a lord to bargain with, and the rail is where the player chooses a
+ * panel: adding a fourth button there is cheaper than adding an action the town panel
+ * would have to grow a skeleton row for.
+ */
+export type HudPanel = "town" | "market" | "barter" | "party" | "march" | "ledger" | "roster" | "why" | "none";
 
 /** Which detent of the time dial is live. Used by the pointer and the tick scale. */
 export type TimePositionId = "paused" | "normal" | "fast" | "very-fast";
@@ -393,6 +401,7 @@ export function createHud(options: HudOptions): HudHandle {
     for (const [id, label, testId] of [
       ["party", "Party", "open-party"],
       ["march", "March", "open-march"],
+      ["barter", "Barter", "open-barter"],
       ["ledger", "Ledger", "open-ledger"],
       ["roster", "Rulers", "open-roster"],
     ] as [HudPanel, string, string][]) {

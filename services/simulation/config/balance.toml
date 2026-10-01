@@ -748,6 +748,12 @@ max_per_town = 4.0       # cap on workshops in one town. Range 1-10.
 renown_per_victory = 8.0    # personal renown for winning a battle. Range 0-50.
 capture_threshold = 0.2      # surviving-troop share below which capture is possible. Range 0-1.0.
 capture_chance = 0.4         # probability of capture when below threshold. Range 0-1.0.
+# Share of a defeated party's casualties an attacker with a blunt weapon takes
+# alive instead of killing. The casualty pool is split rather than added to, so
+# 0.15 means 15 prisoners per 100 fallen and the other 85 are killed or wounded
+# as medicine allows. Sharp weapons capture nothing; set this to 0 for a world
+# with no blunt capture at all.
+blunt_capture_share = 0.15   # Range 0-0.5.
 
 [crime]
 # Urban criminality (Tier 5). Crime grows in rich, under-policed towns.
@@ -806,6 +812,18 @@ share_horse_stance = 0.05
 share_horse_heavy = 0.15
 share_horse_light = 0.30
 share_horse_horse = 0.50
+
+# The weapon class each template fights with, as a number:
+#   0 piercing, 1 cutting, 2 blunt.
+# This is not a damage multiplier. It decides what happens to the men who
+# fall: a sharp weapon finishes them and they are dead, a blunt one beats them
+# down and they come back as prisoners. Only blunt captures, so the stance
+# column is the one that takes men alive, and choosing it is an economic
+# choice rather than a cosmetic one. Read by the battle system.
+weapon_stance = 2   # club and shield: close order, beat them down.
+weapon_heavy = 1    # sword and axe.
+weapon_light = 0    # javelin: skirmish screen, opened at range.
+weapon_horse = 0    # lance.
 
 # How each culture bends those shares. FACTIONS.md gives every section its own
 # culture and troop style, and this is where that difference is expressed
@@ -940,6 +958,42 @@ merge_delay_days = 2.0            # days idle before a merge is allowed. Range 0
 auto_merge_chance = 0.02          # daily chance a small party folds in by itself. Range 0-0.5.
 auto_merge_troops = 40.0          # largest party folded in automatically. Range 0-5000.
 
+# ---------------------------------------------------------------------------
+# VISIBILITY — fog of war, gap 6.5 in docs/missing-vs-bannerlord.md
+# ---------------------------------------------------------------------------
+# A side sees the towns its parties can reach with their own eyes. Everything
+# else on the map is real but unobserved, which is what makes the gap between
+# what a side knows and what is true a thing the player can be wrong about.
+
+[visibility]
+# How far a party's lookouts reach. Stated in kilometres because that is the
+# unit the world data is projected in (services/world-data uses 1 league =
+# 3 statute miles = 4.828032 km); the system converts to leagues. 50 km is a
+# day's hard ride, so a party roughly sees what it could reach by morning.
+sight_radius_km = 50.0             # how far one party sees. Range 5-500.
+# A town also counts as seen while one of the side's own parties is inside it,
+# so a town your army is standing in is never fogged out from under you.
+own_party_sees_town = 1.0          # 1 counts a party's own town. Range 0-1.
+# Hill country hides what is behind it, so a town is harder to see when the
+# ground between it and the observer is rough. Flat open country sees furthest.
+terrain_sight_penalty = 0.15       # share of the radius lost at full roughness. Range 0-1.
+# Weather and winter cut visibility, so the same 50 km is not the same reach in
+# January. This is the size of that swing.
+season_sight_penalty = 0.20        # share of the radius lost in the worst season. Range 0-1.
+# A town's size is what makes it visible from far off: a city has towers and a
+# market, a hamlet has neither. This is how much extra reach the largest town
+# gets.
+settlement_size_sight_bonus = 0.25 # extra radius share at the largest town. Range 0-2.
+# A town with no population has nothing to report and is not worth a look.
+min_population_to_be_seen = 100.0  # people below which a town is never spotted. Range 0-100000.
+# How long a sighting lasts after the observer has gone. Fog of war in
+# Bannerlord is not instant: you remember a place you visited. This is the
+# memory, in days, and it is why moving away from a town does not un-know it.
+sighting_memory_days = 10.0        # days a town stays seen after last sight. Range 0-365.
+# Raiders are unaffiliated (SideID -1), so they see for nobody. Without this a
+# band of bandits would report the whole map to a side that does not own it.
+unaffiliated_parties_see = 0.0      # 1 lets unaffiliated parties reveal towns. Range 0-1.
+
 [cause]
 # A row per float operation would be unreadable; a chain that cannot be
 # explained is worse. These thresholds are small, and every crossing is a real
@@ -967,3 +1021,85 @@ log_row_limit = 400000.0       # cause rows retained per run. Range 10000-500000
 # The seam between the ruler AI's decision and the march system's movement.
 # Player orders and scripted-profile orders use this same path, so a headless
 # "dumb player" run exercises exactly the machinery a real player would.
+
+# ---------------------------------------------------------------------------
+# ISSUE — what the people of a settlement ask of the player
+# ---------------------------------------------------------------------------
+# Issues are not scripted plots. Each one is generated from state another system
+# owns: the food system decides a larder is low, and because that is true some
+# notable in that town may ask for grain. The trigger is a gate and the chance
+# below is a rate, so a town can starve for a month with nobody asking if the
+# rate is small. Nothing here decides *whether* the world needs help; it only
+# decides how often the people there get around to asking for it.
+
+[issue]
+
+# --- the notable roster ---
+# Seats, not a headcount: a town whose people have all died should not still
+# have three influential men in it. Each seat's role is chosen from the town's
+# own data, so a port gets a merchant and a workshop town gets a foreman.
+notables_per_town = 3.0            # seats a town keeps filled. Range 0-12.
+notables_per_village = 1.0         # seats a village keeps filled. Range 0-6.
+# People leave office and somebody else takes the seat. Without turnover the
+# same three names would be asking in every town for the whole run, and a
+# requester the player has burned through would never be replaced.
+notable_tenure_days = 900.0        # service before a replacement is considered. Range 30-5000.
+notable_retire_chance = 0.004      # daily chance of retiring past tenure. Range 0-0.2.
+# This is the whole of "ignoring has consequences" as a rate. An untaken offer
+# is not neutral: it costs the notable something every day it stands.
+notable_grief_per_ignored_day = 0.003  # opinion lost per day per untaken issue. Range 0-0.05.
+notable_grief_decay = 0.01         # grievance spent per day once it is served. Range 0-0.2.
+
+# --- generation ---
+# The rate, given a trigger is currently true and the notable is free to ask.
+# Kept low because it is per notable per day, and a town has three notables.
+offer_chance_per_day = 0.010       # daily chance of asking. Range 0-0.5.
+max_open_per_notable = 2.0         # outstanding issues per person. Range 1-6.
+max_live_per_settlement = 6.0     # issues per settlement, so one crisis cannot flood the log. Range 1-30.
+# A request about a larder that has since been refilled is not a request any
+# more, so an untaken offer lapses rather than lingering forever.
+stale_offer_days = 20.0            # an untaken offer survives this long. Range 1-365.
+
+# --- deliver goods ---
+# The trigger is read off the food system's own days-of-food figure rather than
+# recomputed, so the issue system has no opinion on whether a town is hungry.
+deliver_food_days_trigger = 12.0   # days of food below which somebody asks. Range 1-120.
+deliver_days = 20.0                # days of food the request covers. Range 1-200.
+deliver_deadline_days = 30.0       # notice given to deliver. Range 2-365.
+# Below one, so a larder that refilled on its own while the party walked there
+# is not paid for a delivery nobody made.
+deliver_tolerance = 0.6            # share of the shortfall that must close. Range 0.1-1.0.
+
+# --- clear hideout ---
+# The trigger is the same town crime the hideout system reads, so "there is a
+# hideout here" and "somebody will pay to clear it" cannot disagree.
+clear_hideout_crime_trigger = 0.50 # crime at or above which a request appears. Range 0.1-1.0.
+clear_hideout_crime_target = 0.25  # crime the objective is measured against. Range 0-1.0. Must be below the trigger.
+clear_hideout_deadline_days = 45.0 # notice given to clear it. Range 2-365.
+
+# --- escort ---
+# Both numbers are route safety, read from the security system's own field, so
+# an escort pays for what the road is actually worth rather than for a mood.
+escort_safety_trigger = 0.55       # safety at or below which a merchant asks. Range 0-1.0.
+escort_safety_target = 0.80        # safety the objective is measured against. Range 0-1.0. Must exceed the trigger.
+escort_deadline_days = 25.0        # notice given to see the caravan through. Range 2-365.
+# Protecting a road means attacking the men on it rather than walking about on
+# it, so the escort must also bring raider pressure down to this. The progress
+# bar only tracks road safety; this is the second half of the completion test.
+escort_raiders_cleared = 15.0      # raider index at or below which the road counts as cleared. Range 0-500.
+
+# --- what serving and abandoning are worth ---
+# Rewards scale with what is at stake, which is the rule that a large shortage
+# pays more. A flat reward would mean the biggest crises attracted the least
+# attention.
+reward_money_per_unit = 14.0       # money per unit of what was at stake. Range 0-500.
+reward_gold_per_unit = 0.5         # hard currency per unit. Range 0-50.
+reward_renown_per_unit = 0.8       # renown per unit. Range 0-20.
+reward_relation = 0.06             # how far the notable comes to like the taker. Range 0-0.5.
+abandon_relation_penalty = 0.12    # how far they stop liking them. Range 0-0.5.
+# A bankrupt town cannot write a cheque it does not have, so the promised money
+# is capped at this share of its treasury and the reward shrinks instead.
+reward_money_share = 0.25          # share of the treasury an issue may promise. Range 0-1.0.
+# The same shortage is worth more when asked by someone who matters, which is
+# what a notable's power is for.
+relation_share = 0.5               # how much of the reward a notable's power adds. Range 0-2.0.

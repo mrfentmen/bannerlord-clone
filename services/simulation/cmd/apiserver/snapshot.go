@@ -2,10 +2,12 @@ package main
 
 import (
 	"fmt"
+	"sort"
 	"strconv"
 	"strings"
 
 	"mbclone/simulation/internal/model"
+	"mbclone/simulation/internal/systems/visibility"
 )
 
 // buildSnapshot converts live simulation state into the JSON shape the
@@ -14,6 +16,27 @@ import (
 func buildSnapshot(s *Server) map[string]any {
 	st := s.state
 	playerID := s.playerLeaderID()
+
+	// The player's own side is what fog of war is relative to. Everything about
+	// what this side can see is stated against it, so it is resolved once here
+	// rather than inside the town loop.
+	playerSide := -1
+	if l, ok := st.Leaders[playerID]; ok {
+		playerSide = l.SideID
+	}
+
+	knownSet := make(map[int]bool)
+	if playerSide >= 0 {
+		for _, id := range visibility.KnownTowns(st, playerSide) {
+			knownSet[id] = true
+		}
+	}
+	visibleSet := make(map[int]bool)
+	if playerSide >= 0 {
+		for _, id := range visibility.CurrentlyVisibleTowns(st, playerSide) {
+			visibleSet[id] = true
+		}
+	}
 
 	towns := make([]map[string]any, 0, len(st.Towns))
 	for _, t := range st.Towns {
@@ -33,6 +56,15 @@ func buildSnapshot(s *Server) map[string]any {
 			"food":       t.FoodStock,
 			"medicine":   t.MedicineStock,
 			"money":      t.Money,
+			// Fog of war, per town. A town the player's side has never found is
+			// still real and still on the map, and its name is still known from
+			// the survey the world was built from; what the side does not know
+			// is anything that changes. The three flags say which of the three
+			// states this town is in, so a client can dim what is remembered and
+			// hide what has never been found without re-deriving any of it.
+			"visible":      visibleSet[t.ID],
+			"known":        knownSet[t.ID],
+			"lastSeenTick": t.LastSeenTick,
 			"prices": map[string]any{
 				"food":     t.PriceFood,
 				"medicine": t.PriceMedicine,
@@ -46,6 +78,13 @@ func buildSnapshot(s *Server) map[string]any {
 		sides = append(sides, map[string]any{
 			"id":   fmt.Sprintf("side-%d", sd.ID),
 			"name": sd.Name,
+			// Fog of war per side: how much of the map it is looking at and how
+			// much of it it has ever found. Reported for every side rather than
+			// only the player's because a client drawing a strategic overview
+			// needs the comparison, and because these are counts of knowledge
+			// rather than the knowledge itself.
+			"visibleTowns": sd.VisibleTowns,
+			"knownTowns":   sd.KnownTowns,
 		})
 	}
 
@@ -127,6 +166,7 @@ func buildSnapshot(s *Server) map[string]any {
 		},
 		"party":         playerParty,
 		"towns":         towns,
+		"fog":           buildFog(s, playerSide, visibleSet, knownSet),
 		"markets":       map[string]any{},
 		"sides":         sides,
 		"rulers":        rulers,
@@ -146,6 +186,90 @@ func (s *Server) playerLeaderID() int {
 		}
 	}
 	return -1
+}
+
+// buildFog renders the fog-of-war state for the snapshot.
+//
+// It reports the four numbers a client needs to draw the world honestly and
+// nothing it could work out for itself: the radius in the units the player
+// thinks in, the three counts of towns (visible, remembered, never found), and
+// the town's ids for the two states that are not "every town in the list".
+//
+// The unseen ids are sent as an explicit list rather than left to the client to
+// subtract. A client that had to derive "never found" by set-subtraction would
+// get it wrong the first time a town was added or removed mid-session, and the
+// failure would be a town wrongly shown rather than a town wrongly hidden.
+func buildFog(s *Server, playerSide int, visible, known map[int]bool) map[string]any {
+	st := s.state
+	fog := map[string]any{
+		// The radius is stated in both units. Kilometres is what the design was
+		// written in and what a player reads; leagues is what the map is
+		// measured in and what the client's own coordinate maths uses.
+		"sightRadiusKm":      visibility.SightRadiusKm(s.cfg.Visibility),
+		"sightRadiusLeagues": visibility.SightRadiusKm(s.cfg.Visibility) / visibility.KM_PER_LEAGUE,
+		"sightingMemoryDays": s.cfg.Visibility.SightingMemoryDays,
+	}
+	if playerSide < 0 {
+		// No player means no vantage point, and a fog block claiming zero
+		// visibility would be a statement about a side that does not exist.
+		// Every list is empty and the counts are null rather than zero, because
+		// "nothing" and "nobody is looking" are different answers.
+		fog["sideId"] = nil
+		fog["visibleTowns"] = []any{}
+		fog["knownTowns"] = []any{}
+		fog["unseenTowns"] = []any{}
+		fog["counts"] = map[string]any{
+			"visible": nil, "known": nil, "unseen": nil, "total": len(st.Towns),
+		}
+		return fog
+	}
+
+	visibleIDs := sortedTownIDs(visible)
+	knownIDs := sortedTownIDs(known)
+	unseenIDs := make([]int, 0, len(st.Towns))
+	for _, tid := range st.TownIDs() {
+		if st.Towns[tid] == nil || known[tid] {
+			continue
+		}
+		unseenIDs = append(unseenIDs, tid)
+	}
+
+	fog["sideId"] = fmt.Sprintf("side-%d", playerSide)
+	fog["visibleTowns"] = townRefList(visibleIDs)
+	fog["knownTowns"] = townRefList(knownIDs)
+	fog["unseenTowns"] = townRefList(unseenIDs)
+	fog["counts"] = map[string]any{
+		"visible": len(visibleIDs),
+		"known":   len(knownIDs),
+		"unseen":  len(unseenIDs),
+		"total":   len(st.Towns),
+	}
+	return fog
+}
+
+// townRefList renders town ids in the client's "town-N" form, in ascending
+// numeric order. The order is numeric rather than the client's id-sorted order
+// so that the list is stable and diffable between snapshots; a client that
+// cares about drawing order can sort on the number.
+func townRefList(ids []int) []any {
+	out := make([]any, 0, len(ids))
+	for _, id := range ids {
+		out = append(out, fmt.Sprintf("town-%d", id))
+	}
+	return out
+}
+
+// sortedTownIDs returns the ids of a town-id set in ascending order. Iterating
+// the set directly would give Go's randomised map order, which would make two
+// identical snapshots differ in their JSON and break any client that compares
+// them.
+func sortedTownIDs(set map[int]bool) []int {
+	out := make([]int, 0, len(set))
+	for id := range set {
+		out = append(out, id)
+	}
+	sort.Ints(out)
+	return out
 }
 
 func (s *Server) playerMarching() bool {
@@ -179,9 +303,9 @@ func (s *Server) planMarchTo(destTown int) map[string]any {
 		days = 0.5
 	}
 	return map[string]any{
-		"ok":               true,
+		"ok":                true,
 		"destinationTownId": destTown,
-		"estimatedDays":    days,
+		"estimatedDays":     days,
 	}
 }
 
@@ -214,13 +338,13 @@ func (s *Server) whyChain(entity, field string) map[string]any {
 			continue
 		}
 		chain = append(chain, map[string]any{
-			"id":      fmt.Sprintf("cause-%d", r.ID),
-			"tick":    r.Tick,
-			"old":     r.Old,
-			"new":     r.New,
+			"id":       fmt.Sprintf("cause-%d", r.ID),
+			"tick":     r.Tick,
+			"old":      r.Old,
+			"new":      r.New,
 			"causedBy": []any{},
-			"note":    r.Note,
-			"system":  r.System,
+			"note":     r.Note,
+			"system":   r.System,
 		})
 	}
 	return map[string]any{

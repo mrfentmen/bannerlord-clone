@@ -20,40 +20,42 @@ type Config struct {
 	// a log can be matched to the constants that produced it.
 	Version string
 
-	World     World
-	Food      Food
-	Starve    Starvation
-	Disease   Disease
-	Labor     Labor
-	Market    Market
-	Currency  Currency
-	Unrest    Unrest
-	Loyalty   Loyalty
-	Council   Council
-	Migrate   Migration
-	Security  Security
-	Logistic  Logistics
-	Upkeep    Upkeep
-	Influence Influence
-	March     March
-	Supply    Supply
-	Attrition Attrition
-	Siege     Siege
-	Relation  Relation
-	RulerAI   RulerAI
-	FactionAI FactionAI
-	Cause     Cause
-	Audit     Audit
-	Campaign  Campaign
-	Ruler     Ruler
-	Clan      Clan
-	Heir      Heir
-	Family    Family
-	Workshop  Workshop
-	Battle    Battle
-	Crime     Crime
-	Template  Template
-	Formation Formation
+	World      World
+	Food       Food
+	Starve     Starvation
+	Disease    Disease
+	Labor      Labor
+	Market     Market
+	Currency   Currency
+	Unrest     Unrest
+	Loyalty    Loyalty
+	Council    Council
+	Migrate    Migration
+	Security   Security
+	Logistic   Logistics
+	Upkeep     Upkeep
+	Influence  Influence
+	March      March
+	Supply     Supply
+	Attrition  Attrition
+	Siege      Siege
+	Relation   Relation
+	RulerAI    RulerAI
+	FactionAI  FactionAI
+	Cause      Cause
+	Audit      Audit
+	Campaign   Campaign
+	Ruler      Ruler
+	Clan       Clan
+	Heir       Heir
+	Family     Family
+	Workshop   Workshop
+	Battle     Battle
+	Crime      Crime
+	Template   Template
+	Formation  Formation
+	Issue      Issue
+	Visibility Visibility
 }
 
 // World controls world generation.
@@ -1658,6 +1660,12 @@ type Battle struct {
 	CaptureThreshold float64
 	// CaptureChance is the probability of capture when below threshold.
 	CaptureChance float64
+	// BluntCaptureShare is the share of a defeated party's casualties an
+	// attacker with a blunt weapon takes alive rather than kills, so the
+	// casualty pool is split into prisoners and losses rather than prisoners
+	// being created on top of it. Zero disables blunt capture entirely, which
+	// is the sharp-weapon-only world this rule is a change from.
+	BluntCaptureShare float64
 }
 
 // Crime configures urban criminality (Tier 5).
@@ -1728,6 +1736,20 @@ type Template struct {
 	// per culture. FACTIONS.md gives every section its own troop style, and
 	// this is where that difference is expressed rather than assumed away.
 	CultureShare [model.CultureCount][model.ClassCount]float64
+	// WeaponOfTemplate is the weapon class each template fields, one entry per
+	// template: a stance column fights with clubs and shields, a mounted wing
+	// with edged steel.
+	//
+	// It lives here rather than on the party because it is a pure function of
+	// the party's template. Publishing it as a field would add a second copy
+	// of a value already implied by party_template, and the only way those two
+	// copies could disagree is if one of them went stale.
+	//
+	// It is what makes blunt capture a decision. A template the ground suits
+	// but that carries sharp weapons kills its prisoners; refitting to one
+	// that carries clubs costs metal and days and buys a recruitment pool and
+	// a ransom, which is the trade the battle system reads this table to make.
+	WeaponOfTemplate [model.TemplateCount]model.WeaponClass
 	// TerrainSpeedPerClass is how much each class is slowed by each terrain,
 	// indexed terrain then class. A horse column crossing mountains is the
 	// slowest thing on the map and a light one is barely affected, which is
@@ -1825,6 +1847,57 @@ type Formation struct {
 	AutoMergeTroops float64
 }
 
+// Visibility is fog of war: which towns each side can actually see, and for how
+// long after the observer has gone.
+//
+// It is a separate section rather than a corner of the security or march
+// constants because it is a different question. March asks how far a column
+// travels in a day; security asks whether the road is safe; visibility asks what
+// a side would learn if it stood still and looked. Gap 6.5 in
+// docs/missing-vs-bannerlord.md records that this was absent, and the reason it
+// was listed as near-certainly deliberate is that the world data loads the whole
+// country up front. It is built anyway: the world is still full of towns a side
+// has no way of knowing about, and a simulation that cannot tell those apart is
+// a simulation where surprise is impossible.
+type Visibility struct {
+	// SightRadiusKm is how far one party's lookouts reach, in kilometres. It is
+	// stated in kilometres because that is the unit the world data is projected
+	// in; the system converts to the leagues the map is measured in, using the
+	// same 1 league = 3 statute miles = 4.828032 km the pipeline uses, so the
+	// radius means the same thing here as it does in services/world-data.
+	SightRadiusKm float64
+	// OwnPartySeesTown counts a town as seen while one of the side's own parties
+	// is standing in it. Without it an army camped in a city would report that
+	// city as unknown, which is the kind of bug a player notices immediately.
+	OwnPartySeesTown bool
+	// TerrainSightPenalty is the share of the radius lost at full ground
+	// roughness. A town behind a mountain range is genuinely harder to see than
+	// one on the same flat plain, and without this every town on the map has the
+	// same detection range regardless of what is in between.
+	TerrainSightPenalty float64
+	// SeasonSightPenalty is the share of the radius lost in the worst season of
+	// the year. Winter and deep summer both cut visibility, and it is the reason
+	// a scouting range is not a constant of the physics.
+	SeasonSightPenalty float64
+	// SettlementSizeSightBonus is the extra radius share the largest town gets.
+	// Size is what makes a place visible from distance: a city has towers and a
+	// market, a hamlet has neither.
+	SettlementSizeSightBonus float64
+	// MinPopulationToBeSeen is the population below which a town is never
+	// spotted from a distance. An abandoned place is not worth a rider's time,
+	// and reporting every ghost town would fill the map with noise.
+	MinPopulationToBeSeen float64
+	// SightingMemoryDays is how long a town stays seen after the last observer
+	// left. Fog of war that is not instant is the difference between a memory
+	// and a sensor: a player who visited a town last month still knows it is
+	// there, and this is the constant that says so.
+	SightingMemoryDays float64
+	// UnaffiliatedPartiesSee lets raider bands (SideID -1) reveal towns. It is
+	// off, because a band of unaffiliated bandits reporting the map to nobody is
+	// the honest default and turning it on would need a recipient to report to.
+	UnaffiliatedPartiesSee bool
+}
+
 // Cause configures the cause log itself.
 type Cause struct {
 	// MinAbsolute is the smallest absolute change that produces a log row. A
@@ -1865,6 +1938,104 @@ type Audit struct {
 	// run does not exhaust memory. A run that hits the limit reports how many
 	// rows it dropped rather than silently truncating.
 	LogRowLimit float64
+}
+
+// Issue configures the quest framework: the notable roster, the generation of
+// issues from world state, and what serving or abandoning one is worth
+// (QUESTS_AND_NOTABLES.md sections 2, 6, and 7).
+type Issue struct {
+	// NotablesPerTown is how many notable seats a town keeps filled, and how
+	// many a village keeps. Seats rather than a count, because a town whose
+	// people have all died should not still have three influential men in it.
+	NotablesPerTown float64
+	// NotablesPerVillage is the same for a village's headman and doctor.
+	NotablesPerVillage float64
+	// NotableTenureDays is how long a notable serves before a replacement is
+	// considered. A roster that never turns over would fix the same
+	// requester in every town for the whole run, so the same ten people would
+	// be the ones asking.
+	NotableTenureDays float64
+	// NotableRetireChance is the daily chance a notable past their tenure
+	// retires, so turnover is a probability rather than a synchronised wave.
+	NotableRetireChance float64
+	// NotableGriefPerIgnoredDay is how fast an outstanding issue sours a
+	// notable's opinion of the player. This is the mechanism behind "ignoring
+	// has consequences": an offer nobody takes is not neutral, it is a
+	// relationship that cools by a measurable amount every day.
+	NotableGriefPerIgnoredDay float64
+	// NotableGriefDecay is how fast a served notable's grievance is spent, so
+	// a person who is looked after stops being aggrieved.
+	NotableGriefDecay float64
+	// OfferChancePerDay is the chance a notable past their cooldown and under
+	// their open-issue cap asks for something, given that a trigger is
+	// currently true. The trigger is a gate and this is a rate: a town can be
+	// starving for a month without anyone asking if this is small.
+	OfferChancePerDay float64
+	// MaxOpenPerNotable is how many issues one person may have outstanding,
+	// which is the "at most one or two open quests" rule.
+	MaxOpenPerNotable float64
+	// MaxLivePerSettlement caps the issues attached to one settlement, so the
+	// quest log stays readable and one crisis cannot flood it.
+	MaxLivePerSettlement float64
+	// StaleOfferDays is how long an untaken offer survives before it lapses
+	// and its notable is aggrieved. A request about a larder that has since
+	// been refilled is not a request any more.
+	StaleOfferDays float64
+	// --- deliver goods ---
+	//
+	// The trigger is a settlement's days of food, so these are read against
+	// the food system rather than recomputed: the issue system has no opinion on
+	// whether a town is hungry, it asks.
+	DeliverFoodDaysTrigger float64
+	// DeliverDays is how many days of food the request asks for, which is what
+	// sets both the objective and the reward.
+	DeliverDays         float64
+	DeliverDeadlineDays float64
+	// DeliverTolerance is the share of the shortfall the taker must close for
+	// the issue to count as served. Below one, so a larder that recovered on
+	// its own while the party walked there is not paid for a delivery nobody
+	// made.
+	DeliverTolerance float64
+	// --- clear hideout ---
+	//
+	// The trigger is town crime, the same field the hideout system reads, so
+	// "there is a hideout here" and "somebody will pay to clear it" cannot
+	// disagree.
+	ClearHideoutCrimeTrigger float64
+	// ClearHideoutCrimeTarget is the crime level the objective is measured
+	// against, and is below the trigger: the point is to make the place safer
+	// than it was, not to make it safe.
+	ClearHideoutCrimeTarget  float64
+	ClearHideoutDeadlineDays float64
+	// --- escort ---
+	//
+	// The trigger and the target are both route safety, so an escort pays for
+	// what the security system says the road is actually worth.
+	EscortSafetyTrigger float64
+	EscortSafetyTarget  float64
+	EscortDeadlineDays  float64
+	// EscortRaidersCleared is the raider index at or below which the road counts
+	// as cleared, and the escort must reach it as well as the safety target.
+	// Protecting a road means attacking the men on it rather than walking about
+	// on it, so a taker who merely accompanied the caravan has not done the
+	// second half of the job.
+	EscortRaidersCleared float64
+	// --- what serving and abandoning are worth ---
+	//
+	// Rewards scale with what is at stake rather than being flat, which is the
+	// rule in QUESTS_AND_NOTABLES.md section 6 that a large shortage pays more.
+	RewardMoneyPerUnit     float64
+	RewardGoldPerUnit      float64
+	RewardRenownPerUnit    float64
+	RewardRelation         float64
+	AbandonRelationPenalty float64
+	// RewardMoneyShare is the share of a settlement's treasury an issue's
+	// promised money may take, so a bankrupt town cannot write a cheque it
+	// does not have and the reward shrinks instead.
+	RewardMoneyShare float64
+	// RelationShare scales the reward by the notable's power, so the same
+	// shortage is worth more when asked by someone who matters.
+	RelationShare float64
 }
 
 // Load reads and validates a balance file.

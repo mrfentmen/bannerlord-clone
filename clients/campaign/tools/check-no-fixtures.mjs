@@ -29,6 +29,14 @@ const DIST = join(ROOT, "dist");
  * export the same name for provider.ts to resolve, and a sourcemap of the stub
  * therefore contains it. Every marker here is a name or a string that appears only in
  * the fixture's own body, which is what the rule is about.
+ *
+ * Each one is checked against production code before it is listed, because a marker that
+ * production also uses cannot detect anything: it stops the build for a bundle that is
+ * clean. `daysPerRealSecond` used to be here and was one of them —
+ * `HttpSimulationProvider.setTimeScale` posts a body of `{ daysPerRealSecond }`, which is
+ * a property name and so survives minification, and the refused build was that line and
+ * not the fixture. The price-response constant below replaces it: it appears nowhere
+ * outside `src/data/fixture/fixtureProvider.ts`.
  */
 const MARKERS = [
   "AGENT-3 TEST FIXTURE",
@@ -36,7 +44,7 @@ const MARKERS = [
   "FixtureState",
   "mulberry32",
   "TOWN_SPECS",
-  "daysPerRealSecond",
+  "priceElasticity",
 ];
 
 const SCANNABLE = new Set([".js", ".mjs", ".css", ".html", ".map"]);

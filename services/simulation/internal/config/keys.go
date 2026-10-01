@@ -1,5 +1,7 @@
 package config
 
+import "mbclone/simulation/internal/model"
+
 // This file maps the Config struct onto balance file keys. It is deliberately
 // mechanical: one line per constant, key spelled out in full. A generated
 // mapping would hide typos, and a typo in a key name here would silently leave
@@ -644,6 +646,7 @@ func (l *loader) load(c *Config) {
 	c.Battle.RenownPerVictory = l.f64("battle.renown_per_victory")
 	c.Battle.CaptureThreshold = l.f64("battle.capture_threshold")
 	c.Battle.CaptureChance = l.f64("battle.capture_chance")
+	c.Battle.BluntCaptureShare = l.f64("battle.blunt_capture_share")
 
 	// --- crime ---
 	c.Crime.DeterrencePerCoverage = l.f64("crime.deterrence_per_coverage")
@@ -653,6 +656,24 @@ func (l *loader) load(c *Config) {
 
 	loadTemplate(l, &c.Template)
 	loadFormation(l, &c.Formation)
+	loadVisibility(l, &c.Visibility)
+	loadIssue(l, &c.Issue)
+}
+
+// loadVisibility reads the fog-of-war constants (gap 6.5). The two switches are
+// read as numbers and compared against zero rather than parsed as words,
+// because the balance file format has exactly one numeric type and a system
+// that needed a third spelling would be inventing syntax the loader does not
+// have. The comment on each key in balance.toml says what turning it on means.
+func loadVisibility(l *loader, v *Visibility) {
+	v.SightRadiusKm = l.f64("visibility.sight_radius_km")
+	v.OwnPartySeesTown = l.f64("visibility.own_party_sees_town") != 0
+	v.TerrainSightPenalty = l.f64("visibility.terrain_sight_penalty")
+	v.SeasonSightPenalty = l.f64("visibility.season_sight_penalty")
+	v.SettlementSizeSightBonus = l.f64("visibility.settlement_size_sight_bonus")
+	v.MinPopulationToBeSeen = l.f64("visibility.min_population_to_be_seen")
+	v.SightingMemoryDays = l.f64("visibility.sighting_memory_days")
+	v.UnaffiliatedPartiesSee = l.f64("visibility.unaffiliated_parties_see") != 0
 }
 
 // Row and column labels for the template tables. They are spelled out here
@@ -665,6 +686,11 @@ var (
 	classLabels    = []string{"stance", "heavy", "light", "horse"}
 	terrainLabels  = []string{"plain", "forest", "hills", "mountain", "swamp", "coast"}
 	missionLabels  = []string{"field", "siege", "screen", "escort", "garrison"}
+	// weaponLabels names the weapon classes by their order in the model's enum.
+	// The balance file spells these as numbers because it is a key read through
+	// f64 like every other one, and this list is what turns a number in an
+	// error message back into the word a designer wrote it as.
+	weaponLabels = model.WeaponNames
 )
 
 // loadTemplate reads the party-template tables. Each table is a small grid of
@@ -690,6 +716,7 @@ func loadTemplate(l *loader, t *Template) {
 		for ci, cls := range classLabels {
 			t.TemplateShare[ti][ci] = l.f64("template.share_" + tpl + "_" + cls)
 		}
+		t.WeaponOfTemplate[ti] = model.WeaponClass(int(l.f64("template.weapon_" + tpl)))
 	}
 	for i := range t.CultureShare {
 		for ci, cls := range classLabels {
@@ -728,6 +755,40 @@ func loadFormation(l *loader, f *Formation) {
 	f.MergeDelayDays = l.f64("formation.merge_delay_days")
 	f.AutoMergeChance = l.f64("formation.auto_merge_chance")
 	f.AutoMergeTroops = l.f64("formation.auto_merge_troops")
+
+}
+
+// loadIssue reads the quest framework constants: the notable roster, the
+// generation of issues from world state, and what serving one is worth.
+func loadIssue(l *loader, i *Issue) {
+	i.NotablesPerTown = l.f64("issue.notables_per_town")
+	i.NotablesPerVillage = l.f64("issue.notables_per_village")
+	i.NotableTenureDays = l.f64("issue.notable_tenure_days")
+	i.NotableRetireChance = l.f64("issue.notable_retire_chance")
+	i.NotableGriefPerIgnoredDay = l.f64("issue.notable_grief_per_ignored_day")
+	i.NotableGriefDecay = l.f64("issue.notable_grief_decay")
+	i.OfferChancePerDay = l.f64("issue.offer_chance_per_day")
+	i.MaxOpenPerNotable = l.f64("issue.max_open_per_notable")
+	i.MaxLivePerSettlement = l.f64("issue.max_live_per_settlement")
+	i.StaleOfferDays = l.f64("issue.stale_offer_days")
+	i.DeliverFoodDaysTrigger = l.f64("issue.deliver_food_days_trigger")
+	i.DeliverDays = l.f64("issue.deliver_days")
+	i.DeliverDeadlineDays = l.f64("issue.deliver_deadline_days")
+	i.DeliverTolerance = l.f64("issue.deliver_tolerance")
+	i.ClearHideoutCrimeTrigger = l.f64("issue.clear_hideout_crime_trigger")
+	i.ClearHideoutCrimeTarget = l.f64("issue.clear_hideout_crime_target")
+	i.ClearHideoutDeadlineDays = l.f64("issue.clear_hideout_deadline_days")
+	i.EscortSafetyTrigger = l.f64("issue.escort_safety_trigger")
+	i.EscortSafetyTarget = l.f64("issue.escort_safety_target")
+	i.EscortDeadlineDays = l.f64("issue.escort_deadline_days")
+	i.EscortRaidersCleared = l.f64("issue.escort_raiders_cleared")
+	i.RewardMoneyPerUnit = l.f64("issue.reward_money_per_unit")
+	i.RewardGoldPerUnit = l.f64("issue.reward_gold_per_unit")
+	i.RewardRenownPerUnit = l.f64("issue.reward_renown_per_unit")
+	i.RewardRelation = l.f64("issue.reward_relation")
+	i.AbandonRelationPenalty = l.f64("issue.abandon_relation_penalty")
+	i.RewardMoneyShare = l.f64("issue.reward_money_share")
+	i.RelationShare = l.f64("issue.relation_share")
 }
 
 func itoa(v int) string {

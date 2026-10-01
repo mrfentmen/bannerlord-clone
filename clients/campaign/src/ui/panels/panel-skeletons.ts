@@ -34,6 +34,7 @@ export const MARCH_SHAPE = "march-plan";
 export const ROSTER_SHAPE = "ruler-roster";
 export const CARD_SHAPE = "ruler-card";
 export const START_SHAPE = "start-sides";
+export const BARTER_SHAPE = "barter-table";
 
 // -- what the real panels draw -----------------------------------------------
 //
@@ -70,6 +71,17 @@ export const CARD_EVENT_ROWS = 3;
 export const START_SIDE_CARDS = 7;
 export const START_STATE_CARDS = 4;
 export const START_ROLE_CARDS = 3;
+
+/**
+ * The barter screen: the trader's name and standing, the player's table, the trader's
+ * table, the two totals, and the two buttons. Exported for the same reason the rest of
+ * this file exports its counts — a panel cannot grow a row without its placeholder
+ * growing with it.
+ */
+export const BARTER_TABLE_COLUMNS = 4;
+export const BARTER_TABLE_ROWS = 2;
+export const BARTER_TOTAL_CELLS = 2;
+export const BARTER_ACTIONS = 2;
 
 // -- shared block vocabulary --------------------------------------------------
 //
@@ -249,5 +261,29 @@ export function startStateSkeletonBody(): HTMLElement {
 export function startRoleSkeletonBody(): HTMLElement {
   const root = skeleton({ shape: START_SHAPE, testId: "start-role-skeleton", label: "Reading the starting roles." });
   root.appendChild(h("div", { class: "skeleton__grid" }, ...count(WIDE, START_ROLE_CARDS)));
+  return root;
+}
+
+// -- barter --------------------------------------------------------------------
+
+/**
+ * `barter-skeleton`. Two tables and a pair of totals, in the order the player reads them.
+ *
+ * The shape that matters here is the pair: two table stubs of the same size, one under
+ * the other, because "what I put down" and "what I get for it" are the two halves of
+ * every decision this screen asks for. A single stub would collapse the screen into a
+ * list on the first frame and give the halves different weights once the data landed.
+ */
+export function barterSkeletonBody(): HTMLElement {
+  const root = skeleton({ shape: BARTER_SHAPE, testId: "barter-skeleton", label: "Reading both tables." });
+  // The trader's name and where they stand with the player.
+  root.appendChild(h("div", { class: "skeleton__head-block" }, block(ROW, "skeleton__headline"), block(ROW)));
+  // Your table, then theirs.
+  root.appendChild(section(tableStub(BARTER_TABLE_COLUMNS, BARTER_TABLE_ROWS)));
+  root.appendChild(section(tableStub(BARTER_TABLE_COLUMNS, BARTER_TABLE_ROWS)));
+  // The two totals, side by side, in the cost cells the real panel uses.
+  root.appendChild(h("div", { class: "skeleton__costs" }, ...count(CELL, BARTER_TOTAL_CELLS)));
+  // Ask, then strike the deal.
+  root.appendChild(actions(BARTER_ACTIONS));
   return root;
 }

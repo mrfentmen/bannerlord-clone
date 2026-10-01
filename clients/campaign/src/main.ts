@@ -30,6 +30,7 @@ import { createCampaignScene, type SceneHandle } from "./scene/CampaignScene.js"
 import { findRoute, shortestPath } from "./scene/network.js";
 import { createHud, dataSourcePanel, fatalError, type HudPanel, type HudState } from "./ui/hud.js";
 import { marketPanel } from "./ui/panels/MarketPanel.js";
+import { barterPanel } from "./ui/panels/BarterPanel.js";
 import { partyPanel } from "./ui/panels/PartyPanel.js";
 import { marchPlanner } from "./ui/panels/MarchPlanner.js";
 import { ledgerPanel } from "./ui/panels/LedgerPanel.js";
@@ -38,6 +39,8 @@ import { startScreen } from "./ui/panels/StartScreen.js";
 import { townPanel } from "./ui/panels/TownPanel.js";
 import { whyPanel } from "./ui/panels/WhyPanel.js";
 import type {
+  BarterResult,
+  RulerState,
   SettlementOption,
   SimSnapshot,
   TickUpdate,
@@ -551,6 +554,13 @@ function rebuildContext(): void {
       contextNode = marketNode(town.id, town.name);
       return;
     }
+    case "barter":
+      if (!town) {
+        contextNode = noSimulationRecordNode("No market here");
+        return;
+      }
+      contextNode = barterNode(town.id, town.name);
+      return;
     case "party":
       contextNode = partyPanel({
         party: snap.party,
@@ -667,6 +677,69 @@ function marketNode(townId: string, townName: string): Node {
 
 function money(v: number): string {
   return `$${Math.round(v).toLocaleString("en-US")}`;
+}
+
+/**
+ * The barter screen for a town.
+ *
+ * The trader is the lord who holds the town: a lord's gold, their prisoners and their
+ * standing with the player are the things that can actually be bargained over, and the
+ * market beside it is where prices are set rather than haggled. `terms` is handed as
+ * `null` on purpose, so the panel puts its skeleton up and asks the simulation for both
+ * tables itself — the same arrangement the market panel uses, and the reason the
+ * player's first frame is the shape of the screen rather than a blank one.
+ */
+function barterNode(townId: string, townName: string): Node {
+  if (!snapshot) return noSimulationRecordNode("Nobody here to bargain with");
+  const trader = traderFor(townId);
+  return barterPanel({
+    partyId: snapshot.party.id,
+    partyName: snapshot.party.name,
+    townId,
+    traderId: trader?.id ?? null,
+    traderName: trader?.name ?? `the holder of ${townName}`,
+    terms: null,
+    provider,
+    lastOutcome: lastBarter,
+    onDealt: (result: BarterResult) => {
+      lastBarter = {
+        tone: result.accepted ? "good" : "critical",
+        text: result.accepted ? `${result.verdict} Struck on day ${result.day}.` : (result.reason ?? "The deal was refused."),
+      };
+      void refreshAfterBarter();
+    },
+    onError: (m) => console.error(m),
+  }).root;
+}
+
+/** The lord holding a town, which is the trader the barter screen opens with. */
+function traderFor(townId: string): RulerState | undefined {
+  if (!snapshot) return undefined;
+  const town = snapshot.towns.find((t) => t.id === townId);
+  if (!town?.holderId) return undefined;
+  return snapshot.rulers.find((r) => r.id === town.holderId);
+}
+
+/**
+ * The last deal's outcome, held by the app rather than the panel.
+ *
+ * The same reason `lastTrade` is: a struck deal moves the market, the lord's gold and the
+ * party's cage, so the app re-reads the world and rebuilds the panel, and without this the
+ * confirmation would be wiped by the refresh that displayed it.
+ */
+let lastBarter: { tone: "good" | "critical"; text: string } | null = null;
+
+/** Re-read after a deal, because the tables the panel is drawing have just changed. */
+async function refreshAfterBarter(): Promise<void> {
+  try {
+    const fresh = await provider.getSnapshot();
+    previous = snapshot;
+    snapshot = fresh;
+    if (currentPanel === "barter") rebuildContext();
+    paint();
+  } catch (err) {
+    console.error(err instanceof SimulationUnavailableError ? err.developerDetail : String(err));
+  }
 }
 
 /** Re-read after a trade so the table shows the post-trade price, not the one before. */

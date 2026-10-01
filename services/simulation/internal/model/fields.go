@@ -34,6 +34,8 @@ const (
 	KindWar
 	KindOrganization
 	KindWorkshop
+	KindNotable
+	KindIssue
 )
 
 // String names the kind for error messages and log output.
@@ -59,6 +61,10 @@ func (k Kind) String() string {
 		return "clan"
 	case KindWorkshop:
 		return "workshop"
+	case KindNotable:
+		return "notable"
+	case KindIssue:
+		return "issue"
 	default:
 		return "unknown"
 	}
@@ -247,6 +253,12 @@ func init() {
 	const (
 		zero, one = 0.0, 1.0
 		inf       = 1e12
+		// maskMax bounds a side bitmask. A float64 holds integers exactly up to
+		// 2^53, and the masks here use one bit per side id, so anything at or
+		// below that is representable without rounding a bit into the wrong
+		// place. 2^32 leaves four times the headroom and still clamps a
+		// corrupt value to something a reader can make sense of.
+		maskMax = 4294967296.0
 	)
 	register(Field{"population", KindTown, ValueInt, "people", true, 0, inf, nil, 0})
 	register(Field{"workers", KindTown, ValueInt, "workers", true, 0, inf, nil, 0})
@@ -591,4 +603,73 @@ func init() {
 	register(Field{"prisoner_conformity", KindParty, ValueFloat, "share", false, 0, 1, nil, 0})
 	// --- family fields (Tier 2.1) ---
 	register(Field{"pregnancy_days", KindLeader, ValueFloat, "days", false, -1, 300, nil, 0})
+	// --- notable fields ---
+	//
+	// notable_power and notable_relation are the two that carry weight.
+	// Power scales the value of a request and therefore the reward; relation is
+	// the number that rises when a request is served and falls when it is
+	// ignored, which is the whole of the "ignoring has consequences" rule as a
+	// quantity other systems can read.
+	register(Field{"notable_role", KindNotable, ValueText, "role", true, 0, 0, NotableRoleNames, 0})
+	register(Field{"notable_town", KindNotable, ValueInt, "town", false, -1, inf, nil, 0})
+	register(Field{"notable_village", KindNotable, ValueInt, "village", false, -1, inf, nil, 0})
+	register(Field{"notable_power", KindNotable, ValueFloat, "share", true, zero, one, nil, 0})
+	register(Field{"notable_relation", KindNotable, ValueFloat, "score", true, -one, one, nil, 0})
+	register(Field{"notable_open_issues", KindNotable, ValueInt, "issues", false, 0, inf, nil, 0})
+	register(Field{"notable_grievance", KindNotable, ValueFloat, "share", true, zero, one, nil, 0})
+	register(Field{"notable_cooldown_until", KindNotable, ValueInt, "tick", false, 0, inf, nil, 0})
+	register(Field{"notable_born_tick", KindNotable, ValueInt, "tick", false, 0, inf, nil, 0})
+	register(Field{"notable_tenure_days", KindNotable, ValueFloat, "days", false, 0, inf, nil, 0})
+	register(Field{"notable_last_offer_tick", KindNotable, ValueInt, "tick", false, -1, inf, nil, 0})
+	register(Field{"notable_active", KindNotable, ValueFlag, "boolean", false, zero, one, nil, 0})
+	// --- issue fields ---
+	//
+	// issue_state is tracked and issue_progress is not. The transition is the
+	// event a player would ask about, and it is a discrete change of a handful
+	// of times per notable; progress creeps every tick and logging every creep
+	// would be a row a day per open request for no explanatory gain. Both are
+	// still readable by name, so a system that wants to write progress can.
+	register(Field{"issue_state", KindIssue, ValueText, "state", true, 0, 0, IssueStateNames, 0})
+	register(Field{"issue_kind", KindIssue, ValueText, "kind", true, 0, 0, IssueKindNames, 0})
+	register(Field{"issue_notable", KindIssue, ValueRulerRef, "notable", true, -1, inf, nil, 0})
+	register(Field{"issue_town", KindIssue, ValueInt, "town", false, -1, inf, nil, 0})
+	register(Field{"issue_village", KindIssue, ValueInt, "village", false, -1, inf, nil, 0})
+	register(Field{"issue_target", KindIssue, ValueInt, "target", false, -1, inf, nil, 0})
+	register(Field{"issue_route", KindIssue, ValueInt, "route", false, -1, inf, nil, 0})
+	register(Field{"issue_acceptor", KindIssue, ValueRulerRef, "ruler", true, -1, inf, nil, 0})
+	register(Field{"issue_progress", KindIssue, ValueFloat, "share", false, zero, one, nil, 0})
+	register(Field{"issue_amount", KindIssue, ValueFloat, "amount", false, 0, inf, nil, 0})
+	register(Field{"issue_baseline", KindIssue, ValueFloat, "amount", false, 0, inf, nil, 0})
+	register(Field{"issue_deadline_tick", KindIssue, ValueInt, "tick", true, -1, inf, nil, 0})
+	register(Field{"issue_deadline_days", KindIssue, ValueFloat, "days", false, 0, inf, nil, 0})
+	register(Field{"issue_started_tick", KindIssue, ValueInt, "tick", false, -1, inf, nil, 0})
+	register(Field{"issue_reward_money", KindIssue, ValueFloat, "money", false, 0, inf, nil, 0})
+	register(Field{"issue_reward_gold", KindIssue, ValueFloat, "gold", false, 0, inf, nil, 0})
+	register(Field{"issue_reward_renown", KindIssue, ValueFloat, "renown", false, 0, inf, nil, 0})
+
+	// --- fog of war fields (gap 6.5 in docs/missing-vs-bannerlord.md) ---
+	//
+	// sighted_sides and ever_seen_sides are bitmasks over side ids. They are
+	// integers because a mask is a set of bits and there is no honest way to
+	// render one as a fraction; the unit is "sides" because the number a reader
+	// wants is how many sides the mask holds. Registering them as ValueInt is
+	// also what stops a mask being clamped into a 0-1 range it does not belong
+	// in, which is exactly what a fraction clamp would do to a set of bits.
+	register(Field{"sighted_sides", KindTown, ValueInt, "sides", false, 0, maskMax, nil, 0})
+	// ever_seen_sides is the one tracked field here, and it is tracked because
+	// it is the only event this system produces that a player would ask about:
+	// my side has just learned that this town exists. CONSTITUTION.md section
+	// 2.2 requires a log row for a tracked change, and a discovery the Why
+	// panel cannot explain is a discovery the player has to take on trust.
+	// Because the mask is cumulative the field only ever gains bits, so it
+	// writes a row once per town per side over a whole run rather than every
+	// tick the town happens to be watched.
+	register(Field{"ever_seen_sides", KindTown, ValueInt, "sides", true, 0, maskMax, nil, 0})
+	// last_seen_tick is untracked for the same reason side_strength is: it moves
+	// every tick a town is watched, and a row per town per day would bury the
+	// log under the fact that an army walked past. What is worth a row is the
+	// discovery itself, which is a side gaining a bit it did not have.
+	register(Field{"last_seen_tick", KindTown, ValueInt, "days", false, -1, inf, nil, 0})
+	register(Field{"side_visible_towns", KindSide, ValueInt, "towns", false, 0, inf, nil, 0})
+	register(Field{"side_known_towns", KindSide, ValueInt, "towns", false, 0, inf, nil, 0})
 }

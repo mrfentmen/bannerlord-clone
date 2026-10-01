@@ -36,8 +36,19 @@ func run(v *sim.View, w *sim.WriteSet) {
 		// A party already committed to something finishes it. Re-deciding
 		// mid-campaign would mean abandoning a siege because something more
 		// attractive came up, which is not how any of this works.
+		//
+		// Returning is in this list because a party walking home is committed in
+		// exactly the way a marching one is. It was missing, and that was only
+		// invisible while party activity was pinned to zero: a returning party
+		// that reached its destination on the same tick was recorded as arrived
+		// by the march system and as still returning by this one, which is two
+		// absolute writes to the same field in one tick and so a tick the engine
+		// rejects as order-dependent. Leaving it out would also have meant
+		// re-ordering an army that was already on the road, which is the
+		// abandonment this loop exists to prevent.
 		switch p.Activity {
-		case model.ActMarching, model.ActSieging, model.ActRaiding, model.ActResupplying:
+		case model.ActMarching, model.ActSieging, model.ActRaiding,
+			model.ActResupplying, model.ActReturning:
 			continue
 		}
 

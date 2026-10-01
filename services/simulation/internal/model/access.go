@@ -75,6 +75,18 @@ func (s *State) Get(kind Kind, id int, field string) (float64, bool) {
 			return 0, false
 		}
 		return workshopGet(wk, field)
+	case KindNotable:
+		n, ok := s.Notables[id]
+		if !ok {
+			return 0, false
+		}
+		return notableGet(n, field)
+	case KindIssue:
+		i, ok := s.Issues[id]
+		if !ok {
+			return 0, false
+		}
+		return issueGet(i, field)
 	}
 	return 0, false
 }
@@ -143,6 +155,18 @@ func (s *State) Set(kind Kind, id int, field string, v float64) bool {
 			return false
 		}
 		return workshopSet(wk, field, v)
+	case KindNotable:
+		n, ok := s.Notables[id]
+		if !ok {
+			return false
+		}
+		return notableSet(n, field, v)
+	case KindIssue:
+		i, ok := s.Issues[id]
+		if !ok {
+			return false
+		}
+		return issueSet(i, field, v)
 	}
 	return false
 }
@@ -180,6 +204,12 @@ func (s *State) Exists(kind Kind, id int) bool {
 	case KindWorkshop:
 		_, ok := s.Workshops[id]
 		return ok
+	case KindNotable:
+		_, ok := s.Notables[id]
+		return ok
+	case KindIssue:
+		_, ok := s.Issues[id]
+		return ok
 	}
 	return false
 }
@@ -215,6 +245,18 @@ func (s *State) Name(kind Kind, id int) string {
 	case KindWorkshop:
 		if wk, ok := s.Workshops[id]; ok {
 			return workshopTypeName(wk.Type) + " " + itoa(id)
+		}
+	case KindNotable:
+		if n, ok := s.Notables[id]; ok {
+			return n.Name
+		}
+	case KindIssue:
+		if i, ok := s.Issues[id]; ok {
+			kind := "issue"
+			if int(i.Kind) < len(IssueKindNames) {
+				kind = IssueKindNames[i.Kind]
+			}
+			return kind + " issue " + itoa(id)
 		}
 	}
 	return kind.String() + " " + itoa(id)
@@ -428,6 +470,12 @@ func townGet(t *Town, f string) (float64, bool) {
 		return t.MilitiaPayroll, true
 	case "militia_readiness":
 		return t.MilitiaReadiness, true
+	case "sighted_sides":
+		return t.SightedSides, true
+	case "ever_seen_sides":
+		return t.EverSeenSides, true
+	case "last_seen_tick":
+		return t.LastSeenTick, true
 	}
 	return 0, false
 }
@@ -580,6 +628,12 @@ func townSet(t *Town, f string, v float64) bool {
 		t.MilitiaPayroll = v
 	case "militia_readiness":
 		t.MilitiaReadiness = v
+	case "sighted_sides":
+		t.SightedSides = v
+	case "ever_seen_sides":
+		t.EverSeenSides = v
+	case "last_seen_tick":
+		t.LastSeenTick = v
 	default:
 		return false
 	}
@@ -1087,6 +1141,10 @@ func sideGet(d *Side, f string) (float64, bool) {
 		return d.FoodNeed, true
 	case "side_metal_need":
 		return d.MetalNeed, true
+	case "side_visible_towns":
+		return d.VisibleTowns, true
+	case "side_known_towns":
+		return d.KnownTowns, true
 	case "side_culture":
 		return float64(d.Culture), true
 	default:
@@ -1160,6 +1218,10 @@ func sideSet(d *Side, f string, v float64) bool {
 		d.FoodNeed = v
 	case "side_metal_need":
 		d.MetalNeed = v
+	case "side_visible_towns":
+		d.VisibleTowns = v
+	case "side_known_towns":
+		d.KnownTowns = v
 	case "side_culture":
 		d.Culture = int(v)
 	default:
@@ -1406,6 +1468,155 @@ func workshopSet(wk *Workshop, f string, v float64) bool {
 		wk.OutputStock = v
 	case "workshop_income":
 		wk.LastIncome = v
+	default:
+		return false
+	}
+	return true
+}
+
+func notableGet(n *Notable, f string) (float64, bool) {
+	switch f {
+	case "notable_role":
+		return float64(n.Role), true
+	case "notable_town":
+		return float64(n.TownID), true
+	case "notable_village":
+		return float64(n.VillageID), true
+	case "notable_power":
+		return n.Power, true
+	case "notable_relation":
+		return n.Relation, true
+	case "notable_open_issues":
+		return n.OpenIssues, true
+	case "notable_grievance":
+		return n.Grievance, true
+	case "notable_cooldown_until":
+		return float64(n.CooldownUntil), true
+	case "notable_born_tick":
+		return float64(n.BornTick), true
+	case "notable_tenure_days":
+		return n.TenureDays, true
+	case "notable_last_offer_tick":
+		return float64(n.LastOfferTick), true
+	case "notable_active":
+		if n.IsActive {
+			return 1, true
+		}
+		return 0, true
+	default:
+		return 0, false
+	}
+}
+
+func notableSet(n *Notable, f string, v float64) bool {
+	switch f {
+	case "notable_role":
+		n.Role = NotableRole(int(v))
+	case "notable_town":
+		n.TownID = int(v)
+	case "notable_village":
+		n.VillageID = int(v)
+	case "notable_power":
+		n.Power = v
+	case "notable_relation":
+		n.Relation = v
+	case "notable_open_issues":
+		n.OpenIssues = v
+	case "notable_grievance":
+		n.Grievance = v
+	case "notable_cooldown_until":
+		n.CooldownUntil = int(v)
+	case "notable_born_tick":
+		n.BornTick = int(v)
+	case "notable_tenure_days":
+		n.TenureDays = v
+	case "notable_last_offer_tick":
+		n.LastOfferTick = int(v)
+	case "notable_active":
+		n.IsActive = v != 0
+	default:
+		return false
+	}
+	return true
+}
+
+func issueGet(i *Issue, f string) (float64, bool) {
+	switch f {
+	case "issue_state":
+		return float64(i.State), true
+	case "issue_kind":
+		return float64(i.Kind), true
+	case "issue_notable":
+		return float64(i.NotableID), true
+	case "issue_town":
+		return float64(i.TownID), true
+	case "issue_village":
+		return float64(i.VillageID), true
+	case "issue_target":
+		return float64(i.TargetID), true
+	case "issue_route":
+		return float64(i.RouteID), true
+	case "issue_acceptor":
+		return float64(i.AcceptorID), true
+	case "issue_progress":
+		return i.Progress, true
+	case "issue_amount":
+		return i.Amount, true
+	case "issue_baseline":
+		return i.Baseline, true
+	case "issue_deadline_tick":
+		return float64(i.DeadlineTick), true
+	case "issue_deadline_days":
+		return i.DeadlineDays, true
+	case "issue_started_tick":
+		return float64(i.StartedTick), true
+	case "issue_reward_money":
+		return i.RewardMoney, true
+	case "issue_reward_gold":
+		return i.RewardGold, true
+	case "issue_reward_renown":
+		return i.RewardRenown, true
+	default:
+		return 0, false
+	}
+}
+
+func issueSet(i *Issue, f string, v float64) bool {
+	switch f {
+	case "issue_state":
+		i.State = IssueState(int(v))
+	case "issue_kind":
+		i.Kind = IssueKind(int(v))
+	case "issue_notable":
+		i.NotableID = int(v)
+	case "issue_town":
+		i.TownID = int(v)
+	case "issue_village":
+		i.VillageID = int(v)
+	case "issue_target":
+		i.TargetID = int(v)
+	case "issue_route":
+		i.RouteID = int(v)
+	case "issue_acceptor":
+		i.AcceptorID = int(v)
+	case "issue_progress":
+		i.Progress = v
+	case "issue_amount":
+		i.Amount = v
+	case "issue_baseline":
+		i.Baseline = v
+	case "issue_deadline_tick":
+		i.DeadlineTick = int(v)
+	case "issue_deadline_days":
+		i.DeadlineDays = v
+	case "issue_started_tick":
+		i.StartedTick = int(v)
+	case "issue_reward_money":
+		i.RewardMoney = v
+	case "issue_reward_gold":
+		i.RewardGold = v
+	case "issue_reward_renown":
+		i.RewardRenown = v
 	default:
 		return false
 	}

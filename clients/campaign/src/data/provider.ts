@@ -21,6 +21,10 @@
  */
 
 import type {
+  BarterProposal,
+  BarterProposalRequest,
+  BarterResult,
+  BarterTerms,
   ConnectionStatus,
   MarchPlan,
   MarchRequest,
@@ -180,6 +184,23 @@ export class HttpSimulationProvider implements SimulationProvider {
 
   async recruit(request: RecruitRequest): Promise<RecruitResult> {
     return this.#post<RecruitResult>("/v1/recruit", request, "The hire did not go through.");
+  }
+
+  async barterTerms(traderId: string, townId: string): Promise<BarterTerms> {
+    const query = `?trader=${encodeURIComponent(traderId)}&town=${encodeURIComponent(townId)}`;
+    const url = `${this.#httpUrl}/v1/barter/terms${query}`;
+    const body = await this.#getJson(url, "Neither table for this trader could be read.");
+    return decodeBarterTerms(body, url);
+  }
+
+  async proposeBarter(request: BarterProposalRequest): Promise<BarterProposal> {
+    const url = `${this.#httpUrl}/v1/barter/propose`;
+    return decodeBarterProposal(await this.#post<unknown>(url, request, "The trader did not answer."), url);
+  }
+
+  async commitBarter(request: BarterProposalRequest): Promise<BarterResult> {
+    const url = `${this.#httpUrl}/v1/barter/commit`;
+    return decodeBarterResult(await this.#post<unknown>(url, request, "The deal did not go through."), url);
   }
 
   setTimeScale(daysPerRealSecond: number): void {
@@ -419,6 +440,59 @@ function whyChainProblem(raw: unknown): string | null {
   return null;
 }
 
+/**
+ * A barter table is only usable if every line carries a kind, an id, a count and a
+ * value, because the panel draws all four and does arithmetic on the last two. A table
+ * with a missing `unitValue` would show an empty column and a total of zero, which
+ * reads as "nothing is worth anything here" rather than as "the server sent a table this
+ * client cannot read".
+ */
+function barterItemsProblem(raw: unknown, where: string): string | null {
+  if (!Array.isArray(raw)) return `${where} is not a list`;
+  for (const [index, item] of raw.entries()) {
+    if (!isRecord(item)) return `${where} line ${index} is not a JSON object`;
+    if (item.kind !== "good" && item.kind !== "gold" && item.kind !== "prisoner") {
+      return `${where} line ${index} has an unknown kind`;
+    }
+    if (!isString(item.itemId)) return `${where} line ${index} has no itemId`;
+    if (!isString(item.name)) return `${where} line ${index} has no name`;
+    if (!isFiniteNumber(item.available)) return `${where} line ${index} has no count`;
+    if (!isFiniteNumber(item.unitValue)) return `${where} line ${index} has no value`;
+  }
+  return null;
+}
+
+function barterTermsProblem(raw: unknown): string | null {
+  if (!isRecord(raw)) return "the reply is not a JSON object";
+  if (!isString(raw.townId)) return "townId is missing";
+  if (!isString(raw.traderId)) return "traderId is missing";
+  if (!isString(raw.traderName)) return "traderName is missing";
+  if (!isFiniteNumber(raw.day)) return "day is not a number";
+  if (!isFiniteNumber(raw.relationToPlayer)) return "relationToPlayer is not a number";
+  return barterItemsProblem(raw.traderItems, "traderItems") ?? barterItemsProblem(raw.playerItems, "playerItems");
+}
+
+function barterProposalProblem(raw: unknown): string | null {
+  if (!isRecord(raw)) return "the reply is not a JSON object";
+  if (typeof raw.accepted !== "boolean") return "accepted is not a boolean";
+  if (!isFiniteNumber(raw.playerValue)) return "playerValue is not a number";
+  if (!isFiniteNumber(raw.traderValue)) return "traderValue is not a number";
+  if (!isString(raw.verdict)) return "verdict is missing";
+  return null;
+}
+
+function barterResultProblem(raw: unknown): string | null {
+  const problem = barterProposalProblem(raw);
+  if (problem) return problem;
+  if (!isRecord(raw)) return "the reply is not a JSON object";
+  if (!isFiniteNumber(raw.day)) return "day is not a number";
+  if (!isFiniteNumber(raw.playerMoney)) return "playerMoney is not a number";
+  if (!isFiniteNumber(raw.traderMoney)) return "traderMoney is not a number";
+  return (
+    barterItemsProblem(raw.playerItems, "playerItems") ?? barterItemsProblem(raw.traderItems, "traderItems")
+  );
+}
+
 function tickFrameProblem(raw: unknown): string | null {
   if (!isRecord(raw)) return "the frame is not a JSON object";
   if (!isFiniteNumber(raw.tick)) return "tick is not a number";
@@ -448,4 +522,41 @@ function decodeWhyChain(raw: unknown, url: string): WhyChain {
     );
   }
   return raw as WhyChain;
+}
+
+function decodeBarterTerms(raw: unknown, url: string): BarterTerms {
+  const problem = barterTermsProblem(raw);
+  if (problem) {
+    throw new SimulationUnavailableError(
+      "This trader's two tables could not be read, so there is nothing to bargain over.",
+      `GET ${url} returned barter terms that failed validation: ${problem}`,
+      false,
+    );
+  }
+  return raw as BarterTerms;
+}
+
+/** One decoder for both the proposal and the struck deal, with the extra fields named. */
+function decodeBarterProposal(raw: unknown, url: string): BarterProposal {
+  const problem = barterProposalProblem(raw);
+  if (problem) {
+    throw new SimulationUnavailableError(
+      "The trader did not answer, in a form this client can read.",
+      `POST ${url} returned a barter proposal that failed validation: ${problem}`,
+      false,
+    );
+  }
+  return raw as BarterProposal;
+}
+
+function decodeBarterResult(raw: unknown, url: string): BarterResult {
+  const problem = barterResultProblem(raw);
+  if (problem) {
+    throw new SimulationUnavailableError(
+      "The deal was taken but the new tables did not come back, so this client will not guess them.",
+      `POST ${url} returned a barter result that failed validation: ${problem}`,
+      false,
+    );
+  }
+  return raw as BarterResult;
 }

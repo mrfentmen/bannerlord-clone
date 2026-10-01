@@ -7,6 +7,12 @@
 // determines a victor. The victor's leader gains renown (feeding clan
 // renown, Tier 1); the defeated leader may be captured.
 //
+// Casualties are also decided by what the winner is armed with. A blunt weapon
+// takes men alive instead of killing them, so a share of the loser's casualties
+// becomes prisoners in chains rather than corpses, which turns the victor's
+// template into a loadout choice with an economic payoff (Tier 6.2 weapon
+// classes, docs/missing-vs-bannerlord.md item 2.4).
+//
 // This is the simulation's combat resolution. The 3D client will render
 // battles, but the simulation must resolve them deterministically whether
 // or not a player is watching.
@@ -134,6 +140,49 @@ func findPair(v *sim.View, pids []int) (*model.Party, float64, *model.Party, flo
 	return bestA, bestStrA, bestB, bestStrB
 }
 
+// weaponClass reports the weapon class a party fights with.
+//
+// It is a pure function of the party's template, so it is read out of the
+// balance table rather than held as a field on the party. A party field would
+// be a second copy of something party_template already determines, and the only
+// way the two could disagree is if one of them went stale, in which case the
+// battle would resolve on one value and the cause log would explain it with the
+// other.
+//
+// The index is bounds-checked rather than assumed. A party whose template is
+// outside the table would index past the end of it and panic the tick, and a
+// party with a corrupt template should fight with a sharp weapon rather than
+// stop the world.
+func weaponClass(v *sim.View, p *model.Party) model.WeaponClass {
+	if p.Template < 0 || int(p.Template) >= model.TemplateCount {
+		return model.WeaponPiercing
+	}
+	return v.Cfg.Template.WeaponOfTemplate[p.Template]
+}
+
+// bluntCaptureShare returns the share of a defeated party's casualties the
+// victor takes alive instead of killing, which is nonzero only for a blunt
+// weapon.
+//
+// The question is asked of the victor, not of the party findPair nominated as
+// attacker. findPair calls the stronger of the two the attacker, and the
+// stronger party can still lose, and a party that is losing is still fighting:
+// it holds nobody. Asking the winner is also what makes the rule mean what a
+// player expects, that the side winning a fight walks away with men in chains
+// when its men are armed with clubs and walks away with bodies when they are
+// armed with swords.
+//
+// The share is clamped rather than trusted because it multiplies a casualty
+// count: a balance file that raised it past one would otherwise hand a victor
+// more prisoners than there were men to take, which is the one number in this
+// system that has to be impossible rather than merely unlikely.
+func bluntCaptureShare(v *sim.View, winner *model.Party) float64 {
+	if weaponClass(v, winner) != model.WeaponBlunt {
+		return 0
+	}
+	return shared.Clamp01(v.Cfg.Battle.BluntCaptureShare)
+}
+
 func run(v *sim.View, w *sim.WriteSet) {
 	c := v.Cfg
 	// Group parties by location (town).
@@ -219,8 +268,20 @@ func run(v *sim.View, w *sim.WriteSet) {
 		if loserWoundedFrac > 0.8 {
 			loserWoundedFrac = 0.8
 		}
+		// Blunt capture: a club beats a man down and he comes back in chains,
+		// where a sword finishes him. Only a blunt victor takes prisoners, and
+		// it takes them out of the casualty pool rather than in addition to it,
+		// so every casualty is exactly one of three things: killed, wounded, or
+		// captive. Adding the captives on top would make the loser's wounded and
+		// the winner's chains the same men counted twice, and the attrition
+		// system would eventually hand a man in chains back to the loser as a
+		// recovered wound.
+		captured := loserLoss * bluntCaptureShare(v, winner)
 		winnerWounded := winnerLoss * winnerWoundedFrac
-		loserWounded := loserLoss * loserWoundedFrac
+		// What is left of the loser's casualties once the captives are set
+		// aside is the pool medicine splits between wounded and killed, so the
+		// three shares still sum to the casualties that fell.
+		loserWounded := (loserLoss - captured) * loserWoundedFrac
 
 		// Troops lose the total casualties (killed + wounded).
 		// Wounded go to the wounded pool (recoverable via medicine).
@@ -233,6 +294,28 @@ func run(v *sim.View, w *sim.WriteSet) {
 			read, causes, "battle casualties")
 		w.Add(model.KindParty, loser.ID, "wounded", loserWounded,
 			read, causes, "battle wounded")
+		// The captives join the victor's own prisoner count, which the prisoner
+		// system already reads: it builds their conformity and feeds them, so a
+		// blunt column's prisoners are a second recruitment pool that costs food
+		// to hold. Nothing else has to learn that battles produce prisoners.
+		//
+		// Unlike a captured ruler, a captured rank of file names no captor and
+		// needs no leader on the state, so a raider band that wins can hold men
+		// even though it has nobody to ransom them for.
+		if captured > 0 {
+			// Its own read string rather than the battle's shared one: this row
+			// has to be readable on its own in the Why panel, and the chain that
+			// explains it is the winner's template and the weapon class that
+			// template carries, not the strength figures the casualty rows quote.
+			captureRead := shared.ReadString(
+				shared.Pair("winner_template", float64(winner.Template)),
+				shared.Pair("weapon_class", float64(weaponClass(v, winner))),
+				shared.Pair("casualties", loserLoss),
+				shared.Pair("captured", captured),
+			)
+			w.Add(model.KindParty, winner.ID, "prisoners", captured,
+				captureRead, causes, "battle prisoners: blunt weapons take men alive")
+		}
 		// Victor gains renown; feeds clan renown (Tier 1).
 		if winnerLeader != nil {
 			renownGain := c.Battle.RenownPerVictory * (1.0 + (1.0 - winnerShare))

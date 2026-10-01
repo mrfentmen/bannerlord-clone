@@ -133,6 +133,29 @@ type Town struct {
 	BlockadeDays     float64
 	MilitiaPayroll   float64
 	MilitiaReadiness float64
+
+	// --- fog of war (gap 6.5 in docs/missing-vs-bannerlord.md) ---
+	//
+	// A town is real whether or not anybody is looking at it. These three
+	// fields are what separate "exists" from "is known", and the difference is
+	// the whole of the feature: a side that has never had a party near a town
+	// does not know it is there, and a side that saw one last month remembers
+	// it without seeing anything now.
+	//
+	// SightedSides is a bitmask over side ids, not a count. A boolean per side
+	// would be six fields on every town, and a count would throw away exactly
+	// the question being asked, which is always "which ones".
+	SightedSides float64
+	// EverSeenSides is the same mask for every sighting in the run, never
+	// cleared. It is what distinguishes a town that has never been found from
+	// one that is merely out of sight right now, and it is the difference
+	// between fog that can be re-explored and fog that erases.
+	EverSeenSides float64
+	// LastSeenTick is when a town was last inside any side's sight radius, or
+	// -1 if never. It is what ages a sighting out: a town nobody has been near
+	// for a while is reported as remembered rather than watched, and the
+	// difference is the difference between current intelligence and gossip.
+	LastSeenTick float64
 }
 
 // Village is a food-producing settlement serving a town, per SPEC.md section 2.
@@ -251,6 +274,37 @@ const (
 // ClassCount is how many troop classes exist.
 const ClassCount = 4
 
+// WeaponClass is how a template's men hurt people, which decides what happens
+// to the ones who fall. It is not a damage number: a piercer and a cutter kill
+// about equally well, and the difference is what they leave behind. A sharp
+// weapon finishes the man it opens, so his body is a corpse; a blunt weapon
+// beats him down and leaves him breathing, so he is somebody's prisoner. That
+// is the whole of Bannerlord's rule that capture is blunt-only, and it is why
+// the choice of template is an economic one rather than a cosmetic one
+// (docs/missing-vs-bannerlord.md item 2.4).
+type WeaponClass int
+
+const (
+	// WeaponPiercing is the spear and the lance: it opens a man and leaves him
+	// dead.
+	WeaponPiercing WeaponClass = iota
+	// WeaponCutting is the sword and the axe: same problem, slower.
+	WeaponCutting
+	// WeaponBlunt is the club, the maul, and the shield boss: a man survives
+	// being hit with one, which is what makes him takeable.
+	WeaponBlunt
+)
+
+// WeaponClassCount is how many weapon classes exist. A template names one of
+// them, so this is the width of the range a weapon class must be validated
+// against rather than a table anything is indexed by.
+const WeaponClassCount = 3
+
+// WeaponNames names the weapon classes, in WeaponClass order. It is what the
+// balance file, the cause log, and a party panel all read, so that a weapon
+// class is named the same way everywhere it appears.
+var WeaponNames = []string{"piercing", "cutting", "blunt"}
+
 // TemplateNames names the templates for the cause log and any report that
 // reads a party panel. Index order matches the PartyTemplate constants.
 var TemplateNames = []string{"stance", "heavy", "light", "horse"}
@@ -267,24 +321,24 @@ const CultureCount = 6
 // shape for all of them because MARCH_AND_WAR.md treats them as the same
 // object with different duties, and because parties and armies share supplies.
 type Party struct {
-	ID               int
-	Name             string
-	SideID           int
-	LeaderID         int
-	X, Y             float64
-	DestX            float64
-	DestY            float64
-	Troops           float64
-	Wounded          float64
-	Food             float64
-	Money            float64
-	Gold             float64
-	Metal            float64
-	Medicine         float64
-	Morale           float64
+	ID       int
+	Name     string
+	SideID   int
+	LeaderID int
+	X, Y     float64
+	DestX    float64
+	DestY    float64
+	Troops   float64
+	Wounded  float64
+	Food     float64
+	Money    float64
+	Gold     float64
+	Metal    float64
+	Medicine float64
+	Morale   float64
 	// TroopXP is accumulated combat experience, 0+. Battles grant XP;
 	// higher XP improves combat effectiveness (Tier 5.5).
-	TroopXP          float64
+	TroopXP float64
 	// Cohesion is party unity, 0-1. Large armies drain it; high cohesion
 	// improves combat, zero cohesion causes desertion (Tier 5.6).
 	Cohesion         float64
@@ -511,6 +565,14 @@ type Side struct {
 	// FoodNeed and MetalNeed are the computed deficits that motivate war.
 	FoodNeed  float64
 	MetalNeed float64
+	// VisibleTowns is how many towns this side has in sight right now, and
+	// KnownTowns how many it has ever found. The two are kept apart because
+	// they answer different questions and collapse to different numbers: a
+	// side that has walked its whole territory knows a great deal and sees very
+	// little, and reporting one figure for both would make an exploring realm
+	// look like a declining one.
+	VisibleTowns float64
+	KnownTowns   float64
 }
 
 // Clan is a first-class dynasty entity (Tier 1.1). Members share renown and
@@ -722,3 +784,233 @@ const (
 	WarEndAffiliateage = "affiliateage"
 	WarEndOngoing      = "ongoing"
 )
+
+// NotableRole is what a notable does, matching the notable_role enum. It is the
+// gate on which issues a person will put their name to: a gang boss asks for a
+// hideout cleared and would not ask anyone to haul sacks of grain, and a
+// headman asks for exactly that. Encoding the role rather than the issue list
+// means the pairing is a rule in one table instead of a cross product.
+type NotableRole int
+
+const (
+	// RoleMayor is a town's official, who carries the town's own problems.
+	RoleMayor NotableRole = iota
+	// RoleForeman is an industrial works supervisor.
+	RoleForeman
+	// RoleMerchant moves goods and fears the road more than anything.
+	RoleMerchant
+	// RoleShopkeeper is a small trader who hears everything and owns little.
+	RoleShopkeeper
+	// RoleHeadman runs a village and its harvest.
+	RoleHeadman
+	// RoleDoctor is a clinic head.
+	RoleDoctor
+	// RoleGangBoss is a criminal organiser.
+	RoleGangBoss
+	// RoleMilitiaCaptain commands a town's free defense.
+	RoleMilitiaCaptain
+)
+
+// NotableRoleCount is how many roles exist, and the width of every role table.
+// An untyped count rather than a typed one so a table can be sized to cover
+// every role without restating the list.
+const NotableRoleCount = 8
+
+// NotableRoleNames names the roles for the cause log and the quest panel. Index
+// order matches the NotableRole constants.
+var NotableRoleNames = []string{
+	"mayor", "foreman", "merchant", "shopkeeper",
+	"headman", "doctor", "gang boss", "militia captain",
+}
+
+// Notable is a non-ruler person who holds local power, per
+// QUESTS_AND_NOTABLES.md section 2.
+//
+// A notable is not a character with a biography. It is the person who stands
+// between a settlement and the player: the one who can notice that Millbrook
+// has three days of food left and can therefore ask for help, and the one whose
+// opinion of the player moves when that help does or does not arrive. Making
+// them a first-class entity rather than a town field is what lets several
+// people in one town ask for different things at the same time, and what lets
+// an issue outlive the mood of the tick that generated it.
+type Notable struct {
+	ID   int
+	Name string
+	// Role is this person's NotableRole, and decides which issues they offer.
+	Role NotableRole
+	// TownID is the town this notable belongs to, or -1 for a village notable.
+	TownID int
+	// VillageID is the village this notable belongs to, or -1 for a town
+	// notable. Exactly one of the two is set, because a notable is attached to
+	// one settlement: a headman does not speak for the market town that the
+	// village sells its grain to.
+	VillageID int
+	// Power is how much this person sways their settlement, 0-1, derived from
+	// the settlement's prosperity and population. It is what makes a
+	// prosperous town's requests worth more and a bankrupt one's worth less,
+	// without a separate rule per role.
+	Power float64
+	// Relation is this person's opinion of the player, -1 to 1. It rises when
+	// an issue they offered is served and falls when it is abandoned, which is
+	// the "ignoring has consequences" rule in QUESTS_AND_NOTABLES.md section 5
+	// expressed as a number other systems can read.
+	Relation float64
+	// OpenIssues is how many issues this person currently has outstanding, an
+	// offer or accepted alike. It is recomputed from the issue list every tick
+	// rather than incremented, so a deleted or resolved issue cannot leave a
+	// count that only ever grows.
+	OpenIssues float64
+	// Grievance is how much this person is aggrieved at the moment, 0-1. It
+	// rises while an issue they care about is ignored and is spent when one is
+	// served, so a notable who has been ignored repeatedly eventually stops
+	// asking.
+	Grievance float64
+	// CooldownUntil is the tick before which this person offers nothing, set
+	// when an issue of theirs resolves. It is the cooldown rule in
+	// QUESTS_AND_NOTABLES.md section 7, and it is a real tick rather than a
+	// probability so a person cannot spam the player with the same request.
+	CooldownUntil int
+	// BornTick is when this notable entered the roster, and TenureDays counts
+	// their service. A roster that never turns over would fix every requester
+	// for the whole run, so people retire and are replaced.
+	BornTick   int
+	TenureDays float64
+	// LastOfferTick is when this person last created an issue, -1 if never.
+	LastOfferTick int
+	// IsActive is false for a retired notable, who stays in state so their
+	// resolved issues still resolve to somebody.
+	IsActive bool
+}
+
+// IssueKind is what an issue asks for, matching the issue_kind enum. The three
+// kinds are deliberately different in kind and not only in scale: one moves
+// goods, one fights, one travels. Each therefore has its own trigger to read,
+// its own progress measure, and its own effects on the world.
+type IssueKind int
+
+const (
+	// IssueDeliverGoods moves food to a settlement that is short of it. The
+	// trigger is days of food; the objective is the arrival of the sacks; the
+	// effect is a town that does not starve on the strength of one delivery.
+	IssueDeliverGoods IssueKind = iota
+	// IssueClearHideout breaks a criminal network. The trigger is crime; the
+	// objective is crime coming down; the effect is prosperity that stops
+	// eroding and roads that get safer.
+	IssueClearHideout
+	// IssueEscort protects a caravan. The trigger is an unsafe road; the
+	// objective is the road getting safer; the effect is trade that arrives.
+	IssueEscort
+)
+
+// IssueKindCount is how many issue kinds exist, and the width of the kind
+// tables. An untyped count for the same reason as NotableRoleCount.
+const IssueKindCount = 3
+
+// IssueKindNames names the kinds for the cause log and the quest panel. Index
+// order matches the IssueKind constants.
+var IssueKindNames = []string{"deliver goods", "clear hideout", "escort"}
+
+// IssueState is where an issue is in its life, matching the issue_state enum.
+type IssueState int
+
+const (
+	// IssueOffered means a notable has asked and nobody has taken it. An offer
+	// that is never accepted expires on its own, which is the only way a world
+	// with no player still shows the cost of ignoring people.
+	IssueOffered IssueState = iota
+	// IssueAccepted means a ruler is answerable for it and the deadline runs.
+	IssueAccepted
+	// IssueSucceeded means the objective was met and the rewards paid.
+	IssueSucceeded
+	// IssueFailed means the deadline passed, the objective was never met, or
+	// the taker abandoned it. The failure effects are applied either way.
+	IssueFailed
+)
+
+// IssueStateNames names the states for the cause log and the quest panel. Index
+// order matches the IssueState constants.
+var IssueStateNames = []string{"offered", "accepted", "succeeded", "failed"}
+
+// IssueStep is one recorded moment of an issue's life, the per-issue log
+// QUESTS_AND_NOTABLES.md section 3 calls for. The cause log explains a change
+// to a field; this explains the change to the request itself, which no field
+// records because the request is not a number.
+type IssueStep struct {
+	Tick int
+	// Text is the plain-language step, e.g. "offered" or "delivered 400".
+	Text string
+	// State is the issue state the step produced.
+	State IssueState
+}
+
+// Issue is one outstanding request from one notable, and the unit the player
+// accepts and completes.
+//
+// An issue is a first-class entity rather than a counter on a notable because
+// the whole design rests on an issue being a fact about the world that outlives
+// the tick that produced it. A town asks for food on the day its larder runs
+// low; the player may take the request four days later, from a town whose
+// situation has since changed, and the offer has to still be there to be
+// accepted. Storing that as a field would mean the offer expired the moment it
+// was written.
+type Issue struct {
+	ID int
+	// Kind is the IssueKind, and selects the trigger, objective, and effects.
+	Kind IssueKind
+	// NotableID is who asked. Every effect is written against this person, so
+	// an ignored request has an author.
+	NotableID int
+	// TownID and VillageID locate the settlement asking, matching the notable
+	// they belong to. Exactly one is set.
+	TownID    int
+	VillageID int
+	// TargetID is the second entity the objective concerns: the town that
+	// wanted the goods, the town whose hideout is to be broken, or the town the
+	// caravan sets out from. -1 where the objective has no second settlement.
+	TargetID int
+	// RouteID is the road an escort protects, or -1 for the kinds that have no
+	// road. It is a separate field rather than an overloaded TargetID because
+	// an escort needs a route and a town at the same time, and packing two ids
+	// into one would make the quest panel a decoding exercise.
+	RouteID int
+	// State is the IssueState. This is the field the cause log watches, so the
+	// moment a request becomes answerable, is taken, or is given up is a dated,
+	// explainable event rather than an inference from the other fields.
+	State IssueState
+	// AcceptorID is the ruler who took the issue, or -1 while it is offered.
+	// A resolved issue keeps its acceptor, because who served or who walked
+	// away is the fact the rewards and the penalties are about.
+	AcceptorID int
+	// Amount is the quantity at stake in the issue's own unit: person-days of
+	// food to deliver, or troops the objective is scaled against. The reward
+	// scales with it, which is the "reward size scales with the real value of
+	// what is at stake" rule in QUESTS_AND_NOTABLES.md section 6.
+	Amount float64
+	// Baseline is the world reading captured when the issue was accepted, and
+	// progress is measured against it. A request is not "deliver 400 sacks" in
+	// the abstract; it is "the larder stood at 300 and must reach 700", and the
+	// second number only means something relative to the first.
+	Baseline float64
+	// Progress is how far the objective is met, 0-1. It is recomputed from
+	// world state every tick rather than advanced by the player declaring
+	// progress, so a delivery made by somebody else counts and a claim made
+	// without the goods does not.
+	Progress float64
+	// DeadlineDays is the notice given when the issue was accepted, and
+	// DeadlineTick is when it runs out. Both are kept: the first is what the
+	// quest panel shows, the second is what the system compares against.
+	DeadlineDays float64
+	DeadlineTick int
+	// StartedTick is when the issue was accepted, -1 while offered.
+	StartedTick int
+	// RewardMoney, RewardGold, and RewardRenown are what the giver pays, and
+	// RewardRelation is how far the notable's opinion of the taker moves. The
+	// money comes out of the notable's home settlement, so a bankrupt town
+	// cannot promise a fortune it does not have.
+	RewardMoney    float64
+	RewardGold     float64
+	RewardRenown   float64
+	RewardRelation float64
+	// Steps is the per-issue log of what happened and when.
+	Steps []IssueStep
+}

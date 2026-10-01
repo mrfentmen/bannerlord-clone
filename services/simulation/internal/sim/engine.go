@@ -16,6 +16,7 @@ package sim
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 
@@ -106,6 +107,19 @@ const (
 	OrderTradeRun
 	// OrderBuyMedicine spends money on clinic stock.
 	OrderBuyMedicine
+	// OrderAcceptIssue takes an outstanding issue from a notable. The order
+	// names the issue in Target and the ruler taking it in LeaderID; the issue
+	// system decides whether the request can be taken, because it is the only
+	// system that knows what the notable's situation is. An order is a request
+	// to act, never a guarantee that the action happened, which is the same
+	// contract every other order in this list has.
+	OrderAcceptIssue
+	// OrderCompleteIssue reports an accepted issue as finished, so the issue
+	// system can check the objective, pay what was promised, and write the
+	// outcome. Declaring an issue complete does not make it complete: the
+	// system reads the world and finds out whether the goods arrived or the
+	// hideout came down, and an unsupported claim is refused rather than paid.
+	OrderCompleteIssue
 )
 
 // WriteSet collects every change a tick's systems want to make. Systems stage
@@ -139,6 +153,16 @@ type WriteSet struct {
 	// oathOps create and break standing promises, which is what makes chain 9
 	// possible: a pledge exists before it is broken.
 	oathOps []oathOp
+	// issueSteps append to a request's own narrative log.
+	//
+	// An issue has a per-issue log of what happened to it and when, which is
+	// the quest log a player reads. It is not a tracked field: the moments it
+	// records are the transitions, and each of those already produces a cause
+	// row, so a field for it would be a second, redundant record of a change
+	// the log already has. It is structural rather than numeric, so it cannot go
+	// through Add or Set, and it is applied at commit for the same reason
+	// creates are: a system must not reach into committed state mid-tick.
+	issueSteps []issueStepOp
 	// spawns are parties created mid-tick, such as a gathered army.
 	spawns []*model.Party
 }
@@ -187,6 +211,15 @@ type oathOp struct {
 	Oath     model.Oath
 	Break    bool
 	Existing bool
+}
+
+// issueStepOp is one entry to append to a request's own log.
+type issueStepOp struct {
+	// IssueID names the request. -1 means the request is being created in the
+	// same tick, in which case the step goes on the entity being built rather
+	// than on a committed one.
+	IssueID int
+	Step    model.IssueStep
 }
 
 // writeKey identifies a field of an entity for the duplicate-write check.
@@ -321,6 +354,17 @@ func (w *WriteSet) BreakOathByPair(promisor, promisee int) {
 // SpawnParty stages the creation of a party, such as a gathered army.
 func (w *WriteSet) SpawnParty(p *model.Party) {
 	w.spawns = append(w.spawns, p)
+}
+
+// RecordIssueStep stages an entry for a request's own log.
+//
+// The step is applied at commit rather than appended during the tick, so a
+// system never reaches into committed state. A step for a request that was
+// created this tick is dropped: the request is built complete inside its create,
+// so anything the system wanted recorded about the offer was already written
+// there, and there is no committed request for this to attach to yet.
+func (w *WriteSet) RecordIssueStep(issueID int, st model.IssueStep) {
+	w.issueSteps = append(w.issueSteps, issueStepOp{IssueID: issueID, Step: st})
 }
 
 // Count returns the number of staged writes, for tests and reports.
@@ -645,17 +689,45 @@ func (e *Engine) apply(s *model.State, w *WriteSet) error {
 		if !x.IsSet {
 			next = old + x.Value
 		}
-		if next < f.Min {
-			next = f.Min
-		}
-		if next > f.Max {
-			next = f.Max
+		// A discrete field is bounded by its enum, not by Min and Max.
+		//
+		// ValueText fields are registered with a range of zero to zero, because
+		// there is no meaningful numeric range for an activity or an outcome: the
+		// legal values are the ones the enum lists and nothing else. Clamping them
+		// against Min and Max before the ValueKind switch therefore forced every
+		// discrete field in the simulation to zero, which silently discarded
+		// every write a system made to party activity, party intention, siege
+		// outcome, war reason, route terrain, ruler sex, and every other enum in
+		// the registry. The enum is checked here instead, which is what the
+		// registry's Enum field has always been for and what Format has always
+		// assumed when it indexes it.
+		if f.Value == model.ValueText {
+			if next < 0 || int(next) >= len(f.Enum) {
+				return fmt.Errorf("sim: %s#%d.%s = %v is not one of %s",
+					x.Kind, x.Entity, x.Field, next, f.Enum)
+			}
+			next = float64(int64(next))
+		} else {
+			if next < f.Min {
+				next = f.Min
+			}
+			if next > f.Max {
+				next = f.Max
+			}
 		}
 		// Integer-valued fields are whole people and whole troops. A death
 		// count of 3.7 people is a bug that would quietly distort every
 		// population total downstream.
 		if f.Value == model.ValueInt {
-			next = float64(int64(next + 0.5))
+			// math.Round, which rounds a half away from zero, rather than adding
+			// a half and truncating. Adding a half and truncating rounds towards
+			// zero for a negative number, because int64(-0.5) is 0, so every
+			// write of minus one was arriving as zero. That silently broke the
+			// convention the "none" value of a reference field rests on:
+			// releasing a prisoner sets captured_by to -1 to mean nobody holds
+			// them, and it was landing as 0, which names a ruler who does not
+			// exist and is therefore neither free nor held.
+			next = math.Round(next)
 			if next < f.Min {
 				next = f.Min
 			}
@@ -716,6 +788,18 @@ func (e *Engine) apply(s *model.State, w *WriteSet) error {
 		}
 		s.Oaths[len(s.Oaths)] = op.Oath
 	}
+	for _, op := range w.issueSteps {
+		i := s.Issues[op.IssueID]
+		if i == nil {
+			// The request was created this tick, or deleted this tick. Either
+			// way there is no committed request to append to, and a step on a
+			// request that does not exist is a write to a field that does not
+			// exist, which is a programming error caught here rather than
+			// silently lost.
+			continue
+		}
+		i.Steps = append(i.Steps, op.Step)
+	}
 	for _, d := range w.deletes {
 		switch d.Kind {
 		case model.KindTown:
@@ -734,6 +818,10 @@ func (e *Engine) apply(s *model.State, w *WriteSet) error {
 			delete(s.Wars, d.ID)
 		case model.KindOrganization:
 			delete(s.Organizations, d.ID)
+		case model.KindNotable:
+			delete(s.Notables, d.ID)
+		case model.KindIssue:
+			delete(s.Issues, d.ID)
 		}
 	}
 	return nil

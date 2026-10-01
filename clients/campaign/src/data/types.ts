@@ -174,6 +174,25 @@ export interface TroopStack {
   morale: number;
 }
 
+/**
+ * A prisoner held by a party or by a lord. `COMBAT.md` §6 and the Prisoner system:
+ * `prisoners` and `prisoner_days` in `services/simulation/internal/model/fields.go`
+ * are the same two fields, so this is the client's view of a real one and not a new
+ * idea.
+ *
+ * `daysHeld` is the clock the Prisoner system reads, so it decides what a ransom is
+ * worth. The client prints it and never prices from it.
+ */
+export interface PrisonerStack {
+  unitId: string;
+  name: string;
+  count: number;
+  /** 0 to 5, the same scale as `TroopStack.quality`. */
+  quality: number;
+  /** Days this stack has been in hand. Zero on the day they were taken. */
+  daysHeld: number;
+}
+
 export interface PartyState {
   id: string;
   name: string;
@@ -195,6 +214,7 @@ export interface PartyState {
   speedKmPerDay: number;
 
   troops: TroopStack[];
+  prisoners: PrisonerStack[];
   roles: Partial<Record<PartyRole, string>>;
   goods: { goodId: string; name: string; quantity: number; avgPaid: number }[];
 }
@@ -301,6 +321,8 @@ export interface RulerState {
   ambitions: string[];
   holdings: { settlementId: string; name: string }[];
   garrison: number;
+  /** Prisoners in this lord's own keeping, which is what makes bartering for them real. */
+  prisoners: PrisonerStack[];
   wealth: Resources;
   loyaltyToLeader: number;
   influence: number;
@@ -365,6 +387,117 @@ export interface TradeResult {
   /** Why the trade failed, in the product's voice, when `accepted` is false. */
   reason?: string;
   causedBy: string;
+}
+
+// -- barter -------------------------------------------------------------------
+//
+// Barter is not trading at a price. It is two tables, one item against another, with no
+// money moving at all, and the only question worth asking is whether the two sides are
+// worth the same to each other. `docs/missing-vs-bannerlord.md` row 7.11 records the
+// screen as missing, so the shape below is proposed rather than observed.
+//
+// The split the screen needs is the same split the market panel needs: **what each side
+// holds** and **what the simulation calls it worth**. Both come from the simulation, in
+// one read (`barterTerms`), because a valuation the client produced would be a second
+// economy. What the client does with them is arithmetic a player can check — two sums
+// and a subtraction — and the decision on whether to deal is never the client's: it is
+// `proposeBarter` answering, in words.
+
+/** The three kinds of thing that can go on a barter table. */
+export type BarterItemKind = "good" | "gold" | "prisoner";
+
+/**
+ * One line of a barter table.
+ *
+ * `available` is the simulation's count of what that side holds, not the client's, and
+ * `unitValue` is what the simulation calls one unit worth at this town. A lord pays less
+ * for goods than the market asks and sells for more, and that spread is theirs to set:
+ * `ECONOMY.md` §5 puts the gold rate and the ransom terms on the simulation's side of
+ * the line, and the client never invents one.
+ */
+export interface BarterItem {
+  kind: BarterItemKind;
+  /** A `GoodId` for goods, `gold` for coin, the prisoner unit id for prisoners. */
+  itemId: string;
+  name: string;
+  /** How many this side can put on the table right now. */
+  available: number;
+  /** What the simulation calls one unit worth here, in money. */
+  unitValue: number;
+}
+
+/**
+ * Both tables, priced, at one place and one moment.
+ *
+ * `day` is stamped so a table that went stale while the player was filling it in cannot
+ * be traded against without the simulation noticing, the same guard `expectedDay` gives
+ * a market order.
+ */
+export interface BarterTerms {
+  townId: string;
+  traderId: string;
+  traderName: string;
+  /** What the trader can put on the table. */
+  traderItems: BarterItem[];
+  /** What the trader holds of the player's things, and what they call them worth. */
+  playerItems: BarterItem[];
+  /** Standing with this trader, -100 to 100, per `RULERS.md` §2. */
+  relationToPlayer: number;
+  /** The day these terms were struck. */
+  day: number;
+}
+
+/** One line the player has put down, or asked for. */
+export interface BarterLine {
+  kind: BarterItemKind;
+  itemId: string;
+  quantity: number;
+}
+
+export interface BarterProposalRequest {
+  partyId: string;
+  traderId: string;
+  townId: string;
+  /** What the player puts down. */
+  offered: BarterLine[];
+  /** What the player asks for. */
+  asked: BarterLine[];
+  /** The day the player is looking at, so a stale table cannot be dealt against. */
+  expectedDay: number;
+}
+
+/**
+ * The trader's answer to a proposed deal, before anything has moved.
+ *
+ * `verdict` is the trader's own sentence and `reason` is why they said no. Both are
+ * written by the simulation in the product's voice, and both are shown verbatim: a
+ * refusal with a reason is an answer, and "short by $40" is a number the player can
+ * act on, where "not a fair trade" is not.
+ */
+export interface BarterProposal {
+  accepted: boolean;
+  /** The simulation's valuation of the whole of the player's offer, in money. */
+  playerValue: number;
+  /** The simulation's valuation of the whole of what the player is asking for. */
+  traderValue: number;
+  /** What the trader makes of the deal, in their own words. */
+  verdict: string;
+  /** Why the deal was refused, when `accepted` is false. */
+  reason?: string;
+  /** What the offer is short by, in money, when refused. */
+  shortBy?: number;
+  causedBy: string;
+}
+
+/** A deal struck: the proposal, and the tables as the simulation now holds them. */
+export interface BarterResult extends BarterProposal {
+  /** The day the deal was struck. */
+  day: number;
+  playerItems: BarterItem[];
+  traderItems: BarterItem[];
+  /** Money on each side after the deal. Barter moves none; these are for the ledger. */
+  playerMoney: number;
+  traderMoney: number;
 }
 
 /**
@@ -462,6 +595,12 @@ export interface SimulationProvider {
   getSnapshot(): Promise<SimSnapshot>;
   trade(request: TradeRequest): Promise<TradeResult>;
   recruit(request: RecruitRequest): Promise<RecruitResult>;
+  /** Both tables, priced, for one trader at one town. */
+  barterTerms(traderId: string, townId: string): Promise<BarterTerms>;
+  /** Ask the trader whether they would deal. Moves nothing. */
+  proposeBarter(request: BarterProposalRequest): Promise<BarterProposal>;
+  /** Strike a deal the trader has already agreed to. Moves goods, gold and prisoners. */
+  commitBarter(request: BarterProposalRequest): Promise<BarterResult>;
   planMarch(request: MarchRequest): Promise<MarchPlan>;
   commitMarch(request: MarchRequest): Promise<void>;
   /** Days of game time per real second. Zero pauses the clock. */

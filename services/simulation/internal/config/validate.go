@@ -1,6 +1,11 @@
 package config
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+
+	"mbclone/simulation/internal/model"
+)
 
 // validate rejects constants that are individually present but nonsensical.
 // A balance file with a negative death rate is a data error, and CONSTITUTION.md
@@ -55,6 +60,34 @@ func (c *Config) validate(path string) error {
 		{"cause.min_chain_links", c.Cause.MinChainLinks, 1, 100},
 		{"audit.chain_min_fraction", c.Audit.ChainMinFraction, 0, 1},
 		{"audit.dominance_max_fraction", c.Audit.DominanceMaxFraction, 0, 1},
+		{"issue.notables_per_town", c.Issue.NotablesPerTown, 0, 24},
+		{"issue.notables_per_village", c.Issue.NotablesPerVillage, 0, 12},
+		{"issue.notable_tenure_days", c.Issue.NotableTenureDays, 1, 20000},
+		{"issue.notable_retire_chance", c.Issue.NotableRetireChance, 0, 1},
+		{"issue.notable_grief_per_ignored_day", c.Issue.NotableGriefPerIgnoredDay, 0, 1},
+		{"issue.notable_grief_decay", c.Issue.NotableGriefDecay, 0, 1},
+		{"issue.offer_chance_per_day", c.Issue.OfferChancePerDay, 0, 1},
+		{"issue.max_open_per_notable", c.Issue.MaxOpenPerNotable, 1, 50},
+		{"issue.max_live_per_settlement", c.Issue.MaxLivePerSettlement, 1, 200},
+		{"issue.stale_offer_days", c.Issue.StaleOfferDays, 1, 2000},
+		{"issue.deliver_food_days_trigger", c.Issue.DeliverFoodDaysTrigger, 0, 365},
+		{"issue.deliver_days", c.Issue.DeliverDays, 0.1, 500},
+		{"issue.deliver_deadline_days", c.Issue.DeliverDeadlineDays, 1, 1000},
+		{"issue.deliver_tolerance", c.Issue.DeliverTolerance, 0.01, 1},
+		{"issue.clear_hideout_crime_trigger", c.Issue.ClearHideoutCrimeTrigger, 0, 1},
+		{"issue.clear_hideout_crime_target", c.Issue.ClearHideoutCrimeTarget, 0, 1},
+		{"issue.clear_hideout_deadline_days", c.Issue.ClearHideoutDeadlineDays, 1, 1000},
+		{"issue.escort_safety_trigger", c.Issue.EscortSafetyTrigger, 0, 1},
+		{"issue.escort_safety_target", c.Issue.EscortSafetyTarget, 0, 1},
+		{"issue.escort_deadline_days", c.Issue.EscortDeadlineDays, 1, 1000},
+		{"issue.escort_raiders_cleared", c.Issue.EscortRaidersCleared, 0, 5000},
+		{"issue.reward_money_per_unit", c.Issue.RewardMoneyPerUnit, 0, 5000},
+		{"issue.reward_gold_per_unit", c.Issue.RewardGoldPerUnit, 0, 500},
+		{"issue.reward_renown_per_unit", c.Issue.RewardRenownPerUnit, 0, 200},
+		{"issue.reward_relation", c.Issue.RewardRelation, 0, 1},
+		{"issue.abandon_relation_penalty", c.Issue.AbandonRelationPenalty, 0, 1},
+		{"issue.reward_money_share", c.Issue.RewardMoneyShare, 0, 1},
+		{"issue.relation_share", c.Issue.RelationShare, 0, 5},
 		{"world.years", c.World.Years, 0.1, 100},
 		{"world.min_towns", c.World.MinTowns, 1, 100000},
 		{"world.max_towns", c.World.MaxTowns, 1, 100000},
@@ -67,6 +100,7 @@ func (c *Config) validate(path string) error {
 		{"template.refit_metal_per_day", c.Template.RefitMetalPerDay, 0, 10000},
 		{"template.fit_switch_threshold", c.Template.FitSwitchThreshold, 0, 1},
 		{"template.fit_relax_per_day", c.Template.FitRelaxPerDay, 0, 1},
+		{"battle.blunt_capture_share", c.Battle.BluntCaptureShare, 0, 0.5},
 		{"formation.split_min_troops", c.Formation.SplitMinTroops, 1, 100000},
 		{"formation.split_min_parent_troops", c.Formation.SplitMinParentTroops, 1, 100000},
 		{"formation.split_max_share", c.Formation.SplitMaxShare, 0.01, 1},
@@ -78,6 +112,16 @@ func (c *Config) validate(path string) error {
 		{"formation.merge_morale_hit", c.Formation.MergeMoraleHit, 0, 1},
 		{"formation.auto_merge_chance", c.Formation.AutoMergeChance, 0, 1},
 		{"formation.auto_merge_troops", c.Formation.AutoMergeTroops, 0, 100000},
+		// A sight radius of zero would leave every side blind to every town
+		// except the one it stands in, and a radius above a thousand kilometres
+		// is larger than most of the map, which is the same as no fog at all.
+		// Both are configurations that run and mean nothing.
+		{"visibility.sight_radius_km", c.Visibility.SightRadiusKm, 1, 1000},
+		{"visibility.terrain_sight_penalty", c.Visibility.TerrainSightPenalty, 0, 1},
+		{"visibility.season_sight_penalty", c.Visibility.SeasonSightPenalty, 0, 1},
+		{"visibility.settlement_size_sight_bonus", c.Visibility.SettlementSizeSightBonus, 0, 5},
+		{"visibility.min_population_to_be_seen", c.Visibility.MinPopulationToBeSeen, 0, 1e9},
+		{"visibility.sighting_memory_days", c.Visibility.SightingMemoryDays, 0, 3650},
 	}
 	// A template whose shares are all zero describes a party with no troops,
 	// and a party with no troops cannot march or fight, so a run would be
@@ -88,6 +132,17 @@ func (c *Config) validate(path string) error {
 		if rowSum(c.Template.TemplateShare[ti][:]) <= 0 {
 			return fmt.Errorf("config: %s: template.share_%s_* are all zero: template %d has no composition",
 				path, templateLabels[ti], ti)
+		}
+	}
+	// A weapon class outside the enum does not fail loudly on its own. The
+	// battle system asks one question of it, whether it is blunt, so a typo of
+	// 3 would answer no and every blunt capture in the game would quietly stop
+	// happening with nothing in the log to say why. Naming it here is the only
+	// place the mistake is visible.
+	for ti, wpn := range c.Template.WeaponOfTemplate {
+		if wpn < 0 || int(wpn) >= model.WeaponClassCount {
+			return fmt.Errorf("config: %s: template.weapon_%s = %d is not a weapon class (want 0-%s)",
+				path, templateLabels[ti], wpn, strings.Join(weaponLabels, ", "))
 		}
 	}
 	for ci := range c.Template.CultureShare {

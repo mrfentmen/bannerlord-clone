@@ -28,11 +28,26 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createFixtureSimulationProvider } from "../../data/fixture/index.js";
+import { barterPanel, type BarterPanelHandle } from "../panels/BarterPanel.js";
 import { marketPanel, type MarketPanelHandle } from "../panels/MarketPanel.js";
 import { partyPanel, partyPanelError } from "../panels/PartyPanel.js";
 import { townPanel, townPanelError } from "../panels/TownPanel.js";
+import {
+  BARTER_ACTIONS,
+  BARTER_TABLE_COLUMNS,
+  BARTER_TABLE_ROWS,
+  BARTER_TOTAL_CELLS,
+  barterSkeletonBody,
+} from "../panels/panel-skeletons.js";
 import { marketSkeletonBody, partySkeletonBody, townSkeletonBody, TOWN_SECTIONS } from "../panels/skeletons.js";
-import type { PartyState, SimSnapshot, SimulationProvider, TownState } from "../../data/types.js";
+import type {
+  BarterTerms,
+  PartyState,
+  RulerState,
+  SimSnapshot,
+  SimulationProvider,
+  TownState,
+} from "../../data/types.js";
 
 /** The stylesheet, read from the project root: jsdom rewrites `import.meta.url`. */
 function uiCss(): string {
@@ -662,5 +677,265 @@ describe("copy in every state of the three panels (CONSTITUTION.md 3.3)", () => 
       expect(text).not.toMatch(/!/);
       expect(text).not.toMatch(/\bOops\b|\bWelcome\b/i);
     }
+  });
+});
+
+// -- the barter panel ----------------------------------------------------------
+//
+// Barter is the one panel with two tables facing each other, so the properties worth
+// checking are the ones that could go wrong in a way a single-table panel cannot:
+//
+//  - The two sides are priced by the simulation, and the panel's only arithmetic is the
+//    multiplication a player could do in their head. The worth column is read straight
+//    off the terms the provider sent, which is asserted rather than assumed.
+//  - The skeleton is the *pair*: two table stubs the same size, or the screen gives one
+//    half of the decision more weight than the other before a number arrives.
+//  - A refusal names the shortfall, because the shortfall is the number the player can go
+//    and fix. A red border with no figure would have thrown that away.
+//  - Changing one number drops an answer that was about a different table.
+//  - A struck deal comes back with the simulation's own tables and empties the panel,
+//    so nothing left on screen can disagree with the world.
+
+describe("the barter panel", () => {
+  let barterProvider: SimulationProvider;
+  let barterSnapshot: SimSnapshot;
+  let town: TownState;
+  let trader: RulerState;
+  let terms: BarterTerms;
+
+  /** Its own provider: a struck deal moves the world, and the tests above share theirs. */
+  beforeAll(async () => {
+    barterProvider = createFixtureSimulationProvider();
+    barterSnapshot = await barterProvider.getSnapshot();
+    town = barterSnapshot.towns.find((t) => t.name === "Golden")!;
+    trader = barterSnapshot.rulers.find((r) => r.id === town.holderId)!;
+    terms = await barterProvider.barterTerms(trader.id, town.id);
+  });
+
+  function barter(
+    opts: { terms?: BarterTerms | null; provider?: SimulationProvider; traderId?: string | null; loading?: boolean } = {},
+  ): BarterPanelHandle {
+    return barterPanel({
+      partyId: barterSnapshot.party.id,
+      partyName: barterSnapshot.party.name,
+      townId: town.id,
+      traderId: opts.traderId === undefined ? trader.id : opts.traderId,
+      traderName: trader.name,
+      terms: opts.terms === undefined ? terms : opts.terms,
+      provider: opts.provider ?? barterProvider,
+      loading: opts.loading ?? false,
+      onError: noop,
+    });
+  }
+
+  function setQuantity(handle: BarterPanelHandle, side: "offered" | "asked", itemId: string, value: number): void {
+    const input = handle.root.querySelector<HTMLInputElement>(`[data-testid='barter-qty-${side}-${itemId}']`);
+    expect(input, `no ${side} field for ${itemId}`).not.toBeNull();
+    input!.value = String(value);
+    input!.dispatchEvent(new Event("change"));
+  }
+
+  /** The count on a table's gold line, read by name rather than by column position. */
+  function goldCell(root: HTMLElement, tableId: string): string | null {
+    const row = Array.from(root.querySelectorAll(`[data-testid='${tableId}'] tbody tr`)).find(
+      (tr) => tr.querySelector("td")?.textContent === "Gold",
+    );
+    return row?.querySelectorAll("td")[1]?.textContent ?? null;
+  }
+
+  it("shows both tables, priced by the simulation and never by the panel", () => {
+    const handle = barter();
+    const player = handle.root.querySelector("[data-testid='barter-offered-table']")!;
+    const theirs = handle.root.querySelector("[data-testid='barter-asked-table']")!;
+    expect(player.querySelectorAll("tbody tr").length).toBe(terms.playerItems.length);
+    expect(theirs.querySelectorAll("tbody tr").length).toBe(terms.traderItems.length);
+    // The worth column is the provider's figure to the cent, for every row on both sides.
+    const worths = Array.from(player.querySelectorAll("[data-testid='barter-worth-offered']")).map((w) => w.textContent);
+    for (const item of terms.playerItems) {
+      expect(worths).toContain(`$${Math.round(item.unitValue).toLocaleString("en-US")}`);
+    }
+    // Three kinds of thing go on the same table, which is the point of the screen.
+    const kinds = new Set(terms.playerItems.map((i) => i.kind));
+    expect(kinds.has("gold")).toBe(true);
+    expect(kinds.has("prisoner")).toBe(true);
+  });
+
+  it("adds up what is on each side, at the trader's own figures", () => {
+    const handle = barter();
+    const gold = terms.playerItems.find((i) => i.kind === "gold")!;
+    setQuantity(handle, "offered", "gold", 10);
+    setQuantity(handle, "asked", "gold", 4);
+    const offeredTotal = handle.root.querySelector("[data-testid='barter-total-offered'] .data")!.textContent;
+    expect(offeredTotal).toBe(`$${(10 * gold.unitValue).toLocaleString("en-US")}`);
+    expect(visibleText(handle.root)).toMatch(/1 line on your side of the table/);
+  });
+
+  it("gives the barter screen a skeleton shaped like the pair of tables", () => {
+    const live = barter().root;
+    const sk = barterSkeletonBody();
+    // Two table stubs of the same size, and two totals. The pair is the shape that
+    // matters: one half of the decision must not arrive heavier than the other.
+    expect(sk.querySelectorAll(".skeleton__table").length).toBe(2);
+    expect(sk.querySelectorAll(".skeleton__tr").length).toBe(BARTER_TABLE_ROWS * 2);
+    expect(sk.querySelectorAll(".skeleton__tr")[0]!.children.length).toBe(BARTER_TABLE_COLUMNS);
+    expect(sk.querySelectorAll(".skeleton__costs .skeleton__block").length).toBe(BARTER_TOTAL_CELLS);
+    expect(sk.querySelectorAll(".skeleton__actions .skeleton__block").length).toBe(BARTER_ACTIONS);
+    expect(live.querySelectorAll(".costs .cost").length).toBe(BARTER_TOTAL_CELLS);
+    expect(visibleText(sk)).toMatch(/reading both tables/i);
+  });
+
+  it("puts the skeleton up on the first frame, and only an error once the read has failed", async () => {
+    let fail = true;
+    const flaky: SimulationProvider = {
+      ...barterProvider,
+      barterTerms: async () => {
+        if (fail) throw new Error("the socket closed");
+        return barterProvider.barterTerms(trader.id, town.id);
+      },
+    };
+    const handle = barter({ terms: null, provider: flaky });
+    expect(handle.root.querySelector("[data-testid='barter-skeleton']")).not.toBeNull();
+    await flush();
+    const error = handle.root.querySelector("[data-testid='barter-error']");
+    expect(error, "a failed read must leave a message, not a blank panel").not.toBeNull();
+    expect(visibleText(error!)).toMatch(/could be read/i);
+    // Developer detail to the console, never to the player.
+    expect(visibleText(error!)).not.toMatch(/ECONNREFUSED|socket closed/);
+
+    fail = false;
+    handle.root.querySelector<HTMLButtonElement>("[data-testid='barter-error-retry']")!.click();
+    await flush();
+    // The retry is a request, not a re-render: it succeeds where the last one failed.
+    expect(handle.root.querySelector("[data-testid='barter-error']")).toBeNull();
+    expect(handle.root.querySelector("[data-testid='barter-offered-table']")).not.toBeNull();
+  });
+
+  it("says so when a town has no lord to bargain with", () => {
+    const handle = barter({ traderId: null, terms: null });
+    const empty = handle.root.querySelector("[data-testid='empty-state']");
+    expect(empty).not.toBeNull();
+    expect(visibleText(empty!)).toMatch(/nobody here to bargain with/i);
+    expect(visibleText(empty!)).toMatch(/no lord holds it/i);
+    // No tables and no order button, because there is nobody to send an order to.
+    expect(handle.root.querySelector("[data-testid='barter-ask']")).toBeNull();
+  });
+
+  it("shows the trader's refusal in full, shortfall and all", async () => {
+    const handle = barter();
+    setQuantity(handle, "offered", "gold", 1);
+    setQuantity(handle, "asked", "gold", 30);
+    handle.root.querySelector<HTMLButtonElement>("[data-testid='barter-ask']")!.click();
+    await flush();
+    const answer = handle.root.querySelector("[data-testid='barter-answer']")!;
+    expect(answer).not.toBeNull();
+    expect(answer.getAttribute("data-testid")).toBe("barter-answer");
+    expect(visibleText(answer)).toMatch(/calls what you are asking/);
+    // The number the player can act on, printed rather than left as a colour.
+    const short = handle.root.querySelector("[data-testid='barter-short-by']")!;
+    expect(short.textContent).toMatch(/^Short by \$[\d,]+\.$/);
+    // And no commit button on a deal the trader refused.
+    expect(handle.root.querySelector("[data-testid='barter-strike']")).toBeNull();
+  });
+
+  it("drops an answer as soon as the table it was about changes", async () => {
+    const handle = barter();
+    setQuantity(handle, "offered", "gold", 10);
+    setQuantity(handle, "asked", "p-enemy-line", 1);
+    handle.root.querySelector<HTMLButtonElement>("[data-testid='barter-ask']")!.click();
+    await flush();
+    expect(visibleText(handle.root)).toMatch(/takes the deal/);
+    expect(handle.root.querySelector("[data-testid='barter-strike']")).not.toBeNull();
+
+    setQuantity(handle, "asked", "p-enemy-line", 0);
+    expect(handle.root.querySelector("[data-testid='barter-answer']")).toBeNull();
+    expect(handle.root.querySelector("[data-testid='barter-strike']")).toBeNull();
+  });
+
+  it("strikes a deal, and shows the simulation's own tables afterwards", async () => {
+    const handle = barter();
+    // Six captives for nine gold: two kinds of thing, one way across, and no purse on
+    // either side of the table — both totals are the trader's own figures.
+    setQuantity(handle, "offered", "p-militia", 6);
+    setQuantity(handle, "asked", "gold", 9);
+    handle.root.querySelector<HTMLButtonElement>("[data-testid='barter-ask']")!.click();
+    await flush();
+    handle.root.querySelector<HTMLButtonElement>("[data-testid='barter-strike']")!.click();
+    await flush();
+
+    const message = handle.root.querySelector("[data-testid='barter-message']")!;
+    expect(visibleText(message)).toMatch(/Struck on day \d+/);
+    const after = await barterProvider.getSnapshot();
+    const ruler = after.rulers.find((r) => r.id === trader.id)!;
+    expect(after.player.resources.gold).toBe(Math.round(barterSnapshot.player.resources.gold + 9));
+    expect(ruler.wealth.gold).toBe(Math.round(trader.wealth.gold - 9));
+    // The captives went into the lord's cage and off the player's table.
+    expect(ruler.prisoners.find((p) => p.unitId === "p-militia")?.count).toBe(6);
+    expect(after.party.prisoners.find((p) => p.unitId === "p-militia")).toBeUndefined();
+    // And the counts on screen are the ones the simulation sent back, not the ones it had
+    // before the deal: gold in hand is nine higher and the cage is six lighter.
+    expect(goldCell(handle.root, "barter-offered-table")).toBe(String(after.player.resources.gold));
+    expect(goldCell(handle.root, "barter-asked-table")).toBe(String(ruler.wealth.gold));
+    // The table starts empty again: the gold line is back to zero and the captives are
+    // gone from the player's table altogether, because the simulation no longer lists
+    // them. There is no row left holding a stale count.
+    expect(handle.root.querySelector<HTMLInputElement>("[data-testid='barter-qty-offered-gold']")!.value).toBe("0");
+    expect(handle.root.querySelector("[data-testid='barter-qty-offered-p-militia']")).toBeNull();
+    expect(handle.root.querySelector("[data-testid='barter-answer']")).toBeNull();
+  });
+
+  it("keeps the keyboard in the field it was typed into", () => {
+    const handle = barter();
+    // Attached, because jsdom only moves focus to an element that is in the document —
+    // which is also the only case where focus is worth keeping.
+    document.body.appendChild(handle.root);
+    const input = handle.root.querySelector<HTMLInputElement>("[data-testid='barter-qty-offered-gold']")!;
+    input.focus();
+    expect(document.activeElement).toBe(input);
+    setQuantity(handle, "offered", "gold", 4);
+    // The panel rebuilds itself on every change, so this is the one that has to survive it.
+    const again = handle.root.querySelector<HTMLInputElement>("[data-testid='barter-qty-offered-gold']")!;
+    expect(again).not.toBe(input);
+    expect(document.activeElement).toBe(again);
+    expect(again.value).toBe("4");
+    handle.root.remove();
+  });
+
+  it("names every control, and gives both tables their column headings for the narrow layout", () => {
+    const handle = barter();
+    for (const el of Array.from(handle.root.querySelectorAll("button, input"))) {
+      const label =
+        el.getAttribute("aria-label") ??
+        (el.id ? handle.root.querySelector(`label[for='${el.id}']`)?.textContent : null) ??
+        el.textContent;
+      expect(label?.trim().length ?? 0, `unnamed ${el.tagName}`).toBeGreaterThan(0);
+      if (el.tagName === "BUTTON") expect(el.getAttribute("type")).toBe("button");
+    }
+    const table = handle.root.querySelector("[data-testid='barter-offered-table']")!;
+    expect(table.classList.contains("table--stack")).toBe(true);
+    const headings = Array.from(table.querySelectorAll("thead th")).map((th) => th.textContent ?? "");
+    expect(headings).toEqual(["Item", "In hand", "Worth", "Putting down"]);
+    for (const cell of Array.from(table.querySelectorAll("tbody td"))) {
+      expect(headings).toContain(cell.getAttribute("data-label"));
+    }
+  });
+
+  it("has no developer-speak in any of its states", () => {
+    const BANNED_COPY = [/\bTODO\b/, /\bplaceholder\b/i, /\bundefined\b/, /\bNaN\b/, /\bnull\b/, /\[[\]]/, /!/];
+    const states: [string, Node][] = [
+      ["barter", barter().root],
+      ["barter-skeleton", barter({ loading: true }).root],
+      ["barter-no-trader", barter({ traderId: null, terms: null }).root],
+      ["barter-empty-offer", barter({ terms: { ...terms, playerItems: [] } }).root],
+      ["barter-empty-give", barter({ terms: { ...terms, traderItems: [] } }).root],
+    ];
+    const offenders: string[] = [];
+    for (const [name, node] of states) {
+      for (const line of visibleText(node).split(/(?<=[.:])\s+/)) {
+        for (const pattern of BANNED_COPY) {
+          if (pattern.test(line)) offenders.push(`${name}: ${pattern} in "${line.slice(0, 80)}"`);
+        }
+      }
+    }
+    expect(offenders, offenders.join("\n")).toHaveLength(0);
   });
 });

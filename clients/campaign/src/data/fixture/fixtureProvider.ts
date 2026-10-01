@@ -20,6 +20,11 @@
 
 import { buildFixtureSides } from "./sides.js";
 import type {
+  BarterItem,
+  BarterProposal,
+  BarterProposalRequest,
+  BarterResult,
+  BarterTerms,
   CauseRow,
   ConnectionStatus,
   GoodId,
@@ -30,6 +35,7 @@ import type {
   MarchRequest,
   Notification,
   PartyState,
+  PrisonerStack,
   RecruitableUnit,
   RecruitRequest,
   RecruitResult,
@@ -78,6 +84,27 @@ const FIXTURE = {
   productionTroubled: 0.86,
   /** One grain unit bought or sold is this many person-days of town food stock. */
   grainUnitInPersonDays: 40,
+  /**
+   * Barter. A lord does not trade at the market price in either direction: they buy
+   * under it and sell over it, and the difference is their margin. Barter is where
+   * that margin shows up most plainly, because there is no money on the table to hide
+   * it behind.
+   */
+  barterBuyShare: 0.82,
+  barterSellShare: 1.24,
+  /** What one gold coin is worth in money. `balance.toml` `gold_per_money = 22.0`. */
+  barterGoldPerMoney: 22,
+  /** Money one prisoner of quality 1 is worth on the day they are taken. */
+  barterPrisonerBase: 34,
+  /** A day in the cage raises what they fetch, up to a limit. */
+  barterPrisonerDailyRise: 0.02,
+  barterPrisonerDailyCap: 0.4,
+  /**
+   * How far short of even a deal this trader will still shake hands. A friend takes a
+   * worse deal than a stranger; an enemy takes none at all.
+   */
+  barterTolerance: 0.04,
+  barterTolerancePerRelation: 0.0006,
 } as const;
 
 const GOOD_NAMES: Record<GoodId, string> = {
@@ -159,6 +186,15 @@ const RULER_SPECS = [
   { name: "Bettina Roux", faction: "Mountain Alliance", tier: "mercenary-captain" as const, holdings: [], influence: 8, renown: 22, loyalty: 0.2, relation: 9 },
 ];
 
+/**
+ * The ids a town's `holder` shorthand resolves to.
+ *
+ * Written out rather than parsed back out of a lord's name, because both the town panel's
+ * "Held by" line and the barter screen's counterparty hang off this, and a spelling
+ * change in a fixture should not quietly leave one of them with nobody to talk to.
+ */
+const HOLDER_RULER_ID: Record<string, string> = { Halloway: "ruler-0", Vashti: "ruler-1" };
+
 export function createFixtureSimulationProvider(options: { seed?: number } = {}): SimulationProvider {
   const state = new FixtureState(options.seed ?? 20050304);
   return {
@@ -167,6 +203,9 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     getSnapshot: async () => state.snapshot(),
     trade: async (request) => state.trade(request),
     recruit: async (request) => state.recruit(request),
+    barterTerms: async (traderId, townId) => state.barterTerms(traderId, townId),
+    proposeBarter: async (request) => state.proposeBarter(request),
+    commitBarter: async (request) => state.commitBarter(request),
     planMarch: async (request) => state.planMarch(request),
     commitMarch: async (request) => state.commitMarch(request),
     setTimeScale: (daysPerRealSecond) => state.setTimeScale(daysPerRealSecond),
@@ -220,7 +259,7 @@ class FixtureState {
         settlementId: spec.settlementId,
         name: spec.name,
         klass: spec.klass,
-        holderId: spec.holder === "Halloway" ? "ruler-halloway" : "ruler-vashti",
+        holderId: HOLDER_RULER_ID[spec.holder] ?? null,
         holderName: spec.holder,
         population,
         workers,
@@ -273,6 +312,7 @@ class FixtureState {
         { id: "t-drivers", name: "Drivers", count: 6, quality: 2, wage: 1.2, morale: 0.76 },
         { id: "t-surgeon", name: "Field surgeon", count: 1, quality: 4, wage: 3.1, morale: 0.85 },
       ],
+      prisoners: PARTY_PRISONERS.map((p) => ({ ...p })),
       roles: { quartermaster: "Ivo Petran", surgeon: "Ada Renko", scout: "Bil Todd" },
       goods: [{ goodId: "grain", name: "Grain", quantity: 0, avgPaid: 0 }],
     };
@@ -294,6 +334,7 @@ class FixtureState {
       ambitions: pick(this.#random, ["more land", "security", "revenge", "wealth", "a rival's downfall"]),
       holdings: r.holdings.map((h) => ({ settlementId: h, name: TOWN_SPECS.find((t) => t.settlementId === h)?.name ?? h })),
       garrison: 60 + Math.floor(rand() * 900),
+      prisoners: rulerPrisonersFor(i, rand),
       wealth: {
         money: 4000 + Math.floor(rand() * 90000),
         gold: 100 + Math.floor(rand() * 4000),
@@ -761,6 +802,440 @@ class FixtureState {
     };
   }
 
+  // -- barter ------------------------------------------------------------------
+  //
+  // Barter moves things and no money: goods for goods, prisoners for gold, a load of
+  // grain for a stack of captives. So the only question the client cannot answer for
+  // itself is whether the two sides are worth the same, and that is what `proposeBarter`
+  // answers.
+  //
+  // What a thing is worth here is this lord's business. They pay under the market price
+  // for anything they take off the table and charge over it for anything they put on it,
+  // and a prisoner is worth what their quality and their days in the cage say he is
+  // worth. The client is told both figures, adds them up, and is told yes or no.
+
+  async barterTerms(traderId: string, townId: string): Promise<BarterTerms> {
+    const trader = this.#ruler(traderId);
+    const town = this.#towns.get(townId);
+    if (!town) throw new Error(`No town with id ${townId}`);
+    return this.#terms(trader, town);
+  }
+
+  async proposeBarter(request: BarterProposalRequest): Promise<BarterProposal> {
+    const trader = this.#ruler(request.traderId);
+    const town = this.#towns.get(request.townId);
+    if (!town) throw new Error(`No town with id ${request.townId}`);
+    return this.#appraise(trader, town, request);
+  }
+
+  async commitBarter(request: BarterProposalRequest): Promise<BarterResult> {
+    const trader = this.#ruler(request.traderId);
+    const town = this.#towns.get(request.townId);
+    if (!town) throw new Error(`No town with id ${request.townId}`);
+    const market = this.#markets.get(town.id);
+    if (!market) throw new Error(`No market for town ${town.id}`);
+
+    const proposal = this.#appraise(trader, town, request);
+    const base = {
+      ...proposal,
+      day: this.#day,
+      playerMoney: this.#player.resources.money,
+      traderMoney: trader.wealth.money,
+    };
+    if (!proposal.accepted) {
+      // This world is the authority on whether a deal can be struck. A client that
+      // reaches here with a refused deal is refused again, with the tables untouched,
+      // rather than accommodated.
+      const terms = this.#terms(trader, town);
+      return { ...base, playerItems: terms.playerItems, traderItems: terms.traderItems, causedBy: "barter-rejected" };
+    }
+
+    const barterRow = this.#row(
+      "barter",
+      this.#party.id,
+      this.#party.name,
+      proposal.playerValue,
+      proposal.traderValue,
+      "Player",
+      [],
+      `${this.#party.name} bartered at ${town.name} with ${trader.name}, ${formatMoney(proposal.playerValue)} against ${formatMoney(proposal.traderValue)}.`,
+    );
+
+    // -- what the player puts down ---------------------------------------------
+    for (const line of request.offered) {
+      if (line.kind === "good") {
+        const good = market.goods.find((g) => g.goodId === line.itemId);
+        if (!good) throw new Error(`${line.itemId} is not traded at ${town.name}`);
+        const held = this.#party.goods.find((g) => g.goodId === line.itemId);
+        const before = good.stock;
+        // From the party into the town's store.
+        good.stock += line.quantity;
+        setHeld(this.#party, line.itemId as GoodId, (held?.quantity ?? 0) - line.quantity, held?.avgPaid ?? good.price);
+        this.#row(
+          `${line.itemId}_stock`,
+          town.id,
+          town.name,
+          before,
+          good.stock,
+          "Market",
+          [barterRow],
+          `${town.name}'s ${good.name.toLowerCase()} store moved by ${line.quantity} units into ${this.#party.name}.`,
+        );
+        this.#movePrice(good, town, barterRow);
+        // Grain that reaches a town is that town's food, whether it came over a market
+        // counter or across a table.
+        if (line.itemId === "grain") this.#grainReachesTown(town, line.quantity, barterRow);
+      } else if (line.kind === "gold") {
+        const before = trader.wealth.gold;
+        this.#player.resources.gold = round2(this.#player.resources.gold - line.quantity);
+        trader.wealth.gold = round2(trader.wealth.gold + line.quantity);
+        this.#row(
+          "gold",
+          trader.id,
+          trader.name,
+          before,
+          trader.wealth.gold,
+          "Currency",
+          [barterRow],
+          `${trader.name}'s gold reserve rose from ${before} to ${trader.wealth.gold}.`,
+        );
+      } else {
+        const taken = takePrisoners(this.#party.prisoners, line.itemId, line.quantity);
+        addPrisoners(trader.prisoners, taken);
+        this.#prisonerRow(trader, taken, line.quantity, barterRow, true);
+      }
+    }
+
+// -- what the player takes away --------------------------------------------
+    for (const line of request.asked) {
+      if (line.kind === "good") {
+        const good = market.goods.find((g) => g.goodId === line.itemId);
+        if (!good) throw new Error(`${line.itemId} is not traded at ${town.name}`);
+        const held = this.#party.goods.find((g) => g.goodId === line.itemId);
+        const before = good.stock;
+        // Out of the town's store and into the party's hold.
+        good.stock -= line.quantity;
+        setHeld(this.#party, line.itemId as GoodId, (held?.quantity ?? 0) + line.quantity, good.price);
+        this.#row(
+          `${line.itemId}_stock`,
+          town.id,
+          town.name,
+          before,
+          good.stock,
+          "Market",
+          [barterRow],
+          `${town.name}'s ${good.name.toLowerCase()} store fell by ${line.quantity} units to ${this.#party.name}.`,
+        );
+        this.#movePrice(good, town, barterRow);
+        if (line.itemId === "grain") this.#grainReachesTown(town, -line.quantity, barterRow);
+      } else if (line.kind === "gold") {
+        const before = this.#player.resources.gold;
+        trader.wealth.gold = round2(trader.wealth.gold - line.quantity);
+        this.#player.resources.gold = round2(this.#player.resources.gold + line.quantity);
+        this.#row(
+          "gold",
+          trader.id,
+          trader.name,
+          trader.wealth.gold + line.quantity,
+          trader.wealth.gold,
+          "Currency",
+          [barterRow],
+          `${trader.name}'s gold reserve fell from ${trader.wealth.gold + line.quantity} to ${trader.wealth.gold}.`,
+        );
+        this.#row(
+          "gold",
+          this.#party.id,
+          this.#party.name,
+          before,
+          this.#player.resources.gold,
+          "Currency",
+          [barterRow],
+          `Gold in hand rose from ${before} to ${this.#player.resources.gold}.`,
+        );
+      } else {
+        const taken = takePrisoners(trader.prisoners, line.itemId, line.quantity);
+        addPrisoners(this.#party.prisoners, taken);
+        this.#partyRow(taken, line.quantity, barterRow);
+      }
+    }
+
+    this.#rebuildLedger();
+    this.#refreshWarnings();
+    this.#emit({
+      tick: this.#tick,
+      day: this.#day,
+      markets: { [town.id]: structuredClone(market) },
+      party: structuredClone(this.#party),
+      ledger: structuredClone(this.#ledger),
+      warnings: structuredClone(this.#warnings),
+    });
+
+    const terms = this.#terms(trader, town);
+    return {
+      ...proposal,
+      day: this.#day,
+      playerItems: terms.playerItems,
+      traderItems: terms.traderItems,
+      playerMoney: this.#player.resources.money,
+      traderMoney: trader.wealth.money,
+      causedBy: barterRow,
+    };
+  }
+
+  #ruler(id: string): RulerState {
+    const ruler = this.#rulers.find((r) => r.id === id);
+    if (!ruler) throw new Error(`No lord with id ${id}`);
+    return ruler;
+  }
+
+  /**
+   * Both tables, each priced in the direction that side deals in.
+   *
+   * The player side is priced at what this lord would pay for it, because that is what
+   * the player would be handing over; the trader's side at what they would ask, because
+   * that is what the player would be walking away with. Same market underneath, two
+   * margins, and the gap between them is the whole reason a deal can be refused.
+   */
+  #terms(trader: RulerState, town: TownState): BarterTerms {
+    const market = this.#markets.get(town.id);
+    if (!market) throw new Error(`No market for town ${town.id}`);
+    const rate = FIXTURE.barterGoldPerMoney;
+
+    const playerItems: BarterItem[] = [];
+    for (const held of this.#party.goods) {
+      if (held.quantity <= 0) continue;
+      const good = market.goods.find((g) => g.goodId === held.goodId);
+      if (!good) continue;
+      playerItems.push({
+        kind: "good",
+        itemId: held.goodId,
+        name: held.name,
+        available: held.quantity,
+        unitValue: round2(good.price * FIXTURE.barterBuyShare),
+      });
+    }
+    if (this.#player.resources.gold > 0) {
+      playerItems.push({
+        kind: "gold",
+        itemId: "gold",
+        name: "Gold",
+        available: Math.round(this.#player.resources.gold),
+        unitValue: rate,
+      });
+    }
+    for (const stack of this.#party.prisoners) {
+      playerItems.push({
+        kind: "prisoner",
+        itemId: stack.unitId,
+        name: stack.name,
+        available: stack.count,
+        unitValue: prisonerValue(stack),
+      });
+    }
+
+    // The trader's goods are the town's market stock: this lord deals through it, so
+    // what he can put on the table is what the town has.
+    const traderItems: BarterItem[] = market.goods
+      .filter((g) => g.stock > 0)
+      .map((g) => ({
+        kind: "good" as const,
+        itemId: g.goodId,
+        name: g.name,
+        available: g.stock,
+        unitValue: round2(g.price * FIXTURE.barterSellShare),
+      }));
+    if (trader.wealth.gold > 0) {
+      traderItems.push({
+        kind: "gold",
+        itemId: "gold",
+        name: "Gold",
+        available: Math.round(trader.wealth.gold),
+        unitValue: rate,
+      });
+    }
+    for (const stack of trader.prisoners) {
+      traderItems.push({
+        kind: "prisoner",
+        itemId: stack.unitId,
+        name: stack.name,
+        available: stack.count,
+        unitValue: prisonerValue(stack),
+      });
+    }
+
+    return {
+      townId: town.id,
+      traderId: trader.id,
+      traderName: trader.name,
+      traderItems,
+      playerItems,
+      relationToPlayer: trader.relationToPlayer,
+      day: this.#day,
+    };
+  }
+
+  /**
+   * Whether this lord would deal, and what they make of it.
+   *
+   * Three refusals and one acceptance, all in the lord's own voice: nothing on the
+   * table, more asked for than offered, or a line the player does not actually hold.
+   * The first two are answers and the third is a correction, and all three come with the
+   * numbers that produced them.
+   */
+  #appraise(trader: RulerState, town: TownState, request: BarterProposalRequest): BarterProposal {
+    const terms = this.#terms(trader, town);
+    const refused = (reason: string, playerValue: number, traderValue: number, shortBy?: number): BarterProposal => ({
+      accepted: false,
+      playerValue,
+      traderValue,
+      verdict: shortBy === undefined ? "No deal." : `Short by ${formatMoney(shortBy)}.`,
+      reason,
+      ...(shortBy === undefined ? {} : { shortBy }),
+      causedBy: "barter-rejected",
+    });
+
+    if (request.offered.length === 0 && request.asked.length === 0) {
+      return refused(
+        `Nothing is on the table. Put something down from ${this.#party.name}, or ask ${trader.name} for something.`,
+        0,
+        0,
+      );
+    }
+    if (request.offered.length === 0) {
+      return refused(
+        `There is nothing on your side of the table. ${trader.name} is not giving goods away.`,
+        0,
+        0,
+      );
+    }
+    if (request.asked.length === 0) {
+      return refused(
+        "Nothing has been asked for. A deal has to go both ways.",
+        0,
+        0,
+      );
+    }
+
+    let playerValue = 0;
+    for (const line of request.offered) {
+      const item = terms.playerItems.find((i) => i.kind === line.kind && i.itemId === line.itemId);
+      if (!item) throw new Error(`${line.itemId} is not on ${this.#party.name}'s side of the table`);
+      if (!wholeQuantity(line.quantity)) throw new Error(`Barter quantity must be a positive whole number, got ${line.quantity}`);
+      if (line.quantity > item.available) {
+        return refused(
+          `${this.#party.name} holds ${item.available} of ${item.name.toLowerCase()}, not ${line.quantity}.`,
+          0,
+          0,
+        );
+      }
+      playerValue = round2(playerValue + item.unitValue * line.quantity);
+    }
+
+    let traderValue = 0;
+    for (const line of request.asked) {
+      const item = terms.traderItems.find((i) => i.kind === line.kind && i.itemId === line.itemId);
+      if (!item) throw new Error(`${line.itemId} is not on ${trader.name}'s side of the table`);
+      if (!wholeQuantity(line.quantity)) throw new Error(`Barter quantity must be a positive whole number, got ${line.quantity}`);
+      if (line.quantity > item.available) {
+        return refused(`${trader.name} has only ${item.available} of ${item.name.toLowerCase()} to give.`, 0, 0);
+      }
+      traderValue = round2(traderValue + item.unitValue * line.quantity);
+    }
+
+    // A friend takes a worse deal than a stranger. The tolerance is this lord's
+    // disposition, not the client's judgement, and it is bounded either way.
+    const tolerance = FIXTURE.barterTolerance + clamp(trader.relationToPlayer * FIXTURE.barterTolerancePerRelation, -0.04, 0.12);
+    const shortfall = round2(Math.max(0, traderValue - playerValue));
+    if (traderValue > round2(playerValue * (1 + tolerance))) {
+      return refused(
+        `${trader.name} calls what you are asking ${formatMoney(traderValue)} and what you are offering ${formatMoney(playerValue)}. ` +
+          `Put ${formatMoney(shortfall)} more on your side of the table, or ask for less.`,
+        playerValue,
+        traderValue,
+        shortfall,
+      );
+    }
+
+    return {
+      accepted: true,
+      playerValue,
+      traderValue,
+      verdict: `${trader.name} takes the deal: ${formatMoney(traderValue)} of goods out of ${formatMoney(playerValue)} you put down.`,
+      causedBy: "barter-agreed",
+    };
+  }
+
+  /** The Market system's price rule, applied because the stock just changed. */
+  #movePrice(good: MarketGood, town: TownState, causedBy: string): void {
+    const before = good.price;
+    const after = round2(Math.max(0.5, BASE_PRICE[good.goodId] * priceFor(good.stock, good.demand)));
+    if (after === before) return;
+    good.previousPrice = before;
+    good.price = after;
+    good.history = [...good.history, { day: this.#day, price: after }].slice(-24);
+    this.#row(
+      `${good.goodId}_price`,
+      town.id,
+      town.name,
+      before,
+      after,
+      "Market",
+      [causedBy],
+      `${good.name} at ${town.name} moved from ${before} to ${after} per unit.`,
+    );
+  }
+
+  /** Grain into a town is that town's food stock, and a fed town is calmer. */
+  #grainReachesTown(town: TownState, units: number, causedBy: string): void {
+    if (units === 0) return;
+    const before = town.foodStock;
+    town.foodStock = Math.max(0, Math.round(town.foodStock + units * FIXTURE.grainUnitInPersonDays));
+    const stockRow = this.#row(
+      "foodStock",
+      town.id,
+      town.name,
+      before,
+      town.foodStock,
+      "Food",
+      [causedBy],
+      `${town.name}'s food stock moved from ${(before / Math.max(1, town.foodDemand)).toFixed(1)} to ${(town.foodStock / Math.max(1, town.foodDemand)).toFixed(1)} days.`,
+    );
+    const unrestBefore = town.unrest;
+    town.unrest = round2(clamp(unrestBefore + (units > 0 ? -0.02 : 0.01), FIXTURE.unrestFloor, FIXTURE.unrestCeiling));
+    if (town.unrest !== unrestBefore) {
+      this.#row("unrest", town.id, town.name, unrestBefore, town.unrest, "Unrest", [stockRow], `${town.name}'s unrest moved from ${unrestBefore} to ${town.unrest}.`);
+    }
+  }
+
+  /** One row for a lord whose holding of prisoners just changed. */
+  #prisonerRow(trader: RulerState, taken: PrisonerStack, count: number, causedBy: string, gained: boolean): void {
+    const total = trader.prisoners.reduce((a, p) => a + p.count, 0);
+    this.#row(
+      "prisoners",
+      trader.id,
+      trader.name,
+      Math.max(0, total - (gained ? -count : count)),
+      total,
+      "Prisoner",
+      [causedBy],
+      `${trader.name}'s prisoners ${gained ? "rose to" : "fell to"} ${total}, ${count} ${taken.name.toLowerCase()} among them.`,
+    );
+  }
+
+  #partyRow(taken: PrisonerStack, count: number, causedBy: string): void {
+    const total = this.#party.prisoners.reduce((a, p) => a + p.count, 0);
+    this.#row(
+      "prisoners",
+      this.#party.id,
+      this.#party.name,
+      Math.max(0, total - count),
+      total,
+      "Prisoner",
+      [causedBy],
+      `${this.#party.name} holds ${total} prisoners, ${count} ${taken.name.toLowerCase()} among them.`,
+    );
+  }
+
   async planMarch(request: MarchRequest): Promise<MarchPlan> {
     const dest = TOWN_SPECS.find((t) => t.settlementId === request.destinationSettlementId);
     if (!dest) throw new Error(`No settlement with id ${request.destinationSettlementId}`);
@@ -933,6 +1408,9 @@ class FixtureState {
     }
 
     this.#applyDailyUpkeep();
+    // Prisoners age a day a day, which is what makes waiting on a ransom a decision.
+    // Only the player's own cage is ticked here; the lords' is the Ruler system's.
+    for (const stack of this.#party.prisoners) stack.daysHeld += 1;
     this.#rebuildLedger();
     this.#refreshWarnings();
     this.#emit({ tick: this.#tick, day: this.#day, towns: townDeltas, party: structuredClone(this.#party), ledger: structuredClone(this.#ledger), warnings: structuredClone(this.#warnings) });
@@ -1122,6 +1600,35 @@ const RECRUIT_BASE_AVAILABLE: Record<string, number> = {
 };
 
 /**
+ * Who is in the cage.
+ *
+ * Anyone at all only if somebody was hit with something blunt: `balance.toml` sets
+ * `blunt_capture_share = 0.15`, so a battle leaves a fifteenth of its casualties in
+ * ropes. The player's party holds two stacks and each lord one or two, which is what
+ * makes a prisoner worth bargaining for rather than a curiosity.
+ */
+const PARTY_PRISONERS: PrisonerStack[] = [
+  { unitId: "p-raiders", name: "Raider captives", count: 14, quality: 2, daysHeld: 3 },
+  { unitId: "p-militia", name: "Militia captives", count: 6, quality: 1, daysHeld: 1 },
+];
+
+const RULER_PRISONERS: PrisonerStack[] = [
+  { unitId: "p-railcrew", name: "Rail crew", count: 22, quality: 1, daysHeld: 9 },
+  { unitId: "p-enemy-line", name: "Enemy line infantry", count: 11, quality: 3, daysHeld: 5 },
+];
+
+/**
+ * What each lord is holding, drawn from the shared pool so that no two lords are
+ * identical and the numbers are the fixture's own rather than the player's.
+ */
+function rulerPrisonersFor(index: number, rand: () => number): PrisonerStack[] {
+  return RULER_PRISONERS.filter((_, i) => (i + index) % 2 === 0).map((p) => ({
+    ...p,
+    count: Math.max(1, Math.round(p.count * (0.5 + rand() * 0.6))),
+  }));
+}
+
+/**
  * How many units of each good a market holds at a mid-sized town, before the town-size
  * factor. Deliberately caravan scale, so a load of grain is a real decision.
  */
@@ -1191,6 +1698,50 @@ function setHeld(party: PartyState, goodId: GoodId, quantity: number, price: num
   } else {
     party.goods.push({ goodId, name: GOOD_NAMES[goodId], quantity, avgPaid: price });
   }
+}
+
+/** What one prisoner fetches: quality sets the base, days in the cage raise it. */
+function prisonerValue(stack: PrisonerStack): number {
+  const aged = Math.min(FIXTURE.barterPrisonerDailyCap, stack.daysHeld * FIXTURE.barterPrisonerDailyRise);
+  return round2(FIXTURE.barterPrisonerBase * stack.quality * (1 + aged));
+}
+
+/**
+ * Take prisoners off a stack and hand them back, so the caller can move them.
+ *
+ * An empty stack leaves the list rather than sitting there at zero, because "holding no
+ * raider captives" and "holding zero raider captives" are the same fact and the second
+ * one would put a row on the barter table that can never be filled.
+ */
+function takePrisoners(stacks: PrisonerStack[], unitId: string, count: number): PrisonerStack {
+  const stack = stacks.find((p) => p.unitId === unitId);
+  if (!stack || stack.count < count) {
+    throw new Error(`Only ${stack?.count ?? 0} ${unitId} in hand, cannot give ${count}`);
+  }
+  stack.count -= count;
+  const taken: PrisonerStack = { ...stack, count };
+  if (stack.count === 0) stacks.splice(stacks.indexOf(stack), 1);
+  return taken;
+}
+
+/**
+ * Take prisoners into a stack, merging on the unit.
+ *
+ * The cage clock starts again on the day they change hands, because `prisoner_days` is
+ * read from the day they were taken and not from anything they remember.
+ */
+function addPrisoners(stacks: PrisonerStack[], taken: PrisonerStack): void {
+  const existing = stacks.find((p) => p.unitId === taken.unitId);
+  if (existing) {
+    existing.count += taken.count;
+    return;
+  }
+  stacks.push({ ...taken, daysHeld: 0 });
+}
+
+/** A quantity a barter may ask for: a positive whole number, or nothing at all. */
+function wholeQuantity(quantity: number): boolean {
+  return Number.isInteger(quantity) && quantity > 0;
 }
 function formatMoney(v: number): string {
   return `${v < 0 ? "-" : ""}$${Math.abs(Math.round(v)).toLocaleString("en-US")}`;

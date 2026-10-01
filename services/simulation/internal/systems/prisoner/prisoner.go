@@ -74,9 +74,16 @@ func run(v *sim.View, w *sim.WriteSet) {
 		}
 
 		// Prisoners consume food (they need to eat).
+		//
+		// The registered field name is party_food. A write to "food" is not a
+		// field that happens to be missing, it is a name the party kind does not
+		// have, and the engine rejects it by aborting the tick, so a party with
+		// prisoners in it would stop the world rather than cost its owner
+		// something. Nothing set prisoners before battles began taking men
+		// alive, which is why this sat here doing nothing.
 		foodCost := p.Prisoners * 0.1
 		if foodCost > 0 {
-			w.Add(model.KindParty, pid, "food", -foodCost, read, causes,
+			w.Add(model.KindParty, pid, "party_food", -foodCost, read, causes,
 				"prisoners consume food")
 		}
 	}

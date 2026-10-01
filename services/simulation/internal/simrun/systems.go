@@ -30,12 +30,15 @@ import (
 	"mbclone/simulation/internal/systems/crime"
 	"mbclone/simulation/internal/systems/currency"
 	"mbclone/simulation/internal/systems/demography"
+	"mbclone/simulation/internal/systems/diplomat"
 	"mbclone/simulation/internal/systems/disease"
 	"mbclone/simulation/internal/systems/factionai"
+	"mbclone/simulation/internal/systems/family"
 	"mbclone/simulation/internal/systems/food"
 	"mbclone/simulation/internal/systems/formation"
 	"mbclone/simulation/internal/systems/hideout"
 	"mbclone/simulation/internal/systems/influence"
+	"mbclone/simulation/internal/systems/issue"
 	"mbclone/simulation/internal/systems/kingdom"
 	"mbclone/simulation/internal/systems/kingdomcrime"
 	"mbclone/simulation/internal/systems/labor"
@@ -48,9 +51,6 @@ import (
 	"mbclone/simulation/internal/systems/naval"
 	"mbclone/simulation/internal/systems/player"
 	"mbclone/simulation/internal/systems/prisoner"
-	"mbclone/simulation/internal/systems/diplomat"
-	"mbclone/simulation/internal/systems/tournament"
-	"mbclone/simulation/internal/systems/family"
 	"mbclone/simulation/internal/systems/relation"
 	"mbclone/simulation/internal/systems/rulerai"
 	"mbclone/simulation/internal/systems/security"
@@ -62,8 +62,10 @@ import (
 	"mbclone/simulation/internal/systems/succession"
 	"mbclone/simulation/internal/systems/supply"
 	"mbclone/simulation/internal/systems/template"
+	"mbclone/simulation/internal/systems/tournament"
 	"mbclone/simulation/internal/systems/unrest"
 	"mbclone/simulation/internal/systems/upkeep"
+	"mbclone/simulation/internal/systems/visibility"
 	"mbclone/simulation/internal/systems/workshop"
 )
 
@@ -142,6 +144,25 @@ func Systems() []sim.System {
 		template.System(),
 		formation.System(),
 
+		// --- issues: what the people of a settlement ask of the player ---
+		//
+		// These run late because an issue is generated from state the systems
+		// above have already settled this tick's food, crime, and road safety,
+		// and because their effects have to land before demography aggregates
+		// the tick's changes.
+		issue.System(),
+
+		// --- fog of war: who can see what ---
+		//
+		// Visibility runs where it does because it reads party positions
+		// committed by the movement systems above and publishes masks that are
+		// reported, not acted on by the systems below. Nothing here depends on
+		// the ordering; the engine guarantees that, and TestSystemOrderIsIrrelevant
+		// proves it. Placing it after campaign is the choice that makes the
+		// cause log read in the order a player experiences: an army marches,
+		// and then the map changes.
+		visibility.System(),
+
 		// --- last, so it aggregates the deaths and movement every other
 		// system staged this tick ---
 		demography.System(),
@@ -195,6 +216,15 @@ func ValidateConfig(cfg *config.Config) error {
 	}
 	if cfg.Cause.MinChainLinks > cfg.Cause.MaxChainLinks {
 		problems = append(problems, "cause.min_chain_links exceeds cause.max_chain_links")
+	}
+	if cfg.Issue.ClearHideoutCrimeTarget >= cfg.Issue.ClearHideoutCrimeTrigger {
+		problems = append(problems, "issue.clear_hideout_crime_target must be below issue.clear_hideout_crime_trigger: a hideout cannot be paid for twice")
+	}
+	if cfg.Issue.EscortSafetyTarget <= cfg.Issue.EscortSafetyTrigger {
+		problems = append(problems, "issue.escort_safety_target must exceed issue.escort_safety_trigger: an escort must be able to change the road")
+	}
+	if cfg.Issue.DeliverTolerance > 1 {
+		problems = append(problems, "issue.deliver_tolerance above 1 pays for a delivery that was never made")
 	}
 	if len(problems) > 0 {
 		return fmt.Errorf("config: %d problem(s):\n  %s", len(problems), strings.Join(problems, "\n  "))

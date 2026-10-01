@@ -11,7 +11,7 @@
  */
 
 import { beforeAll, describe, expect, it, vi } from "vitest";
-import { createHud, dataSourcePanel, type HudState, TIME_POSITIONS } from "../hud.js";
+import { createHud, dataSourcePanel, type HudPanel, type HudState, TIME_POSITIONS } from "../hud.js";
 import { createFixtureSimulationProvider } from "../../data/fixture/index.js";
 import type { SimSnapshot } from "../../data/types.js";
 
@@ -464,7 +464,7 @@ describe("the party rail", () => {
   it("shows the party, its grain in days, and the panels it can open", () => {
     const rail = hudAt().querySelector("[data-testid='party-rail']")!;
     expect(rail.textContent).toContain(snapshot.player.characterName);
-    for (const id of ["open-party", "open-march", "open-ledger", "open-roster", "open-data-source"]) {
+    for (const id of ["open-party", "open-march", "open-barter", "open-ledger", "open-roster", "open-data-source"]) {
       const btn = hudAt().querySelector(`[data-testid='${id}']`);
       expect(btn, `the rail is missing ${id}`).not.toBeNull();
       expect(btn!.getAttribute("aria-label")?.length ?? (btn!.textContent ?? "").length).toBeGreaterThan(0);
@@ -493,6 +493,41 @@ describe("the party rail", () => {
       const name = el.getAttribute("aria-label") ?? el.textContent ?? "";
       expect(name.trim().length, `<button data-testid="${el.dataset.testid ?? "?"}"> has no name`).toBeGreaterThan(0);
     }
+  });
+
+  it("reports the panel a rail button names, so the app can open exactly that one", () => {
+    // The rail is the panel registry's front door: a button that opened something other
+    // than the panel its own label promised would be the worst kind of wiring bug,
+    // because the panel would be right and the way into it wrong.
+    const opened: HudPanel[] = [];
+    const hud = createHud({
+      onSelectPanel: (panel) => opened.push(panel),
+      onTimeScale: () => {},
+      onOpenDataSource: () => {},
+      onOpenUiScale: () => {},
+      onNotification: () => {},
+    });
+    hud.renderState({
+      snapshot,
+      warnings: snapshot.warnings,
+      context: null,
+      loading: false,
+      loadingShape: "town",
+      timeScale: 0,
+      partyDaysOfFood: 4.2,
+      selectionName: "",
+    });
+    for (const [testId, panel] of [
+      ["open-party", "party"],
+      ["open-march", "march"],
+      ["open-barter", "barter"],
+      ["open-ledger", "ledger"],
+      ["open-roster", "roster"],
+    ] as [string, HudPanel][]) {
+      hud.root.querySelector<HTMLElement>(`[data-testid='${testId}']`)!.click();
+      expect(opened[opened.length - 1], `${testId} opened the wrong panel`).toBe(panel);
+    }
+    expect(opened).toEqual(["party", "march", "barter", "ledger", "roster"]);
   });
 
   it("keeps the keyboard where the player left it across a repaint", () => {

@@ -30,6 +30,13 @@ type State struct {
 	Wars          map[int]*War
 	Organizations map[int]*Organization
 	Workshops     map[int]*Workshop
+	// Notables are the non-ruler people who hold local power, and Issues are
+	// the requests they make. Both are in the committed state rather than held
+	// by a system, because an issue has to survive the tick that created it: a
+	// request made by a headman today is still answerable next week, and the
+	// only way that is true is if the request is a fact about the world.
+	Notables map[int]*Notable
+	Issues   map[int]*Issue
 
 	// NextID hands out identifiers for entities created mid-run, such as a
 	// party formed when a ruler gathers an army.
@@ -104,6 +111,8 @@ func NewState() *State {
 		Wars:          map[int]*War{},
 		Organizations: map[int]*Organization{},
 		Workshops:     map[int]*Workshop{},
+		Notables:      map[int]*Notable{},
+		Issues:        map[int]*Issue{},
 		NextID:        map[int]int{},
 		Relations:     map[Pair]float64{},
 		SideRelations: map[Pair]float64{},
@@ -123,6 +132,8 @@ const (
 	IDWar
 	IDClan
 	IDWorkshop
+	IDNotable
+	IDIssue
 )
 
 // NewID returns the next unused identifier for a kind.
@@ -161,6 +172,8 @@ func (s *State) Clone() *State {
 		Wars:          make(map[int]*War, len(s.Wars)),
 		Organizations: make(map[int]*Organization, len(s.Organizations)),
 		Workshops:     make(map[int]*Workshop, len(s.Workshops)),
+		Notables:      make(map[int]*Notable, len(s.Notables)),
+		Issues:        make(map[int]*Issue, len(s.Issues)),
 		NextID:        make(map[int]int, len(s.NextID)),
 		Relations:     make(map[Pair]float64, len(s.Relations)),
 		SideRelations: make(map[Pair]float64, len(s.SideRelations)),
@@ -211,6 +224,17 @@ func (s *State) Clone() *State {
 		c := *v
 		out.Workshops[k] = &c
 	}
+	for k, v := range s.Notables {
+		c := *v
+		out.Notables[k] = &c
+	}
+	for k, v := range s.Issues {
+		c := *v
+		// Deep-copy the step log, so a system appending to an issue this tick
+		// cannot reach back into the state the tick started from.
+		c.Steps = append([]IssueStep(nil), v.Steps...)
+		out.Issues[k] = &c
+	}
 	for k, v := range s.NextID {
 		out.NextID[k] = v
 	}
@@ -258,6 +282,43 @@ func (s *State) OrganizationIDs() []int { return sortedKeys(s.Organizations) }
 
 // WorkshopIDs returns workshop identifiers in ascending order.
 func (s *State) WorkshopIDs() []int { return sortedKeys(s.Workshops) }
+
+// NotableIDs returns notable identifiers in ascending order, so a system
+// iterating people does so identically on every run.
+func (s *State) NotableIDs() []int { return sortedKeys(s.Notables) }
+
+// IssueIDs returns issue identifiers in ascending order. Iteration order is
+// fixed because an issue list is read by more than one rule in a tick, and two
+// of them may resolve the same issue; which of them won must not depend on map
+// iteration.
+func (s *State) IssueIDs() []int { return sortedKeys(s.Issues) }
+
+// LiveIssues returns the issues that are still outstanding, either offered or
+// accepted, in ascending id order. A resolved issue is not live and is not
+// returned, so a caller that wants to expire everything past its deadline
+// cannot also expire something already paid out.
+func (s *State) LiveIssues() []*Issue {
+	var out []*Issue
+	for _, id := range s.IssueIDs() {
+		i := s.Issues[id]
+		if i == nil {
+			continue
+		}
+		if i.State == IssueOffered || i.State == IssueAccepted {
+			out = append(out, i)
+		}
+	}
+	return out
+}
+
+// NotableOf returns the notable who asked for an issue, or nil if the person
+// has been deleted since.
+func (s *State) NotableOf(i *Issue) *Notable {
+	if i == nil {
+		return nil
+	}
+	return s.Notables[i.NotableID]
+}
 
 func sortedKeys[V any](m map[int]V) []int {
 	out := make([]int, 0, len(m))

@@ -1498,6 +1498,13 @@
 .skeleton--ruler-card .skeleton__section { margin: 0 0 var(--space-3); }
 .skeleton--ruler-card .skeleton__gauge { height: 26px; }
 
+/* The barter screen. Two table stubs of the same size and two total cells side by side,
+   because the two halves of the decision have to weigh the same before the numbers
+   arrive as well as after. */
+.skeleton--barter-table { display: grid; gap: 0; }
+.skeleton--barter-table .skeleton__costs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+.skeleton--barter-table .skeleton__cell { height: 74px; }
+
 .skeleton--start-sides { display: grid; }
 .skeleton--start-sides .skeleton__grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-3); }
 .skeleton--start-sides .skeleton__grid--narrow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1541,6 +1548,7 @@
   .skeleton--start-sides .skeleton__grid--narrow { grid-template-columns: minmax(0, 1fr); }
   .skeleton--ruler-roster .skeleton__filters { grid-template-columns: minmax(0, 1fr); }
   .skeleton--march-plan .skeleton__costs { grid-template-columns: minmax(0, 1fr); }
+  .skeleton--barter-table .skeleton__costs { grid-template-columns: minmax(0, 1fr); }
 
   .costs { grid-template-columns: minmax(0, 1fr); }
   .trait { grid-template-columns: 4.5em 1fr 2.4em; }
