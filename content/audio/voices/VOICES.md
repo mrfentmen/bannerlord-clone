@@ -15,6 +15,8 @@ matching TXT file with the exact lines spoken, in order. File naming:
 | captain   | avocado_v2:vdc_5723   | Solemn Pillar, forceful serious        |
 | troop     | avocado_v2:chip       | Warm Pebble, warm professional         |
 | companion | avocado_v2:miles      | Satiny Moon, soothing deep young       |
+| townsman  | avocado_v2:ronan      | Fluid Hammock, friendly casual         |
+| townswoman| avocado_v2:MAI_01     | Aria, warm friendly American           |
 
 ## Batches
 
@@ -22,5 +24,7 @@ matching TXT file with the exact lines spoken, in order. File naming:
 - Batch 2: second set, new lines, no repeats from batch 1 (5 to 9 lines each).
 - Batch 3: remaining lines for infantry, scout, gunner, medic, companion;
   fresh captain orders and troop morale lines (2 to 10 lines each).
+- Batch 4: the last captain orders and more troop lines, plus the first
+  townsfolk ambient set (townsman, townswoman) from townsfolk.md.
 
 Lines come straight from combat-barks.md, plain ASCII, no stage directions.
