@@ -481,6 +481,146 @@ func TestOrdersRefuseWhatTheyCannotCarryOut(t *testing.T) {
 	}
 }
 
+// TestASteeredSessionBattleReplaysToTheSameState is the promise a live battle
+// makes and a session is the only kind of battle that can be watched.
+//
+// The smoke test above proves a steered session resolves. This proves it is the
+// same battle afterwards: the orders a player gave it are in the log, and the log
+// replays to the same state hash. Without the recording, a bug report about a
+// battle a player fought and lost arrives with nothing to replay, which is the one
+// thing the order log exists to prevent.
+//
+// The replay is run through RunCommanded rather than through a session on
+// purpose. A replayer is a Commander, and a session would attach it exactly as
+// the original attached the player's orders, so the two paths would agree whether
+// or not the session seam had a bug in it. Running it through RunCommanded makes
+// the session's battle the thing under test and the replay the yardstick.
+func TestASteeredSessionBattleReplaysToTheSameState(t *testing.T) {
+	cfg := loadConfig(t)
+	const seed = 90210
+	s, a, b, leaders := newTestSession(t, seed)
+	if err := s.Deploy(a, b, leaders); err != nil {
+		t.Fatalf("Deploy: %v", err)
+	}
+	if err := s.BeginFighting(); err != nil {
+		t.Fatalf("BeginFighting: %v", err)
+	}
+
+	// Player orders, recorded on the way in: a line for side A's front holding,
+	// then a wedge advancing once the two have closed.
+	all := idsOfSlice(a)
+	o, err := NewOrders(cfg, SideA, []Group{
+		{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold}, Units: all[:len(all)/2]},
+		{Order: GroupOrder{Kind: FormationColumn, Order: OrderFormationHold}, Units: all[len(all)/2:]},
+	})
+	if err != nil {
+		t.Fatalf("building standing orders: %v", err)
+	}
+	// Recording belongs to the session, not to the commander, because the
+	// commander is about to be replaced by a player who changed his mind.
+	log, err := s.Record(0, "steered-session")
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
+	first, err := o.Commander()
+	if err != nil {
+		t.Fatalf("building the commander: %v", err)
+	}
+	if err := s.Command(first); err != nil {
+		t.Fatalf("Command: %v", err)
+	}
+	// Halfway through, the player changes his mind, the way a player does. The
+	// change has to reach the battle through the seam and the seam has to record
+	// it, or the replay fights a battle nobody ordered.
+	mid := s.Tick()
+	for i := 0; i < 60; i++ {
+		if err := s.Step(); err != nil {
+			t.Fatalf("Step: %v", err)
+		}
+	}
+	// The whole side, which is what a player pressing one key means. Naming every
+	// man instead would span the two groups and be refused, which is right: those
+	// groups have shapes of their own.
+	if err := o.Apply(OrderChangeFormation, OrderParams{Formation: "wedge"}, nil); err != nil {
+		t.Fatalf("changing the whole side to a wedge: %v", err)
+	}
+	if err := o.Apply(OrderAdvance, OrderParams{}, nil); err != nil {
+		t.Fatalf("advancing the whole side: %v", err)
+	}
+	changed, err := o.Commander()
+	if err != nil {
+		t.Fatalf("building the commander after the change: %v", err)
+	}
+	if err := s.Command(changed); err != nil {
+		t.Fatalf("Command after the change of orders: %v", err)
+	}
+	if s.Recorder() == nil {
+		t.Fatal("the session stopped recording when its commander was replaced")
+	}
+	if s.Recorder().Refused() != 0 {
+		t.Errorf("the order log refused %d rows of a battle that logged %d, so the log is not a record of it",
+			s.Recorder().Refused(), log.Len())
+	}
+
+	for s.Phase() != PhaseResolved {
+		if err := s.Advance(200); err != nil {
+			t.Fatalf("Advance: %v", err)
+		}
+		if s.Tick() > int(cfg.Battle.MaxTicks) {
+			t.Fatal("the battle ran past the tick bound without resolving")
+		}
+	}
+	original := s.Result()
+	if original == nil {
+		t.Fatal("a resolved session with no result")
+	}
+
+	// The log has to carry the shapes, or the replay below is checking a battle
+	// that nobody fought. It has to carry BOTH shapes, because the player's
+	// change of orders is the part most likely to be lost.
+	shapes := map[Formation]int{}
+	for _, row := range log.Rows() {
+		if row.Formation.Valid() {
+			shapes[row.Formation]++
+		}
+	}
+	if len(shapes) < 2 {
+		t.Errorf("the order log of a battle the player reshaped mid-fight carries %d shapes (%v); a shape "+
+			"that is not logged is a shape the replay does not reproduce", len(shapes), shapes)
+	}
+
+	setup := Setup{A: a, B: b, Leaders: leaders, Terrain: TerrainOpen, Label: "steered session replay"}
+	data, err := log.Encode(seed, cfg.Version)
+	if err != nil {
+		t.Fatalf("encoding the order log failed: %v", err)
+	}
+	decoded, _, _, err := DecodeOrderLog(data)
+	if err != nil {
+		t.Fatalf("decoding the order log failed: %v", err)
+	}
+	replayer, err := NewReplayer(decoded)
+	if err != nil {
+		t.Fatalf("building the replayer failed: %v", err)
+	}
+	second, err := RunCommanded(cfg, seed, setup, replayer)
+	if err != nil {
+		t.Fatalf("the replay did not run: %v", err)
+	}
+	if second.Ticks != original.Ticks {
+		t.Errorf("the replay ran %d ticks against the original's %d", second.Ticks, original.Ticks)
+	}
+	if second.StateHash != original.StateHash {
+		t.Errorf("the replay did not reproduce the battle: state hash %d against the original's %d",
+			second.StateHash, original.StateHash)
+	}
+	if diff := compareResults(original, second); diff != "" {
+		t.Errorf("the replay differs from the original: %s", diff)
+	}
+	t.Logf("a session steered by wire orders from tick %d resolved %s (%s) at tick %d; %d orders logged "+
+		"across %d shapes, and the log replays to state hash %016x",
+		mid, original.Outcome.Kind, original.Outcome.Reason, original.Ticks, log.Len(), len(shapes), original.StateHash)
+}
+
 // idsOfSlice is every unit id in a roster, ascending, for a caller naming the men
 // an order is for. The roster is in id order because Run assigns ids densely in
 // roster order, so this is the whole side rather than a sample of it.
