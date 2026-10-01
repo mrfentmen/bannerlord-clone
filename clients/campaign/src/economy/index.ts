@@ -8,3 +8,5 @@ export * from "./caravans.js";
 export * from "./workshops.js";
 export * from "./policy.js";
 export * from "./overview.js";
+export * from "./routeRegistry.js";
+export * from "./routeVisualizer.js";

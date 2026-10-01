@@ -48,7 +48,10 @@ describe("no invented design system", () => {
     // palettes in their own right, verified by their own contrast tests.
     // Everything else must use a token. src/clan/bannerPalette.ts holds the
     // locked heraldic palette for the clan banner designer (task 81): a
-    // palette in its own right, like factions.ts.
+    // palette in its own right, like factions.ts. src/economy/goodsPalette.ts
+    // holds the locked categorical palette for trade-good route colours
+    // (task 102): data colours for the map layer, likewise a palette in its
+    // own right.
     const allowed = new Set([
       "src/design/tokens.ts",
       "src/design/tokens-css.ts",
@@ -58,6 +61,7 @@ describe("no invented design system", () => {
       "src/design/tokens.css",
       "src/data/fixture/fixtureProvider.ts",
       "src/clan/bannerPalette.ts",
+      "src/economy/goodsPalette.ts",
     ]);
     const offenders: string[] = [];
     for (const file of sourceFiles(UI)) {

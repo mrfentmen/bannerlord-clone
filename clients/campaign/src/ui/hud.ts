@@ -51,6 +51,8 @@ export interface HudOptions {
   onOpenMemorial?: () => void;
   /** Expands the quest tracker card (MASTER_PLAN task 115). Optional: the button hides without it. */
   onOpenQuestTracker?: () => void;
+  /** Toggles the trade routes card + map overlay (MASTER_PLAN tasks 102/103). Optional: the button hides without it. */
+  onOpenTradeRoutes?: () => void;
   /** Opens the deployment map preview. Optional: the button hides without it. */
   onOpenDeploymentPreview?: () => void;
   /**
@@ -530,6 +532,12 @@ export function createHud(options: HudOptions): HudHandle {
       const memorialBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-memorial" }, "Memorial");
       memorialBtn.addEventListener("click", () => options.onOpenMemorial?.());
       rail.appendChild(memorialBtn);
+    }
+
+    if (options.onOpenTradeRoutes) {
+      const routesBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-trade-routes" }, "Trade routes");
+      routesBtn.addEventListener("click", () => options.onOpenTradeRoutes?.());
+      rail.appendChild(routesBtn);
     }
 
     return rail;

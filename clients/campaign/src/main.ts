@@ -69,6 +69,7 @@ import { runCityDemo } from "./scene/cityDemo.js";
 import { townPanel } from "./ui/panels/TownPanel.js";
 import { whyPanel } from "./ui/panels/WhyPanel.js";
 import type {
+  GoodId,
   SettlementOption,
   SimSnapshot,
   TickUpdate,
@@ -104,6 +105,14 @@ import {
 } from "./meta/heatmap.js";
 import { heatmapPanel, type HeatmapPanelHandle } from "./meta/heatmapPanel.js";
 import { makeWorldProjector } from "./meta/heatmapProjector.js";
+import { createRouteRegistry, type FoundInput } from "./economy/routeRegistry.js";
+import {
+  buildRouteModels,
+  routePanel,
+  type GoodChoice,
+  type RoutePanelHandle,
+  type SettlementChoice,
+} from "./economy/routePanel.js";
 import { saveLoadPanel } from "./saves/mount.js";
 import { SaveUiError } from "./saves/screens.js";
 import { ALL_CODEX_ENTRIES, CODEX_CATEGORIES } from "./codex/index.js";
@@ -456,6 +465,7 @@ const hud = createHud({
   onOpenHeatmap: () => toggleHeatmap(),
   onOpenMemorial: () => openMemorial(),
   onOpenQuestTracker: () => openQuestTracker(),
+  onOpenTradeRoutes: () => toggleTradeRoutes(),
   onOpenUiScale: (s) => settings.set({ uiScale: s }),
   onNotification: (entityId, field) => openWhy(entityId, field),
 });
@@ -566,6 +576,114 @@ function toggleHeatmap(): void {
   });
   heatmapHandle.root.classList.add("heatmap__card");
   app.appendChild(heatmapHandle.root);
+}
+
+// -- Trade routes (MASTER_PLAN tasks 102/103): caravan management + the ----
+// animated route layer on the campaign map. Prices come from the live
+// snapshot markets, distances from the road graph, guard wages from the
+// player's party troops — the registry books, it never invents.
+const routeRegistry = createRouteRegistry(localStorage);
+let routesHandle: RoutePanelHandle | null = null;
+
+/** Sim price of a good at a client settlement, or null when the sim reports none. */
+function caravanPriceAt(goodId: GoodId, settlementId: string): number | null {
+  const town = townByPlaceId.get(settlementId);
+  const market = town ? snapshot?.markets[town.id] : undefined;
+  const price = market?.goods.find((g) => g.goodId === goodId)?.price;
+  return typeof price === "number" && Number.isFinite(price) ? price : null;
+}
+
+/** Average daily wage across the player's troops; 0 when there are no troops. */
+function caravanGuardWage(): number {
+  const troops = snapshot?.party?.troops ?? [];
+  const headcount = troops.reduce((s, t) => s + t.count, 0);
+  if (headcount <= 0) return 0;
+  return troops.reduce((s, t) => s + t.wage * t.count, 0) / headcount;
+}
+
+/** World position of a settlement, for drawing its route legs. */
+function routePositionOf(settlementId: string): { x: number; z: number } | null {
+  const s = settlement(settlementId);
+  if (!s || !worldData) return null;
+  const p = worldData.projection.toWorld(s.lat, s.lon);
+  return { x: p.x, z: p.z };
+}
+
+/** Settlements with a sim town (caravans trade at markets). */
+function tradeSettlementChoices(): SettlementChoice[] {
+  if (!world) return [];
+  return world.settlements
+    .all()
+    .filter((s) => townByPlaceId.has(s.id))
+    .map((s) => ({ id: s.id, name: s.name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** Every good the live markets sell, for the cargo picker. */
+function tradeGoodChoices(): GoodChoice[] {
+  const seen = new Map<GoodId, string>();
+  for (const market of Object.values(snapshot?.markets ?? {})) {
+    for (const g of market.goods) {
+      if (!seen.has(g.goodId)) seen.set(g.goodId, g.name);
+    }
+  }
+  return [...seen]
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function closeTradeRoutes(): void {
+  const handle = routesHandle;
+  routesHandle = null;
+  handle?.root.remove();
+  handle?.dispose();
+}
+
+/** Toggle the trade routes card + animated map overlay (HUD rail button). */
+function toggleTradeRoutes(): void {
+  if (routesHandle) {
+    closeTradeRoutes();
+    return;
+  }
+  const liveScene = scene;
+  const stage = mapCanvas.parentElement;
+  if (!liveScene || !stage) return;
+  const projection = worldData.projection;
+  routesHandle = routePanel({
+    caravans: () => routeRegistry.list(),
+    onFound: (input: FoundInput) => {
+      routeRegistry.found(input, snapshot?.day ?? 0, {
+        distanceKm: (fromId, toId) => {
+          const r = findRoute(worldData.graph, fromId, toId);
+          return r.found ? r.distanceKm : null;
+        },
+        // The sim's own party speed paces the caravan; the fallback only
+        // matters before the first snapshot arrives.
+        kmPerDay:
+          snapshot?.party?.speedKmPerDay && snapshot.party.speedKmPerDay > 0
+            ? snapshot.party.speedKmPerDay
+            : 40,
+      });
+    },
+    onRetire: (id: string) => {
+      routeRegistry.retire(id);
+    },
+    settlements: tradeSettlementChoices,
+    goods: tradeGoodChoices,
+    models: () => buildRouteModels(routeRegistry.list(), routePositionOf),
+    toScreen: makeWorldProjector(
+      liveScene.scene,
+      (x, z) => projection.heightAt(x, z) * VERTICAL_SCALE,
+    ),
+    overlayHost: stage,
+    renderSize: () => ({
+      width: liveScene.engine.getRenderWidth(),
+      height: liveScene.engine.getRenderHeight(),
+    }),
+    onClose: () => closeTradeRoutes(),
+  });
+  routesHandle.root.classList.add("routes__float");
+  app.appendChild(routesHandle.root);
 }
 
 /**
@@ -1670,6 +1788,13 @@ function paint(): void {
   hud.renderState(state);
   // Quest tracker distances are live: recompute from the fresh snapshot.
   refreshQuestTracker();
+  // Caravan books settle weekly off the live snapshot (tasks 102/103).
+  // advance() is idempotent: it only books full weeks not yet settled.
+  routeRegistry.advance(snapshot.day, {
+    priceAt: caravanPriceAt,
+    guardWagePerDay: caravanGuardWage(),
+  });
+  routesHandle?.refresh();
 }
 
 } // end non-city-demo branch
