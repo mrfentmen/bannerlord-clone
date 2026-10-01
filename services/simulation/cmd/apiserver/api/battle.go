@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 
 	"mbclone/simulation/cmd/apiserver/campaign"
@@ -42,6 +43,29 @@ func (s *Server) getEncounter(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeJSON(w, http.StatusOK, enc)
+}
+
+// listEncounters returns encounters, optionally filtered by party ID.
+// The client polls this to discover auto-triggered encounters.
+func (s *Server) listEncounters(w http.ResponseWriter, r *http.Request) {
+	partyIDStr := r.URL.Query().Get("partyId")
+	if partyIDStr == "" {
+		// No filter: return empty list for now. Listing all encounters
+		// across the whole world is not yet supported.
+		s.writeJSON(w, http.StatusOK, []any{})
+		return
+	}
+	var partyID int
+	if _, err := fmt.Sscanf(partyIDStr, "%d", &partyID); err != nil {
+		s.writeFault(w, &campaign.Fault{
+			Code:    campaign.CodeBadRequest,
+			Message: "partyId must be an integer",
+			Reason:  "The party ID was not a number.",
+		})
+		return
+	}
+	encs := s.camp.ListEncountersForParty(r.Context(), partyID)
+	s.writeJSON(w, http.StatusOK, encs)
 }
 
 func (s *Server) postEncounterResolve(w http.ResponseWriter, r *http.Request) {
