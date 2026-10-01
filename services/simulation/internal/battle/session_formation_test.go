@@ -355,3 +355,120 @@ func TestALayoutIsRebuiltWhenAGroupLosesMen(t *testing.T) {
 	t.Logf("a group of %d men cached %d slots, then %d men rebuilt them as %d slots; %d of the four "+
 		"survivors were off their slots and ordered back into the smaller shape", n, n, 4, len(cached), ordered)
 }
+
+// TestSessionRecordingSurvivesAChangeOfCommander is the seam's recording, which
+// belongs to the session rather than to the commander.
+//
+// It is a separate test from the replay one because the failure it exists for is
+// not a divergence, which is what the replay test would report. It is a recording
+// that quietly stops: a session that logs the first commander's orders and nothing
+// after the player re-forms his line looks exactly like a session that is working,
+// right up until somebody tries to replay it. So this one measures the row stream
+// on both sides of a commander swap and asks whether it kept going.
+func TestSessionRecordingSurvivesAChangeOfCommander(t *testing.T) {
+	cfg := loadConfig(t)
+	s, a, b, leaders := newTestSession(t, 24680)
+
+	// Recording before there is a commander: legal, and the order a caller gets
+	// because a battle is deployed before anybody decides who is fighting it.
+	if _, err := s.Record(0, "before-command"); err == nil {
+		t.Error("Record on a session that had not deployed returned a log")
+	}
+	if err := s.Deploy(a, b, leaders); err != nil {
+		t.Fatalf("Deploy: %v", err)
+	}
+	if err := s.BeginFighting(); err != nil {
+		t.Fatalf("BeginFighting: %v", err)
+	}
+	log, err := s.Record(0, "seam-recording")
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
+	if _, err := s.Record(0, "second"); err == nil {
+		t.Error("a second Record was accepted; two logs of one battle cannot be merged into a replay")
+	}
+	if _, err := s.Record(-1, "negative"); err == nil {
+		t.Error("a log bound of -1 rows was accepted")
+	}
+	if s.Recorder() == nil || s.Recorder().Log() != log {
+		t.Error("the session does not report the recorder it is recording through")
+	}
+
+	// Nobody is commanding yet, so nothing is recorded: a battle nobody commands
+	// has an empty log, which is the honest one.
+	if err := s.Step(); err != nil {
+		t.Fatalf("Step: %v", err)
+	}
+	if log.Len() != 0 {
+		t.Errorf("an uncommanded session logged %d orders", log.Len())
+	}
+
+	line, err := NewOrders(cfg, SideA, []Group{
+		{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold}, Units: idsOfSlice(a)[:4]},
+	})
+	if err != nil {
+		t.Fatalf("building standing orders: %v", err)
+	}
+	if err := line.Attach(s); err != nil {
+		t.Fatalf("Attach: %v", err)
+	}
+	for i := 0; i < 3; i++ {
+		if err := s.Step(); err != nil {
+			t.Fatalf("Step: %v", err)
+		}
+	}
+	firstRows := log.Len()
+	if firstRows == 0 {
+		t.Fatal("a commanded session on a recording battle logged no orders")
+	}
+
+	// The player changes his mind: a different commander, on the same session, in a
+	// different shape. Both shapes have to end up in one log, which is the whole
+	// claim: a log holding only the first one is a log of a battle that stopped
+	// being fought the moment the player did anything.
+	square, err := NewOrders(cfg, SideA, []Group{
+		{Order: GroupOrder{Kind: FormationSquare, Order: OrderFormationAdvance}, Units: idsOfSlice(a)[:4]},
+	})
+	if err != nil {
+		t.Fatalf("building the second standing order: %v", err)
+	}
+	if err := square.Attach(s); err != nil {
+		t.Fatalf("Attach after the change: %v", err)
+	}
+	for i := 0; i < 3; i++ {
+		if err := s.Step(); err != nil {
+			t.Fatalf("Step: %v", err)
+		}
+	}
+	if log.Len() <= firstRows {
+		t.Errorf("the log holds %d rows, %d of them before the commander was replaced: the recording "+
+			"stopped when the commander changed, which is the bug", log.Len(), firstRows)
+	}
+	shapes := map[Formation]int{}
+	for _, row := range log.Rows() {
+		shapes[row.Formation]++
+	}
+	if shapes[FormationSquare] == 0 {
+		t.Errorf("the log carries %v; the second commander's shape was not recorded, so the log is a "+
+			"record of the first half of a battle", shapes)
+	}
+	if shapes[FormationLine] == 0 {
+		t.Errorf("the log carries %v; the first commander's shape is gone, so one recorder is not keeping "+
+			"one row stream across a change of commander", shapes)
+	}
+	// A battle nobody commands at all still records nothing, and a resolved one
+	// cannot be recorded after the fact.
+	for s.Phase() != PhaseResolved {
+		if err := s.Advance(400); err != nil {
+			t.Fatalf("Advance: %v", err)
+		}
+		if s.Tick() > int(cfg.Battle.MaxTicks) {
+			t.Fatal("the battle ran past the tick bound without resolving")
+		}
+	}
+	if _, err := s.Record(0, "too-late"); err == nil {
+		t.Errorf("Record on a resolved session (%s, %s) returned a log", s.Phase(), s.Outcome().Kind)
+	}
+	t.Logf("%d orders across %d shapes, through two commanders; resolved %s (%s) at tick %d",
+		log.Len(), len(shapes), s.Outcome().Kind, s.Outcome().Reason, s.Tick())
+}
