@@ -49,6 +49,7 @@ import type {
 import { input } from "./input/index.js";
 import { keybindingEditor } from "./ui/panels/KeybindingEditor.js";
 import { openDeploymentPreview } from "./deploy/index.js";
+import { codexPanel } from "./ui/panels/Codex.js";
 import { QuestJournal, seedQuests } from "./journal/index.js";
 import { questJournalPanel } from "./ui/panels/QuestJournal.js";
 import { settings } from "./settings/index.js";
@@ -274,6 +275,7 @@ const hud = createHud({
   onOpenControls: () => openControls(),
   onOpenDeploymentPreview: () => openDeploymentPreview(),
   onOpenJournal: () => openJournal(),
+  onOpenCodex: () => openCodex(),
   onOpenUiScale: (s) => settings.set({ uiScale: s }),
   onNotification: (entityId, field) => openWhy(entityId, field),
 });
@@ -567,6 +569,18 @@ function openJournal(): void {
   currentPanel = "none";
   contextNode = questJournalPanel({
     journal: questJournal,
+    onClose: () => {
+      currentPanel = "none";
+      contextNode = null;
+      paint();
+    },
+  });
+  paint();
+}
+
+function openCodex(): void {
+  currentPanel = "none";
+  contextNode = codexPanel({
     onClose: () => {
       currentPanel = "none";
       contextNode = null;

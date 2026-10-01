@@ -1,0 +1,328 @@
+/**
+ * Codex corpus (MASTER_PLAN task 123). Part 1: controls + settings.
+ *
+ * Every entry is written against the actual client: action entries mirror
+ * `src/input/actions.ts`, settings entries mirror `src/settings/schema.ts`,
+ * and the coverage test fails if either source gains something untagged.
+ */
+
+import type { CodexEntry } from "./types.js";
+
+function e(
+  id: string,
+  title: string,
+  category: CodexEntry["category"],
+  summary: string,
+  body: string[],
+  tags: string[],
+  related: string[] = [],
+): CodexEntry {
+  return { id, title, category, summary, body, tags, related };
+}
+
+export const CONTROL_ENTRIES: CodexEntry[] = [
+  e(
+    "action-ui-cancel",
+    "Cancel / close (Escape)",
+    "controls",
+    "Closes the open panel, dialog, or radial menu. Never steals typing.",
+    [
+      "Escape is the universal way out: it closes panels, cancels a keybinding capture, and dismisses the command radial without issuing an order.",
+      "It deliberately does not call preventDefault, so it keeps working inside text fields and dialogs where the browser or the field itself needs the key.",
+    ],
+    ["action:ui.cancel", "escape", "close", "cancel"],
+    ["mechanic-keybinding-editor"],
+  ),
+  e(
+    "action-ui-confirm",
+    "Confirm (Enter)",
+    "controls",
+    "Confirms the focused choice in dialogs and menus.",
+    [
+      "Enter activates whatever is focused: confirming a dialog, issuing the highlighted radial order, or accepting a march plan.",
+      "If you rebind it, pick something your left hand can reach without looking — you will press it hundreds of times a session.",
+    ],
+    ["action:ui.confirm", "enter", "confirm"],
+    ["mechanic-keybinding-editor"],
+  ),
+  e(
+    "action-map-pan-up",
+    "Pan map up",
+    "controls",
+    "Moves the campaign-map camera north.",
+    [
+      "Pans the campaign map toward the top of the screen at the current camera speed. Hold it to keep moving; the speed multiplier lives in Settings under Camera speed.",
+    ],
+    ["action:map.panUp", "pan", "camera", "map"],
+    ["action-map-pan-down", "setting-camera-speed"],
+  ),
+  e(
+    "action-map-pan-down",
+    "Pan map down",
+    "controls",
+    "Moves the campaign-map camera south.",
+    ["Pans the campaign map toward the bottom of the screen. Pairs with pan up/left/right; all four scale with the Camera speed setting."],
+    ["action:map.panDown", "pan", "camera", "map"],
+    ["action-map-pan-up", "setting-camera-speed"],
+  ),
+  e(
+    "action-map-pan-left",
+    "Pan map left",
+    "controls",
+    "Moves the campaign-map camera west.",
+    ["Pans the campaign map toward the left edge of the screen."],
+    ["action:map.panLeft", "pan", "camera", "map"],
+    ["action-map-pan-up", "setting-camera-speed"],
+  ),
+  e(
+    "action-map-pan-right",
+    "Pan map right",
+    "controls",
+    "Moves the campaign-map camera east.",
+    ["Pans the campaign map toward the right edge of the screen."],
+    ["action:map.panRight", "pan", "camera", "map"],
+    ["action-map-pan-up", "setting-camera-speed"],
+  ),
+  e(
+    "action-map-zoom-in",
+    "Zoom in",
+    "controls",
+    "Zooms the campaign-map camera closer.",
+    ["Zooms toward the map. Useful when placing a march destination or reading a crowded cluster of settlements."],
+    ["action:map.zoomIn", "zoom", "camera", "map"],
+    ["action-map-zoom-out"],
+  ),
+  e(
+    "action-map-zoom-out",
+    "Zoom out",
+    "controls",
+    "Zooms the campaign-map camera farther away.",
+    ["Zooms away from the map for the big picture: trade routes, war fronts, where your party is relative to everything."],
+    ["action:map.zoomOut", "zoom", "camera", "map"],
+    ["action-map-zoom-in"],
+  ),
+  e(
+    "action-map-next-settlement",
+    "Next settlement",
+    "controls",
+    "Jumps the camera to the next settlement in the list.",
+    [
+      "Cycles the camera through known settlements without dragging the map. Handy when you are comparing markets or checking which towns have notables worth visiting.",
+    ],
+    ["action:map.nextSettlement", "settlement", "camera", "jump"],
+    ["action-map-prev-settlement", "mechanic-markets"],
+  ),
+  e(
+    "action-map-prev-settlement",
+    "Previous settlement",
+    "controls",
+    "Jumps the camera to the previous settlement in the list.",
+    ["Cycles backward through known settlements. Same list as next settlement, opposite direction."],
+    ["action:map.prevSettlement", "settlement", "camera", "jump"],
+    ["action-map-next-settlement"],
+  ),
+  e(
+    "action-battle-command-menu",
+    "Command menu (hold Space)",
+    "controls",
+    "Hold to open the radial command menu, flick toward an order, release to issue it.",
+    [
+      "The radial is hold-to-open: press and hold Space, flick the pointer toward attack, follow, hold, or retreat, and release to issue the order to the selected units.",
+      "Keyboard path: with the menu open, arrow keys move the highlight, Enter issues, Escape cancels. Releasing without a flick cancels — no accidental orders.",
+    ],
+    ["action:battle.commandMenu", "radial", "command", "orders", "space"],
+    ["mechanic-command-radial", "mechanic-unit-selection"],
+  ),
+  e(
+    "action-battle-order-attack",
+    "Order: attack",
+    "controls",
+    "Orders selected units to attack the target.",
+    [
+      "Issues an attack order to the currently selected units. Reachable directly by key or through the radial menu's attack wedge.",
+      "Attack is the default assumption of every plan and the fastest way to lose a battle you should have walked away from. See the battle entry before you lean on it.",
+    ],
+    ["action:battle.orderAttack", "attack", "order"],
+    ["mechanic-command-radial", "mechanic-battle-basics"],
+  ),
+  e(
+    "action-battle-order-hold",
+    "Order: hold",
+    "controls",
+    "Orders selected units to hold their ground.",
+    [
+      "Issues a hold order: the selected units stay where they are and fight what comes to them. The backbone of any defensive line and the correct answer when the ground favors you.",
+    ],
+    ["action:battle.orderHold", "hold", "order", "defend"],
+    ["mechanic-command-radial", "mechanic-battle-basics"],
+  ),
+  e(
+    "action-battle-order-follow",
+    "Order: follow",
+    "controls",
+    "Orders selected units to follow the leader.",
+    [
+      "Issues a follow order: the selected units stick to the designated leader instead of acting on their own. Keeps a force together on the move and stops stragglers getting picked off.",
+    ],
+    ["action:battle.orderFollow", "follow", "order"],
+    ["mechanic-command-radial", "mechanic-battle-basics"],
+  ),
+  e(
+    "action-battle-order-retreat",
+    "Order: retreat",
+    "controls",
+    "Orders selected units to break off and retreat.",
+    [
+      "Issues a retreat order: the selected units disengage and fall back. Retreating early with most of your force beats retreating late with none of it — the journal remembers failed quests longer than it remembers lost pride.",
+    ],
+    ["action:battle.orderRetreat", "retreat", "order", "withdraw"],
+    ["mechanic-command-radial", "mechanic-battle-basics"],
+  ),
+  e(
+    "action-battle-select-all",
+    "Select all units",
+    "controls",
+    "Selects every unit under your command at once.",
+    [
+      "Selects all of your units in one keypress. Fast, and exactly as blunt as it sounds — for anything finer, use click, Shift+click, or drag-select.",
+    ],
+    ["action:battle.selectAll", "select", "selection"],
+    ["mechanic-unit-selection"],
+  ),
+  e(
+    "action-battle-ping",
+    "Ping",
+    "controls",
+    "Marks a point on the battlefield for attention.",
+    [
+      "Drops a ping marker at the pointer: a quick, non-verbal way to say 'look here'. Costs nothing and issues no orders, so it is safe to use while thinking.",
+    ],
+    ["action:battle.ping", "ping", "marker"],
+    ["mechanic-unit-selection"],
+  ),
+  e(
+    "mechanic-keybinding-editor",
+    "Keybinding editor",
+    "controls",
+    "Rebind every action from the HUD rail: Controls & keys.",
+    [
+      "Every action in the controls section can be rebound. Click a binding chip, press the new key or chord, and it is live immediately — bindings persist in local storage and survive reloads.",
+      "If two actions claim the same chord you get an inline conflict warning; resolve it or accept the overlap deliberately. Per-action reset and reset-all restore the defaults. Escape cancels a capture in progress.",
+      "Control groups (Ctrl+1..4 to assign, 1..4 to recall) are registered at runtime by the command layer, so they appear in the editor once the battle UI has loaded them.",
+    ],
+    ["keybinding", "rebind", "controls", "settings"],
+    ["action-ui-cancel", "mechanic-control-groups"],
+  ),
+  e(
+    "mechanic-control-groups",
+    "Control groups",
+    "controls",
+    "Ctrl+1..4 assigns the selection to a group; 1..4 recalls it.",
+    [
+      "Select units, press Ctrl+1 (through Ctrl+4) to bind them to a group, then tap the digit to reselect that group instantly.",
+      "The chords use preventDefault so Ctrl+digit never flips a browser tab on you. Groups are the difference between commanding a battle and herding one.",
+    ],
+    ["control group", "hotkey", "selection"],
+    ["mechanic-unit-selection", "mechanic-keybinding-editor"],
+  ),
+];
+
+export const SETTINGS_ENTRIES: CodexEntry[] = [
+  e(
+    "setting-graphics-quality",
+    "Graphics quality",
+    "settings",
+    "Render resolution scaling: low, medium, high, ultra.",
+    [
+      "Controls render resolution scaling on the 3D scene, applied live the moment you change it. If the campaign map stutters on your machine, this is the first knob to turn — low is a real option, not a punishment.",
+      "The setting is validated on load: a corrupt or out-of-range stored value falls back to the default instead of breaking the renderer.",
+    ],
+    ["setting:graphicsQuality", "graphics", "quality", "performance"],
+    [],
+  ),
+  e(
+    "setting-ui-scale",
+    "UI scale",
+    "settings",
+    "Interface size in four steps: 90, 100, 115, 130.",
+    [
+      "Scales the whole interface through the data-ui-scale attribute, applied live. The 130 step exists for small laptop screens and tired eyes; nothing in the layout assumes 100.",
+    ],
+    ["setting:uiScale", "ui scale", "interface size", "accessibility"],
+    [],
+  ),
+  e(
+    "setting-camera-speed",
+    "Camera speed",
+    "settings",
+    "Pan speed multiplier for the campaign map, applied live.",
+    [
+      "Multiplies how fast the map pans under the pan keys. Read at dispatch time, so changes apply mid-pan — drag it up if crossing the metro areas feels like wading.",
+    ],
+    ["setting:cameraSpeed", "camera", "pan speed"],
+    ["action-map-pan-up"],
+  ),
+  e(
+    "setting-master-volume",
+    "Master volume",
+    "settings",
+    "Overall audio level, 0 to 1.",
+    [
+      "The top-level audio fader. Stored and validated here; the audio pipeline applies it. Clamped to 0..1 on load, so a bad stored value can only make things quiet, never broken.",
+    ],
+    ["setting:masterVolume", "volume", "audio"],
+    ["setting-music-volume", "setting-sfx-volume"],
+  ),
+  e(
+    "setting-music-volume",
+    "Music volume",
+    "settings",
+    "Music level relative to master, 0 to 1.",
+    ["Independent music fader under the master volume. Turn the score down without losing the sound effects that actually carry information."],
+    ["setting:musicVolume", "volume", "music", "audio"],
+    ["setting-master-volume"],
+  ),
+  e(
+    "setting-sfx-volume",
+    "Sound effects volume",
+    "settings",
+    "Effects level relative to master, 0 to 1.",
+    ["Independent effects fader. UI clicks, battle sounds, notifications — the layer that tells you things happened."],
+    ["setting:sfxVolume", "volume", "sfx", "audio"],
+    ["setting-master-volume"],
+  ),
+  e(
+    "setting-language",
+    "Language",
+    "settings",
+    "Interface language as a BCP-47 tag; English today.",
+    [
+      "Stored as a BCP-47 language tag so the field is ready for more languages. Only English has strings right now — the setting exists so the plumbing is in place before the translations are.",
+    ],
+    ["setting:language", "language", "locale", "i18n"],
+    [],
+  ),
+  e(
+    "setting-reduce-motion",
+    "Reduce motion",
+    "settings",
+    "Disables non-essential animation, applied live.",
+    [
+      "Toggles the data-reduce-motion attribute: transitions and ambient animation go quiet. Respects the same preference your OS exposes, for the same reasons.",
+    ],
+    ["setting:reduceMotion", "motion", "animation", "accessibility"],
+    [],
+  ),
+  e(
+    "setting-key-bindings",
+    "Key bindings storage",
+    "settings",
+    "Your custom chords, persisted per action in local storage.",
+    [
+      "The keybinding editor writes here: a per-action map of custom chords, serialized with the rest of the settings. Bindings for actions that no longer exist are dropped on load rather than kept as ghosts.",
+      "Settings are versioned (currently v1). If the stored version is older, a migration runs — including the legacy campaign.uiScale key — and corrupt storage falls back to defaults instead of a blank screen.",
+    ],
+    ["setting:keyBindings", "keybinding", "persistence", "local storage"],
+    ["mechanic-keybinding-editor"],
+  ),
+];

@@ -29,6 +29,8 @@ export interface HudOptions {
   onOpenControls?: () => void;
   /** Opens the quest journal. Optional: the button hides without it. */
   onOpenJournal?: () => void;
+  /** Opens the codex/encyclopedia. Optional: the button hides without it. */
+  onOpenCodex?: () => void;
   /** Opens the deployment map preview. Optional: the button hides without it. */
   onOpenDeploymentPreview?: () => void;
   /**
@@ -447,6 +449,12 @@ export function createHud(options: HudOptions): HudHandle {
       const journalBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-journal" }, "Quest Journal");
       journalBtn.addEventListener("click", () => options.onOpenJournal?.());
       rail.appendChild(journalBtn);
+    }
+
+    if (options.onOpenCodex) {
+      const codexBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-codex" }, "Codex");
+      codexBtn.addEventListener("click", () => options.onOpenCodex?.());
+      rail.appendChild(codexBtn);
     }
 
     return rail;

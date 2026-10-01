@@ -1768,3 +1768,30 @@
 @media (max-width: 700px) {
   .journal__main { grid-template-columns: 1fr; }
 }
+
+/* Codex / encyclopedia (MASTER_PLAN task 123) */
+.chip--active { border-color: var(--accent-primary); background: var(--paper-100); }
+.codex__toolbar { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: center; margin-bottom: var(--space-3); }
+.codex__tabs { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.codex__search { display: flex; align-items: center; gap: var(--space-2); margin-left: auto; }
+.codex__search-label { color: var(--ink-500); font-size: 0.85rem; white-space: nowrap; }
+.codex__search input { min-width: 14rem; }
+.codex__live { width: 100%; color: var(--ink-500); font-size: 0.85rem; margin: 0; }
+.codex__columns { display: grid; grid-template-columns: minmax(12rem, 16rem) 1fr; gap: var(--space-3); min-height: 16rem; }
+.codex__list { display: flex; flex-direction: column; gap: var(--space-1); overflow-y: auto; max-height: 26rem; }
+.codex__row { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; text-align: left; padding: var(--space-2); border: 1px solid var(--paper-300); border-radius: var(--radius-2); background: var(--paper-100); cursor: pointer; }
+.codex__row[aria-current="true"] { border-color: var(--accent-primary); }
+.codex__row-title { font-weight: 600; }
+.codex__row-cat { color: var(--ink-500); font-size: 0.8rem; }
+.codex__detail { overflow-y: auto; max-height: 26rem; }
+.codex__title { margin: 0 0 var(--space-1); }
+.codex__summary { color: var(--ink-500); font-style: italic; }
+.codex__hint, .codex__empty { color: var(--ink-500); }
+.codex__related { margin-top: var(--space-3); border-top: 1px solid var(--paper-300); padding-top: var(--space-2); }
+.codex__related-title { margin: 0 0 var(--space-1); font-size: 0.9rem; }
+.codex__rel-link { display: block; background: none; border: none; color: var(--accent-primary); cursor: pointer; padding: 2px 0; text-align: left; text-decoration: underline; }
+@media (max-width: 700px) {
+  .codex__columns { grid-template-columns: 1fr; }
+  .codex__search { margin-left: 0; width: 100%; }
+  .codex__search input { flex: 1; }
+}
