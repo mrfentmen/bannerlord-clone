@@ -1,7 +1,7 @@
 # MASTER PLAN — Bannerlord Clone: full modern-day Bannerlord experience
 
 **Status: live.** This is the crew's working task plan. TASKS.md is stale and stays frozen; this file is the authority.
-Last assembled: 2026-10-01. Task counts: Pax 43, Rowan 154, Hana 139, milo 160 (496 total). Rowan's lane restored 2026-10-01 (boss order) — crew is 4 again.
+Last assembled: 2026-10-01. Task counts: Pax 115, Hana 171, milo 210, Rowan 150 (646 total). Rowan's original 154 client tasks were redistributed 2026-10-01 (Pax 72, Hana 32, milo 50); his lane now holds 150 brand-new tasks with zero overlap (boss order 2026-10-01).
 
 ## Locked decisions (boss orders)
 
@@ -32,16 +32,16 @@ Last assembled: 2026-10-01. Task counts: Pax 43, Rowan 154, Hana 139, milo 160 (
 
 ## Lane map
 
-- **Pax** — Go API server, determinism harness, local-persistence design, repo/QA/infra, docs. Verifies everyone's claims against git.
-- **Rowan (del)** — campaign client/gameplay: `clients/campaign` (TS + Babylon.js). Restored 2026-10-01 (boss order).
-- **Hana (mute)** — world data + pipelines: `services/world-data`, asset/audio/radio pipelines.
-- **milo** — battle simulation (Go) + dialogue/voice/battle audio.
+- **Pax** — Go API server, determinism harness, local-persistence design, client data/plumbing (provider swap, saves, party/inventory UI), repo/QA/infra, docs. Verifies everyone's claims against git.
+- **Hana (mute)** — world data + pipelines: `services/world-data`, asset/audio/radio pipelines, client world/scene visuals (battle scene, settlements, day/night, town menus).
+- **milo** — battle simulation (Go) + battle-experience client UI (combat, formation orders, battle HUD, sieges, encounters) + dialogue/voice/battle audio.
+- **Rowan (del)** — NEW systems & client depth: input/settings/accessibility, battle command UX + modes + after-action, clan/court/espionage/economy/diplomacy UI, onboarding, player expression, meta systems. 150 tasks, zero overlap with other lanes (boss order 2026-10-01).
 
 Rules: extend what exists, don't rebuild it. Every task has an acceptance criterion. A task is done when its criterion is verified, not when code is written.
 
 ---
 
-## PAX — Sim Server, Determinism, Local Persistence, Repo/QA/Infra (43 tasks)
+## PAX — Sim Server, Determinism, Local Persistence, Repo/QA/Infra (115 tasks)
 
 ## Tier 0 — Foundation repair (done / verify)
 - Verify 12/12 seeds complete with the cause-log fix on a rebuilt binary (exit 0, no "panic" in logs). DONE 2026-10-01.
@@ -97,25 +97,9 @@ Rules: extend what exists, don't rebuild it. Every task has an acceptance criter
 - Deploy checklist: build client -> deploy Pages -> deploy container -> smoke test (create character, recruit, trade, march, save, reload).
 
 
-## Critical path
-The 5 tasks everything else depends on: (1) same-seed-twice determinism proven, (2) HTTP API server implementing the 8 contracted routes, (3) WebSocket tick stream, (4) Worker routing on one domain, (5) IndexedDB save/load round-trip. Until those five land, no other lane's work can integrate.
+### Client UI adopted from Rowan's lane (boss order 2026-10-01 — crew is now 3)
 
-## ROWAN (del) — Campaign Client (154 tasks)
-
-Lane owner: Rowan (del). Client: `clients/campaign` (TypeScript + Babylon.js + Vite + vitest).
-
-Standing constraints:
-- One page, one domain, no subdomains. HTTP provider defaults to same-origin `/api`.
-- Saves are LOCAL: IndexedDB in the browser. No world-state storage on any server (cost).
-- Cloudflare Pages hosting. Production build must contain zero fixture markers
-  (`daysPerRealSecond` scanner must pass on `npm run build`).
-- Already exists — EXTEND, do not rebuild: CharacterMaker, side-select StartScreen,
-  CampaignScene 3D map renderer, TownPanel (taxes + 10 building projects),
-  MarchPlanner, PartyPanel, MarketPanel, RulerPanel, WhyPanel, HttpSimulationProvider.
-
-## Tier 1 — "The game exists" (provider swap, connection, local saves)
-
-### 1A. HTTP provider hardening — per endpoint
+### 1A. HTTP provider hardening — per endpoint (17 tasks)
 1. Harden `GET /v1/snapshot` decoding with schema validation (malformed payload throws `SimulationUnavailableError` naming the bad field, never a raw TypeError).
 2. Add snapshot schema-version check against the client-supported range (version mismatch shows a "world too new/old" message instead of a corrupt UI).
 3. Validate `POST /v1/trade` request/response shapes in provider tests (round-trip against a fixture-shaped payload passes).
@@ -134,7 +118,7 @@ Standing constraints:
 16. Validate `GET /v1/why` truncates chains deeper than 50 edges (truncated chain shows an "older history dropped" note).
 17. Add an 8-second per-endpoint timeout with abort (a hung server shows the retry UI, never an infinite spinner).
 
-### 1B. Connection state and retry UI
+### 1B. Connection state and retry UI (6 tasks)
 18. Build a connection-status pill in the HUD showing live / degraded / offline (pill changes within 1s of a socket event).
 19. Implement exponential-backoff reconnect for the tick WebSocket (retries at 1s/2s/4s… capped at 30s, attempt count visible).
 20. Show an offline banner that blocks writes but allows reads (trade/recruit buttons disable with a tooltip while offline).
@@ -142,13 +126,13 @@ Standing constraints:
 22. Queue player actions attempted while offline and replay them on reconnect (a queued march commits on reconnect; queue capped at 20).
 23. Add a "retry now" button on every provider error toast (clicking retries the failed call exactly once).
 
-### 1C. Provider config and fixture hygiene
+### 1C. Provider config and fixture hygiene (4 tasks)
 24. Read `VITE_SIMULATION_HTTP_URL` at startup and validate the URL shape (invalid URL falls back to same-origin `/api` with a console warning).
 25. Default the HTTP provider to the same-origin `/api` path in production builds (the production bundle contains no `127.0.0.1` references).
 26. Gate the fixture provider behind an explicit dev-only flag (constructing it in a production build throws at startup).
 27. Remove the `daysPerRealSecond` fixture marker from the production bundle (`npm run build` passes the fixture-marker scanner).
 
-### 1D. Local save/load (IndexedDB — no server storage)
+### 1D. Local save/load (IndexedDB — no server storage) (16 tasks)
 28. Design the IndexedDB schema: stores for snapshots, slot meta, settings, and a version key (schema documented in `docs/_draft/idb-schema.md`).
 29. Implement a promise-based idb wrapper with versioned migrations (a v1→v2 migration test runs without data loss).
 30. Implement save-slot CRUD: 5 named slots plus quicksave (attempting a 6th save shows an overwrite prompt, never silent loss).
@@ -169,68 +153,7 @@ Standing constraints:
 ---
 ## Tier 2 — "The Bannerlord loop" (battles, encounters, marches)
 
-## Tier 2 — "The Bannerlord loop" (battles, encounters, marches)
-
-### 2A. Battle scene
-44. Build `BattleScene.ts` as a scaffold separate from `CampaignScene` (the battle scene mounts and unmounts without leaking campaign scene resources).
-45. Extract the terrain heightmap patch around the battle coordinates from campaign terrain data (the extracted patch matches campaign heights within 0.5m).
-46. Generate the battle ground mesh from the heightmap patch with tactical coloring (hills, forest, and water tinted distinctly).
-47. Place scatter — trees, rocks, buildings — from a biome template by terrain type (each battle spawns 50–200 scatter objects from the template).
-48. Define attacker/defender deployment zones from the encounter context (zones render as colored overlays during deployment).
-49. Spawn both armies as instanced meshes from roster data (1,000 units spawn in under 2s on desktop).
-50. Add a battle boundary ring with an out-of-bounds warning (crossing the boundary starts a 5s return countdown).
-51. Drive battle lighting from the campaign time-of-day (a battle at night renders night lighting).
-
-### 2B. Player combat (third-person)
-52. Implement a third-person follow camera with collision (the camera never clips through terrain or buildings).
-53. Implement the character controller: WASD move, sprint, crouch (sprint drains the stamina bar; crouch halves move speed).
-54. Implement a melee swing with 3 attack directions (each swing plays a distinct animation plus a whoosh SFX hook).
-55. Implement block/parry with a timing window (a perfect block within 150ms negates damage and shows spark VFX).
-56. Implement hit detection via weapon-arc raycast against enemy capsules (hits register only inside the arc and range; verified in the test scene).
-57. Implement hit feedback: flash, knockback, damage numbers (every landed hit shows all three within 100ms).
-58. Implement player health and injury states including knockdown (knockdown plays a fall animation with 2s of control loss).
-59. Implement weapon switching between melee and ranged slots (the switch completes in under 0.5s with an animation).
-60. Implement player death: fall animation plus death cam (death shows a "You fell" overlay with a retreat option).
-
-### 2C. Formation order UI
-61. Build the order palette UI — hold / advance / charge / fall back — with hotkeys 1–4 (each hotkey issues its order in under 200ms).
-62. Add a face-direction order with a drag-to-aim arrow (the arrow renders on the terrain; the order commits on release).
-63. Add a change-formation control: line / column / wedge / circle (visible units reposition within 3s of the change).
-64. Add a spacing control: tight / loose (the spacing change is visible in the gaps between units).
-65. Add a fire-at-will toggle for ranged troops (the toggle state persists for the whole battle).
-66. Add a retreat order with a confirmation dialog (retreat ends the battle as a defeat; the dialog asks "are you sure").
-67. Dispatch orders to the sim with optimistic UI (the order shows instantly and rolls back if the server rejects it).
-68. Show per-formation status chips: current order, morale, strength (chips update on every tick).
-
-### 2D. Battle HUD
-69. Build the top bar: ally/enemy counts, morale bars, battle timer (all values tick from sim data).
-70. Build the kill feed showing the last 5 kills with unit names (entries fade after 6s).
-71. Build the unit-cards row for the player's formations with click-to-select (clicking a card selects that formation).
-72. Add a battle minimap with unit dots (the minimap refreshes every 500ms).
-
-### 2E. Battle result and write-back
-73. Build the victory/defeat screen with kills, losses, and duration (every number comes from the sim result payload).
-74. Render the casualty list per troop tier (each tier shows killed and wounded counts).
-75. Render XP awards per surviving troop (XP numbers match the `awardBattleXp` response).
-76. Render the loot panel: captured weapons, gold, prisoners (a loot-claim button calls the provider).
-77. Wire "Return to campaign" to write the battle result back via the provider (the campaign map reflects the new party strength after returning).
-
-### 2F. Siege assault UI
-78. Build the siege staging UI: attacker camp, equipment built, wall/breach state (breach % comes from the sim).
-79. Show bombardment progress with an ETA to breach (the bar advances on sim ticks).
-80. Add an "Order assault" button enabled only past the breach threshold (the button stays disabled with a reason tooltip otherwise).
-81. Render the assault as a battle scene with a wall gap in the terrain (the gap position matches the breach location).
-
-### 2G. Encounters (party meets party)
-82. Detect party proximity on the campaign map and trigger the encounter modal (the modal appears within 1 tick of contact).
-83. Build the encounter dialog showing both parties and a relative-strength bar (strength numbers come from the sim).
-84. Implement the Talk option routing into the dialogue UI (talk opens a notable-style dialog with the enemy boss).
-85. Implement the Trade option opening the market panel in encounter context (the trade completes without a battle).
-86. Implement the Attack option transitioning to the battle scene (the battle starts with the correct rosters).
-87. Implement the Flee option as a speed check against the enemy with success/fail messaging (a failed flee forces the battle).
-88. Implement the Bribe option with a gold-offer slider and sim accept/refuse (the bribe result shows before dismissal).
-
-### 2H. March planner wired to the real sim
+### 2H. March planner wired to the real sim (6 tasks)
 89. Wire the MarchPlanner plan display to the `POST /v1/march/plan` response (the route polyline draws on the campaign map).
 90. Show the plan breakdown: distance, days, food/wage cost, danger (all four visible before commit).
 91. Wire the commit button to `POST /v1/march/commit` with the plan id (commit returns a march id and closes the planner).
@@ -241,9 +164,7 @@ Standing constraints:
 ---
 ## Tier 3 — "The living world" (characters, parties, diplomacy, quests)
 
-## Tier 3 — "The living world" (characters, parties, diplomacy, quests)
-
-### 3A. Character sheet (extends CharacterMaker output)
+### 3A. Character sheet (extends CharacterMaker output) (6 tasks)
 95. Persist the CharacterMaker output as a long-lived character record (the record survives save/load round-trips).
 96. Build the character sheet panel showing the 6 attributes with values (each attribute shows a modifier tooltip).
 97. Build the 18-skill list with XP bars and levels (level-ups animate and offer perk choices).
@@ -251,7 +172,7 @@ Standing constraints:
 99. Show the traits list with effect descriptions (each trait lists its positive and negative effects).
 100. Show a renown / influence / relations summary (all numbers match the sim snapshot).
 
-### 3B. Party management (extends PartyPanel)
+### 3B. Party management (extends PartyPanel) (9 tasks)
 101. Render the troop roster grouped by tier with counts (counts match the sim).
 102. Add upgrade buttons per upgradeable stack calling `/v1/troops/upgrade` (the panel reflects the new tier immediately).
 103. Show the daily wage bill with a 30-day treasury projection (the projection covers exactly 30 days).
@@ -262,92 +183,255 @@ Standing constraints:
 108. Show party speed with its contributing factors (overweight or slow units are highlighted).
 109. Add a party inventory section: medicine, ammo, trade goods (quantities match the sim).
 
-### 3C. Inventory and equipment UI
+### 3C. Inventory and equipment UI (5 tasks)
 110. Build the inventory grid UI with item cards (each card shows icon, name, tier, and condition).
 111. Implement equipment slots — weapon 1/2, armor, clothing, mount (equipping updates character stats).
 112. Implement click-to-equip (the equipped item leaves the inventory and stats update in the same frame).
 113. Show an item-stats tooltip on hover (damage, armor, and weight are shown).
 114. Add the loot-to-inventory flow from the battle result screen (claimed loot appears in the inventory).
 
-### 3D. NPC / clan / kingdom screens (extends RulerPanel)
-115. Build the NPC profile view: age, family, home, faction, traits, relations (every field comes from the sim).
-116. Build the clan tree view with members and holdings (the tree renders up to 3 generations).
-117. Build the kingdom overview: fiefs, clans, policies, strength (each section links to its detail view).
-118. Show the ruler AI's current goal — expanding, defending, etc. — from the sim (the goal updates on ticks).
-119. Add "track NPC" pinning to watch movements on the map (a pinned NPC's marker follows them on the campaign map).
-
-### 3E. Diplomacy UI
-120. Build the diplomacy screen listing factions with relation bars (bars match sim relations).
-121. Implement the declare-war flow with confirmation and a consequences preview (the preview lists affected trade and treaties).
-122. Implement propose-peace with a tribute slider (the sim accepts or rejects with a stated reason).
-123. Implement the alliance-proposal UI (an alliance lists its shared-war benefits).
-124. Implement the defection flow: leave a kingdom, join another (defection updates every relation bar).
-125. Show active treaties and truces with expiry (an expired truce shows an "at war risk" warning).
-
-### 3F. Quest log and markers
-126. Build the quest log panel with active / completed / failed tabs (the tabs filter correctly).
-127. Render quest objectives with progress counters driven by world conditions (counters update on ticks).
-128. Place quest markers on the campaign map for objective locations (markers clear on completion).
-129. Show the quest rewards preview — gold, XP, relation — before acceptance.
-130. Show quest failure and expiry warnings (a 24h warning badge appears on expiring quests).
-
-### 3G. Dialogue and persuasion UI
-131. Build the dialogue UI with speaker portraits and branching options (options render from the sim's dialogue graph).
-132. Implement the persuasion minigame UI: argument points and a progress bar (success/fail comes from the sim roll).
-133. Show the relation change after a dialogue (the delta animates inside the dialog).
-134. Add a barter sub-screen inside dialogues for notable deals (barters complete via the provider).
-
----
-
-## Tier 4 — "Polish" (time, atmosphere, settlements, audio, performance)
-
-## Tier 4 — "Polish" (time, atmosphere, settlements, audio, performance)
-
-### 4A. Time controls
+### 4A. Time controls (3 tasks)
 135. Build time controls — pause, 1x, 4x, 16x — wired to `setTimeScale` (a speed change is acknowledged by the sim within 2 ticks).
 136. Show the calendar date in the HUD advancing with ticks (the date matches the sim tick).
 137. Add a spacebar pause shortcut (space toggles pause without opening any panel).
 
-### 4B. Day/night cycle and weather
-138. Implement the day/night cycle driving the scene sun position and color (a full cycle matches one in-game 24h).
-139. Add night lighting: settlement lights and party torch glow (lights are visible beyond 200m).
-140. Implement weather states from the sim — clear, rain, snow, fog (the scene's fog/particles change within 5s of the state change).
-141. Add weather effects on the visibility-range indicator (fog halves the displayed spotting range).
+## Critical path
+The 5 tasks everything else depends on: (1) same-seed-twice determinism proven, (2) HTTP API server implementing the 8 contracted routes, (3) WebSocket tick stream, (4) Worker routing on one domain, (5) IndexedDB save/load round-trip. Until those five land, no other lane's work can integrate.
 
-### 4C. Settlement 3D upgrades
-142. Upgrade settlement clusters with walls when the town completes the City Walls project (walls appear after construction completes).
-143. Add district coloring by prosperity level (the color scale is documented in ART_DIRECTION.md).
-144. Add garrison banners in controlling-faction colors (banners swap on ownership change).
+## ROWAN (del) — New Systems & Client Depth (150 tasks)
 
-### 4D. Town menu screens
-145. Build the tavern screen: recruit, rumors, games (each action calls its provider endpoint).
-146. Build the arena screen: practice-fight entry and tournament list (entry transitions into the battle scene).
-147. Extend the MarketPanel with trade-rumor hints from the sim (rumors show profitable routes).
+Lane owner: Rowan (del). Client: `clients/campaign` (TypeScript + Babylon.js + Vite + vitest).
 
-### 4E. Audio hooks
-148. Add SFX hook points: UI clicks, hits, construction-complete (each hook is documented with its event name).
-149. Integrate the radio/SFX pipeline outputs from `public/audio` (radio plays on tavern and town screens).
-150. Add the battle-ambience hook (crowd noise scales with the live unit count).
+Boss order 2026-10-01: 150 BRAND-NEW tasks, zero overlap with Rowan's old
+154 (now redistributed to Pax/Hana/milo) and zero overlap with any other
+lane. Do not touch: HTTP provider, IndexedDB saves, party/inventory UI,
+time controls (Pax); battle scene content, settlement visuals, town menus,
+day/night, audio pipelines (Hana); battle sim, battle HUD, formation
+orders, sieges, encounters, dialogue/voice (milo).
 
-### 4F. Performance budgets and mobile
-151. Set performance budgets: 60fps campaign map, 30fps for a 1k-unit battle on desktop (budgets are enforced by a CI perf test).
-152. Add a quality scaler that auto-drops LOD and shadows under 30fps (the scaler engages within 3s of a sustained drop).
-153. Make the HUD and panels responsive down to 390px width (no horizontal scrolling on an iPhone SE viewport).
-154. Add touch controls for map pan/zoom and the battle camera (pinch-zoom and two-finger pan work in mobile Safari).
+Standing constraints:
+- One page, one domain, no subdomains.
+- Saves are LOCAL (IndexedDB) — Pax owns the save system; Rowan only builds
+  UI that reads/writes through Pax's save API, never his own storage format.
+- Cloudflare Pages hosting. Production build must contain zero fixture
+  markers (`daysPerRealSecond` scanner must pass on `npm run build`).
+- Already exists — EXTEND, do not rebuild: CharacterMaker, side-select
+  StartScreen, CampaignScene 3D map renderer, TownPanel, MarchPlanner,
+  PartyPanel, MarketPanel, RulerPanel, WhyPanel, HttpSimulationProvider.
 
----
+## Tier 1 — "Client foundations" (input, settings, accessibility, robustness)
+
+### 1A. Input system (8 tasks)
+1. Build a gamepad detection + mapping layer — plug in a controller and buttons map to game actions (accept: navigate all menus with a gamepad, no mouse).
+2. Add twin-stick gamepad camera + movement in 3D scenes (accept: full orbit/zoom/move via sticks).
+3. Add a touch control overlay — virtual joystick + action buttons appear on touch devices (accept: playable start-to-battle on a phone-sized viewport).
+4. Add touch camera gestures — pinch zoom, two-finger rotate on the campaign map (accept: gestures work without triggering clicks).
+5. Build a keybinding editor — rebind every action, conflicts flagged inline, persisted (accept: rebind attack to T, conflict with talk warned).
+6. Create one input action registry — every gameplay action routes through it, no hardcoded keys anywhere (accept: grep finds zero raw keyCode gameplay handlers).
+7. Add haptic feedback hooks — rumble on hits/deaths where the platform supports it (accept: toggleable, no-ops cleanly on desktop).
+8. Add mouse sensitivity + invert-axis options — sliders apply live without restart (accept: change applies mid-session).
+
+### 1B. Settings & persistence (8 tasks)
+9. Define one typed settings schema with defaults for every client setting (accept: schema validates on load, corrupt values fall back to defaults).
+10. Build a tabbed settings UI panel — graphics / audio / gameplay / accessibility tabs (accept: every schema field has a control).
+11. Persist settings to localStorage — reload keeps every choice (accept: change 5 settings, reload, all 5 kept).
+12. Add graphics quality presets — Low/Medium/High/Ultra apply a coherent bundle (accept: one click changes 10+ underlying values).
+13. Add auto-detect quality — short benchmark at first launch picks a preset (accept: picks Low on weak hardware, High+ on strong).
+14. Make settings apply live with revert — change applies immediately, cancel restores (accept: cancel after 3 changes restores all 3).
+15. Add settings search — filter box finds settings by name (accept: "shadow" finds shadow quality).
+16. Add reset-to-defaults — one click restores factory settings with confirm (accept: confirm dialog, then all defaults).
+
+### 1C. Accessibility (8 tasks)
+17. Add UI text scaling 80–150% without breaking layouts (accept: 150% scale, no clipped buttons in any panel).
+18. Add colorblind palettes — deuteranopia/protanopia/tritanopia presets remap faction colors (accept: factions distinguishable under each simulation).
+19. Add high-contrast UI mode — panels meet contrast minimums (accept: spot-check 20 text/background pairs).
+20. Add reduced-motion mode — disables screen shake, hit-stop, camera sway (accept: zero camera displacement during battle).
+21. Add subtitle sizing + background options — dialogue subtitles readable over any scene (accept: readable over snow and night scenes).
+22. Add screen-reader labels — every button/panel exposes an accessible name (accept: automated a11y audit passes on main panels).
+23. Add hold-to-toggle alternatives — every hold input has a toggle option (accept: sprint/aim work as toggles).
+24. Add a photosensitivity guard — no flashing above 3Hz anywhere in the client (accept: audit of shaders/particles/effects).
+
+### 1D. Client robustness (6 tasks)
+25. Add a global error boundary — a crash shows a recovery screen, never a blank page (accept: throw in a panel, recovery screen offers reload + report).
+26. Build an in-game bug reporter — one click bundles screenshot + log (accept: report contains screenshot, console tail, settings).
+27. Add an offline indicator — banner when the API is unreachable (accept: kill the API, banner appears within 5s).
+28. Add a PWA install prompt — installable, launches fullscreen (accept: passes PWA installability audit).
+29. Add an update notifier — new deploy detected, "reload to update" toast (accept: toast appears when the build hash changes).
+30. Add an FPS/performance overlay — toggleable frame-time graph for QA (accept: shows fps, frame ms, draw calls).
+
+## Tier 2 — "Battle experience" (deployment, command UX, feedback, modes, after-action)
+
+milo owns the combat sim, battle HUD, formation orders, sieges, and
+encounters. Rowan owns everything around the fight: getting in, commanding,
+feeling it, and the aftermath.
+
+### 2A. Deployment phase (8 tasks)
+31. Build a deployment map view — top-down battlefield preview before fighting (accept: terrain readable, units placeable).
+32. Add unit placement zones — drag units into highlighted deployment areas (accept: invalid drops rejected with a reason).
+33. Build RTS-style unit cards — count, health, morale per unit (accept: cards update live as deployment changes).
+34. Add a pre-battle army list — both sides' rosters visible before deploy (accept: enemy roster shows unit types + counts).
+35. Add formation presets at deploy — line/column/wedge set before the horn (accept: units spawn in the chosen shape).
+36. Add terrain notes — deployment screen summarizes biome + chokepoints (accept: notes list river/forest/hill features).
+37. Add a ready check — "Begin battle" enables only when all placements are valid (accept: button disabled with reason listed).
+38. Add save/load deployment — named setups reusable across battles (accept: save "hill defense", load it next battle).
+
+### 2B. Command UX (10 tasks)
+39. Build a command radial menu — hold key, flick to issue attack/follow/hold/retreat (accept: order issued in under 1s).
+40. Add quick command hotkeys — number keys issue orders to selected units (accept: 1-9 select, F1-F4 order).
+41. Add unit selection — click and drag-select units on the battlefield (accept: box-select grabs multiple units).
+42. Add control groups — Ctrl+number binds units, double-tap jumps camera (accept: 3 groups work simultaneously).
+43. Add waypoint queue — Shift+click queues multi-leg moves (accept: unit follows 3 queued waypoints).
+44. Add a ping system — Alt+click drops a visible map marker (accept: marker visible for 5s with directional indicator).
+45. Add a rally point setter — choose where reinforcements gather (accept: reinforcements path to the point).
+46. Visualize order delay — orders show travel time to the unit (accept: courier/pigeon animation or timer shown).
+47. Add a stance indicator — current order/stance on each unit card (accept: card shows "advancing", "holding", etc.).
+48. Add a retreat horn command — one order routs your whole force to the map edge (accept: all units break and run).
+
+### 2C. Battle feedback (9 tasks)
+49. Build a kill feed — scrolling feed of notable kills, heroes only (accept: hero kill appears within 1s, capped at 20 rows).
+50. Build a battle log panel — timestamped events: charges, routs, hero downs (accept: export log as text).
+51. Add floating damage numbers — toggleable, pooled, no GC spikes (accept: 60fps with 200 numbers on screen).
+52. Add a damage direction indicator — arc showing where hits come from (accept: arc points at the attacker).
+53. Add a threat indicator — flashing screen edge when flanked (accept: triggers on rear attacks).
+54. Add 3D objective markers — capture points / VIPs marked in-world (accept: markers visible through fog at 200m).
+55. Add edge-of-screen unit indicators — offscreen allies/enemies at screen edges (accept: arrows point correctly at 360°).
+56. Add a low-health vignette — red pulse when the player is near death (accept: scales with missing health).
+57. Add hit-stop + screen shake — impact feel, both toggleable in accessibility (accept: reduced-motion disables both).
+
+### 2D. Battle modes (10 tasks)
+58. Build quick battle mode — pick two forces, fight immediately, no campaign (accept: from menu to fighting in under 30s).
+59. Build a skirmish generator — random forces + biome, one click (accept: every click gives a different setup).
+60. Build arena mode — gladiator progression with crowd reactions (accept: crowd noise/visuals scale with performance).
+61. Build a tournament system — bracket UI persisting across rounds (accept: 16-fighter bracket completes).
+62. Add tournament betting UI — odds shown, winnings paid (accept: payout math correct on upset).
+63. Add a tournament prize viewer — inspect prizes before entering (accept: prizes listed with stats).
+64. Add historical battles — scripted scenarios with briefings (accept: 3 scenarios ship with briefing text).
+65. Add challenge mode — modifiers like outnumbered, night, no archers (accept: 5 modifiers, combinable).
+66. Add a daily challenge seed — same setup for everyone, local leaderboard (accept: seed changes daily, scores persist).
+67. Build a custom battle setup — full force/biome/rule picker (accept: any combination launches).
+
+### 2E. After-action (8 tasks)
+68. Build an after-action report screen — casualties, kills, MVP unit, timeline (accept: all four sections populated).
+69. Add a casualty breakdown — per-unit losses with percentages (accept: sums match total).
+70. Build a loot distribution UI — pick through captured gear (accept: taking loot updates inventory).
+71. Build a ransom negotiation UI — haggle over prisoner prices (accept: 3 rounds of offers max).
+72. Add post-battle prisoner triage — recruit/release/execute flow (accept: each choice has visible consequences).
+73. Add veteran unit naming — rename units that distinguished themselves (accept: name persists across battles).
+74. Add a unit history log — battles fought, kills, honors per unit (accept: log grows across a campaign).
+75. Build a war memorial — fallen named characters with epitaphs (accept: memorial lists every campaign death).
+
+## Tier 3 — "Campaign depth" (clan, court, espionage, economy UI, diplomacy UI, parties)
+
+### 3A. Clan & family (9 tasks)
+76. Build a family tree viewer — interactive tree of living and dead members (accept: 4 generations render cleanly).
+77. Build a marriage alliance UI — propose, dowry negotiation, acceptance odds (accept: odds shown before proposing).
+78. Add child education assignment — assign tutors, track skill growth (accept: skills grow over seasons).
+79. Build an heir designation UI — pick heir, see succession preview (accept: preview shows realm split if any).
+80. Build a succession crisis flow — contested succession plays out with choices (accept: 3+ claimants handled).
+81. Build a clan banner designer — colors, sigils, patterns (accept: banner appears on units and map).
+82. Build a clan laws panel — inheritance and marriage policy (accept: laws affect succession outcomes).
+83. Build companion management — assign companions to parties and roles (accept: companion bonuses apply).
+84. Build a companion loyalty panel — track and influence loyalty (accept: low loyalty triggers warnings/events).
+
+### 3B. Court & politics (9 tasks)
+85. Build a court events feed — feasts, trials, petitions arrive as events (accept: events clickable to their UI).
+86. Build feast hosting UI — invite guests, cost/benefit preview (accept: preview shows relation deltas).
+87. Build an edict/law system — propose realm laws, council votes (accept: passed laws take effect).
+88. Build council management — appoint councilors, see their effects (accept: each seat shows its modifier).
+89. Build petition handling — resolve notable petitions for rep/gold (accept: 10+ petition types).
+90. Build a trial event UI — judge disputes, outcomes affect loyalty (accept: verdict changes town loyalty).
+91. Build a faction relation matrix — grid of every faction pair's standing (accept: 7 factions render, sortable).
+92. Build a war council UI — plan wars with vassal input (accept: vassals vote, majority matters).
+93. Build a peace treaty builder — terms, reparations, borders (accept: treaty terms enforced by the sim).
+
+### 3C. Espionage (8 tasks)
+94. Build a spy network panel — recruit spies, assign to towns/factions (accept: spies report intel over time).
+95. Build informant management — pay informants for rumors (accept: payment scales rumor quality).
+96. Build a rumor system UI — rumors arrive, verify or act on them (accept: false rumors marked after verification).
+97. Build an assassination plot UI — plan, success odds, fallout preview (accept: fallout preview lists suspects).
+98. Build counter-espionage — assign guards, catch enemy spies (accept: caught spies shown with evidence).
+99. Build sabotage missions — target projects/armies, risk/reward shown (accept: failure has consequences).
+100. Build a disguise/infiltration flow — enter hostile towns undercover (accept: detection meter, blown cover = chase).
+101. Build blackmail material — collect and use secrets on notables (accept: secret forces a favor).
+
+### 3D. Economy UI (7 tasks)
+102. Build a trade route visualizer — animated routes on the campaign map (accept: routes show goods + volume).
+103. Build caravan management — found caravans, set routes, see profits (accept: profit/loss per route per week).
+104. Build a supply line overlay — armies show supply status visually (accept: starving armies flagged red).
+105. Build market price history charts — per-good price trends per town (accept: 30-day chart per good).
+106. Build workshop management — buy/upgrade workshops, income tracking (accept: ROI shown per workshop).
+107. Build a tax policy preview — slider changes show projected revenue/loyalty (accept: projection updates live).
+108. Build a smuggling UI — illegal goods with risk vs profit (accept: caught = fine + rep loss).
+
+### 3E. Diplomacy & notables UI (7 tasks)
+109. Build a diplomacy screen — treaties, wars, alliances in one view (accept: every active deal listed).
+110. Build a notable relationship panel — per-notable rep, quests, history (accept: data from Hana's notables wire).
+111. Build a war weariness panel — realm exhaustion with visible effects (accept: high weariness penalizes recruitment).
+112. Build a supply convoy planner — plan resupply missions for armies (accept: convoy arrives or gets ambushed).
+113. Build a herald/announcement system — realm-wide announcements UI (accept: announcements reach all towns).
+114. Build a quest journal — active/completed/failed with filters (accept: 100+ quests filterable).
+115. Build a quest tracker HUD — pinned objectives with distance (accept: 3 pinned max, distances live).
+
+### 3F. Parties & prisoners (5 tasks)
+116. Build prisoner management — ransom/recruit/release in bulk (accept: bulk actions on 50+ prisoners).
+117. Build garrison management — troop levels, wages, auto-recruit (accept: auto-recruit keeps garrison at target).
+118. Build a militia training queue — train town militia over time (accept: queue completes over days).
+119. Build hideout/base management — upgrade your hideout, assign staff (accept: upgrades give concrete bonuses).
+120. Build an army cohesion panel — multi-party armies show cohesion/morale (accept: low cohesion warns before battle).
+
+## Tier 4 — "Polish & platform" (onboarding, expression, meta, graphics feel)
+
+### 4A. Onboarding (8 tasks)
+121. Build an interactive tutorial — first 15 minutes guided, skippable (accept: skip works at any step).
+122. Add contextual tooltips — first-time hints per panel (accept: hint shows once, dismissible).
+123. Build a codex/encyclopedia — searchable lore + mechanics reference (accept: every mechanic has an entry).
+124. Build a glossary — every game term defined in-game (accept: terms link from tooltips).
+125. Add a loading tips rotation — tips shown during loads (accept: no tip repeats within 10 loads).
+126. Add a guided campaign start — suggested first goals for new players (accept: 5 goals, check off as done).
+127. Add a help button on every panel — opens the relevant codex page (accept: 100% of panels have one).
+128. Add a tutorial progress tracker — resume where you left off (accept: progress survives reload).
+
+### 4B. Player expression (8 tasks)
+129. Build photo mode — free camera, filters, hide UI, capture (accept: 4K capture works).
+130. Build a screenshot gallery — in-game browser of captures (accept: delete/share from gallery).
+131. Build a character portrait studio — pose/lighting/backdrop (accept: portrait used in UI).
+132. Build an armor preview — 3D preview before purchase (accept: rotates, shows stats).
+133. Build a weapon comparison — side-by-side stat cards (accept: DPS delta shown).
+134. Build a mount preview — 3D mount viewer (accept: all mount types viewable).
+135. Build a war paint/tattoo editor — layered face/body customization (accept: 3 layers, opacity control).
+136. Build a coat of arms designer — shield shapes, charges, mottos (accept: arms appear on shields in battle).
+
+### 4C. Meta systems (8 tasks)
+137. Build an achievements system — 100+ achievements with tracking UI (accept: 100 defined, progress tracked).
+138. Build a lifetime statistics page — kills, gold earned, battles, hours (accept: stats accumulate across campaigns).
+139. Build a campaign timeline — visual history of your reign (accept: major events plotted by date).
+140. Build a battle heatmap — where you've fought, on the world map (accept: density renders for 500+ battles).
+141. Build local leaderboards — best quick-battle/arena/tournament results on this machine (accept: top 10 per mode).
+142. Build New Game+ — carry renown/gear into a new campaign (accept: carryover list shown at start).
+143. Build ironman mode — single autosave, death is final, badge shown (accept: no manual saves in ironman).
+144. Build custom difficulty sliders — fine-tune damage/economy/AI (accept: 8 sliders, presets included).
+
+### 4D. Graphics & feel (6 tasks)
+145. Add film grain + color grading presets — gritty look controls (accept: 5 presets, grain intensity slider).
+146. Add individual post-processing toggles — bloom, vignette, DoF, motion blur (accept: each toggles independently).
+147. Add a shadow quality slider — cascade/distance tradeoffs (accept: 4 levels, fps delta visible).
+148. Add particle density control — blood/dust/snow scale (accept: slider 0-100%, zero disables).
+149. Add a view distance slider — LOD distances (accept: distant towns pop in/out at set range).
+150. Add damage vignette + low-health effects — cinematic feedback, toggleable (accept: respects reduced-motion mode).
 
 ## Critical path
 
-The 5 tasks everything else in this lane depends on:
-1. Same-origin `/api` provider default (no subdomains, no CORS).
-2. Snapshot decode hardening — the client must parse the real sim snapshot without crashing.
-3. IndexedDB wrapper with schema migrations (saves are local-only).
-4. Scene/panel hydration on load — map, panels, and HUD rebuild from a save.
-5. March commit write-back loop — orders sent to the sim come back visible in the world.
+The 8 tasks everything else in this lane depends on:
+1. Input action registry — every later control and command builds on it.
+2. Settings schema + persistence — graphics, accessibility, and gameplay options need it.
+3. Keybinding editor — command hotkeys and radial menu need rebindable actions.
+4. Command radial menu + unit selection — the core of battle command UX.
+5. Deployment map view — battle modes need a place to set up.
+6. Quest journal — tracker HUD and court/petition flows feed into it.
+7. Codex/encyclopedia — every panel's help button points here.
+8. Achievements system — meta stats, timeline, and leaderboards build on its events.
 
-
-## HANA (mute) — World Data, Pipelines, Assets (139 tasks)
+## HANA (mute) — World Data, Pipelines, Assets (171 tasks)
 
 ## Tier 1 — The game exists (travel graph, sim-feed, reproducibility)
 
@@ -680,6 +764,56 @@ The 5 tasks everything else in this lane depends on:
 ---
 
 
+### Client UI adopted from Rowan's lane (boss order 2026-10-01 — crew is now 3)
+
+### 2A. Battle scene (8 tasks)
+44. Build `BattleScene.ts` as a scaffold separate from `CampaignScene` (the battle scene mounts and unmounts without leaking campaign scene resources).
+45. Extract the terrain heightmap patch around the battle coordinates from campaign terrain data (the extracted patch matches campaign heights within 0.5m).
+46. Generate the battle ground mesh from the heightmap patch with tactical coloring (hills, forest, and water tinted distinctly).
+47. Place scatter — trees, rocks, buildings — from a biome template by terrain type (each battle spawns 50–200 scatter objects from the template).
+48. Define attacker/defender deployment zones from the encounter context (zones render as colored overlays during deployment).
+49. Spawn both armies as instanced meshes from roster data (1,000 units spawn in under 2s on desktop).
+50. Add a battle boundary ring with an out-of-bounds warning (crossing the boundary starts a 5s return countdown).
+51. Drive battle lighting from the campaign time-of-day (a battle at night renders night lighting).
+
+### 3D. NPC / clan / kingdom screens (extends RulerPanel) (5 tasks)
+115. Build the NPC profile view: age, family, home, faction, traits, relations (every field comes from the sim).
+116. Build the clan tree view with members and holdings (the tree renders up to 3 generations).
+117. Build the kingdom overview: fiefs, clans, policies, strength (each section links to its detail view).
+118. Show the ruler AI's current goal — expanding, defending, etc. — from the sim (the goal updates on ticks).
+119. Add "track NPC" pinning to watch movements on the map (a pinned NPC's marker follows them on the campaign map).
+
+### 3F. Quest log and markers (5 tasks)
+126. Build the quest log panel with active / completed / failed tabs (the tabs filter correctly).
+127. Render quest objectives with progress counters driven by world conditions (counters update on ticks).
+128. Place quest markers on the campaign map for objective locations (markers clear on completion).
+129. Show the quest rewards preview — gold, XP, relation — before acceptance.
+130. Show quest failure and expiry warnings (a 24h warning badge appears on expiring quests).
+
+### 4B. Day/night cycle and weather (4 tasks)
+138. Implement the day/night cycle driving the scene sun position and color (a full cycle matches one in-game 24h).
+139. Add night lighting: settlement lights and party torch glow (lights are visible beyond 200m).
+140. Implement weather states from the sim — clear, rain, snow, fog (the scene's fog/particles change within 5s of the state change).
+141. Add weather effects on the visibility-range indicator (fog halves the displayed spotting range).
+
+### 4C. Settlement 3D upgrades (3 tasks)
+142. Upgrade settlement clusters with walls when the town completes the City Walls project (walls appear after construction completes).
+143. Add district coloring by prosperity level (the color scale is documented in ART_DIRECTION.md).
+144. Add garrison banners in controlling-faction colors (banners swap on ownership change).
+
+### 4D. Town menu screens (3 tasks)
+145. Build the tavern screen: recruit, rumors, games (each action calls its provider endpoint).
+146. Build the arena screen: practice-fight entry and tournament list (entry transitions into the battle scene).
+147. Extend the MarketPanel with trade-rumor hints from the sim (rumors show profitable routes).
+
+### 4F. Performance budgets and mobile (4 tasks)
+151. Set performance budgets: 60fps campaign map, 30fps for a 1k-unit battle on desktop (budgets are enforced by a CI perf test).
+152. Add a quality scaler that auto-drops LOD and shadows under 30fps (the scaler engages within 3s of a sustained drop).
+153. Make the HUD and panels responsive down to 390px width (no horizontal scrolling on an iPhone SE viewport).
+154. Add touch controls for map pan/zoom and the battle camera (pinch-zoom and two-finger pan work in mobile Safari).
+
+---
+
 ## Critical path — the 5 tasks everything else depends on
 
 1. **Travel-graph connectivity in the 4 metros (Tier 1A).** Without a connected, weighted,
@@ -697,7 +831,7 @@ The 5 tasks everything else in this lane depends on:
    wrongly-licensed asset poisons the entire shipped game; the gate must exist before the asset
    count grows from dozens to hundreds, and the Kenney quarantine must be resolved by the boss first.
 
-## MILO — Battle Simulation + Audio (160 tasks)
+## MILO — Battle Simulation + Audio (210 tasks)
 
 ## Tier 1 — The game exists
 
@@ -902,6 +1036,80 @@ The 5 tasks everything else in this lane depends on:
 - Implement radio effect processing: band-pass, compression, and squelch tails applied at build time through the pipeline (processed chatter is distinguishable from clean dialogue in a blind listen).
 - Write chatter tests: context matching accuracy on a labeled event set, and discipline throttle compliance (both automated).
 
+
+### Client UI adopted from Rowan's lane (boss order 2026-10-01 — crew is now 3)
+
+### 2B. Player combat (third-person) (9 tasks)
+52. Implement a third-person follow camera with collision (the camera never clips through terrain or buildings).
+53. Implement the character controller: WASD move, sprint, crouch (sprint drains the stamina bar; crouch halves move speed).
+54. Implement a melee swing with 3 attack directions (each swing plays a distinct animation plus a whoosh SFX hook).
+55. Implement block/parry with a timing window (a perfect block within 150ms negates damage and shows spark VFX).
+56. Implement hit detection via weapon-arc raycast against enemy capsules (hits register only inside the arc and range; verified in the test scene).
+57. Implement hit feedback: flash, knockback, damage numbers (every landed hit shows all three within 100ms).
+58. Implement player health and injury states including knockdown (knockdown plays a fall animation with 2s of control loss).
+59. Implement weapon switching between melee and ranged slots (the switch completes in under 0.5s with an animation).
+60. Implement player death: fall animation plus death cam (death shows a "You fell" overlay with a retreat option).
+
+### 2C. Formation order UI (8 tasks)
+61. Build the order palette UI — hold / advance / charge / fall back — with hotkeys 1–4 (each hotkey issues its order in under 200ms).
+62. Add a face-direction order with a drag-to-aim arrow (the arrow renders on the terrain; the order commits on release).
+63. Add a change-formation control: line / column / wedge / circle (visible units reposition within 3s of the change).
+64. Add a spacing control: tight / loose (the spacing change is visible in the gaps between units).
+65. Add a fire-at-will toggle for ranged troops (the toggle state persists for the whole battle).
+66. Add a retreat order with a confirmation dialog (retreat ends the battle as a defeat; the dialog asks "are you sure").
+67. Dispatch orders to the sim with optimistic UI (the order shows instantly and rolls back if the server rejects it).
+68. Show per-formation status chips: current order, morale, strength (chips update on every tick).
+
+### 2D. Battle HUD (4 tasks)
+69. Build the top bar: ally/enemy counts, morale bars, battle timer (all values tick from sim data).
+70. Build the kill feed showing the last 5 kills with unit names (entries fade after 6s).
+71. Build the unit-cards row for the player's formations with click-to-select (clicking a card selects that formation).
+72. Add a battle minimap with unit dots (the minimap refreshes every 500ms).
+
+### 2E. Battle result and write-back (5 tasks)
+73. Build the victory/defeat screen with kills, losses, and duration (every number comes from the sim result payload).
+74. Render the casualty list per troop tier (each tier shows killed and wounded counts).
+75. Render XP awards per surviving troop (XP numbers match the `awardBattleXp` response).
+76. Render the loot panel: captured weapons, gold, prisoners (a loot-claim button calls the provider).
+77. Wire "Return to campaign" to write the battle result back via the provider (the campaign map reflects the new party strength after returning).
+
+### 2F. Siege assault UI (4 tasks)
+78. Build the siege staging UI: attacker camp, equipment built, wall/breach state (breach % comes from the sim).
+79. Show bombardment progress with an ETA to breach (the bar advances on sim ticks).
+80. Add an "Order assault" button enabled only past the breach threshold (the button stays disabled with a reason tooltip otherwise).
+81. Render the assault as a battle scene with a wall gap in the terrain (the gap position matches the breach location).
+
+### 2G. Encounters (party meets party) (7 tasks)
+82. Detect party proximity on the campaign map and trigger the encounter modal (the modal appears within 1 tick of contact).
+83. Build the encounter dialog showing both parties and a relative-strength bar (strength numbers come from the sim).
+84. Implement the Talk option routing into the dialogue UI (talk opens a notable-style dialog with the enemy boss).
+85. Implement the Trade option opening the market panel in encounter context (the trade completes without a battle).
+86. Implement the Attack option transitioning to the battle scene (the battle starts with the correct rosters).
+87. Implement the Flee option as a speed check against the enemy with success/fail messaging (a failed flee forces the battle).
+88. Implement the Bribe option with a gold-offer slider and sim accept/refuse (the bribe result shows before dismissal).
+
+### 3E. Diplomacy UI (6 tasks)
+120. Build the diplomacy screen listing factions with relation bars (bars match sim relations).
+121. Implement the declare-war flow with confirmation and a consequences preview (the preview lists affected trade and treaties).
+122. Implement propose-peace with a tribute slider (the sim accepts or rejects with a stated reason).
+123. Implement the alliance-proposal UI (an alliance lists its shared-war benefits).
+124. Implement the defection flow: leave a kingdom, join another (defection updates every relation bar).
+125. Show active treaties and truces with expiry (an expired truce shows an "at war risk" warning).
+
+### 3G. Dialogue and persuasion UI (4 tasks)
+131. Build the dialogue UI with speaker portraits and branching options (options render from the sim's dialogue graph).
+132. Implement the persuasion minigame UI: argument points and a progress bar (success/fail comes from the sim roll).
+133. Show the relation change after a dialogue (the delta animates inside the dialog).
+134. Add a barter sub-screen inside dialogues for notable deals (barters complete via the provider).
+
+---
+
+## Tier 4 — "Polish" (time, atmosphere, settlements, audio, performance)
+
+### 4E. Audio hooks (3 tasks)
+148. Add SFX hook points: UI clicks, hits, construction-complete (each hook is documented with its event name).
+149. Integrate the radio/SFX pipeline outputs from `public/audio` (radio plays on tavern and town screens).
+150. Add the battle-ambience hook (crowd noise scales with the live unit count).
 
 ## Critical path
 
