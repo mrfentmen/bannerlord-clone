@@ -30,7 +30,7 @@ import type { WorldSettlement } from "./world/types.js";
 import { createCampaignScene, type SceneHandle } from "./scene/CampaignScene.js";
 import { findRoute, shortestPath } from "./scene/network.js";
 import { createHud, dataSourcePanel, fatalError, type HudPanel, type HudState } from "./ui/hud.js";
-import { createGamepadManager, moveFocus, type GamepadManager } from "./input/gamepad/index.js";
+import { createGamepadManager, createStickCamera, moveFocus, type GamepadManager, type StickCamera } from "./input/gamepad/index.js";
 import { marketPanel } from "./ui/panels/MarketPanel.js";
 import { partyPanel } from "./ui/panels/PartyPanel.js";
 import { marchPlanner } from "./ui/panels/MarchPlanner.js";
@@ -339,15 +339,19 @@ let settingsLive = false;
 // `gamepad` field on ActionDef owns the mapping); the d-pad / left stick move
 // focus spatially so every menu works with no mouse.
 let gamepad: GamepadManager | null = null;
+let stickCamera: StickCamera | null = null;
 let gamepadBound = false;
 let gamepadLabel: string | null = null;
 
 function bindGamepad(): void {
   if (gamepadBound) return;
   gamepadBound = true;
+  const enabled = (): boolean => settings.get().gamepadEnabled && !input.suspended;
   gamepad = createGamepadManager({
     onButton: (index, pressed, padIndex) => input.handleGamepadButton(index, pressed, padIndex),
     onNavigate: (dir) => {
+      // In map view the sticks drive the camera (task 2); menus navigate.
+      if (currentPanel === "none") return;
       // Never yank focus out from under typing.
       const ae = document.activeElement;
       if (ae instanceof HTMLInputElement || ae instanceof HTMLTextAreaElement || ae instanceof HTMLSelectElement) return;
@@ -357,9 +361,19 @@ function bindGamepad(): void {
       gamepadLabel = s.connected ? s.label : null;
       paint();
     },
-    isEnabled: () => settings.get().gamepadEnabled && !input.suspended,
+    isEnabled: enabled,
   });
   gamepad.start();
+  // Twin-stick camera (task 2): left stick pans, right stick orbits, LT/RT
+  // zoom. Only in map view — while a panel is open the sticks navigate it.
+  stickCamera = createStickCamera({
+    manager: gamepad,
+    control: (delta) => scene?.cameraControl(delta),
+    isEnabled: enabled,
+    isActive: () => currentPanel === "none" && scene !== null,
+    speedScale: () => settings.get().cameraSpeed,
+  });
+  stickCamera.start();
 }
 
 function bindInputActions(): void {

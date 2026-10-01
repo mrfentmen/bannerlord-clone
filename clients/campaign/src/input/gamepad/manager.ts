@@ -90,6 +90,12 @@ export interface GamepadManager {
   poll(nowMs?: number): void;
   /** Deadzoned axes of the first connected pad, [lx, ly, rx, ry]. */
   axes(padIndex?: number): [number, number, number, number];
+  /**
+   * Analog trigger values [LT, RT] in 0..1, for the twin-stick zoom (task 2).
+   * Buttons 6/7 of the standard mapping; tiny deadzone so resting triggers
+   * read as released.
+   */
+  triggers(padIndex?: number): [number, number];
   status(): GamepadStatus;
   /**
    * Rumble primitive for task 7's haptics. No-ops cleanly when the pad has no
@@ -283,6 +289,16 @@ export function createGamepadManager(opts: GamepadManagerOptions = {}): GamepadM
         applyDeadzone(pad.axes[GAMEPAD_AXIS.RIGHT_X] ?? 0, deadzone),
         applyDeadzone(pad.axes[GAMEPAD_AXIS.RIGHT_Y] ?? 0, deadzone),
       ];
+    },
+    triggers(padIndex = 0) {
+      const pads = connectedPads();
+      const pad = pads.find((p) => p.index === padIndex) ?? pads[0];
+      if (!pad) return [0, 0];
+      const read = (i: number): number => {
+        const v = pad.buttons[i]?.value ?? 0;
+        return v < 0.05 ? 0 : Math.min(1, v);
+      };
+      return [read(GAMEPAD_BUTTON.LT), read(GAMEPAD_BUTTON.RT)];
     },
     status() {
       const pads = connectedPads();

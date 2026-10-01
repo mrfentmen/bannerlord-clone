@@ -176,6 +176,28 @@ describe("gamepad manager (task 1)", () => {
     await expect(mgr.rumble()).resolves.toBeUndefined();
   });
 
+  it("reads analog triggers for the twin-stick zoom (task 2)", () => {
+    const withValue = (i: number, value: number): PadSnapshot => {
+      const pad = makePad();
+      return {
+        ...pad,
+        buttons: pad.buttons.map((b, bi) => (bi === i ? { pressed: value > 0, value } : b)),
+      };
+    };
+    const mgr = createGamepadManager({
+      getPads: () => [withValue(GAMEPAD_BUTTON.LT, 0.5)],
+    });
+    expect(mgr.triggers()).toEqual([0.5, 0]);
+
+    const resting = createGamepadManager({
+      getPads: () => [withValue(GAMEPAD_BUTTON.RT, 0.01)],
+    });
+    expect(resting.triggers()).toEqual([0, 0]);
+
+    const none = createGamepadManager({ getPads: () => [] });
+    expect(none.triggers()).toEqual([0, 0]);
+  });
+
   it("cleans up edge state for disconnected pads", () => {
     let pads: PadSnapshot[] = [press(makePad(), GAMEPAD_BUTTON.A)];
     const events: string[] = [];
