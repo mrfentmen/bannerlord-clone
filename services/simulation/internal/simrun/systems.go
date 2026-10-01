@@ -21,33 +21,43 @@ import (
 	"mbclone/simulation/internal/config"
 	"mbclone/simulation/internal/sim"
 	"mbclone/simulation/internal/systems/aging"
-	"mbclone/simulation/internal/systems/kingdom"
 	"mbclone/simulation/internal/systems/attrition"
 	"mbclone/simulation/internal/systems/battle"
 	"mbclone/simulation/internal/systems/campaign"
 	"mbclone/simulation/internal/systems/clan"
 	"mbclone/simulation/internal/systems/council"
+	"mbclone/simulation/internal/systems/courtship"
 	"mbclone/simulation/internal/systems/crime"
 	"mbclone/simulation/internal/systems/currency"
 	"mbclone/simulation/internal/systems/demography"
 	"mbclone/simulation/internal/systems/disease"
 	"mbclone/simulation/internal/systems/factionai"
 	"mbclone/simulation/internal/systems/food"
+	"mbclone/simulation/internal/systems/formation"
+	"mbclone/simulation/internal/systems/hideout"
 	"mbclone/simulation/internal/systems/influence"
+	"mbclone/simulation/internal/systems/kingdom"
+	"mbclone/simulation/internal/systems/kingdomcrime"
 	"mbclone/simulation/internal/systems/labor"
+	"mbclone/simulation/internal/systems/loadout"
 	"mbclone/simulation/internal/systems/logistics"
 	"mbclone/simulation/internal/systems/loyalty"
 	"mbclone/simulation/internal/systems/march"
 	"mbclone/simulation/internal/systems/market"
 	"mbclone/simulation/internal/systems/migration"
+	"mbclone/simulation/internal/systems/naval"
 	"mbclone/simulation/internal/systems/player"
 	"mbclone/simulation/internal/systems/relation"
 	"mbclone/simulation/internal/systems/rulerai"
 	"mbclone/simulation/internal/systems/security"
 	"mbclone/simulation/internal/systems/siege"
+	"mbclone/simulation/internal/systems/siegeengine"
+	"mbclone/simulation/internal/systems/smithing"
+	"mbclone/simulation/internal/systems/sneak"
 	"mbclone/simulation/internal/systems/starvation"
 	"mbclone/simulation/internal/systems/succession"
 	"mbclone/simulation/internal/systems/supply"
+	"mbclone/simulation/internal/systems/template"
 	"mbclone/simulation/internal/systems/unrest"
 	"mbclone/simulation/internal/systems/upkeep"
 	"mbclone/simulation/internal/systems/workshop"
@@ -80,21 +90,27 @@ func Systems() []sim.System {
 		logistics.System(),
 
 		// --- armies ---
+		sneak.System(),
 		march.System(),
 		supply.System(),
 		attrition.System(),
 		upkeep.System(),
 		battle.System(),
+		hideout.System(),
 		siege.System(),
+		siegeengine.System(),
 
 		// --- politics ---
 		unrest.System(),
 		loyalty.System(),
+		loadout.System(),
 		council.System(),
 		clan.System(),
 		crime.System(),
+		kingdomcrime.System(),
 		influence.System(),
 		relation.System(),
+		courtship.System(),
 		rulerai.System(),
 		factionai.System(),
 		succession.System(),
@@ -106,6 +122,17 @@ func Systems() []sim.System {
 
 		// --- production buildings (Tier 3) ---
 		workshop.System(),
+		smithing.System(),
+		naval.System(),
+
+		// --- party composition and formation (Tier 6) ---
+		//
+		// These publish what a party is made of and how its strength is
+		// divided. They run late so that the march, battle, and attrition
+		// systems above read the composition committed on the previous tick
+		// rather than this tick's, which keeps every reader on one snapshot.
+		template.System(),
+		formation.System(),
 
 		// --- last, so it aggregates the deaths and movement every other
 		// system staged this tick ---
