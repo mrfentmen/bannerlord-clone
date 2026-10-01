@@ -1554,3 +1554,19 @@
 .march-tracker-mount:empty {
   display: none;
 }
+
+/* NPC / clan / kingdom screens (MASTER_PLAN.md 3D). Token-only, no hex. */
+.npc__head { display:flex; gap:var(--space-3); align-items:flex-start; }
+.npc__track { background:var(--sheet-1); color:var(--ink-900); border:1px solid var(--line-1); border-radius:var(--radius-sm); padding:var(--space-1) var(--space-2); font-family:var(--font-sans); font-size:0.85rem; cursor:pointer; }
+.npc__track[aria-pressed="true"] { background:var(--accent-primary); color:var(--ink-100); border-color:var(--accent-primary-deep); }
+.npc__link { background:none; border:none; padding:0; color:var(--accent-info); font-family:var(--font-sans); font-size:inherit; cursor:pointer; text-decoration:underline; }
+.npc__traits { display:flex; flex-direction:column; gap:var(--space-1); }
+.npc__ruler { font-family:var(--font-sans); font-weight:600; color:var(--ink-900); }
+.clan__tree { display:flex; flex-direction:column; gap:var(--space-2); }
+.clan__children { display:flex; flex-direction:column; gap:var(--space-1); margin-left:var(--space-4); border-left:1px solid var(--line-1); padding-left:var(--space-2); }
+.clan__member { display:flex; flex-direction:column; align-items:flex-start; gap:2px; background:var(--paper-100); border:1px solid var(--line-1); border-radius:var(--radius-sm); padding:var(--space-1) var(--space-2); cursor:pointer; text-align:left; }
+.clan__member-name { font-weight:600; color:var(--ink-900); }
+.clan__holdings { display:flex; flex-wrap:wrap; gap:var(--space-2); }
+.kingdom__head { border-bottom:1px solid var(--line-1); padding-bottom:var(--space-2); }
+.ruler-goal__bar { height:8px; background:var(--paper-200); border-radius:var(--radius-1); overflow:hidden; }
+.ruler-goal__fill { display:block; height:100%; background:var(--accent-primary); }

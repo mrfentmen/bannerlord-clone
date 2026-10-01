@@ -268,6 +268,76 @@ export interface RulerState {
   recentEvents: { day: number; text: string; causedBy?: string }[];
 }
 
+/** NPC profile. MASTER_PLAN.md section 3D (task 115). */
+export interface NpcProfile {
+  id: string;
+  name: string;
+  age: number;
+  /** Family members, newest kin first. */
+  family: { id: string; name: string; relation: string }[];
+  homeSettlementId: string;
+  homeSettlementName: string;
+  factionId: string;
+  factionName: string;
+  traits: { name: string; value: number }[];
+  /** Relation scores to notable entities, -100 to 100. */
+  relations: { entityId: string; entityName: string; value: number }[];
+}
+
+/** A clan member with their children. MASTER_PLAN.md section 3D (task 116). */
+export interface ClanMember {
+  id: string;
+  name: string;
+  age: number;
+  role: string;
+  children: ClanMember[];
+}
+
+/** A clan and its holdings. MASTER_PLAN.md section 3D (task 116). */
+export interface ClanTree {
+  id: string;
+  name: string;
+  factionId: string;
+  factionName: string;
+  strength: number;
+  /** Clan roots; the view renders at most 3 generations. */
+  members: ClanMember[];
+  holdings: { settlementId: string; name: string }[];
+}
+
+/** A kingdom policy. MASTER_PLAN.md section 3D (task 117). */
+export interface KingdomPolicy {
+  id: string;
+  name: string;
+  description: string;
+  effect: string;
+}
+
+/** Kingdom overview. MASTER_PLAN.md section 3D (task 117). */
+export interface KingdomOverview {
+  id: string;
+  name: string;
+  rulerId: string;
+  rulerName: string;
+  fiefs: { settlementId: string; name: string; prosperity: number }[];
+  clans: { id: string; name: string; strength: number; loyalty: number }[];
+  policies: KingdomPolicy[];
+  strength: number;
+}
+
+/** The ruler AI's current goal. MASTER_PLAN.md section 3D (task 118). */
+export interface RulerGoal {
+  rulerId: string;
+  rulerName: string;
+  goal: "expanding" | "defending" | "raiding" | "trading" | "plotting" | "recovering";
+  /** One-line human description of what they are doing about it. */
+  goalText: string;
+  /** Sim day this goal was set or reaffirmed. */
+  day: number;
+  /** 0..1 progress toward the current goal. */
+  progress: number;
+}
+
 /** March planner preview. `MARCH_AND_WAR.md` section 11. */
 export interface MarchRequest {
   partyId: string;
