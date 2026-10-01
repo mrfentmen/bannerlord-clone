@@ -1,0 +1,359 @@
+package battle
+
+import (
+	"fmt"
+
+	"mbclone/simulation/internal/config"
+)
+
+// Phase is where a battle session is in its lifecycle.
+//
+// The phases are the session's promise to the client: a battle is created,
+// its rosters are frozen, it fights, and it resolves, in that order and in no
+// other. The sim's internal Battle knows nothing of phases; it only knows
+// ticks. The session is what turns ticks into a lifecycle a campaign and a
+// client can follow.
+type Phase int
+
+const (
+	// PhaseStaging means the session exists but its rosters are not frozen.
+	// Nothing has been simulated.
+	PhaseStaging Phase = iota
+	// PhaseDeployment means both rosters are frozen and the sim battle is
+	// constructed, but no tick has run.
+	PhaseDeployment
+	// PhaseFighting means ticks are advancing.
+	PhaseFighting
+	// PhaseRout means a side's routed share crossed the rout threshold while
+	// the fight continues. Informational: the sim still decides the ending.
+	PhaseRout
+	// PhaseResolved means the sim decided an outcome and the result is
+	// recorded. Terminal.
+	PhaseResolved
+)
+
+// String names the phase for reports and the API.
+func (p Phase) String() string {
+	switch p {
+	case PhaseStaging:
+		return "staging"
+	case PhaseDeployment:
+		return "deployment"
+	case PhaseFighting:
+		return "fighting"
+	case PhaseRout:
+		return "rout"
+	case PhaseResolved:
+		return "resolved"
+	default:
+		return "unknown"
+	}
+}
+
+// phaseTransitions is the whole lifecycle as data. An illegal jump returns an
+// error rather than silently proceeding, because a battle that skipped
+// deployment would be a battle fought by rosters nobody froze.
+var phaseTransitions = map[Phase][]Phase{
+	PhaseStaging:    {PhaseDeployment},
+	PhaseDeployment: {PhaseFighting},
+	PhaseFighting:   {PhaseRout, PhaseResolved},
+	PhaseRout:       {PhaseResolved},
+	PhaseResolved:   {},
+}
+
+// PartyRef identifies a campaign party without importing the campaign. The
+// session never reads campaign state; it only records who the parties were.
+type PartyRef struct {
+	// ID is the campaign's party id. Attacker and defender ids must differ.
+	ID string
+	// Name is free text for reports. It is never parsed.
+	Name string
+}
+
+// FrozenRoster is a campaign party snapshotted at battle start. Troop counts,
+// tiers, equipment, and commander identity are frozen here: nothing the
+// campaign does after Deploy can reach into a battle already fighting.
+type FrozenRoster struct {
+	// Party is who this roster was taken from.
+	Party PartyRef
+	// Units is a deep copy of the force as supplied. Unit is a plain struct,
+	// so the copy is total.
+	Units []Unit
+	// Leaders is a deep copy of the commanders.
+	Leaders []Leader
+	// Bodies is the roster's total troops, summed at freeze time.
+	Bodies float64
+}
+
+// Session is the battle aggregate: id, phase, tick, participants, rosters,
+// terrain seed, and outcome.
+//
+// A session is constructed from two campaign parties with no client involved:
+// NewSession, then Deploy with the parties' units, then BeginFighting, then
+// Advance until PhaseResolved. Every step validates its preconditions and
+// every phase change goes through the transition table.
+type Session struct {
+	id      string
+	phase   Phase
+	tick    int
+	attacker PartyRef
+	defender PartyRef
+	rosters [2]FrozenRoster
+	// terrainSeed names the ground the battle is fought on. The core only
+	// models open terrain today; the seed is carried so the terrain-grid task
+	// can generate from it without changing this contract.
+	terrainSeed uint64
+	// seed is the battle seed. Callers should derive it with DeriveBattleSeed;
+	// the session records whatever it was given so a result can be reproduced.
+	seed   uint64
+	cfg    *config.Config
+	battle *Battle
+	// outcome and result are set when the sim decides the battle.
+	outcome Outcome
+	decided bool
+	result  *Result
+	// paused halts Advance; Step still works while paused.
+	paused bool
+	// ticksSinceCasualty counts consecutive ticks with no kills or wounds.
+	// lastCasualtyTotal is the stat total it is measured against.
+	ticksSinceCasualty int
+	lastCasualtyTotal  float64
+}
+
+// NewSession creates a battle session in PhaseStaging.
+//
+// id names the session for the API and the logs; attacker and defender are the
+// two campaign parties. terrainSeed and seed are recorded, not interpreted.
+func NewSession(cfg *config.Config, id string, attacker, defender PartyRef, terrainSeed, seed uint64) (*Session, error) {
+	if cfg == nil {
+		return nil, newError(ErrNilConfig, "NewSession needs a balance config; the session holds it for the sim it will construct")
+	}
+	if id == "" {
+		return nil, &Error{Kind: ErrInternal, Field: "id", Detail: "a battle session needs an id; the API uses it to route every later call"}
+	}
+	if attacker.ID == "" || defender.ID == "" {
+		return nil, &Error{Kind: ErrInternal, Field: "parties", Detail: "both parties need campaign ids; a battle against nobody is a report, not a fight"}
+	}
+	if attacker.ID == defender.ID {
+		return nil, &Error{Kind: ErrInternal, Field: "parties", Detail: fmt.Sprintf("attacker and defender share party id %q; a party cannot fight itself", attacker.ID)}
+	}
+	return &Session{
+		id:          id,
+		phase:       PhaseStaging,
+		attacker:    attacker,
+		defender:    defender,
+		terrainSeed: terrainSeed,
+		seed:        seed,
+		cfg:         cfg,
+	}, nil
+}
+
+// transition moves the session through the lifecycle table. Anything not in
+// the table is an error, never a silent skip.
+func (s *Session) transition(to Phase) error {
+	for _, next := range phaseTransitions[s.phase] {
+		if next == to {
+			s.phase = to
+			return nil
+		}
+	}
+	return &Error{
+		Kind:   ErrInternal,
+		Field:  "phase",
+		Detail: fmt.Sprintf("illegal phase jump %s -> %s; the lifecycle is staging -> deployment -> fighting -> [rout ->] resolved", s.phase, to),
+	}
+}
+
+// Deploy freezes both rosters and constructs the sim battle, moving the
+// session from staging to deployment.
+//
+// aUnits must all be SideA and bUnits all SideB; a side fighting for both
+// armies is rejected rather than reinterpreted. The slices are deep-copied:
+// later mutation by the caller cannot reach the frozen rosters.
+func (s *Session) Deploy(aUnits, bUnits []Unit, leaders []Leader) error {
+	if s.phase != PhaseStaging {
+		return &Error{Kind: ErrInternal, Field: "phase", Detail: fmt.Sprintf("Deploy needs a staging session; this one is %s, and its rosters are already frozen", s.phase)}
+	}
+	for i, u := range aUnits {
+		if u.Side != SideA {
+			return &Error{Kind: ErrUnitInvalid, Side: SideA, UnitID: i, Field: "Side", Detail: "attacker roster holds a unit that does not fight for side A"}
+		}
+	}
+	for i, u := range bUnits {
+		if u.Side != SideB {
+			return &Error{Kind: ErrUnitInvalid, Side: SideB, UnitID: i, Field: "Side", Detail: "defender roster holds a unit that does not fight for side B"}
+		}
+	}
+	s.rosters[SideA.index()] = freezeRoster(s.attacker, aUnits, leaders, SideA)
+	s.rosters[SideB.index()] = freezeRoster(s.defender, bUnits, leaders, SideB)
+
+	setup := Setup{
+		A:       s.rosters[SideA.index()].Units,
+		B:       s.rosters[SideB.index()].Units,
+		Leaders: append(append([]Leader{}, s.rosters[SideA.index()].Leaders...), s.rosters[SideB.index()].Leaders...),
+		Terrain: TerrainOpen,
+		Label:   fmt.Sprintf("%s vs %s", s.attacker.Name, s.defender.Name),
+	}
+	b, err := newBattle(s.cfg, s.seed, setup)
+	if err != nil {
+		return err
+	}
+	s.battle = b
+	return s.transition(PhaseDeployment)
+}
+
+// freezeRoster copies a force and sums its bodies. Leaders are filtered to the
+// side because a roster holds its own commanders.
+func freezeRoster(party PartyRef, units []Unit, leaders []Leader, side Side) FrozenRoster {
+	cp := make([]Unit, len(units))
+	copy(cp, units)
+	lc := make([]Leader, 0, len(leaders))
+	for _, l := range leaders {
+		if l.Side == side {
+			lc = append(lc, l)
+		}
+	}
+	var bodies float64
+	for _, u := range cp {
+		bodies += u.Troops
+	}
+	return FrozenRoster{Party: party, Units: cp, Leaders: lc, Bodies: bodies}
+}
+
+// BeginFighting moves a deployed session into the fighting phase. Ticks only
+// advance after this call; a deployed battle that never begins is a battle
+// that never happened.
+func (s *Session) BeginFighting() error {
+	if s.phase != PhaseDeployment {
+		return &Error{Kind: ErrInternal, Field: "phase", Detail: fmt.Sprintf("BeginFighting needs a deployed session; this one is %s", s.phase)}
+	}
+	return s.transition(PhaseFighting)
+}
+
+// Advance runs up to maxTicks ticks of the sim, then returns. Call it again
+// to continue; a battle that needs more ticks than one call is not an error.
+// When the sim decides the battle, the outcome and result are recorded and the
+// session moves to resolved.
+//
+// While fighting, a side whose routed share crosses the configured rout
+// threshold moves the session into the rout phase. That is informational: the
+// sim still decides the ending by its own rules.
+//
+// Every tick runs through advanceOne: ending check, stalemate timeout,
+// the sim tick, and the per-tick invariants. A paused session refuses
+// Advance; use Step to move it one tick at a time.
+func (s *Session) Advance(maxTicks int) error {
+	if s.phase != PhaseFighting && s.phase != PhaseRout {
+		return &Error{Kind: ErrInternal, Field: "phase", Detail: fmt.Sprintf("Advance needs a fighting session; this one is %s", s.phase)}
+	}
+	if s.paused {
+		return &Error{Kind: ErrInternal, Field: "paused", Detail: "the session is paused; Resume it or Step it one tick at a time"}
+	}
+	if maxTicks < 1 {
+		return &Error{Kind: ErrInternal, Field: "maxTicks", Detail: "Advance needs a tick budget of at least one; zero ticks would return a session that claims to have advanced"}
+	}
+	for i := 0; i < maxTicks; i++ {
+		if err := s.advanceOne(); err != nil {
+			return err
+		}
+		if s.phase == PhaseResolved {
+			return nil
+		}
+	}
+	return nil
+}
+
+// routObserved reports whether either side's routed share has crossed the
+// configured rout threshold, using the same measure the ending rules use.
+func (s *Session) routObserved() bool {
+	b := s.battle
+	c := b.c
+	if routedBodies(b.units, SideA)/b.strengthStartA >= c.RoutStrengthFraction {
+		return true
+	}
+	return routedBodies(b.units, SideB)/b.strengthStartB >= c.RoutStrengthFraction
+}
+
+// RecentEvents returns the last n battle events, oldest first, for the API's
+// state endpoint and the stream. It returns a copy; the session's own list is
+// never exposed for mutation.
+func (s *Session) RecentEvents(n int) []Event {
+	if s.battle == nil || n <= 0 {
+		return nil
+	}
+	ev := s.battle.events
+	if len(ev) > n {
+		ev = ev[len(ev)-n:]
+	}
+	out := make([]Event, len(ev))
+	copy(out, ev)
+	return out
+}
+
+// EventsDropped counts events that did not fit the battle's bounded event
+// list, so a client can tell it missed something.
+func (s *Session) EventsDropped() int {
+	if s.battle == nil {
+		return 0
+	}
+	return s.battle.eventsDropped
+}
+
+// ID, Phase, Tick, Seed, and TerrainSeed expose the session's identity.
+func (s *Session) ID() string          { return s.id }
+func (s *Session) Phase() Phase         { return s.phase }
+func (s *Session) Tick() int            { return s.tick }
+func (s *Session) Seed() uint64        { return s.seed }
+func (s *Session) TerrainSeed() uint64  { return s.terrainSeed }
+func (s *Session) Attacker() PartyRef   { return s.attacker }
+func (s *Session) Defender() PartyRef   { return s.defender }
+
+// Roster returns the frozen roster for a side. The returned roster's slices
+// are the session's own; callers must not mutate them.
+func (s *Session) Roster(side Side) FrozenRoster { return s.rosters[side.index()] }
+
+// Decided reports whether the sim has produced an outcome.
+func (s *Session) Decided() bool { return s.decided }
+
+// Outcome returns the decided outcome. It is only meaningful after Decided.
+func (s *Session) Outcome() Outcome { return s.outcome }
+
+// Result returns the full battle result. Nil until the session resolves.
+func (s *Session) Result() *Result { return s.result }
+
+// SideSummary is one side's running casualty picture for the API's state
+// endpoint. Dead, Wounded, and Surrendered come from the sim's own accumulated
+// stats; Routed is the current routed share of opening strength.
+type SideSummary struct {
+	Bodies      float64
+	Dead        float64
+	Wounded     float64
+	Surrendered float64
+	RoutedShare float64
+}
+
+// Summary returns the per-side casualty picture. Before the fight starts every
+// figure but Bodies is zero, which is the honest answer: nothing has happened
+// yet.
+func (s *Session) Summary() [2]SideSummary {
+	var out [2]SideSummary
+	for _, side := range sides {
+		i := side.index()
+		out[i].Bodies = s.rosters[i].Bodies
+		if s.battle == nil {
+			continue
+		}
+		st := s.battle.stats
+		out[i].Dead = st.Dead[i]
+		out[i].Wounded = st.Wounded[i]
+		out[i].Surrendered = st.Surrendered[i]
+		var start float64
+		if side == SideA {
+			start = s.battle.strengthStartA
+		} else {
+			start = s.battle.strengthStartB
+		}
+		out[i].RoutedShare = routedBodies(s.battle.units, side) / start
+	}
+	return out
+}
