@@ -606,6 +606,16 @@ const hitRateShooters = 40
 // sides in contact at once, on targets with enough hit points to stay on the
 // field for the whole run, and reads the engine's own counters.
 //
+// The shooters are held STILL for the whole run, and that is load-bearing rather
+// than tidiness. A shooter's spread is scored as a lateral error against a
+// target radius, so a moving shooter misses by a wide margin: at the shipped
+// numbers a stationary shooter averages 0.008 rad of spread and one advancing
+// at 2 m/s averages 0.022, which is nearly three times the error and, against a
+// 0.45 m target, most of the difference between hitting and not. A shooter left
+// to its own orders advances, so it would be measured mostly by whether it was
+// walking. Holding it still makes the hit chance the only thing that varies
+// between the cases, which is what the cases are about.
+//
 // The rate is not the configured chance, and the tests that use it compare
 // rates against rates rather than against the file. Suppression on both sides
 // and the moment before contact both move it, and they move it identically for
@@ -643,19 +653,30 @@ func hitRate(t *testing.T, cfg *config.Config, broken bool) float64 {
 			bt.units[i].X, bt.units[i].Y = 50, row
 		}
 	}
+	// Two things are held each tick, and both are re-asserted rather than set
+	// once, because the engine re-derives them every tick from state.
+	//
+	// The shooters are pinned in place and ordered to hold, so spread is the
+	// weapon's own and not a function of whether a man was walking (see the note
+	// above). Holding is re-asserted because a stationary shooter left alone is
+	// ordered to advance, and one advancing moves on the next tick.
+	//
 	// A broken shooter is a shooter whose effectiveness term is at its floor,
 	// which is the state battle.ranged_hit_effectiveness_floor describes. It is
-	// re-asserted every tick rather than set once, because the engine resolves
-	// status from morale at commit: a shooter set broken and then left alone
-	// recovers over the first few ticks and is fighting again long before the
-	// run ends, which measures nothing.
+	// re-asserted every tick because the engine resolves status from morale at
+	// commit: a shooter set broken and then left alone recovers within about
+	// five ticks and is fighting again long before the run ends, which measures
+	// nothing.
 	for i := 0; i < hitRateTicks; i++ {
-		if broken {
-			for j := range bt.units {
-				if bt.units[j].Side == SideA {
-					bt.units[j].Morale = 0.20 // below battle.morale_break_threshold
-					bt.units[j].Status = StatusBroken
-				}
+		for j := range bt.units {
+			if bt.units[j].Side != SideA {
+				continue
+			}
+			bt.units[j].Speed, bt.units[j].VX, bt.units[j].VY = 0, 0, 0
+			bt.units[j].Intent = IntentHold
+			if broken {
+				bt.units[j].Morale = 0.20 // below battle.morale_break_threshold
+				bt.units[j].Status = StatusBroken
 			}
 		}
 		if err := bt.tick(); err != nil {
