@@ -1,0 +1,37 @@
+name: ci-gate
+
+# The pre-review gate for the Bannerlord-clone repo. Runs the same
+# tools/ci-gate.sh script a developer runs locally, so CI and local
+# results mean the same thing.
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install world-data deps
+        run: pip install "./services/world-data[dev,parquet]"
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: clients/campaign/package-lock.json
+
+      - name: Install client deps
+        run: npm ci --prefix clients/campaign
+
+      - name: Run the gate
+        run: bash tools/ci-gate.sh
