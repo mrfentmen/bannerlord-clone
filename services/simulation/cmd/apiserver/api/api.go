@@ -120,6 +120,7 @@ func (s *Server) routes() {
 	// real-time battles. The sim itself is stubbed; the routes return
 	// CodeUnimplemented until the battle sim lands.
 	s.mux.HandleFunc("POST /v1/encounters", s.postEncounter)
+	s.mux.HandleFunc("GET /v1/encounters", s.listEncounters)
 	s.mux.HandleFunc("GET /v1/encounters/{id}", s.getEncounter)
 	s.mux.HandleFunc("POST /v1/encounters/{id}/resolve", s.postEncounterResolve)
 	s.mux.HandleFunc("POST /v1/battles", s.postBattle)
