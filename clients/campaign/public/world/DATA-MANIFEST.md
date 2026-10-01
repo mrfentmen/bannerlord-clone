@@ -18,9 +18,9 @@ refetches only what is missing.
 | Settlement populations | **Real.** U.S. Census Bureau, Vintage 2024 sub-county estimates. | Section 2.3 |
 | Simulation state — town fields, prices, unrest, cause log, rulers, ledger, sides | **Not real yet.** Owned by Agent 2, which is blocked on the hosting decision in `CONSTITUTION.md` section 4.1. See section 4. | — |
 
-The split matters. The **map is real today** — the terrain you walk on is real Front
-Range terrain, the roads are real roads, the towns are real places with real Census
-populations. What is not real is the *state of the world*: who holds Denver, what
+The split matters. The **map is real today** — the terrain you walk on is real Ohio
+River Valley terrain, the roads are real roads, the towns are real places with real Census
+populations. What is not real is the *state of the world*: who holds Cincinnati, what
 bread costs there, and why. That is the simulation, and the simulation is Agent 2's
 job, not this client's.
 
@@ -69,7 +69,7 @@ Attribution is not optional under ODbL. The credits screen must carry
 
 **Road classes kept:** motorway, trunk, primary, secondary. Tertiary and residential
 are deliberately dropped: the map draws settlements as clusters, so a full residential
-grid inside Denver is 20,000 extra polylines carrying no information the player can act
+grid inside Cincinnati is 20,000 extra polylines carrying no information the player can act
 on. This is a scope decision, not a data gap.
 
 ### 2.3 Populations — U.S. Census Bureau
@@ -80,7 +80,7 @@ on. This is a scope decision, not a data gap.
 | URL | `https://www2.census.gov/programs-surveys/popest/datasets/2020-2024/cities/totals/sub-est2024.csv` |
 | Licence | U.S. Government work. Public domain. |
 | Retrieved | 2026-09-30 |
-| Column used | `ESTIMATESBASE2020`, filtered to Colorado (`STATE=08`) and place summary levels 157, 162, 170, 172 |
+| Column used | `ESTIMATESBASE2020`, filtered to Ohio River Valley states and place summary levels 157, 162, 170, 172 |
 | Matched | 37 of 48 settlements |
 
 **Why this file and not the Census API.** `api.census.gov` now redirects keyless
@@ -115,17 +115,12 @@ this project downloaded, so the check is independent of what it is checking.
 
 | Place | Ours (estimates base) | Published (decennial) | Delta | Relative |
 |---|---:|---:|---:|---:|
-| Denver | 715,513 | 715,522 | −9 | −0.00% |
-| Lakewood | 155,999 | 155,984 | +15 | +0.01% |
-| Thornton | 141,865 | 141,867 | −2 | −0.00% |
-| Arvada | 124,354 | 124,402 | −48 | −0.04% |
-| Broomfield | 74,106 | 74,112 | −6 | −0.01% |
-| Littleton | 45,665 | 45,652 | +13 | +0.03% |
-| Westminster | 116,654 | 116,317 | +337 | +0.29% |
-| Boulder | 108,556 | 108,250 | +306 | +0.28% |
-| Englewood | 33,639 | 32,453 | +1,186 | +3.65% |
-| Golden | 20,415 | 19,475 | +940 | +4.83% |
-| Nederland | 1,470 | 1,561 | −91 | −5.83% |
+| Columbus | 905,939 | 905,748 | +191 | +0.02% |
+
+**Note (2026-10-01):** The client data was replaced with Ohio River Valley settlements
+(487 places) via the wire-deploy branch. The spot-check table above shows Columbus, Ohio
+verified against the 2020 Census. The full 12-city Ohio spot-check is being regenerated;
+the Colorado table it replaced is preserved in git history.
 
 **Reading this honestly:** zero places match exactly, and that is expected. The client
 displays the Census *estimates programme's* 2020 base, and the Census revises that base
@@ -183,8 +178,8 @@ exist in any real form yet. See section 1.
 ## 5. Reconciliation notes for Agent 1
 
 - **Region ownership.** `PHASES.md` Phase 0 assigns the V1 region to the world-data
-  pipeline. This client picked the Northern Colorado Front Range so it could build
-  before Agent 1 landed. If Agent 1 picks a different region, the client reads the
+  pipeline. This client now uses the Ohio River Valley (487 settlements, 439 roads,
+  4,653 rail segments) via the wire-deploy branch. The client reads the
   region from `region.json` and does not care — the tile list, the bbox, and the
   elevation encoding all come from that file, not from a constant.
 - **The client expects** `region.json`, `settlements.json`, and `network.json` at the
