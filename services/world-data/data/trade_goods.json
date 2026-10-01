@@ -1,0 +1,131 @@
+{
+  "_comment": "8 trade goods. base_price in money units. Producers/consumers are settlement roles.",
+  "goods": [
+    {
+      "id": "grain",
+      "name": "Grain",
+      "base_price": 8,
+      "weight": 1.0,
+      "producers": [
+        "farm",
+        "village"
+      ],
+      "consumers": [
+        "town",
+        "city"
+      ],
+      "description": "Staple food. Villages produce, cities consume."
+    },
+    {
+      "id": "medicine",
+      "name": "Medicine",
+      "base_price": 45,
+      "weight": 0.2,
+      "producers": [
+        "city",
+        "town"
+      ],
+      "consumers": [
+        "town",
+        "village",
+        "city"
+      ],
+      "description": "Clinic supplies. Cities produce, everyone needs."
+    },
+    {
+      "id": "metal",
+      "name": "Scrap Metal",
+      "base_price": 22,
+      "weight": 2.0,
+      "producers": [
+        "industrial",
+        "town"
+      ],
+      "consumers": [
+        "city",
+        "industrial"
+      ],
+      "description": "Industrial feedstock and ammunition material."
+    },
+    {
+      "id": "fuel",
+      "name": "Fuel",
+      "base_price": 18,
+      "weight": 1.5,
+      "producers": [
+        "industrial",
+        "town"
+      ],
+      "consumers": [
+        "city",
+        "town",
+        "village"
+      ],
+      "description": "Vehicle fuel and molotov material."
+    },
+    {
+      "id": "arms",
+      "name": "Arms & Ammo",
+      "base_price": 65,
+      "weight": 0.8,
+      "producers": [
+        "city",
+        "industrial"
+      ],
+      "consumers": [
+        "town",
+        "city",
+        "village"
+      ],
+      "description": "Firearms ammunition. Loud to trade in bulk."
+    },
+    {
+      "id": "textiles",
+      "name": "Textiles",
+      "base_price": 15,
+      "weight": 0.5,
+      "producers": [
+        "town",
+        "city"
+      ],
+      "consumers": [
+        "city",
+        "town",
+        "village"
+      ],
+      "description": "Clothing and fabric goods."
+    },
+    {
+      "id": "tools",
+      "name": "Tools",
+      "base_price": 28,
+      "weight": 1.2,
+      "producers": [
+        "industrial",
+        "town"
+      ],
+      "consumers": [
+        "farm",
+        "village",
+        "town"
+      ],
+      "description": "Hand tools, repair kits, bow arrows."
+    },
+    {
+      "id": "lumber",
+      "name": "Lumber",
+      "base_price": 12,
+      "weight": 2.5,
+      "producers": [
+        "farm",
+        "village"
+      ],
+      "consumers": [
+        "town",
+        "city",
+        "industrial"
+      ],
+      "description": "Building material from rural areas."
+    }
+  ]
+}

@@ -1,0 +1,7428 @@
+{
+  "_comment": "Settlement economy mapping: which of 487 Ohio River Valley settlements produce/consume which of 8 trade goods. Derived from place type + population.",
+  "settlements": [
+    {
+      "name": "Columbus",
+      "place": "city",
+      "population": 913175,
+      "produces": [
+        "medicine",
+        "arms",
+        "textiles",
+        "metal",
+        "fuel"
+      ],
+      "consumes": [
+        "grain",
+        "metal",
+        "fuel",
+        "lumber",
+        "tools"
+      ]
+    },
+    {
+      "name": "Lexington-Fayette urban county",
+      "place": "city",
+      "population": 320154,
+      "produces": [
+        "medicine",
+        "arms",
+        "textiles",
+        "metal",
+        "fuel"
+      ],
+      "consumes": [
+        "grain",
+        "metal",
+        "fuel",
+        "lumber",
+        "tools"
+      ]
+    },
+    {
+      "name": "Cincinnati",
+      "place": "city",
+      "population": 311097,
+      "produces": [
+        "medicine",
+        "arms",
+        "textiles",
+        "metal",
+        "fuel"
+      ],
+      "consumes": [
+        "grain",
+        "metal",
+        "fuel",
+        "lumber",
+        "tools"
+      ]
+    },
+    {
+      "name": "Dayton",
+      "place": "town",
+      "population": 135512,
+      "produces": [
+        "medicine",
+        "arms",
+        "textiles",
+        "metal",
+        "fuel"
+      ],
+      "consumes": [
+        "grain",
+        "metal",
+        "fuel",
+        "lumber",
+        "tools"
+      ]
+    },
+    {
+      "name": "Hamilton",
+      "place": "town",
+      "population": 62997,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal",
+        "fuel"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Springfield",
+      "place": "town",
+      "population": 58082,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal",
+        "fuel"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Kettering",
+      "place": "town",
+      "population": 56876,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal",
+        "fuel"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Middletown",
+      "place": "town",
+      "population": 51478,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal",
+        "fuel"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Newark",
+      "place": "town",
+      "population": 51046,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal",
+        "fuel"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Dublin",
+      "place": "town",
+      "population": 48923,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Beavercreek",
+      "place": "town",
+      "population": 47193,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Charleston",
+      "place": "town",
+      "population": 46838,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Huntington",
+      "place": "town",
+      "population": 45325,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Delaware",
+      "place": "town",
+      "population": 45158,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Fairfield",
+      "place": "town",
+      "population": 44447,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Huber Heights",
+      "place": "town",
+      "population": 43313,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Grove City",
+      "place": "town",
+      "population": 42782,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Lancaster",
+      "place": "town",
+      "population": 41422,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Reynoldsburg",
+      "place": "town",
+      "population": 41220,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Covington",
+      "place": "town",
+      "population": 40972,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Georgetown",
+      "place": "town",
+      "population": 39462,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Westerville",
+      "place": "town",
+      "population": 37958,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Hilliard",
+      "place": "town",
+      "population": 37262,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Richmond",
+      "place": "town",
+      "population": 37206,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Upper Arlington",
+      "place": "town",
+      "population": 35743,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Mason",
+      "place": "town",
+      "population": 35660,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Marion",
+      "place": "town",
+      "population": 35531,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Richmond",
+      "place": "town",
+      "population": 35425,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Gahanna",
+      "place": "town",
+      "population": 35159,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Fairborn",
+      "place": "town",
+      "population": 34729,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Florence",
+      "place": "town",
+      "population": 32917,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Nicholasville",
+      "place": "town",
+      "population": 32425,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Independence",
+      "place": "village",
+      "population": 29503,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Marysville",
+      "place": "village",
+      "population": 28423,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Frankfort",
+      "place": "village",
+      "population": 28285,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Troy",
+      "place": "village",
+      "population": 26848,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Centerville",
+      "place": "village",
+      "population": 25754,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Xenia",
+      "place": "village",
+      "population": 25725,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Pickerington",
+      "place": "village",
+      "population": 25256,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Athens",
+      "place": "village",
+      "population": 24673,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Zanesville",
+      "place": "village",
+      "population": 24651,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Riverside",
+      "place": "village",
+      "population": 24340,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Trotwood",
+      "place": "village",
+      "population": 22940,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Oxford",
+      "place": "village",
+      "population": 22340,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Chillicothe",
+      "place": "village",
+      "population": 21895,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Lebanon",
+      "place": "village",
+      "population": 21699,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Ashland",
+      "place": "village",
+      "population": 21154,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Piqua",
+      "place": "village",
+      "population": 20747,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Sidney",
+      "place": "village",
+      "population": 20309,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Forest Park",
+      "place": "village",
+      "population": 19839,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Miamisburg",
+      "place": "village",
+      "population": 19814,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Erlanger",
+      "place": "village",
+      "population": 19777,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Whitehall",
+      "place": "village",
+      "population": 19727,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Springboro",
+      "place": "village",
+      "population": 19475,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Winchester",
+      "place": "village",
+      "population": 19254,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Norwood",
+      "place": "village",
+      "population": 19046,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Pataskala",
+      "place": "village",
+      "population": 18346,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Shelbyville",
+      "place": "village",
+      "population": 17804,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Portsmouth",
+      "place": "village",
+      "population": 17555,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Danville",
+      "place": "village",
+      "population": 17383,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Fort Thomas",
+      "place": "village",
+      "population": 16973,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Mount Vernon",
+      "place": "village",
+      "population": 16551,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Berea",
+      "place": "village",
+      "population": 15998,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Monroe",
+      "place": "village",
+      "population": 15600,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Vandalia",
+      "place": "village",
+      "population": 14938,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Worthington",
+      "place": "village",
+      "population": 14497,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Powell",
+      "place": "village",
+      "population": 14491,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Circleville",
+      "place": "village",
+      "population": 14452,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Washington Court House",
+      "place": "village",
+      "population": 14412,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Bellefontaine",
+      "place": "village",
+      "population": 14073,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Sharonville",
+      "place": "village",
+      "population": 13882,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Newport",
+      "place": "village",
+      "population": 13812,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Trenton",
+      "place": "village",
+      "population": 13758,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Blue Ash",
+      "place": "village",
+      "population": 13408,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Harrison",
+      "place": "village",
+      "population": 13320,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Connersville",
+      "place": "village",
+      "population": 13298,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "South Charleston",
+      "place": "village",
+      "population": 13281,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Englewood",
+      "place": "village",
+      "population": 13249,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Clayton",
+      "place": "village",
+      "population": 13222,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Loveland",
+      "place": "village",
+      "population": 13156,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "West Carrollton",
+      "place": "village",
+      "population": 12874,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Bexley",
+      "place": "village",
+      "population": 12785,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Greenville",
+      "place": "village",
+      "population": 12696,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Wilmington",
+      "place": "village",
+      "population": 12600,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Lawrenceburg",
+      "place": "village",
+      "population": 12112,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Franklin",
+      "place": "village",
+      "population": 11653,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "New Albany",
+      "place": "village",
+      "population": 11335,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Urbana",
+      "place": "village",
+      "population": 11161,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Coshocton",
+      "place": "village",
+      "population": 11091,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Springdale",
+      "place": "village",
+      "population": 11073,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Celina",
+      "place": "village",
+      "population": 10885,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Montgomery",
+      "place": "village",
+      "population": 10801,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Heath",
+      "place": "village",
+      "population": 10693,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Alexandria",
+      "place": "village",
+      "population": 10673,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "London",
+      "place": "village",
+      "population": 10533,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Versailles",
+      "place": "village",
+      "population": 10491,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Tipp City",
+      "place": "village",
+      "population": 10484,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "St. Albans",
+      "place": "village",
+      "population": 10387,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Reading",
+      "place": "village",
+      "population": 10380,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Ironton",
+      "place": "village",
+      "population": 10187,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Paris",
+      "place": "village",
+      "population": 10089,
+      "produces": [
+        "tools",
+        "textiles",
+        "metal"
+      ],
+      "consumes": [
+        "grain",
+        "medicine",
+        "fuel",
+        "lumber"
+      ]
+    },
+    {
+      "name": "Wapakoneta",
+      "place": "village",
+      "population": 9786,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Canal Winchester",
+      "place": "village",
+      "population": 9777,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "North College Hill",
+      "place": "village",
+      "population": 9463,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Madeira",
+      "place": "village",
+      "population": 9423,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Oakwood",
+      "place": "village",
+      "population": 9378,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Harrodsburg",
+      "place": "village",
+      "population": 9219,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Elsmere",
+      "place": "village",
+      "population": 9147,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Grandview Heights",
+      "place": "village",
+      "population": 8841,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Maysville",
+      "place": "village",
+      "population": 8687,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Wyoming",
+      "place": "village",
+      "population": 8672,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Fort Mitchell",
+      "place": "village",
+      "population": 8639,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Cheviot",
+      "place": "village",
+      "population": 8565,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Edgewood",
+      "place": "village",
+      "population": 8398,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "St. Marys",
+      "place": "village",
+      "population": 8377,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Sunbury",
+      "place": "village",
+      "population": 8340,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Eaton",
+      "place": "village",
+      "population": 8301,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Union",
+      "place": "village",
+      "population": 7671,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "London",
+      "place": "village",
+      "population": 7596,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Mount Sterling",
+      "place": "village",
+      "population": 7571,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Villa Hills",
+      "place": "village",
+      "population": 7537,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Pikeville",
+      "place": "village",
+      "population": 7437,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Bellbrook",
+      "place": "village",
+      "population": 7409,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Batesville",
+      "place": "village",
+      "population": 7354,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Flatwoods",
+      "place": "village",
+      "population": 7227,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Logan",
+      "place": "village",
+      "population": 7166,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Dunbar",
+      "place": "village",
+      "population": 7163,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Obetz",
+      "place": "village",
+      "population": 6971,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Union",
+      "place": "village",
+      "population": 6949,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Taylor Mill",
+      "place": "village",
+      "population": 6937,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Mount Healthy",
+      "place": "village",
+      "population": 6853,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Hurricane",
+      "place": "village",
+      "population": 6806,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "South Lebanon",
+      "place": "village",
+      "population": 6793,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Morehead",
+      "place": "village",
+      "population": 6740,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Hillsboro",
+      "place": "village",
+      "population": 6617,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Highland Heights",
+      "place": "village",
+      "population": 6612,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Moraine",
+      "place": "village",
+      "population": 6586,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Cynthiana",
+      "place": "village",
+      "population": 6534,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Lebanon",
+      "place": "village",
+      "population": 6517,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Milford",
+      "place": "village",
+      "population": 6445,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Nitro",
+      "place": "village",
+      "population": 6426,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Cold Spring",
+      "place": "village",
+      "population": 6414,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Granville",
+      "place": "village",
+      "population": 6281,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Jackson",
+      "place": "village",
+      "population": 6206,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Portland",
+      "place": "village",
+      "population": 6187,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Wilmore",
+      "place": "village",
+      "population": 6104,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Fort Wright",
+      "place": "village",
+      "population": 6061,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "The Village of Indian Hill",
+      "place": "village",
+      "population": 6018,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Brookville",
+      "place": "village",
+      "population": 5918,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Germantown",
+      "place": "village",
+      "population": 5809,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Groveport",
+      "place": "village",
+      "population": 5806,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Dayton",
+      "place": "village",
+      "population": 5790,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Carlisle",
+      "place": "village",
+      "population": 5740,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Bellevue",
+      "place": "village",
+      "population": 5671,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Walton",
+      "place": "village",
+      "population": 5629,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "New Carlisle",
+      "place": "village",
+      "population": 5494,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Wellston",
+      "place": "village",
+      "population": 5457,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Deer Park",
+      "place": "village",
+      "population": 5336,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Johnstown",
+      "place": "village",
+      "population": 5310,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Lawrenceburg",
+      "place": "village",
+      "population": 5194,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Hazard",
+      "place": "village",
+      "population": 4964,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Silverton",
+      "place": "village",
+      "population": 4812,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "West Milton",
+      "place": "village",
+      "population": 4805,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Winchester",
+      "place": "village",
+      "population": 4778,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Ashville",
+      "place": "village",
+      "population": 4760,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Coldwater",
+      "place": "village",
+      "population": 4712,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Greendale",
+      "place": "village",
+      "population": 4564,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Crescent Springs",
+      "place": "village",
+      "population": 4550,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Nelsonville",
+      "place": "village",
+      "population": 4518,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "West Jefferson",
+      "place": "village",
+      "population": 4488,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Georgetown",
+      "place": "village",
+      "population": 4458,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "New Lexington",
+      "place": "village",
+      "population": 4447,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Barboursville",
+      "place": "village",
+      "population": 4355,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Mount Orab",
+      "place": "village",
+      "population": 4349,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Plain City",
+      "place": "village",
+      "population": 4338,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Greenfield",
+      "place": "village",
+      "population": 4336,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Ludlow",
+      "place": "village",
+      "population": 4332,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Cedarville",
+      "place": "village",
+      "population": 4250,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Blanchester",
+      "place": "village",
+      "population": 4221,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Paintsville",
+      "place": "village",
+      "population": 4160,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Waverly",
+      "place": "village",
+      "population": 4114,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Crittenden",
+      "place": "village",
+      "population": 4106,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Lancaster",
+      "place": "village",
+      "population": 4050,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Williamstown",
+      "place": "village",
+      "population": 3964,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "St. Bernard",
+      "place": "village",
+      "population": 3938,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Carrollton",
+      "place": "village",
+      "population": 3914,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Point Pleasant",
+      "place": "village",
+      "population": 3908,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Woodlawn",
+      "place": "village",
+      "population": 3867,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Ravenswood",
+      "place": "village",
+      "population": 3819,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Grayson",
+      "place": "village",
+      "population": 3807,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Amberley",
+      "place": "village",
+      "population": 3805,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "New Lebanon",
+      "place": "village",
+      "population": 3784,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Golf Manor",
+      "place": "village",
+      "population": 3754,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Southgate",
+      "place": "village",
+      "population": 3752,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Prestonsburg",
+      "place": "village",
+      "population": 3721,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Yellow Springs",
+      "place": "village",
+      "population": 3718,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Stanford",
+      "place": "village",
+      "population": 3698,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "South Point",
+      "place": "village",
+      "population": 3679,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Greenhills",
+      "place": "village",
+      "population": 3656,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Russell",
+      "place": "village",
+      "population": 3644,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Mount Gilead",
+      "place": "village",
+      "population": 3533,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Aurora",
+      "place": "village",
+      "population": 3508,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Lockland",
+      "place": "village",
+      "population": 3464,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "West Liberty",
+      "place": "village",
+      "population": 3450,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Mariemont",
+      "place": "village",
+      "population": 3441,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Union City",
+      "place": "village",
+      "population": 3423,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Cleves",
+      "place": "village",
+      "population": 3355,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Gallipolis",
+      "place": "village",
+      "population": 3284,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Crestview Hills",
+      "place": "village",
+      "population": 3227,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Commercial Point",
+      "place": "village",
+      "population": 3215,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Millersburg",
+      "place": "village",
+      "population": 3186,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Stanton",
+      "place": "village",
+      "population": 3183,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Park Hills",
+      "place": "village",
+      "population": 3149,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Lincoln Heights",
+      "place": "village",
+      "population": 3101,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Wilder",
+      "place": "village",
+      "population": 3100,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "West Union",
+      "place": "village",
+      "population": 3051,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Ripley",
+      "place": "village",
+      "population": 3043,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Minster",
+      "place": "village",
+      "population": 2999,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Baltimore",
+      "place": "village",
+      "population": 2991,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Flemingsburg",
+      "place": "village",
+      "population": 2988,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "New Bremen",
+      "place": "village",
+      "population": 2978,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Springfield",
+      "place": "village",
+      "population": 2941,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Kenova",
+      "place": "village",
+      "population": 2897,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Williamson",
+      "place": "village",
+      "population": 2831,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Lakeside Park",
+      "place": "village",
+      "population": 2815,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Waynesville",
+      "place": "village",
+      "population": 2812,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "New Richmond",
+      "place": "village",
+      "population": 2769,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Milton",
+      "place": "village",
+      "population": 2755,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Centerville",
+      "place": "village",
+      "population": 2749,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Eminence",
+      "place": "village",
+      "population": 2744,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Madison",
+      "place": "village",
+      "population": 2742,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Versailles",
+      "place": "village",
+      "population": 2714,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Lithopolis",
+      "place": "village",
+      "population": 2708,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "South Bloomfield",
+      "place": "village",
+      "population": 2660,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Bethel",
+      "place": "village",
+      "population": 2659,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Newtown",
+      "place": "village",
+      "population": 2655,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Brookville",
+      "place": "village",
+      "population": 2643,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Evendale",
+      "place": "village",
+      "population": 2630,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Williamsburg",
+      "place": "village",
+      "population": 2624,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Fredericktown",
+      "place": "village",
+      "population": 2619,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "St. Henry",
+      "place": "village",
+      "population": 2602,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Covington",
+      "place": "village",
+      "population": 2598,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Louisa",
+      "place": "village",
+      "population": 2591,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Buckeye Lake",
+      "place": "village",
+      "population": 2558,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Richwood",
+      "place": "village",
+      "population": 2494,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Sabina",
+      "place": "village",
+      "population": 2472,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Mount Vernon",
+      "place": "village",
+      "population": 2456,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "West Lafayette",
+      "place": "village",
+      "population": 2448,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Enon",
+      "place": "village",
+      "population": 2437,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Crooksville",
+      "place": "village",
+      "population": 2402,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Hebron",
+      "place": "village",
+      "population": 2384,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Winfield",
+      "place": "village",
+      "population": 2368,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Sugarcreek",
+      "place": "village",
+      "population": 2331,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Gambier",
+      "place": "village",
+      "population": 2330,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Arcanum",
+      "place": "village",
+      "population": 2328,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Terrace Park",
+      "place": "village",
+      "population": 2323,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Raceland",
+      "place": "village",
+      "population": 2301,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Junction City",
+      "place": "village",
+      "population": 2289,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "New Concord",
+      "place": "village",
+      "population": 2286,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Irvine",
+      "place": "village",
+      "population": 2284,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Albany",
+      "place": "village",
+      "population": 2282,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Glendale",
+      "place": "village",
+      "population": 2263,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "New Miami",
+      "place": "village",
+      "population": 2238,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "New Boston",
+      "place": "village",
+      "population": 2229,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Rising Sun",
+      "place": "village",
+      "population": 2228,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Falmouth",
+      "place": "village",
+      "population": 2211,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Dry Ridge",
+      "place": "village",
+      "population": 2199,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Versailles",
+      "place": "village",
+      "population": 2188,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Morrow",
+      "place": "village",
+      "population": 2162,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Piketon",
+      "place": "village",
+      "population": 2157,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Middleport",
+      "place": "village",
+      "population": 2156,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Beattyville",
+      "place": "village",
+      "population": 2148,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Jackson",
+      "place": "village",
+      "population": 2128,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Utica",
+      "place": "village",
+      "population": 2115,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Carlisle",
+      "place": "village",
+      "population": 2112,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Cardington",
+      "place": "village",
+      "population": 2101,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Dunkirk",
+      "place": "village",
+      "population": 2098,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Jamestown",
+      "place": "village",
+      "population": 2073,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Elmwood Place",
+      "place": "village",
+      "population": 2055,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Mount Sterling",
+      "place": "village",
+      "population": 2030,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Liberty",
+      "place": "village",
+      "population": 2010,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Batavia",
+      "place": "village",
+      "population": 2004,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Liberty",
+      "place": "village",
+      "population": 2003,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Camden",
+      "place": "village",
+      "population": 1975,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Minerva Park",
+      "place": "village",
+      "population": 1944,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "South Zanesville",
+      "place": "village",
+      "population": 1902,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "St. Paris",
+      "place": "village",
+      "population": 1885,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Manchester",
+      "place": "village",
+      "population": 1842,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Milan",
+      "place": "village",
+      "population": 1832,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Coal Grove",
+      "place": "village",
+      "population": 1827,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Bradford",
+      "place": "village",
+      "population": 1797,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Jenkins",
+      "place": "village",
+      "population": 1791,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Vevay",
+      "place": "village",
+      "population": 1777,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Peebles",
+      "place": "village",
+      "population": 1759,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Warsaw",
+      "place": "village",
+      "population": 1759,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "West Liberty",
+      "place": "village",
+      "population": 1756,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Midway",
+      "place": "village",
+      "population": 1755,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Jeffersonville",
+      "place": "village",
+      "population": 1744,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Fairfax",
+      "place": "village",
+      "population": 1743,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Roseville",
+      "place": "village",
+      "population": 1740,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Catlettsburg",
+      "place": "village",
+      "population": 1738,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "McArthur",
+      "place": "village",
+      "population": 1732,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Cambridge City",
+      "place": "village",
+      "population": 1729,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Lewisburg",
+      "place": "village",
+      "population": 1726,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "South Charleston",
+      "place": "village",
+      "population": 1689,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Mechanicsburg",
+      "place": "village",
+      "population": 1681,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Centerburg",
+      "place": "village",
+      "population": 1671,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Hagerstown",
+      "place": "village",
+      "population": 1669,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Owenton",
+      "place": "village",
+      "population": 1669,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Whitesburg",
+      "place": "village",
+      "population": 1658,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Dresden",
+      "place": "village",
+      "population": 1647,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "North Lewisburg",
+      "place": "village",
+      "population": 1645,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "McConnelsville",
+      "place": "village",
+      "population": 1639,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Glouster",
+      "place": "village",
+      "population": 1629,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Coal Run Village",
+      "place": "village",
+      "population": 1600,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Owingsville",
+      "place": "village",
+      "population": 1595,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Osgood",
+      "place": "village",
+      "population": 1594,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Fort Loramie",
+      "place": "village",
+      "population": 1586,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Ripley",
+      "place": "village",
+      "population": 1581,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Union City",
+      "place": "village",
+      "population": 1564,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Olive Hill",
+      "place": "village",
+      "population": 1546,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Lynchburg",
+      "place": "village",
+      "population": 1533,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Pomeroy",
+      "place": "village",
+      "population": 1526,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Salyersville",
+      "place": "village",
+      "population": 1525,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Aberdeen",
+      "place": "village",
+      "population": 1523,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Eleanor",
+      "place": "village",
+      "population": 1517,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Montpelier",
+      "place": "village",
+      "population": 1514,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Bremen",
+      "place": "village",
+      "population": 1502,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Maineville",
+      "place": "village",
+      "population": 1488,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "New Paris",
+      "place": "village",
+      "population": 1478,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Fort Recovery",
+      "place": "village",
+      "population": 1476,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Somerset",
+      "place": "village",
+      "population": 1473,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Anna",
+      "place": "village",
+      "population": 1460,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Worthington",
+      "place": "village",
+      "population": 1456,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Jackson Center",
+      "place": "village",
+      "population": 1432,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Manchester",
+      "place": "village",
+      "population": 1428,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "New Haven",
+      "place": "village",
+      "population": 1418,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Oak Hill",
+      "place": "village",
+      "population": 1398,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Vanceburg",
+      "place": "village",
+      "population": 1398,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Wayne",
+      "place": "village",
+      "population": 1395,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Oceana",
+      "place": "village",
+      "population": 1389,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Dillsboro",
+      "place": "village",
+      "population": 1383,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Frazeysburg",
+      "place": "village",
+      "population": 1352,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Ceredo",
+      "place": "village",
+      "population": 1341,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Clintwood",
+      "place": "village",
+      "population": 1337,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Logan",
+      "place": "village",
+      "population": 1337,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Russells Point",
+      "place": "village",
+      "population": 1323,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Ashley",
+      "place": "village",
+      "population": 1318,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Hanover",
+      "place": "village",
+      "population": 1317,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "West Alexandria",
+      "place": "village",
+      "population": 1306,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Leesburg",
+      "place": "village",
+      "population": 1280,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Geneva",
+      "place": "village",
+      "population": 1275,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Parker City",
+      "place": "village",
+      "population": 1263,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Pleasant Hill",
+      "place": "village",
+      "population": 1257,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "De Graff",
+      "place": "village",
+      "population": 1251,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Farmland",
+      "place": "village",
+      "population": 1250,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Kingston",
+      "place": "village",
+      "population": 1244,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Jeffersonville",
+      "place": "village",
+      "population": 1242,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Beverly",
+      "place": "village",
+      "population": 1209,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Buffalo",
+      "place": "village",
+      "population": 1205,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Silver Grove",
+      "place": "village",
+      "population": 1204,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Lakeview",
+      "place": "village",
+      "population": 1199,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Ostrander",
+      "place": "village",
+      "population": 1197,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Clay City",
+      "place": "village",
+      "population": 1178,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Botkins",
+      "place": "village",
+      "population": 1176,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Ansonia",
+      "place": "village",
+      "population": 1149,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Brodhead",
+      "place": "village",
+      "population": 1124,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Frankfort",
+      "place": "village",
+      "population": 1107,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "New Vienna",
+      "place": "village",
+      "population": 1100,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Thornville",
+      "place": "village",
+      "population": 1092,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Augusta",
+      "place": "village",
+      "population": 1090,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Sardinia",
+      "place": "village",
+      "population": 1089,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Redkey",
+      "place": "village",
+      "population": 1073,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "South Shore",
+      "place": "village",
+      "population": 1064,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Greenup",
+      "place": "village",
+      "population": 1056,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Prospect",
+      "place": "village",
+      "population": 1052,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Camargo",
+      "place": "village",
+      "population": 1036,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Galena",
+      "place": "village",
+      "population": 1018,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Williamsport",
+      "place": "village",
+      "population": 1012,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Burgin",
+      "place": "village",
+      "population": 1000,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Danville",
+      "place": "village",
+      "population": 996,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Urbancrest",
+      "place": "village",
+      "population": 996,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Hamlin",
+      "place": "village",
+      "population": 992,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Elkhorn City",
+      "place": "village",
+      "population": 981,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Winchester",
+      "place": "village",
+      "population": 981,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Millersport",
+      "place": "village",
+      "population": 975,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Farmersville",
+      "place": "village",
+      "population": 973,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Seaman",
+      "place": "village",
+      "population": 970,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Wurtland",
+      "place": "village",
+      "population": 969,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Chapmanville",
+      "place": "village",
+      "population": 956,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Pleasantville",
+      "place": "village",
+      "population": 951,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Chauncey",
+      "place": "village",
+      "population": 944,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Lynn",
+      "place": "village",
+      "population": 943,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Butler",
+      "place": "village",
+      "population": 938,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Ryland Heights",
+      "place": "village",
+      "population": 936,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Sunman",
+      "place": "village",
+      "population": 931,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Albany",
+      "place": "village",
+      "population": 924,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Shawnee Hills",
+      "place": "village",
+      "population": 915,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "New Knoxville",
+      "place": "village",
+      "population": 905,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Addyston",
+      "place": "village",
+      "population": 904,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Milford Center",
+      "place": "village",
+      "population": 903,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "New Castle",
+      "place": "village",
+      "population": 891,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Bellefonte",
+      "place": "village",
+      "population": 886,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Bloomingburg",
+      "place": "village",
+      "population": 872,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Poca",
+      "place": "village",
+      "population": 864,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Campbellsburg",
+      "place": "village",
+      "population": 848,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Pound",
+      "place": "village",
+      "population": 844,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Grundy",
+      "place": "village",
+      "population": 837,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Mason",
+      "place": "village",
+      "population": 834,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Gratis",
+      "place": "village",
+      "population": 831,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "New Holland",
+      "place": "village",
+      "population": 830,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "New Madison",
+      "place": "village",
+      "population": 830,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "North Bend",
+      "place": "village",
+      "population": 827,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Baltic",
+      "place": "village",
+      "population": 826,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Stamping Ground",
+      "place": "village",
+      "population": 823,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Arlington Heights",
+      "place": "village",
+      "population": 810,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Owensville",
+      "place": "village",
+      "population": 810,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Belle Center",
+      "place": "village",
+      "population": 805,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Killbuck",
+      "place": "village",
+      "population": 804,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "McKee",
+      "place": "village",
+      "population": 804,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Pleasureville",
+      "place": "village",
+      "population": 797,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Perryville",
+      "place": "village",
+      "population": 792,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Syracuse",
+      "place": "village",
+      "population": 779,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "West Mansfield",
+      "place": "village",
+      "population": 758,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Crab Orchard",
+      "place": "village",
+      "population": 757,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Bainbridge",
+      "place": "village",
+      "population": 753,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Millersburg",
+      "place": "village",
+      "population": 741,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Selma",
+      "place": "village",
+      "population": 740,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Chesapeake",
+      "place": "village",
+      "population": 729,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Man",
+      "place": "village",
+      "population": 727,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Russia",
+      "place": "village",
+      "population": 724,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Seven Mile",
+      "place": "village",
+      "population": 724,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Rio Grande",
+      "place": "village",
+      "population": 723,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Philo",
+      "place": "village",
+      "population": 721,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Junction City",
+      "place": "village",
+      "population": 720,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Bromley",
+      "place": "village",
+      "population": 717,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Hamden",
+      "place": "village",
+      "population": 714,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Fountain City",
+      "place": "village",
+      "population": 707,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Marble Cliff",
+      "place": "village",
+      "population": 699,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Moores Hill",
+      "place": "village",
+      "population": 687,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Wayne Lakes",
+      "place": "village",
+      "population": 687,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Ridgeville",
+      "place": "village",
+      "population": 684,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Amanda",
+      "place": "village",
+      "population": 680,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Jacksonburg",
+      "place": "village",
+      "population": 680,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Dublin",
+      "place": "village",
+      "population": 677,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "La Rue",
+      "place": "village",
+      "population": 673,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Racine",
+      "place": "village",
+      "population": 671,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "St. Leon",
+      "place": "village",
+      "population": 665,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Fort Gay",
+      "place": "village",
+      "population": 661,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Felicity",
+      "place": "village",
+      "population": 656,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Hindman",
+      "place": "village",
+      "population": 655,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Brooksville",
+      "place": "village",
+      "population": 652,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Science Hill",
+      "place": "village",
+      "population": 652,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "South Webster",
+      "place": "village",
+      "population": 652,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "New Straitsville",
+      "place": "village",
+      "population": 651,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Oldenburg",
+      "place": "village",
+      "population": 648,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Warsaw",
+      "place": "village",
+      "population": 648,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Valleyview",
+      "place": "village",
+      "population": 647,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Butler",
+      "place": "village",
+      "population": 642,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Danville",
+      "place": "village",
+      "population": 640,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Millville",
+      "place": "village",
+      "population": 635,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Sandy Hook",
+      "place": "village",
+      "population": 625,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Pennville",
+      "place": "village",
+      "population": 615,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Frenchburg",
+      "place": "village",
+      "population": 614,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "North Middletown",
+      "place": "village",
+      "population": 605,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Thurston",
+      "place": "village",
+      "population": 605,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Mount Victory",
+      "place": "village",
+      "population": 595,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Pippa Passes",
+      "place": "village",
+      "population": 584,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Stoutsville",
+      "place": "village",
+      "population": 577,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Riverlea",
+      "place": "village",
+      "population": 575,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Harveysburg",
+      "place": "village",
+      "population": 569,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "War",
+      "place": "village",
+      "population": 559,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Malta",
+      "place": "village",
+      "population": 555,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Ravenna",
+      "place": "village",
+      "population": 554,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Quincy",
+      "place": "village",
+      "population": 543,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Russellville",
+      "place": "village",
+      "population": 541,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Clarksville",
+      "place": "village",
+      "population": 535,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "West College Corner",
+      "place": "village",
+      "population": 534,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Fleming-Neon",
+      "place": "village",
+      "population": 521,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Corwin",
+      "place": "village",
+      "population": 516,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Inez",
+      "place": "village",
+      "population": 515,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Buchtel",
+      "place": "village",
+      "population": 513,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Proctorville",
+      "place": "village",
+      "population": 503,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Christiansburg",
+      "place": "village",
+      "population": 501,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Carroll",
+      "place": "village",
+      "population": 500,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "Shawnee",
+      "place": "village",
+      "population": 500,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    },
+    {
+      "name": "West Hamlin",
+      "place": "village",
+      "population": 500,
+      "produces": [
+        "grain",
+        "lumber"
+      ],
+      "consumes": [
+        "medicine",
+        "tools",
+        "textiles",
+        "arms"
+      ]
+    }
+  ]
+}

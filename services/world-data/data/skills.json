@@ -1,0 +1,1339 @@
+{
+  "_comment": "18 skills (3 per attribute). Perks at thresholds 25/50/75/100/125/175/200/275. All perks concrete and percentage-based.",
+  "attributes": {
+    "vigor": {
+      "name": "Vigor",
+      "description": "Melee combat. Street fighting, physical intimidation.",
+      "skills": [
+        "one_handed",
+        "two_handed",
+        "polearm"
+      ]
+    },
+    "control": {
+      "name": "Control",
+      "description": "Ranged. Firearms, throwing.",
+      "skills": [
+        "bow",
+        "crossbow",
+        "throwing"
+      ]
+    },
+    "endurance": {
+      "name": "Endurance",
+      "description": "Movement, crafting. Driving, athletics, repair.",
+      "skills": [
+        "riding",
+        "athletics",
+        "smithing"
+      ]
+    },
+    "cunning": {
+      "name": "Cunning",
+      "description": "Recon, trickery. Scouting, tactics, roguery.",
+      "skills": [
+        "scouting",
+        "tactics",
+        "roguery"
+      ]
+    },
+    "social": {
+      "name": "Social",
+      "description": "People. Charm, leadership, trade.",
+      "skills": [
+        "charm",
+        "leadership",
+        "trade"
+      ]
+    },
+    "intelligence": {
+      "name": "Intelligence",
+      "description": "Support. Medicine, engineering, steward.",
+      "skills": [
+        "steward",
+        "medicine",
+        "engineering"
+      ]
+    }
+  },
+  "skills": {
+    "one_handed": {
+      "name": "One-Handed",
+      "attribute": "vigor",
+      "description": "Bats, machetes, knives. Fast, versatile.",
+      "perks": [
+        {
+          "threshold": 25,
+          "name": "Quick Draw",
+          "description": "+15% weapon switch speed",
+          "effect": {
+            "weapon_switch_speed": 0.15
+          }
+        },
+        {
+          "threshold": 50,
+          "name": "Shield Wall",
+          "description": "+20% block effectiveness with shield",
+          "effect": {
+            "shield_block": 0.2
+          }
+        },
+        {
+          "threshold": 75,
+          "name": "Dual Wield",
+          "description": "Can equip offhand weapon",
+          "effect": {
+            "dual_wield": true
+          }
+        },
+        {
+          "threshold": 100,
+          "name": "Saber Master",
+          "description": "+25% attack speed with one-handed",
+          "effect": {
+            "attack_speed_1h": 0.25
+          }
+        },
+        {
+          "threshold": 125,
+          "name": "Riposte",
+          "description": "+30% damage on counter-attack",
+          "effect": {
+            "counter_damage": 0.3
+          }
+        },
+        {
+          "threshold": 175,
+          "name": "Whirlwind",
+          "description": "Attacks hit +1 adjacent target",
+          "effect": {
+            "cleave": 1
+          }
+        },
+        {
+          "threshold": 200,
+          "name": "Untouchable",
+          "description": "+20% dodge chance",
+          "effect": {
+            "dodge": 0.2
+          }
+        },
+        {
+          "threshold": 275,
+          "name": "Legend",
+          "description": "+50% one-handed damage",
+          "effect": {
+            "damage_1h": 0.5
+          }
+        }
+      ]
+    },
+    "two_handed": {
+      "name": "Two-Handed",
+      "attribute": "vigor",
+      "description": "Sledgehammers, fire axes. Slow, devastating.",
+      "perks": [
+        {
+          "threshold": 25,
+          "name": "Heavy Hitter",
+          "description": "+15% damage with two-handed",
+          "effect": {
+            "damage_2h": 0.15
+          }
+        },
+        {
+          "threshold": 50,
+          "name": "Momentum",
+          "description": "+20% chain attack speed",
+          "effect": {
+            "chain_speed": 0.2
+          }
+        },
+        {
+          "threshold": 75,
+          "name": "Cleave",
+          "description": "Attacks hit +1 target",
+          "effect": {
+            "cleave": 1
+          }
+        },
+        {
+          "threshold": 100,
+          "name": "Demolisher",
+          "description": "+30% damage to shields/doors",
+          "effect": {
+            "shield_damage": 0.3
+          }
+        },
+        {
+          "threshold": 125,
+          "name": "Unstoppable",
+          "description": "Cannot be interrupted during overhead",
+          "effect": {
+            "hyper_armor": true
+          }
+        },
+        {
+          "threshold": 175,
+          "name": "Earthshaker",
+          "description": "Overhead attacks knock down",
+          "effect": {
+            "knockdown": true
+          }
+        },
+        {
+          "threshold": 200,
+          "name": "Colossus",
+          "description": "+25% HP",
+          "effect": {
+            "hp_bonus": 0.25
+          }
+        },
+        {
+          "threshold": 275,
+          "name": "Legend",
+          "description": "+50% two-handed damage",
+          "effect": {
+            "damage_2h": 0.5
+          }
+        }
+      ]
+    },
+    "polearm": {
+      "name": "Polearm",
+      "attribute": "vigor",
+      "description": "Long reach. Crowbars, improvised spears.",
+      "perks": [
+        {
+          "threshold": 25,
+          "name": "Reach",
+          "description": "+10% weapon reach",
+          "effect": {
+            "reach": 0.1
+          }
+        },
+        {
+          "threshold": 50,
+          "name": "Pike Wall",
+          "description": "+25% damage vs charging enemies",
+          "effect": {
+            "anti_charge": 0.25
+          }
+        },
+        {
+          "threshold": 75,
+          "name": "Sweep",
+          "description": "Thrust hits +1 target in line",
+          "effect": {
+            "pierce": 1
+          }
+        },
+        {
+          "threshold": 100,
+          "name": "Impale",
+          "description": "+30% thrust damage",
+          "effect": {
+            "thrust_damage": 0.3
+          }
+        },
+        {
+          "threshold": 125,
+          "name": "Keep Away",
+          "description": "Enemies take +20% longer to close distance",
+          "effect": {
+            "zone_control": 0.2
+          }
+        },
+        {
+          "threshold": 175,
+          "name": "Phalanx",
+          "description": "+25% block with polearm",
+          "effect": {
+            "polearm_block": 0.25
+          }
+        },
+        {
+          "threshold": 200,
+          "name": "Long Arm",
+          "description": "+20% reach",
+          "effect": {
+            "reach": 0.2
+          }
+        },
+        {
+          "threshold": 275,
+          "name": "Legend",
+          "description": "+50% polearm damage",
+          "effect": {
+            "damage_polearm": 0.5
+          }
+        }
+      ]
+    },
+    "bow": {
+      "name": "Bow",
+      "attribute": "control",
+      "description": "Hunting bows, compound bows. Silent, ammo-efficient.",
+      "perks": [
+        {
+          "threshold": 25,
+          "name": "Steady Aim",
+          "description": "+15% accuracy",
+          "effect": {
+            "accuracy_bow": 0.15
+          }
+        },
+        {
+          "threshold": 50,
+          "name": "Quick Nock",
+          "description": "+20% fire rate",
+          "effect": {
+            "fire_rate_bow": 0.2
+          }
+        },
+        {
+          "threshold": 75,
+          "name": "Hunter",
+          "description": "+25% damage to animals",
+          "effect": {
+            "animal_damage": 0.25
+          }
+        },
+        {
+          "threshold": 100,
+          "name": "Deadeye",
+          "description": "+30% headshot damage",
+          "effect": {
+            "headshot_bow": 0.3
+          }
+        },
+        {
+          "threshold": 125,
+          "name": "Silent",
+          "description": "Shots make 50% less noise",
+          "effect": {
+            "noise_bow": -0.5
+          }
+        },
+        {
+          "threshold": 175,
+          "name": "Piercing",
+          "description": "Arrows pierce light armor",
+          "effect": {
+            "armor_pierce_bow": true
+          }
+        },
+        {
+          "threshold": 200,
+          "name": "Rapid Fire",
+          "description": "+25% fire rate",
+          "effect": {
+            "fire_rate_bow": 0.25
+          }
+        },
+        {
+          "threshold": 275,
+          "name": "Legend",
+          "description": "+50% bow damage",
+          "effect": {
+            "damage_bow": 0.5
+          }
+        }
+      ]
+    },
+    "crossbow": {
+      "name": "Crossbow",
+      "attribute": "control",
+      "description": "Pistols, rifles. Loud, powerful.",
+      "perks": [
+        {
+          "threshold": 25,
+          "name": "Steady Hands",
+          "description": "+15% firearm accuracy",
+          "effect": {
+            "accuracy_gun": 0.15
+          }
+        },
+        {
+          "threshold": 50,
+          "name": "Fast Reload",
+          "description": "+20% reload speed",
+          "effect": {
+            "reload_speed": 0.2
+          }
+        },
+        {
+          "threshold": 75,
+          "name": "Gunslinger",
+          "description": "+20% pistol damage",
+          "effect": {
+            "pistol_damage": 0.2
+          }
+        },
+        {
+          "threshold": 100,
+          "name": "Marksman",
+          "description": "+25% rifle damage",
+          "effect": {
+            "rifle_damage": 0.25
+          }
+        },
+        {
+          "threshold": 125,
+          "name": "Suppressor",
+          "description": "Firearms make 30% less noise",
+          "effect": {
+            "noise_gun": -0.3
+          }
+        },
+        {
+          "threshold": 175,
+          "name": "Headhunter",
+          "description": "+40% headshot damage",
+          "effect": {
+            "headshot_gun": 0.4
+          }
+        },
+        {
+          "threshold": 200,
+          "name": "Trigger Discipline",
+          "description": "+25% ammo efficiency",
+          "effect": {
+            "ammo_efficiency": 0.25
+          }
+        },
+        {
+          "threshold": 275,
+          "name": "Legend",
+          "description": "+50% firearm damage",
+          "effect": {
+            "damage_gun": 0.5
+          }
+        }
+      ]
+    },
+    "throwing": {
+      "name": "Throwing",
+      "attribute": "control",
+      "description": "Molotovs, knives, bricks.",
+      "perks": [
+        {
+          "threshold": 25,
+          "name": "Good Arm",
+          "description": "+15% throw range",
+          "effect": {
+            "throw_range": 0.15
+          }
+        },
+        {
+          "threshold": 50,
+          "name": "Molotov Mix",
+          "description": "+25% fire damage",
+          "effect": {
+            "fire_damage": 0.25
+          }
+        },
+        {
+          "threshold": 75,
+          "name": "Cluster",
+          "description": "Thrown weapons hit +1 target",
+          "effect": {
+            "throw_cleave": 1
+          }
+        },
+        {
+          "threshold": 100,
+          "name": "Precision",
+          "description": "+30% thrown accuracy",
+          "effect": {
+            "accuracy_throw": 0.3
+          }
+        },
+        {
+          "threshold": 125,
+          "name": "Incendiary",
+          "description": "Molotovs spread fire",
+          "effect": {
+            "fire_spread": true
+          }
+        },
+        {
+          "threshold": 175,
+          "name": "Barrage",
+          "description": "+25% throw speed",
+          "effect": {
+            "throw_speed": 0.25
+          }
+        },
+        {
+          "threshold": 200,
+          "name": "Demolition",
+          "description": "+30% damage to structures",
+          "effect": {
+            "structure_damage": 0.3
+          }
+        },
+        {
+          "threshold": 275,
+          "name": "Legend",
+          "description": "+50% thrown damage",
+          "effect": {
+            "damage_throw": 0.5
+          }
+        }
+      ]
+    },
+    "riding": {
+      "name": "Driving",
+      "attribute": "endurance",
+      "description": "Vehicles, motorcycles. (Port of Riding)",
+      "perks": [
+        {
+          "threshold": 25,
+          "name": "Lead Foot",
+          "description": "+10% vehicle speed",
+          "effect": {
+            "vehicle_speed": 0.1
+          }
+        },
+        {
+          "threshold": 50,
+          "name": "Road Warrior",
+          "description": "+20% ram damage",
+          "effect": {
+            "ram_damage": 0.2
+          }
+        },
+        {
+          "threshold": 75,
+          "name": "Nomadic Traditions",
+          "description": "+30% party speed when mounted",
+          "effect": {
+            "mounted_party_speed": 0.3
+          }
+        },
+        {
+          "threshold": 100,
+          "name": "Drive-By",
+          "description": "+25% accuracy from vehicle",
+          "effect": {
+            "vehicle_accuracy": 0.25
+          }
+        },
+        {
+          "threshold": 125,
+          "name": "Mechanic",
+          "description": "Vehicles repair 30% faster",
+          "effect": {
+            "vehicle_repair": 0.3
+          }
+        },
+        {
+          "threshold": 175,
+          "name": "Stunt Driver",
+          "description": "+20% vehicle handling",
+          "effect": {
+            "vehicle_handling": 0.2
+          }
+        },
+        {
+          "threshold": 200,
+          "name": "Convoy",
+          "description": "+25% caravan speed",
+          "effect": {
+            "caravan_speed": 0.25
+          }
+        },
+        {
+          "threshold": 275,
+          "name": "Legend",
+          "description": "+50% vehicle damage",
+          "effect": {
+            "vehicle_damage": 0.5
+          }
+        }
+      ]
+    },
+    "athletics": {
+      "name": "Athletics",
+      "attribute": "endurance",
+      "description": "Running, climbing, stamina.",
+      "perks": [
+        {
+          "threshold": 25,
+          "name": "Sprinter",
+          "description": "+10% run speed",
+          "effect": {
+            "run_speed": 0.1
+          }
+        },
+        {
+          "threshold": 50,
+          "name": "Marathon",
+          "description": "+25% stamina",
+          "effect": {
+            "stamina": 0.25
+          }
+        },
+        {
+          "threshold": 75,
+          "name": "Parkour",
+          "description": "Can climb obstacles",
+          "effect": {
+            "climb": true
+          }
+        },
+        {
+          "threshold": 100,
+          "name": "Tireless",
+          "description": "+30% stamina regen",
+          "effect": {
+            "stamina_regen": 0.3
+          }
+        },
+        {
+          "threshold": 125,
+          "name": "Dodge",
+          "description": "+15% dodge chance",
+          "effect": {
+            "dodge": 0.15
+          }
+        },
+        {
+          "threshold": 175,
+          "name": "Adrenaline",
+          "description": "+20% speed when wounded",
+          "effect": {
+            "wounded_speed": 0.2
+          }
+        },
+        {
+          "threshold": 200,
+          "name": "Iron Lungs",
+          "description": "+30% stamina",
+          "effect": {
+            "stamina": 0.3
+          }
+        },
+        {
+          "threshold": 275,
+          "name": "Legend",
+          "description": "+50% move speed",
+          "effect": {
+            "move_speed": 0.5
+          }
+        }
+      ]
+    },
+    "smithing": {
+      "name": "Repair",
+      "attribute": "endurance",
+      "description": "Fix weapons, vehicles, gear. (Port of Smithing)",
+      "perks": [
+        {
+          "threshold": 25,
+          "name": "Tinkerer",
+          "description": "+15% repair speed",
+          "effect": {
+            "repair_speed": 0.15
+          }
+        },
+        {
+          "threshold": 50,
+          "name": "Scrapper",
+          "description": "+20% scrap from salvage",
+          "effect": {
+            "salvage": 0.2
+          }
+        },
+        {
+          "threshold": 75,
+          "name": "Weapon Mod",
+          "description": "Can add +10% damage mod",
+          "effect": {
+            "weapon_mod": 0.1
+          }
+        },
+        {
+          "threshold": 100,
+          "name": "Master Craft",
+          "description": "Repairs restore 25% more durability",
+          "effect": {
+            "repair_quality": 0.25
+          }
+        },
+        {
+          "threshold": 125,
+          "name": "Jury Rig",
+          "description": "Can repair in the field",
+          "effect": {
+            "field_repair": true
+          }
+        },
+        {
+          "threshold": 175,
+          "name": "Arsenal",
+          "description": "+20% weapon durability",
+          "effect": {
+            "durability": 0.2
+          }
+        },
+        {
+          "threshold": 200,
+          "name": "Engine Whisperer",
+          "description": "+30% vehicle repair",
+          "effect": {
+            "vehicle_repair": 0.3
+          }
+        },
+        {
+          "threshold": 275,
+          "name": "Legend",
+          "description": "Repairs are 50% more effective",
+          "effect": {
+            "repair_master": 0.5
+          }
+        }
+      ]
+    },
+    "scouting": {
+      "name": "Scouting",
+      "attribute": "cunning",
+      "description": "Spotting enemies, tracking.",
+      "perks": [
+        {
+          "threshold": 25,
+          "name": "Day Traveller",
+          "description": "+10% day party speed",
+          "effect": {
+            "day_speed": 0.1
+          }
+        },
+        {
+          "threshold": 50,
+          "name": "Night Runner",
+          "description": "+10% night party speed",
+          "effect": {
+            "night_speed": 0.1
+          }
+        },
+        {
+          "threshold": 75,
+          "name": "Forest Kin",
+          "description": "+50% forest speed if mostly infantry",
+          "effect": {
+            "forest_speed": 0.5
+          }
+        },
+        {
+          "threshold": 100,
+          "name": "Tracker",
+          "description": "+30% track visibility range",
+          "effect": {
+            "track_range": 0.3
+          }
+        },
+        {
+          "threshold": 125,
+          "name": "Eagle Eye",
+          "description": "+25% spotting range",
+          "effect": {
+            "spot_range": 0.25
+          }
+        },
+        {
+          "threshold": 175,
+          "name": "Ghost",
+          "description": "Party 30% harder to detect",
+          "effect": {
+            "stealth": 0.3
+          }
+        },
+        {
+          "threshold": 200,
+          "name": "Pathfinder",
+          "description": "+20% all-terrain speed",
+          "effect": {
+            "terrain_speed": 0.2
+          }
+        },
+        {
+          "threshold": 275,
+          "name": "Legend",
+          "description": "+50% scouting range",
+          "effect": {
+            "scout_range": 0.5
+          }
+        }
+      ]
+    },
+    "tactics": {
+      "name": "Tactics",
+      "attribute": "cunning",
+      "description": "Battlefield command.",
+      "perks": [
+        {
+          "threshold": 25,
+          "name": "Formation",
+          "description": "+10% formation bonus",
+          "effect": {
+            "formation_bonus": 0.1
+          }
+        },
+        {
+          "threshold": 50,
+          "name": "Flanker",
+          "description": "+20% flanking damage",
+          "effect": {
+            "flank_damage": 0.2
+          }
+        },
+        {
+          "threshold": 75,
+          "name": "Reserve",
+          "description": "Can hold troops in reserve",
+          "effect": {
+            "reserve": true
+          }
+        },
+        {
+          "threshold": 100,
+          "name": "Ambush",
+          "description": "+30% damage from ambush",
+          "effect": {
+            "ambush_damage": 0.3
+          }
+        },
+        {
+          "threshold": 125,
+          "name": "Discipline",
+          "description": "+20% morale in formation",
+          "effect": {
+            "formation_morale": 0.2
+          }
+        },
+        {
+          "threshold": 175,
+          "name": "Grand Tactician",
+          "description": "+1 command slot",
+          "effect": {
+            "command_slots": 1
+          }
+        },
+        {
+          "threshold": 200,
+          "name": "Blitz",
+          "description": "+25% charge damage",
+          "effect": {
+            "charge_damage": 0.25
+          }
+        },
+        {
+          "threshold": 275,
+          "name": "Legend",
+          "description": "+50% tactic effectiveness",
+          "effect": {
+            "tactics_master": 0.5
+          }
+        }
+      ]
+    },
+    "roguery": {
+      "name": "Roguery",
+      "attribute": "cunning",
+      "description": "Stealth, lockpicking, crime.",
+      "perks": [
+        {
+          "threshold": 25,
+          "name": "Pickpocket",
+          "description": "+15% steal success",
+          "effect": {
+            "steal": 0.15
+          }
+        },
+        {
+          "threshold": 50,
+          "name": "Lockpick",
+          "description": "Can pick basic locks",
+          "effect": {
+            "lockpick_basic": true
+          }
+        },
+        {
+          "threshold": 75,
+          "name": "Backstab",
+          "description": "+30% damage from behind",
+          "effect": {
+            "backstab": 0.3
+          }
+        },
+        {
+          "threshold": 100,
+          "name": "Infiltrator",
+          "description": "+25% stealth",
+          "effect": {
+            "stealth": 0.25
+          }
+        },
+        {
+          "threshold": 125,
+          "name": "Saboteur",
+          "description": "Can sabotage enemy supplies",
+          "effect": {
+            "sabotage": true
+          }
+        },
+        {
+          "threshold": 175,
+          "name": "Ghost",
+          "description": "+30% harder to detect",
+          "effect": {
+            "detection_resist": 0.3
+          }
+        },
+        {
+          "threshold": 200,
+          "name": "Master Thief",
+          "description": "Can pick any lock",
+          "effect": {
+            "lockpick_master": true
+          }
+        },
+        {
+          "threshold": 275,
+          "name": "Legend",
+          "description": "+50% roguery effectiveness",
+          "effect": {
+            "roguery_master": 0.5
+          }
+        }
+      ]
+    },
+    "charm": {
+      "name": "Charm",
+      "attribute": "social",
+      "description": "Persuasion, negotiation.",
+      "perks": [
+        {
+          "threshold": 25,
+          "name": "Silver Tongue",
+          "description": "+15% persuasion",
+          "effect": {
+            "persuasion": 0.15
+          }
+        },
+        {
+          "threshold": 50,
+          "name": "Haggler",
+          "description": "+10% better prices",
+          "effect": {
+            "trade_prices": 0.1
+          }
+        },
+        {
+          "threshold": 75,
+          "name": "Diplomat",
+          "description": "+20% relation gain",
+          "effect": {
+            "relation_gain": 0.2
+          }
+        },
+        {
+          "threshold": 100,
+          "name": "Inspiring",
+          "description": "+15% party morale",
+          "effect": {
+            "party_morale": 0.15
+          }
+        },
+        {
+          "threshold": 125,
+          "name": "Mediator",
+          "description": "Can resolve disputes",
+          "effect": {
+            "mediate": true
+          }
+        },
+        {
+          "threshold": 175,
+          "name": "Cult of Personality",
+          "description": "+25% recruit speed",
+          "effect": {
+            "recruit_speed": 0.25
+          }
+        },
+        {
+          "threshold": 200,
+          "name": "Silver-Tongued Devil",
+          "description": "+30% persuasion",
+          "effect": {
+            "persuasion": 0.3
+          }
+        },
+        {
+          "threshold": 275,
+          "name": "Legend",
+          "description": "+50% charm effectiveness",
+          "effect": {
+            "charm_master": 0.5
+          }
+        }
+      ]
+    },
+    "leadership": {
+      "name": "Leadership",
+      "attribute": "social",
+      "description": "Commanding troops.",
+      "perks": [
+        {
+          "threshold": 25,
+          "name": "Rally",
+          "description": "+10% morale recovery",
+          "effect": {
+            "morale_recovery": 0.1
+          }
+        },
+        {
+          "threshold": 50,
+          "name": "Inspire",
+          "description": "+15% troop XP gain",
+          "effect": {
+            "xp_gain": 0.15
+          }
+        },
+        {
+          "threshold": 75,
+          "name": "Warlord",
+          "description": "+1 party size per 10 leadership",
+          "effect": {
+            "party_size_bonus": 0.1
+          }
+        },
+        {
+          "threshold": 100,
+          "name": "Unbreakable",
+          "description": "Troops rout 25% slower",
+          "effect": {
+            "rout_resist": 0.25
+          }
+        },
+        {
+          "threshold": 125,
+          "name": "Tactician",
+          "description": "+1 formation slot",
+          "effect": {
+            "formation_slots": 1
+          }
+        },
+        {
+          "threshold": 175,
+          "name": "Legendary Commander",
+          "description": "+20% all troop stats",
+          "effect": {
+            "troop_stats": 0.2
+          }
+        },
+        {
+          "threshold": 200,
+          "name": "Iron Discipline",
+          "description": "+30% morale",
+          "effect": {
+            "morale": 0.3
+          }
+        },
+        {
+          "threshold": 275,
+          "name": "Legend",
+          "description": "+50% leadership effectiveness",
+          "effect": {
+            "leadership_master": 0.5
+          }
+        }
+      ]
+    },
+    "trade": {
+      "name": "Trade",
+      "attribute": "social",
+      "description": "Buying low, selling high.",
+      "perks": [
+        {
+          "threshold": 25,
+          "name": "Haggler",
+          "description": "+10% sell prices",
+          "effect": {
+            "sell_price": 0.1
+          }
+        },
+        {
+          "threshold": 50,
+          "name": "Wholesaler",
+          "description": "+15% caravan capacity",
+          "effect": {
+            "caravan_capacity": 0.15
+          }
+        },
+        {
+          "threshold": 75,
+          "name": "Market Sense",
+          "description": "See price trends",
+          "effect": {
+            "price_forecast": true
+          }
+        },
+        {
+          "threshold": 100,
+          "name": "Monopolist",
+          "description": "+20% profit in controlled towns",
+          "effect": {
+            "monopoly_profit": 0.2
+          }
+        },
+        {
+          "threshold": 125,
+          "name": "Smuggler",
+          "description": "Can trade contraband",
+          "effect": {
+            "contraband": true
+          }
+        },
+        {
+          "threshold": 175,
+          "name": "Trade Empire",
+          "description": "+25% workshop income",
+          "effect": {
+            "workshop_income": 0.25
+          }
+        },
+        {
+          "threshold": 200,
+          "name": "Silver Tongue",
+          "description": "+20% buy prices (lower)",
+          "effect": {
+            "buy_price": -0.2
+          }
+        },
+        {
+          "threshold": 275,
+          "name": "Legend",
+          "description": "+50% trade profit",
+          "effect": {
+            "trade_profit": 0.5
+          }
+        }
+      ]
+    },
+    "steward": {
+      "name": "Steward",
+      "attribute": "intelligence",
+      "description": "Managing party, logistics.",
+      "perks": [
+        {
+          "threshold": 25,
+          "name": "Organized",
+          "description": "+10% party size",
+          "effect": {
+            "party_size": 0.1
+          }
+        },
+        {
+          "threshold": 50,
+          "name": "Quartermaster",
+          "description": "+15% food efficiency",
+          "effect": {
+            "food_efficiency": 0.15
+          }
+        },
+        {
+          "threshold": 75,
+          "name": "Logistician",
+          "description": "+20% carry capacity",
+          "effect": {
+            "carry_capacity": 0.2
+          }
+        },
+        {
+          "threshold": 100,
+          "name": "Administrator",
+          "description": "+25% garrison size",
+          "effect": {
+            "garrison_size": 0.25
+          }
+        },
+        {
+          "threshold": 125,
+          "name": "Efficiency",
+          "description": "-15% party wages",
+          "effect": {
+            "wage_reduction": 0.15
+          }
+        },
+        {
+          "threshold": 175,
+          "name": "Master Steward",
+          "description": "+30% party size",
+          "effect": {
+            "party_size": 0.3
+          }
+        },
+        {
+          "threshold": 200,
+          "name": "Supply Chain",
+          "description": "+25% supply range",
+          "effect": {
+            "supply_range": 0.25
+          }
+        },
+        {
+          "threshold": 275,
+          "name": "Legend",
+          "description": "+50% steward effectiveness",
+          "effect": {
+            "steward_master": 0.5
+          }
+        }
+      ]
+    },
+    "medicine": {
+      "name": "Medicine",
+      "attribute": "intelligence",
+      "description": "Healing wounded.",
+      "perks": [
+        {
+          "threshold": 25,
+          "name": "First Aid",
+          "description": "+15% wound recovery",
+          "effect": {
+            "heal_rate": 0.15
+          }
+        },
+        {
+          "threshold": 50,
+          "name": "Surgeon",
+          "description": "+20% survival rate",
+          "effect": {
+            "survival": 0.2
+          }
+        },
+        {
+          "threshold": 75,
+          "name": "Field Medic",
+          "description": "Heal during battle",
+          "effect": {
+            "battle_heal": true
+          }
+        },
+        {
+          "threshold": 100,
+          "name": "Doctor",
+          "description": "+30% heal rate",
+          "effect": {
+            "heal_rate": 0.3
+          }
+        },
+        {
+          "threshold": 125,
+          "name": "Triage",
+          "description": "Prioritize critical wounds",
+          "effect": {
+            "triage": true
+          }
+        },
+        {
+          "threshold": 175,
+          "name": "Plague Doctor",
+          "description": "+25% disease resistance",
+          "effect": {
+            "disease_resist": 0.25
+          }
+        },
+        {
+          "threshold": 200,
+          "name": "Miracle Worker",
+          "description": "+40% survival",
+          "effect": {
+            "survival": 0.4
+          }
+        },
+        {
+          "threshold": 275,
+          "name": "Legend",
+          "description": "+50% medicine effectiveness",
+          "effect": {
+            "medicine_master": 0.5
+          }
+        }
+      ]
+    },
+    "engineering": {
+      "name": "Engineering",
+      "attribute": "intelligence",
+      "description": "Breaching, building.",
+      "perks": [
+        {
+          "threshold": 25,
+          "name": "Demolitions",
+          "description": "+15% breach speed",
+          "effect": {
+            "breach_speed": 0.15
+          }
+        },
+        {
+          "threshold": 50,
+          "name": "Fortifier",
+          "description": "+20% defense construction",
+          "effect": {
+            "fortify": 0.2
+          }
+        },
+        {
+          "threshold": 75,
+          "name": "Sapper",
+          "description": "Can tunnel under walls",
+          "effect": {
+            "tunnel": true
+          }
+        },
+        {
+          "threshold": 100,
+          "name": "Siege Master",
+          "description": "+30% siege effectiveness",
+          "effect": {
+            "siege": 0.3
+          }
+        },
+        {
+          "threshold": 125,
+          "name": "Explosives Expert",
+          "description": "+25% explosive damage",
+          "effect": {
+            "explosive_damage": 0.25
+          }
+        },
+        {
+          "threshold": 175,
+          "name": "Architect",
+          "description": "+30% build speed",
+          "effect": {
+            "build_speed": 0.3
+          }
+        },
+        {
+          "threshold": 200,
+          "name": "Combat Engineer",
+          "description": "Build field fortifications",
+          "effect": {
+            "field_fort": true
+          }
+        },
+        {
+          "threshold": 275,
+          "name": "Legend",
+          "description": "+50% engineering effectiveness",
+          "effect": {
+            "eng_master": 0.5
+          }
+        }
+      ]
+    }
+  }
+}

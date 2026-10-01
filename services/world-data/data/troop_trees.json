@@ -1,0 +1,385 @@
+{
+  "_comment": "Troop trees for 10 ethnicities. Each: 3 tiers (recruit -> veteran -> elite). Stats are relative (1.0 = baseline human).",
+  "trees": {
+    "italian": {
+      "name": "Italian",
+      "tiers": [
+        {
+          "id": "italian_street_tough",
+          "name": "Street Tough",
+          "tier": 1,
+          "hp": 1.0,
+          "melee": 1.0,
+          "ranged": 0.6,
+          "speed": 1.0,
+          "cost": 50,
+          "upkeep": 5
+        },
+        {
+          "id": "italian_enforcer",
+          "name": "Enforcer",
+          "tier": 2,
+          "hp": 1.2,
+          "melee": 1.3,
+          "ranged": 0.7,
+          "speed": 1.0,
+          "cost": 120,
+          "upkeep": 8
+        },
+        {
+          "id": "italian_caporegime",
+          "name": "Caporegime",
+          "tier": 3,
+          "hp": 1.4,
+          "melee": 1.6,
+          "ranged": 0.9,
+          "speed": 1.0,
+          "cost": 250,
+          "upkeep": 12
+        }
+      ]
+    },
+    "irish": {
+      "name": "Irish",
+      "tiers": [
+        {
+          "id": "irish_brawler",
+          "name": "Brawler",
+          "tier": 1,
+          "hp": 1.1,
+          "melee": 1.1,
+          "ranged": 0.5,
+          "speed": 1.0,
+          "cost": 55,
+          "upkeep": 5
+        },
+        {
+          "id": "irish_scrapper",
+          "name": "Scrapper",
+          "tier": 2,
+          "hp": 1.3,
+          "melee": 1.4,
+          "ranged": 0.6,
+          "speed": 1.0,
+          "cost": 130,
+          "upkeep": 8
+        },
+        {
+          "id": "irish_champion",
+          "name": "Champion",
+          "tier": 3,
+          "hp": 1.5,
+          "melee": 1.7,
+          "ranged": 0.8,
+          "speed": 1.0,
+          "cost": 270,
+          "upkeep": 13
+        }
+      ]
+    },
+    "chinese": {
+      "name": "Chinese",
+      "tiers": [
+        {
+          "id": "chinese_militia",
+          "name": "Militia",
+          "tier": 1,
+          "hp": 0.9,
+          "melee": 0.9,
+          "ranged": 0.8,
+          "speed": 1.1,
+          "cost": 45,
+          "upkeep": 4
+        },
+        {
+          "id": "chinese_rifleman",
+          "name": "Rifleman",
+          "tier": 2,
+          "hp": 1.0,
+          "melee": 1.0,
+          "ranged": 1.2,
+          "speed": 1.1,
+          "cost": 110,
+          "upkeep": 7
+        },
+        {
+          "id": "chinese_marksman",
+          "name": "Marksman",
+          "tier": 3,
+          "hp": 1.1,
+          "melee": 1.1,
+          "ranged": 1.6,
+          "speed": 1.1,
+          "cost": 240,
+          "upkeep": 11
+        }
+      ]
+    },
+    "korean": {
+      "name": "Korean",
+      "tiers": [
+        {
+          "id": "korean_shopkeeper",
+          "name": "Shopkeeper",
+          "tier": 1,
+          "hp": 0.9,
+          "melee": 0.8,
+          "ranged": 1.0,
+          "speed": 1.0,
+          "cost": 48,
+          "upkeep": 4
+        },
+        {
+          "id": "korean_guard",
+          "name": "Guard",
+          "tier": 2,
+          "hp": 1.1,
+          "melee": 1.1,
+          "ranged": 1.3,
+          "speed": 1.0,
+          "cost": 115,
+          "upkeep": 7
+        },
+        {
+          "id": "korean_sentinel",
+          "name": "Sentinel",
+          "tier": 3,
+          "hp": 1.3,
+          "melee": 1.3,
+          "ranged": 1.7,
+          "speed": 1.0,
+          "cost": 260,
+          "upkeep": 12
+        }
+      ]
+    },
+    "african": {
+      "name": "African",
+      "tiers": [
+        {
+          "id": "african_runner",
+          "name": "Runner",
+          "tier": 1,
+          "hp": 1.0,
+          "melee": 0.9,
+          "ranged": 0.7,
+          "speed": 1.2,
+          "cost": 52,
+          "upkeep": 5
+        },
+        {
+          "id": "african_scout",
+          "name": "Scout",
+          "tier": 2,
+          "hp": 1.1,
+          "melee": 1.0,
+          "ranged": 1.0,
+          "speed": 1.2,
+          "cost": 125,
+          "upkeep": 8
+        },
+        {
+          "id": "african_pathfinder",
+          "name": "Pathfinder",
+          "tier": 3,
+          "hp": 1.2,
+          "melee": 1.2,
+          "ranged": 1.4,
+          "speed": 1.3,
+          "cost": 255,
+          "upkeep": 12
+        }
+      ]
+    },
+    "jamaican": {
+      "name": "Jamaican",
+      "tiers": [
+        {
+          "id": "jamaican_youth",
+          "name": "Youth",
+          "tier": 1,
+          "hp": 0.9,
+          "melee": 1.0,
+          "ranged": 0.8,
+          "speed": 1.1,
+          "cost": 47,
+          "upkeep": 4
+        },
+        {
+          "id": "jamaican_soldier",
+          "name": "Soldier",
+          "tier": 2,
+          "hp": 1.1,
+          "melee": 1.2,
+          "ranged": 1.1,
+          "speed": 1.1,
+          "cost": 118,
+          "upkeep": 7
+        },
+        {
+          "id": "jamaican_don",
+          "name": "Don",
+          "tier": 3,
+          "hp": 1.3,
+          "melee": 1.5,
+          "ranged": 1.4,
+          "speed": 1.1,
+          "cost": 265,
+          "upkeep": 13
+        }
+      ]
+    },
+    "mexican": {
+      "name": "Mexican",
+      "tiers": [
+        {
+          "id": "mexican_worker",
+          "name": "Worker",
+          "tier": 1,
+          "hp": 1.0,
+          "melee": 0.9,
+          "ranged": 0.6,
+          "speed": 1.0,
+          "cost": 46,
+          "upkeep": 4
+        },
+        {
+          "id": "mexican_vaquero",
+          "name": "Vaquero",
+          "tier": 2,
+          "hp": 1.2,
+          "melee": 1.1,
+          "ranged": 0.9,
+          "speed": 1.1,
+          "cost": 122,
+          "upkeep": 8
+        },
+        {
+          "id": "mexican_jefe",
+          "name": "Jefe",
+          "tier": 3,
+          "hp": 1.4,
+          "melee": 1.4,
+          "ranged": 1.2,
+          "speed": 1.1,
+          "cost": 258,
+          "upkeep": 12
+        }
+      ]
+    },
+    "puerto_rican": {
+      "name": "Puerto Rican",
+      "tiers": [
+        {
+          "id": "puerto_rican_casual",
+          "name": "Casual",
+          "tier": 1,
+          "hp": 0.9,
+          "melee": 0.9,
+          "ranged": 0.7,
+          "speed": 1.1,
+          "cost": 49,
+          "upkeep": 4
+        },
+        {
+          "id": "puerto_rican_hustler",
+          "name": "Hustler",
+          "tier": 2,
+          "hp": 1.0,
+          "melee": 1.1,
+          "ranged": 1.0,
+          "speed": 1.2,
+          "cost": 119,
+          "upkeep": 7
+        },
+        {
+          "id": "puerto_rican_kingpin",
+          "name": "Kingpin",
+          "tier": 3,
+          "hp": 1.2,
+          "melee": 1.3,
+          "ranged": 1.3,
+          "speed": 1.2,
+          "cost": 252,
+          "upkeep": 11
+        }
+      ]
+    },
+    "german": {
+      "name": "German",
+      "tiers": [
+        {
+          "id": "german_apprentice",
+          "name": "Apprentice",
+          "tier": 1,
+          "hp": 1.0,
+          "melee": 1.0,
+          "ranged": 0.7,
+          "speed": 0.9,
+          "cost": 53,
+          "upkeep": 5
+        },
+        {
+          "id": "german_craftsman",
+          "name": "Craftsman",
+          "tier": 2,
+          "hp": 1.2,
+          "melee": 1.2,
+          "ranged": 0.9,
+          "speed": 0.9,
+          "cost": 128,
+          "upkeep": 8
+        },
+        {
+          "id": "german_meister",
+          "name": "Meister",
+          "tier": 3,
+          "hp": 1.4,
+          "melee": 1.5,
+          "ranged": 1.1,
+          "speed": 0.9,
+          "cost": 268,
+          "upkeep": 13
+        }
+      ]
+    },
+    "russian": {
+      "name": "Russian",
+      "tiers": [
+        {
+          "id": "russian_conscript",
+          "name": "Conscript",
+          "tier": 1,
+          "hp": 1.1,
+          "melee": 1.0,
+          "ranged": 0.8,
+          "speed": 0.9,
+          "cost": 51,
+          "upkeep": 5
+        },
+        {
+          "id": "russian_veteran",
+          "name": "Veteran",
+          "tier": 2,
+          "hp": 1.3,
+          "melee": 1.3,
+          "ranged": 1.1,
+          "speed": 0.9,
+          "cost": 126,
+          "upkeep": 8
+        },
+        {
+          "id": "russian_spetsnaz",
+          "name": "Spetsnaz",
+          "tier": 3,
+          "hp": 1.5,
+          "melee": 1.6,
+          "ranged": 1.5,
+          "speed": 1.0,
+          "cost": 275,
+          "upkeep": 14
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,288 @@
+{
+  "_comment": "Weapon catalog: melee weapons with 4-direction stats, firearms with loudness/ammo. Damage in HP units (1.0 = baseline human HP).",
+  "melee": [
+    {
+      "id": "baseball_bat",
+      "name": "Baseball Bat",
+      "type": "one_handed",
+      "overhead": {
+        "damage": 1.2,
+        "speed": 0.8,
+        "reach": 1.0
+      },
+      "left": {
+        "damage": 1.0,
+        "speed": 1.0,
+        "reach": 1.0
+      },
+      "right": {
+        "damage": 1.0,
+        "speed": 1.0,
+        "reach": 1.0
+      },
+      "thrust": {
+        "damage": 0.4,
+        "speed": 1.2,
+        "reach": 0.8
+      },
+      "weight": 0.9,
+      "unbalanced": true,
+      "chain_bonus": 0.15
+    },
+    {
+      "id": "machete",
+      "name": "Machete",
+      "type": "one_handed",
+      "overhead": {
+        "damage": 1.4,
+        "speed": 0.9,
+        "reach": 0.9
+      },
+      "left": {
+        "damage": 1.2,
+        "speed": 1.1,
+        "reach": 0.9
+      },
+      "right": {
+        "damage": 1.2,
+        "speed": 1.1,
+        "reach": 0.9
+      },
+      "thrust": {
+        "damage": 0.8,
+        "speed": 1.0,
+        "reach": 0.9
+      },
+      "weight": 0.7,
+      "unbalanced": false,
+      "chain_bonus": 0.0
+    },
+    {
+      "id": "crowbar",
+      "name": "Crowbar",
+      "type": "one_handed",
+      "overhead": {
+        "damage": 1.1,
+        "speed": 0.9,
+        "reach": 0.8
+      },
+      "left": {
+        "damage": 0.9,
+        "speed": 1.0,
+        "reach": 0.8
+      },
+      "right": {
+        "damage": 0.9,
+        "speed": 1.0,
+        "reach": 0.8
+      },
+      "thrust": {
+        "damage": 0.7,
+        "speed": 1.1,
+        "reach": 1.0
+      },
+      "weight": 1.1,
+      "unbalanced": false,
+      "chain_bonus": 0.0
+    },
+    {
+      "id": "sledgehammer",
+      "name": "Sledgehammer",
+      "type": "two_handed",
+      "overhead": {
+        "damage": 2.0,
+        "speed": 0.6,
+        "reach": 1.1
+      },
+      "left": {
+        "damage": 1.6,
+        "speed": 0.7,
+        "reach": 1.1
+      },
+      "right": {
+        "damage": 1.6,
+        "speed": 0.7,
+        "reach": 1.1
+      },
+      "thrust": {
+        "damage": 0.5,
+        "speed": 0.8,
+        "reach": 1.0
+      },
+      "weight": 2.5,
+      "unbalanced": true,
+      "chain_bonus": 0.25
+    },
+    {
+      "id": "knife",
+      "name": "Combat Knife",
+      "type": "one_handed",
+      "overhead": {
+        "damage": 0.6,
+        "speed": 1.4,
+        "reach": 0.5
+      },
+      "left": {
+        "damage": 0.5,
+        "speed": 1.5,
+        "reach": 0.5
+      },
+      "right": {
+        "damage": 0.5,
+        "speed": 1.5,
+        "reach": 0.5
+      },
+      "thrust": {
+        "damage": 0.9,
+        "speed": 1.3,
+        "reach": 0.6
+      },
+      "weight": 0.3,
+      "unbalanced": false,
+      "chain_bonus": 0.0
+    },
+    {
+      "id": "riot_baton",
+      "name": "Riot Baton",
+      "type": "one_handed",
+      "overhead": {
+        "damage": 0.9,
+        "speed": 1.1,
+        "reach": 0.9
+      },
+      "left": {
+        "damage": 0.8,
+        "speed": 1.2,
+        "reach": 0.9
+      },
+      "right": {
+        "damage": 0.8,
+        "speed": 1.2,
+        "reach": 0.9
+      },
+      "thrust": {
+        "damage": 0.5,
+        "speed": 1.2,
+        "reach": 0.9
+      },
+      "weight": 0.6,
+      "unbalanced": false,
+      "chain_bonus": 0.0
+    },
+    {
+      "id": "fire_axe",
+      "name": "Fire Axe",
+      "type": "two_handed",
+      "overhead": {
+        "damage": 1.8,
+        "speed": 0.7,
+        "reach": 1.0
+      },
+      "left": {
+        "damage": 1.4,
+        "speed": 0.8,
+        "reach": 1.0
+      },
+      "right": {
+        "damage": 1.4,
+        "speed": 0.8,
+        "reach": 1.0
+      },
+      "thrust": {
+        "damage": 0.6,
+        "speed": 0.9,
+        "reach": 0.9
+      },
+      "weight": 1.8,
+      "unbalanced": true,
+      "chain_bonus": 0.2
+    }
+  ],
+  "firearms": [
+    {
+      "id": "pistol_9mm",
+      "name": "9mm Pistol",
+      "type": "pistol",
+      "damage": 1.5,
+      "range": 30,
+      "mag_size": 15,
+      "loudness": 0.7,
+      "ammo_good": "arms",
+      "ammo_per_shot": 1
+    },
+    {
+      "id": "shotgun_12g",
+      "name": "12g Shotgun",
+      "type": "shotgun",
+      "damage": 3.0,
+      "range": 20,
+      "mag_size": 6,
+      "loudness": 1.0,
+      "ammo_good": "arms",
+      "ammo_per_shot": 1
+    },
+    {
+      "id": "rifle_556",
+      "name": "5.56 Rifle",
+      "type": "rifle",
+      "damage": 2.2,
+      "range": 100,
+      "mag_size": 30,
+      "loudness": 0.9,
+      "ammo_good": "arms",
+      "ammo_per_shot": 1
+    },
+    {
+      "id": "hunting_bow",
+      "name": "Hunting Bow",
+      "type": "bow",
+      "damage": 1.3,
+      "range": 40,
+      "mag_size": 1,
+      "loudness": 0.1,
+      "ammo_good": "tools",
+      "ammo_per_shot": 1
+    },
+    {
+      "id": "molotov",
+      "name": "Molotov Cocktail",
+      "type": "thrown",
+      "damage": 2.5,
+      "range": 15,
+      "mag_size": 1,
+      "loudness": 0.3,
+      "ammo_good": "fuel",
+      "ammo_per_shot": 1
+    }
+  ],
+  "shields": [
+    {
+      "id": "riot_shield",
+      "name": "Riot Shield",
+      "integrity": 100,
+      "coverage": 0.8,
+      "weight": 3.0
+    },
+    {
+      "id": "car_door",
+      "name": "Car Door",
+      "integrity": 60,
+      "coverage": 0.6,
+      "weight": 5.0
+    },
+    {
+      "id": "trash_lid",
+      "name": "Trash Can Lid",
+      "integrity": 30,
+      "coverage": 0.4,
+      "weight": 1.0
+    },
+    {
+      "id": "plywood",
+      "name": "Plywood Board",
+      "integrity": 40,
+      "coverage": 0.5,
+      "weight": 2.0
+    }
+  ]
+}

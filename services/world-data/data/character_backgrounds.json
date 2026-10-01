@@ -1,0 +1,210 @@
+{
+  "_comment": "Character creation backgrounds. Each stage grants attribute points, skill levels, focus points.",
+  "family_backgrounds": [
+    {
+      "id": "urban_poor",
+      "name": "Urban Poor",
+      "description": "Grew up in the projects. Tough, resourceful.",
+      "attributes": {
+        "vigor": 1,
+        "cunning": 1
+      },
+      "skills": {
+        "athletics": 10,
+        "roguery": 15
+      },
+      "focus_points": 1
+    },
+    {
+      "id": "suburban",
+      "name": "Suburban Family",
+      "description": "Stable home, good schools. Well-rounded.",
+      "attributes": {
+        "intelligence": 1,
+        "social": 1
+      },
+      "skills": {
+        "charm": 10,
+        "trade": 10
+      },
+      "focus_points": 1
+    },
+    {
+      "id": "rural",
+      "name": "Rural Family",
+      "description": "Farm country. Strong back, practical hands.",
+      "attributes": {
+        "vigor": 1,
+        "endurance": 1
+      },
+      "skills": {
+        "athletics": 15,
+        "medicine": 5
+      },
+      "focus_points": 1
+    },
+    {
+      "id": "military",
+      "name": "Military Family",
+      "description": "Discipline and firearms from an early age.",
+      "attributes": {
+        "control": 1,
+        "endurance": 1
+      },
+      "skills": {
+        "bow": 10,
+        "leadership": 10
+      },
+      "focus_points": 1
+    },
+    {
+      "id": "street",
+      "name": "Street Raised",
+      "description": "No family. The block raised you.",
+      "attributes": {
+        "cunning": 2
+      },
+      "skills": {
+        "roguery": 20,
+        "athletics": 10
+      },
+      "focus_points": 1
+    },
+    {
+      "id": "merchant",
+      "name": "Merchant Family",
+      "description": "Learned trade at the counter.",
+      "attributes": {
+        "social": 1,
+        "intelligence": 1
+      },
+      "skills": {
+        "trade": 20,
+        "charm": 5
+      },
+      "focus_points": 1
+    }
+  ],
+  "early_life": [
+    {
+      "id": "schoolyard",
+      "name": "Schoolyard Fights",
+      "skills": {
+        "one_handed": 15
+      },
+      "focus_points": 1
+    },
+    {
+      "id": "hunting",
+      "name": "Hunting Trips",
+      "skills": {
+        "bow": 15,
+        "scouting": 10
+      },
+      "focus_points": 1
+    },
+    {
+      "id": "garage",
+      "name": "Garage Mechanic",
+      "skills": {
+        "smithing": 15,
+        "engineering": 5
+      },
+      "focus_points": 1
+    },
+    {
+      "id": "church",
+      "name": "Church Community",
+      "skills": {
+        "charm": 15,
+        "medicine": 5
+      },
+      "focus_points": 1
+    }
+  ],
+  "adolescence": [
+    {
+      "id": "gang",
+      "name": "Ran With a Crew",
+      "skills": {
+        "roguery": 15,
+        "tactics": 10
+      },
+      "focus_points": 1
+    },
+    {
+      "id": "sports",
+      "name": "High School Sports",
+      "skills": {
+        "athletics": 20
+      },
+      "focus_points": 1
+    },
+    {
+      "id": "jobs",
+      "name": "Worked Odd Jobs",
+      "skills": {
+        "trade": 10,
+        "steward": 10
+      },
+      "focus_points": 1
+    },
+    {
+      "id": "military_jrotc",
+      "name": "JROTC",
+      "skills": {
+        "leadership": 10,
+        "crossbow": 10
+      },
+      "focus_points": 1
+    }
+  ],
+  "youth": [
+    {
+      "id": "bouncer",
+      "name": "Bar Bouncer",
+      "skills": {
+        "one_handed": 10,
+        "charm": 10
+      },
+      "focus_points": 1,
+      "attributes": {
+        "vigor": 1
+      }
+    },
+    {
+      "id": "driver",
+      "name": "Delivery Driver",
+      "skills": {
+        "riding": 20
+      },
+      "focus_points": 1,
+      "attributes": {
+        "endurance": 1
+      }
+    },
+    {
+      "id": "medic",
+      "name": "EMT Trainee",
+      "skills": {
+        "medicine": 20
+      },
+      "focus_points": 1,
+      "attributes": {
+        "intelligence": 1
+      }
+    },
+    {
+      "id": "dealer",
+      "name": "Street Dealer",
+      "skills": {
+        "trade": 15,
+        "roguery": 10
+      },
+      "focus_points": 1,
+      "attributes": {
+        "cunning": 1
+      }
+    }
+  ]
+}
