@@ -16,6 +16,7 @@ import { createObjectiveMarkers, type ObjectiveMarkers } from "./objectiveMarker
 import { createEdgeIndicators, type EdgeIndicators } from "./edgeIndicators.js";
 import { createHealthVignette, type HealthVignette } from "./healthVignette.js";
 import { createImpactFX, type ImpactFX } from "./impact.js";
+import type { Memorial } from "../afteraction/memorial.js";
 export {
   MAX_FLASH_HZ,
   MIN_FLASH_INTERVAL_MS,
@@ -37,6 +38,14 @@ export interface BattleFeedbackOptions {
   /** Element the screen shake applies to (the canvas wrapper). Without it,
    *  shake is a no-op; everything else still works. */
   shakeTarget?: HTMLElement;
+  /**
+   * War memorial store (task 75). When present, every hero kill the source
+   * reports is carved as a stone; the memorial is the single live subscriber
+   * alongside the kill feed, so no battle death goes unrecorded.
+   */
+  memorial?: Memorial;
+  /** Label for the battle, carved onto the stones ("Redfield"). */
+  battleLabel?: string;
 }
 
 export interface BattleFeedback {
@@ -63,6 +72,11 @@ export function createBattleFeedback(
   const root = h("div", { class: "fb-root", "data-testid": "fb-root" });
   const killFeed = createKillFeed(source);
   const battleLog = createBattleLog(source);
+  // Task 75: the memorial records every hero kill alongside the feed, so a
+  // battle death is a stone even when nobody opens the memorial panel.
+  const unmemorial = opts.memorial
+    ? source.onHeroKill((k) => opts.memorial?.recordHeroKill(k, opts.battleLabel))
+    : null;
   const damageNumbers = createDamageNumbers(source, projection);
   const direction = createDirectionIndicator(source, projection);
   const threat = createThreatIndicator(source, projection);
@@ -110,6 +124,7 @@ export function createBattleFeedback(
     destroy() {
       alive = false;
       cancelAnimationFrame(raf);
+      unmemorial?.();
       killFeed.destroy();
       battleLog.destroy();
       damageNumbers.destroy();

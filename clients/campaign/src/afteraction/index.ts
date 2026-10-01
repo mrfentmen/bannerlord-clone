@@ -7,6 +7,8 @@ export * from "./casualties.js";
 export * from "./report.js";
 export * from "./endScreens.js";
 export * from "./warStats.js";
+export * from "./memorial.js";
+export { memorialPanel, type MemorialPanelOptions, type MemorialPanelHandle } from "./memorialPanel.js";
 export * from "./replay.js";
 export * from "./share.js";
 export { createReportScreen } from "./reportScreen.js";

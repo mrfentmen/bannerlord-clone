@@ -47,6 +47,8 @@ export interface HudOptions {
   onOpenChronicle?: () => void;
   /** Toggles the battle heatmap overlay. Optional: the button hides without it. */
   onOpenHeatmap?: () => void;
+  /** Opens the war memorial. Optional: the button hides without it. */
+  onOpenMemorial?: () => void;
   /** Opens the deployment map preview. Optional: the button hides without it. */
   onOpenDeploymentPreview?: () => void;
   /**
@@ -514,6 +516,12 @@ export function createHud(options: HudOptions): HudHandle {
       const heatmapBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-heatmap" }, "Battle heatmap");
       heatmapBtn.addEventListener("click", () => options.onOpenHeatmap?.());
       rail.appendChild(heatmapBtn);
+    }
+
+    if (options.onOpenMemorial) {
+      const memorialBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-memorial" }, "Memorial");
+      memorialBtn.addEventListener("click", () => options.onOpenMemorial?.());
+      rail.appendChild(memorialBtn);
     }
 
     return rail;

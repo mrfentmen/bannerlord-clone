@@ -85,6 +85,7 @@ import { achievementsPanel } from "./ui/panels/Achievements.js";
 import { mountBattleUi, type BattleMount } from "./battleflow/mount.js";
 import { createPhotoMode, mountPhotoModeBar, type PhotoModeBarHandle } from "./expression/index.js";
 import { chroniclePanel, seasonForDay } from "./expression/chroniclePanel.js";
+import { createMemorial, memorialPanel } from "./afteraction/index.js";
 import type { ChronicleEvent, Oath } from "./expression/chronicle.js";
 import {
   boundsForWorld,
@@ -446,6 +447,7 @@ const hud = createHud({
   onOpenPhotoMode: () => enterPhotoMode(),
   onOpenChronicle: () => openChronicle(),
   onOpenHeatmap: () => toggleHeatmap(),
+  onOpenMemorial: () => openMemorial(),
   onOpenUiScale: (s) => settings.set({ uiScale: s }),
   onNotification: (entityId, field) => openWhy(entityId, field),
 });
@@ -1060,6 +1062,27 @@ function openChronicle(): void {
       persistChronicle();
     },
     currentSeason: () => seasonForDay(snapshot?.day ?? 0),
+    onClose: () => {
+      currentPanel = "none";
+      contextNode = null;
+      paint();
+    },
+  });
+  contextNode = root;
+  paint();
+}
+
+// -- War memorial (Rowan, MASTER_PLAN task 75) --------------------------------
+const memorial = createMemorial();
+
+function openMemorial(): void {
+  currentPanel = "none";
+  const { root, refresh } = memorialPanel({
+    entries: () => memorial.list(),
+    onClear: () => {
+      memorial.clear();
+      refresh();
+    },
     onClose: () => {
       currentPanel = "none";
       contextNode = null;
