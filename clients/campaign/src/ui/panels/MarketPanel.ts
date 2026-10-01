@@ -35,6 +35,12 @@ export interface MarketPanelOptions {
   /** The size the player chose, carried across the re-render that follows a trade. */
   quantity?: number;
   onQuantityChange?: (quantity: number) => void;
+  /**
+   * Trade rumors from the sim: profitable routes for the player
+   * (task 147). Absent = the sim sent none, and the section is not
+   * rendered at all.
+   */
+  tradeRumors?: TradeRumor[];
   testId?: string;
 }
 
@@ -42,6 +48,27 @@ export interface MarketPanelHandle {
   root: HTMLElement;
   body: HTMLElement;
   refresh(): void;
+}
+
+/**
+ * A trade rumor from the sim: a profitable route the player could
+ * take (task 147). Every number arrives from the simulation; the
+ * panel only reads them aloud.
+ */
+export interface TradeRumor {
+  id: string;
+  /** The good to move, as the sim names it. */
+  goodName: string;
+  /** Where the sim says to buy it cheap. */
+  buyTownName: string;
+  /** Buy price per unit, from the sim. */
+  buyPrice: number;
+  /** Where the sim says to sell it dear. */
+  sellTownName: string;
+  /** Sell price per unit, from the sim. */
+  sellPrice: number;
+  /** Expected profit per unit, from the sim. */
+  profitPerUnit: number;
 }
 
 export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
@@ -187,6 +214,36 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
     ];
 
     body.appendChild(dataTable(`${options.townName} market prices and stock`, columns, goods, "market-table"));
+
+    if (options.tradeRumors !== undefined) {
+      body.appendChild(sectionHeader("Trade rumors"));
+      if (options.tradeRumors.length === 0) {
+        body.appendChild(emptyState("No profitable routes on the wind.", "The traders are keeping quiet. These rumors come from the sim, so check back next tick."));
+      } else {
+        const list = h("div", { class: "market-rumors", "data-testid": "market-trade-rumors" });
+        for (const rumor of options.tradeRumors) {
+          list.appendChild(
+            h(
+              "div",
+              { class: "market-rumor", "data-testid": `market-trade-rumor-${rumor.id}` },
+              h("p", { class: "label", style: "margin:0" }, rumor.goodName),
+              h(
+                "p",
+                { class: "caption", style: "margin:0" },
+                `Buy in ${rumor.buyTownName} at ${rumor.buyPrice.toFixed(2)}, sell in ${rumor.sellTownName} at ${rumor.sellPrice.toFixed(2)}.`,
+              ),
+              h(
+                "p",
+                { class: "caption", style: "margin:0" },
+                statusChip("good", `About ${rumor.profitPerUnit.toFixed(2)} profit a unit.`, { testId: `market-trade-rumor-${rumor.id}-profit` }),
+              ),
+            ),
+          );
+        }
+        body.appendChild(list);
+      }
+    }
+
     body.appendChild(sectionHeader("What moved"));
     body.appendChild(
       h(
