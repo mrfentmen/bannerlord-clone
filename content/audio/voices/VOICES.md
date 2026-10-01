@@ -27,6 +27,20 @@ matching TXT file with the exact lines spoken, in order. File naming:
 | puertorican| avocado_v2:pirate-4    | Rugged Hull, rugged Caribbean M        |
 | german    | avocado_v2:vd2_dry_tambour | Dry Tambour, dry German M          |
 | russian   | avocado_v2:vdc_17383    | Jovial Cello, jovial Eastern Eur. F    |
+| siege_attacker | avocado_v2:vdc_3944 | Blustery Gong, assault shouts, energetic M |
+| siege_defender | avocado_v2:vdc_13210 | Grumpy Cloud, desperate defense, exasperated M |
+| persuader | avocado_v2:vdc_23566 | Smooth Handshake, persuasive New York M |
+| haggler   | avocado_v2:vdc_3756 | Prudent Seed, businesslike M |
+| announcer | avocado_v2:vdc_NOID102 | Lofty Throne, authoritative M |
+| marisol   | avocado_v2:vdc_24027 | Decisive Hammer, brash F (Pacific Compact) |
+| hollis    | avocado_v2:vdc_22255 | Rumpled Armchair, avuncular M (Mountain Alliance) |
+| bernice   | avocado_v2:vdc_6534 | Unhurried Clock, methodical F (Great Lakes Union) |
+| cordell   | avocado_v2:casper | Confident Chime, confident M (Southern Compact) |
+| royce     | avocado_v2:vd2_r82_rep5k_0244_v068_28k_g5k | Confident Smokehouse, gravelly Southern M (Lone Star Frontier) |
+| yvonne    | avocado_v2:qvd_03269 | Commanding Arch, commanding F (Atlantic Corridor) |
+| rebel     | avocado_v2:vdc_NOID29 | Cranky Sandpaper, irascible M |
+| executioner | avocado_v2:qvd_01700 | Somber Monument, grim M |
+| merchant2 | avocado_v2:vdc_12430 | Neighborly Gate, friendly M |
 
 ## Batches
 
@@ -38,3 +52,19 @@ matching TXT file with the exact lines spoken, in order. File naming:
   townsfolk ambient set (townsman, townswoman) from townsfolk.md.
 
 Lines come straight from combat-barks.md, plain ASCII, no stage directions.
+
+## Batch 7: siege, persuasion, leaders, and more (2026-09-30)
+
+- siege-attacker-1: assault shouts from sieges.md push orders and breach callouts.
+- siege-defender-1: desperate defense lines from sieges.md panic lines.
+- persuade-1: original smooth-talker persuasion lines, in-style.
+- barter-1: mechanic and gun-dealer haggling lines from tavern-merchants.md.
+- announcer-1: original tournament announcer set, in-style.
+- leader-1 through leader-6: one speech each for the six faction leaders,
+  written in-character from faction-leaders.md (Marisol, Hollis, Bernice,
+  Cordell, Royce, Yvonne).
+- rebel-1: original rebellion rally lines, in-style.
+- execution-1: original grim execution lines, in-style.
+- merchant-2: original second-merchant lines, in-style.
+- townsman-2, townswoman-2: new ambient lines in townsfolk.md style, reusing
+  the established townsman/townswoman voices for consistency.

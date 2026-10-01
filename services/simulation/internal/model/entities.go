@@ -370,6 +370,12 @@ const (
 	TerrainMountain
 	TerrainSwamp
 	TerrainCoast
+	// TerrainMax is the highest valid Terrain index. Anything that validates a
+	// Terrain read from outside the process — the world-data feed, a save file,
+	// a mod — compares against this rather than against TerrainCoast, so adding
+	// a terrain to the enum above cannot leave a stale bound behind that
+	// silently rejects the new value.
+	TerrainMax = TerrainCoast
 )
 
 // Siege is an active siege of a town.

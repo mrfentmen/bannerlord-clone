@@ -1,0 +1,68 @@
+serving /home/hatch/workspace/bannerlord/labs/crowd-poc on http://127.0.0.1:8127/
+
+BENCHMARK FAILED: browserType.launch: Timeout 180000ms exceeded.
+Call log:
+[2m  - <launching> /opt/google/chrome/chrome --disable-field-trial-config --disable-background-networking --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-back-forward-cache --disable-breakpad --disable-client-side-phishing-detection --disable-component-extensions-with-background-pages --disable-component-update --no-default-browser-check --disable-default-apps --disable-dev-shm-usage --disable-edgeupdater --disable-extensions --disable-features=AvoidUnnecessaryBeforeUnloadCheckSync,DestroyProfileOnBrowserClose,DialMediaRouteProvider,GlobalMediaControls,HttpsUpgrades,LensOverlay,MediaRouter,PaintHolding,ThirdPartyStoragePartitioning,BlockOriginHeaderModificationOnRedirect,Translate,AutoDeElevate,OptimizationHints,msForceBrowserSignIn,msEdgeUpdateLaunchServicesPreferredVersion --enable-features=CDPScreenshotNewSurface --allow-pre-commit-input --disable-hang-monitor --disable-ipc-flooding-protection --disable-popup-blocking --disable-prompt-on-repost --disable-renderer-backgrounding --disable-updater-scheduler --force-color-profile=srgb --metrics-recording-only --no-first-run --password-store=basic --use-mock-keychain --no-service-autorun --export-tagged-pdf --disable-search-engine-choice-screen --unsafely-disable-devtools-self-xss-warnings --edge-skip-compat-layer-relaunch --disable-infobars --disable-search-engine-choice-screen --disable-sync --enable-unsafe-swiftshader --headless --hide-scrollbars --mute-audio --blink-settings=primaryHoverType=2,availableHoverTypes=2,primaryPointerType=4,availablePointerTypes=4 --no-sandbox --enable-gpu --ignore-gpu-blocklist --user-data-dir=/home/hatch/.tmp/oc-tmp/playwright_chromiumdev_profile-92RmYW --remote-debugging-pipe --no-startup-window[22m
+[2m  - <launched> pid=27182[22m
+[2m  - [pid=27182][err] [0930/224142.325499:WARNING:chrome/app/chrome_main_linux.cc:84] Read channel stable from /opt/google/chrome/CHROME_VERSION_EXTRA[22m
+[2m  - [pid=27182][err] [27182:27213:0930/224149.306058:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory[22m
+[2m  - [pid=27182][err] [27182:27213:0930/224149.314615:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")[22m
+[2m  - [pid=27182][err] [27182:27213:0930/224157.863901:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory[22m
+[2m  - [pid=27182][err] [27182:27213:0930/224158.019126:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory[22m
+[2m  - [pid=27182][err] [27182:27213:0930/224158.050472:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")[22m
+[2m  - [pid=27182][err] [27269:27269:0930/224202.956360:ERROR:ui/gl/angle_platform_impl.cc:34] Display.cpp:1187 (initialize): ANGLE Display::initialize error 12289: Could not open the default X display.[22m
+[2m  - [pid=27182][err] ERR: Display.cpp:1187 (initialize): ANGLE Display::initialize error 12289: Could not open the default X display.[22m
+[2m  - [pid=27182][err] [27269:27269:0930/224203.122377:ERROR:ui/gl/egl_util.cc:92] EGL Driver message (Critical) eglInitialize: Could not open the default X display.[22m
+[2m  - [pid=27182][err] [27269:27269:0930/224203.175883:ERROR:ui/gl/gl_display.cc:630] eglInitialize OpenGL failed with error EGL_NOT_INITIALIZED, trying next display type[22m
+[2m  - [pid=27182][err] [27269:27269:0930/224203.189075:ERROR:ui/gl/angle_platform_impl.cc:34] Display.cpp:1187 (initialize): ANGLE Display::initialize error 12289: Could not open the default X display.[22m
+[2m  - [pid=27182][err] ERR: Display.cpp:1187 (initialize): ANGLE Display::initialize error 12289: Could not open the default X display.[22m
+[2m  - [pid=27182][err] [27269:27269:0930/224203.233020:ERROR:ui/gl/egl_util.cc:92] EGL Driver message (Critical) eglInitialize: Could not open the default X display.[22m
+[2m  - [pid=27182][err] [27269:27269:0930/224203.246010:ERROR:ui/gl/gl_display.cc:630] eglInitialize OpenGLES failed with error EGL_NOT_INITIALIZED[22m
+[2m  - [pid=27182][err] [27269:27269:0930/224203.251969:ERROR:ui/gl/gl_display.cc:665] Initialization of all (2) EGL display types failed.[22m
+[2m  - [pid=27182][err] [27269:27269:0930/224203.295880:ERROR:ui/ozone/common/gl_ozone_egl.cc:26] GLDisplayEGL::Initialize failed.[22m
+[2m  - [pid=27182][err] [27269:27269:0930/224204.659240:ERROR:ui/gl/angle_platform_impl.cc:34] Display.cpp:1187 (initialize): ANGLE Display::initialize error 12289: Could not open the default X display.[22m
+[2m  - [pid=27182][err] ERR: Display.cpp:1187 (initialize): ANGLE Display::initialize error 12289: Could not open the default X display.[22m
+[2m  - [pid=27182][err] [27269:27269:0930/224204.835840:ERROR:ui/gl/egl_util.cc:92] EGL Driver message (Critical) eglInitialize: Could not open the default X display.[22m
+[2m  - [pid=27182][err] [27269:27269:0930/224204.836318:ERROR:ui/gl/gl_display.cc:630] eglInitialize OpenGL failed with error EGL_NOT_INITIALIZED, trying next display type[22m
+[2m  - [pid=27182][err] [27269:27269:0930/224204.982906:ERROR:ui/gl/angle_platform_impl.cc:34] Display.cpp:1187 (initialize): ANGLE Display::initialize error 12289: Could not open the default X display.[22m
+[2m  - [pid=27182][err] ERR: Display.cpp:1187 (initialize): ANGLE Display::initialize error 12289: Could not open the default X display.[22m
+[2m  - [pid=27182][err] [27269:27269:0930/224205.000526:ERROR:ui/gl/egl_util.cc:92] EGL Driver message (Critical) eglInitialize: Could not open the default X display.[22m
+[2m  - [pid=27182][err] [27269:27269:0930/224205.012983:ERROR:ui/gl/gl_display.cc:630] eglInitialize OpenGLES failed with error EGL_NOT_INITIALIZED[22m
+[2m  - [pid=27182][err] [27269:27269:0930/224205.015447:ERROR:ui/gl/gl_display.cc:665] Initialization of all (2) EGL display types failed.[22m
+[2m  - [pid=27182][err] [27269:27269:0930/224205.016131:ERROR:ui/ozone/common/gl_ozone_egl.cc:26] GLDisplayEGL::Initialize failed.[22m
+[2m  - [pid=27182][err] [27269:27269:0930/224206.721541:ERROR:components/viz/service/main/viz_main_impl.cc:190] Exiting GPU process due to errors during initialization[22m
+[2m  - [pid=27182][err] [27182:27213:0930/224256.871813:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")[22m
+[2m  - [pid=27182][err] [27182:27182:0930/224400.469050:ERROR:dbus/object_proxy.cc:572] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type:[22m
+[2m  - [pid=27182][err] [27182:27213:0930/224400.797486:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")[22m
+[2m  - [pid=27182][err] [27182:27182:0930/224403.284438:ERROR:dbus/object_proxy.cc:572] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type:[22m
+[2m  - [pid=27182][err] [27182:27213:0930/224403.815447:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")[22m
+[2m  - [pid=27182][err] [27182:27182:0930/224419.223243:ERROR:dbus/object_proxy.cc:572] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type:[22m
+[2m  - [pid=27182][err] [27182:27213:0930/224419.645951:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")[22m
+[2m  - [pid=27182][err] [27524:27524:0930/224420.135650:ERROR:ui/gl/angle_platform_impl.cc:34] Display.cpp:1187 (initialize): ANGLE Display::initialize error 12289: Could not open the default X display.[22m
+[2m  - [pid=27182][err] ERR: Display.cpp:1187 (initialize): ANGLE Display::initialize error 12289: Could not open the default X display.[22m
+[2m  - [pid=27182][err] [27524:27524:0930/224420.154212:ERROR:ui/gl/egl_util.cc:92] EGL Driver message (Critical) eglInitialize: Could not open the default X display.[22m
+[2m  - [pid=27182][err] [27524:27524:0930/224420.205154:ERROR:ui/gl/gl_display.cc:630] eglInitialize OpenGL failed with error EGL_NOT_INITIALIZED, trying next display type[22m
+[2m  - [pid=27182][err] [27524:27524:0930/224420.283176:ERROR:ui/gl/angle_platform_impl.cc:34] Display.cpp:1187 (initialize): ANGLE Display::initialize error 12289: Could not open the default X display.[22m
+[2m  - [pid=27182][err] ERR: Display.cpp:1187 (initialize): ANGLE Display::initialize error 12289: Could not open the default X display.[22m
+[2m  - [pid=27182][err] [27524:27524:0930/224420.283357:ERROR:ui/gl/egl_util.cc:92] EGL Driver message (Critical) eglInitialize: Could not open the default X display.[22m
+[2m  - [pid=27182][err] [27524:27524:0930/224420.283390:ERROR:ui/gl/gl_display.cc:630] eglInitialize OpenGLES failed with error EGL_NOT_INITIALIZED[22m
+[2m  - [pid=27182][err] [27524:27524:0930/224420.283418:ERROR:ui/gl/gl_display.cc:665] Initialization of all (2) EGL display types failed.[22m
+[2m  - [pid=27182][err] [27524:27524:0930/224420.283469:ERROR:ui/ozone/common/gl_ozone_egl.cc:26] GLDisplayEGL::Initialize failed.[22m
+[2m  - [pid=27182][err] [27524:27524:0930/224420.306074:ERROR:ui/gl/angle_platform_impl.cc:34] Display.cpp:1187 (initialize): ANGLE Display::initialize error 12289: Could not open the default X display.[22m
+[2m  - [pid=27182][err] ERR: Display.cpp:1187 (initialize): ANGLE Display::initialize error 12289: Could not open the default X display.[22m
+[2m  - [pid=27182][err] [27524:27524:0930/224420.310430:ERROR:ui/gl/egl_util.cc:92] EGL Driver message (Critical) eglInitialize: Could not open the default X display.[22m
+[2m  - [pid=27182][err] [27524:27524:0930/224420.318331:ERROR:ui/gl/gl_display.cc:630] eglInitialize OpenGL failed with error EGL_NOT_INITIALIZED, trying next display type[22m
+[2m  - [pid=27182][err] [27524:27524:0930/224420.322811:ERROR:ui/gl/angle_platform_impl.cc:34] Display.cpp:1187 (initialize): ANGLE Display::initialize error 12289: Could not open the default X display.[22m
+[2m  - [pid=27182][err] ERR: Display.cpp:1187 (initialize): ANGLE Display::initialize error 12289: Could not open the default X display.[22m
+[2m  - [pid=27182][err] [27524:27524:0930/224420.323765:ERROR:ui/gl/egl_util.cc:92] EGL Driver message (Critical) eglInitialize: Could not open the default X display.[22m
+[2m  - [pid=27182][err] [27524:27524:0930/224420.325892:ERROR:ui/gl/gl_display.cc:630] eglInitialize OpenGLES failed with error EGL_NOT_INITIALIZED[22m
+[2m  - [pid=27182][err] [27524:27524:0930/224420.326363:ERROR:ui/gl/gl_display.cc:665] Initialization of all (2) EGL display types failed.[22m
+[2m  - [pid=27182][err] [27524:27524:0930/224420.327089:ERROR:ui/ozone/common/gl_ozone_egl.cc:26] GLDisplayEGL::Initialize failed.[22m
+[2m  - [pid=27182][err] [27524:27524:0930/224420.926193:ERROR:components/viz/service/main/viz_main_impl.cc:190] Exiting GPU process due to errors during initialization[22m
+[2m  - [pid=27182][err] [27182:27182:0930/224429.086807:ERROR:dbus/object_proxy.cc:572] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type:[22m
+[2m  - [pid=27182][err] [27182:27213:0930/224431.479013:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory[22m
+[2m  - [pid=27182][err] [27182:27213:0930/224431.625257:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Failed to connect to socket /run/dbus/system_bus_socket: No such file or directory[22m
+[2m  - [pid=27182][err] [27182:27182:0930/224435.062387:ERROR:dbus/object_proxy.cc:572] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type:[22m
+[2m  - [pid=27182][err] [27182:27213:0930/224435.455777:ERROR:dbus/bus.cc:405] Failed to connect to the bus: Could not parse server address: Unknown address type (examples of valid types are "tcp" and on UNIX "unix")[22m
+[2m  - [pid=27182][err] [27182:27182:0930/224439.899948:ERROR:dbus/object_proxy.cc:572] Failed to call method: org.freedesktop.DBus.NameHasOwner: object_path= /org/freedesktop/DBus: unknown error type:[22m
+

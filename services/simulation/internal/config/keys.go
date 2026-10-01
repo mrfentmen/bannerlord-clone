@@ -607,6 +607,9 @@ func (l *loader) load(c *Config) {
 	c.Battle.MaxTicks = l.f64("battle.max_ticks")
 	c.Battle.GridCellSize = l.f64("battle.grid_cell_size")
 	c.Battle.RangedGridCellSize = l.f64("battle.ranged_grid_cell_size")
+	c.Battle.GridMaxCells = l.f64("battle.grid_max_cells")
+	c.Battle.MaxReportEvents = l.f64("battle.max_report_events")
+	c.Battle.ReferenceUnitsPerSide = l.f64("battle.reference_units_per_side")
 	c.Battle.RosterHPBase = l.f64("battle.roster_hp_base")
 	c.Battle.RosterHPSkillWeight = l.f64("battle.roster_hp_skill_weight")
 	c.Battle.RosterSpeedBase = l.f64("battle.roster_speed_base")
@@ -622,6 +625,8 @@ func (l *loader) load(c *Config) {
 	c.Battle.RosterFrontage = l.f64("battle.roster_frontage")
 	c.Battle.RosterStartDistance = l.f64("battle.roster_start_distance")
 	c.Battle.RosterFormationDepth = l.f64("battle.roster_formation_depth")
+	c.Battle.RosterLeadersPerUnit = l.f64("battle.roster_leaders_per_unit")
+	c.Battle.RosterLeaderSpread = l.f64("battle.roster_leader_spread")
 	c.Battle.MeleeRange = l.f64("battle.melee_range")
 	c.Battle.MeleeSwingSeconds = l.f64("battle.melee_swing_seconds")
 	c.Battle.MeleeDamageBase = l.f64("battle.melee_damage_base")
@@ -736,4 +741,27 @@ func (l *loader) load(c *Config) {
 	c.Formation.FlankStandoff = l.f64("formation.flank_standoff")
 	c.Formation.FlankSweepDeg = l.f64("formation.flank_sweep_deg")
 	c.Formation.FlankSweepRateDeg = l.f64("formation.flank_sweep_rate_deg")
+
+	// --- command ---
+	// The tactics layer, internal/command. Same arrangement as [formation] and
+	// for the same reason: one loader reads the whole balance file, so a section
+	// read by a second private parser would either stop the campaign runner or
+	// have to be claimed here without ever being read. The three shapes are
+	// strings because they name a choice; internal/command resolves them
+	// through formation.ParseFormation and refuses a name no shape implements.
+	c.Command.FormationsPerSide = l.f64("command.formations_per_side")
+	c.Command.ReserveShare = l.f64("command.reserve_share")
+	c.Command.FrontShape = l.str("command.front_shape")
+	c.Command.FlankShape = l.str("command.flank_shape")
+	c.Command.ReserveShape = l.str("command.reserve_shape")
+	c.Command.AdvanceTriggerRange = l.f64("command.advance_trigger_range")
+	c.Command.ChargeRange = l.f64("command.charge_range")
+	c.Command.ChargeStrengthRatio = l.f64("command.charge_strength_ratio")
+	c.Command.FlankTriggerRange = l.f64("command.flank_trigger_range")
+	c.Command.FlankMinStrengthFraction = l.f64("command.flank_min_strength_fraction")
+	c.Command.ReserveCommitStrengthFraction = l.f64("command.reserve_commit_strength_fraction")
+	c.Command.WithdrawMorale = l.f64("command.withdraw_morale")
+	c.Command.WithdrawBrokenShare = l.f64("command.withdraw_broken_share")
+	c.Command.DecisionIntervalTicks = l.f64("command.decision_interval_ticks")
+	c.Command.OrderMinTicks = l.f64("command.order_min_ticks")
 }

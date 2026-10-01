@@ -733,6 +733,35 @@ log_row_limit = 400000.0       # cause rows retained per run. Range 10000-500000
 # battle.max_units_per_side, and exceeding it is an explicit error, not a
 # silent truncation. This is what COMBAT.md section 13 and SPEC.md section 5.1
 # ask for: 300 units is a rendering budget, not a simulation budget.
+#
+# ### THE SIZE KNOBS, AND WHAT EACH ONE IS NOT
+#
+# Nine numbers in this section are about size, and they are easy to confuse with
+# one another. The table is the difference.
+#
+# | Key | What it sets | What it is NOT | Hard range | Sane range |
+# |---|---|---|---|---|
+# | max_units_per_side | largest force the engine will accept | not a memory or time budget; the engine sizes itself from whatever it is given | 1-1000000 | 500-8000 |
+# | reference_units_per_side | the size the reference and throughput runs field | not the limit above; a reference size over it is refused at load | 1-max_units_per_side | 50-2000 |
+# | max_ticks | when an undecided battle is called a stalemate | not a wall clock budget; it is simulated ticks | 1-10000000 | 2000-50000 |
+# | tick_seconds | simulated seconds one tick covers | not a frame time and not a real time step | 0.001-100 | 0.1-1.0 |
+# | grid_cell_size | melee query cell width, in metres | not the field size; it may be coarsened to fit grid_max_cells | 0.1-10000, and at least melee_range | 4-40 |
+# | ranged_grid_cell_size | aimed fire query cell width, in metres | not derived from grid_cell_size; the two queries have opposite shapes | 0.1-100000 | 16-256 |
+# | grid_max_cells | cells one spatial index may hold | not a simulation limit; going over coarsens the cell, which is always correct | 4-4000000 | 1024-262144 |
+# | max_report_events | events a report keeps before counting the rest | not a simulation bound; the tick loop never reads it | 1-1000000 | 16-4096 |
+# | roster_leaders_per_unit | units one commander is worth | not a cap on commanders; every force gets at least one | 1-100000 | 50-500 |
+#
+# To change the size of the verification battle, change reference_units_per_side
+# and nothing else. To let a real campaign field a bigger force, change
+# max_units_per_side. To move a run onto a smaller machine, change
+# grid_max_cells. Those three do different jobs and were three different numbers
+# for most of this file's life.
+#
+# Every value in the Hard range column is enforced by internal/config at load
+# time, with an error that names the key, so an impossible size is a startup
+# failure rather than a run that quietly does nothing. A file that asks for a
+# fractional count is also refused: these become ints, and 250.5 is 250, and the
+# file would have been told a different number than the one it wrote.
 
 [battle]
 # --- SIZE AND TIME ---------------------------------------------------------
@@ -759,6 +788,66 @@ grid_cell_size = 12.0
 # cell big enough that a shooter finds targets in the first ring of cells it
 # looks at rather than walking outwards twenty cells to find one.
 ranged_grid_cell_size = 64.0
+# Ceiling on how many CELLS one spatial index may hold, for both hashes. HARD
+# range 4-4000000; SANE range 1024-262144. This is the grid's own grid bound, and
+# it is the one size number that used to be a constant in code. It is here
+# because CONSTITUTION.md section 1.2 has no exceptions, and because a box with
+# less memory than this one needs a different number.
+#
+# The floor of 4 is not arbitrary: the index adds a one cell margin on each
+# axis, so the smallest grid it can build is 2x2. A budget below that can never
+# be satisfied, and the coarsening loop in grid.go would have nowhere to stop.
+# The ceiling is memory: 4000000 cells is 16 MiB of counts per index, there are
+# two of them, and they are cleared once a tick.
+#
+# This is an ALLOCATION budget, not a simulation limit. When a field is too
+# spread out to fit the budget at grid_cell_size, the index cell is coarsened
+# until it fits, and coarsening is always correct because a query's ring count
+# is computed from the cell size actually in use. It costs distance tests and
+# never costs correctness. The default is 65536 cells, which is 256 KiB of
+# counts per index; a two thousand a side battle is nowhere near it.
+grid_max_cells = 65536
+# Ceiling on how many events a battle report keeps. HARD range 1-1000000; SANE
+# range 16-4096. Past this the events are counted in the report rather than
+# dropped silently, so a truncated event list is always visible as one. The tick
+# loop never reads it and no fighting changes because of it. 16 is plenty for a
+# battle whose outcome you can read at a glance; raise it when reading the log
+# of a long one. It was a constant in code (4096) and the default is unchanged.
+max_report_events = 4096
+# How many units one commander is worth, used to give a generated force a
+# command structure proportional to its size. A side of n units gets
+# 1 + n/roster_leaders_per_unit commanders. HARD range 1-100000; SANE range
+# 50-500. 250 is one commander per company and matches the muster structure in
+# COMBAT.md section 7; 50 gives a heavily officered force, 500 a thin one.
+#
+# This one used to be a literal 250 written independently in two packages, which
+# is the shape of bug section 1.2 exists to prevent: the two copies could drift
+# and a report would show a command structure nobody chose. There is now one
+# function, battle.LeaderCount, and both callers ask it.
+roster_leaders_per_unit = 250.0
+# How far apart commanders are spread along their front line, in multiples of
+# roster_frontage. HARD range 0.01-10000; SANE range 4-40. The spacing exists
+# because battle.morale_leader_steadying takes the STRONGEST leader in range
+# rather than the sum, so a stack of five officers at one point steadies exactly
+# as many men as one does. Every commander gets its own slice of the line and
+# this sets how wide that slice is: 12 puts a commander about every thirty metres
+# of front. It used to be a literal 12 and the default is unchanged.
+roster_leader_spread = 12.0
+# The force size the headless verification battle and the throughput harness
+# field. HARD range 1-max_units_per_side, and validation refuses anything larger
+# outright; SANE range 50-2000.
+#
+# This is the knob that makes battle size a knob. The same code runs 50 v 50 or
+# 2000 v 2000 with nothing but this one line changed, and the report says which
+# size it actually used so a run can never be mistaken for a different one.
+#
+# It is deliberately NOT the validation limit. max_units_per_side is how big a
+# force the engine will accept; reference_units_per_side is how big a force the
+# reference run builds. Keeping them separate is what lets the limit be raised
+# for a real campaign battle without silently making every verification run
+# enormous. Keep the reference well under the limit, because a reference run
+# refused by the limit it exists to prove is not a run.
+reference_units_per_side = 500.0
 
 # --- UNIT GENERATION -------------------------------------------------------
 # These build a plausible force from a unit count alone, so a caller does not
@@ -1195,3 +1284,102 @@ flank_sweep_deg = 75.0
 # Range 0.1-90. At 6 a 75-degree swing takes about twelve seconds, so the
 # formation spends real time exposed on their flank before it attacks.
 flank_sweep_rate_deg = 6.0
+
+# ---------------------------------------------------------------------------
+# COMMAND — the tactics layer above the formations
+# ---------------------------------------------------------------------------
+# Every threshold internal/command uses to decide what a formation does next:
+# when it advances, when it stops and shoots, when a flank is committed, when
+# reserves go in, and when a broken formation is pulled out of the line. Read by
+# internal/command, applied to internal/formation's orders, which are applied to
+# the field by internal/battle.
+#
+# The [formation] section above holds what a formation IS and how fast it walks.
+# This section holds only WHEN something happens. Nothing here moves a man: every
+# distance below is a distance the commander measured, never a speed.
+#
+# Units: distances are metres, ticks are battle.tick_seconds long, fractions are
+# shares of a side's own opening strength. A fraction is measured against the
+# side's own start, not against the enemy's, because the two sides do not begin
+# the day equal and a rule that assumed they did would fire at different moments
+# for the two of them.
+
+[command]
+# How many formations a side's force is divided into. The first formation is the
+# fighting line, the last is the reserve, and everything between is a flanking
+# force held back until it is committed. Range 2-12. Two is the minimum that can
+# flank at all; a higher number is a deeper order of battle and a commander who
+# commits in smaller pieces.
+formations_per_side = 3.0
+# Share of a side's units kept in the reserve formation at the start of the
+# battle, rather than in the line or the flank. Range 0-0.5. Above a half the
+# army is standing in its own rear and the battle is decided before it starts.
+reserve_share = 0.25
+# Shape the front formation holds. One of the shapes internal/formation
+# implements: line, column, wedge, or loose (skirmish). A line is the widest
+# front; a column moves fastest and fires least; a wedge is an arrow for a
+# breakthrough; loose order is hard to hit and weak up close.
+front_shape = "line"
+# Shape a flanking formation holds. A wedge, because a flank is a place to put
+# weight rather than a place to trade fire. Any shape internal/formation
+# implements is accepted; an unknown name is refused at load, not ignored.
+flank_shape = "wedge"
+# Shape the reserve holds while it waits. A column, because a reserve is a body
+# of men that has to cross open ground to arrive in order.
+reserve_shape = "column"
+# Distance from the enemy at which the fighting line stops closing and holds its
+# ground to shoot, in metres. Range 1-5000. Compare it with
+# formation.advance_standoff, which is where an advancing formation comes to rest,
+# and with battle.ranged_range, which is how far the army can shoot: a line that
+# halts outside its own weapons' reach has stopped short of the enemy and is
+# shooting at the ground. At 220 it halts inside a rifle's 240 and well outside
+# a swing's 2.6.
+advance_trigger_range = 220.0
+# How close the enemy must be, in metres, for a formation with clear local
+# superiority to be sent in at the run rather than the walk. It is also the radius
+# of the "local" comparison below: the strength a formation is weighed against is
+# the enemy's inside this radius, which is the enemy a charge would run into.
+# Range 0-2000, and at or above advance_trigger_range: a charge decided at closer
+# range than the range at which the line stops closing could never be ordered.
+charge_range = 240.0
+# How much strength a formation needs against the enemy units in front of it
+# before that formation is charged rather than walked in against. Range 1-20.
+# Local, not overall: a formation that is outnumbered on a quiet part of the
+# field does not charge just because the battle as a whole is going well. In an
+# even battle no formation clears this bar, and no charge is ordered, which is the
+# right answer: nobody charges at parity.
+charge_strength_ratio = 1.35
+# Distance the fighting line must have closed to the enemy before a flanking
+# formation is committed, in metres. Range 0-5000, and at or above
+# advance_trigger_range: a flank is a move the front has already fixed, and the
+# front fixes the enemy by halting on it. A flank trigger below the advance
+# trigger sends the wing round the side while the line is still walking, which is
+# a flank with nothing to go round.
+flank_trigger_range = 260.0
+# Share of its own opening strength a side must still hold to be allowed to
+# commit a flank. Range 0-1, and it must not be above
+# reserve_commit_strength_fraction: a commander holding reserves is not a
+# commander sending everything round the side at once.
+flank_min_strength_fraction = 0.35
+# Share of its own opening strength at or below which the reserve formation is
+# committed to the attack. Range 0-1. This is the "the line is not breaking them,
+# so send the second line in" rule, and it is the last thing a commander gives
+# up: below this fraction the reserves are the battle.
+reserve_commit_strength_fraction = 0.65
+# Mean morale at or below which a formation is ordered back. Range 0-1, and it
+# must not be above battle.morale_break_threshold: a commander who waits for
+# his men to break before falling back has no withdrawal left to order.
+withdraw_morale = 0.22
+# Share of a formation's units broken at or above which it is ordered back.
+# Range 0-1. One broken man in fifty is a bad afternoon; half of them is a line
+# that has stopped being a line.
+withdraw_broken_share = 0.5
+# Ticks between full re-assessments of the battle. Range 1-1000. The commander
+# re-reads the field on this cadence rather than every tick, which is what
+# AI.md section 8 asks for: a decision every quarter second is a decision nobody
+# makes. The withdrawal rule below is the exception and is checked every tick.
+decision_interval_ticks = 10.0
+# Ticks an order stands before the commander may change it. Range 1-10000.
+# Without it a formation oscillates between advance and hold around the trigger
+# range and arrives nowhere, because every decision reverses the last one.
+order_min_ticks = 20.0
