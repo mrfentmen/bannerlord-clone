@@ -227,3 +227,131 @@ func TestASessionBattleIsTheSameBattleWithAndWithoutACommanderThatSaysNothing(t 
 type quietCommander struct{}
 
 func (quietCommander) Command(*View) error { return nil }
+
+// TestALayoutIsRebuiltWhenAGroupLosesMen is the guard on the layout cache.
+//
+// The commander keeps each group's slots between ticks so it is not rebuilding
+// the same arithmetic four times a second, and the cache is keyed on how many
+// men the group has this tick. A group that loses men is therefore asking for a
+// different shape, and a cache that answered with the old one would hand back a
+// layout with slots for men who are no longer in it: every survivor would be
+// measured against the wrong slot, and if the group had shrunk far enough the
+// read itself would be out of range.
+//
+// The view is built by hand and shrunk between two calls to Command, so the
+// whole sequence is visible: six men, a cached layout of six, then four men
+// fighting and two broken.
+func TestALayoutIsRebuiltWhenAGroupLosesMen(t *testing.T) {
+	cfg := loadConfig(t)
+	const n = 6
+	p := FormationParamsFrom(cfg.Formation)
+	slots, err := FormationLayout(FormationLine, n, p)
+	if err != nil {
+		t.Fatalf("laying out a line of %d failed: %v", n, err)
+	}
+	build := func() *View {
+		v := &View{
+			Elapsed:     0,
+			TickSeconds: cfg.Battle.TickSeconds,
+			Units:       make([]UnitView, n+1),
+			Commands:    make([]UnitCommand, n+1),
+		}
+		for i := range slots {
+			x, y := slots[i].place(0, 0, 0)
+			v.Units[i] = UnitView{
+				ID: i, Side: SideA, Status: StatusFighting, Troops: 1,
+				Speed: cfg.Battle.RosterSpeedBase, X: x, Y: y,
+			}
+		}
+		v.Units[n] = UnitView{
+			ID: n, Side: SideB, Status: StatusFighting, Troops: 1,
+			Speed: cfg.Battle.RosterSpeedBase, X: 400, Y: 0,
+		}
+		return v
+	}
+	ids := make([]int, n)
+	for i := range ids {
+		ids[i] = i
+	}
+	cmd, err := NewFormationCommander(cfg, SideA, []Group{
+		{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold, Facing: Facing{Fixed: true, Bearing: 0}}, Units: ids},
+	})
+	if err != nil {
+		t.Fatalf("building the commander: %v", err)
+	}
+
+	// Six men, so the group caches a layout of six slots.
+	full := build()
+	if err := cmd.Command(full); err != nil {
+		t.Fatalf("ordering six men: %v", err)
+	}
+	if got := len(cmd.groups[0].slots); got != n {
+		t.Fatalf("the group cached a layout of %d slots for %d men", got, n)
+	}
+
+	// Four men: two have broken and are off the fight, so the group is a line of
+	// four now and its slots must be a line of four.
+	shrunken := build()
+	shrunken.Units[1].Status = StatusBroken
+	shrunken.Units[4].Status = StatusRouted
+	// Two of the four survivors are then shoved three metres off the line, one
+	// north and one south, so the group's centre of mass does not move with them
+	// and every survivor is left out of the four-man shape. Without that they
+	// would land on it: dropping the two outermost men of a line moves its centre
+	// by exactly the half-spacing that puts the survivors back on their slots.
+	shrunken.Units[0].Y += 3
+	shrunken.Units[5].Y -= 3
+	if err := cmd.Command(shrunken); err != nil {
+		t.Fatalf("ordering the four men who are left: %v", err)
+	}
+	if got := len(cmd.groups[0].slots); got != 4 {
+		t.Errorf("the group still holds a layout of %d slots with four men in it; a shape is the shape of "+
+			"the men who are in it", got)
+	}
+
+	// And the slots it now holds must be the layout of four, not four of the
+	// six it had: a line of four is one rank of four, and its centre of mass is
+	// the middle of that rank.
+	four, err := FormationLayout(FormationLine, 4, p)
+	if err != nil {
+		t.Fatalf("laying out a line of four: %v", err)
+	}
+	cached := cmd.groups[0].slots
+	for i := range four {
+		if cached[i] != four[i] {
+			t.Errorf("cached slot %d is %+v, and a line of four puts it at %+v", i, cached[i], four[i])
+		}
+	}
+	// The two shoved men are three metres off the smaller shape and are ordered
+	// back toward it. The two in the middle of it are standing on their slots and
+	// are left alone, which is the same rule the cohesion test checks and is
+	// stated here because a rebuilt layout is what puts them there.
+	if _, _, ok := centreOfMass(shrunken, []int{0, 2, 3, 5}); !ok {
+		t.Fatal("the four men have no weight between them")
+	}
+	for _, id := range []int{0, 5} {
+		if !shrunken.Commands[id].Set {
+			t.Errorf("unit %d was shoved three metres off the line of four and was given no order", id)
+		}
+	}
+	for _, id := range []int{2, 3} {
+		if shrunken.Commands[id].Set {
+			t.Errorf("unit %d is standing on his slot in the line of four and was told to walk %g, %g",
+				id, shrunken.Commands[id].DX, shrunken.Commands[id].DY)
+		}
+	}
+	ordered := 0
+	for _, id := range []int{0, 2, 3, 5} {
+		if shrunken.Commands[id].Set {
+			ordered++
+		}
+	}
+	for _, id := range []int{1, 4} {
+		if shrunken.Commands[id].Set || shrunken.Commands[id].FormationSet {
+			t.Errorf("unit %d is %s and was spoken to by the formation layer anyway",
+				id, shrunken.Units[id].Status)
+		}
+	}
+	t.Logf("a group of %d men cached %d slots, then %d men rebuilt them as %d slots; %d of the four "+
+		"survivors were off their slots and ordered back into the smaller shape", n, n, 4, len(cached), ordered)
+}

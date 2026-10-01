@@ -942,6 +942,46 @@ type formationGroup struct {
 	// facing is the bearing the group last looked, kept so a group with no
 	// enemy in front of it holds its bearing instead of snapping to +X.
 	facing float64
+	// slots is the layout for the number of men the group had last tick, and
+	// slotsCount how many men that was. A layout is a pure function of (shape,
+	// count, parameters) and it is the same every tick, so it is computed once
+	// and kept until the count changes; see slotsFor why that is worth doing.
+	slots      []Slot
+	slotsCount int
+}
+
+// slotsFor returns the layout for n men in this group's shape, computing it only
+// when n differs from the last count it was asked for.
+//
+// FormationLayout allocates a slice of n slots and walks the shape's arithmetic
+// to fill it. That work depends on nothing but the shape, the count, and the
+// balance parameters, so doing it again on the next tick produces the same slice
+// in a new place, every tick, for every group, for the whole battle. At the unit
+// counts COMBAT.md section 13 quotes that is a four-thousand-slot allocation per
+// group per tick, four times a second, thrown away immediately: garbage the
+// collector is asked to reclaim during the only part of the frame where the
+// player is waiting.
+//
+// The cache is keyed on the count alone, which is the whole key: the shape is
+// fixed for the life of the group and the parameters come from a config the
+// commander holds for the whole battle. A man who breaks or dies changes the
+// count, the count no longer matches, and the layout is rebuilt for the men who
+// are left, which is correct rather than an approximation: a wedge of nineteen
+// is a different shape from a wedge of twenty and is drawn as one.
+//
+// The returned slice belongs to the group and is only read by the caller, which
+// places it and never writes to it. Nothing outside this file may hold on to it
+// across a tick.
+func (g *formationGroup) slotsFor(n int, p FormationParams) ([]Slot, error) {
+	if n == g.slotsCount && len(g.slots) == n {
+		return g.slots, nil
+	}
+	slots, err := FormationLayout(g.order.Kind, n, p)
+	if err != nil {
+		return nil, err
+	}
+	g.slots, g.slotsCount = slots, n
+	return slots, nil
 }
 
 // NewFormationCommander builds a commander for one side's groups.
@@ -1163,7 +1203,7 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 	// fast unit in a slow formation walk faster.
 	stepPace *= c.paceScale(g.order.Kind)
 
-	slots, err := FormationLayout(g.order.Kind, len(c.ids), p)
+	slots, err := g.slotsFor(len(c.ids), p)
 	if err != nil {
 		return err
 	}
