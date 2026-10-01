@@ -1589,3 +1589,33 @@
 .diplomacy__treaties { display:flex; flex-direction:column; gap:var(--space-1); }
 .diplomacy__treaty { display:flex; align-items:center; gap:var(--space-2); flex-wrap:wrap; padding:var(--space-1) 0; border-bottom:1px solid var(--line-1); }
 .diplomacy__treaty-name { font-weight:600; color:var(--ink-900); }
+
+/* Dialogue and persuasion UI (MASTER_PLAN.md 3G). Token-only, no hex. */
+.dialogue__speaker { display:flex; align-items:center; gap:var(--space-3); margin-bottom:var(--space-2); }
+.dialogue__portrait { width:72px; height:72px; object-fit:cover; border-radius:var(--radius-sm); border:1px solid var(--line-1); }
+.dialogue__who { display:flex; flex-direction:column; gap:2px; }
+.dialogue__name { font-size:1.1rem; color:var(--ink-900); }
+.dialogue__role { font-size:0.85rem; color:var(--ink-700); }
+.dialogue__faction { font-size:0.85rem; color:var(--ink-500); }
+.dialogue__text { font-size:1rem; color:var(--ink-900); line-height:1.5; margin:0 0 var(--space-2); }
+.dialogue__options { display:flex; flex-direction:column; gap:var(--space-1); }
+.dialogue__end { display:flex; flex-direction:column; gap:var(--space-2); align-items:flex-start; }
+.dialogue__relation-delta { animation:dialogue-delta-in 0.45s ease-out; margin-top:var(--space-1); }
+@keyframes dialogue-delta-in { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
+.dialogue__persuade { display:flex; flex-direction:column; gap:var(--space-2); }
+.dialogue__persuade-title { margin:0; color:var(--ink-900); }
+.dialogue__points { margin:0; color:var(--ink-700); }
+.dialogue__progress { height:10px; background:var(--paper-200); border-radius:var(--radius-1); overflow:hidden; }
+.dialogue__progress-fill { display:block; height:100%; background:var(--accent-primary); }
+.dialogue__arguments { display:flex; flex-direction:column; gap:var(--space-1); }
+.dialogue__persuade-result { color:var(--ink-900); }
+.dialogue__barter { display:flex; flex-direction:column; gap:var(--space-2); }
+.dialogue__barter-title { margin:0; color:var(--ink-900); }
+.dialogue__notable-goods { margin:0; padding-left:var(--space-4); color:var(--ink-700); }
+.dialogue__goods { display:flex; flex-wrap:wrap; gap:var(--space-1); }
+.dialogue__good { background:var(--paper-100); border:1px solid var(--line-1); border-radius:var(--radius-sm); padding:var(--space-1) var(--space-2); cursor:pointer; font-family:var(--font-sans); }
+.dialogue__good--selected { border-color:var(--accent-primary); background:var(--paper-200); }
+.dialogue__slider-row { display:flex; align-items:center; gap:var(--space-2); color:var(--ink-900); }
+.dialogue__slider { flex:1; accent-color:var(--accent-primary); }
+.dialogue__barter-actions { display:flex; gap:var(--space-2); }
+.dialogue__barter-result { color:var(--ink-900); }
