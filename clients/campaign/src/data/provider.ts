@@ -21,16 +21,24 @@
  */
 
 import type {
+  BattleXpAward,
+  BattleXpInput,
   ConnectionStatus,
+  ImproveRelationRequest,
+  ImproveRelationResult,
   MarchPlan,
   MarchRequest,
+  PlayerCharacter,
   RecruitRequest,
   RecruitResult,
   SimSnapshot,
   SimulationProvider,
+  TalkToNotableResult,
   TickUpdate,
   TradeRequest,
   TradeResult,
+  UpgradeTroopsRequest,
+  UpgradeTroopsResult,
   WhyChain,
 } from "./types.js";
 import { createFixtureSimulationProvider } from "./fixture/index.js";
@@ -182,12 +190,36 @@ export class HttpSimulationProvider implements SimulationProvider {
     return this.#post<RecruitResult>("/v1/recruit", request, "The hire did not go through.");
   }
 
+  async talkToNotable(settlementId: string, notableId: string): Promise<TalkToNotableResult> {
+    return this.#post<TalkToNotableResult>("/v1/notables/talk", { settlementId, notableId }, "They would not see you.");
+  }
+
+  async improveRelation(request: ImproveRelationRequest): Promise<ImproveRelationResult> {
+    return this.#post<ImproveRelationResult>("/v1/notables/relation", request, "The gesture fell flat.");
+  }
+
   setTimeScale(daysPerRealSecond: number): void {
     void this.#post<{ accepted: true }>("/v1/time-scale", { daysPerRealSecond }, "The clock did not change speed.");
   }
 
   async skipToArrival(): Promise<{ daysAdvanced: number }> {
     return this.#post<{ daysAdvanced: number }>("/v1/skip-to-arrival", {}, "The clock did not skip.");
+  }
+
+  setEthnicity(ethnicityId: string): void {
+    void this.#post<{ accepted: true }>("/v1/ethnicity", { ethnicityId }, "The heritage did not take.");
+  }
+
+  setCharacter(character: PlayerCharacter): void {
+    void this.#post<{ accepted: true }>("/v1/character", character, "The character did not take.");
+  }
+
+  async awardBattleXp(input: BattleXpInput): Promise<BattleXpAward[]> {
+    return this.#post<BattleXpAward[]>("/v1/troops/battle-xp", input, "The XP did not land.");
+  }
+
+  async upgradeTroops(request: UpgradeTroopsRequest): Promise<UpgradeTroopsResult> {
+    return this.#post<UpgradeTroopsResult>("/v1/troops/upgrade", request, "The promotion did not go through.");
   }
 
   async planMarch(request: MarchRequest): Promise<MarchPlan> {

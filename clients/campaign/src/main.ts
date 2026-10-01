@@ -18,6 +18,7 @@
 
 import "./design/tokens.css";
 import "./ui/ui.css";
+import { status } from "./design/tokens.js";
 
 import { readConfig, providerFromConfig, SimulationUnavailableError } from "./data/provider.js";
 import { TEST_SOURCE_WARNING, TEST_SOURCE_DETAIL } from "./data/labels.js";
@@ -35,6 +36,8 @@ import { marchPlanner } from "./ui/panels/MarchPlanner.js";
 import { ledgerPanel } from "./ui/panels/LedgerPanel.js";
 import { rulerCard, rulerRoster } from "./ui/panels/RulerPanel.js";
 import { startScreen } from "./ui/panels/StartScreen.js";
+import { characterMaker } from "./ui/panels/CharacterMaker.js";
+import { runCityDemo } from "./scene/cityDemo.js";
 import { townPanel } from "./ui/panels/TownPanel.js";
 import { whyPanel } from "./ui/panels/WhyPanel.js";
 import type {
@@ -50,6 +53,22 @@ if (!appEl) throw new Error("#app is missing from index.html");
 if (!(canvasEl instanceof HTMLCanvasElement)) throw new Error("#map is missing from index.html");
 const app = appEl;
 const mapCanvas = canvasEl;
+
+// -- city demo ---------------------------------------------------------------
+// `?city=<slug>` skips the campaign entirely and renders real OSM buildings.
+// This is the boss's "show me the cities" view: no sim, no HUD, just streets.
+const citySlug = new URLSearchParams(window.location.search).get("city");
+if (citySlug) {
+  document.title = `City demo — ${citySlug}`;
+  runCityDemo(mapCanvas, citySlug).catch((err) => {
+    document.body.insertAdjacentHTML(
+      "beforeend",
+      `<div style="position:fixed;inset:auto 12px 12px 12px;z-index:99;background:${status.critical.fill};color:${status.critical.ink};` +
+        `font:13px system-ui;padding:12px 16px;border-radius:8px">City demo failed: ${String(err)}</div>`,
+    );
+    throw err;
+  });
+} else {
 
 // -- UI scale, persisted ------------------------------------------------------
 
@@ -185,9 +204,32 @@ const selectionScreen = startScreen({
   startYear: START_YEAR,
   eraLabel: eraGradeForYear(START_YEAR).years,
   loading: false,
-  onStart: () => {
-    selectionScreen.remove();
-    mountCampaign();
+  onStart: (_choice) => {
+    // Character maker goes between faction select and campaign mount.
+    selectionScreen.replaceWith(
+      characterMaker({
+        onComplete: (character) => {
+          document.querySelector(".character-maker")?.remove();
+          provider.setCharacter({
+            firstName: character.firstName,
+            lastName: character.lastName,
+            gender: character.gender,
+            appearanceId: character.appearanceId,
+            ethnicityId: character.ethnicityId,
+            age: character.age,
+            startCity: character.startCity,
+            difficulty: character.difficulty,
+            backgroundChoices: character.backgroundChoices,
+            bonusPoints: character.bonusPoints,
+            startingSkills: character.startingSkills,
+            startingCash: character.startingCash,
+            biography: character.biography,
+          });
+          void reloadSnapshot().then(() => mountCampaign());
+        },
+        onCancel: () => location.reload(),
+      }),
+    );
   },
 });
 bootScreen.replaceWith(selectionScreen);
@@ -786,3 +828,5 @@ function paint(): void {
   };
   hud.renderState(state);
 }
+
+} // end non-city-demo branch

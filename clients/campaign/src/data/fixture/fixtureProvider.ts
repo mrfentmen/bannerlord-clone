@@ -19,17 +19,23 @@
  */
 
 import { buildFixtureSides } from "./sides.js";
+import { getEthnicity, getEthnicityEffects } from "../ethnicities.js";
 import type {
   CauseRow,
   ConnectionStatus,
   GoodId,
+  ImproveRelationRequest,
+  ImproveRelationResult,
   Ledger,
   MarketGood,
   MarketState,
   MarchPlan,
   MarchRequest,
+  Notable,
+  NotableType,
   Notification,
   PartyState,
+  PlayerCharacter,
   RecruitableUnit,
   RecruitRequest,
   RecruitResult,
@@ -37,12 +43,18 @@ import type {
   RulerState,
   SimSnapshot,
   SimulationProvider,
+  TalkToNotableResult,
   TickUpdate,
   TownState,
   TradeRequest,
   TradeResult,
+  BattleXpAward,
+  BattleXpInput,
+  UpgradeTroopsRequest,
+  UpgradeTroopsResult,
   WhyChain,
 } from "../types.js";
+import { troopStackPower, troopTier } from "../types.js";
 
 /** Marker strings. `tools/check-no-fixtures.mjs` greps the production bundle for
  *  these, so this module cannot be smuggled into a shipped build unnoticed. */
@@ -128,24 +140,38 @@ interface FixtureTownsSpec {
   /** Days of food in store. Multiplied by demand to get the person-days the field holds. */
   daysOfFood: number;
   infected: number;
+  /** Fixed culture of the settlement. Holder culture mismatch drains loyalty. */
+  culture: string;
+  /** Culture of the holding clan. Defaults to matching `culture`. */
+  holderCulture?: string;
+  /** Starting security (0-1). Defaults to 0.55. */
+  security?: number;
   /** Towns that are in trouble get a real pre-existing cause chain in the log. */
   scenario?: "shortage" | "outbreak" | "road-rot";
 }
 
+/** Starting city slug -> campaign map spawn position. */
+const CITY_SPAWNS: Record<string, { x: number; z: number }> = {
+  "manhattan-sample": { x: 100, z: 50 },
+  "la-downtown": { x: -80, z: 120 },
+  "houston-downtown": { x: 60, z: -90 },
+  "miami-downtown": { x: 140, z: -40 },
+};
+
 /** Twelve real places from `public/world/settlements.json`, with real populations. */
 const TOWN_SPECS: FixtureTownsSpec[] = [
-  { settlementId: "denver", name: "Denver", klass: "city", population: 715513, holder: "Halloway", unrest: 0.31, loyalty: 0.62, daysOfFood: 9.4, infected: 0.02 },
-  { settlementId: "aurora", name: "Aurora", klass: "city", population: 386333, holder: "Halloway", unrest: 0.24, loyalty: 0.7, daysOfFood: 12.1, infected: 0.01 },
-  { settlementId: "lakewood", name: "Lakewood", klass: "city", population: 155999, holder: "Halloway", unrest: 0.19, loyalty: 0.74, daysOfFood: 14.6, infected: 0.0 },
-  { settlementId: "boulder", name: "Boulder", klass: "city", population: 108556, holder: "Vashti", unrest: 0.38, loyalty: 0.55, daysOfFood: 6.2, infected: 0.03 },
-  { settlementId: "thornton", name: "Thornton", klass: "city", population: 141865, holder: "Halloway", unrest: 0.22, loyalty: 0.71, daysOfFood: 11.3, infected: 0.01 },
-  { settlementId: "arvada", name: "Arvada", klass: "town", population: 124354, holder: "Halloway", unrest: 0.27, loyalty: 0.66, daysOfFood: 8.8, infected: 0.02 },
-  { settlementId: "broomfield", name: "Broomfield", klass: "town", population: 74106, holder: "Halloway", unrest: 0.21, loyalty: 0.73, daysOfFood: 13.2, infected: 0.01 },
-  { settlementId: "longmont", name: "Longmont", klass: "town", population: 98919, holder: "Vashti", unrest: 0.44, loyalty: 0.48, daysOfFood: 3.1, infected: 0.06, scenario: "shortage" },
-  { settlementId: "golden", name: "Golden", klass: "town", population: 20415, holder: "Vashti", unrest: 0.72, loyalty: 0.29, daysOfFood: 0.4, infected: 0.14, scenario: "outbreak" },
-  { settlementId: "idaho-springs", name: "Idaho Springs", klass: "town", population: 15273, holder: "Vashti", unrest: 0.49, loyalty: 0.51, daysOfFood: 5.5, infected: 0.04, scenario: "road-rot" },
-  { settlementId: "nederland", name: "Nederland", klass: "town", population: 1470, holder: "Vashti", unrest: 0.35, loyalty: 0.6, daysOfFood: 7.4, infected: 0.02 },
-  { settlementId: "central-city", name: "Central City", klass: "village", population: null, holder: "Vashti", unrest: 0.28, loyalty: 0.66, daysOfFood: 9.0, infected: 0.01 },
+  { settlementId: "denver", name: "Denver", klass: "city", population: 715513, holder: "Halloway", unrest: 0.31, loyalty: 0.62, daysOfFood: 9.4, infected: 0.02 , culture: "heartlander", holderCulture: "heartlander", security: 0.68},
+  { settlementId: "aurora", name: "Aurora", klass: "city", population: 386333, holder: "Halloway", unrest: 0.24, loyalty: 0.7, daysOfFood: 12.1, infected: 0.01 , culture: "heartlander", holderCulture: "heartlander", security: 0.62},
+  { settlementId: "lakewood", name: "Lakewood", klass: "city", population: 155999, holder: "Halloway", unrest: 0.19, loyalty: 0.74, daysOfFood: 14.6, infected: 0.0 , culture: "heartlander", holderCulture: "heartlander", security: 0.6},
+  { settlementId: "boulder", name: "Boulder", klass: "city", population: 108556, holder: "Vashti", unrest: 0.38, loyalty: 0.55, daysOfFood: 6.2, infected: 0.03 , culture: "heartlander", holderCulture: "highlander", security: 0.52},
+  { settlementId: "thornton", name: "Thornton", klass: "city", population: 141865, holder: "Halloway", unrest: 0.22, loyalty: 0.71, daysOfFood: 11.3, infected: 0.01 , culture: "heartlander", holderCulture: "heartlander", security: 0.64},
+  { settlementId: "arvada", name: "Arvada", klass: "town", population: 124354, holder: "Halloway", unrest: 0.27, loyalty: 0.66, daysOfFood: 8.8, infected: 0.02 , culture: "heartlander", holderCulture: "heartlander", security: 0.55},
+  { settlementId: "broomfield", name: "Broomfield", klass: "town", population: 74106, holder: "Halloway", unrest: 0.21, loyalty: 0.73, daysOfFood: 13.2, infected: 0.01 , culture: "heartlander", holderCulture: "heartlander", security: 0.58},
+  { settlementId: "longmont", name: "Longmont", klass: "town", population: 98919, holder: "Vashti", unrest: 0.44, loyalty: 0.48, daysOfFood: 3.1, infected: 0.06, scenario: "shortage" , culture: "heartlander", holderCulture: "highlander", security: 0.45},
+  { settlementId: "golden", name: "Golden", klass: "town", population: 20415, holder: "Vashti", unrest: 0.72, loyalty: 0.29, daysOfFood: 0.4, infected: 0.14, scenario: "outbreak" , culture: "highlander", holderCulture: "highlander", security: 0.38},
+  { settlementId: "idaho-springs", name: "Idaho Springs", klass: "town", population: 15273, holder: "Vashti", unrest: 0.49, loyalty: 0.51, daysOfFood: 5.5, infected: 0.04, scenario: "road-rot" , culture: "highlander", holderCulture: "highlander", security: 0.5},
+  { settlementId: "nederland", name: "Nederland", klass: "town", population: 1470, holder: "Vashti", unrest: 0.35, loyalty: 0.6, daysOfFood: 7.4, infected: 0.02 , culture: "highlander", holderCulture: "highlander", security: 0.53},
+  { settlementId: "central-city", name: "Central City", klass: "village", population: null, holder: "Vashti", unrest: 0.28, loyalty: 0.66, daysOfFood: 9.0, infected: 0.01 , culture: "highlander", holderCulture: "highlander", security: 0.48},
 ];
 
 const RULER_SPECS = [
@@ -167,10 +193,16 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     getSnapshot: async () => state.snapshot(),
     trade: async (request) => state.trade(request),
     recruit: async (request) => state.recruit(request),
+    talkToNotable: async (settlementId, notableId) => state.talkToNotable(settlementId, notableId),
+    improveRelation: async (request) => state.improveRelation(request),
     planMarch: async (request) => state.planMarch(request),
     commitMarch: async (request) => state.commitMarch(request),
     setTimeScale: (daysPerRealSecond) => state.setTimeScale(daysPerRealSecond),
     skipToArrival: async () => state.skipToArrival(),
+    setEthnicity: (ethnicityId) => state.setEthnicity(ethnicityId),
+    setCharacter: (character) => state.setCharacter(character),
+    awardBattleXp: async (input) => state.awardBattleXp(input),
+    upgradeTroops: async (request) => state.upgradeTroops(request),
     why: async (entityId, field) => state.why(entityId, field),
     subscribeTicks: (onTick, onStatus) => state.subscribe(onTick, onStatus),
   };
@@ -185,13 +217,14 @@ class FixtureState {
   #sequence = 0;
   #random: () => number;
   #towns = new Map<string, TownState>();
+  #notables = new Map<string, Notable>();
   #markets = new Map<string, MarketState>();
   #party!: PartyState;
   #rulers: RulerState[] = [];
   #warnings: ResourceWarning[] = [];
   #notifications: Notification[] = [];
   #ledger!: Ledger;
-  #player = { partyId: "party-player", characterName: "Wren Calloway", factionId: "mountain-alliance", resources: { money: 2180, gold: 340, food: 46, metal: 62, medicine: 8 }, influence: 0, renown: 0 };
+  #player = { partyId: "party-player", characterName: "Wren Calloway", ethnicityId: "african", appearanceId: "", age: 30, biography: "", skills: {}, factionId: "mountain-alliance", resources: { money: 2180, gold: 340, food: 46, metal: 62, medicine: 8 }, influence: 0, renown: 0 };
   #timer: ReturnType<typeof setInterval> | null = null;
   #tickListeners: ((t: TickUpdate) => void)[] = [];
 
@@ -233,6 +266,11 @@ class FixtureState {
         crowding: spec.infected > 0.08 ? 0.71 : 0.33,
         unrest: spec.unrest,
         loyalty: spec.loyalty,
+        security: spec.security ?? 0.55,
+        culture: spec.culture,
+        holderCulture: spec.holderCulture ?? spec.culture,
+        rebellious: false,
+        notables: [],
         prosperity: 0.5 + rand() * 0.3,
         taxRate: 0.22,
         garrison: spec.klass === "city" ? 420 : 90,
@@ -269,9 +307,9 @@ class FixtureState {
       wagesOwed: 0,
       speedKmPerDay: 34,
       troops: [
-        { id: "t-riflemen", name: "Riflemen", count: 18, quality: 3, wage: 0.9, morale: 0.8 },
-        { id: "t-drivers", name: "Drivers", count: 6, quality: 2, wage: 1.2, morale: 0.76 },
-        { id: "t-surgeon", name: "Field surgeon", count: 1, quality: 4, wage: 3.1, morale: 0.85 },
+        { id: "t-riflemen", name: "Riflemen", count: 18, quality: 3, tier: 3, xp: 0, wage: 0.9, morale: 0.8 },
+        { id: "t-drivers", name: "Drivers", count: 6, quality: 2, tier: 2, xp: 0, wage: 1.2, morale: 0.76 },
+        { id: "t-surgeon", name: "Field surgeon", count: 1, quality: 4, tier: 4, xp: 0, wage: 3.1, morale: 0.85 },
       ],
       roles: { quartermaster: "Ivo Petran", surgeon: "Ada Renko", scout: "Bil Todd" },
       goods: [{ goodId: "grain", name: "Grain", quantity: 0, avgPaid: 0 }],
@@ -310,6 +348,59 @@ class FixtureState {
 
     this.#rebuildLedger();
     this.#refreshWarnings();
+    this.#generateNotables();
+  }
+
+  /**
+   * Notables: 2-4 named NPCs per settlement with power and relations.
+   * Wiki gap item #39. Power gates recruitment; relations unlock prices and quests.
+   */
+  #generateNotables(): void {
+    const rand = this.#random;
+    for (const town of this.#towns.values()) {
+      const count = 2 + Math.floor(rand() * 3); // 2-4
+      const types = [...NOTABLE_TYPES].sort(() => rand() - 0.5).slice(0, count);
+      const notables: Notable[] = types.map((type, i) => {
+        const culture = NOTABLE_CULTURES[Math.floor(rand() * NOTABLE_CULTURES.length)]!;
+        const firsts = NOTABLE_FIRST_NAMES[culture]!;
+        const lasts = NOTABLE_LAST_NAMES[culture]!;
+        const first = firsts[Math.floor(rand() * firsts.length)]!;
+        const last = lasts[Math.floor(rand() * lasts.length)]!;
+        // Bigger towns attract more powerful notables.
+        const sizeBonus = town.klass === "city" ? 25 : town.klass === "town" ? 10 : 0;
+        const power = Math.round(clamp(20 + rand() * 55 + sizeBonus, 1, 100));
+        const notable: Notable = {
+          id: `notable-${town.settlementId}-${i}`,
+          settlementId: town.settlementId,
+          name: `${first} ${last}`,
+          type,
+          power,
+          // Start slightly warm or cool; the player earns the rest.
+          relation: Math.round((rand() - 0.5) * 30),
+          blurb: NOTABLE_TYPE_BLURBS[type],
+        };
+        this.#notables.set(notable.id, notable);
+        return notable;
+      });
+      town.notables = notables;
+      this.#applyNotablePowerToRecruits(town);
+    }
+  }
+
+  /**
+   * Notable power gates recruitment: the willing pool scales with the total
+   * power of the settlement's notables. A town full of nobodies raises a squad;
+   * a town with connected notables raises a company.
+   */
+  #applyNotablePowerToRecruits(town: TownState): void {
+    const totalPower = town.notables.reduce((a, n) => a + n.power, 0);
+    // 2-4 notables at ~20-100 power each: total 40-400. Maps to 0.5x-2.5x.
+    const factor = 0.5 + totalPower / 200;
+    const fx = getEthnicityEffects(this.#player.ethnicityId);
+    for (const unit of town.recruitable) {
+      const base = Math.max(4, Math.round((RECRUIT_BASE_AVAILABLE[unit.unitId] ?? 10) * sizeFactorFor(town.population)));
+      unit.available = Math.max(2, Math.round(base * factor * fx.recruitSpeedMult));
+    }
   }
 
   /**
@@ -452,12 +543,15 @@ class FixtureState {
   // -- reads ----------------------------------------------------------------
 
   snapshot(): SimSnapshot {
+    const fx = getEthnicityEffects(this.#player.ethnicityId);
+    const party = structuredClone(this.#party);
+    party.morale = Math.min(1, Math.max(0, party.morale + fx.partyMoraleBonus + fx.desertMoralePenalty));
     return {
       day: this.#day,
       year: this.#year,
       eraTier: 4,
       player: { ...this.#player, resources: { ...this.#player.resources } },
-      party: structuredClone(this.#party),
+      party,
       towns: [...this.#towns.values()].map((t) => ({ ...t })),
       markets: Object.fromEntries([...this.#markets].map(([k, v]) => [k, structuredClone(v)])),
       sides: buildFixtureSides(),
@@ -574,7 +668,9 @@ class FixtureState {
           causedBy: "trade-rejected",
         };
       }
-      this.#player.resources.money = round2(this.#player.resources.money + total);
+      const fx = getEthnicityEffects(this.#player.ethnicityId);
+      const sellTotal = round2(total * fx.tradeProfitMult * fx.sellPriceMult);
+      this.#player.resources.money = round2(this.#player.resources.money + sellTotal);
       good.stock += request.quantity;
       setHeld(this.#party, request.goodId, partyQuantity - request.quantity, held?.avgPaid ?? good.price);
     }
@@ -720,6 +816,8 @@ class FixtureState {
         name: offered.name,
         count: request.quantity,
         quality: offered.quality,
+        tier: offered.quality,
+        xp: 0,
         wage: offered.wage,
         morale: 0.62,
       });
@@ -760,6 +858,126 @@ class FixtureState {
       causedBy,
     };
   }
+
+  /**
+   * Talk to a notable. Dialogue is shaped by type and relation; the action list
+   * reflects what the notable will actually do for the player right now.
+   */
+  async talkToNotable(settlementId: string, notableId: string): Promise<TalkToNotableResult> {
+    const notable = this.#notables.get(notableId);
+    if (!notable || notable.settlementId !== settlementId) {
+      throw new Error(`No notable ${notableId} in ${settlementId}`);
+    }
+    const town = this.#towns.get(`town-${settlementId}`);
+    const townName = town?.name ?? settlementId;
+
+    const dialogue: string[] = [];
+    if (notable.relation >= 50) {
+      dialogue.push(`${notable.name} grins. "Always good to see you. What do you need?"`);
+    } else if (notable.relation >= 0) {
+      dialogue.push(`${notable.name} nods. "Talk. I've got things to do."`);
+    } else if (notable.relation >= -40) {
+      dialogue.push(`${notable.name} eyes you coldly. "You. What do you want?"`);
+    } else {
+      dialogue.push(`${notable.name} doesn't look up. "Make it quick, or get out of ${townName}."`);
+    }
+    if (notable.type === "merchant") dialogue.push('"Everything in this town passes through my hands. Remember that."');
+    else if (notable.type === "gang-leader") dialogue.push('"The streets are mine after dark. You want something done quiet, I\'m the one."');
+    else if (notable.type === "veteran") dialogue.push('"I\'ve buried better than you. But you\'ve got spine, I\'ll give you that."');
+    else dialogue.push('"This neighborhood holds together because people like me hold it. Don\'t forget that."');
+
+    const canGift = this.#player.resources.money >= 50;
+    const canAskRecruits = notable.relation >= -20;
+    const canAskQuest = notable.relation >= 30 && notable.power >= 50;
+    const actions: TalkToNotableResult["actions"] = [
+      {
+        id: "gift", label: "Offer a gift (50 gold)", detail: "Gold opens doors. Raises relation.",
+        available: canGift, ...(canGift ? {} : { reason: "You don't have 50 gold to spare." }),
+      },
+      {
+        id: "favor", label: "Do a favor", detail: "Run an errand. Raises relation more than gold.",
+        available: true,
+      },
+      {
+        id: "ask-recruits", label: "Ask about recruits",
+        detail: `Power ${notable.power}: their word carries weight in the hiring halls.`,
+        available: canAskRecruits, ...(canAskRecruits ? {} : { reason: "They won't lift a finger for you at this relation." }),
+      },
+      {
+        id: "ask-quest", label: "Ask for work", detail: "Notables with real power always have problems that need solving.",
+        available: canAskQuest, ...(canAskQuest ? {} : { reason: "Earn their trust first (relation 30+, power 50+)." }),
+      },
+    ];
+
+    return { notableId: notable.id, name: notable.name, dialogue, actions };
+  }
+
+  /**
+   * Raise a notable's relation. Gifts cost gold with diminishing returns;
+   * favors cost nothing but give a bigger bump. Relation caps at 100.
+   */
+  async improveRelation(request: ImproveRelationRequest): Promise<ImproveRelationResult> {
+    const notable = this.#notables.get(request.notableId);
+    if (!notable) throw new Error(`No notable ${request.notableId}`);
+    const before = notable.relation;
+
+    if (request.action === "gift") {
+      const amount = request.amount ?? 50;
+      if (amount < 50) {
+        return {
+          accepted: false, notableId: notable.id, name: notable.name,
+          relationBefore: before, relationAfter: before,
+          summary: "A gift under 50 gold is an insult, not a gesture.",
+          reason: "Gifts start at 50 gold.", causedBy: "notable-gift-rejected",
+        };
+      }
+      if (this.#player.resources.money < amount) {
+        return {
+          accepted: false, notableId: notable.id, name: notable.name,
+          relationBefore: before, relationAfter: before,
+          summary: `You don't have ${formatMoney(amount)} to give.`,
+          reason: "Not enough gold.", causedBy: "notable-gift-rejected",
+        };
+      }
+      this.#player.resources.money = round2(this.#player.resources.money - amount);
+      const gain = Math.max(2, Math.round(12 * (1 - before / 150)));
+      notable.relation = clamp(before + gain, -100, 100);
+      const causedBy = this.#row("relation", notable.id, notable.name, before, notable.relation, "Diplomacy", [],
+        `${notable.name}'s relation rose from ${before} to ${notable.relation} after a ${formatMoney(amount)} gift.`);
+      this.#rebuildLedger();
+      this.#emitNotables(notable);
+      return {
+        accepted: true, notableId: notable.id, name: notable.name,
+        relationBefore: before, relationAfter: notable.relation,
+        summary: `You gave ${notable.name} ${formatMoney(amount)}. Relation ${before} → ${notable.relation}.`,
+        causedBy,
+      };
+    }
+
+    const gain = Math.max(3, Math.round(18 * (1 - before / 150)));
+    notable.relation = clamp(before + gain, -100, 100);
+    const causedBy = this.#row("relation", notable.id, notable.name, before, notable.relation, "Diplomacy", [],
+      `${notable.name}'s relation rose from ${before} to ${notable.relation} after you did them a favor.`);
+    this.#emitNotables(notable);
+    return {
+      accepted: true, notableId: notable.id, name: notable.name,
+      relationBefore: before, relationAfter: notable.relation,
+      summary: `You did a favor for ${notable.name}. Relation ${before} → ${notable.relation}.`,
+      causedBy,
+    };
+  }
+
+  /** Push a notable change to tick listeners via its town's delta. */
+  #emitNotables(notable: Notable): void {
+    const townId = `town-${notable.settlementId}`;
+    const town = this.#towns.get(townId);
+    this.#emit({
+      tick: this.#tick, day: this.#day,
+      ...(town ? { towns: { [townId]: { notables: town.notables.map((n) => ({ ...n })) } } } : {}),
+      party: structuredClone(this.#party), ledger: structuredClone(this.#ledger), warnings: structuredClone(this.#warnings),
+    });
+  }
+
 
   async planMarch(request: MarchRequest): Promise<MarchPlan> {
     const dest = TOWN_SPECS.find((t) => t.settlementId === request.destinationSettlementId);
@@ -876,7 +1094,7 @@ class FixtureState {
     const townDeltas: Record<string, Partial<TownState>> = {};
 
     for (const town of this.#towns.values()) {
-      const before = { food: town.foodStock, unrest: town.unrest, infected: town.infected, money: town.money };
+      const before = { food: town.foodStock, unrest: town.unrest, infected: town.infected, money: town.money, loyalty: town.loyalty, security: town.security, rebellious: town.rebellious };
       // Food system: a negative balance drains the stock, in person-days.
       const balance = town.foodProduction - town.foodDemand;
       town.foodStock = Math.max(0, Math.round(town.foodStock + balance));
@@ -893,6 +1111,48 @@ class FixtureState {
       );
       town.unrest = round2(town.unrest + (unrestTarget - town.unrest) * 0.35);
 
+      // -- Security system (Bannerlord, scaled 0-100 -> 0-1) ------------------
+      const garrisonFactor = town.garrison / 400;
+      const securityTarget = clamp(0.5 + (garrisonFactor - 1) * 0.3, 0.1, 0.95);
+      town.security = clamp(town.security + (securityTarget - town.security) * 0.1, 0, 1);
+      if (town.underSiege) town.security = clamp(town.security - 0.03, 0, 1);
+      if (town.nearbyHideout) town.security = clamp(town.security - 0.02, 0, 1);
+      if (town.lootedVillage) town.security = clamp(town.security - 0.02, 0, 1);
+      town.security = clamp(town.security, 0, 1);
+
+      // -- Loyalty system (Bannerlord, scaled 0-100 -> 0-1) --------------------
+      let loyaltyDelta = 0;
+      if (town.holderCulture !== town.culture) loyaltyDelta -= 0.03;
+      loyaltyDelta += town.security >= 0.5 ? 0.01 : -0.02;
+      if (town.foodStock <= 0) loyaltyDelta -= 0.02;
+      loyaltyDelta += (0.5 - town.loyalty) * 0.05;
+      const loyaltyBefore = town.loyalty;
+      town.loyalty = clamp(town.loyalty + loyaltyDelta, 0, 1);
+
+      if (town.loyalty < 0.25 && !town.rebellious && this.#random() < 0.25) {
+        town.rebellious = true;
+        this.#notifications.push({
+          id: `n-rebel-${town.id}-${this.#sequence++}`,
+          day: this.#day,
+          priority: "critical",
+          text: `${town.name} has risen in rebellion!`,
+          entityId: town.id,
+          field: "rebellious",
+        });
+        this.#row("rebellion", town.id, town.name, loyaltyBefore, town.loyalty, "Rebellion", [], `${town.name}'s loyalty collapsed to ${town.loyalty} and the town rebelled.`);
+      }
+      if (town.rebellious && town.loyalty >= 0.4) {
+        town.rebellious = false;
+        this.#notifications.push({
+          id: `n-calm-${town.id}-${this.#sequence++}`,
+          day: this.#day,
+          priority: "informational",
+          text: `${town.name} has been pacified.`,
+          entityId: town.id,
+          field: "rebellious",
+        });
+      }
+
       if (town.infected > 0.001) {
         // Disease system: burns medicine, and if there is none, takes population.
         const treated = Math.min(town.medicineStock, town.population ? town.infected * town.population * 0.004 : 0);
@@ -905,7 +1165,15 @@ class FixtureState {
         }
       }
 
-      town.money = round2(town.money + town.prosperity * 40 * (1 - town.unrest));
+      let taxMult = 1;
+      if (!town.rebellious) {
+        if (town.security >= 0.75) taxMult += 0.05;
+        if (town.security < 0.5) taxMult -= 0.1;
+        if (town.loyalty >= 0.75) taxMult += 0.05;
+      } else {
+        taxMult = 0;
+      }
+      town.money = round2(town.money + town.prosperity * 40 * (1 - town.unrest) * taxMult);
       town.updatedTick = this.#tick;
 
       const delta: Partial<TownState> = {};
@@ -913,11 +1181,41 @@ class FixtureState {
       if (before.unrest !== town.unrest) delta.unrest = town.unrest;
       if (before.infected !== town.infected) delta.infected = town.infected;
       if (before.money !== town.money) delta.money = town.money;
+      if (before.loyalty !== town.loyalty) delta.loyalty = town.loyalty;
+      if (before.security !== town.security) delta.security = town.security;
+      if (before.rebellious !== town.rebellious) delta.rebellious = town.rebellious;
       if (Object.keys(delta).length > 0) {
         townDeltas[town.id] = delta;
         if (Math.abs(town.unrest - before.unrest) > 0.02) {
           this.#row("unrest", town.id, town.name, before.unrest, town.unrest, "Unrest", [], `${town.name}'s unrest moved from ${before.unrest} to ${town.unrest}.`);
         }
+      }
+    }
+
+    // Notables: power drifts a little each day (random walk, mean-reverting).
+    // Relations decay slowly toward 0 when neglected — friendship needs upkeep.
+    // Drift also re-gates recruitment, so the hiring pool breathes over time.
+    const notableDeltas = new Map<string, Notable[]>();
+    for (const notable of this.#notables.values()) {
+      const beforePower = notable.power;
+      const beforeRelation = notable.relation;
+      const drift = (this.#random() - 0.5) * 4; // ±2
+      const meanReversion = (50 - notable.power) * 0.02;
+      notable.power = Math.round(clamp(notable.power + drift + meanReversion, 1, 100));
+      if (notable.relation !== 0) {
+        notable.relation = Math.round(notable.relation * 0.995);
+      }
+      if (notable.power !== beforePower || notable.relation !== beforeRelation) {
+        const townId = `town-${notable.settlementId}`;
+        if (!notableDeltas.has(townId)) notableDeltas.set(townId, []);
+        notableDeltas.get(townId)!.push({ ...notable });
+      }
+    }
+    for (const townId of notableDeltas.keys()) {
+      const town = this.#towns.get(townId);
+      if (town) {
+        this.#applyNotablePowerToRecruits(town);
+        townDeltas[townId] = { ...townDeltas[townId], notables: town.notables.map((n) => ({ ...n })) };
       }
     }
 
@@ -933,6 +1231,7 @@ class FixtureState {
     }
 
     this.#applyDailyUpkeep();
+    this.#applyTrainingXp();
     this.#rebuildLedger();
     this.#refreshWarnings();
     this.#emit({ tick: this.#tick, day: this.#day, towns: townDeltas, party: structuredClone(this.#party), ledger: structuredClone(this.#ledger), warnings: structuredClone(this.#warnings) });
@@ -952,9 +1251,10 @@ class FixtureState {
    * tolls when the road is held. Only the costs run on the clock.
    */
   #applyDailyUpkeep(): void {
-    const wages = round2(this.#party.troops.reduce((a, t) => a + t.count * t.wage, 0));
+    const fx = getEthnicityEffects(this.#player.ethnicityId);
+    const wages = round2(this.#party.troops.reduce((a, t) => a + t.count * t.wage, 0) * fx.troopWageMult);
     const headcount = this.#party.troops.reduce((a, t) => a + t.count, 0);
-    const rations = round2(headcount * 0.85);
+    const rations = round2(headcount * 0.85 * fx.foodConsumptionMult);
     const ammo = 3;
     const camp = 14;
 
@@ -972,6 +1272,93 @@ class FixtureState {
     this.#party.metal = round2(Math.max(0, this.#party.metal - ammo));
     this.#player.resources.food = this.#party.food;
     this.#player.resources.metal = this.#party.metal;
+  }
+
+  /**
+   * Daily drill. A party sitting in camp trains: every soldier banks a little
+   * XP. Marching troops are too busy walking to drill. (When the Training
+   * Fields construction project lands, it will multiply this for garrisons.)
+   */
+  #applyTrainingXp(): void {
+    if (this.#party.destination) return;
+    const XP_PER_SOLDIER_PER_DAY = 2;
+    for (const stack of this.#party.troops) {
+      if (stack.count > 0) {
+        stack.xp = Math.round(stack.xp + XP_PER_SOLDIER_PER_DAY * stack.count);
+      }
+    }
+  }
+
+  async awardBattleXp(input: BattleXpInput): Promise<BattleXpAward[]> {
+    const ids = new Set(input.stackIds ?? this.#party.troops.map((t) => t.id));
+    const fighters = this.#party.troops.filter((t) => ids.has(t.id) && t.count > 0);
+    if (fighters.length === 0) return [];
+
+    const ownStrength = fighters.reduce((a, t) => a + troopStackPower(t), 0);
+    const ratio = Math.min(3, Math.max(0.25, input.enemyStrength / Math.max(1, ownStrength)));
+    const xpPerSoldier = Math.round(20 * ratio * (input.won ? 1 : 0.5));
+
+    const awarded: BattleXpAward[] = [];
+    for (const stack of fighters) {
+      const xp = xpPerSoldier * stack.count;
+      stack.xp = Math.round(stack.xp + xp);
+      awarded.push({ stackId: stack.id, xp });
+    }
+
+    this.#notifications.push({
+      id: `n-xp-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: input.won
+        ? `Victory. The troops gained ${xpPerSoldier} XP per soldier.`
+        : `Defeat, but the survivors learned ${xpPerSoldier} XP per soldier.`,
+      entityId: this.#party.id,
+      field: "troops",
+    });
+    return awarded;
+  }
+
+  /**
+   * Promote a stack to the next tier. Costs the stack's banked XP (threshold ×
+   * headcount) plus gold from the purse (20 per soldier per current tier).
+   * Higher tiers fight better but cost more every payday.
+   */
+  async upgradeTroops(request: UpgradeTroopsRequest): Promise<UpgradeTroopsResult> {
+    const stack = this.#party.troops.find((t) => t.id === request.stackId);
+    if (!stack) {
+      return { upgraded: false, stackId: request.stackId, fromTier: 0, toTier: 0, xpSpent: 0, goldSpent: 0, reason: `No stack ${request.stackId} in the party.`, causedBy: "upgrade-rejected" };
+    }
+    const fromTier = troopTier(stack.tier);
+    const toTier = stack.tier >= 5 ? null : troopTier(stack.tier + 1);
+    if (!toTier || fromTier.xpToNext === null) {
+      return { upgraded: false, stackId: stack.id, fromTier: stack.tier, toTier: stack.tier, xpSpent: 0, goldSpent: 0, reason: `${stack.name} are already elite. There is nowhere higher to go.`, causedBy: "upgrade-rejected" };
+    }
+    const xpNeeded = fromTier.xpToNext * stack.count;
+    if (stack.xp < xpNeeded) {
+      return { upgraded: false, stackId: stack.id, fromTier: stack.tier, toTier: stack.tier, xpSpent: 0, goldSpent: 0, reason: `${stack.name} need ${xpNeeded - Math.round(stack.xp)} more XP before they can become ${toTier.name.toLowerCase()}s.`, causedBy: "upgrade-rejected" };
+    }
+    const goldCost = Math.round(stack.count * 20 * stack.tier);
+    if (this.#player.resources.money < goldCost) {
+      return { upgraded: false, stackId: stack.id, fromTier: stack.tier, toTier: stack.tier, xpSpent: 0, goldSpent: 0, reason: `Upgrading ${stack.name} costs ${formatMoney(goldCost)}. You have ${formatMoney(this.#player.resources.money)}.`, causedBy: "upgrade-rejected" };
+    }
+
+    this.#player.resources.money = round2(this.#player.resources.money - goldCost);
+    this.#party.money = this.#player.resources.money;
+    stack.xp = Math.round(stack.xp - xpNeeded);
+    stack.tier = toTier.tier;
+    stack.quality = toTier.tier;
+    stack.wage = round2(stack.wage * (toTier.wageMultiplier / fromTier.wageMultiplier));
+    stack.morale = round2(clamp(stack.morale + 0.05, 0, 1));
+
+    return {
+      upgraded: true,
+      stackId: stack.id,
+      fromTier: fromTier.tier,
+      toTier: toTier.tier,
+      xpSpent: xpNeeded,
+      goldSpent: goldCost,
+      causedBy: "upgrade",
+    };
   }
 
   /**
@@ -1000,6 +1387,28 @@ class FixtureState {
       days += 1;
     }
     return { daysAdvanced: days };
+  }
+
+  setEthnicity(ethnicityId: string): void {
+    if (!getEthnicity(ethnicityId)) throw new Error(`Unknown ethnicity ${ethnicityId}`);
+    this.#player.ethnicityId = ethnicityId;
+  }
+
+  setCharacter(character: PlayerCharacter): void {
+    this.#player.characterName = `${character.firstName} ${character.lastName}`;
+    this.#player.ethnicityId = character.ethnicityId;
+    (this.#player as Record<string, unknown>).appearanceId = character.appearanceId;
+    (this.#player as Record<string, unknown>).age = character.age;
+    (this.#player as Record<string, unknown>).biography = character.biography;
+    (this.#player as Record<string, unknown>).skills = { ...character.startingSkills };
+    (this.#player as Record<string, unknown>).difficulty = character.difficulty;
+    (this.#player as Record<string, unknown>).startCity = character.startCity;
+    this.#player.resources.money = character.startingCash;
+    // Spawn the party near the chosen starting city.
+    const spawn = CITY_SPAWNS[character.startCity];
+    if (spawn) {
+      this.#party.position = { ...spawn };
+    }
   }
 
   // -- derived panels -------------------------------------------------------
@@ -1135,6 +1544,47 @@ const GOOD_MARKET_UNITS: Record<GoodId, number> = {
   tools: 32,
   lumber: 55,
 };
+
+/**
+ * Procedural American notable names, grouped loosely by the game's cultures.
+ * A generator, not a list: picks are deterministic per seed via the fixture RNG.
+ */
+const NOTABLE_FIRST_NAMES: Record<string, string[]> = {
+  italian: ["Marco", "Sofia", "Tony", "Gina", "Sal", "Rosa", "Vito", "Elena"],
+  irish: ["Seamus", "Bridget", "Connor", "Maeve", "Patrick", "Nora", "Finn", "Aoife"],
+  chinese: ["Wei", "Mei", "Jian", "Li", "Chen", "Xiao", "Fang", "Bo"],
+  korean: ["Jin", "Soo", "Min", "Hana", "Tae", "Yuna", "Dong", "Seo"],
+  african: ["Marcus", "Keisha", "Darnell", "Tamika", "Jerome", "Latoya", "Andre", "Nia"],
+  jamaican: ["Damian", "Marlene", "Orlando", "Shanice", "Tyrone", "Althea", "Dwayne", "Denise"],
+  mexican: ["Carlos", "Maria", "Diego", "Lucia", "Miguel", "Rosa", "Jorge", "Elena"],
+  puertoRican: ["Luis", "Carmen", "Rafael", "Isabel", "Miguel", "Sofia", "Diego", "Luz"],
+  german: ["Hans", "Greta", "Klaus", "Ingrid", "Otto", "Helga", "Fritz", "Anna"],
+  russian: ["Ivan", "Natasha", "Dmitri", "Olga", "Sergei", "Irina", "Viktor", "Anya"],
+};
+
+const NOTABLE_LAST_NAMES: Record<string, string[]> = {
+  italian: ["Rossi", "Marino", "Conti", "Ferrara", "Bianchi", "Romano"],
+  irish: ["Murphy", "Kelly", "Sullivan", "Walsh", "Byrne", "Ryan"],
+  chinese: ["Wang", "Li", "Zhang", "Liu", "Chen", "Yang"],
+  korean: ["Kim", "Lee", "Park", "Choi", "Jung", "Kang"],
+  african: ["Johnson", "Williams", "Brown", "Jones", "Davis", "Wilson"],
+  jamaican: ["Brown", "Campbell", "Reid", "Thompson", "Walker", "Morgan"],
+  mexican: ["Garcia", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Perez"],
+  puertoRican: ["Rivera", "Torres", "Santiago", "Cruz", "Morales", "Ortiz"],
+  german: ["Schmidt", "Weber", "Meyer", "Wagner", "Becker", "Schulz"],
+  russian: ["Ivanov", "Petrov", "Sokolov", "Smirnov", "Kuznetsov", "Popov"],
+};
+
+const NOTABLE_CULTURES = Object.keys(NOTABLE_FIRST_NAMES);
+
+const NOTABLE_TYPE_BLURBS: Record<NotableType, string> = {
+  merchant: "Runs the biggest concern in town. Everything has a price.",
+  "gang-leader": "Controls the streets after dark. Cross them and vanish.",
+  veteran: "Fought in the last war. The young ones listen when they talk.",
+  "community-leader": "Keeps the neighborhood together. People trust their word.",
+};
+
+const NOTABLE_TYPES: NotableType[] = ["merchant", "gang-leader", "veteran", "community-leader"];
 
 /** Straight-line distances between the fixture's settlements, in kilometres. */
 const DISTANCES: Record<string, number> = {

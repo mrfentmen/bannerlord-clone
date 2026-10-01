@@ -278,6 +278,8 @@ export interface GameCharacter {
   startCity: string;
   /** Character age. */
   age: number;
+  /** Difficulty id. */
+  difficulty: string;
   /** Computed starting skills from backgrounds + ethnicity + bonus points. */
   startingSkills: Record<string, number>;
   startingCash: number;
@@ -361,12 +363,193 @@ export const START_CITIES: StartCity[] = [
   },
 ];
 
+/** Clan/family names with meanings. Your last name becomes your clan name. */
+export interface ClanName {
+  name: string;
+  meaning: string;
+  ethnicityId: string;
+}
+
+export const CLAN_NAMES: ClanName[] = [
+  // Italian
+  { name: "Corleone", meaning: "Lion heart — commands respect", ethnicityId: "italian" },
+  { name: "Marchetti", meaning: "Walkers — always moving forward", ethnicityId: "italian" },
+  { name: "Ferraro", meaning: "Blacksmith — forged in fire", ethnicityId: "italian" },
+  // Irish
+  { name: "O'Malley", meaning: "Descendant of the chief — born leaders", ethnicityId: "irish" },
+  { name: "Kavanagh", meaning: "Gentle birth — noble blood", ethnicityId: "irish" },
+  { name: "Byrne", meaning: "Raven — clever and watchful", ethnicityId: "irish" },
+  // Chinese
+  { name: "Long", meaning: "Dragon — power and wisdom", ethnicityId: "chinese" },
+  { name: "Chen", meaning: "Dawn — new beginnings", ethnicityId: "chinese" },
+  { name: "Wang", meaning: "King — destined to rule", ethnicityId: "chinese" },
+  // Korean
+  { name: "Kim", meaning: "Gold — precious and enduring", ethnicityId: "korean" },
+  { name: "Park", meaning: "Gourd — humble strength", ethnicityId: "korean" },
+  { name: "Choi", meaning: "High mountain — unshakeable", ethnicityId: "korean" },
+  // African-American
+  { name: "Freeman", meaning: "Free man — earned liberty", ethnicityId: "african" },
+  { name: "Justice", meaning: "Righteous — fights for what's right", ethnicityId: "african" },
+  { name: "King", meaning: "Royalty — carries dignity", ethnicityId: "african" },
+  // Jamaican
+  { name: "Marley", meaning: "From the lake — flows like water", ethnicityId: "jamaican" },
+  { name: "Campbell", meaning: "Crooked mouth — speaks truth", ethnicityId: "jamaican" },
+  { name: "Brown", meaning: "Strong — solid foundation", ethnicityId: "jamaican" },
+  // Mexican
+  { name: "Guerrero", meaning: "Warrior — born fighter", ethnicityId: "mexican" },
+  { name: "Vargas", meaning: "Steep slope — climbs high", ethnicityId: "mexican" },
+  { name: "Reyes", meaning: "Kings — royal blood", ethnicityId: "mexican" },
+  // Puerto Rican
+  { name: "Rivera", meaning: "Riverbank — life flows through", ethnicityId: "puerto_rican" },
+  { name: "Santiago", meaning: "Saint James — protected", ethnicityId: "puerto_rican" },
+  { name: "Torres", meaning: "Towers — stands tall", ethnicityId: "puerto_rican" },
+  // German
+  { name: "Schmidt", meaning: "Smith — crafts with precision", ethnicityId: "german" },
+  { name: "Weber", meaning: "Weaver — connects threads", ethnicityId: "german" },
+  { name: "Fischer", meaning: "Fisher — patient hunter", ethnicityId: "german" },
+  // Russian
+  { name: "Volkov", meaning: "Wolf — hunts in packs", ethnicityId: "russian" },
+  { name: "Petrov", meaning: "Son of Peter — rock solid", ethnicityId: "russian" },
+  { name: "Sokolov", meaning: "Falcon — strikes from above", ethnicityId: "russian" },
+];
+
+/** Get clan name suggestions for an ethnicity. */
+export function clanNamesForEthnicity(ethnicityId: string): ClanName[] {
+  return CLAN_NAMES.filter((c) => c.ethnicityId === ethnicityId);
+}
+
+/** Difficulty levels with real mechanical effects. */
+export interface Difficulty {
+  id: string;
+  label: string;
+  tagline: string;
+  description: string;
+  pros: { label: string; reason: string }[];
+  cons: { label: string; reason: string }[];
+}
+
+export const DIFFICULTIES: Difficulty[] = [
+  {
+    id: "story",
+    label: "Story",
+    tagline: "Enjoy the ride.",
+    description: "For players who want the narrative without the grind. Enemies are weaker, money flows easier, and mistakes don't hurt as much.",
+    pros: [
+      { label: "Enemies -30% strength", reason: "Focus on story, not survival" },
+      { label: "+50% trade profits", reason: "Money comes easy" },
+      { label: "Forgiving", reason: "Mistakes cost less" },
+    ],
+    cons: [
+      { label: "Less renown", reason: "Legends aren't made on easy mode" },
+    ],
+  },
+  {
+    id: "normal",
+    label: "Normal",
+    tagline: "The intended experience.",
+    description: "Balanced as designed. The streets are tough but fair. This is how the game is meant to be played.",
+    pros: [
+      { label: "Balanced", reason: "No modifiers either way" },
+    ],
+    cons: [
+      { label: "No bonuses", reason: "You earn everything" },
+    ],
+  },
+  {
+    id: "hard",
+    label: "Hard",
+    tagline: "Prove yourself.",
+    description: "For veterans. Enemies hit harder, money is tighter, and every decision matters. Only the ruthless survive.",
+    pros: [
+      { label: "2x renown gain", reason: "Glory means more when it's hard" },
+      { label: "Bragging rights", reason: "You beat it on hard" },
+    ],
+    cons: [
+      { label: "Enemies +30% strength", reason: "They want you dead" },
+      { label: "-25% trade profits", reason: "Every dollar is a fight" },
+      { label: "Harsher consequences", reason: "Mistakes can end runs" },
+    ],
+  },
+  {
+    id: "ironman",
+    label: "Ironman",
+    tagline: "One life. No saves.",
+    description: "Hard mode with permadeath. If you fall, your character is gone — but your clan remembers. For the truly fearless.",
+    pros: [
+      { label: "3x renown gain", reason: "Immortal glory" },
+      { label: "Unique titles", reason: "Ironman survivors get special recognition" },
+    ],
+    cons: [
+      { label: "Permadeath", reason: "Death is permanent" },
+      { label: "Enemies +50% strength", reason: "The game wants you dead" },
+      { label: "No manual saves", reason: "Live with your choices" },
+    ],
+  },
+];
+
 /** Age brackets with mechanical effects. */
-export const AGE_BRACKETS: { min: number; max: number; label: string; effect: string }[] = [
-  { min: 18, max: 25, label: "Young (18-25)", effect: "+2 Athletics, -1 Leadership" },
-  { min: 26, max: 35, label: "Prime (26-35)", effect: "Balanced. No modifiers." },
-  { min: 36, max: 50, label: "Veteran (36-50)", effect: "+2 Leadership, -1 Athletics" },
-  { min: 51, max: 70, label: "Elder (51+)", effect: "+3 Leadership, +1 Trade, -2 Athletics, -1 Combat" },
+export interface AgeBracket {
+  min: number;
+  max: number;
+  label: string;
+  tagline: string;
+  description: string;
+  pros: { label: string; reason: string }[];
+  cons: { label: string; reason: string }[];
+}
+
+export const AGE_BRACKETS: AgeBracket[] = [
+  {
+    min: 18, max: 25, label: "Young (18-25)",
+    tagline: "Hungry and fast.",
+    description: "You're young, quick, and have everything to prove. The streets respect energy. What you lack in wisdom you make up for in raw speed and recklessness.",
+    pros: [
+      { label: "+2 Athletics", reason: "Young legs — you outrun everyone" },
+      { label: "Faster XP gain", reason: "Young minds learn combat quicker" },
+    ],
+    cons: [
+      { label: "-1 Leadership", reason: "Nobody follows a kid... yet" },
+      { label: "Less starting cash", reason: "You haven't had time to save" },
+    ],
+  },
+  {
+    min: 26, max: 35, label: "Prime (26-35)",
+    tagline: "The sweet spot.",
+    description: "Old enough to know the game, young enough to play it hard. This is when legends are made — your body and mind are both at their peak.",
+    pros: [
+      { label: "No penalties", reason: "Balanced in every direction" },
+      { label: "Best all-rounder", reason: "No wasted potential" },
+    ],
+    cons: [
+      { label: "No bonuses either", reason: "Jack of all trades, master of none" },
+    ],
+  },
+  {
+    min: 36, max: 50, label: "Veteran (36-50)",
+    tagline: "Been there, done that.",
+    description: "You've seen things. People listen when you talk because you've earned it. Your body isn't what it was, but your mind and your network are sharper than ever.",
+    pros: [
+      { label: "+2 Leadership", reason: "Respect is earned — and you earned it" },
+      { label: "More starting cash", reason: "Years of work = savings" },
+    ],
+    cons: [
+      { label: "-1 Athletics", reason: "The knees don't lie" },
+    ],
+  },
+  {
+    min: 51, max: 70, label: "Elder (51+)",
+    tagline: "The old lion.",
+    description: "You're a living legend or a cautionary tale — either way, people know your name. You don't fight with your fists anymore. You fight with your mind, your money, and your people.",
+    pros: [
+      { label: "+3 Leadership", reason: "Decades of command" },
+      { label: "+1 Trade", reason: "You know where every dollar is" },
+      { label: "Most starting cash", reason: "A lifetime of accumulation" },
+    ],
+    cons: [
+      { label: "-2 Athletics", reason: "Running is for the young" },
+      { label: "-1 Combat", reason: "Your hands aren't as fast" },
+    ],
+  },
 ];
 
 /**
@@ -407,14 +590,17 @@ export function computeCharacterStats(
   if (age <= 25) {
     skills.athletics = (skills.athletics ?? 1) + 2;
     skills.leadership = Math.max(1, (skills.leadership ?? 1) - 1);
+    cash = Math.max(0, cash - 200); // Young: less savings
   } else if (age >= 36 && age <= 50) {
     skills.leadership = (skills.leadership ?? 1) + 2;
     skills.athletics = Math.max(1, (skills.athletics ?? 1) - 1);
+    cash += 500; // Veteran: savings
   } else if (age > 50) {
     skills.leadership = (skills.leadership ?? 1) + 3;
     skills.trade = (skills.trade ?? 1) + 1;
     skills.athletics = Math.max(1, (skills.athletics ?? 1) - 2);
     skills.combat = Math.max(1, (skills.combat ?? 1) - 1);
+    cash += 1000; // Elder: lifetime of accumulation
   }
 
   // Player-allocated bonus points.

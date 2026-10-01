@@ -85,6 +85,28 @@ export interface TownState {
   crowding: number;
   unrest: number;
   loyalty: number;
+  /**
+   * 0 to 1. Bannerlord's Security stat: driven by garrison strength, drifts
+   * toward 0.5. >= 0.75 gives +5% taxes; < 0.5 gives -10% taxes and feeds
+   * loyalty penalties. See docs/bannerlord-gap-analysis.md item #7.
+   */
+  security: number;
+  /**
+   * The settlement's culture (fixed per settlement in the fixture). Used for
+   * loyalty: owner culture mismatch drains loyalty daily.
+   */
+  culture: string;
+  /** The holder's culture. Mismatch with `culture` drains loyalty. */
+  holderCulture: string;
+  /**
+   * True when loyalty collapsed below 0.25 and the rebellion roll fired.
+   * A rebellious town stops paying taxes until loyalty recovers.
+   */
+  rebellious: boolean;
+  /** Situational security penalties (Bannerlord: hideout -2, looted village -2, siege -3, scaled to 0-1). */
+  underSiege?: boolean;
+  nearbyHideout?: boolean;
+  lootedVillage?: boolean;
   prosperity: number;
   taxRate: number;
   garrison: number;
@@ -103,6 +125,11 @@ export interface TownState {
    * the client renders the list and sends the order, nothing more.
    */
   recruitable: RecruitableUnit[];
+  /**
+   * Named notables in this settlement. Their power gates recruitment and their
+   * relations unlock prices and quests. Per-notable, not per-settlement.
+   */
+  notables: Notable[];
 }
 
 /** One kind of soldier a town can raise, as the simulation describes it. */
@@ -143,6 +170,54 @@ export interface RecruitResult {
   causedBy: string;
 }
 
+/** A named notable NPC in a settlement. Wiki gap item #39: notables have Power
+ *  and per-notable relations that gate recruitment and hand out issues. */
+export type NotableType = "merchant" | "gang-leader" | "veteran" | "community-leader";
+
+export interface Notable {
+  id: string;
+  settlementId: string;
+  name: string;
+  type: NotableType;
+  /** 1 to 100. Higher power unlocks more and better recruits. */
+  power: number;
+  /** -100 to +100. Raised by gifts and favors; unlocks prices and quests. */
+  relation: number;
+  /** One line on who they are, in the product's voice. */
+  blurb: string;
+}
+
+/** What the player can do when talking to a notable. */
+export type NotableAction = "gift" | "favor" | "ask-recruits" | "ask-quest";
+
+export interface TalkToNotableResult {
+  notableId: string;
+  name: string;
+  /** Lines of dialogue, in order. */
+  dialogue: string[];
+  /** Actions currently available with this notable. */
+  actions: { id: NotableAction; label: string; detail: string; available: boolean; reason?: string }[];
+}
+
+export interface ImproveRelationRequest {
+  notableId: string;
+  action: "gift" | "favor";
+  /** Gold for a gift; ignored for favors. */
+  amount?: number;
+}
+
+export interface ImproveRelationResult {
+  accepted: boolean;
+  notableId: string;
+  name: string;
+  relationBefore: number;
+  relationAfter: number;
+  /** What it cost, in the product's voice. */
+  summary: string;
+  reason?: string;
+  causedBy: string;
+}
+
 export interface MarketGood {
   goodId: GoodId;
   name: string;
@@ -169,9 +244,78 @@ export interface TroopStack {
   count: number;
   /** 0 to 5, per `RULERS.md` and the troop quality rules in `MARCH_AND_WAR.md` §5. */
   quality: number;
+  /** 1 to 5, indexes TROOP_TIERS. Kept in sync with quality on upgrade. */
+  tier: number;
+  /** XP banked toward the next tier upgrade (stack total; thresholds scale by count). */
+  xp: number;
   /** Money per day per soldier. */
   wage: number;
   morale: number;
+}
+
+/**
+ * The troop tier ladder. XP thresholds are per soldier; a stack of N soldiers
+ * needs xpToNext * N banked XP to become eligible for upgrade. Combat and wage
+ * multipliers are relative to tier 1.
+ */
+export interface TroopTier {
+  tier: number;
+  name: string;
+  /** XP per soldier to reach the next tier. null = max tier, no further upgrade. */
+  xpToNext: number | null;
+  combatMultiplier: number;
+  wageMultiplier: number;
+}
+
+export const TROOP_TIERS: TroopTier[] = [
+  { tier: 1, name: "Recruit", xpToNext: 100, combatMultiplier: 1.0, wageMultiplier: 1.0 },
+  { tier: 2, name: "Militia", xpToNext: 250, combatMultiplier: 1.3, wageMultiplier: 1.4 },
+  { tier: 3, name: "Soldier", xpToNext: 500, combatMultiplier: 1.7, wageMultiplier: 1.9 },
+  { tier: 4, name: "Veteran", xpToNext: 1000, combatMultiplier: 2.2, wageMultiplier: 2.5 },
+  { tier: 5, name: "Elite", xpToNext: null, combatMultiplier: 2.8, wageMultiplier: 3.2 },
+];
+
+/** Look up a tier by number, clamping to the valid 1..5 range. */
+export function troopTier(tier: number): TroopTier {
+  return TROOP_TIERS[Math.min(5, Math.max(1, Math.round(tier))) - 1]!;
+}
+
+/** Effective combat strength of a stack: bodies × tier × morale. */
+export function troopStackPower(stack: Pick<TroopStack, "count" | "tier" | "morale">): number {
+  const tier = troopTier(stack.tier);
+  return stack.count * tier.combatMultiplier * (0.5 + stack.morale / 2);
+}
+
+export interface UpgradeTroopsRequest {
+  stackId: string;
+}
+
+export interface UpgradeTroopsResult {
+  upgraded: boolean;
+  stackId: string;
+  fromTier: number;
+  toTier: number;
+  /** XP deducted from the stack's bank. */
+  xpSpent: number;
+  /** Gold deducted from the purse. */
+  goldSpent: number;
+  /** Why the upgrade failed, in the product's voice, when `upgraded` is false. */
+  reason?: string;
+  causedBy: string;
+}
+
+export interface BattleXpInput {
+  /** Whether the player's side won. Losers learn too, at half rate. */
+  won: boolean;
+  /** Total enemy combat strength, for scaling XP. Stronger foe, more learned. */
+  enemyStrength: number;
+  /** Stack ids that fought. Defaults to every stack in the party. */
+  stackIds?: string[];
+}
+
+export interface BattleXpAward {
+  stackId: string;
+  xp: number;
 }
 
 export interface PartyState {
@@ -412,6 +556,16 @@ export interface SimSnapshot {
   player: {
     partyId: string;
     characterName: string;
+    /** The player's chosen ethnicity (culture). See src/data/ethnicities.ts. */
+    ethnicityId: string;
+    /** Appearance preset from the character maker. */
+    appearanceId: string;
+    /** Character age from the maker. */
+    age: number;
+    /** Biography assembled from background choices. */
+    biography: string;
+    /** Starting skills from backgrounds + age + bonus points. */
+    skills: Record<string, number>;
     factionId: string;
     resources: Resources;
     influence: number;
@@ -455,19 +609,47 @@ export interface TickUpdate {
 }
 
 /** The full read and write surface the client needs from the simulation. */
-export interface SimulationProvider {
-  readonly kind: "http" | "fixture";
+/** Full player character from the character maker. Passed to the sim on game start. */
+export interface PlayerCharacter {
+  firstName: string;
+  lastName: string;
+  gender: "male" | "female";
+  appearanceId: string;
+  ethnicityId: string;
+  age: number;
+  startCity: string;
+  difficulty: string;
+  backgroundChoices: Record<string, string>;
+  bonusPoints: Record<string, number>;
+  startingSkills: Record<string, number>;
+  startingCash: number;
+  biography: string;
+}
+
+export interface SimulationProvider {  readonly kind: "http" | "fixture";
   /** Shown in the data-source panel so the player knows what they are looking at. */
   readonly label: string;
   getSnapshot(): Promise<SimSnapshot>;
   trade(request: TradeRequest): Promise<TradeResult>;
   recruit(request: RecruitRequest): Promise<RecruitResult>;
+  /** Talk to a notable: dialogue plus the actions currently available. */
+  talkToNotable(settlementId: string, notableId: string): Promise<TalkToNotableResult>;
+  /** Raise a notable's relation with a gift or a favor. */
+  improveRelation(request: ImproveRelationRequest): Promise<ImproveRelationResult>;
   planMarch(request: MarchRequest): Promise<MarchPlan>;
   commitMarch(request: MarchRequest): Promise<void>;
   /** Days of game time per real second. Zero pauses the clock. */
   setTimeScale(daysPerRealSecond: number): void;
   /** Run the clock until the party's march completes. Resolves with days advanced. */
   skipToArrival(): Promise<{ daysAdvanced: number }>;
+  /** Set the player's ethnicity (culture). Applies bonuses from that point on. */
+  setEthnicity(ethnicityId: string): void;
+  /** Set the full player character from the character maker. Persists name, appearance, skills, cash, biography. */
+  setCharacter(character: PlayerCharacter): void;
+  /** Award battle XP to troops. Called after combat resolves. */
+  awardBattleXp(input: BattleXpInput): Promise<BattleXpAward[]>;
+  /** Promote a troop stack to the next tier, spending banked XP and gold. */
+  upgradeTroops(request: UpgradeTroopsRequest): Promise<UpgradeTroopsResult>;
   why(entityId: string, field: string): Promise<WhyChain>;
   subscribeTicks(onTick: (tick: TickUpdate) => void, onStatus: (status: ConnectionStatus) => void): () => void;
 }
