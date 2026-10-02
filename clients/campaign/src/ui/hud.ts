@@ -49,6 +49,10 @@ export interface HudOptions {
   onOpenChronicle?: () => void;
   /** Opens the campaign timeline (MASTER_PLAN task 139). Optional: the button hides without it. */
   onOpenTimeline?: () => void;
+  /** Opens the lifetime statistics page (MASTER_PLAN task 138). Optional: the button hides without it. */
+  onOpenLifetimeStats?: () => void;
+  /** Opens the local leaderboards (MASTER_PLAN task 141). Optional: the button hides without it. */
+  onOpenLeaderboards?: () => void;
   /** Toggles the battle heatmap overlay. Optional: the button hides without it. */
   onOpenHeatmap?: () => void;
   /** Opens the war memorial. Optional: the button hides without it. */
@@ -542,6 +546,18 @@ export function createHud(options: HudOptions): HudHandle {
       const timelineBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-timeline" }, "Timeline");
       timelineBtn.addEventListener("click", () => options.onOpenTimeline?.());
       rail.appendChild(timelineBtn);
+    }
+
+    if (options.onOpenLifetimeStats) {
+      const statsBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-lifetime-stats" }, "Stats");
+      statsBtn.addEventListener("click", () => options.onOpenLifetimeStats?.());
+      rail.appendChild(statsBtn);
+    }
+
+    if (options.onOpenLeaderboards) {
+      const boardsBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-leaderboards" }, "Ranks");
+      boardsBtn.addEventListener("click", () => options.onOpenLeaderboards?.());
+      rail.appendChild(boardsBtn);
     }
 
     if (options.onOpenGallery) {

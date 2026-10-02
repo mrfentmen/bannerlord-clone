@@ -106,6 +106,13 @@ import {
 } from "./meta/heatmap.js";
 import { heatmapPanel, type HeatmapPanelHandle } from "./meta/heatmapPanel.js";
 import { timelinePanel } from "./meta/timelinePanel.js";
+import { lifetimeStatsPanel } from "./meta/lifetimeStatsPanel.js";
+import { leaderboardsPanel } from "./meta/leaderboardsPanel.js";
+import {
+  addPlaySeconds,
+  recordCampaignStart,
+  recordLifetimeBattle,
+} from "./meta/lifetimeStats.js";
 import { makeWorldProjector } from "./meta/heatmapProjector.js";
 import {
   clearIronmanRun,
@@ -353,6 +360,7 @@ const bootScreen = startScreen({
   loading: true,
   onStart: () => {
     bootScreen.remove();
+    recordCampaignStart();
     mountCampaign();
   },
 });
@@ -512,6 +520,8 @@ const hud = createHud({
   onOpenGallery: () => openGallery(),
   onOpenChronicle: () => openChronicle(),
   onOpenTimeline: () => openTimeline(),
+  onOpenLifetimeStats: () => openLifetimeStats(),
+  onOpenLeaderboards: () => openLeaderboards(),
   onOpenHeatmap: () => toggleHeatmap(),
   onOpenMemorial: () => openMemorial(),
   onOpenClanLaws: () => openClanLaws(),
@@ -838,12 +848,16 @@ function mountCampaign(): void {
           achievements.record("battle-won");
           recordDeed("battle", "Won a battle.");
           recordHeatSite(true);
+          recordLifetimeBattle({ won: true });
+          lifetimeStatsRefresh?.();
           sessionBattlesWon += 1;
         } else if (event === "defeat") {
           haptics?.play("error");
           achievements.record("battle-lost");
           recordDeed("battle", "Lost a battle.");
           recordHeatSite(false);
+          recordLifetimeBattle({ won: false });
+          lifetimeStatsRefresh?.();
         } else {
           haptics?.play("order");
         }
@@ -869,6 +883,8 @@ function mountCampaign(): void {
     settings.subscribe(applySettingsLive);
     settings.subscribe(trackSettingsChanges);
   }
+  // Lifetime statistics play-time accrual (MASTER_PLAN task 138).
+  startPlayTimer();
 
   provider.subscribeTicks(
     (update) => {
@@ -1278,6 +1294,55 @@ function openTimeline(): void {
 
 /** Re-render the open timeline, if any, after a new deed is recorded. */
 let timelineRefresh: (() => void) | null = null;
+
+// -- Lifetime statistics + local leaderboards (Rowan, MASTER_PLAN 138/141) --
+// The stats store accumulates across campaigns in localStorage; the panels
+// read it fresh on every render. Play time accrues once a minute while the
+// page is visible (at most ~59s is ever lost on a sudden close).
+function openLifetimeStats(): void {
+  currentPanel = "none";
+  const { root, refresh } = lifetimeStatsPanel({
+    onClose: () => {
+      currentPanel = "none";
+      contextNode = null;
+      lifetimeStatsRefresh = null;
+      paint();
+    },
+  });
+  lifetimeStatsRefresh = refresh;
+  contextNode = root;
+  paint();
+}
+
+/** Re-render the open statistics page, if any, after a battle or timer tick. */
+let lifetimeStatsRefresh: (() => void) | null = null;
+
+function openLeaderboards(): void {
+  currentPanel = "none";
+  const { root } = leaderboardsPanel({
+    onClose: () => {
+      currentPanel = "none";
+      contextNode = null;
+      paint();
+    },
+  });
+  contextNode = root;
+  paint();
+}
+
+let playTimerStarted = false;
+
+/** Start the once-per-minute visible play-time accrual (subscribe once). */
+function startPlayTimer(): void {
+  if (playTimerStarted) return;
+  playTimerStarted = true;
+  window.setInterval(() => {
+    if (document.visibilityState === "visible") {
+      addPlaySeconds(60);
+      lifetimeStatsRefresh?.();
+    }
+  }, 60000);
+}
 
 function openChronicle(): void {
   currentPanel = "none";

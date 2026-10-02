@@ -29,6 +29,7 @@ import { createArena } from "./arena.js";
 import { createTournament, defaultFighters } from "./tournament.js";
 import { createBookmaker, decimalOdds } from "./betting.js";
 import { TOURNAMENT_PRIZES } from "./prizes.js";
+import { submitScore, topScores, tournamentScore } from "../meta/leaderboards.js";
 
 export interface ModesMenuOptions {
   launcher: BattleLauncher;
@@ -145,7 +146,21 @@ export function createModesMenu(opts: ModesMenuOptions): HTMLElement {
     const t = createTournament(defaultFighters());
     const book = createBookmaker();
     const info = h("p", { class: "modes-summary" });
+    /** Record the champion on the local leaderboard (MASTER_PLAN task 141),
+     * idempotently — re-renders must not double-submit. */
+    const maybeSubmitChampion = (): void => {
+      if (!t.isComplete()) return;
+      const champ = t.champion();
+      if (!champ) return;
+      const score = tournamentScore(4, champ.rating);
+      const detail = `Tournament champion · rating ${champ.rating}`;
+      const already = topScores("tournament").some(
+        (e) => e.name === champ.name && e.score === score && e.detail === detail,
+      );
+      if (!already) submitScore("tournament", { name: champ.name, score, detail });
+    };
     const renderBracket = (): void => {
+      maybeSubmitChampion();
       info.textContent = t.isComplete()
         ? `Champion: ${t.champion()!.name}. Purse: ${book.purse()} coin.`
         : `Purse: ${book.purse()} coin. Tap a bout winner to advance the bracket.`;

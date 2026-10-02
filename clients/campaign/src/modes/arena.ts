@@ -10,6 +10,7 @@
  */
 
 import type { BattleResult } from "./types.js";
+import { battleScore, submitScore } from "../meta/leaderboards.js";
 
 const STORE_KEY = "campaign.arena.v1";
 
@@ -87,6 +88,13 @@ export function createArena(): Arena {
         setExcitement(excitement - 0.25);
       }
       save();
+      // Local leaderboard (MASTER_PLAN task 141): every recorded bout lands
+      // on the arena board. Name comes from the fighter's force def.
+      submitScore("arena", {
+        name: result.config.player.name || "Gladiator",
+        score: battleScore(result.playerKills, result.playerLosses, result.playerWon),
+        detail: `${result.playerKills} kills · ${result.playerWon ? "victory" : "defeat"}`,
+      });
     },
     reset() {
       rec = { ...EMPTY };

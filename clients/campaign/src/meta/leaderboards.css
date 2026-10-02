@@ -1,0 +1,90 @@
+/**
+ * Local leaderboards styles (meta/leaderboardsPanel.ts).
+ *
+ * Every value comes from src/design/tokens.css. Mode tabs above a ranked
+ * table; the top three rows get a highlighted band.
+ */
+
+.boards__note {
+  margin: 0 0 var(--space-3);
+  font-size: 0.85rem;
+  color: var(--ink-600);
+}
+
+.boards__tabs {
+  display: flex;
+  gap: var(--space-1);
+  margin-bottom: var(--space-3);
+}
+
+.boards__tab {
+  font-size: 0.85rem;
+  padding: var(--space-1) var(--space-3);
+  border-radius: var(--radius-full);
+  border: 1px solid var(--ink-300);
+  background: transparent;
+  color: var(--ink-700);
+  cursor: pointer;
+}
+
+.boards__tab--on {
+  background: var(--brand-600);
+  border-color: var(--brand-600);
+  color: var(--ink-50);
+}
+
+.boards__table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+
+.boards__table th {
+  text-align: left;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-500);
+  padding: var(--space-1) var(--space-2);
+  border-bottom: 1px solid var(--ink-200);
+}
+
+.boards__table td {
+  padding: var(--space-2);
+  border-bottom: 1px solid var(--ink-100);
+  color: var(--ink-800);
+}
+
+.boards__row--top {
+  background: var(--brand-50);
+}
+
+.boards__rank {
+  width: 3rem;
+  text-align: center;
+  font-size: 1.1rem;
+}
+
+.boards__score {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.boards__detail,
+.boards__date {
+  color: var(--ink-600);
+  font-size: 0.8rem;
+}
+
+.boards__best {
+  margin: var(--space-3) 0 0;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink-800);
+}
+
+.boards__footer {
+  margin-top: var(--space-4);
+  display: flex;
+  justify-content: flex-end;
+}
