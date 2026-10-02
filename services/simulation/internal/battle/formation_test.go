@@ -1416,3 +1416,101 @@ func TestAHoldTakesNewGroundWhenItsMenAreCarriedOff(t *testing.T) {
 			n, carried, leash, g.anchorX, g.anchorY, ax+carried, ay)
 	}
 }
+
+// TestTheStatesSayWhereTheShapeSaysEachManStands is the read path, stated as an
+// invariant, because a layer that can only be checked from inside it is not a
+// layer anybody can build a game on.
+//
+// Everything this layer decides about a man was written into the command channel
+// and thrown away with the tick, so a caller could not ask which shape a unit was
+// in or where that shape said he stood. That is what States and
+// Session.FormationStates are for, and this is the test that says what they are
+// allowed to say.
+//
+// The slots are checked against the layout rather than against the code that drew
+// them: FormationLayout is the shape's own definition and the published slot has
+// to BE that slot, or a client drawing the shape and a battle walking the shape
+// are drawing two different battles.
+func TestTheStatesSayWhereTheShapeSaysEachManStands(t *testing.T) {
+	const n = 15
+	cfg := loadConfig(t)
+	v, cmd := oneHeldLine(t, n)
+	g := cmd.groups[0]
+
+	states := cmd.States()
+	if len(states) != n {
+		t.Fatalf("a group of %d men published %d states; every living member of a group is in the "+
+			"shape and a caller cannot tell which of them is missing if it is not told", n, len(states))
+	}
+	slots, err := FormationLayout(FormationLine, n, FormationParamsFrom(cfg.Formation))
+	if err != nil {
+		t.Fatalf("layout: %v", err)
+	}
+	for i, st := range states {
+		if st.Unit != i {
+			t.Errorf("state %d is unit %d; the states come back in ascending unit id so two of them "+
+				"can be compared without sorting", i, st.Unit)
+		}
+		if st.Group != 0 {
+			t.Errorf("unit %d is published as being in group %d; it was put in group 0", st.Unit, st.Group)
+		}
+		if st.Shape != FormationLine || st.Order != OrderFormationHold {
+			t.Errorf("unit %d is published as %s on %s; it was ordered into a line on a hold",
+				st.Unit, st.Shape, st.Order)
+		}
+		if !isFinite(st.SlotX) || !isFinite(st.SlotY) {
+			t.Fatalf("unit %d's slot is (%v, %v), which is not a place on the field", st.Unit, st.SlotX, st.SlotY)
+		}
+		// The contract: the published slot is the slot the shape drew.
+		wx, wy := slots[i].place(g.anchorX, g.anchorY, g.facing)
+		if st.SlotX != wx || st.SlotY != wy {
+			t.Errorf("unit %d's slot is published as (%.6f, %.6f); the shape drew (%.6f, %.6f). A client "+
+				"drawing the published slot and the battle walking the drawn slot would be two battles",
+				st.Unit, st.SlotX, st.SlotY, wx, wy)
+		}
+	}
+
+	// A caller that kept the slice would be holding a buffer the next tick
+	// overwrites, which is the failure this accessor exists to make impossible.
+	states[0].SlotX = 9999
+	states[0].Unit = 9999
+	if again := cmd.States(); again[0].SlotX == 9999 || again[0].Unit == 9999 {
+		t.Error("States handed out the commander's own slice and a caller writing to it changed what the " +
+			"commander published; the copy is the whole point")
+	}
+
+	// Pinned is the difference between standing in a slot and being told to walk
+	// to one, and the two look identical in a position.
+	if !states[0].Pinned {
+		t.Logf("the group was not pinned on the first tick, which is allowed: a crowd arriving as a crowd " +
+			"is ordered into the shape rather than already standing in it")
+	}
+	shove(v, 5, 0)
+	if err := cmd.Command(v); err != nil {
+		t.Fatalf("ordering the field after the shove: %v", err)
+	}
+	for _, st := range cmd.States() {
+		if st.Pinned {
+			t.Errorf("unit %d was shoved five metres off his slot and is published as pinned to it; a "+
+				"pinned man is one the shape is holding, and this one had to walk", st.Unit)
+		}
+	}
+}
+
+// TestASessionWithNoCommanderHasNoFormationStates is the other end of the read
+// path: an empty answer has to be reachable, and it has to be an answer rather
+// than a panic on a session that was never commanded, because half of what a
+// caller does with this is check whether there is a formation to read.
+func TestASessionWithNoCommanderHasNoFormationStates(t *testing.T) {
+	s, a, b, leaders := newTestSession(t, 4242)
+	if err := s.Deploy(a, b, leaders); err != nil {
+		t.Fatalf("Deploy: %v", err)
+	}
+	if got := s.FormationStates(); got != nil {
+		t.Errorf("a session nobody is commanding published %d formation states; there are no formations "+
+			"on it and an empty answer is the honest one", len(got))
+	}
+	if got := (*Session)(nil).FormationStates(); got != nil {
+		t.Errorf("a nil session published %d formation states", len(got))
+	}
+}

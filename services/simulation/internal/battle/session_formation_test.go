@@ -1552,3 +1552,112 @@ func TestAFormationToldToHoldStandsWhereItIs(t *testing.T) {
 	t.Logf("held for %d ticks: drifted %+.2f m, %+.2f m; tightest pair %.2f m (units %d, %d) against a "+
 		"%.2f m minimum", s.Tick(), dx, dy, gap, i, j, cfg.Formation.MinSeparation)
 }
+
+// TestASessionSaysWhichShapeEveryUnitIsIn is the read path from outside the
+// package, which is the only reason any of this is publishable.
+//
+// A caller holding a Session had no way to ask which shape a unit was in or where
+// that shape said he stood: the layer wrote it into the command channel and the
+// command channel is refilled every tick. So a battle scene could not draw the
+// formation it was being told to fight in, and a caller checking whether its
+// order had been obeyed had nothing to check against.
+//
+// This runs a real session battle with two groups under two different shapes,
+// lets it form, and then asks the session.
+func TestASessionSaysWhichShapeEveryUnitIsIn(t *testing.T) {
+	cfg := loadConfig(t)
+	const seed = 5150 + 11
+	s, a, b, leaders := newTestSession(t, seed)
+	if err := s.Deploy(a, b, leaders); err != nil {
+		t.Fatalf("Deploy: %v", err)
+	}
+	groups := SplitIntoGroups(idsOfSlice(a), 2)
+	o, err := NewOrders(cfg, SideA, []Group{
+		{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold}, Units: groups[0]},
+		{Order: GroupOrder{Kind: FormationWedge, Order: OrderFormationAdvance}, Units: groups[1]},
+	})
+	if err != nil {
+		t.Fatalf("standing orders: %v", err)
+	}
+	if err := s.BeginFighting(); err != nil {
+		t.Fatalf("BeginFighting: %v", err)
+	}
+	oc, err := o.Commander()
+	if err != nil {
+		t.Fatalf("building the commander: %v", err)
+	}
+	if err := s.Command(oc); err != nil {
+		t.Fatalf("Command: %v", err)
+	}
+	for k := 0; k < 30; k++ {
+		if err := s.Step(); err != nil {
+			t.Fatalf("Step: %v", err)
+		}
+	}
+
+	states := s.FormationStates()
+	if len(states) == 0 {
+		t.Fatal("a session battle fought thirty ticks in two shapes published no formation states at all")
+	}
+	// One state per living member of the commanded side, no more and no fewer:
+	// side B was never ordered into anything and must not appear.
+	byUnit := map[int]FormationState{}
+	for _, st := range states {
+		if _, dup := byUnit[st.Unit]; dup {
+			t.Errorf("unit %d has two formation states; a caller cannot tell which shape he is in", st.Unit)
+		}
+		byUnit[st.Unit] = st
+		if u := s.battle.units[st.Unit]; u.Side != SideA {
+			t.Errorf("unit %d fights for side %s and was published as being in a formation; only the "+
+				"commanded side has formations", st.Unit, u.Side)
+		}
+		if !isFinite(st.SlotX) || !isFinite(st.SlotY) {
+			t.Fatalf("unit %d's slot is (%v, %v), which is not a place on the field", st.Unit, st.SlotX, st.SlotY)
+		}
+	}
+	live := 0
+	for _, u := range s.battle.units {
+		if u.Side == SideA && u.alive() {
+			live++
+			if _, ok := byUnit[u.ID]; !ok {
+				t.Errorf("unit %d is alive and fighting on the commanded side and has no formation state; "+
+					"a caller drawing the battle would leave him out of his own shape", u.ID)
+			}
+		}
+	}
+	if live != len(states) {
+		t.Errorf("the commanded side has %d living men and %d states were published; every living member "+
+			"of a group is in the shape and nobody else is", live, len(states))
+	}
+
+	// The two shapes are told apart, which is the reason the group index is in the
+	// state at all: a client asking which men belong together gets the group, and
+	// without it the only answer is a distance.
+	var lines, wedges int
+	for _, st := range states {
+		switch st.Shape {
+		case FormationLine:
+			lines++
+			if st.Group != 0 {
+				t.Errorf("unit %d is in group %d and published as a line; group 0 was ordered into a line", st.Unit, st.Group)
+			}
+			if st.Order != OrderFormationHold {
+				t.Errorf("unit %d is in a line published on %s; group 0 was told to hold", st.Unit, st.Order)
+			}
+		case FormationWedge:
+			wedges++
+			if st.Group != 1 {
+				t.Errorf("unit %d is in group %d and published as a wedge; group 1 was ordered into a wedge", st.Unit, st.Group)
+			}
+			if st.Order != OrderFormationAdvance {
+				t.Errorf("unit %d is in a wedge published on %s; group 1 was told to advance", st.Unit, st.Order)
+			}
+		default:
+			t.Errorf("unit %d is published as %s, which is neither of the two shapes it was ordered into", st.Unit, st.Shape)
+		}
+	}
+	if lines == 0 || wedges == 0 {
+		t.Errorf("published %d line states and %d wedge states from a battle with a line and a wedge in it", lines, wedges)
+	}
+	t.Logf("%d states from %d living men: %d in the held line, %d in the advancing wedge", len(states), live, lines, wedges)
+}

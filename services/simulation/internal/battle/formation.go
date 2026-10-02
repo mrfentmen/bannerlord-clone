@@ -1140,6 +1140,11 @@ type FormationCommander struct {
 	// nothing. One buffer serves every group because each group writes its
 	// orders into the View before the next group is read.
 	ids []int
+	// states is every living member's place in his shape, as the last tick's
+	// ordering left it. It is cleared at the top of Command and rebuilt by every
+	// group, so it always describes one tick and never a mixture of two; States
+	// hands out a copy of it.
+	states []FormationState
 }
 
 // formationGroup is one group's standing order and the state the tick keeps for it.
@@ -1448,6 +1453,12 @@ func (c *FormationCommander) Command(v *View) error {
 	// ordered before its neighbours were known would be laid out without them.
 	// One pass, then the usual pass.
 	c.resolveAnchors(v)
+	// Cleared before any group is ordered rather than after, so a Command that
+	// stops on an error leaves the states describing the groups that were ordered
+	// and nothing older: a caller reading them after a failure gets this tick's
+	// partial answer, which is a thing it can see, rather than last tick's whole
+	// one, which is a thing it would have to know to distrust.
+	c.states = c.states[:0]
 	for _, at := range c.sequence {
 		if err := c.orderGroup(v, c.groups[at], ex, ey, haveEnemy); err != nil {
 			return err
@@ -2100,6 +2111,21 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 			}
 		}
 		v.Commands[id] = cmd
+		// What the shape says about this man, kept where something outside the
+		// package can read it. The command channel cannot be the answer: it is
+		// written every tick and refilled under the caller's feet, so a caller
+		// that read it after the tick has read the next tick's buffer or, at the
+		// end of a battle, whatever the last tick left in it. See States.
+		c.states = append(c.states, FormationState{
+			Unit:   id,
+			Group:  g.index,
+			Shape:  g.order.Kind,
+			Order:  g.order.Order,
+			Facing: g.facing,
+			SlotX:  sx,
+			SlotY:  sy,
+			Pinned: cmd.DX == 0 && cmd.DY == 0,
+		})
 	}
 	return nil
 }
