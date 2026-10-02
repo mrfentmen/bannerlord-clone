@@ -4,6 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"mbclone/simulation/internal/rumours"
@@ -225,6 +228,17 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 	if req.Path == "" {
 		req.Path = "savegame.json"
 	}
+	// Sanitize the path: prevent directory traversal, restrict to save directory.
+	// Only allow alphanumeric, dash, underscore, dot in filename.
+	clean := filepath.Base(req.Path)
+	if clean != req.Path || strings.Contains(clean, "..") {
+		http.Error(w, "invalid save path", http.StatusBadRequest)
+		return
+	}
+	// Ensure saves go to the designated directory.
+	saveDir := "saves"
+	os.MkdirAll(saveDir, 0755)
+	req.Path = filepath.Join(saveDir, clean)
 	s.mu.RLock()
 	state := s.state
 	log := s.log
@@ -256,6 +270,14 @@ func (s *Server) handleLoad(w http.ResponseWriter, r *http.Request) {
 	if req.Path == "" {
 		req.Path = "savegame.json"
 	}
+	// Sanitize the path (same as save handler).
+	clean := filepath.Base(req.Path)
+	if clean != req.Path || strings.Contains(clean, "..") {
+		http.Error(w, "invalid save path", http.StatusBadRequest)
+		return
+	}
+	saveDir := "saves"
+	req.Path = filepath.Join(saveDir, clean)
 	loaded, loadedLog, loadedOrders, loadedRng, loadedDps, _, err := savegame.Load(req.Path)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
