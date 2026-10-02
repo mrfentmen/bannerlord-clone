@@ -1268,23 +1268,34 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 			return newFormationError("orderGroup", "Group.Order.At",
 				"group %s is ordered to move and was given no place to move to", g.order.Kind)
 		}
-		if d := math.Hypot(ax-g.order.At.X, ay-g.order.At.Y); isFinite(d) && d > 0 {
+		d := math.Hypot(ax-g.order.At.X, ay-g.order.At.Y)
+		switch {
+		case !isFinite(d):
+			// A distance that is not a number is not a place to walk to. The shape
+			// holds rather than marching off the field on it, which is the same
+			// answer the advance gives when there is no enemy to close on.
+			stepPace = fc.HoldSpeed
+		case d > tolerance:
 			// The same one tick's worth of pace the advance and the withdrawal use,
 			// bounded by the distance that is left, so a formation that is nearly
 			// there spends its last tick arriving rather than arriving repeatedly.
 			push := math.Min(d, fc.AdvanceSpeed*v.TickSeconds)
 			anchorX, anchorY = ax+(g.order.At.X-ax)/d*push, ay+(g.order.At.Y-ay)/d*push
-			// Arrived is not the same as walking. A formation inside its own
-			// tolerance of the point stops being marched: the tolerance is the rule
-			// for "this man is in his place", and a shape whose anchor is inside its
-			// own spacing of where it was told to go is a shape that is there. Past
-			// it the tolerance is not consulted, for the reason the withdrawal
-			// overrides it: the point is a place, the men only ever close on the
-			// distance to a slot that is one push beyond them, and that distance is
-			// inside the tolerance every tick.
-			if d > tolerance {
-				walking = true
-			}
+			walking = true
+		default:
+			// Arrived. The tolerance is the rule for "this man is in his place", and
+			// a shape whose anchor is inside its own spacing of where it was told to
+			// go is a shape that is there; past it the tolerance is not consulted,
+			// for the reason the withdrawal overrides it, because the distance to a
+			// slot that is one push beyond them is inside the tolerance every tick.
+			//
+			// The pace comes down to the hold's, which is the half of this that is
+			// easy to leave out. A shape that has stopped walking and then tidies
+			// itself at a marching pace is a formation that never quite stands
+			// still, and a player who marched a line to a hill and watched a
+			// knocked-about squad jog back into place has been told the wrong thing
+			// about what arrived.
+			stepPace = fc.HoldSpeed
 		}
 	case OrderFormationRetreat:
 		stepPace = fc.RetreatSpeed

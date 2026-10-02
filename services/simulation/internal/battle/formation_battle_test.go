@@ -1336,6 +1336,103 @@ func TestAMoveWalksToThePointAndStopsThere(t *testing.T) {
 		travelled*180/math.Pi, fromBearing*180/math.Pi, enemyBearing*180/math.Pi)
 }
 
+// TestAnArrivedMoveCementsItselfAtTheHoldPace is the half of a move that is easy
+// to leave out, and it is a claim about numbers rather than about direction.
+//
+// A shape that has walked to its point has stopped walking. What it does after
+// that is cohesion, and cohesion is the hold's pace, because a formation tidying
+// itself up is a formation standing still. Left at the marching pace, an arrived
+// move keeps jogging men back into their slots at a third more than a hold walks,
+// forever, which is a formation that never quite arrives and a player who is told
+// the wrong thing about what stopping means.
+//
+// It is measured by shoving one man out of his slot and reading the step the
+// commander ordered him, so it is the pace that is checked and not the direction
+// the man went, which the other test covers.
+func TestAnArrivedMoveCementsItselfAtTheHoldPace(t *testing.T) {
+	cfg := loadConfig(t)
+	fc := cfg.Formation
+	const n = 6
+	v := &View{
+		Elapsed:     0,
+		TickSeconds: cfg.Battle.TickSeconds,
+		Units:       make([]UnitView, n+1),
+		Commands:    make([]UnitCommand, n+1),
+	}
+	for i := range v.Units {
+		u := UnitView{ID: i, Side: SideA, Status: StatusFighting, Troops: 10, Speed: 4, X: -400, Y: 0}
+		if i == n {
+			u = UnitView{ID: i, Side: SideB, Status: StatusFighting, Troops: 200, Speed: 4, X: 400, Y: 0}
+		}
+		v.Units[i] = u
+	}
+	units := make([]int, n)
+	for i := range units {
+		units[i] = i
+	}
+	// The men are stood on their slots before the order is given, so the only thing
+	// wrong with the shape is the one man this test shoves. A group dropped in as a
+	// blob and ordered to a point it happens to be standing in is a group that is
+	// walking, not one that has arrived, and every man in it would be out of his
+	// place for reasons that have nothing to do with the order.
+	slots, err := FormationLayout(FormationLine, n, FormationParamsFrom(fc))
+	if err != nil {
+		t.Fatalf("laying out the line: %v", err)
+	}
+	for i, id := range units {
+		x, y := slots[i].place(0, 0, 0)
+		v.Units[id].X, v.Units[id].Y = x, y
+	}
+	// The point is where the shape already stands, so this move has arrived before
+	// it has begun.
+	hx, hy, ok := centreOfMass(v, units)
+	if !ok {
+		t.Fatal("the group has no weight on the field")
+	}
+	cmd, err := NewFormationCommander(cfg, SideA, []Group{{
+		Order: GroupOrder{Kind: FormationLine, Order: OrderFormationMove, At: &Destination{X: hx, Y: hy}},
+		Units: units,
+	}})
+	if err != nil {
+		t.Fatalf("building the formation commander failed: %v", err)
+	}
+	if err := cmd.Command(v); err != nil {
+		t.Fatalf("commanding an arrived move: %v", err)
+	}
+	// One man is out of his place. Shove him two metres, which is more than the
+	// shape's spacing and so cannot be mistaken for a man who is standing in it.
+	v.Units[0].Y += 2
+	if err := cmd.Command(v); err != nil {
+		t.Fatalf("commanding the tick after the shove: %v", err)
+	}
+	got := v.Commands[0]
+	if !got.Set {
+		t.Fatal("a man two metres from his slot was given no order at all; the shape is not being held")
+	}
+	step := math.Hypot(got.DX, got.DY)
+	// The pace a man walks at is his own speed over the roster's average speed,
+	// times the formation's pace, times the tick. See paceScale.
+	walked := func(mps float64) float64 {
+		return v.Units[0].Speed * mps * cfg.Battle.TickSeconds / cfg.Battle.RosterSpeedBase
+	}
+	hold, march := walked(fc.HoldSpeed), walked(fc.AdvanceSpeed)
+	if math.Abs(step-hold) > 1e-9 {
+		t.Errorf("a man 2 m from his slot in an arrived move was told to walk %.4f m in a tick; the hold's "+
+			"pace is %.4f m and the marching pace is %.4f m", step, hold, march)
+	}
+	// And the shape is not marching: every other man, being within their slots, is
+	// left to the engine's own rules.
+	for i := 1; i < n; i++ {
+		if v.Commands[i].Set {
+			t.Errorf("man %d, within his own spacing of his slot in an arrived move, was given an order "+
+				"(%+.4f, %+.4f); an arrived shape is a hold", i, v.Commands[i].DX, v.Commands[i].DY)
+		}
+	}
+	t.Logf("a move to the point (%+.2f, %+.2f) the shape was already standing on: a man shoved 2 m from "+
+		"his slot was told %.4f m this tick, which is the hold's %.4f m and not the march's %.4f m, and "+
+		"the other %d were left to their own rules", hx, hy, step, hold, march, n-1)
+}
+
 // countSpoken is how many order slots were spoken to at all, movement or shape.
 func countSpoken(cmds []UnitCommand) int {
 	n := 0
