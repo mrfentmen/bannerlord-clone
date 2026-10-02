@@ -5,11 +5,15 @@
  * path without a Babylon scene: fail twice and succeed on the third attempt,
  * fail three times and report null, and never retry a model that is already
  * cached or in flight. Two models load concurrently without sharing attempts.
+ *
+ * Task 602: each attempt is bounded by a timeout, the timer is cleared when
+ * the attempt settles, and a hung load is retried rather than left pending.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   DEFAULT_ATTEMPTS,
+  DEFAULT_TIMEOUT_MS,
   ModelLoader,
   type ModelInfo,
 } from "../ModelLoader.js";
@@ -143,5 +147,83 @@ describe("ModelLoader retry (task 601)", () => {
     await expect(loader.load("absent")).resolves.toBeNull();
     expect(flaky.calls()).toBe(0);
     loader.dispose();
+  });
+});
+
+describe("ModelLoader timeout (task 602)", () => {
+  it("defaults to a 30 s budget per attempt", () => {
+    expect(DEFAULT_TIMEOUT_MS).toBe(30_000);
+  });
+
+  it("gives up on an attempt that never settles and reports null", async () => {
+    vi.useFakeTimers();
+    try {
+      let calls = 0;
+      const load = () => {
+        calls++;
+        return new Promise<unknown>(() => {}); // never settles
+      };
+      const loader = await readyLoader({ load, timeoutMs: 5_000, retryDelayMs: 0, attempts: 1 });
+
+      const pending = loader.load("troop-gunner");
+      await vi.advanceTimersByTimeAsync(5_000);
+      await expect(pending).resolves.toBeNull();
+      expect(calls).toBe(1);
+      loader.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("retries a hung attempt until the attempts run out", async () => {
+    vi.useFakeTimers();
+    try {
+      let calls = 0;
+      const load = () => {
+        calls++;
+        return new Promise<unknown>(() => {});
+      };
+      const loader = await readyLoader({ load, timeoutMs: 1_000, retryDelayMs: 0, attempts: 3 });
+
+      const pending = loader.load("humvee");
+      await vi.advanceTimersByTimeAsync(3_000);
+      await expect(pending).resolves.toBeNull();
+      expect(calls).toBe(3);
+      loader.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("clears the budget timer when the load finishes in time", async () => {
+    vi.useFakeTimers();
+    try {
+      const flaky = flakyLoader(0, "gunner");
+      const loader = await readyLoader({ load: flaky.load, timeoutMs: 30_000 });
+
+      const pending = loader.load("troop-gunner");
+      await vi.advanceTimersByTimeAsync(10);
+      await expect(pending).resolves.toEqual({ name: "gunner" });
+      expect(vi.getTimerCount()).toBe(0);
+      loader.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("can be switched off with timeoutMs 0, leaving no timer armed", async () => {
+    vi.useFakeTimers();
+    try {
+      const flaky = flakyLoader(0, "gunner");
+      const loader = await readyLoader({ load: flaky.load, timeoutMs: 0 });
+
+      const pending = loader.load("troop-gunner");
+      await vi.advanceTimersByTimeAsync(0);
+      await expect(pending).resolves.toEqual({ name: "gunner" });
+      expect(vi.getTimerCount()).toBe(0);
+      loader.dispose();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

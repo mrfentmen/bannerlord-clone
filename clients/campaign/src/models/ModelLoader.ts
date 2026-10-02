@@ -14,12 +14,18 @@
  * network blip and a parse error take the same path. `attempts` and the delay
  * are constructor options so tests (and a caller on a slow link) can override
  * them; the injected `load` is the seam the tests use instead of Babylon.
+ *
+ * Task 602: each attempt is bounded by {@link DEFAULT_TIMEOUT_MS}. A request
+ * that never settles would otherwise hold its `loading` entry forever, and
+ * every later call for that model would wait on a promise that cannot finish.
  */
 
 /** Attempts per model, including the first. Task 601. */
 export const DEFAULT_ATTEMPTS = 3;
 /** Wait between attempts, ms. Task 601. */
 export const DEFAULT_RETRY_DELAY_MS = 250;
+/** Time budget per attempt, ms. Task 602. */
+export const DEFAULT_TIMEOUT_MS = 30_000;
 
 export interface ModelInfo {
   id: string;
@@ -37,6 +43,8 @@ export interface ModelLoaderOptions {
   attempts?: number;
   /** Wait between attempts, ms; defaults to 250 (task 601). */
   retryDelayMs?: number;
+  /** Time budget per attempt, ms; defaults to 30000 (task 602). 0 disables it. */
+  timeoutMs?: number;
   /**
    * Loads one model. Defaults to Babylon's `SceneLoader`; tests inject a fake
    * so retry behaviour is observable without a scene (task 601).
@@ -51,12 +59,14 @@ export class ModelLoader {
   private manifest = new Map<string, ModelInfo>();
   private attempts: number;
   private retryDelayMs: number;
+  private timeoutMs: number;
   private loadImpl: (info: ModelInfo) => Promise<unknown>;
 
   constructor(scene: any, options: ModelLoaderOptions = {}) {
     this.scene = scene;
     this.attempts = Math.max(1, options.attempts ?? DEFAULT_ATTEMPTS);
     this.retryDelayMs = Math.max(0, options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS);
+    this.timeoutMs = Math.max(0, options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
     this.loadImpl = options.load ?? ((info) => this.loadModel(info));
   }
 
@@ -123,7 +133,7 @@ export class ModelLoader {
     let lastError: unknown;
     for (let attempt = 1; attempt <= this.attempts; attempt++) {
       try {
-        return await this.loadImpl(info);
+        return await this.loadWithTimeout(info);
       } catch (err) {
         lastError = err;
         if (attempt >= this.attempts) break;
@@ -132,6 +142,31 @@ export class ModelLoader {
       }
     }
     throw lastError;
+  }
+
+  /**
+   * One attempt, bounded by the time budget (task 602). The timer is always
+   * cleared when the attempt settles, so a fast load leaves nothing pending.
+   */
+  private loadWithTimeout(info: ModelInfo): Promise<unknown> {
+    if (this.timeoutMs <= 0) return this.loadImpl(info);
+    const budget = this.timeoutMs;
+    return new Promise<unknown>((resolve, reject) => {
+      const timer = setTimeout(
+        () => reject(new Error(`ModelLoader: "${info.id}" did not load within ${budget} ms`)),
+        budget,
+      );
+      this.loadImpl(info).then(
+        (mesh) => {
+          clearTimeout(timer);
+          resolve(mesh);
+        },
+        (err) => {
+          clearTimeout(timer);
+          reject(err);
+        },
+      );
+    });
   }
 
   /**
