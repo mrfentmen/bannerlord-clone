@@ -1,6 +1,6 @@
 /**
  * Selection model contract: click select, shift-toggle, drag box-select,
- * select-all-of-kind, control groups.
+ * select-all-of-kind, Ctrl+click add, control groups.
  *
  * @vitest-environment jsdom
  */
@@ -46,6 +46,19 @@ describe("selection model", () => {
     const s = createSelection();
     // "dead" sits at (2,2) inside the box but has count 0.
     expect(s.boxSelect(units, 0, 0, 10, 10)).toEqual(["a", "b"]);
+  });
+
+  it("add() grows the selection and leaves a selected id alone (task 67)", () => {
+    const s = createSelection();
+    expect(s.add("a")).toBe(true);
+    expect(s.selected()).toEqual(["a"]);
+
+    expect(s.add("b")).toBe(true);
+    expect(s.selected()).toEqual(["a", "b"]);
+
+    // Already in: no change, no reordering, no duplicate.
+    expect(s.add("a")).toBe(false);
+    expect(s.selected()).toEqual(["a", "b"]);
   });
 
   it("select-all-of-kind takes every live unit of one kind (task 66)", () => {

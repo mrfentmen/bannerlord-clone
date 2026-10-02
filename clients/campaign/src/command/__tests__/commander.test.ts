@@ -139,6 +139,42 @@ describe("commander", () => {
     commander.destroy();
   });
 
+  it("Ctrl+click adds to the selection without dropping what is already in it (task 67)", () => {
+    const surface = fakeSurface();
+    const commander = createCommander(surface);
+    try {
+      clickAt(surface, 100, 100); // A
+      clickAt(surface, 300, 100, { ctrlKey: true }); // add B
+      clickAt(surface, 500, 400, { ctrlKey: true }); // add C
+      expect(commander.selection.selected()).toEqual(["a", "b", "c"]);
+
+      // Clicking a selected unit again keeps it: add is not toggle.
+      clickAt(surface, 100, 100, { ctrlKey: true });
+      expect(commander.selection.selected()).toEqual(["a", "b", "c"]);
+
+      // A plain click still replaces the whole selection.
+      clickAt(surface, 300, 100);
+      expect(commander.selection.selected()).toEqual(["b"]);
+    } finally {
+      commander.destroy();
+    }
+  });
+
+  it("Cmd+click adds too, and Shift+click still toggles (task 67)", () => {
+    const surface = fakeSurface();
+    const commander = createCommander(surface);
+    try {
+      clickAt(surface, 100, 100);
+      clickAt(surface, 300, 100, { metaKey: true });
+      expect(commander.selection.selected()).toEqual(["a", "b"]);
+
+      clickAt(surface, 100, 100, { shiftKey: true }); // toggles A back out
+      expect(commander.selection.selected()).toEqual(["b"]);
+    } finally {
+      commander.destroy();
+    }
+  });
+
   it("double-clicking a unit selects every unit of that kind (task 66)", () => {
     const surface = fakeSurface();
     const commander = createCommander(surface);

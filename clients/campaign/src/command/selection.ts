@@ -12,6 +12,11 @@ export interface SelectionModel {
   selected(): string[];
   select(ids: string[]): void;
   toggle(id: string): void;
+  /**
+   * Task 67: add an id to the selection without removing anything, and without
+   * moving it if it is already selected. Returns true when the selection grew.
+   */
+  add(id: string): boolean;
   clear(): void;
   /** Box-select: every live unit whose position falls inside the field rect. */
   boxSelect(units: CommandableUnit[], x0: number, z0: number, x1: number, z1: number): string[];
@@ -54,6 +59,12 @@ export function createSelection(): SelectionModel {
 
     toggle(id) {
       set(selected.includes(id) ? selected.filter((s) => s !== id) : [...selected, id]);
+    },
+
+    add(id) {
+      if (selected.includes(id)) return false;
+      set([...selected, id]);
+      return true;
     },
 
     clear() {

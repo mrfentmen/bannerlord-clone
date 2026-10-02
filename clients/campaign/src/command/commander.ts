@@ -3,7 +3,7 @@
  * command radial, wired to the input registry and a CommandSurface.
  *
  * Gesture summary:
- * - click a unit: select it (Shift+click toggles into the selection)
+ * - click a unit: select it (Shift+click toggles, Ctrl/Cmd+click adds)
  * - double-click a unit: select every unit of that kind (task 66)
  * - drag a box: select every live unit inside
  * - right-click the field: move the selected units there (task 51)
@@ -409,6 +409,9 @@ export function createCommander(
       return;
     }
     if (ev.shiftKey) selection.toggle(best);
+    // Task 67: Ctrl+click (Cmd on macOS) adds without the toggle — clicking an
+    // already-selected unit keeps it selected instead of dropping it.
+    else if (ev.ctrlKey || ev.metaKey) selection.add(best);
     else selection.select([best]);
   };
 
