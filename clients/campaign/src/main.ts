@@ -86,29 +86,21 @@ import {
   buildTrackerViews,
   createQuestTrackerHud,
   localStoragePinStorage,
-  PIN_STORAGE_KEY,
 } from "./questTracker/index.js";
 import type { TrackerPositionSource } from "./questTracker/index.js";
 import { questJournalPanel } from "./ui/panels/QuestJournal.js";
+import { spymasterPanel } from "./ui/panels/SpymasterPanel.js";
 import { createAchievementStore } from "./achievements/index.js";
 import { achievementsPanel } from "./ui/panels/Achievements.js";
 import { mountBattleUi, type BattleMount } from "./battleflow/mount.js";
-import {
-  campaignFingerprint,
-  clearStorageKeys,
-  readStoredFingerprint,
-  shouldResetCampaignStores,
-  writeStoredFingerprint,
-} from "./meta/campaignReset.js";
 import { createGalleryStore, createPhotoMode, galleryPanel, mountPhotoModeBar, type PhotoModeBarHandle } from "./expression/index.js";
 import { chroniclePanel, seasonForDay } from "./expression/chroniclePanel.js";
-import { createMemorial, memorialPanel, MEMORIAL_STORE_KEY } from "./afteraction/index.js";
-import { lawsPanel, DEFAULT_LAWS, type ClanLaws } from "./clan/index.js";
+import { createMemorial, memorialPanel } from "./afteraction/index.js";
+import { lawsPanel, DEFAULT_LAWS, clearClanStore, loadClanStore, setRuler, upsertMember, type ClanLaws } from "./clan/index.js";
 import type { ChronicleEvent, Oath } from "./expression/chronicle.js";
 import {
   boundsForWorld,
   clearBattleSites,
-  HEATMAP_STORAGE_KEY,
   loadBattleSites,
   recordBattleSite,
   saveBattleSites,
@@ -120,12 +112,9 @@ import { lifetimeStatsPanel } from "./meta/lifetimeStatsPanel.js";
 import { leaderboardsPanel } from "./meta/leaderboardsPanel.js";
 import {
   addPlaySeconds,
-  battleReportFromAfterAction,
   recordCampaignStart,
   recordLifetimeBattle,
-  type AfterActionLike,
 } from "./meta/lifetimeStats.js";
-import { battleScore, submitScore } from "./meta/leaderboards.js";
 import { makeWorldProjector } from "./meta/heatmapProjector.js";
 import {
   clearIronmanRun,
@@ -143,7 +132,7 @@ import {
   type NewGamePlusRecord,
 } from "./meta/newgameplus.js";
 import { legacyPanel } from "./meta/legacyPanel.js";
-import { createRouteRegistry, TRADE_ROUTES_STORAGE_KEY, type FoundInput } from "./economy/routeRegistry.js";
+import { createRouteRegistry, type FoundInput } from "./economy/routeRegistry.js";
 import {
   buildRouteModels,
   routePanel,
@@ -152,8 +141,7 @@ import {
   type SettlementChoice,
 } from "./economy/routePanel.js";
 import { saveLoadPanel } from "./saves/mount.js";
-import { SaveManager, SaveUiError } from "./saves/screens.js";
-import { performQuicksave } from "./saves/quicksave.js";
+import { SaveUiError } from "./saves/screens.js";
 import { ALL_CODEX_ENTRIES, CODEX_CATEGORIES } from "./codex/index.js";
 import { toast } from "./ui/kit.js";
 import { settings, type Settings } from "./settings/index.js";
@@ -519,6 +507,19 @@ const selectionScreen = startScreen({
             biography,
           });
           void reloadSnapshot().then(() => mountCampaign());
+          // Seed the clan roster with the player as founding ruler
+          // (integration: the laws panel's succession outlook reads this).
+          clearClanStore();
+          const founder = upsertMember({
+            id: "player",
+            name: `${character.firstName} ${character.lastName}`.trim(),
+            gender: character.gender === "female" ? "f" : "m",
+            birthYear: START_YEAR - character.age,
+            traits: [],
+            skills: character.startingSkills,
+          });
+          void founder;
+          setRuler("player");
         },
         onCancel: () => location.reload(),
       }),
@@ -555,6 +556,7 @@ const hud = createHud({
   onOpenHeatmap: () => toggleHeatmap(),
   onOpenMemorial: () => openMemorial(),
   onOpenClanLaws: () => openClanLaws(),
+  onOpenSpymaster: () => openSpymaster(),
   onOpenLegacy: () => openLegacyPanel(),
   onOpenQuestTracker: () => openQuestTracker(),
   onOpenTradeRoutes: () => toggleTradeRoutes(),
@@ -819,68 +821,8 @@ function enterPhotoMode(): void {
   });
 }
 
-/**
- * Per-campaign store isolation (Rowan).
- *
- * localStorage-backed campaign stores — the chronicle of deeds, the
- * battle-site heatmap, the war memorial, clan laws, pinned quests, and the
- * caravan trade-route books — belong to ONE campaign. Quit-to-title reloads
- * the page (clearing module state) but localStorage survives, so without
- * this a new campaign inherits its predecessor's history.
- *
- * The snapshot fingerprint tells a new campaign apart from a resumed one:
- * same fingerprint as the last mount keeps the stores; a different one
- * resets them. Lifetime statistics, leaderboards, achievements, settings,
- * tips, deployment presets, and mode stores are intentionally kept — they
- * are the player's, not the campaign's. Ironman / New Game+ records are
- * owned by their own mount logic below.
- *
- * The key list is built inside the function (not at module scope) because
- * the key constants are declared across the module below this point.
- */
-function resetCampaignStores(snap: SimSnapshot): "reset" | "kept" {
-  const perCampaignKeys: readonly string[] = [
-    CHRONICLE_KEY,
-    HEATMAP_STORAGE_KEY,
-    MEMORIAL_STORE_KEY,
-    CLAN_LAWS_KEY,
-    PIN_STORAGE_KEY,
-    TRADE_ROUTES_STORAGE_KEY,
-  ];
-  const fingerprint = campaignFingerprint({
-    characterName: snap.player.characterName,
-    factionId: snap.player.factionId,
-    ethnicityId: snap.player.ethnicityId,
-    age: snap.player.age,
-    day: snap.day,
-  });
-  if (!shouldResetCampaignStores(readStoredFingerprint(localStorage), fingerprint)) {
-    return "kept";
-  }
-  clearStorageKeys(localStorage, perCampaignKeys);
-  // In-memory mirrors of the cleared keys: without these, the next write
-  // would persist the old campaign's data straight back over the cleared
-  // storage.
-  chronicle.events = [];
-  chronicle.oath = null;
-  persistChronicle();
-  battleSites = [];
-  saveBattleSites(battleSites);
-  memorial.clear();
-  clanLaws = { ...DEFAULT_LAWS };
-  persistClanLaws();
-  questTracker.clear();
-  routeRegistry.clear();
-  writeStoredFingerprint(localStorage, fingerprint);
-  return "reset";
-}
-
 function mountCampaign(): void {
   if (!snapshot) return;
-
-  // A new campaign starts with empty per-campaign stores; a resumed one
-  // keeps them (see resetCampaignStores).
-  resetCampaignStores(snapshot);
 
   // -- Ironman (MASTER_PLAN task 143) --------------------------------------
   // The run starts with the campaign, on the sim's own day. A fresh
@@ -892,7 +834,6 @@ function mountCampaign(): void {
     clearIronmanRun();
   }
   pendingIronman = false;
-  startAutosaveTimer();
 
   // -- New Game+ (MASTER_PLAN task 142) --------------------------------------
   // The legacy is spent only now that the heir's campaign actually mounts.
@@ -933,13 +874,13 @@ function mountCampaign(): void {
         }),
       },
       pollEncounters: battlePartyId >= 0,
-      onBattleEvent: (event, view) => {
+      onBattleEvent: (event) => {
         if (event === "victory") {
           haptics?.play("confirm");
           achievements.record("battle-won");
           recordDeed("battle", "Won a battle.");
           recordHeatSite(true);
-          recordBattleOutcome(true, view, party.name);
+          recordLifetimeBattle({ won: true });
           lifetimeStatsRefresh?.();
           sessionBattlesWon += 1;
         } else if (event === "defeat") {
@@ -947,7 +888,7 @@ function mountCampaign(): void {
           achievements.record("battle-lost");
           recordDeed("battle", "Lost a battle.");
           recordHeatSite(false);
-          recordBattleOutcome(false, view, party.name);
+          recordLifetimeBattle({ won: false });
           lifetimeStatsRefresh?.();
         } else {
           haptics?.play("order");
@@ -1115,35 +1056,6 @@ function bindInputActions(): void {
   });
 
   input.on("ui.settings", () => openSettings());
-
-  // -- Quicksave (Rowan) ------------------------------------------------------
-  // F5 writes the live campaign into the dedicated Quicksave slot — the fast
-  // path before a risky engagement. `performQuicksave` owns the rules (no
-  // campaign yet, ironman refusal, store failure); this handler only says
-  // them in plain language. preventDefault on the action def keeps the
-  // browser from reloading the tab on F5.
-  input.on("game.quicksave", () => {
-    void performQuicksave({
-      store: sharedSaveManager(),
-      currentSnapshot: () => snapshot,
-      ironman: () => manualSaveBlocked(ironman),
-    }).then((res) => {
-      if (res.ok) {
-        toast(`Quicksaved — Day ${res.day}.`);
-        return;
-      }
-      if (res.reason === "no-campaign") {
-        toast("Nothing to save yet.");
-        return;
-      }
-      if (res.reason === "ironman") {
-        toast("Quicksave is off on Ironman — your run keeps the 5-minute autosave.");
-        return;
-      }
-      console.warn("Quicksave failed");
-      toast("Quicksave failed — the save did not go through. Try Save / Load instead.");
-    });
-  });
 
   // Touch A behaves like gamepad A: keyboard Enter is left alone — it already
   // activates natively, and this guard keeps the two from double-firing.
@@ -1413,29 +1325,6 @@ function openGameMenu(): void {
       handle.close();
       openControls();
     },
-    onSaveAndQuit: () => {
-      if (!snapshot) {
-        toast("Nothing to save yet.");
-        return;
-      }
-      const snap = snapshot;
-      void sharedSaveManager()
-        .autosave(snap)
-        .then(
-          () => {
-            toast("Progress saved.");
-            location.reload();
-          },
-          (err) => {
-            console.warn("Save & quit failed:", err);
-            toast(
-              "The save did not go through — quitting now would lose progress " +
-                "since the last save. Try Save / Load instead.",
-              6000,
-            );
-          },
-        );
-    },
     onQuitToTitle: () => location.reload(),
     onClose: () => {
       gameMenu = null;
@@ -1448,40 +1337,6 @@ function openGameMenu(): void {
   gameMenu = handle;
   contextNode = handle.root;
   paint();
-}
-
-// -- Autosave (Rowan) ----------------------------------------------------------
-// PAX's SaveManager documents autosave() as "called on a timer by the game
-// loop", but no timer ever called it: a crash, a closed tab, or the pause
-// menu's quit-to-title silently discarded everything since the last manual
-// save, and ironman mode's "one autosave" promise was never written. This is
-// the game loop's end of that contract: every five minutes, while a campaign
-// is mounted and the page is visible, the live snapshot goes to the autosave
-// slot. Failures stay quiet (console only) so a broken store never spams the
-// player; the manual Save / Load path is untouched.
-const AUTOSAVE_INTERVAL_MS = 5 * 60 * 1000;
-let autosaveTimerStarted = false;
-let autosaveManager: SaveManager | null = null;
-
-function sharedSaveManager(): SaveManager {
-  if (!autosaveManager) autosaveManager = new SaveManager();
-  return autosaveManager;
-}
-
-function startAutosaveTimer(): void {
-  if (autosaveTimerStarted) return;
-  autosaveTimerStarted = true;
-  window.setInterval(() => {
-    if (!snapshot) return;
-    if (document.visibilityState !== "visible") return;
-    const snap = snapshot;
-    void sharedSaveManager()
-      .autosave(snap)
-      .then(
-        () => toast("Autosaved."),
-        (err) => console.warn("Autosave failed:", err),
-      );
-  }, AUTOSAVE_INTERVAL_MS);
 }
 
 function openSaveLoad(): void {
@@ -1562,33 +1417,6 @@ function openLeaderboards(): void {
   });
   contextNode = root;
   paint();
-}
-
-/**
- * Fold a finished campaign-map battle into both meta stores.
- *
- * MASTER_PLAN 138: the after-action view reports both sides' losses and the
- * loot taken, so kills and gold are measured rather than left at zero. The
- * battle still counts as fought even if the view is absent (a defeat with no
- * view, or a future battle layer that omits it) — only the unmeasured parts
- * are dropped.
- *
- * MASTER_PLAN 141: every campaign-map bout is a quick battle, so it lands on
- * the quick-battle board, which otherwise had no producer at all.
- */
-function recordBattleOutcome(
-  won: boolean,
-  view: AfterActionLike | undefined,
-  playerName: string,
-): void {
-  const report = view ? battleReportFromAfterAction(view) : null;
-  recordLifetimeBattle(report ?? { won });
-  if (!report) return;
-  submitScore("quick-battle", {
-    name: playerName || "Commander",
-    score: battleScore(report.kills ?? 0, report.losses ?? 0, won),
-    detail: `${report.kills ?? 0} kills · ${won ? "victory" : "defeat"}`,
-  });
 }
 
 let playTimerStarted = false;
@@ -1674,9 +1502,11 @@ function openClanLaws(): void {
       clanLaws = { ...DEFAULT_LAWS };
       persistClanLaws();
     },
-    // No clan roster source yet (the family tree, task 76, records members);
-    // the panel shows the honest empty state until one exists.
-    roster: () => null,
+    roster: () => {
+      const store = loadClanStore();
+      if (store.members.length === 0) return null;
+      return { members: store.members, rulerId: store.rulerId ?? store.members[0]!.id };
+    },
     holdings: () => world?.data.settlements.map((s) => s.name) ?? [],
     onClose: () => {
       currentPanel = "none";
@@ -1685,6 +1515,24 @@ function openClanLaws(): void {
     },
   });
   contextNode = root;
+  paint();
+}
+
+function openSpymaster(): void {
+  currentPanel = "none";
+  const postNames: Record<string, string> = {};
+  for (const s of world?.data.settlements ?? []) {
+    if (s.id && s.name) postNames[s.id] = s.name;
+  }
+  contextNode = spymasterPanel({
+    currentDay: snapshot?.day ?? 0,
+    postNames,
+    onClose: () => {
+      currentPanel = "none";
+      contextNode = null;
+      paint();
+    },
+  });
   paint();
 }
 

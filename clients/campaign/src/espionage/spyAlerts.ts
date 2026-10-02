@@ -96,3 +96,55 @@ export function respondToAlert(
   const [win, lose] = lines[response];
   return { response, success, line: success ? win : lose };
 }
+
+// --- Alert inbox (integration): pending alerts persist until answered. ---
+
+const INBOX_KEY = "campaign.spy-alerts.inbox.v1";
+
+function loadInbox(): EnemySpyAlert[] {
+  try {
+    const raw = localStorage.getItem(INBOX_KEY);
+    if (!raw) return [];
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? (v as EnemySpyAlert[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveInbox(alerts: EnemySpyAlert[]): void {
+  try {
+    localStorage.setItem(INBOX_KEY, JSON.stringify(alerts));
+  } catch {
+    // Session-only inbox.
+  }
+}
+
+/** File an alert in the inbox (called by counter-espionage when it spots someone). */
+export function fileAlert(alert: EnemySpyAlert): void {
+  const inbox = loadInbox().filter((a) => a.id !== alert.id);
+  inbox.push(alert);
+  saveInbox(inbox);
+}
+
+/** Alerts still awaiting a response, oldest first. */
+export function pendingAlerts(): EnemySpyAlert[] {
+  return loadInbox();
+}
+
+/**
+ * Answer an alert and remove it from the inbox. Returns the resolution,
+ * or null when the alert is unknown (already answered).
+ */
+export function answerAlert(
+  alertId: string,
+  response: SpyAlertResponse,
+  seed: number,
+): AlertResolution | null {
+  const inbox = loadInbox();
+  const alert = inbox.find((a) => a.id === alertId);
+  if (!alert) return null;
+  const resolution = respondToAlert(alert, response, seed);
+  saveInbox(inbox.filter((a) => a.id !== alertId));
+  return resolution;
+}

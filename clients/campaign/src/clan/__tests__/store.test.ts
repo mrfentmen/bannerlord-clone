@@ -9,6 +9,7 @@ import {
   influenceCompanion,
   loadClanStore,
   roleAssignments,
+  setRuler,
   unassignClanRole,
   upsertCompanion,
   upsertMember,
@@ -87,6 +88,14 @@ describe("clan store (integration)", () => {
 
   it("refuses roles for unknown members", () => {
     expect(assignClanRole("ghost", "scout")).toBe(false);
+  });
+
+  it("names a ruler for succession previews", () => {
+    upsertMember(member("m1"));
+    setRuler("m1");
+    expect(loadClanStore().rulerId).toBe("m1");
+    setRuler("ghost");
+    expect(loadClanStore().rulerId).toBe("m1");
   });
 
   it("drops office holders whose member is gone", () => {

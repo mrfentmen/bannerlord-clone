@@ -26,6 +26,8 @@ export interface ClanStore {
   companions: Companion[];
   /** Clan office -> holding member id (null when vacant). */
   roleHolders: Record<ClanRole, string | null>;
+  /** Member id of the current ruler (for succession law previews). */
+  rulerId: string | null;
   updatedAt: number;
 }
 
@@ -34,7 +36,7 @@ function blankHolders(): Record<ClanRole, string | null> {
 }
 
 function blank(): ClanStore {
-  return { members: [], companions: [], roleHolders: blankHolders(), updatedAt: Date.now() };
+  return { members: [], companions: [], roleHolders: blankHolders(), rulerId: null, updatedAt: Date.now() };
 }
 
 function validRoleHolders(v: unknown): Record<ClanRole, string | null> {
@@ -59,6 +61,7 @@ export function loadClanStore(): ClanStore {
       members: parsed.members,
       companions: parsed.companions,
       roleHolders: validRoleHolders(parsed.roleHolders),
+      rulerId: typeof parsed.rulerId === "string" ? parsed.rulerId : null,
       updatedAt: typeof parsed.updatedAt === "number" ? parsed.updatedAt : Date.now(),
     };
   } catch {
@@ -154,6 +157,16 @@ export function unassignClanRole(role: ClanRole): ClanStore {
   const store = loadClanStore();
   store.roleHolders[role] = null;
   saveClanStore(store);
+  return store;
+}
+
+/** Name the current ruler (for succession previews). No-op when the id is not on the roster. */
+export function setRuler(memberId: string): ClanStore {
+  const store = loadClanStore();
+  if (store.members.some((m) => m.id === memberId)) {
+    store.rulerId = memberId;
+    saveClanStore(store);
+  }
   return store;
 }
 

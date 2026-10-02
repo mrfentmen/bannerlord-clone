@@ -22,4 +22,4 @@ export { completeRecruitmentStage, RECRUITMENT_CHAINS, recruitmentProgress, type
 export { previewLawEffects, type LawEffect, type LawEffectsPreview } from "./lawEffects.js";
 export { bannerShieldSvg, shieldPreview, type ShieldPreviewOptions } from "./bannerPreview.js";
 
-export { assignClanRole, clanLoyaltyAlerts, clanRoles, clearClanStore, influenceCompanion, loadClanStore, roleAssignments, saveClanStore, unassignClanRole, upsertCompanion, upsertMember, type ClanStore } from "./store.js";
+export { assignClanRole, clanLoyaltyAlerts, clanRoles, clearClanStore, influenceCompanion, loadClanStore, roleAssignments, saveClanStore, setRuler, unassignClanRole, upsertCompanion, upsertMember, type ClanStore } from "./store.js";
