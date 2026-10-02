@@ -18,7 +18,7 @@ describe("supply line overlay (task 104)", () => {
     ]);
     expect(flags[0]!.armyId).toBe("dying");
     expect(flags[0]!.status).toBe("starving");
-    expect(flags[0]!.color).toBe("#e53935");
-    expect(flags[1]!.color).toBe("#4caf50");
+    expect(flags[0]!.color).toBe("var(--status-critical)");
+    expect(flags[1]!.color).toBe("var(--status-good)");
   });
 });

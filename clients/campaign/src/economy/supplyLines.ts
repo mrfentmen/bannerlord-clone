@@ -3,6 +3,11 @@
  * of food remaining; the overlay flags armies by status — starving armies
  * red, low amber, supplied green. The returned descriptors plug into the
  * map-overlay canvas the same way routeVisualizer does.
+ *
+ * Colors are the design system's semantic status tokens rather than hex
+ * literals, so the overlay reads as part of the same system as every other
+ * status (see design/__tests__/design.test.ts, which fails a build that
+ * hard-codes a colour outside the token file).
  */
 
 export type SupplyStatus = "supplied" | "low" | "starving";
@@ -23,7 +28,10 @@ export interface SupplyFlag {
   x: number;
   z: number;
   status: SupplyStatus;
-  /** Overlay color: starving armies are red (the task's acceptance). */
+  /**
+   * Overlay color as a `var(--status-*)` reference: starving armies are red
+   * (the task's acceptance). Resolved by the overlay's own stylesheet.
+   */
   color: string;
 }
 
@@ -34,9 +42,9 @@ export function assessSupply(army: ArmySupply): SupplyStatus {
 }
 
 const STATUS_COLOR: Record<SupplyStatus, string> = {
-  supplied: "#4caf50",
-  low: "#ffb300",
-  starving: "#e53935",
+  supplied: "var(--status-good)",
+  low: "var(--status-warning)",
+  starving: "var(--status-critical)",
 };
 
 /** Flag every army for the overlay; starving ones come first. */
