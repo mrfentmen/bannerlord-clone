@@ -99,6 +99,8 @@ export interface Settings {
   motionBlurEnabled: boolean;
   /** Damage flash + low-health vignette (task 150). Read when the battle feedback suite is built. */
   damageVignetteEnabled: boolean;
+  /** Ragdoll physics on death (Pax task 12). Disable for performance on low-end devices. */
+  ragdollEnabled: boolean;
   /** Mouse orbit/zoom multiplier on the 3D canvas. Live. */
   mouseSensitivity: number;
   /** Invert mouse orbit axes. Live. */
@@ -161,6 +163,7 @@ export const DEFAULT_SETTINGS: Settings = {
   depthOfFieldEnabled: false,
   motionBlurEnabled: false,
   damageVignetteEnabled: true,
+  ragdollEnabled: true,
   mouseSensitivity: 1,
   invertMouseX: false,
   invertMouseY: false,
@@ -255,6 +258,7 @@ export function parseSettings(raw: unknown): Settings {
     depthOfFieldEnabled: v.depthOfFieldEnabled === true,
     motionBlurEnabled: v.motionBlurEnabled === true,
     damageVignetteEnabled: v.damageVignetteEnabled !== false,
+    ragdollEnabled: v.ragdollEnabled !== false,
     mouseSensitivity: pickNumber(v.mouseSensitivity, 0.25, 3, DEFAULT_SETTINGS.mouseSensitivity),
     invertMouseX: v.invertMouseX === true,
     invertMouseY: v.invertMouseY === true,
