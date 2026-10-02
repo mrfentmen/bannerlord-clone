@@ -55,3 +55,34 @@
 .cmd-order__label {
   white-space: nowrap;
 }
+
+/* Task 60: the tooltip text. Kept in the DOM (the button's aria-describedby
+   points at it) and revealed on hover and keyboard focus; no animation, so
+   reduced-motion has nothing to switch off. */
+.cmd-order__hint {
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + var(--space-1));
+  transform: translateX(-50%);
+  display: none;
+  width: max-content;
+  max-width: 240px;
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--ink-700);
+  border-radius: var(--radius-1);
+  background: var(--ink-900);
+  color: var(--paper-0);
+  font-size: 12px;
+  line-height: 1.35;
+  white-space: normal;
+  z-index: 1;
+}
+
+.cmd-order {
+  position: relative;
+}
+
+.cmd-order:hover .cmd-order__hint,
+.cmd-order:focus-visible .cmd-order__hint {
+  display: block;
+}

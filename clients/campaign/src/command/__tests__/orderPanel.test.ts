@@ -1,7 +1,7 @@
 /**
- * The order panel (Buffy task 59): a bottom row of order buttons that dispatch
- * the same input actions the hotkeys do, enabled only while something is
- * selected.
+ * The order panel (Buffy tasks 59-60): a bottom row of order buttons that dispatch
+ * the same input actions the hotkeys do (task 60 adds their tooltips), enabled
+ * only while something is selected.
  *
  * @vitest-environment jsdom
  */
@@ -42,7 +42,9 @@ describe("order panel", () => {
     try {
       expect(panel.root.getAttribute("role")).toBe("toolbar");
       expect(panel.root.getAttribute("aria-label")).toBe("Orders");
-      const labels = panel.buttons().map((b) => b.textContent);
+      const labels = panel.buttons().map(
+        (b) => b.querySelector(".cmd-order__label")!.textContent,
+      );
       expect(labels).toEqual([
         "Attack",
         "Attack-move",
@@ -131,6 +133,69 @@ describe("order panel", () => {
     expect(document.querySelector('[data-testid="cmd-orderpanel"]')).not.toBeNull();
     panel.destroy();
     expect(document.querySelector('[data-testid="cmd-orderpanel"]')).toBeNull();
+  });
+});
+
+describe("order panel tooltips (task 60)", () => {
+  it("gives every button the registry's own label and description as its tooltip", () => {
+    const registry = createInputRegistry();
+    for (const spec of ORDER_BUTTONS) {
+      if (registry.actions().some((a) => a.id === spec.action)) continue;
+      registry.registerAction({
+        id: spec.action,
+        label: spec.label,
+        category: "battle-command",
+        description: `Test description for ${spec.label}.`,
+        defaultKeys: [],
+      });
+    }
+    const panel = createOrderPanel({ registry });
+    document.body.appendChild(panel.root);
+    try {
+      const hold = document.querySelector('[data-testid="cmd-order-hold"]') as HTMLButtonElement;
+      // Straight from the action catalog, not a second copy of the wording.
+      expect(hold.title).toBe(
+        "Order: hold position. Selected units hold where they stand.",
+      );
+      expect(hold.getAttribute("aria-describedby")).toBe("cmd-order-hold-hint");
+      const hint = document.getElementById("cmd-order-hold-hint")!;
+      expect(hint.textContent).toBe(hold.title);
+      expect(hint.className).toBe("cmd-order__hint");
+    } finally {
+      panel.destroy();
+    }
+  });
+
+  it("every button has a tooltip and a matching hint element", () => {
+    const registry = createInputRegistry();
+    const panel = createOrderPanel({ registry });
+    document.body.appendChild(panel.root);
+    try {
+      for (const btn of panel.buttons()) {
+        expect(btn.title.length).toBeGreaterThan(0);
+        const id = btn.getAttribute("aria-describedby")!;
+        const hint = document.getElementById(id);
+        expect(hint, `no hint for ${btn.dataset.action}`).not.toBeNull();
+        expect(hint!.textContent).toBe(btn.title);
+      }
+    } finally {
+      panel.destroy();
+    }
+  });
+
+  it("falls back to the label when the registry does not know the action", () => {
+    const registry = createInputRegistry();
+    const panel = createOrderPanel({
+      registry,
+      buttons: [{ action: "battle.orderNope", label: "Nope", testId: "cmd-order-nope" }],
+    });
+    document.body.appendChild(panel.root);
+    try {
+      const btn = document.querySelector('[data-testid="cmd-order-nope"]') as HTMLButtonElement;
+      expect(btn.title).toBe("Nope");
+    } finally {
+      panel.destroy();
+    }
   });
 });
 

@@ -7,6 +7,10 @@
  * The row is data: `ORDER_BUTTONS` names the actions in the order they read
  * best (what to hit, then where to stand), and later command widgets append to
  * the same toolbar rather than growing their own bar.
+ *
+ * Task 60: every button carries the registry's own description for that action
+ * as a tooltip, so the explanation of an order lives with the action rather
+ * than being written out twice here.
  */
 
 import "./orderPanel.css";
@@ -67,13 +71,21 @@ export function createOrderPanel(options: OrderPanelOptions): OrderPanel {
   });
 
   for (const spec of options.buttons ?? ORDER_BUTTONS) {
+    const action = registry.actions().find((a) => a.id === spec.action);
+    const hint = action ? `${action.label}. ${action.description}` : spec.label;
     const btn = h("button", {
       type: "button",
       class: "cmd-order",
       "data-action": spec.action,
       "data-testid": spec.testId,
+      // Task 60: the tooltip. `title` is what the platform shows on hover, and
+      // the same sentence is the button's accessible description via aria-describedby.
+      title: hint,
+      "aria-describedby": `${spec.testId}-hint`,
     }) as HTMLButtonElement;
     btn.appendChild(h("span", { class: "cmd-order__label" }, spec.label));
+    // The same sentence as text, so the explanation is reachable without hover.
+    btn.appendChild(h("span", { class: "cmd-order__hint", id: `${spec.testId}-hint` }, hint));
     btn.addEventListener("click", () => {
       // A pointer activation carries no KeyboardEvent, so the action is
       // dispatched as "touch" — the registry's pointer-and-mouse source.
