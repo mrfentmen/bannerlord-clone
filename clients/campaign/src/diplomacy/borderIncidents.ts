@@ -114,3 +114,55 @@ export function respondToIncident(
     line: `You let it pass. The border stays quiet — and ${incident.factionName} notes your patience.`,
   };
 }
+
+// --- Incident inbox (integration): incidents wait here until answered. ---
+
+const INBOX_KEY = "campaign.border-incidents.inbox.v1";
+
+function loadInbox(): BorderIncident[] {
+  try {
+    const raw = localStorage.getItem(INBOX_KEY);
+    if (!raw) return [];
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? (v as BorderIncident[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveInbox(incidents: BorderIncident[]): void {
+  try {
+    localStorage.setItem(INBOX_KEY, JSON.stringify(incidents));
+  } catch {
+    // Session-only inbox.
+  }
+}
+
+/** File an incident in the inbox (called when border trouble is reported). */
+export function fileBorderIncident(incident: BorderIncident): void {
+  const inbox = loadInbox().filter((i) => i.id !== incident.id);
+  inbox.push(incident);
+  saveInbox(inbox);
+}
+
+/** Incidents still awaiting a response, oldest first. */
+export function pendingBorderIncidents(): BorderIncident[] {
+  return loadInbox();
+}
+
+/**
+ * Answer an incident and remove it from the inbox. Returns the resolution,
+ * or null when the incident is unknown (already answered).
+ */
+export function answerBorderIncident(
+  incidentId: string,
+  response: IncidentResponse,
+  seed: number,
+): IncidentResolution | null {
+  const inbox = loadInbox();
+  const incident = inbox.find((i) => i.id === incidentId);
+  if (!incident) return null;
+  const resolution = respondToIncident(incident, response, seed);
+  saveInbox(inbox.filter((i) => i.id !== incidentId));
+  return resolution;
+}

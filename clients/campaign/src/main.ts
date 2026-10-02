@@ -90,6 +90,7 @@ import {
 import type { TrackerPositionSource } from "./questTracker/index.js";
 import { questJournalPanel } from "./ui/panels/QuestJournal.js";
 import { spymasterPanel } from "./ui/panels/SpymasterPanel.js";
+import { diplomacyPanel } from "./ui/panels/DiplomacyPanel.js";
 import { createAchievementStore } from "./achievements/index.js";
 import { achievementsPanel } from "./ui/panels/Achievements.js";
 import { mountBattleUi, type BattleMount } from "./battleflow/mount.js";
@@ -557,6 +558,7 @@ const hud = createHud({
   onOpenMemorial: () => openMemorial(),
   onOpenClanLaws: () => openClanLaws(),
   onOpenSpymaster: () => openSpymaster(),
+  onOpenDiplomacy: () => openDiplomacy(),
   onOpenLegacy: () => openLegacyPanel(),
   onOpenQuestTracker: () => openQuestTracker(),
   onOpenTradeRoutes: () => toggleTradeRoutes(),
@@ -1527,6 +1529,19 @@ function openSpymaster(): void {
   contextNode = spymasterPanel({
     currentDay: snapshot?.day ?? 0,
     postNames,
+    onClose: () => {
+      currentPanel = "none";
+      contextNode = null;
+      paint();
+    },
+  });
+  paint();
+}
+
+function openDiplomacy(): void {
+  currentPanel = "none";
+  contextNode = diplomacyPanel({
+    currentSeason: seasonForDay(snapshot?.day ?? 0),
     onClose: () => {
       currentPanel = "none";
       contextNode = null;
