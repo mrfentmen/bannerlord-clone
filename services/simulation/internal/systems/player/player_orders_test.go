@@ -356,13 +356,10 @@ func TestOrderRecruitTakesTheLowestIDPartyWhenTwoShareALeader(t *testing.T) {
 // bringing anyone there. That removes the approach march as a decision.
 //
 // Town supply and gold are the only limits on a recruit.
-func TestOrderRecruitIgnoresDistanceToTheTown(t *testing.T) {
+func TestOrderRecruitRequiresDistanceToTheTown(t *testing.T) {
 	s := recruitFixture()
 	s.Parties[1].X, s.Parties[1].Y = 510, 510
 	s.Towns[1].X, s.Towns[1].Y = 10, 10
-	if d := s.DistanceTo(s.Parties[1], 1); d < 100 {
-		t.Fatalf("fixture is wrong: party is only %v leagues from the town", d)
-	}
 
 	tick(t, s, sim.Order{
 		Kind:     sim.OrderRecruitTroops,
@@ -371,11 +368,12 @@ func TestOrderRecruitIgnoresDistanceToTheTown(t *testing.T) {
 		Amount:   5,
 	})
 
-	if got := s.Parties[1].Troops; got != 55 {
-		t.Errorf("party troops = %v, want 55 (no distance check exists today)", got)
+	// Party is far from town: no recruits, no gold spent.
+	if got := s.Parties[1].Troops; got != 50 {
+		t.Errorf("party troops = %v, want 50 (no recruits when far from town)", got)
 	}
-	if got := s.Leaders[1].Gold; got != 950 {
-		t.Errorf("leader gold = %v, want 950", got)
+	if got := s.Leaders[1].Gold; got != 1000 {
+		t.Errorf("leader gold = %v, want 1000 (no gold spent when far)", got)
 	}
 }
 
@@ -627,26 +625,21 @@ func TestOrderReleaseWithUnknownRulerOrTargetIsANoOp(t *testing.T) {
 // MISSING GUARD: there is no captor-ownership check. Ruler 3 does not hold
 // prisoner 2, ruler 1 does, and ruler 3's release frees them anyway and earns
 // ruler 3 the relation gain while the real captor is skipped. Any ruler can free
-// anyone's prisoner, which means releasing a prisoner is not a decision the
-// captor makes.
-//
-// CapturedBy lives on the prisoner and the order carries the captor in LeaderID,
-// so the check is a single comparison that is not made.
+// A ruler who is not the captor cannot release the prisoner.
+// The ownership check prevents third parties from freeing others' prisoners.
 func TestOrderReleasePrisonerByARulerWhoIsNotTheCaptor(t *testing.T) {
-	cfg := testCfg(t)
 	s := prisonerFixture()
 	s.Leaders[3] = &model.Leader{ID: 3, SideID: 1, IsAlive: true, CapturedBy: -1}
 
 	tick(t, s, sim.Order{Kind: sim.OrderReleasePrisoner, LeaderID: 3, Target: 2})
 
-	if got := s.Leaders[2].CapturedBy; got != -1 {
-		t.Errorf("prisoner captured_by = %v, want -1 (freed by a ruler who does not hold them)", got)
+	// Prisoner stays captured (not freed by non-captor).
+	if got := s.Leaders[2].CapturedBy; got != 1 {
+		t.Errorf("prisoner captured_by = %v, want 1 (non-captor cannot free)", got)
 	}
-	if got, want := s.Relation(3, 2), cfg.RulerAI.PrisonerReleaseRelation; got != want {
-		t.Errorf("relation(3, 2) = %v, want %v (the gain went to the wrong ruler)", got, want)
-	}
-	if got := s.Relation(1, 2); got != 0 {
-		t.Errorf("relation(1, 2) = %v, want 0 (the real captor was skipped)", got)
+	// Non-captor gets no relation.
+	if got := s.Relation(3, 2); got != 0 {
+		t.Errorf("relation(3, 2) = %v, want 0 (no gain for non-captor)", got)
 	}
 }
 
@@ -654,15 +647,16 @@ func TestOrderReleasePrisonerByARulerWhoIsNotTheCaptor(t *testing.T) {
 // Releasing a ruler nobody holds still clears their captor field and still pays
 // out the relation gain, so the honorable-release relation can be farmed by
 // ordering releases of free rulers on a loop.
-func TestOrderReleaseOfAnUncapturedRulerStillGrantsRelation(t *testing.T) {
-	cfg := testCfg(t)
+func TestOrderReleaseOfAnUncapturedRulerGrantsNoRelation(t *testing.T) {
 	s := prisonerFixture()
 	s.Leaders[2].CapturedBy = -1
 
 	tick(t, s, sim.Order{Kind: sim.OrderReleasePrisoner, LeaderID: 1, Target: 2})
 
-	if got, want := s.Relation(1, 2), cfg.RulerAI.PrisonerReleaseRelation; got != want {
-		t.Errorf("relation = %v, want %v (relation was granted for releasing nobody)", got, want)
+	// Releasing someone who isn't your prisoner grants no relation.
+	// (Ownership check: only the actual captor may release.)
+	if got := s.Relation(1, 2); got != 0 {
+		t.Errorf("relation = %v, want 0 (no relation for releasing nobody)", got)
 	}
 	if got := s.Leaders[2].CapturedBy; got != -1 {
 		t.Errorf("captured_by = %v, want -1", got)
