@@ -147,10 +147,29 @@ func TestAHeldFormationHoldsAtFiveHundredASide(t *testing.T) {
 	// front_spacing minus twice that, which with the balance file's 1.5 m and 1.2 m
 	// is exactly 1.20 m.
 	//
-	// Measured at five hundred a side, it is 1.13 m. That is 0.07 m short and I do
-	// not account for it.
+	// MEASURED AT FIVE HUNDRED A SIDE: 1.13 m. That is 0.07 m short and I did not
+	// account for it, for a long time and for the wrong reason twice.
 	//
-	// What I checked, and what each one ruled out:
+	// holdspacing_test.go has since measured it properly and the answer is that
+	// 1.13 m was measuring neither of the two things it was supposed to. The
+	// window below is ticks 20 to 80, and at 500 a side that is not a settled
+	// hold: a 500-man line at 16 abreast is 32 ranks and a man deploying 60 m from
+	// his slot needs 300 ticks to arrive, so it is measuring men walking past each
+	// other. And this commander holds until tick 120 in TWO groups, which is the
+	// one configuration where the guarantee does not hold anyway.
+	//
+	// Measured after the shape has formed, 500 a side:
+	//
+	//     1 group of 500   1.371 m   against a predicted 1.200 m   the derivation holds
+	//     2 groups of 250  0.444 m   0.756 m short, and a third of min_separation
+	//     4 groups of 125  0.285 m   0.915 m short
+	//
+	// So the in-place radius is derived correctly and applies correctly inside one
+	// group, and nothing anywhere derives a separation between one group's anchor
+	// and another's. That is agent3's layer. It is left as a finding and not
+	// fixed here, and holdspacing_test.go is the regression for it.
+	//
+	// What I checked, and what each one ruled out, at the time:
 	//
 	//   - Broken men inside the line. orderGroup deliberately does not order them,
 	//     so a broken man is wherever the breaking left him and would show up here.
@@ -161,19 +180,12 @@ func TestAHeldFormationHoldsAtFiveHundredASide(t *testing.T) {
 	//     forever. Every unit is Troops=1 at every size from 16 to 500, so the two
 	//     agree exactly and that is not it either.
 	//
-	// What I did NOT check, and would check next with the layer open: whether the
-	// 0.07 m is intra-group (so the in-place radius is being exceeded by something)
-	// or across the two groups' layouts, which the per-group derivation says nothing
-	// about at all. Two groups of 250 laid out as 16-abreast lines are 24 m by 32 m
-	// each, and if their anchors drift close the two shapes can interleave, and no
-	// amount of tightening the in-place radius inside one group prevents a man of
-	// one group landing on a slot of the other.
-	//
 	// So the assertion below is NOT the 1.20 m the derivation predicts. It is a
 	// floor that catches the failure this would actually cause — a hold whose men
 	// collapse on top of each other — and the exact number is printed on every run
 	// so that a change which makes it worse shows up in the log rather than in a
-	// failure somebody has to provoke.
+	// failure somebody has to provoke. It passes today at 1.13 m, and it passes
+	// for the wrong reason: holdspacing_test.go is what measures the guarantee.
 	const floor = 0.8
 	if tightestHeld < floor*cfg.Formation.MinSeparation {
 		t.Errorf("while holding, away from contact, the tightest pair of side A's fighting men came "+
@@ -187,10 +199,14 @@ func TestAHeldFormationHoldsAtFiveHundredASide(t *testing.T) {
 	t.Logf("tightest pair of side A's FIGHTING men: %.2f m while holding away from contact (with %d "+
 		"broken men in the lines, excluded on purpose), %.2f m at the end of the battle. The "+
 		"per-group derivation predicts %.2f m and the minimum is %.2f m, so this is %.2f m SHORT "+
-		"and unexplained; see the comment above for the two causes ruled out.",
+		"on this window — which is ticks 20 to 80 and is NOT a settled hold at this size. "+
+		"holdspacing_test.go measures it after the shape has formed and reports 1.371 m for one "+
+		"group against the same %.2f m prediction, and 0.444 m for two, which is the configuration "+
+		"this window happens to use.",
 		tightestHeld, brokenSeen, tightestEnd,
 		cfg.Formation.FrontSpacing-2*settleRadiusFor(cfg), cfg.Formation.MinSeparation,
-		cfg.Formation.FrontSpacing-2*settleRadiusFor(cfg)-tightestHeld)
+		cfg.Formation.FrontSpacing-2*settleRadiusFor(cfg)-tightestHeld,
+		cfg.Formation.FrontSpacing-2*settleRadiusFor(cfg))
 
 	// QUESTION TWO: does the replay still work at this size, with this commander.
 	// A hold that pins every unit writes a row a side every tick, which is the
