@@ -18,3 +18,4 @@ export { ATTACK_AXES, plannedOperations, planJointOperation, setOperationStatus,
 export { suggestTribute, type TributeSuggestion } from "./tributeCalculator.js";
 export { diplomaticReputation, driftReputation, recordReputationAction, reputationMeterLine, reputationTitle, REPUTATION_ACTIONS, REPUTATION_EFFECTS, REPUTATION_DRIFT, type ReputationAction } from "./reputation.js";
 export { assignNegotiationEnvoy, availableNegotiationEnvoys, envoyRounds, recallNegotiationEnvoy, recruitNegotiationEnvoy, type NegotiationEnvoy, type NegotiationPosting } from "./envoyAssignment.js";
+export { BORDER_INCIDENT_KINDS, INCIDENT_RESPONSES, raiseBorderIncident, respondToIncident, type BorderIncident, type BorderIncidentKind, type IncidentResolution, type IncidentResponse } from "./borderIncidents.js";
