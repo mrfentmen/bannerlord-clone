@@ -118,8 +118,32 @@ Each task is one concrete, verifiable unit. No placeholders.
 100. [ ] Final push, confirm GitHub main is green
 
 ---
-Progress: 37/100 (tasks 1-22, 26-37, 56 done)
+Progress: 69/100 (tasks 1-22, 26-47, 56-69 done)
 Started: 2026-10-01
+Completed:
+- Task 1 (8ebbff4): ragdoll physics module
+- Tasks 2+56 (a107b8c): battle scene bootstrap with Havok
+- Task 3 (3b3cf96): BattleSoldier with ragdoll death trigger
+- Task 4: death impulse (in Task 3)
+- Task 5 (e6169ba): BattleSoldier tests
+- Task 6 (2f5244f): endBattle cleanup
+- Tasks 7-9: verified (limits, ground offset, bone mapping)
+- Task 10 (54dd733): horse ragdoll
+- Task 11 (f87b4e1): perf test
+- Task 12 (cb7656c): ragdollEnabled setting
+- Task 13 (4e9530a): API docs
+- Task 14 (11a62f2): tsc fixes
+- Task 15: build verified
+- Tasks 16-18 (e57fd6e): finger analysis + thumb pose
+- Tasks 19-20 (64b30e6): thumb pose on load
+- Tasks 21-22: thumb pose for all operators
+- Tasks 26-29: tsc clean verified
+- Tasks 30-32 (364a52b): cheer/surrender triggers
+- Tasks 33-35: verified existing
+- Tasks 36-37 (e506843): models test + LOD
+- Tasks 38-39 (63325d5): clip mapping
+- Tasks 40-47 (c1de795): model verification
+- Tasks 57-69 (4d40f0a): all 10 biomes
 Completed:
 - Task 1 (8ebbff4): ragdoll physics module
 - Tasks 2+56 (a107b8c): battle scene bootstrap with Havok
