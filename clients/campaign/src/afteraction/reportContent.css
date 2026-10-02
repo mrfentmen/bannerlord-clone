@@ -12,3 +12,32 @@
   font-size: 0.9rem;
   color: var(--ink-700);
 }
+/* The MVP highlight (task 79): the leader first, the rest of the field under it. */
+.afteraction-mvp {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2);
+  border-left: 3px solid var(--accent-primary);
+  background: var(--paper-0);
+}
+
+.afteraction-mvp__name {
+  margin: 0;
+  font-weight: 700;
+}
+
+.afteraction-mvp__line {
+  margin: 0;
+  color: var(--ink-700);
+}
+
+.afteraction-mvp-board {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-5);
+  color: var(--ink-500);
+  font-size: 0.9rem;
+}
+
+.afteraction-mvp-row--leader {
+  color: var(--ink-900);
+  font-weight: 600;
+}

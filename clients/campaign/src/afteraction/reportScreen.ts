@@ -5,11 +5,29 @@
 
 import { h } from "../ui/dom.js";
 import type { AfterActionReport } from "./report.js";
+import type { MvpCitation, UnitPerformance } from "../battleflow/mvp.js";
 import { sharePct } from "./casualties.js";
 import { killDeathSummary } from "./killDeath.js";
+import { mvpBoard } from "./mvpHighlight.js";
 import "./reportContent.css";
 
-export function createReportScreen(report: AfterActionReport, onClose: () => void): HTMLElement {
+/** What the caller can add to the report without changing its sections. */
+export interface ReportScreenOptions {
+  /**
+   * Per-unit performance from the sim, so the MVP section can highlight the
+   * soldier rather than only the unit kind. Omitted when the sim did not
+   * report individuals.
+   */
+  units?: readonly UnitPerformance[];
+  /** The sim's MVP citation, when it computed one. */
+  citation?: MvpCitation | null;
+}
+
+export function createReportScreen(
+  report: AfterActionReport,
+  onClose: () => void,
+  options: ReportScreenOptions = {},
+): HTMLElement {
   const root = h("div", { class: "afteraction", "data-testid": "afteraction" });
 
   const title = h("h2", { class: "afteraction-title" });
@@ -54,6 +72,27 @@ export function createReportScreen(report: AfterActionReport, onClose: () => voi
     ? `${report.mvp.unitKind} — ${report.mvp.kills} kills`
     : "No unit stood out.";
   mvp.append(mvpTitle, mvpBody);
+
+  // Task 79: when the sim reported individuals, the MVP is a soldier, and a
+  // highlight is only honest if the rest of the field is shown under it.
+  if (options.units && options.units.length > 0) {
+    const highlight = mvpBoard(options.units, options.citation ?? null);
+    if (highlight.leader) {
+      const leader = h("div", { class: "afteraction-mvp", "data-testid": "afteraction-mvp" });
+      leader.append(
+        h("p", { class: "afteraction-mvp__name" }, `${highlight.leader.name} (${highlight.leader.kind})`),
+        h("p", { class: "afteraction-mvp__line" }, highlight.line),
+      );
+      mvp.appendChild(leader);
+      const board = h("ol", { class: "afteraction-mvp-board" });
+      for (const row of highlight.rows) {
+        const li = h("li", { class: row.isLeader ? "afteraction-mvp-row afteraction-mvp-row--leader" : "afteraction-mvp-row" });
+        li.textContent = `${row.name} (${row.kind}) — ${row.kills} kills`;
+        board.appendChild(li);
+      }
+      mvp.appendChild(board);
+    }
+  }
 
   const tl = h("section", { class: "afteraction-section" });
   const tlTitle = h("h3", {});
