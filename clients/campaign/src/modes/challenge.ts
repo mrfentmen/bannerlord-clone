@@ -57,6 +57,14 @@ export const CHALLENGE_MODIFIERS: ChallengeModifier[] = [
     blurb: "Your force is halved. Hold the line.",
     apply: (c) => scaleForce(c, "player", 0.5),
   },
+  {
+    id: "wounded-start",
+    name: "Wounded start",
+    blurb: "A quarter of your force starts the battle wounded and fights at half strength.",
+    apply: (c) => {
+      c.playerWounded = 0.25;
+    },
+  },
 ];
 
 /** Apply a set of modifier ids to a config, in catalog order. Unknown ids throw. */

@@ -42,6 +42,8 @@ export interface BattleConfig {
   /** Modifier ids from the challenge catalog (task 65). */
   modifiers: string[];
   seed: number;
+  /** Fraction of the player's force starting wounded (0..1); set by the "wounded-start" handicap. */
+  playerWounded?: number;
 }
 
 export interface BattleResult {
