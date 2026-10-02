@@ -1,0 +1,123 @@
+# SFX loudness normalization report
+
+Target: -16.0 LUFS integrated (BS.1770). Ceiling: no file hotter than -14.0 LUFS.
+Files processed: 116. Too hot: 0.
+
+| file | before (LUFS) | gain (dB) | after (LUFS) | peak | flags |
+|---|---|---|---|---|---|
+| air-raid-siren.wav | -16.0 | 0.0 | -16.0 | 0.248 | - |
+| airplane-flyover.wav | -16.0 | 0.0 | -16.0 | 0.609 | - |
+| alarm-bell.wav | -16.0 | 0.0 | -16.0 | 0.86 | - |
+| ambient-wind-loop.wav | -40.23 | 24.23 | -40.23 | 0.99 | peak-limited, large-gain-review |
+| antitank-missile-launch.wav | -16.94 | 0.94 | -16.94 | 0.99 | peak-limited |
+| armored-carrier-engine.wav | -19.36 | 3.36 | -19.36 | 0.99 | peak-limited |
+| arrow-whoosh.wav | -17.01 | 1.01 | -17.01 | 0.99 | peak-limited |
+| artillery-cannon-distant.wav | -16.0 | 0.0 | -16.0 | 0.969 | - |
+| assault-rifle-burst.wav | -16.8 | 0.8 | -16.8 | 0.99 | peak-limited |
+| bar-piano-loop.wav | -16.0 | 0.0 | -16.0 | 0.865 | - |
+| battering-ram-hit.wav | -17.13 | 1.13 | -17.13 | 0.99 | peak-limited |
+| battle-drums-high-loop.wav | -19.74 | 3.74 | -19.74 | 0.99 | peak-limited |
+| battle-drums-low-loop.wav | -16.0 | 0.0 | -16.0 | 0.892 | - |
+| battlefield-distant-rumble.wav | -17.95 | 1.95 | -17.95 | 0.99 | peak-limited |
+| blacksmith-shop.wav | -16.0 | 0.0 | -16.0 | 0.81 | - |
+| bolt-action-rifle.wav | -21.28 | 5.28 | -21.28 | 0.99 | peak-limited |
+| breaching-charge-beep.wav | -16.0 | 0.0 | -16.0 | 0.705 | - |
+| bullet-crack-overhead.wav | -23.38 | 7.38 | -23.38 | 0.99 | peak-limited |
+| campaign-pad-loop.wav | -16.0 | 0.0 | -16.0 | 0.642 | - |
+| campfire-night.wav | -18.95 | 2.95 | -18.94 | 0.99 | peak-limited |
+| car-door-slam.wav | -21.31 | 5.31 | -21.31 | 0.99 | peak-limited |
+| catapult-release.wav | -17.86 | 1.86 | -17.86 | 0.99 | peak-limited |
+| city-night-large.wav | -16.0 | 0.0 | -16.0 | 0.77 | - |
+| coins-count.wav | -16.0 | 0.0 | -16.0 | 0.695 | - |
+| convoy-rumble-loop.wav | -18.32 | 2.32 | -18.32 | 0.99 | peak-limited |
+| crow-caw.wav | -16.0 | 0.0 | -16.0 | 0.799 | - |
+| crowd-battle-high-loop.wav | -19.59 | 3.59 | -18.76 | 0.99 | peak-limited |
+| crowd-battle-low-loop.wav | -20.15 | 4.15 | -19.32 | 0.99 | peak-limited |
+| crowd-battle-mid-loop.wav | -20.13 | 4.13 | -19.3 | 0.99 | peak-limited |
+| crowd-cheer.wav | -17.17 | 1.17 | -17.17 | 0.99 | peak-limited |
+| crowd-gasp.wav | -17.47 | 1.47 | -17.47 | 0.99 | peak-limited |
+| crowd-murmur-unrest.wav | -16.0 | 0.0 | -16.0 | 0.924 | - |
+| crowd-panic.wav | -16.0 | 0.0 | -16.0 | 0.665 | - |
+| defeat-stinger.wav | -16.0 | 0.0 | -16.0 | 0.379 | - |
+| dice-roll.wav | -19.93 | 3.93 | -19.93 | 0.99 | peak-limited |
+| dirt-impact-thud.wav | -17.76 | 1.76 | -17.76 | 0.99 | peak-limited |
+| distant-battle-loop.wav | -18.85 | 2.85 | -18.85 | 0.99 | peak-limited |
+| dog-bark.wav | -16.0 | 0.0 | -16.0 | 0.857 | - |
+| door-breach-blast.wav | -21.69 | 5.69 | -21.69 | 0.99 | peak-limited |
+| door-close.wav | -20.89 | 4.89 | -20.89 | 0.99 | peak-limited |
+| door-open.wav | -16.0 | 0.0 | -16.0 | 0.937 | - |
+| engine-start.wav | -16.14 | 0.14 | -16.14 | 0.99 | peak-limited |
+| explosion-far.wav | -18.09 | 2.09 | -18.09 | 0.99 | peak-limited |
+| explosion-near.wav | -18.97 | 2.97 | -18.97 | 0.99 | peak-limited |
+| fire-crackling-loop.wav | -19.02 | 3.02 | -19.02 | 0.99 | peak-limited |
+| footstep-grass.wav | -16.14 | 0.14 | -16.14 | 0.99 | peak-limited |
+| footstep-gravel.wav | -18.68 | 2.68 | -18.68 | 0.99 | peak-limited |
+| footstep-metal.wav | -18.59 | 2.59 | -18.59 | 0.99 | peak-limited |
+| footstep-mud.wav | -16.0 | 0.0 | -16.0 | 0.831 | - |
+| footstep-wood.wav | -16.65 | 0.65 | -16.65 | 0.99 | peak-limited |
+| grenade-launcher-thump.wav | -18.89 | 2.89 | -18.89 | 0.99 | peak-limited |
+| grenade-throw-explode.wav | -16.0 | 0.0 | -16.0 | 0.759 | - |
+| gun-jam-click.wav | -19.29 | 3.29 | -19.29 | 0.99 | peak-limited |
+| heal-chime.wav | -16.0 | 0.0 | -16.0 | 0.675 | - |
+| helicopter-rotor-loop.wav | -18.19 | 2.19 | -18.19 | 0.99 | peak-limited |
+| horse-gallop.wav | -18.63 | 2.63 | -18.63 | 0.99 | peak-limited |
+| horse-whinny.wav | -16.0 | 0.0 | -16.0 | 0.728 | - |
+| jeep-engine.wav | -17.8 | 1.8 | -17.8 | 0.99 | peak-limited |
+| knife-stab.wav | -18.47 | 2.47 | -18.47 | 0.99 | peak-limited |
+| levelup-fanfare.wav | -16.0 | 0.0 | -16.0 | 0.846 | - |
+| machine-gun-sustained.wav | -17.09 | 1.09 | -17.09 | 0.99 | peak-limited |
+| map-march-step.wav | -19.92 | 3.92 | -19.92 | 0.99 | peak-limited |
+| melee-impact-armor.wav | -16.92 | 0.92 | -16.09 | 0.99 | peak-limited |
+| melee-impact-flesh.wav | -17.9 | 1.9 | -17.07 | 0.99 | peak-limited |
+| mortar-launch.wav | -16.82 | 0.82 | -16.82 | 0.99 | peak-limited |
+| mortar-whistle-impact.wav | -16.12 | 0.12 | -16.12 | 0.99 | peak-limited |
+| motorcycle-engine.wav | -16.0 | 0.0 | -16.0 | 0.523 | - |
+| mug-clink.wav | -17.61 | 1.61 | -17.61 | 0.99 | peak-limited |
+| notification-ping.wav | -16.0 | 0.0 | -16.0 | 0.606 | - |
+| paper-unfold.wav | -16.0 | 0.0 | -16.0 | 0.712 | - |
+| pistol-shot.wav | -19.47 | 3.47 | -19.47 | 0.99 | peak-limited |
+| pistol-suppressed.wav | -20.22 | 4.22 | -20.22 | 0.99 | peak-limited |
+| quest-complete-chime.wav | -16.0 | 0.0 | -16.0 | 0.592 | - |
+| radio-chatter-loop.wav | -20.0 | 4.0 | -20.0 | 0.99 | peak-limited |
+| radio-music-loop.wav | -16.0 | 0.0 | -16.0 | 0.886 | - |
+| radio-static-tune.wav | -16.0 | 0.0 | -16.0 | 0.624 | - |
+| rain-battle.wav | -16.0 | 0.0 | -16.0 | 0.964 | - |
+| ram-rolling-loop.wav | -18.47 | 2.47 | -18.47 | 0.99 | peak-limited |
+| reload.wav | -26.37 | 10.37 | -26.37 | 0.99 | peak-limited |
+| ricochet-whine.wav | -16.0 | 0.0 | -16.0 | 0.735 | - |
+| rifle-shot.wav | -18.49 | 2.49 | -18.49 | 0.99 | peak-limited |
+| rocket-launcher.wav | -16.0 | 0.0 | -16.0 | 0.796 | - |
+| shield-block-metal.wav | -15.79 | -0.21 | -16.0 | 0.879 | - |
+| shield-block-wood.wav | -18.26 | 2.26 | -17.43 | 0.99 | peak-limited |
+| shotgun-blast.wav | -22.41 | 6.41 | -22.41 | 0.99 | peak-limited |
+| shotgun-pump.wav | -28.6 | 12.6 | -28.6 | 0.99 | peak-limited, large-gain-review |
+| smg-burst.wav | -19.96 | 3.96 | -19.96 | 0.99 | peak-limited |
+| sniper-rifle-shot.wav | -23.01 | 7.01 | -23.01 | 0.99 | peak-limited |
+| stamp-thunk.wav | -20.74 | 4.74 | -20.74 | 0.99 | peak-limited |
+| suppression-loop.wav | -26.78 | 10.78 | -26.78 | 0.99 | peak-limited |
+| sword-clash.wav | -16.0 | 0.0 | -16.0 | 0.9 | - |
+| tank-cannon-near.wav | -25.07 | 9.07 | -25.07 | 0.99 | peak-limited |
+| tank-engine-idle.wav | -14.27 | -1.73 | -16.0 | 0.738 | - |
+| tank-engine-rev.wav | -14.22 | -1.78 | -16.0 | 0.733 | - |
+| tank-engine.wav | -21.49 | 5.49 | -21.49 | 0.99 | peak-limited |
+| tavern-interior.wav | -16.0 | 0.0 | -16.0 | 0.741 | - |
+| tavern-laughter.wav | -16.0 | 0.0 | -16.0 | 0.663 | - |
+| telephone-ring.wav | -16.0 | 0.0 | -16.0 | 0.483 | - |
+| tension-riser.wav | -16.0 | 0.0 | -16.0 | 0.331 | - |
+| thunder-distant.wav | -33.26 | 17.26 | -33.26 | 0.99 | peak-limited, large-gain-review |
+| thunder-near.wav | -22.18 | 6.18 | -22.18 | 0.99 | peak-limited |
+| town-day-small.wav | -16.0 | 0.0 | -16.0 | 0.558 | - |
+| train-pass.wav | -17.82 | 1.82 | -17.82 | 0.99 | peak-limited |
+| truck-engine-idle.wav | -14.16 | -1.84 | -16.0 | 0.728 | - |
+| truck-engine-rev.wav | -13.33 | -2.67 | -16.0 | 0.662 | - |
+| truck-engine.wav | -20.36 | 4.36 | -20.35 | 0.99 | peak-limited |
+| ui-cancel.wav | -16.0 | 0.0 | -16.0 | 0.594 | - |
+| ui-click.wav | -16.0 | 0.0 | -16.0 | 0.534 | - |
+| ui-confirm.wav | -16.0 | 0.0 | -16.0 | 0.47 | - |
+| ui-error.wav | -16.0 | 0.0 | -16.0 | 0.742 | - |
+| ui-hover.wav | -16.0 | 0.0 | -16.0 | 0.429 | - |
+| ui-select.wav | -16.33 | 0.33 | -16.32 | 0.99 | peak-limited |
+| victory-stinger.wav | -16.0 | 0.0 | -16.0 | 0.356 | - |
+| wall-breach-collapse.wav | -16.0 | 0.0 | -16.0 | 0.587 | - |
+| war-horn.wav | -16.0 | 0.0 | -16.0 | 0.645 | - |
+| wind-howl-loop.wav | -35.4 | 19.4 | -35.4 | 0.99 | peak-limited, large-gain-review |
