@@ -147,13 +147,15 @@ check_client() { # check_client <name> <npm-script-args...>
         return
     fi
     local out rc
+    printf 'ci-gate :: DEBUG running: cd %s && npm %s\n' "$REPO_ROOT/clients/campaign" "$*"
     out="$(cd "$REPO_ROOT/clients/campaign" && npm "$@" 2>&1)"
     rc=$?
+    printf 'ci-gate :: DEBUG npm exit code: %d\n' "$rc"
     if [[ $rc -eq 0 ]]; then
         report PASS "$name"
     else
         report FAIL "$name" "npm $* exited $rc"
-        printf '%s\n' "$out" | tail -25 | sed 's/^/       /'
+        printf '%s\n' "$out" | tail -50 | sed 's/^/       /'
     fi
 }
 
@@ -233,6 +235,13 @@ EOF
 # ---------------------------------------------------------------- main
 
 printf 'ci-gate :: repo=%s mode=%s\n' "$REPO_ROOT" "$MODE"
+printf 'ci-gate :: DEBUG node=%s npm=%s python=%s\n' \
+    "$(command -v node || echo MISSING)" \
+    "$(command -v npm || echo MISSING)" \
+    "$(command -v python3 || echo MISSING)"
+printf 'ci-gate :: DEBUG node_version=%s python_version=%s\n' \
+    "$(node --version 2>&1 || echo MISSING)" \
+    "$(python3 --version 2>&1 || echo MISSING)"
 
 if [[ "$MODE" == "refresh" ]]; then
     check_worlddata_refresh_entry
