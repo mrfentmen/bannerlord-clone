@@ -9,6 +9,7 @@ import type { MvpCitation, UnitPerformance } from "../battleflow/mvp.js";
 import { sharePct } from "./casualties.js";
 import { killDeathSummary } from "./killDeath.js";
 import { mvpBoard } from "./mvpHighlight.js";
+import { createRematchButton } from "./rematch.js";
 import "./reportContent.css";
 
 /** What the caller can add to the report without changing its sections. */
@@ -21,6 +22,14 @@ export interface ReportScreenOptions {
   units?: readonly UnitPerformance[];
   /** The sim's MVP citation, when it computed one. */
   citation?: MvpCitation | null;
+  /**
+   * Start the same battle again. Task 89: the report grows a "Fight again"
+   * control only when the caller can honour it, so a report with no second
+   * fight available shows no button rather than one that does nothing.
+   */
+  onRematch?: () => void;
+  /** Who is waiting on the field, named beside the rematch control. */
+  rematchOpponent?: string;
 }
 
 export function createReportScreen(
@@ -110,6 +119,13 @@ export function createReportScreen(
   close.textContent = "Continue";
   close.addEventListener("click", onClose);
 
-  root.append(title, kills, cas, mvp, tl, close);
+  const actions = h("div", { class: "afteraction-actions" }, close);
+  if (options.onRematch) {
+    actions.appendChild(
+      createRematchButton({ onRematch: options.onRematch, opponent: options.rematchOpponent }).root,
+    );
+  }
+
+  root.append(title, kills, cas, mvp, tl, actions);
   return root;
 }

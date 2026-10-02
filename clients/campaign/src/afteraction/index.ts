@@ -9,6 +9,7 @@ export * from "./mvpHighlight.js";
 export * from "./levelUp.js";
 export * from "./wounded.js";
 export * from "./equipment.js";
+export * from "./rematch.js";
 export * from "./report.js";
 export * from "./endScreens.js";
 export * from "./loot.js";
