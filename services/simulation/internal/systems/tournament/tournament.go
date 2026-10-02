@@ -84,6 +84,17 @@ func run(v *sim.View, w *sim.WriteSet) {
 		w.Add(model.KindLeader, winnerID, "renown", renownPrize,
 			read, causes, "tournament victory")
 
+		// Winner's party gains combat XP (tournaments are training).
+		// Find the winner's party and award XP.
+		for _, pid := range v.State.PartyIDs() {
+			p := v.State.Parties[pid]
+			if p != nil && p.LeaderID == winnerID {
+				w.Add(model.KindParty, pid, "troop_xp", 25,
+					read, causes, "tournament combat experience")
+				break
+			}
+		}
+
 		// Winner gains prize money (from town treasury).
 		if t.Money >= moneyPrize {
 			w.Add(model.KindTown, tid, "money", -moneyPrize,
