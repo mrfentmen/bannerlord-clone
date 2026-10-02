@@ -23,3 +23,5 @@ export * from "./defeat.js";
 export * from "./defeatPanel.js";
 export * from "./retire.js";
 export * from "./retirePanel.js";
+export * from "./campaignScore.js";
+export * from "./scorePanel.js";
