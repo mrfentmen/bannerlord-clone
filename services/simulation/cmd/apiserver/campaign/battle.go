@@ -90,10 +90,10 @@ func (c *Campaign) CreateEncounter(ctx context.Context, attackerID, defenderID i
 	defer st.mu.Unlock()
 	id := st.nextEncounterID()
 	enc := &wire.Encounter{
-		ID: id,
+		ID:       id,
 		Attacker: wire.EncounterSide{PartyID: attacker.ID, Name: attacker.Name, Troops: int(attacker.Troops), Power: partyPower(attacker.Troops, attacker.Morale)},
 		Defender: wire.EncounterSide{PartyID: defender.ID, Name: defender.Name, Troops: int(defender.Troops), Power: partyPower(defender.Troops, defender.Morale)},
-		Status: "pending",
+		Status:   "pending",
 	}
 	st.encounters[id] = enc
 	return enc, nil

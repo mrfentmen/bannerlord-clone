@@ -8,14 +8,14 @@ type SiegeRequest struct {
 
 // Siege is the public view of an active or resolved siege.
 type Siege struct {
-	ID              string  `json:"id"`
-	TownID          int     `json:"townId"`
-	AttackerPartyID int     `json:"attackerPartyId"`
-	DefenderRulerID int     `json:"defenderRulerId"`
+	ID              string `json:"id"`
+	TownID          int    `json:"townId"`
+	AttackerPartyID int    `json:"attackerPartyId"`
+	DefenderRulerID int    `json:"defenderRulerId"`
 	// Phase: preparing | bombarding | breached | assaulting | resolved
 	Phase string `json:"phase"`
 	// Outcome when resolved: ongoing | breached | gates_opened | lifted | starved | assault_won | assault_lost
-	Outcome string `json:"outcome"`
+	Outcome string  `json:"outcome"`
 	Days    int     `json:"days"`
 	WallHP  float64 `json:"wallHp"`
 	// Food days of supply remaining for the garrison.

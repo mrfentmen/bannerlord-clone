@@ -109,12 +109,12 @@ func (c *Campaign) stageTrade(v *sim.View, w *sim.WriteSet, req wire.TradeReques
 		party: party.ID,
 		town:  town.ID,
 		result: wire.TradeResult{
-			Side:            req.Side,
-			GoodName:        g.Name,
-			Quantity:        req.Quantity,
-			UnitPrice:       round3(unit),
-			Total:           round2(total),
-			PartyQuantity:   round2(held),
+			Side:             req.Side,
+			GoodName:         g.Name,
+			Quantity:         req.Quantity,
+			UnitPrice:        round3(unit),
+			Total:            round2(total),
+			PartyQuantity:    round2(held),
 			MarketPriceAfter: round3(price),
 		},
 	}

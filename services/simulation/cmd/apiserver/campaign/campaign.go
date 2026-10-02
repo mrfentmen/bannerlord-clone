@@ -193,7 +193,7 @@ type Campaign struct {
 
 	// roster, history, and notifications are this package's own read models,
 	// described in the package comment.
-	ro         *roster
+	ro       *roster
 	history  map[marketKey]*priceSeries
 	notifs   []wire.Notification
 	seenRow  map[int]bool
@@ -267,7 +267,7 @@ func New(cfg *config.Config, opts Options) (*Campaign, error) {
 		state:   gen.State,
 		bus:     events.NewBus(),
 		scale:   opts.DaysPerRealSecond,
-		ro:       newRoster(),
+		ro:      newRoster(),
 		history: map[marketKey]*priceSeries{},
 		seenRow: map[int]bool{},
 		pending: make(chan *job, 256),
@@ -310,6 +310,44 @@ func (c *Campaign) warmUp(n int) error {
 		}
 	}
 	return nil
+}
+
+// StepDays advances the world exactly n days, synchronously, and returns the
+// new day. It is the deterministic counterpart to the wall-clock-driven pass:
+// the same tick path (engine ticks, encounter check, snapshot bookkeeping)
+// with no elapsed-time math, so two runs of the same n from the same save land
+// on the same world. Used by the save/load proof and by tests.
+func (c *Campaign) StepDays(n int) (int, error) {
+	if n < 0 {
+		return 0, fmt.Errorf("step-days: negative day count %d", n)
+	}
+	if n > 366 {
+		return 0, fmt.Errorf("step-days: max 366 days per call, got %d", n)
+	}
+	c.mu.Lock()
+	if c.lastErr != nil {
+		err := c.lastErr
+		c.mu.Unlock()
+		return 0, fmt.Errorf("step-days: the simulation clock is halted after a failed tick: %w", err)
+	}
+	for i := 0; i < n; i++ {
+		if err := c.eng.Tick(c.state); err != nil {
+			c.lastErr = err
+			c.mu.Unlock()
+			return 0, fmt.Errorf("step-days: tick %d failed: %w", c.state.Tick, err)
+		}
+		c.ticksRun++
+	}
+	c.checkEncountersLocked()
+	snapshot := c.snapshotPending
+	c.snapshotPending = nil
+	day := c.state.Tick
+	c.mu.Unlock()
+
+	if snapshot != nil {
+		c.flushSnapshot(snapshot)
+	}
+	return day, nil
 }
 
 // choosePlayer picks the ruler and town the player holds.
@@ -389,26 +427,26 @@ func (c *Campaign) attachParty(r *model.Ruler) error {
 	}
 	id := c.state.NewID(model.IDParty)
 	c.state.Parties[id] = &model.Party{
-		ID:               id,
-		Name:             r.Name + "'s company",
-		SideID:           r.SideID,
-		RulerID:          r.ID,
-		X:                c.townPos(c.homeTown),
-		Y:                c.townPos(c.homeTown),
-		Troops:           c.cfg.World.PartyTroopsBase,
-		Food:             c.cfg.World.PartyTroopsBase * c.cfg.March.FoodPerTroop * c.cfg.World.StartPartyFoodDays,
-		Money:            r.Money * c.cfg.Ruler.PartyMoneyShare,
-		Gold:             r.Gold * c.cfg.Ruler.PartyGoldShare,
-		Metal:            c.cfg.World.PartyTroopsBase * c.cfg.World.PartyMetalPerTroop,
-		Medicine:         c.cfg.World.PartyTroopsBase * c.cfg.World.PartyMedicinePerTroop,
-		Morale:           c.cfg.Upkeep.MoraleCap * 0.8,
-		Activity:         model.ActIdle,
-		Intention:        model.IntentNone,
-		HomeTown:         c.homeTown,
-		DestTown:         c.homeTown,
-		DestRuler:        -1,
-		DestTownParty:    -1,
-		IsMercenary:      r.IsMercenary,
+		ID:            id,
+		Name:          r.Name + "'s company",
+		SideID:        r.SideID,
+		RulerID:       r.ID,
+		X:             c.townPos(c.homeTown),
+		Y:             c.townPos(c.homeTown),
+		Troops:        c.cfg.World.PartyTroopsBase,
+		Food:          c.cfg.World.PartyTroopsBase * c.cfg.March.FoodPerTroop * c.cfg.World.StartPartyFoodDays,
+		Money:         r.Money * c.cfg.Ruler.PartyMoneyShare,
+		Gold:          r.Gold * c.cfg.Ruler.PartyGoldShare,
+		Metal:         c.cfg.World.PartyTroopsBase * c.cfg.World.PartyMetalPerTroop,
+		Medicine:      c.cfg.World.PartyTroopsBase * c.cfg.World.PartyMedicinePerTroop,
+		Morale:        c.cfg.Upkeep.MoraleCap * 0.8,
+		Activity:      model.ActIdle,
+		Intention:     model.IntentNone,
+		HomeTown:      c.homeTown,
+		DestTown:      c.homeTown,
+		DestRuler:     -1,
+		DestTownParty: -1,
+		IsMercenary:   r.IsMercenary,
 	}
 	r.PartyID = id
 	c.state.SetIDCounter(model.IDParty, id)
@@ -810,18 +848,18 @@ func (c *Campaign) flushSnapshot(payload []byte) {
 // change than this server's remit. See the contract's section 12.
 func (c *Campaign) renderSnapshotLocked() []byte {
 	type diskSnapshot struct {
-		Tick     int             `json:"tick"`
-		Year     float64         `json:"year"`
-		Seed     uint64          `json:"seed"`
-		StartYear int             `json:"startYear"`
-		PlayerRuler string       `json:"playerRuler"`
-		HomeTown    string       `json:"homeTown"`
-		Party       string       `json:"party"`
-		Clock     wire.ClockState `json:"clock"`
-		Roster    wire.TroopStack  `json:"-"`
-		Stacks    []wire.TroopStack `json:"roster"`
-		Towns     []wire.TownState  `json:"towns"`
-		CauseRows []wire.CauseRow   `json:"causeRows"`
+		Tick        int               `json:"tick"`
+		Year        float64           `json:"year"`
+		Seed        uint64            `json:"seed"`
+		StartYear   int               `json:"startYear"`
+		PlayerRuler string            `json:"playerRuler"`
+		HomeTown    string            `json:"homeTown"`
+		Party       string            `json:"party"`
+		Clock       wire.ClockState   `json:"clock"`
+		Roster      wire.TroopStack   `json:"-"`
+		Stacks      []wire.TroopStack `json:"roster"`
+		Towns       []wire.TownState  `json:"towns"`
+		CauseRows   []wire.CauseRow   `json:"causeRows"`
 	}
 	snap := diskSnapshot{
 		Tick:        c.state.Tick,

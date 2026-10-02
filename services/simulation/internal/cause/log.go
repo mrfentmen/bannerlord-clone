@@ -267,3 +267,47 @@ func FormatValue(kind model.Kind, field string, v float64) string {
 	}
 	return f.Format(v)
 }
+
+// LogData is the serializable form of a Log: the retained rows plus the
+// counters. The lastChange and byID indexes are rebuilt on Import.
+type LogData struct {
+	Rows          []Row `json:"rows"`
+	NextID        int   `json:"nextID"`
+	Suppressed    int   `json:"suppressed"`
+	DroppedOldest int   `json:"droppedOldest"`
+}
+
+// Export captures the log for a save file. It exports the logical rows
+// (rows[base:]), so a save never carries the compacted-away prefix.
+func (l *Log) Export() LogData {
+	rows := make([]Row, 0, l.Len())
+	rows = append(rows, l.rows[l.base:]...)
+	return LogData{
+		Rows:          rows,
+		NextID:        l.nextID,
+		Suppressed:    l.suppressed,
+		DroppedOldest: l.droppedOldest,
+	}
+}
+
+// Import restores a log previously captured with Export. The lookup indexes
+// are rebuilt by replaying the rows in order, which reproduces exactly what
+// the live Append path would have built.
+func (l *Log) Import(d LogData) {
+	rows := make([]Row, len(d.Rows))
+	copy(rows, d.Rows)
+	l.rows = rows
+	l.base = 0
+	l.nextID = d.NextID
+	l.lastChange = make(map[entityField]int, len(rows))
+	l.byID = make(map[int]int, len(rows))
+	for i, r := range rows {
+		l.byID[r.ID] = i
+		l.lastChange[entityField{Kind: r.Kind, Entity: r.Entity, Field: r.Field}] = r.ID
+		if r.ID >= l.nextID {
+			l.nextID = r.ID + 1
+		}
+	}
+	l.suppressed = d.Suppressed
+	l.droppedOldest = d.DroppedOldest
+}
