@@ -120,3 +120,52 @@
   color: var(--ink-700);
   font-size: 0.85rem;
 }
+
+/* Captured equipment list (task 85). */
+.aa-equipment {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--paper-300);
+  background: var(--paper-0);
+}
+
+.aa-equipment[hidden] { display: none; }
+
+.aa-equipment__title {
+  margin: 0 0 var(--space-2);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-500);
+}
+
+.aa-equipment__list,
+.aa-equipment__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.aa-equipment__group + .aa-equipment__group { margin-top: var(--space-2); }
+
+.aa-equipment__category {
+  margin: 0 0 var(--space-1);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+
+.aa-equipment__item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.aa-equipment__qty { margin-left: auto; color: var(--ink-700); }
+.aa-equipment__value { color: var(--ink-500); }
+
+.aa-equipment__line {
+  margin: var(--space-2) 0 0;
+  color: var(--ink-700);
+  font-size: 0.85rem;
+}
