@@ -17,3 +17,4 @@ export * from "./interrogation";
 export * from "./medicine";
 export * from "./promotions";
 export * from "./warStories";
+export * from "./rivals";
