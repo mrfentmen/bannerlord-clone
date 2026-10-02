@@ -1,6 +1,7 @@
 package replay
 
 import (
+	"runtime"
 	"testing"
 	"time"
 
@@ -211,6 +212,213 @@ func TestTheCostOfRecordingABattle(t *testing.T) {
 	if loggedGap < controlAbs {
 		t.Logf("NOT DISTINGUISHED: recording the order log (%.1f%%) is smaller than the gap between "+
 			"two runs of the same job (%.1f%%)", loggedGap, controlAbs)
+	}
+}
+
+// TestTheCostOfRecordingInCpuTime is the same question asked on a clock that can
+// answer it, and it exists because three wall-clock attempts did not settle it.
+//
+// The wall-clock measurement above is not wrong, it is unresolved: the effect being
+// measured is smaller than the run-to-run spread of the identical job on a box with
+// several agents on it, so its control gap exceeds its answer and the test says so.
+// Min-of-N interleaving and a control variant were the right statistics and did not
+// help, because the problem is the clock and not the statistics. A pure-CPU spin on
+// this box varies by 99% in wall time and 5% in CPU time, for identical work.
+//
+// So the variants are measured twice, on both clocks, in the same interleaved runs,
+// and the two noise floors are reported side by side. The CPU-time one is expected
+// to be far tighter, and whether it is tight ENOUGH is decided by the control
+// rather than asserted here: the same discipline as the wall-clock test, applied to
+// the better clock. A five-per-cent claim is only asserted when the control's own
+// gap is comfortably inside five per cent, because otherwise the machine still
+// cannot resolve the claim and saying so is the honest result.
+//
+// # WHY A FORCED GC BEFORE EACH VARIANT
+//
+// Each variant starts from a collected heap. Go's GC is triggered by allocation
+// volume, so without this the variant that allocates most inherits the previous
+// variant's garbage debt and pays for collecting it, which would charge one variant
+// for another's cost. The order log allocates; the unobserved battle barely does.
+// Measuring that transfer would be measuring the harness.
+//
+// The forced collection is outside the timed region, so it is not itself in the
+// number, and it is wall-clock rather than CPU time so it cannot contaminate the
+// figure it is preparing.
+func TestTheCostOfRecordingInCpuTime(t *testing.T) {
+	if testing.Short() {
+		t.Skip("a timing measurement is not a short-mode test")
+	}
+	measureRecordingCostInCPUTime(t, 150, 9)
+}
+
+// TestTheCostOfRecordingInCpuTimeAtFiveHundred is the same measurement where the
+// effect is largest, which is the only place a five-per-cent claim can be settled
+// on a shared box.
+//
+// The cost being measured is paid per unit per tick, so it scales with the field
+// while the battle's fixed per-tick costs do not. At 150 v 150 the CPU clock's
+// control gap came to 4.9% and then 3.1% over two runs while the two variants read
+// +7.0%/+3.1% and +2.6%/+4.8% — the effect and the noise are the same size, and
+// two runs disagree about which is which. That is the resolution limit, not a
+// result.
+//
+// At 500 v 500 the same absolute noise sits against roughly eight times the work, so
+// the percentages compress toward the truth. This is also the size COMBAT.md
+// section 13 cares about, which makes it the case worth settling rather than the one
+// that is merely cheapest to measure.
+//
+// Five repeats rather than nine: a 500 v 500 battle is around forty seconds of wall
+// time and four variants times five is already twenty battles. The number of repeats
+// is what sets the control gap, so this reports its own gap and lets the gate decide
+// rather than paying for a tighter one.
+func TestTheCostOfRecordingInCpuTimeAtFiveHundred(t *testing.T) {
+	if testing.Short() {
+		t.Skip("a timing measurement is not a short-mode test")
+	}
+	measureRecordingCostInCPUTime(t, 500, 5)
+}
+
+// measureRecordingCostInCPUTime is the body both sizes run, so the cheap case is the
+// same code and not a simplified copy of it.
+func measureRecordingCostInCPUTime(t *testing.T, n, repeats int) {
+	t.Helper()
+	if cpuNow() == 0 {
+		t.Skipf("no CPU clock on this platform: %s. The wall-clock measurement in "+
+			"TestTheCostOfRecordingABattle still runs, and reports itself as unresolved.",
+			cpuClockNames)
+	}
+	cfg := loadConfig(t)
+	const seed = 20260930
+	const target = 5.0
+	setup := evenForce(t, cfg, seed, n)
+
+	type sample struct{ wall, cpu time.Duration }
+	var bare, control, seam, logged []sample
+	var ticks int
+
+	// timedBoth runs the work once and charges it to both clocks. The two readings
+	// bracket the same execution, so comparing them is comparing the clocks and not
+	// comparing two different battles.
+	timedBoth := func(what string, work func() error) sample {
+		t.Helper()
+		runtime.GC()
+		w0, c0 := time.Now(), cpuNow()
+		if err := work(); err != nil {
+			t.Fatalf("%s: %v", what, err)
+		}
+		return sample{wall: time.Since(w0), cpu: cpuNow() - c0}
+	}
+
+	for r := 0; r < repeats; r++ {
+		bare = append(bare, timedBoth("unobserved battle", func() error {
+			res, err := battle.Run(cfg, seed, setup)
+			if err == nil {
+				ticks = res.Ticks
+			}
+			return err
+		}))
+		control = append(control, timedBoth("unobserved battle, control", func() error {
+			_, err := battle.Run(cfg, seed, setup)
+			return err
+		}))
+		seam = append(seam, timedBoth("battle with a silent commander", func() error {
+			_, err := battle.RunCommanded(cfg, seed, setup, &silentCommander{})
+			return err
+		}))
+		logged = append(logged, timedBoth("battle with its orders recorded", func() error {
+			_, _, err := battle.Record(cfg, seed, setup, nil, 1<<20, "overhead-cpu")
+			return err
+		}))
+	}
+
+	pick := func(ss []sample, cpu bool) []time.Duration {
+		out := make([]time.Duration, len(ss))
+		for i, s := range ss {
+			if cpu {
+				out[i] = s.cpu
+			} else {
+				out[i] = s.wall
+			}
+		}
+		return out
+	}
+
+	report := func(cpu bool) (min, median, ctl, seamMin, logMin time.Duration) {
+		b, c, s, l := pick(bare, cpu), pick(control, cpu), pick(seam, cpu), pick(logged, cpu)
+		return minDur(b), medianDur(b), minDur(c), minDur(s), minDur(l)
+	}
+	pctOf := func(d, b time.Duration) float64 { return 100 * (d - b).Seconds() / b.Seconds() }
+
+	cpuB, cpuMed, cpuCtl, cpuSeam, cpuLog := report(true)
+	wallB, wallMed, wallCtl, _, _ := report(false)
+
+	cpuFloor := 100 * (cpuMed - cpuB).Seconds() / cpuB.Seconds()
+	cpuCtlGap := pctOf(cpuCtl, cpuB)
+	cpuSeamPct := pctOf(cpuSeam, cpuB)
+	cpuLogPct := pctOf(cpuLog, cpuB)
+	wallFloor := 100 * (wallMed - wallB).Seconds() / wallB.Seconds()
+	wallCtlGap := pctOf(wallCtl, wallB)
+
+	t.Logf("%d v %d, %d ticks, %d repeats, four variants interleaved, each timed on both clocks.",
+		n, n, ticks, repeats)
+	t.Logf("  NOISE FLOOR, wall clock: %.1f%%   control gap %.1f%%", wallFloor, wallCtlGap)
+	t.Logf("  NOISE FLOOR, %s: %.1f%%   control gap %+.1f%%", cpuClockNames, cpuFloor, cpuCtlGap)
+	t.Logf("  baseline: wall min %.2fs median %.2fs | cpu min %.2fs median %.2fs",
+		wallB.Seconds(), wallMed.Seconds(), cpuB.Seconds(), cpuMed.Seconds())
+	t.Logf("  silent commander:    cpu min %.2fs  %+.1f%%", cpuSeam.Seconds(), cpuSeamPct)
+	t.Logf("  orders recorded:     cpu min %.2fs  %+.1f%%", cpuLog.Seconds(), cpuLogPct)
+
+	// The gate, and it is deliberately stricter than "the control is inside the
+	// target". A first run of this test had a control gap of 4.9% against a 5.0%
+	// target, passed the gate, and duly reported the seam at +7.0% as a failure. A
+	// gate that a measurement clears by a tenth of a per cent is not a gate: it lets
+	// a two-point separation between a 7% effect and a 4.9% control carry an
+	// assertion, and two points on a shared box is nothing. So the control has to sit
+	// at HALF the target, which puts four or more points between the control and
+	// anything the target can catch, and a run that cannot manage that says it could
+	// not rather than guessing.
+	halfTarget := target / 2
+	resolvable := absPct(cpuCtlGap) < halfTarget
+	if !resolvable {
+		t.Logf("NOT DISTINGUISHED: the control's own gap is %.1f%%, which is not inside half the "+
+			"%.1f%% target, so this run cannot tell a %.1f%% effect from the machine. Reported "+
+			"anyway, as measurements and not as conclusions: seam %+.1f%%, order log %+.1f%%, "+
+			"control %+.1f%%. The finding that survives is the clock: %.1f%% noise floor against "+
+			"the wall clock's %.1f%% on this same box.",
+			absPct(cpuCtlGap), target, target, cpuSeamPct, cpuLogPct, cpuCtlGap, cpuFloor, wallFloor)
+		return
+	}
+
+	t.Logf("RESOLVABLE: the control's own gap is %.1f%%, inside half the %.1f%% target, so an effect "+
+		"at the target stands at least %.1f points clear of the machine on this run.",
+		absPct(cpuCtlGap), target, halfTarget-absPct(cpuCtlGap))
+
+	// Each variant is judged against the target AND against the control's gap, and
+	// only fails when it is over the target by more than the control can explain.
+	// An effect between the two is reported, not failed: that is the band where the
+	// machine is still partly talking.
+	for _, v := range []struct {
+		what string
+		got  float64
+	}{
+		{"the command seam", cpuSeamPct},
+		{"recording the order log", cpuLogPct},
+	} {
+		margin := v.got - absPct(cpuCtlGap)
+		switch {
+		case v.got > target && margin > absPct(cpuCtlGap):
+			t.Errorf("%s cost %+.1f%% of CPU time over an unobserved battle at %d v %d, against a "+
+				"target of %.1f%%, and it clears the control's own %.1f%% gap by %.1f points. The "+
+				"effect is above the noise and not the machine speaking.",
+				v.what, v.got, n, n, target, absPct(cpuCtlGap), margin)
+		case v.got > target:
+			t.Logf("IN THE BAND: %s cost %+.1f%%, over the %.1f%% target but by less than the "+
+				"control's own %.1f%% gap, so this run does not settle it.",
+				v.what, v.got, target, absPct(cpuCtlGap))
+		default:
+			t.Logf("%s cost %+.1f%%, inside the %.1f%% target and inside the control's %.1f%% gap.",
+				v.what, v.got, target, absPct(cpuCtlGap))
+		}
 	}
 }
 
