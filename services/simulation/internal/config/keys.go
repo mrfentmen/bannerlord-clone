@@ -649,6 +649,12 @@ func (l *loader) load(c *Config) {
 	c.Battle.BluntCaptureShare = l.f64("battle.blunt_capture_share")
 	c.Battle.SituationalClampMin = l.f64("battle.situational_clamp_min")
 	c.Battle.SituationalClampMax = l.f64("battle.situational_clamp_max")
+	c.Battle.VictorMoraleGain = l.f64("battle.victor_morale_gain")
+	c.Battle.LoserMoraleHit = l.f64("battle.loser_morale_hit")
+	c.Battle.RoutMoraleHit = l.f64("battle.rout_morale_hit")
+	c.Battle.RoutMoraleThreshold = l.f64("battle.rout_morale_threshold")
+	c.Battle.RoutFleeShare = l.f64("battle.rout_flee_share")
+	c.Battle.RoutPanicPerRout = l.f64("battle.rout_panic_per_rout")
 	// The matchup table is read row by row over the label lists declared below,
 	// so a key is named formation_bonus_<attacker>_<defender> and the pair is
 	// the one the battle system asks about.
@@ -665,6 +671,7 @@ func (l *loader) load(c *Config) {
 	c.Crime.UnrestPerCrime = l.f64("crime.unrest_per_crime")
 
 	loadTemplate(l, &c.Template)
+	loadTerrainCombat(l, &c.TerrainCombat)
 	loadFormation(l, &c.Formation)
 	loadVisibility(l, &c.Visibility)
 	loadIssue(l, &c.Issue)
@@ -745,6 +752,18 @@ func loadTemplate(l *loader, t *Template) {
 	for mi, mis := range missionLabels {
 		for pi, tpl := range templateLabels {
 			t.MissionFit[mi][pi] = l.f64("template.mission_fit_" + mis + "_" + tpl)
+		}
+	}
+}
+
+// loadTerrainCombat reads the ground-to-template combat table. The key names
+// mirror template.terrain_fit_<terrain>_<template> deliberately: the two tables
+// are read by different systems and answer different questions, and a designer
+// looking for one of them should find the other next to it in the file.
+func loadTerrainCombat(l *loader, tc *TerrainCombat) {
+	for ti, ter := range terrainLabels {
+		for pi, tpl := range templateLabels {
+			tc.PerTemplate[ti][pi] = l.f64("terrain_combat.terrain_combat_" + ter + "_" + tpl)
 		}
 	}
 }

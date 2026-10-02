@@ -93,7 +93,7 @@ type tickFrame struct {
 	// A complete fog block, rebuilt per frame rather than as a delta.
 	//
 	// Complete, so the client's merge is a replacement and cannot half-apply: a sparse
-	// fog block would need every client to know which of eight fields this particular
+	// fog block would need every client to know which of ten fields this particular
 	// frame happened to carry. Rebuilding costs one pass over the towns, and the
 	// subscriber queue drops frames rather than growing, so a client that cannot keep up
 	// sees the next whole reading instead of a torn one.

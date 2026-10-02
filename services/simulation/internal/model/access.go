@@ -338,6 +338,8 @@ func f2b(v float64) bool { return v != 0 }
 
 func townGet(t *Town, f string) (float64, bool) {
 	switch f {
+	case "town_terrain":
+		return float64(t.Terrain), true
 	case "population":
 		return t.Population, true
 	case "workers":
@@ -496,6 +498,8 @@ func townGet(t *Town, f string) (float64, bool) {
 
 func townSet(t *Town, f string, v float64) bool {
 	switch f {
+	case "town_terrain":
+		t.Terrain = int(v)
 	case "population":
 		t.Population = v
 	case "workers":
@@ -816,6 +820,8 @@ func partyGet(p *Party, f string) (float64, bool) {
 		return p.RefitDays, true
 	case "is_wing":
 		return b2f(p.IsWing), true
+	case "routed":
+		return b2f(p.Routed), true
 	case "parent_party":
 		return float64(p.ParentParty), true
 	case "wing_share":
@@ -957,6 +963,8 @@ func partySet(p *Party, f string, v float64) bool {
 		p.RefitDays = v
 	case "is_wing":
 		p.IsWing = f2b(v)
+	case "routed":
+		p.Routed = f2b(v)
 	case "parent_party":
 		p.ParentParty = int(v)
 	case "wing_share":

@@ -685,12 +685,58 @@ describe("the fog of war indicator", () => {
     expect(note.textContent).toMatch(/2 of these/);
   });
 
-  it("labels the three rows in words as well as colour", () => {
-    // The swatches are decoration for the words, so with no colour vision the row has
-    // to still be readable — which means the word has to be real text, not a title.
+it("labels the three rows in words as well as colour", () => {
+    // The swatches are decoration for the words, so with no colour vision the row has to
+    // still be readable — which means the word has to be real text, not a title.
     const card = hudAt().querySelector("[data-testid='fog-indicator']")!;
     const labels = Array.from(card.querySelectorAll(".fog__label")).map((el) => el.textContent?.trim());
     expect(labels).toEqual(["In sight", "Remembered", "Never found"]);
+  });
+
+  it("names how out of date the map is, and how out of date the oldest news is", () => {
+    // "Remembered" and "remembered from last year" are the same state and a completely
+    // different fact to plan around, so the count alone is not the answer.
+    const card = hudAt({ fog: { ...FOG, stale: 2, oldestDays: 61 } }).querySelector(
+      "[data-testid='fog-indicator']",
+    )!;
+    const note = card.querySelector("[data-testid='fog-stale']")!;
+    expect(note.textContent).toMatch(/2 of the remembered places are past/);
+    expect(note.textContent).toMatch(/61 days old/);
+    // Singular when there is one, because "1 places" is the kind of thing a player stops
+    // reading a card for.
+    const one = hudAt({ fog: { ...FOG, stale: 1, oldestDays: 9 } })
+      .querySelector("[data-testid='fog-stale']")!;
+    expect(one.textContent).toMatch(/1 of the remembered place is past/);
+    expect(one.textContent).toMatch(/9 days old/);
+  });
+
+  it("says nothing about staleness when nothing is stale", () => {
+    // A standing "everything is current" line is reassurance that stops being read the
+    // day it is wrong.
+    expect(hudAt().querySelector("[data-testid='fog-stale']")).toBeNull();
+    expect(
+      hudAt({ fog: { ...FOG, stale: 0, oldestDays: null } }).querySelector("[data-testid='fog-stale']"),
+    ).toBeNull();
+  });
+
+  it("keeps staleness out of the three-row list, which is a partition and not a summary", () => {
+    // Four numbers read as four buckets, and a player would then be reading a map with a
+    // fourth state the simulation never published.
+    const card = hudAt({ fog: { ...FOG, stale: 3, oldestDays: 30 } }).querySelector(
+      "[data-testid='fog-indicator']",
+    )!;
+    expect(card.querySelectorAll(".fog__row")).toHaveLength(3);
+    expect(card.querySelector("[data-testid='fog-stale']")!.className).not.toContain("fog__row");
+  });
+
+  it("shows the remembered swatch as a ramp, because that state has a range in it", () => {
+    // A flat square beside the word "Remembered" describes a state the map does not have:
+    // remembered towns fade further the older their news is, and the legend has to say so.
+    const swatch = hudAt().querySelector<HTMLElement>(".fog__swatch[data-state='remembered']")!;
+    expect(swatch.style.background).toMatch(/gradient/);
+    expect(
+      hudAt().querySelector<HTMLElement>(".fog__swatch[data-state='visible']")!.style.background,
+    ).not.toMatch(/gradient/);
   });
 
   it("is a named group, so it is reachable as one landmark by a screen reader", () => {

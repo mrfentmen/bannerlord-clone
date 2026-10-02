@@ -57,6 +57,27 @@ type Config struct {
 	Issue      Issue
 	Visibility Visibility
 	Barter     Barter
+	// TerrainCombat is what the ground a fight is fought on is worth to each
+	// template. It is a top-level section rather than part of Template because
+	// the march system's terrain table lives there and this one is read by the
+	// battle system; the two are siblings, not one table, and the naming
+	// (terrain_fit_* against terrain_combat_*) is what makes that visible in the
+	// balance file.
+	TerrainCombat TerrainCombat
+}
+
+// TerrainCombat is the per-terrain, per-template combat multiplier, read from
+// the [terrain_combat] section.
+//
+// The table is symmetric by construction: both armies in a fight are standing on
+// the same ground, so a cell cannot favour one of them. It changes the balance
+// between armies of different templates, and the term that actually favours a
+// side is the formation matchup in Battle.
+type TerrainCombat struct {
+	// PerTemplate is the multiplier for one kind of soldier on one ground,
+	// indexed terrain then template, so the row is a battlefield and the column
+	// is the composition of the army standing on it.
+	PerTemplate [model.TerrainCount][model.TemplateCount]float64
 }
 
 // World controls world generation.
@@ -1690,6 +1711,34 @@ type Battle struct {
 	// it.
 	SituationalClampMin float64
 	SituationalClampMax float64
+	// VictorMoraleGain and LoserMoraleHit are the morale a fight moves. The
+	// battle system read morale for its strength multiplier and wrote none,
+	// which made it the only combat-relevant system that fed nothing back into
+	// the one busy shared field six other systems write.
+	VictorMoraleGain float64
+	LoserMoraleHit   float64
+	// RoutMoraleHit is the extra morale an army loses by running, on top of
+	// losing the fight. A rout and a defeat are different events and a player
+	// watching a column walk away should be able to tell them apart.
+	RoutMoraleHit float64
+	// RoutMoraleThreshold is the morale at or below which an army has broken.
+	// Below it the army stops being a candidate for the fight in its town, and
+	// the men who can still stand are beaten or captured while a share of the
+	// rest walks off the map.
+	//
+	// It is compared with >=, so the threshold itself is broken: an army
+	// exactly at the threshold has broken.
+	RoutMoraleThreshold float64
+	// RoutFleeShare is the share of a broken army that leaves the field. Those
+	// men come off the roster rather than being counted as casualties, because
+	// they were never in the fight. This is what stops rout from being a flag
+	// that leaves strength a lie.
+	RoutFleeShare float64
+	// RoutPanicPerRout is the morale one rout takes from every other army of
+	// the same side in the same town, in the same tick. COMBAT.md section 6
+	// says routing troops spread panic, and this is that: a defeat in one
+	// corner of a town can break the rest of the army in the same day.
+	RoutPanicPerRout float64
 }
 
 // Crime configures urban criminality (Tier 5).

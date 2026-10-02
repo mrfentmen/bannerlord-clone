@@ -23,6 +23,7 @@
 import { beforeAll, describe, expect, it } from "vitest";
 import { createFixtureSimulationProvider } from "../../data/fixture/index.js";
 import { unknownTownPanel, staleOrderReason } from "../panels/UnknownTownPanel.js";
+import type { TownRecency } from "../../data/fog.js";
 import type { SimSnapshot, TownState } from "../../data/types.js";
 
 let snapshot: SimSnapshot;
@@ -37,6 +38,8 @@ function panel(opts: {
   state: "visible" | "remembered" | "unseen";
   town?: TownState | null;
   name?: string;
+  recency?: TownRecency;
+  days?: number | null;
   onWhy?: (field: string) => void;
 }): HTMLElement {
   // Spelled out rather than passed straight through: `exactOptionalPropertyTypes` is on,
@@ -47,6 +50,7 @@ function panel(opts: {
     town: opts.town === undefined ? golden : opts.town,
     state: opts.state,
     day: snapshot.day,
+    ...(opts.recency === undefined ? {} : { recency: opts.recency, days: opts.days ?? null }),
   };
   return unknownTownPanel(opts.onWhy ? { ...options, onWhy: opts.onWhy } : options);
 }
@@ -104,6 +108,41 @@ describe("a remembered town", () => {
 
   it("says orders cannot be placed here, rather than leaving the player to find out", () => {
     expect(testId(panel({ state: "remembered" }), "fog-recruit-blocked")).not.toBeNull();
+  });
+
+  it("says how long ago it was seen, on its own line under the banner", () => {
+    // "Last known" tells the player the figures are not current. It does not tell them how
+    // far back they reach, and that is the number they would actually act on.
+    const root = panel({ state: "remembered", recency: "old", days: 61 });
+    const age = testId(root, "fog-age")!;
+    expect(age.textContent).toMatch(/61 days ago/);
+    const html = root.innerHTML;
+    // Under the banner, above the figures: a number about how old the news is is itself a
+    // number, and the rule this panel already follows is that none appears above its caveat.
+    expect(html.indexOf("fog-stale-banner")).toBeLessThan(html.indexOf("fog-age"));
+    expect(html.indexOf("fog-age")).toBeLessThan(html.indexOf("Population"));
+  });
+
+  it("says no age at all rather than saying zero, when the simulation stated none", () => {
+    // "Last seen 0 days ago" is a claim that somebody looked today. A panel that cannot
+    // date a sighting must not print the freshest possible news.
+    for (const root of [
+      panel({ state: "remembered" }),
+      panel({ state: "remembered", recency: "unknown" }),
+      panel({ state: "remembered", recency: "unknown", days: null }),
+      panel({ state: "remembered", recency: "recent", days: null }),
+    ]) {
+      expect(testId(root, "fog-age")).toBeNull();
+      expect(root.textContent).not.toMatch(/0 days ago/);
+    }
+  });
+
+  it("does not date an unseen town, which was never seen at all", () => {
+    // A caller passing an age for an unseen town has a bug, and the panel must not turn it
+    // into "Last seen 0 days ago" under a Never found chip.
+    const root = panel({ state: "unseen", recency: "now", days: 0 });
+    expect(testId(root, "fog-age")).toBeNull();
+    expect(root.textContent).not.toMatch(/days ago/);
   });
 
   it("keeps the Why links, because a remembered figure still has a real cause chain", () => {

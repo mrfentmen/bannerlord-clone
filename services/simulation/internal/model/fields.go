@@ -261,6 +261,14 @@ func init() {
 		maskMax = 4294967296.0
 	)
 	register(Field{"population", KindTown, ValueInt, "people", true, 0, inf, nil, 0})
+	// town_terrain is the ground the town stands on. It is untracked because it
+	// is assigned when the world is generated and never changes: a town does not
+	// move, and a river does not relocate. It is registered because the battle
+	// system reads it to know what ground a fight in that town is fought on,
+	// and an unregistered field is a field nothing can look up.
+	register(Field{"town_terrain", KindTown, ValueText, "terrain", false, 0, 0, []string{
+		"plain", "forest", "hills", "mountain", "swamp", "coast",
+	}, 0})
 	register(Field{"workers", KindTown, ValueInt, "workers", true, 0, inf, nil, 0})
 	register(Field{"food_stock", KindTown, ValueFloat, "person-days", true, 0, inf, nil, 0})
 	register(Field{"food_production", KindTown, ValueFloat, "person-days/day", true, 0, inf, nil, 0})
@@ -459,6 +467,12 @@ func init() {
 	register(Field{"template_fit", KindParty, ValueFloat, "index", false, 0, one, nil, 0})
 	register(Field{"refit_days", KindParty, ValueFloat, "days", false, 0, inf, nil, 0})
 	register(Field{"is_wing", KindParty, ValueFlag, "boolean", true, zero, one, nil, 0})
+	// routed is tracked because it is the moment a battle stops being a fight:
+	// a player watching an army break wants to be able to ask why, and the row
+	// that sets it cites the morale threshold and the panic it caused in the
+	// armies alongside. The troop loss that goes with it is already tracked on
+	// troops, so this is the flag rather than the flight.
+	register(Field{"routed", KindParty, ValueFlag, "boolean", true, zero, one, nil, 0})
 	register(Field{"parent_party", KindParty, ValueInt, "party", false, -1, inf, nil, 0})
 	register(Field{"wing_share", KindParty, ValueFloat, "share", false, zero, one, nil, 0})
 	// split_share and merge_target are the orders that carry a split or a

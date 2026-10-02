@@ -972,7 +972,7 @@ export interface TickUpdate {
    * Optional, because a frame from a server that has not been rebuilt may carry none, and
    * the merge falls back to the last full snapshot rather than dropping fog. Complete
    * rather than sparse: every other key here means "absent means unchanged", and a fog
-   * block with eight fields where a partial read would have to know which of them this
+   * block with ten fields where a partial read would have to know which of them this
    * particular frame carried is a block that can be half-applied without error.
    *
    * This is what makes the map move with the party. The apiserver rebuilds the block per

@@ -661,7 +661,11 @@ function setFogEnabled(enabled: boolean): void {
     fogSettings,
   );
   fogDisplayStates = display;
-  scene?.setTownVisibility(display);
+  // Recency goes over unchanged. Turning fog off draws every settlement in full, and the
+  // scene ignores the band for a `visible` settlement anyway; turning it back on restores
+  // the fades rather than resetting them, because the news did not get any fresher while
+  // the map was showing everything.
+  scene?.setTownVisibility(display, fogRecency);
   syncParty();
   paint();
   const caveat = fogViewDetail(fogSettings);
@@ -711,7 +715,9 @@ function selectSettlement(id: string): void {
   paint();
   if (place) {
     const state = knowledgeFor(id);
-    const view = settlementFogView(state);
+    // With the age, so a screen-reader user selecting a place out of sight hears the same
+    // sentence the panel shows rather than a shorter one that omits how old it is.
+    const view = settlementFogView(state, recencyFor(id), ageFor(id));
     hud.announcer.textContent =
       state === "visible"
         ? `${place.name} selected.`

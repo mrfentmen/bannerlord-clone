@@ -298,9 +298,15 @@ func newTown(cfg *config.Config, r *rng.Rng, s Settlement) *model.Town {
 		farmland = r.Range(cfg.Food.FarmlandMin, cfg.Food.FarmlandMax)
 	}
 	t := &model.Town{
-		Name:            s.Name,
-		SideID:          s.SideID,
-		State:           s.State,
+		Name:   s.Name,
+		SideID: s.SideID,
+		State:  s.State,
+		// The ground the town stands on. The generator has decided it already
+		// (terrainFor for a synthesised place, the imported elevation data for a
+		// real one) and was using it only to place the roads, which left a field
+		// on the entity that nothing set and nothing could read. The battle
+		// system reads it to know what ground a fight in this town is on.
+		Terrain:         s.Terrain,
 		IsPort:          s.IsPort,
 		X:               s.X,
 		Y:               s.Y,

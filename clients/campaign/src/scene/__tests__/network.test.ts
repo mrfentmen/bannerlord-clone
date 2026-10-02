@@ -25,7 +25,7 @@ import {
   silhouetteGeometry,
   townSilhouette,
 } from "../network.js";
-import { tallyFogStates } from "../CampaignScene.js";
+import { tallyFogStates, townNeedsRedraw } from "../CampaignScene.js";
 import { mapColor, tokens, townColor } from "../../design/tokens.js";
 import { makeProjection } from "../../world/load.js";
 import { metresPerDegreeLat } from "../../world/types.js";
@@ -436,5 +436,36 @@ describe("tallyFogStates", () => {
   it("reports everything visible before any fog has been applied", () => {
     const tally = tallyFogStates(new Map(), ["a", "b", "c"]);
     expect(tally).toEqual({ visible: 3, remembered: 0, unseen: 0, total: 3 });
+  });
+});
+
+describe("townNeedsRedraw", () => {
+  it("redraws a town that has not moved", () => {
+    expect(townNeedsRedraw("visible", "now", "visible", "now")).toBe(false);
+    expect(townNeedsRedraw("remembered", "unknown", "remembered", "unknown")).toBe(false);
+  });
+
+  it("redraws a town whose state changed", () => {
+    expect(townNeedsRedraw("visible", "now", "remembered", "recent")).toBe(true);
+    expect(townNeedsRedraw("remembered", "old", "unseen", "unknown")).toBe(true);
+  });
+
+  it("redraws a remembered town that simply got older, which is the whole point of it", () => {
+    // The state is unchanged, so a skip keyed on the state alone would leave this town
+    // drawn as fresh news for the rest of the session — a staleness feature that shows the
+    // player current information about a place nobody is looking at.
+    expect(townNeedsRedraw("remembered", "recent", "remembered", "old")).toBe(true);
+  });
+
+  it("redraws a visible town the moment it stops being watched today", () => {
+    // Same state, and the other direction: age 0 to age 1 is the difference between
+    // somebody standing there and the sighting memory carrying it.
+    expect(townNeedsRedraw("visible", "now", "visible", "recent")).toBe(true);
+  });
+
+  it("redraws a town whose state is the same and whose band is the same but swapped order", () => {
+    // Guards the obvious typo: the comparison is on values, not on position.
+    expect(townNeedsRedraw("visible", "old", "remembered", "now")).toBe(true);
+    expect(townNeedsRedraw("visible", "recent", "visible", "old")).toBe(true);
   });
 });

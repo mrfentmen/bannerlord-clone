@@ -280,7 +280,13 @@ export function settlementFogView(
   days?: number | null,
 ): SettlementFogView {
   const copy = VIEW_COPY[state] ?? VIEW_COPY.unseen;
-  const age = recencySentence(recency, days);
+  // An unseen town cannot have a sighting, so an age passed for one is dropped here rather
+  // than rendered. "Seen by this side today" printed under a Never found chip is a
+  // contradiction, and it is reachable — a caller that read the age before checking the
+  // state would produce exactly it — so the guard belongs in the one place every panel
+  // goes through rather than in each panel.
+  const band = state === "unseen" ? "unknown" : recency;
+  const age = state === "unseen" ? null : recencySentence(band, days);
   return {
     state,
     label: copy.label,
@@ -295,8 +301,8 @@ export function settlementFogView(
     current: state === "visible",
     known: state !== "unseen",
     age,
-    recency,
-    days: days ?? null,
+    recency: band,
+    days: state === "unseen" ? null : days ?? null,
   };
 }
 

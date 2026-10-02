@@ -117,6 +117,15 @@ func (c *Config) validate(path string) error {
 		// still pass.
 		{"battle.situational_clamp_min", c.Battle.SituationalClampMin, 0.05, 20},
 		{"battle.situational_clamp_max", c.Battle.SituationalClampMax, 0.05, 20},
+		{"battle.victor_morale_gain", c.Battle.VictorMoraleGain, 0, 0.5},
+		{"battle.loser_morale_hit", c.Battle.LoserMoraleHit, 0, 1},
+		{"battle.rout_morale_hit", c.Battle.RoutMoraleHit, 0, 1},
+		// The threshold is ranged over the whole morale band because it is
+		// compared against it, and a threshold outside the band is either
+		// unreachable or catches every army in the world.
+		{"battle.rout_morale_threshold", c.Battle.RoutMoraleThreshold, -1, 1},
+		{"battle.rout_flee_share", c.Battle.RoutFleeShare, 0, 1},
+		{"battle.rout_panic_per_rout", c.Battle.RoutPanicPerRout, 0, 1},
 		{"formation.split_min_troops", c.Formation.SplitMinTroops, 1, 100000},
 		{"formation.split_min_parent_troops", c.Formation.SplitMinParentTroops, 1, 100000},
 		{"formation.split_max_share", c.Formation.SplitMaxShare, 0.01, 1},
@@ -229,6 +238,20 @@ func (c *Config) validate(path string) error {
 	if c.Battle.SituationalClampMin >= c.Battle.SituationalClampMax {
 		return fmt.Errorf("config: %s: battle.situational_clamp_min (%g) is not below battle.situational_clamp_max (%g)",
 			path, c.Battle.SituationalClampMin, c.Battle.SituationalClampMax)
+	}
+	// The terrain combat table is ranged rather than checked for reciprocity,
+	// because it is not supposed to be reciprocal: the ground does not take
+	// sides, so the same cell is read for whichever army is standing on it. A
+	// reciprocity check here would be checking that plain ground is worth the
+	// same to a stance line as to a mounted wing, which is a balance opinion
+	// dressed up as an invariant.
+	for ti := range c.TerrainCombat.PerTemplate {
+		for pi, v := range c.TerrainCombat.PerTemplate[ti] {
+			if v < 0.5 || v > 2.0 {
+				return fmt.Errorf("config: %s: terrain_combat.terrain_combat_%s_%s = %g is outside its valid range [0.5, 2]",
+					path, terrainLabels[ti], templateLabels[pi], v)
+			}
+		}
 	}
 
 	for _, b := range bounds {

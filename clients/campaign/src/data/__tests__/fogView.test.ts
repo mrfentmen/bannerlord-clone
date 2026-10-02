@@ -25,6 +25,9 @@ import {
   minimapDotRadius,
   minimapDots,
   partyPinStrength,
+  recencyLabel,
+  recencySentence,
+  recencyStrength,
   routeStrength,
   settlementFogView,
   sightingsSince,
@@ -112,6 +115,105 @@ describe("settlementFogView", () => {
       expect(view.label.length).toBeGreaterThan(0);
       expect(view.detail.length).toBeGreaterThan(view.label.length);
     }
+  });
+});
+
+// -- recency ------------------------------------------------------------------
+
+describe("recencyStrength", () => {
+  it("fades a remembered town further the older its news is", () => {
+    // The ramp is the whole feature: a town scouted last week and one scouted last year
+    // are both `remembered`, and if they are drawn identically the client has published
+    // a distinction it then refuses to show.
+    expect(recencyStrength("now")).toBeGreaterThan(recencyStrength("recent"));
+    expect(recencyStrength("recent")).toBeGreaterThan(recencyStrength("old"));
+  });
+
+  it("never fades something below invisibility or above full strength", () => {
+    for (const band of ["now", "recent", "old", "unknown"] as const) {
+      const strength = recencyStrength(band);
+      expect(strength).toBeGreaterThan(0);
+      expect(strength).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("fades nothing when the age is unknown, because an unstated age is not a low value", () => {
+    // The failure this avoids: treating a missing clock as maximum staleness would invent
+    // the claim "this is very old" out of nothing. The existing remembered treatment
+    // already says everything the client honestly knows.
+    expect(recencyStrength("unknown")).toBe(1);
+  });
+
+  it("is a multiplier a caller can apply without a special case for the fresh case", () => {
+    expect(recencyStrength("now")).toBe(1);
+  });
+});
+
+describe("recencySentence", () => {
+  it("says how long ago, which is the number a player acts on", () => {
+    expect(recencySentence("recent", 4)).toBe("Last seen 4 days ago.");
+    // `old` adds the conclusion, because the bare count leaves the reader to work out
+    // whether it matters.
+    expect(recencySentence("old", 61)).toMatch(/61 days ago/);
+    expect(recencySentence("old", 61)).toMatch(/out of date/);
+  });
+
+  it("never says 'seen now' about a sighting it cannot date", () => {
+    // The property that matters: 0 days ago is a claim that somebody looked today, so a
+    // missing age must produce no sentence at all rather than the freshest one.
+    expect(recencySentence("unknown")).toBeNull();
+    expect(recencySentence("unknown", null)).toBeNull();
+    expect(recencySentence("recent", undefined)).toBeNull();
+    expect(recencySentence("recent", null)).toBeNull();
+  });
+
+  it("states a sighting on this very tick as today, without inventing an age of days", () => {
+    expect(recencySentence("now", 0)).toMatch(/today/);
+  });
+});
+
+describe("recencyLabel", () => {
+  it("names every band in words, so the fade is never colour-only", () => {
+    const labels = (["now", "recent", "old", "unknown"] as const).map(recencyLabel);
+    expect(labels.every((l) => l.length > 0)).toBe(true);
+    expect(new Set(labels).size).toBe(4);
+  });
+});
+
+describe("settlementFogView with a recency", () => {
+  it("keeps the state sentence and adds the age, so both are stated rather than one", () => {
+    const view = settlementFogView("remembered", "old", 61);
+    expect(view.detail).toContain("has been here before");
+    expect(view.detail).toContain("61 days ago");
+    // The number, for anything that wants to sort or compare rather than print.
+    expect(view.days).toBe(61);
+    expect(view.recency).toBe("old");
+  });
+
+  it("is the pre-recency view, unchanged, for a caller with no age", () => {
+    // The property every existing call site relies on: no age means no age line, and no
+    // fade, rather than an age of zero.
+    const bare = settlementFogView("remembered");
+    expect(bare.age).toBeNull();
+    expect(bare.recency).toBe("unknown");
+    expect(bare.days).toBeNull();
+    expect(bare.detail).toBe(settlementFogView("remembered").detail);
+  });
+
+  it("does not make an unseen town sound dated, because it was never seen at all", () => {
+    // "Last seen 0 days ago" under a Never found chip would be a contradiction, and the
+    // caller passing an age for an unseen town is a caller with a bug — so the guard is
+    // here rather than in each panel that might forget it.
+    const view = settlementFogView("unseen", "old", 12);
+    expect(view.detail).toContain("never had this place in sight");
+    expect(view.known).toBe(false);
+    expect(view.age).toBeNull();
+    expect(view.recency).toBe("unknown");
+    expect(view.days).toBeNull();
+
+    const sighted = settlementFogView("unseen", "now", 0);
+    expect(sighted.age).toBeNull();
+    expect(sighted.detail).not.toMatch(/today/);
   });
 });
 

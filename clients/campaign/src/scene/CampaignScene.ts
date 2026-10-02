@@ -354,8 +354,8 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
         // The skip is keyed on the *applied* state and band rather than on a diff, so the
         // counts below are still computed for every cluster. Counting is arithmetic;
         // `setEnabled` and a material swap are GPU state, and those are what the skip
-        // avoids.
-        if (statesApplied && appliedStates[i] === state && appliedRecency[i] === band) {
+        // avoids. See `townNeedsRedraw` for why the band is part of the key.
+        if (statesApplied && !townNeedsRedraw(appliedStates[i]!, appliedRecency[i]!, state, band)) {
           if (state !== "unseen") drawn += 1;
           if (state === "visible") watched += 1;
           continue;
@@ -391,6 +391,29 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       );
     },
   };
+}
+
+/**
+ * Whether a cluster has to be redrawn for this reading.
+ *
+ * Split out as a pure function for the same reason `tallyFogStates` is: the scene needs a
+ * canvas and a real engine, and this is the decision that decides whether a change ever
+ * reaches the screen. A skip that is wrong here is invisible in every other test.
+ *
+ * Recency is part of the key rather than a detail of it, and that is the whole reason it
+ * exists as a function. A town that ages from `recent` to `old` has not changed *state*,
+ * so a comparison on the state alone would skip it — and the town would then be drawn as
+ * fresh news for the rest of the session, which is the one failure a staleness feature
+ * cannot have, because the player is being shown current information about a place
+ * nobody is looking at.
+ */
+export function townNeedsRedraw(
+  appliedState: TownVisibility,
+  appliedRecency: TownRecency,
+  state: TownVisibility,
+  recency: TownRecency,
+): boolean {
+  return appliedState !== state || appliedRecency !== recency;
 }
 
 /**

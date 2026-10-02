@@ -413,6 +413,18 @@ type Party struct {
 	// WingShare is the share of the parent's strength this wing took when it
 	// detached, kept so a merge can be judged against what was split.
 	WingShare float64
+	// Routed records that this army has broken (COMBAT.md section 6). It is
+	// derived from Morale rather than latched: the battle system recomputes it
+	// every tick from the morale threshold in the balance file, so an army that
+	// is fed and rested back above the threshold fights again with nothing
+	// having to clear it.
+	//
+	// A routed army is not merely a flag. The men who ran came off Troops in the
+	// same tick, so the number is true, and a routed army is not a candidate for
+	// the fight in its town. An army that kept its whole roster and merely
+	// declined to fight would make every strength comparison in the simulation a
+	// comparison against men who are not on the field.
+	Routed bool
 
 	// SplitShare is a pending order to detach a wing carrying this share of
 	// the party's troops, 0-1 (Tier 6.3). It is an order rather than a

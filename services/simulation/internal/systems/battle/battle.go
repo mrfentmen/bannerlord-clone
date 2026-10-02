@@ -16,9 +16,52 @@
 // This is the simulation's combat resolution. The 3D client will render
 // battles, but the simulation must resolve them deterministically whether
 // or not a player is watching.
+//
+// # What decides a fight
+//
+// Four numbers, and every one of them is read rather than assumed:
+//
+//   - The two armies' strengths, which are a function of one army each: men,
+//     morale, leader valor, experience, cohesion, and what they are made of.
+//   - The formation matchup, which is a function of the two armies: a stance
+//     line holds a mounted wing, and the table is antisymmetric so exactly one
+//     side of a pairing is favoured.
+//   - The ground, which is a function of the town and of each army's
+//     composition: the pass is worth more to a line than to a horse column.
+//
+// The two situational terms are applied in the resolution loop rather than
+// inside strength, because strength is called from findPair while it is still
+// weighing candidate pairs and has no opponent to match against yet. Their
+// product is clamped into a band from the balance file, since the two tables
+// are tuned independently and a designer who has not read the other one should
+// not be able to produce an army that is orders of magnitude stronger than the
+// one opposite it.
+//
+// # Which ground a battle is fought on
+//
+// A battle happens in a town, and the ground is the town's own terrain. The
+// nearest-route rule the template, march, and attrition systems each keep a
+// copy of was considered and not used, for two reasons. It would be a fourth
+// copy of a scan three systems already have to keep identical by hand, and the
+// comment in the template package that says so would stop being true. And it
+// answers the wrong question: a town on a river plain with one mountain road
+// running to it comes out as mountain ground, which is worse than the plain it
+// is standing on. Reading the field the generator already fills in is one lookup,
+// with no tie-breaking rule to copy and no way for this system's idea of the
+// ground to disagree with the world's.
+//
+// One consequence is worth stating because it looks like a bug and is not. The
+// terrain table is per template and not per side, because the ground does not
+// take sides: both armies are standing on it. So between two armies of the same
+// template the terrain term cancels in the ratio and cannot change the winner,
+// and ground decides fights between unlike armies. Making it decide fights
+// between identical ones would need an asymmetric term, and there is no honest
+// way to make the ground favour one of two armies that are the same kind of
+// army.
 package battle
 
 import (
+	"math"
 	"sort"
 
 	"mbclone/simulation/internal/model"
@@ -26,6 +69,13 @@ import (
 	"mbclone/simulation/internal/systems/shared"
 	"mbclone/simulation/internal/systems/template"
 )
+
+// routEventName is the cause-log event a rout is staged as, and the field the
+// event is filed under. The panic rows it causes cite it by id, which is the only
+// way a Why query on a neighbouring army's morale reaches the rout that took it:
+// the neighbouring army's row is written in the same tick as the rout, so it
+// cannot cite a log row that does not exist yet.
+const routEventName = "battle rout"
 
 // System returns the battle system.
 func System() sim.System {
@@ -122,10 +172,19 @@ func findPair(v *sim.View, pids []int) (*model.Party, float64, *model.Party, flo
 		if pa == nil {
 			continue
 		}
+		// A broken army does not fight. It is skipped here rather than in the
+		// resolution loop so that findPair never nominates one, which is what
+		// keeps a routed party from winning a fight it declined to have.
+		if broken(v, pa) {
+			continue
+		}
 		strA := strength(v, pa, v.State.Leaders[pa.LeaderID])
 		for _, pidB := range pids[i+1:] {
 			pb := v.State.Parties[pidB]
 			if pb == nil || !hostile(v, pa.SideID, pb.SideID) {
+				continue
+			}
+			if broken(v, pb) {
 				continue
 			}
 			strB := strength(v, pb, v.State.Leaders[pb.LeaderID])
@@ -247,6 +306,186 @@ func situational(v *sim.View, product float64) float64 {
 	return shared.Clamp(product, c.SituationalClampMin, c.SituationalClampMax)
 }
 
+// terrainOf returns the ground a battle in this town is fought on.
+//
+// The ground is the town's own. model.Town has carried a Terrain field since the
+// entity was written, and the world generator decides it for every settlement it
+// places, but nothing copied it onto the town and nothing could read it, so the
+// field was dead: a real, populated number that no code path could reach.
+//
+// The alternative, and the one this function was expected to use, is the
+// nearest-route scan that the template, march, and attrition systems each keep
+// their own copy of. It was rejected on purpose. A town standing on a river
+// plain with one mountain road to it would come out as mountain ground, which is
+// a worse answer than the plain it is actually on, and it would be a fourth copy
+// of a rule that three systems already have to keep identical by hand. Reading
+// the town's own ground is one lookup with no scan, no tie-breaking rule to
+// copy, and no way for the battle's idea of the ground to disagree with the
+// world's.
+//
+// A town whose ground is outside the enum is treated as plain rather than
+// indexing the table with it, for the same reason weaponClass is bounds-checked:
+// a corrupt number must not stop a fight.
+func terrainOf(v *sim.View, townID int) int {
+	t := v.State.Towns[townID]
+	if t == nil {
+		return model.TerrainPlain
+	}
+	if t.Terrain < 0 || t.Terrain >= model.TerrainCount {
+		return model.TerrainPlain
+	}
+	return t.Terrain
+}
+
+// terrainBonus returns what the ground is worth to a party fighting in this
+// shape on it.
+//
+// The table is per template and not per terrain alone, because ground suits
+// some kinds of soldier more than others: the trees are the skirmish screen's,
+// and a horse is close to useless in a mountain pass. The table is symmetric, so
+// the same cell is read for both parties, and the two figures cancel in the
+// ratio between two armies of the same template. That is why the shape is
+// multiplied into strength rather than the terrain being a flat bonus to one
+// side: a flat bonus would move both strengths by the same factor and change
+// nothing at all, which is a term that looks like a mechanic and is not one.
+//
+// The product with the formation matchup is clamped by situational, because
+// these two tables are tuned independently and a designer who has not looked at
+// the other one should not be able to produce an army that is orders of magnitude
+// stronger than the one opposite it.
+func terrainBonus(v *sim.View, terrain int, shape model.PartyTemplate) float64 {
+	if shape < 0 || int(shape) >= model.TemplateCount {
+		return 1
+	}
+	if terrain < 0 || terrain >= model.TerrainCount {
+		return 1
+	}
+	return v.Cfg.TerrainCombat.PerTemplate[terrain][shape]
+}
+
+// broken reports whether an army has routed: its morale is at or below the
+// threshold in the balance file.
+//
+// The test is >=, so the threshold itself counts as broken. An army at exactly
+// the configured line is an army that has just got there, and a rule that needed
+// it to be one ten-thousandth lower would be a rule with a knife edge in it.
+//
+// This is a pure function of committed morale, which is what makes the rout flag
+// derivable rather than latched: see markRouted.
+func broken(v *sim.View, p *model.Party) bool {
+	return p.Morale <= v.Cfg.Battle.RoutMoraleThreshold
+}
+
+// markRouted brings one party's rout flag into line with its morale.
+//
+// The flag is recomputed rather than latched, and that is the whole design of
+// the rout state machine: there is none. An army recovers morale through the
+// supply, upkeep, and march systems, and the tick its morale comes back above
+// the threshold is the tick it is a candidate to fight in again. A latched flag
+// would need something to clear it, and the something would have to be a system
+// calling into the battle system, which is the coupling the constitution forbids.
+//
+// The write is staged only on a change, so a settled world pays nothing for the
+// flag and the cause log gets a row exactly when the state of the army changes.
+func markRouted(v *sim.View, w *sim.WriteSet, p *model.Party) {
+	is := broken(v, p)
+	if is == p.Routed {
+		return
+	}
+	read := shared.ReadString(
+		shared.Pair("morale", p.Morale),
+		shared.Pair("rout_threshold", v.Cfg.Battle.RoutMoraleThreshold),
+		shared.PairF("troops", p.Troops),
+	)
+	causes := v.Log.RecentFor(model.KindParty, p.ID, []string{"morale", "troops"}, 3)
+	note := "the army holds: morale is back above the rout threshold"
+	if is {
+		note = "battle rout: the army has broken and stops fighting"
+	}
+	w.Set(model.KindParty, p.ID, "routed", boolFlag(is), read, causes, note)
+}
+
+func boolFlag(b bool) float64 {
+	if b {
+		return 1
+	}
+	return 0
+}
+
+// fleeMen is how many men walk off the field when an army breaks.
+//
+// It is rounded to whole men here rather than left as a share, because troops is
+// a whole-number field and a share of one man is not a fraction of a man: the
+// engine would round it, and a routed share that rounds to zero would be a rout
+// that costs nobody anything, which is the one outcome a rout must not have.
+//
+// The share is also capped so that at least one man is left standing. Casualties
+// alone never take a party to zero troops, because the loser's loss rate tops out
+// below one; letting flight break that would erase a party from the map in a
+// single tick, and a party that has been erased cannot be shown to have run.
+func fleeMen(troops, share float64) float64 {
+	if troops <= 0 || share <= 0 {
+		return 0
+	}
+	fled := math.Round(troops * share)
+	if fled < 1 {
+		fled = 1
+	}
+	if cap := troops - 1; fled > cap {
+		if cap < 1 {
+			return 0
+		}
+		fled = cap
+	}
+	return fled
+}
+
+// panicSpread takes morale from every other army of the broken army's side
+// standing in the same town.
+//
+// This is the mechanic COMBAT.md section 6 asks for and the reason rout matters
+// beyond one army's roster: routing troops spread panic, so a defeat in one
+// corner of a town can break the rest of the army in the same day. It is applied
+// in the same tick rather than the next one, which is a deliberate choice.
+//
+// The alternatives were a persisted flag and a second tick of effects, or no
+// propagation at all. Same-tick propagation was chosen because the cost is
+// bounded by the number of armies in one town, which is small and already
+// enumerated by the loop this runs in; because the effect is a cause-log row that
+// cites the rout, so the Why panel walks from a broken army to the army that
+// broke beside it; and because the next-tick version is a state machine with its
+// own flag, its own recovery rule, and its own way to be got wrong, for the sake
+// of a one-day delay nobody would notice. Recorded in CHANGELOG.md under
+// Decisions.
+//
+// Only the broken army's own side is hit. Panic is not something that spreads
+// between enemies of the loser, and an unaffiliated band such as a raider group
+// has no side to spread it within, so it is left alone.
+func panicSpread(v *sim.View, w *sim.WriteSet, routed *model.Party, townPids []int,
+	read string, causedBy []int) {
+	per := v.Cfg.Battle.RoutPanicPerRout
+	if per <= 0 {
+		return
+	}
+	for _, pid := range townPids {
+		if pid == routed.ID {
+			continue
+		}
+		other := v.State.Parties[pid]
+		if other == nil || other.SideID < 0 || other.SideID != routed.SideID {
+			continue
+		}
+		if broken(v, other) {
+			// Already broken. There is nothing to panic about in an army that
+			// has run, and the flag is already set, so a write here would be a
+			// row saying nothing changed.
+			continue
+		}
+		w.Add(model.KindParty, other.ID, "morale", -per, read, causedBy,
+			"panic: the army beside it broke")
+	}
+}
+
 func run(v *sim.View, w *sim.WriteSet) {
 	c := v.Cfg
 	// Group parties by location (town).
@@ -278,6 +517,15 @@ func run(v *sim.View, w *sim.WriteSet) {
 		if len(pids) < 2 {
 			continue
 		}
+		// Every army standing in a contested town is either broken or fighting,
+		// so the rout flag is settled for all of them before anybody is picked.
+		// A broken army is not a candidate: it is not fighting, and letting it
+		// attack would let an army that has run win the town it ran from.
+		for _, pid := range pids {
+			if p := v.State.Parties[pid]; p != nil {
+				markRouted(v, w, p)
+			}
+		}
 		// The two strongest hostile parties fight; others are bystanders this
 		// tick. With no hostile pair there is no battle, which is the common
 		// case in a town holding one side's parties.
@@ -286,13 +534,39 @@ func run(v *sim.View, w *sim.WriteSet) {
 			continue
 		}
 		la, lb := v.State.Leaders[pa.LeaderID], v.State.Leaders[pb.LeaderID]
+		// The two situational terms, applied once per side with both shapes and
+		// the ground in hand. They are deliberately not inside strength():
+		// strength is called from findPair while it is still comparing candidate
+		// pairs, when there is no opponent to match against yet and no ground to
+		// fight on, and applying them there would give the loser's penalty and
+		// the winner's bonus to both sides of every candidate it weighed.
+		//
+		// findPair already nominated pa as the attacker, so pa's matchup cell is
+		// read first and pb's second, every time, whichever party happens to be
+		// stronger. The two cells are reciprocals, so the pair is unaffected as a
+		// whole and only the balance between them moves. The ground is read once
+		// for the town, because both armies are standing on it.
+		shapeA, shapeB := shapeOf(v, pa), shapeOf(v, pb)
+		terrain := terrainOf(v, townID)
+		// The two terms kept apart as well as multiplied, because the Why panel
+		// has to be able to say which of the two did the work: "your line was
+		// worth 1.3 against his cavalry and 1.2 on this ground" is a different
+		// statement from "you were 1.044 times his strength".
+		matchupCellA := matchupBonus(v, shapeA, shapeB)
+		matchupCellB := matchupBonus(v, shapeB, shapeA)
+		groundA := terrainBonus(v, terrain, shapeA)
+		groundB := terrainBonus(v, terrain, shapeB)
+		modA := situational(v, matchupCellA*groundA)
+		modB := situational(v, matchupCellB*groundB)
+		strA := bestStrA * modA
+		strB := bestStrB * modB
 		// Resolve: casualty rate scales with the loser's relative weakness.
 		// The winner takes 10-30% casualties; the loser 40-80%.
-		total := bestStrA + bestStrB
+		total := strA + strB
 		if total <= 0 {
 			continue
 		}
-		shareA := bestStrA / total
+		shareA := strA / total
 		// Add randomness: ±20%.
 		roll := v.Rng.Range(0.8, 1.2)
 		// Determine winner.
@@ -313,11 +587,41 @@ func run(v *sim.View, w *sim.WriteSet) {
 		winnerLoss := winner.Troops * v.Rng.Range(0.1, 0.3) * (1.5 - winnerShare)
 		loserLoss := loser.Troops * v.Rng.Range(0.4, 0.8)
 		read := shared.ReadString(
-			shared.Pair("attacker_strength", bestStrA),
-			shared.Pair("defender_strength", bestStrB),
+			// The strengths are the post-matchup figures, because those are the
+			// numbers the decision below was made on. Quoting the pre-matchup
+			// ones here would make the panel explain a result with inputs the
+			// system did not use.
+			shared.Pair("attacker_strength", strA),
+			shared.Pair("defender_strength", strB),
 			shared.PairI("town", townID),
+			// Note the two senses of "attacker" in one read string, which is
+			// pre-existing and deliberate on the first pair: attacker_template
+			// and loser_template name the winner and the defeated party, because
+			// that is what the cause rows are about. The matchup_* keys name the
+			// nominal attacker, which is findPair's nomination and is not always
+			// the winner. They are prefixed so that a reader does not have to
+			// guess which is which.
 			shared.Pair("attacker_template", float64(winner.Template)),
 			shared.Pair("loser_template", float64(loser.Template)),
+			// The formation figures the two strengths already include, so the
+			// Why panel can show what the shapes of the two armies did rather
+			// than only that one side came out ahead. The shapes are the class
+			// counts, not party_template, and can differ from the templates
+			// above for a party mid-refit.
+			shared.Pair("matchup_attacker_shape", float64(shapeA)),
+			shared.Pair("matchup_defender_shape", float64(shapeB)),
+			// The ground, and each of the two terms separately from the product
+			// the strengths above used. A fight in a mountain pass that reads as
+			// having taken place on a plain is a result the player cannot be shown
+			// the reason for, and a single combined figure cannot be taken apart
+			// again to show which table was responsible.
+			shared.PairI("terrain", terrain),
+			shared.Pair("attacker_matchup", matchupCellA),
+			shared.Pair("defender_matchup", matchupCellB),
+			shared.Pair("terrain_attacker", groundA),
+			shared.Pair("terrain_defender", groundB),
+			shared.Pair("attacker_modifier", modA),
+			shared.Pair("defender_modifier", modB),
 		)
 		causes := v.Log.RecentFor(model.KindParty, winner.ID,
 			[]string{"troops", "morale"}, 3)
@@ -340,6 +644,55 @@ func run(v *sim.View, w *sim.WriteSet) {
 		// the winner's chains the same men counted twice, and the attrition
 		// system would eventually hand a man in chains back to the loser as a
 		// recovered wound.
+		//
+		// Rout adds a fourth fate, and it is taken out of the pool for the same
+		// reason. A man who ran was never in the fight, so counting him as a
+		// casualty would put the same man in the casualty pool and off the
+		// roster: the casualty arithmetic below would be describing a battle
+		// that was larger than the one that happened. The men who run come off
+		// Troops; the men who stood take casualties out of what is left.
+		//
+		// The test is against the loser's morale *after* the defeat, not before
+		// it, and that is the only way the mechanic can fire at all. broken()
+		// excludes an army from the fight entirely, so an army that was already
+		// broken when the two met never lost this battle and cannot break from
+		// it. What breaks an army is the defeat itself: an army already close
+		// to the line goes over it by losing, which is what COMBAT.md section 6
+		// describes and the only reading under which rout is reachable.
+		afterDefeat := loser.Morale - c.Battle.LoserMoraleHit
+		routing := afterDefeat <= c.Battle.RoutMoraleThreshold
+		fled := 0.0
+		// The rout is staged as an event before the rows it causes, and every
+		// row below that the rout produced cites it. That is the house pattern
+		// the barter system uses for a struck deal, and it is what makes a Why
+		// query on a neighbouring army's morale reach the rout that took it
+		// rather than stopping at the arithmetic.
+		var routCauses []int
+		var routRead string
+		if routing {
+			fled = fleeMen(loser.Troops, c.Battle.RoutFleeShare)
+			// The casualty pool is what is left of the army after the men who
+			// walked off, capped at that, so the pool can never describe more
+			// casualties than there were men present to take them.
+			if pool := loser.Troops - fled; loserLoss > pool {
+				loserLoss = pool
+			}
+			routRead = shared.ReadString(
+				shared.Pair("morale_before", loser.Morale),
+				shared.Pair("morale_after_defeat", afterDefeat),
+				shared.Pair("rout_threshold", c.Battle.RoutMoraleThreshold),
+				shared.Pair("fled", fled),
+				shared.PairF("troops", loser.Troops),
+				shared.Pair("casualties", loserLoss),
+				shared.Pair("army", float64(loser.ID)),
+			)
+			token := w.RecordEvent(
+				routEventName, model.KindParty, loser.ID, "routed", routRead,
+				"the line broke: the army runs",
+				v.Log.RecentFor(model.KindParty, loser.ID,
+					[]string{"morale", "troops"}, 3))
+			routCauses = []int{int(token)}
+		}
 		captured := loserLoss * bluntCaptureShare(v, winner)
 		winnerWounded := winnerLoss * winnerWoundedFrac
 		// What is left of the loser's casualties once the captives are set
@@ -354,10 +707,47 @@ func run(v *sim.View, w *sim.WriteSet) {
 			read, causes, "battle casualties")
 		w.Add(model.KindParty, winner.ID, "wounded", winnerWounded,
 			read, causes, "battle wounded")
-		w.Add(model.KindParty, loser.ID, "troops", -loserLoss,
-			read, causes, "battle casualties")
+		// The loser's roster loses the casualties and, if it broke, the men who
+		// walked away. They are one write rather than two because the engine
+		// merges every contribution to a field into a single committed change
+		// and a single cause row, so a second write here would not produce a
+		// second row to read: the flight is explained on the routed row below,
+		// which is the row a player would look for anyway.
+		loserNote := "battle casualties"
+		if routing {
+			loserNote = "battle casualties, and the men who ran"
+		}
+		// The loser's rows cite the rout as well as the log behind the fight,
+		// because a defeat that broke the army is not the same event as a defeat
+		// that did not and the Why panel has to be able to say which happened.
+		loserCauses := causes
+		if routing {
+			loserCauses = append(append([]int{}, causes...), routCauses...)
+		}
+		w.Add(model.KindParty, loser.ID, "troops", -(loserLoss + fled),
+			read, loserCauses, loserNote)
 		w.Add(model.KindParty, loser.ID, "wounded", loserWounded,
-			read, causes, "battle wounded")
+			read, loserCauses, "battle wounded")
+		// Morale. The battle system read morale for its strength multiplier for a
+		// long time and wrote none, which made it the only combat-relevant system
+		// that fed nothing back into the field six others write. A win steadies an
+		// army, a defeat shakes it, and breaking shakes it more than losing does.
+		w.Add(model.KindParty, winner.ID, "morale", c.Battle.VictorMoraleGain,
+			read, causes, "the army saw its enemy beaten")
+		loserMoraleHit := c.Battle.LoserMoraleHit
+		if routing {
+			loserMoraleHit += c.Battle.RoutMoraleHit
+		}
+		w.Add(model.KindParty, loser.ID, "morale", -loserMoraleHit,
+			read, loserCauses, "the army was beaten")
+		// The flag the event above described, and the panic it spreads to the
+		// armies of the same side standing in this town. Both cite the rout, so
+		// the chain runs from a broken army to the army that broke beside it.
+		if routing {
+			w.Set(model.KindParty, loser.ID, "routed", 1, routRead, routCauses,
+				"battle rout: the line broke and the army runs")
+			panicSpread(v, w, loser, pids, routRead, routCauses)
+		}
 		// The captives join the victor's own prisoner count, which the prisoner
 		// system already reads: it builds their conformity and feeds them, so a
 		// blunt column's prisoners are a second recruitment pool that costs food

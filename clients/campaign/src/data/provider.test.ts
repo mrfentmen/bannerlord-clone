@@ -16,6 +16,7 @@ import {
   createSimulationProvider,
   readConfig,
 } from "./provider.js";
+import type { TickUpdate } from "./types.js";
 
 function jsonResponse(body: unknown, status = 200): Response {
   return {
@@ -445,6 +446,137 @@ describe("the tick subscription reports instead of dropping frames silently", ()
     provider.subscribeTicks(() => {}, () => {});
     socket.onopen?.({});
     expect(JSON.parse(socket.sent[0]!)).toEqual({ type: "subscribe", channel: "ticks" });
+    socket.onclose?.({});
+  });
+
+  it("delivers a frame's fog block, which is what makes the map move while marching", () => {
+    const socket = fakeSocket();
+    const provider = new HttpSimulationProvider({
+      kind: "http",
+      httpUrl: "http://sim.invalid",
+      wsUrl: "ws://sim.invalid/ws",
+      socketFactory: () => socket as never,
+    });
+    const ticks: TickUpdate[] = [];
+    const statuses: string[] = [];
+    provider.subscribeTicks(
+      (t) => ticks.push(t),
+      (s) => statuses.push(s.state),
+    );
+    socket.onopen?.({});
+    // Shaped like `buildFog` in `cmd/apiserver/snapshot.go`, clock and last-seen ticks
+    // included: the frame's fog has to be a whole FogState and not a delta, or the merge
+    // would have to guess which of ten fields this frame happened to carry.
+    socket.onmessage?.({
+      data: JSON.stringify({
+        tick: 61,
+        day: 61,
+        fog: {
+          sideId: "side-1",
+          sightRadiusKm: 50,
+          sightRadiusLeagues: 10.356,
+          sightingMemoryDays: 10,
+          tick: 61,
+          visibleTowns: ["town-3"],
+          knownTowns: ["town-3", "town-7"],
+          unseenTowns: ["town-9"],
+          lastSeen: { "town-3": 61, "town-7": 12 },
+          counts: { visible: 1, known: 2, unseen: 1, total: 3 },
+        },
+      }),
+    });
+    expect(ticks).toHaveLength(1);
+    expect(ticks[0]!.fog?.visibleTowns).toEqual(["town-3"]);
+    // The clock and the ages travel with it, so a remembered town can be dated on the
+    // tick path rather than waiting for the next snapshot.
+    expect(ticks[0]!.fog?.tick).toBe(61);
+    expect(ticks[0]!.fog?.lastSeen?.["town-7"]).toBe(12);
+    expect(statuses).not.toContain("degraded");
+    socket.onclose?.({});
+  });
+
+  it("accepts a frame with no fog at all, because an older server sends none", () => {
+    // The merge falls back to the last full snapshot, which is the most recent thing this
+    // client was told. Refusing the frame would stop the clock as well as the fog.
+    const socket = fakeSocket();
+    const provider = new HttpSimulationProvider({
+      kind: "http",
+      httpUrl: "http://sim.invalid",
+      wsUrl: "ws://sim.invalid/ws",
+      socketFactory: () => socket as never,
+    });
+    const ticks: TickUpdate[] = [];
+    const statuses: string[] = [];
+    provider.subscribeTicks(
+      (t) => ticks.push(t),
+      (s) => statuses.push(s.state),
+    );
+    socket.onopen?.({});
+    socket.onmessage?.({ data: JSON.stringify({ tick: 2, day: 2 }) });
+    expect(ticks).toHaveLength(1);
+    expect(ticks[0]!.fog).toBeUndefined();
+    expect(statuses).not.toContain("degraded");
+    socket.onclose?.({});
+  });
+
+  it("refuses a frame whose fog block cannot be read, rather than merging half of it", () => {
+    // A fog list that is not a list of ids would become Set entries no town id could ever
+    // match, which reads as "every town is unseen" and blanks the map. This frame arrives
+    // every in-game day with nobody watching, so it gets the same check as the snapshot.
+    const socket = fakeSocket();
+    const provider = new HttpSimulationProvider({
+      kind: "http",
+      httpUrl: "http://sim.invalid",
+      wsUrl: "ws://sim.invalid/ws",
+      socketFactory: () => socket as never,
+    });
+    const ticks: unknown[] = [];
+    const statuses: string[] = [];
+    provider.subscribeTicks(
+      (t) => ticks.push(t),
+      (s) => statuses.push(s.state),
+    );
+    socket.onopen?.({});
+    socket.onmessage?.({
+      data: JSON.stringify({
+        tick: 3,
+        day: 3,
+        fog: {
+          sideId: "side-1",
+          sightRadiusKm: 50,
+          sightRadiusLeagues: 10.356,
+          sightingMemoryDays: 10,
+          visibleTowns: "town-3",
+          knownTowns: [],
+          unseenTowns: [],
+          counts: { visible: 1, known: 1, unseen: 0, total: 1 },
+        },
+      }),
+    });
+    expect(ticks).toHaveLength(0);
+    expect(statuses).toContain("degraded");
+
+    // A last-seen entry that is not a tick is refused too: it compares as NaN, which is
+    // neither "now" nor "never", and would land a town in whichever band came first.
+    socket.onmessage?.({
+      data: JSON.stringify({
+        tick: 4,
+        day: 4,
+        fog: {
+          sideId: "side-1",
+          sightRadiusKm: 50,
+          sightRadiusLeagues: 10.356,
+          sightingMemoryDays: 10,
+          tick: 4,
+          lastSeen: { "town-3": "yesterday" },
+          visibleTowns: [],
+          knownTowns: [],
+          unseenTowns: [],
+          counts: { visible: 0, known: 0, unseen: 0, total: 0 },
+        },
+      }),
+    });
+    expect(ticks).toHaveLength(0);
     socket.onclose?.({});
   });
 });

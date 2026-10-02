@@ -805,6 +805,89 @@ formation_bonus_horse_horse = 1.00
 situational_clamp_min = 0.25
 situational_clamp_max = 4.00
 
+# Morale in a fight, and rout. Morale already scales strength; these are the
+# other two things it does, which COMBAT.md section 6 asks for: a fight moves
+# morale, and an army whose morale has gone stops fighting and runs.
+#
+# The battle system used to read morale and never write it, which made it the
+# only combat-relevant system that fed nothing back. These four keys are that
+# feedback. The morale field is registered from -1 to 1, so every one of these is
+# a share of that band rather than an absolute amount.
+victor_morale_gain = 0.05   # morale a victor gains. Range 0-0.5.
+loser_morale_hit = 0.20     # morale a defeated party loses. Range 0-1.
+rout_morale_hit = 0.35      # extra morale a party loses by running. Range 0-1.
+
+# Rout. An army at or below the threshold has broken: it stops being a candidate
+# for the fight in its town, the men who could still stand are beaten or
+# captured, and a share of the army walks off the map. The flag is recomputed
+# from morale every tick rather than latched, so an army that is fed and rested
+# back above the threshold fights again with nobody having to clear anything.
+#
+# The threshold is compared against the loser's morale *after* loser_morale_hit,
+# not before it. An army that was already broken when the two met never fought,
+# so it cannot break from losing; what breaks an army is the defeat taking it the
+# last step over the line. An ordinary defeat therefore does not rout, which is
+# the intent: rout is for an army that was already on the edge.
+#
+# The men who run are taken off the roster and are not casualties. That is the
+# whole reason rout is worth simulating: an army that keeps its full strength and
+# simply declines to fight has made strength a lie, and every later battle would
+# be decided against numbers that are not on the field.
+rout_morale_threshold = -0.4  # morale at or below which an army has broken. Range -1-1.
+rout_flee_share = 0.35        # share of a broken army that walks away. Range 0-1.
+# Panic. COMBAT.md section 6: routing troops "spread panic". A routed army takes
+# this much morale from every other army of the same side standing in the same
+# town, in the same tick, so a defeat in one corner of a town can break the rest
+# of the army without waiting for the next day. Applied per routed army, and
+# bounded by the number of armies in the town.
+rout_panic_per_rout = 0.15    # morale one rout takes from a friendly neighbour. Range 0-1.
+
+[terrain_combat]
+# What the ground does to a fight, indexed terrain then template. 1.0 is neutral
+# for that kind of soldier on that ground. This is the sibling of
+# template.terrain_fit_<terrain>_<template>, and the two are deliberately not the
+# same table: fit decides which template a party refits into, and this decides
+# what that template is worth once it is standing on the ground. A horse column
+# is a bad fit for the mountains and worse at fighting in them, and those are two
+# separate facts a designer may reasonably disagree about.
+#
+# This table is symmetric and must stay that way: the ground does not take sides.
+# Both parties in a fight are on the same terrain, so a cell here cannot favour
+# one army over the other by itself. What it does is change the balance between
+# armies of different templates, because the same ground is worth more to a
+# stance line in a mountain pass than to a mounted wing in the same pass. The
+# formation matchup in [battle] is the term that favours one side; between two
+# armies of the same template on the same ground this table cancels in the ratio
+# and cannot change the winner, which is arithmetic rather than a balance choice.
+#
+# Range 0.5-2.0 per cell, the same band as the matchup table and for the same
+# reason: the two are multiplied together and clamped into
+# battle.situational_clamp_min and battle.situational_clamp_max.
+terrain_combat_plain_stance = 1.00
+terrain_combat_plain_heavy = 1.00
+terrain_combat_plain_light = 1.20      # open ground is the skirmish screen's ground
+terrain_combat_plain_horse = 1.15
+terrain_combat_forest_stance = 0.90
+terrain_combat_forest_heavy = 0.80     # an armoured core cannot see or swing in trees
+terrain_combat_forest_light = 1.25     # the trees are theirs
+terrain_combat_forest_horse = 0.75     # nothing to gallop through
+terrain_combat_hills_stance = 1.05
+terrain_combat_hills_heavy = 0.95
+terrain_combat_hills_light = 1.10
+terrain_combat_hills_horse = 0.90
+terrain_combat_mountain_stance = 1.20  # a line holds a pass
+terrain_combat_mountain_heavy = 1.00
+terrain_combat_mountain_light = 0.85
+terrain_combat_mountain_horse = 0.60   # horses are close to useless in the mountains
+terrain_combat_swamp_stance = 0.85
+terrain_combat_swamp_heavy = 1.10      # wading boots and iron
+terrain_combat_swamp_light = 0.95
+terrain_combat_swamp_horse = 0.70
+terrain_combat_coast_stance = 1.00
+terrain_combat_coast_heavy = 0.95
+terrain_combat_coast_light = 1.05
+terrain_combat_coast_horse = 1.05
+
 [crime]
 # Urban criminality (Tier 5). Crime grows in rich, under-policed towns.
 deterrence_per_coverage = 8.0  # how much troop coverage reduces target crime. Range 0-20.
