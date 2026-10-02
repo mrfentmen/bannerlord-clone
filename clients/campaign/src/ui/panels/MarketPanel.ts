@@ -321,86 +321,6 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
     );
 
     // -- price alerts (solo task 73): live prices checked on every render ----
-    body.appendChild(sectionHeader("Price alerts"));
-    const priceOf = (good: string, _settlementId: string): number | null =>
-      goods.find((g) => g.goodId === good)?.price ?? null;
-    const fired = checkPriceAlerts(priceOf);
-    for (const alert of fired) {
-      body.appendChild(
-        h("p", { class: "caption", "data-testid": `price-alert-fired-${alert.id}`, role: "status" },
-          `🔔 ${priceAlertLine(alert)}`),
-      );
-    }
-    const pending = pendingPriceAlerts();
-    if (pending.length === 0 && fired.length === 0) {
-      body.appendChild(
-        emptyState("No price alerts", "Set an alert below and this panel will ring it when the price crosses."),
-      );
-    } else {
-      for (const alert of pending) {
-        body.appendChild(
-          h("div", { class: "form-row", "data-testid": `price-alert-${alert.id}` },
-            h("span", { class: "caption" }, priceAlertLine(alert)),
-            button("Cancel", () => { cancelPriceAlert(alert.id); render(); }, { variant: "quiet", testId: `price-alert-cancel-${alert.id}` }),
-          ),
-        );
-      }
-    }
-    const goodSelect = h(
-      "select",
-      { "aria-label": "Alert good", "data-testid": "price-alert-good" },
-      ...goods.map((g) => h("option", { value: g.goodId }, g.name)),
-    ) as HTMLSelectElement;
-    const dirSelect = h(
-      "select",
-      { "aria-label": "Alert direction", "data-testid": "price-alert-direction" },
-      h("option", { value: "below" }, "falls to / below"),
-      h("option", { value: "above" }, "rises to / above"),
-    ) as HTMLSelectElement;
-    const { input: targetInput } = numberField("price-alert-target", "Target price", quantity, { min: 1 });
-    body.appendChild(
-      h("div", { class: "form-row" }, goodSelect, dirSelect, targetInput,
-        button("Set alert", () => {
-          const target = Number(targetInput.value);
-          if (!Number.isFinite(target) || target <= 0) return;
-          try {
-            setPriceAlert(goodSelect.value, options.townId, options.townName, target, dirSelect.value as "above" | "below");
-          } catch {
-            return;
-          }
-          render();
-        }, { testId: "price-alert-set" }),
-      ),
-    );
-
-    // -- smuggling preview (solo task 75): risk analysis before the run ----
-    body.appendChild(sectionHeader("Smuggling preview"));
-    const smugGood = h(
-      "select",
-      { "aria-label": "Smuggling good", "data-testid": "smuggle-good" },
-      ...goods.map((g) => h("option", { value: g.goodId }, g.name)),
-    ) as HTMLSelectElement;
-    const { input: smugVolume } = numberField("smuggle-volume", "Volume", 50, { min: 1 });
-    const { input: smugHeat } = numberField("smuggle-heat", "Watch heat 0-100", 30, { min: 0, max: 100 });
-    const smugLine = h("p", { class: "caption", "data-testid": "smuggle-analysis", role: "status" },
-      "Pick a good, volume, and watch heat for the risk read.");
-    const smugBtn = button("Analyze run", () => {
-      const volume = Number(smugVolume.value);
-      const heat = Number(smugHeat.value);
-      if (!Number.isFinite(volume) || volume <= 0 || !Number.isFinite(heat)) return;
-      const plan = planSmuggling(smugGood.value, volume, heat);
-      const analysis = analyzeSmugglingRun(plan);
-      smugLine.textContent = analysis.line;
-    }, { testId: "smuggle-analyze" });
-    body.appendChild(
-      h("div", { class: "form-row" }, smugGood, smugVolume, smugHeat, smugBtn),
-    );
-    body.appendChild(smugLine);
-    body.appendChild(
-      h("p", { class: "caption" },
-        "A planning read only — runs are resolved by the campaign layer, not this panel."),
-    );
-
     // -- what the caravan is carrying -----------------------------------------
     body.appendChild(sectionHeader("Caravan hold"));
     const held = party.goods.filter((g) => g.quantity > 0);
@@ -434,6 +354,86 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
         ),
       );
     }
+
+    body.appendChild(sectionHeader("Price alerts"));
+    const priceOf = (good: string, _settlementId: string): number | null =>
+      goods.find((g) => g.goodId === good)?.price ?? null;
+    const fired = checkPriceAlerts(priceOf);
+    for (const alert of fired) {
+      body.appendChild(
+        h("p", { class: "caption", "data-testid": `alert-fired-${alert.id}`, role: "status" },
+          `🔔 ${priceAlertLine(alert)}`),
+      );
+    }
+    const pending = pendingPriceAlerts();
+    if (pending.length === 0 && fired.length === 0) {
+      body.appendChild(
+        emptyState("No price alerts", "Set an alert below and this panel will ring it when the price crosses."),
+      );
+    } else {
+      for (const alert of pending) {
+        body.appendChild(
+          h("div", { class: "form-row", "data-testid": `alert-row-${alert.id}` },
+            h("span", { class: "caption" }, priceAlertLine(alert)),
+            button("Cancel", () => { cancelPriceAlert(alert.id); render(); }, { variant: "quiet", testId: `alert-cancel-${alert.id}` }),
+          ),
+        );
+      }
+    }
+    const goodSelect = h(
+      "select",
+      { "aria-label": "Alert good", "data-testid": "alert-good" },
+      ...goods.map((g) => h("option", { value: g.goodId }, g.name)),
+    ) as HTMLSelectElement;
+    const dirSelect = h(
+      "select",
+      { "aria-label": "Alert direction", "data-testid": "alert-direction" },
+      h("option", { value: "below" }, "falls to / below"),
+      h("option", { value: "above" }, "rises to / above"),
+    ) as HTMLSelectElement;
+    const { field: targetField, input: targetInput } = numberField("alert-target", "Target price", quantity, { min: 1 });
+    body.appendChild(
+      h("div", { class: "form-row" }, goodSelect, dirSelect, targetField,
+        button("Set alert", () => {
+          const target = Number(targetInput.value);
+          if (!Number.isFinite(target) || target <= 0) return;
+          try {
+            setPriceAlert(goodSelect.value, options.townId, options.townName, target, dirSelect.value as "above" | "below");
+          } catch {
+            return;
+          }
+          render();
+        }, { testId: "alert-set" }),
+      ),
+    );
+
+    // -- smuggling preview (solo task 75): risk analysis before the run ----
+    body.appendChild(sectionHeader("Smuggling preview"));
+    const smugGood = h(
+      "select",
+      { "aria-label": "Smuggling good", "data-testid": "smuggle-good" },
+      ...goods.map((g) => h("option", { value: g.goodId }, g.name)),
+    ) as HTMLSelectElement;
+    const { field: smugVolumeField, input: smugVolume } = numberField("smuggle-volume", "Volume", 50, { min: 1 });
+    const { field: smugHeatField, input: smugHeat } = numberField("smuggle-heat", "Watch heat 0-100", 30, { min: 0, max: 100 });
+    const smugLine = h("p", { class: "caption", "data-testid": "smuggle-analysis", role: "status" },
+      "Pick a good, volume, and watch heat for the risk read.");
+    const smugBtn = button("Analyze run", () => {
+      const volume = Number(smugVolume.value);
+      const heat = Number(smugHeat.value);
+      if (!Number.isFinite(volume) || volume <= 0 || !Number.isFinite(heat)) return;
+      const plan = planSmuggling(smugGood.value, volume, heat);
+      const analysis = analyzeSmugglingRun(plan);
+      smugLine.textContent = analysis.line;
+    }, { testId: "smuggle-analyze" });
+    body.appendChild(
+      h("div", { class: "form-row" }, smugGood, smugVolumeField, smugHeatField, smugBtn),
+    );
+    body.appendChild(smugLine);
+    body.appendChild(
+      h("p", { class: "caption" },
+        "A planning read only — runs are resolved by the campaign layer, not this panel."),
+    );
 
     // -- the honest note about where prices come from -------------------------
     body.appendChild(sectionHeader("What moved"));

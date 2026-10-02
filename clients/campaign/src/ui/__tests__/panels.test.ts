@@ -162,7 +162,7 @@ describe("named skeletons, not spinners (CONSTITUTION.md 3.2)", () => {
     const sk = marketSkeletonBody();
     expect(sk.querySelectorAll(".skeleton__section").length).toBe(live.querySelectorAll(".panel__section").length);
     expect(sk.querySelectorAll(".skeleton__tr").length).toBe(2);
-    expect(live.querySelectorAll(".panel__section").length).toBe(3);
+    expect(live.querySelectorAll(".panel__section").length).toBe(5);
     expect(sk.getAttribute("aria-busy")).toBe("true");
   });
 
@@ -452,7 +452,7 @@ describe("the market panel", () => {
     const table = market().root.querySelector("[data-testid='market-table']")!;
     expect(table.classList.contains("table--stack")).toBe(true);
     const headings = Array.from(table.querySelectorAll("thead th")).map((th) => th.textContent ?? "");
-    expect(headings).toEqual(["Good", "Price", "History", "Stock", "Demand", "Held", "Trade"]);
+    expect(headings).toEqual(["Good", "Price", "History", "Stock", "Held", "Trade"]);
     for (const cell of Array.from(table.querySelectorAll("tbody td"))) {
       expect(headings).toContain(cell.getAttribute("data-label"));
     }

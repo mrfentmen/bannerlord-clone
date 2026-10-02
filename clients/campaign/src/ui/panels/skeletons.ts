@@ -90,7 +90,7 @@ function tableStub(columns: number, rows: number): HTMLElement {
 // -- town ---------------------------------------------------------------------
 
 /** The seven sections of the town panel, plus the header block and the three actions. */
-export const TOWN_SECTIONS = 9;
+export const TOWN_SECTIONS = 10;
 
 /**
  * `town-skeleton`. Food, health, sanitation and housing, unrest and loyalty, taxes,
@@ -120,6 +120,8 @@ export function townSkeletonBody(): HTMLElement {
   root.appendChild(section([...rows(1), ...gauges(2)]));
   // Money: money, gold and metal.
   root.appendChild(section(rows(3)));
+  // Trade agreement: the three term fields and the propose button.
+  root.appendChild(section([...rows(3), block(STUB)]));
   // The three actions, in the order the real panel puts them in.
   root.appendChild(
     h(
@@ -149,6 +151,10 @@ export function marketSkeletonBody(): HTMLElement {
   // for a two-row market stub.
   root.appendChild(section([tableStub(4, 2)]));
   // The sell-side stub: what the caravan is carrying.
+  root.appendChild(section([block(ROW), block(ROW)]));
+  // Price alerts: the fired-alert lines and the set-alert form.
+  root.appendChild(section([block(ROW), block(ROW)]));
+  // Smuggling preview: the good/volume/heat form and the analysis line.
   root.appendChild(section([block(ROW), block(ROW)]));
   // The closing note under "What moved".
   root.appendChild(section(rows(1)));

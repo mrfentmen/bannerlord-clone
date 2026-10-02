@@ -38,11 +38,11 @@ describe("market panel price alerts (integration)", () => {
     document.body.appendChild(root);
     expect(root.textContent).toContain("No price alerts");
 
-    (root.querySelector('#price-alert-target') as HTMLInputElement).value = "9";
-    (root.querySelector('[data-testid="price-alert-set"]') as HTMLButtonElement).click();
+    (root.querySelector('#alert-target') as HTMLInputElement).value = "9";
+    (root.querySelector('[data-testid="alert-set"]') as HTMLButtonElement).click();
 
     expect(document.body.textContent).toContain("fell to 9");
-    const alerts = document.body.querySelectorAll('[data-testid^="price-alert-alert-"]');
+    const alerts = document.body.querySelectorAll('[data-testid^="alert-row-"]');
     expect(alerts.length).toBe(1);
   });
 
@@ -51,7 +51,7 @@ describe("market panel price alerts (integration)", () => {
     const { root } = marketPanel(options());
     document.body.appendChild(root);
     // Grain is 12, below the 15 target → fires on render.
-    const fired = document.body.querySelector('[data-testid^="price-alert-fired-"]');
+    const fired = document.body.querySelector('[data-testid^="alert-fired-"]');
     expect(fired).not.toBeNull();
     expect(fired!.textContent).toContain("grain");
   });
@@ -60,10 +60,10 @@ describe("market panel price alerts (integration)", () => {
     setPriceAlert("grain", "t1", "Brooklyn", 5, "below");
     const { root } = marketPanel(options());
     document.body.appendChild(root);
-    const cancel = document.body.querySelector('[data-testid^="price-alert-cancel-"]') as HTMLButtonElement;
+    const cancel = document.body.querySelector('[data-testid^="alert-cancel-"]') as HTMLButtonElement;
     expect(cancel).not.toBeNull();
     cancel.click();
-    expect(document.body.querySelectorAll('[data-testid^="price-alert-alert-"]').length).toBe(0);
+    expect(document.body.querySelectorAll('[data-testid^="alert-row-"]').length).toBe(0);
   });
 });
 

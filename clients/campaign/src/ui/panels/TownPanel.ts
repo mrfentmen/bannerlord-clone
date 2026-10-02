@@ -314,9 +314,9 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
 
   // -- trade agreement (solo task 76): propose a deal, the town answers ---
   body.appendChild(sectionHeader("Trade agreement"));
-  const { input: dealOffer } = numberField("deal-offer", "Up-front offer", 0, { min: 0 });
-  const { input: dealDiscount } = numberField("deal-discount", "Discount on your goods (0-50)", 0, { min: 0, max: 50 });
-  const { input: dealTariff } = numberField("deal-tariff", "Tariff relief asked (0-50)", 0, { min: 0, max: 50 });
+  const { field: dealOfferField, input: dealOffer } = numberField("deal-offer", "Up-front offer", 0, { min: 0 });
+  const { field: dealDiscountField, input: dealDiscount } = numberField("deal-discount", "Discount on your goods (0-50)", 0, { min: 0, max: 50 });
+  const { field: dealTariffField, input: dealTariff } = numberField("deal-tariff", "Tariff relief asked (0-50)", 0, { min: 0, max: 50 });
   const dealPriority = h("input", {
     type: "checkbox",
     id: "deal-priority",
@@ -345,7 +345,7 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
     }
   }, { testId: "deal-propose" });
   body.appendChild(
-    h("div", { class: "form-row" }, dealOffer, dealDiscount, dealTariff,
+    h("div", { class: "form-row" }, dealOfferField, dealDiscountField, dealTariffField,
       h("label", { for: "deal-priority" }, "Priority access", dealPriority)),
   );
   body.appendChild(dealBtn);
