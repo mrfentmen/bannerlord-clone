@@ -333,11 +333,20 @@ func (h *hash) forEachCell(x, y, radius float64, fn func(id int)) {
 	items := h.items
 	starts := h.starts
 	w := h.w
+	r2 := radius * radius
 	// visit walks one index cell. Bounds are clamped rather than tested per
 	// side: the walk knows the cell it is looking at came from the centre cell
 	// plus a ring, so only the grid's edges can fall outside it.
+	//
+	// The cell is also dropped whole when it lies entirely outside the query
+	// DISC, which is what cellMisses does and why. See its comment: the walk
+	// covers a square, the query is a circle, and the corners of the square are
+	// the part of it that can never hold anything in range.
 	visit := func(ix, iy int) {
 		if ix < 0 || iy < 0 || ix >= w || iy >= h.h {
+			return
+		}
+		if h.cellMisses(ix, iy, x, y, r2) {
 			return
 		}
 		i := ix + w*iy
@@ -406,11 +415,17 @@ func (h *hash) anyInCell(x, y, radius float64, fn func(id int) bool) bool {
 	starts := h.starts
 	w := h.w
 	hgt := h.h
+	r2 := radius * radius
 	// visit walks one index cell and reports whether fn matched anything in it.
 	// Bounds are clamped rather than tested per side, for the reason given on
 	// forEachCell's own visit: only the grid's edges can fall outside the walk.
+	// The whole-cell disc rejection is for the same reason it is there on
+	// forEachCell: the walk is a square and the query is a circle.
 	visit := func(ix, iy int) bool {
 		if ix < 0 || iy < 0 || ix >= w || iy >= hgt {
+			return false
+		}
+		if h.cellMisses(ix, iy, x, y, r2) {
 			return false
 		}
 		i := ix + w*iy
@@ -451,6 +466,81 @@ func (h *hash) anyInCell(x, y, radius float64, fn func(id int) bool) bool {
 // occupiedCells is how many non-empty cells the index holds, reported so a
 // performance note can say what the battle actually built rather than guessing.
 func (h *hash) occupiedCells() int { return h.cellCount }
+
+// cellMisses reports whether cell (ix,iy) lies entirely outside the query disc,
+// so that no unit in it can be within r2 of (x,y).
+//
+// # WHY THE WALK WAS VISITING CELLS IT DID NOT NEED TO
+//
+// The walk covers a SQUARE of cells, because a square is what a ring walk can
+// enumerate without repeating a corner. The query is a DISC, because a radius is
+// a radius. Everything in the difference between the two is work that cannot
+// change the answer: the corner cells of the square, and in the outer rings the
+// cells along the middle of each side.
+//
+// Measured on the 500 v 500 battle with the shipped balance file, the morale
+// query is battle.morale_neighbourhood of 90 m on a 64 m index cell, so the
+// walk is a five-by-five block: twenty-five cells, a 320 m square, against a
+// 180 m disc. The square is 102400 m2 and the disc is 25447 m2, so four units
+// in five of the candidates the stage examined were unreachable by
+// construction — and stageMorale is the stage the profile puts half the battle
+// in. The rejection is per CELL and exact, so it costs a handful of comparisons
+// per cell rather than a branch per candidate.
+//
+// # WHY IT CANNOT DROP A CANDIDATE THAT WAS GOING TO BE USED
+//
+// A cell is a rectangle in world coordinates, and the test is the distance from
+// (x,y) to the NEAREST point of that rectangle: clamp the query point to the
+// cell's span on each axis, and if the clamped point is already further than the
+// radius, every point in the cell is. That is the definition of the minimum, so
+// no unit inside a rejected cell is within the radius, which means every
+// candidate a caller would have accepted from it was in a cell that was walked.
+//
+// It is therefore a pure filter on work, not on results, and the two properties
+// that makes it safe follow from that:
+//
+//   - No accepted candidate is lost. Every unit within the radius lies in a cell
+//     whose nearest point is at most the distance to that unit, hence within the
+//     radius, hence not rejected.
+//   - The visit ORDER of everything that is left is untouched. The ring walk is
+//     unchanged and cells are skipped, not reordered, so a caller that
+//     accumulates in visit order still accumulates in exactly the sequence it
+//     did before. That is what keeps the float additions bit-identical and the
+//     golden replay hashes matching, which is the same guarantee the dense grid
+//     and the flat mirror were made under.
+//
+// # WHY IT IS NOT AN OPTIMISATION THE CALLER COULD HAVE DONE
+//
+// Every current caller already re-tests each candidate against the radius,
+// because it has to: the closure is handed an id and cannot assume the walk
+// filtered for it. That per-candidate test is what decides the answer, and it
+// has to stay. This is not a replacement for it. It is the same test lifted one
+// level up, so the inner one runs over the candidates that are actually in
+// range rather than over every unit in the square.
+func (h *hash) cellMisses(ix, iy int, x, y, r2 float64) bool {
+	// The cell's extent on one axis, as [lo, hi] in world coordinates.
+	lo := h.minX + float64(ix)*h.size
+	hi := lo + h.size
+	// Distance from the query point to the cell's span on this axis: zero if it
+	// is inside, otherwise the gap to the nearer edge.
+	d := 0.0
+	if x < lo {
+		d = lo - x
+	} else if x > hi {
+		d = x - hi
+	}
+	dx := d * d
+
+	lo = h.minY + float64(iy)*h.size
+	hi = lo + h.size
+	d = 0.0
+	if y < lo {
+		d = lo - y
+	} else if y > hi {
+		d = y - hi
+	}
+	return dx+d*d > r2
+}
 
 // floorCell is the cell coordinate of v for a cell of the given width, rounding
 // toward negative infinity.
