@@ -33,6 +33,7 @@ import {
   priceAlertLine,
   setPriceAlert,
 } from "../../economy/priceAlerts.js";
+import { analyzeSmugglingRun, planSmuggling } from "../../economy/smuggling.js";
 import { SimulationUnavailableError } from "../../data/provider.js";
 
 /** The sell-side empty copy, verbatim from ART_DIRECTION.md section 10.2. */
@@ -370,6 +371,34 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
           render();
         }, { testId: "price-alert-set" }),
       ),
+    );
+
+    // -- smuggling preview (solo task 75): risk analysis before the run ----
+    body.appendChild(sectionHeader("Smuggling preview"));
+    const smugGood = h(
+      "select",
+      { "aria-label": "Smuggling good", "data-testid": "smuggle-good" },
+      ...goods.map((g) => h("option", { value: g.goodId }, g.name)),
+    ) as HTMLSelectElement;
+    const { input: smugVolume } = numberField("smuggle-volume", "Volume", 50, { min: 1 });
+    const { input: smugHeat } = numberField("smuggle-heat", "Watch heat 0-100", 30, { min: 0, max: 100 });
+    const smugLine = h("p", { class: "caption", "data-testid": "smuggle-analysis", role: "status" },
+      "Pick a good, volume, and watch heat for the risk read.");
+    const smugBtn = button("Analyze run", () => {
+      const volume = Number(smugVolume.value);
+      const heat = Number(smugHeat.value);
+      if (!Number.isFinite(volume) || volume <= 0 || !Number.isFinite(heat)) return;
+      const plan = planSmuggling(smugGood.value, volume, heat);
+      const analysis = analyzeSmugglingRun(plan);
+      smugLine.textContent = analysis.line;
+    }, { testId: "smuggle-analyze" });
+    body.appendChild(
+      h("div", { class: "form-row" }, smugGood, smugVolume, smugHeat, smugBtn),
+    );
+    body.appendChild(smugLine);
+    body.appendChild(
+      h("p", { class: "caption" },
+        "A planning read only — runs are resolved by the campaign layer, not this panel."),
     );
 
     // -- what the caravan is carrying -----------------------------------------

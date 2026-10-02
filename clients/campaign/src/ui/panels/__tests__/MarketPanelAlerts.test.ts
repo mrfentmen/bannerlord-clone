@@ -66,3 +66,27 @@ describe("market panel price alerts (integration)", () => {
     expect(document.body.querySelectorAll('[data-testid^="price-alert-alert-"]').length).toBe(0);
   });
 });
+
+describe("market panel smuggling preview (integration)", () => {
+  it("analyzes a smuggling run", () => {
+    const { root } = marketPanel({
+      townId: "t1",
+      townName: "Brooklyn",
+      market,
+      party,
+      money: 500,
+      day: 100,
+      provider: { getSnapshot: () => Promise.resolve(null) } as never,
+    });
+    document.body.innerHTML = "";
+    document.body.appendChild(root);
+
+    (root.querySelector("#smuggle-volume") as HTMLInputElement).value = "50";
+    (root.querySelector("#smuggle-heat") as HTMLInputElement).value = "10";
+    (root.querySelector('[data-testid="smuggle-analyze"]') as HTMLButtonElement).click();
+
+    const line = root.querySelector('[data-testid="smuggle-analysis"]')!;
+    expect(line.textContent).toMatch(/Expected|detection risk/);
+    expect(line.textContent).toContain("grain");
+  });
+});
