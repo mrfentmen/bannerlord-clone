@@ -424,28 +424,71 @@ func TestBattleSizeIsConfigurable(t *testing.T) {
 			}
 			n = k
 		}
+		// The budget is what makes this case a test rather than a benchmark, and
+		// it is here for the same reason the size was dropped to 1200: nothing
+		// about the property under test needs the battle to conclude.
+		//
+		// What is under test is SIZE. Whether the engine has an array, a grid or
+		// a counter fixed to a number is decided by whether 2400 units can be
+		// built, indexed, staged and committed for hundreds of ticks without an
+		// error, a panic, or the tick bound. A conclusion is a different question
+		// and it is a BALANCE question, which is what TestHeadlessReference asks
+		// at the size the balance file names. This case was the one that timed
+		// the whole package out before anything else in the suite could be
+		// reached, and agent3 hit that on this branch while fixing the command
+		// seam: a test that runs for half an hour decides nothing about the
+		// other hundred and twenty, it just says they were not run.
+		budget := 500
+		if v := os.Getenv("BANNERLORD_BIG_TICKS"); v != "" {
+			k, err := strconv.Atoi(v)
+			if err != nil || k < 1 {
+				t.Fatalf("BANNERLORD_BIG_TICKS=%q is not a tick count of one or more: %v", v, err)
+			}
+			budget = k
+		}
+		// 500 ticks is past contact at this size: the roster starts the two sides
+		// battle.roster_start_distance apart, and a unit covers about a metre a
+		// tick, so the armies meet around tick 430. A budget that stopped before
+		// then would measure two armies walking.
 		setup, err := standardForce(t, cfg, 11, n)
 		if err != nil {
 			t.Fatalf("force: %v", err)
 		}
 		wall := time.Now()
-		res, err := Run(cfg, 11, setup)
+		res, err := RunTicks(cfg, 11, setup, budget)
 		took := time.Since(wall)
 		if err != nil {
-			t.Fatalf("a %d v %d battle failed: %v", n, n, err)
+			t.Fatalf("a %d v %d battle failed after %d ticks: %v", n, n, budget, err)
 		}
-		t.Logf("%d units a side, %.0f v %.0f of %.0f bodies lost over %d ticks in %s",
+		t.Logf("%d units a side, %.0f v %.0f of %.0f bodies lost over %d ticks in %s%s",
 			n, res.Sides[0].Dead+res.Sides[0].Wounded, res.Sides[1].Dead+res.Sides[1].Wounded,
-			res.Sides[0].StartBodies, res.Ticks, took.Round(time.Millisecond))
+			res.Sides[0].StartBodies, res.Ticks, took.Round(time.Millisecond),
+			map[bool]string{true: " (the budget ended it)", false: ""}[res.Truncated])
 		if res.Ticks >= int(cfg.Battle.MaxTicks) {
 			t.Errorf("a %d v %d battle ran to the tick bound", n, n)
 		}
-		// The same claim the small case makes, at this size: a battle this big
-		// is a battle, not a parade decided by a morale term before the armies
-		// have closed.
+		// A battle this size is a battle and not a parade. The bar is bodies
+		// coming off both sides, not a share of anything, because a share needs
+		// a conclusion to mean and a budget deliberately does not supply one.
+		// The share version of this claim is TestHeadlessReference's, at 500 a
+		// side, and it is the one worth having: 0.2% casualties at 500 a side was
+		// a real defect once and a share of zero is how it said itself.
 		for _, s := range res.Sides {
-			if share := (s.Dead + s.Wounded) / s.StartBodies; share < 0.15 {
-				t.Errorf("side %s lost %.1f%% of its bodies in a %d a side battle", s.Side, 100*share, n)
+			if lost := s.Dead + s.Wounded; lost <= 0 {
+				t.Errorf("side %s has lost no bodies in %d ticks of a %d a side battle, so nothing was "+
+					"fought at this size", s.Side, res.Ticks, n)
+			}
+			if lost := s.Dead + s.Wounded; lost > s.StartBodies {
+				t.Errorf("side %s reports %.0f bodies lost out of %.0f it started with", s.Side, lost, s.StartBodies)
+			}
+		}
+		// And every unit it started with is still accounted for at this size,
+		// which is the arithmetic that only breaks if a slice was sized wrong.
+		for _, s := range res.Sides {
+			if gone := s.StartUnits - s.Standing - s.Routed - s.Surrendered; gone < 0 {
+				t.Errorf("side %s started with %d units and reports %d standing, %d routed and %d "+
+					"surrendered, which is %d more than it had", s.Side, s.StartUnits, s.Standing, s.Routed,
+					s.Surrendered, -gone)
 			}
 		}
 	})
@@ -573,17 +616,33 @@ func TestBattleSizeIsConfigurable(t *testing.T) {
 func TestStageOrderDoesNotMatter(t *testing.T) {
 	cfg := loadConfig(t)
 	const seed = 77
+	const budget = 300
 	setup, err := standardForce(t, cfg, seed, 24)
 	if err != nil {
 		t.Fatalf("force: %v", err)
 	}
-	normal, err := Run(cfg, seed, setup)
+	// The baseline comes from the same function the permutations do, with the
+	// documented order, so the only thing differing between the two sides of the
+	// comparison is the order under test.
+	//
+	// It is deliberately NOT Run. Run fights to a conclusion and this sweep is
+	// bounded, so a Run baseline would be comparing a truncated run against
+	// concluded ones and the rule would be measured against nothing.
+	//
+	// The bound is what makes this test affordable: 120 battles fought to a
+	// conclusion took 402s once the engine grew the formation and contact work,
+	// which is two thirds of the suite's default budget for one assertion. At 300
+	// ticks the same sweep takes 22s and reaches the same answer, 40 reproducing
+	// and 0 disagreeing with the rule. A bound is only worth having if it can still
+	// fail, so TestStageOrderSweepHasTeeth runs this same sweep against a prologue
+	// the engine does not use and requires it to report violations.
+	normal, err := runWithStageOrderTicks(cfg, seed, setup, tickOrder, budget)
 	if err != nil {
 		t.Fatalf("battle: %v", err)
 	}
 	same, differ, violations, stricter := 0, 0, 0, 0
 	for _, order := range stagePermutations(tickOrder) {
-		got, err := runWithStageOrder(cfg, seed, setup, order)
+		got, err := runWithStageOrderTicks(cfg, seed, setup, order, budget)
 		if err != nil {
 			t.Fatalf("battle with the stages in the order %v: %v", order, err)
 		}
@@ -626,14 +685,88 @@ func TestStageOrderDoesNotMatter(t *testing.T) {
 	if violations > 5 {
 		t.Errorf("... and %d more orders that did not follow the rule", violations-5)
 	}
-	t.Logf("%d orders of the five stages: %d reproduced the battle, %d did not, and %d disagreed "+
-		"with the rule that targeting runs before melee and aimed fire",
-		same+differ, same, differ, violations)
+	t.Logf("%d orders of the five stages, %d ticks each: %d reproduced the battle, %d did not, and %d "+
+		"disagreed with the rule that targeting runs before melee and aimed fire",
+		same+differ, budget, same, differ, violations)
 	t.Logf("compareResults reads %d of the %d orders as different, which is the count of fields "+
 		"the result hash does not cover", stricter, same+differ)
 	if same == 0 || differ == 0 {
 		t.Fatalf("%d of %d orders reproduced the battle; the rule this test checks is vacuous if "+
 			"every order behaves the same way", same, same+differ)
+	}
+}
+
+// TestStageOrderSweepHasTeeth is the negative control for the bounded sweep in
+// TestStageOrderDoesNotMatter.
+//
+// That test was made about twenty times cheaper by giving it a tick budget, which
+// is exactly the kind of change that quietly turns a test into a tautology: a
+// shorter run could stop being able to see the coupling the rule is about, and the
+// way to find out is to run the same sweep through a tick that is not the engine's
+// and require it to report violations.
+//
+// The control takes its baseline from the engine's own prologue, on purpose. An
+// earlier version of it took the baseline from the same broken prologue it was
+// testing and reported 40 of 120 orders reproducing the battle with zero
+// violations, for a prologue the engine does not use: a stale run agrees with a
+// stale run by construction. The bug this guards against is a helper that drifted
+// from Run, not from itself, so the baseline has to be Run's.
+//
+// markContact is the piece chosen to leave out. Skipping refreshHotField panics
+// rather than diverging, which is not a usable control, and skipping the per-tick
+// shape reset is invisible in a battle with no commander.
+func TestStageOrderSweepHasTeeth(t *testing.T) {
+	cfg := loadConfig(t)
+	const seed = 77
+	const budget = 300
+	setup, err := standardForce(t, cfg, seed, 24)
+	if err != nil {
+		t.Fatalf("force: %v", err)
+	}
+	normal, err := runWithStageOrderTicks(cfg, seed, setup, tickOrder, budget)
+	if err != nil {
+		t.Fatalf("battle: %v", err)
+	}
+	// countSweeps runs all 120 orderings through one tick implementation and
+	// reports how many reproduced the baseline and how many disagreed with the
+	// rule.
+	countSweeps := func(run func([]string) (*Result, error)) (same, violations int) {
+		for _, order := range stagePermutations(tickOrder) {
+			got, err := run(order)
+			if err != nil {
+				t.Fatalf("battle with the stages in the order %v: %v", order, err)
+			}
+			targeting := stageIndex(order, "targeting")
+			rule := targeting < stageIndex(order, "melee") &&
+				targeting < stageIndex(order, "aimed fire")
+			isSame := normal.Hash() == got.Hash()
+			if isSame {
+				same++
+			}
+			if rule != isSame {
+				violations++
+			}
+		}
+		return same, violations
+	}
+
+	realSame, realViolations := countSweeps(func(order []string) (*Result, error) {
+		return runWithStageOrderTicks(cfg, seed, setup, order, budget)
+	})
+	if realViolations != 0 {
+		t.Errorf("the engine's own prologue disagrees with the rule on %d of the 120 orderings",
+			realViolations)
+	}
+	t.Logf("engine prologue: %d of 120 reproduced, %d violations of the rule", realSame, realViolations)
+
+	brokenSame, brokenViolations := countSweeps(func(order []string) (*Result, error) {
+		return runWithStageOrderNoContact(cfg, seed, setup, order, budget)
+	})
+	t.Logf("prologue without markContact: %d of 120 reproduced, %d violations of the rule",
+		brokenSame, brokenViolations)
+	if brokenViolations == 0 {
+		t.Errorf("a %d-tick sweep reports no violations even for a prologue that is not the engine's, "+
+			"so the bound has taken this coupling out of its reach", budget)
 	}
 }
 
@@ -707,6 +840,106 @@ func runWithStageOrder(cfg *config.Config, seed uint64, setup Setup, order []str
 		b.tickNo++
 		b.elapsed += b.c.TickSeconds
 	}
+}
+
+// runWithStageOrderTicks is runWithStageOrder with a caller-supplied tick bound.
+//
+// The bound is what makes the 120-permutation sweep affordable, and it follows the
+// same shape RunTicks does: the battle still returns its real Outcome if it is
+// decided first, and Truncated says whether the budget is what stopped it. Without
+// Truncated a truncated run and a decided one would be reported the same way, and
+// the sweep would be unable to say how far each of the 120 battles actually got.
+func runWithStageOrderTicks(cfg *config.Config, seed uint64, setup Setup, order []string, maxTicks int) (*Result, error) {
+	if cfg == nil {
+		return nil, newError(ErrNilConfig, "no config")
+	}
+	if maxTicks <= 0 {
+		return nil, newError(ErrInvalidConfig,
+			"a stage-order run needs a tick budget of at least one; a run of zero ticks "+
+				"would compare nothing")
+	}
+	b, err := newBattle(cfg, seed, setup)
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < maxTicks; i++ {
+		if outcome, decided := b.checkEnding(); decided {
+			return b.result(outcome), nil
+		}
+		if err := b.beginTick(); err != nil {
+			return nil, err
+		}
+		for _, name := range order {
+			if err := b.runStage(name); err != nil {
+				return nil, err
+			}
+		}
+		if err := b.commit(); err != nil {
+			return nil, err
+		}
+		b.tickNo++
+		b.elapsed += b.c.TickSeconds
+	}
+	res := b.result(Outcome{Kind: ResultDraw, Reason: ReasonStalemate})
+	res.Truncated = true
+	return res, nil
+}
+
+// runWithStageOrderNoContact is runWithStageOrderTicks with one thing left out of
+// the prologue: markContact.
+//
+// It exists only as the negative control in TestStageOrderSweepHasTeeth, and it is
+// the reason that test can fail. markContact is filled from the two hashes and the
+// snapshot the stages are about to read, and leaving it out gives every unit an
+// all-false contact flag for this tick, which is a different battle rather than a
+// crash. Skipping refreshHotField would panic on an unfit field and skipping the
+// per-tick shape reset is invisible with no commander, so markContact is the only
+// omission here that diverges instead of failing outright.
+//
+// Everything else is beginTick's body, copied rather than called, and that is the
+// point: the whole reason this function has to restate the prologue is that the
+// test is checking what happens when a tick does NOT do what tick does.
+func runWithStageOrderNoContact(cfg *config.Config, seed uint64, setup Setup, order []string, maxTicks int) (*Result, error) {
+	if cfg == nil {
+		return nil, newError(ErrNilConfig, "no config")
+	}
+	if maxTicks <= 0 {
+		return nil, newError(ErrInvalidConfig,
+			"a stage-order run needs a tick budget of at least one; a run of zero ticks "+
+				"would compare nothing")
+	}
+	b, err := newBattle(cfg, seed, setup)
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < maxTicks; i++ {
+		if outcome, decided := b.checkEnding(); decided {
+			return b.result(outcome), nil
+		}
+		for j, u := range b.units {
+			b.snap[j] = take(u)
+			b.deltas[j].reset()
+			b.attackerCount[j] = 0
+			b.formations[j] = formationState{}
+		}
+		b.meleeHash.rebuild(b.units)
+		b.fireHash.rebuild(b.units)
+		b.refreshHotField()
+		// b.markContact() is the omission.
+		for _, name := range order {
+			if err := b.runStage(name); err != nil {
+				return nil, err
+			}
+		}
+		if err := b.commit(); err != nil {
+			return nil, err
+		}
+		b.tickNo++
+		b.elapsed += b.c.TickSeconds
+	}
+	res := b.result(Outcome{Kind: ResultDraw, Reason: ReasonStalemate})
+	res.Truncated = true
+	return res, nil
 }
 
 // TestNoSilentStubs checks that every failure mode this package can reach is an

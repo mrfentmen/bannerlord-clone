@@ -65,6 +65,17 @@ func TestDiagHashCoverage(t *testing.T) {
 	melee.rebuild(units)
 	fmt.Printf("\ncontact across a cell boundary: gap=%.2f m, melee_range=%g m", 14.4-11.9, c.MeleeRange)
 	b := &Battle{c: c, units: units, byID: units, meleeHash: melee}
+	// enemyInMelee reads its candidates out of the hot field, not out of
+	// b.units, so a hand-built Battle has to fit and fill that field the way
+	// beginTick does before the query means anything. refreshHotField reads the
+	// snapshot to get its routed flags, so the snapshot has to exist too. Without
+	// both, the query indexed an empty slice and panicked, which took the whole
+	// package's test run down with it.
+	b.snap = make([]snapshot, len(units))
+	for i, u := range units {
+		b.snap[i] = take(u)
+	}
+	b.refreshHotField()
 	fmt.Printf(" -> enemyInMelee()=%v\n", b.enemyInMelee(11.9, 0, SideA))
 	fmt.Printf("(two men 2.5 m apart, a swing reaches 2.6 m)\n")
 }
