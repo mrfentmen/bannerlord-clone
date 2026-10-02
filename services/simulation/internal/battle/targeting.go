@@ -121,22 +121,44 @@ func (b *Battle) chooseFireTarget(i int, s *snapshot, u *Unit) {
 	// not per-candidate hot fields and are read once per chosen target rather
 	// than once per visited candidate.
 	hf := &b.hot
-	b.fireHash.forEachCell(s.X, s.Y, c.RangedRange, func(id int) {
-		if shots >= limit {
-			return
+	// The walk STOPS once battle.ranged_max_targets candidates have been scored,
+	// because after that nothing can change the answer: bestID and bestScore are
+	// the best of the candidates scored so far, and no candidate past the limit
+	// is scored. So the limit is an end to the walk rather than a test that
+	// rejects everything after it.
+	//
+	// That matters because the walk without it is a sweep of the whole firing
+	// arc. battle.ranged_range is 240 m over battle.ranged_grid_cell_size of
+	// 64 m cells, so the box is a nine-by-nine block of eighty-one cells, and on
+	// the reference field - a band about 900 m long - a 240 m arc covers half of
+	// it. Two targets were wanted and about five hundred men were examined, every
+	// shooter, every tick. A CPU profile of the 500 v 500 battle had
+	// (*Battle).chooseFireTarget at 16.9% cumulative with 11.0% of the whole run
+	// flat inside this closure, second only to the morale query.
+	//
+	// DETERMINISM. Candidates are scored in the same order and the same
+	// arithmetic, and the ones past the limit were never allowed to change
+	// bestID or bestScore, so stopping after the last one that could is the same
+	// battle. TestFireTargetStopsTheWalkAtTheTargetLimit is the direct check.
+	b.fireHash.walkCells(s.X, s.Y, c.RangedRange, func(_ int, run []int) bool {
+		for _, id := range run {
+			if shots >= limit {
+				return true
+			}
+			if hf.side[id] != enemy || !hf.alive[id] {
+				continue
+			}
+			d2 := dist2(hf.x[id]-s.X, hf.y[id]-s.Y)
+			if d2 > maxR2 || d2 < minR2 {
+				continue
+			}
+			shots++
+			score := b.targetScore(d2, b.byID[id], c.RangedRange)
+			if score < bestScore {
+				bestScore, bestID = score, id
+			}
 		}
-		if hf.side[id] != enemy || !hf.alive[id] {
-			return
-		}
-		d2 := dist2(hf.x[id]-s.X, hf.y[id]-s.Y)
-		if d2 > maxR2 || d2 < minR2 {
-			return
-		}
-		shots++
-		score := b.targetScore(d2, b.byID[id], c.RangedRange)
-		if score < bestScore {
-			bestScore, bestID = score, id
-		}
+		return false
 	})
 	b.deltas[i].rangedTarget = bestID
 }
