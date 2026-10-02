@@ -30,6 +30,15 @@ import {
   spyRoster,
   type RosterSpy,
 } from "../../espionage/roster.js";
+import {
+  abandonScheme,
+  schemes,
+  startScheme,
+  tickSchemes,
+} from "../../espionage/schemeStore.js";
+import { SCHEME_KINDS, SCHEME_LABELS } from "../../espionage/schemes.js";
+import { schemeTimeline } from "../../espionage/schemeTimeline.js";
+import type { Scheme, SchemeKind } from "../../espionage/types.js";
 import { markHintShown, shouldShowHint } from "../../onboarding/hintCooldown.js";
 
 /** Mission length in campaign days (panel presentation choice). */
@@ -169,6 +178,63 @@ export function spymasterPanel(options: SpymasterPanelOptions): HTMLElement {
     }, { testId: "spy-place" }),
   );
   body.appendChild(form);
+
+  body.appendChild(sectionHeader("Schemes"));
+  const activeSchemes = schemes();
+  if (activeSchemes.length === 0) {
+    body.appendChild(
+      emptyState("No schemes", "Plan a scheme against a rival faction to start."),
+    );
+  } else {
+    const columns: Column<Scheme>[] = [
+      { header: "Scheme", render: (s) => `${SCHEME_LABELS[s.kind]}` },
+      { header: "Target", render: (s) => s.target },
+      {
+        header: "Progress",
+        render: (s) => {
+          const tl = schemeTimeline(s);
+          return s.discovered ? "Discovered!" : `${tl.overall}% · ${tl.line}`;
+        },
+      },
+      {
+        header: "Orders",
+        render: (s) =>
+          button("Abandon", () => {
+            abandonScheme(s.id);
+            rerender();
+          }, { variant: "quiet", testId: `scheme-abandon-${s.id}` }),
+      },
+    ];
+    body.appendChild(dataTable("Schemes", columns, activeSchemes, "spymaster-schemes"));
+  }
+
+  const kindSelect = h(
+    "select",
+    { "aria-label": "Scheme kind", "data-testid": "scheme-kind-select" },
+    ...SCHEME_KINDS.map((k) => h("option", { value: k }, SCHEME_LABELS[k])),
+  ) as HTMLSelectElement;
+  const targetInput = h("input", {
+    type: "text",
+    placeholder: "Target faction",
+    "aria-label": "Scheme target",
+    "data-testid": "scheme-target-input",
+  }) as HTMLInputElement;
+  body.appendChild(
+    h("div", { class: "form-row" }, kindSelect, targetInput,
+      button("Plan scheme", () => {
+        const target = targetInput.value.trim();
+        if (!target) return;
+        startScheme(kindSelect.value as SchemeKind, target);
+        rerender();
+      }, { testId: "scheme-plan" }),
+      button("Advance season", () => {
+        const spies = spyRoster();
+        const cover = spies.length > 0 ? Math.round(spies.reduce((a, s) => a + s.cover, 0) / spies.length) : 50;
+        tickSchemes(cover, 50);
+        rerender();
+      }, { variant: "quiet", testId: "scheme-advance" }),
+    ),
+  );
 
   body.appendChild(sectionHeader("Enemy spy alerts"));
   const alerts = pendingAlerts();

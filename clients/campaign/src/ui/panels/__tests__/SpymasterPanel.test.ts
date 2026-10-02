@@ -55,6 +55,25 @@ describe("spymaster panel (integration)", () => {
     expect(second.querySelector("[data-testid='hint-spymaster-intro']")).toBeNull();
   });
 
+  it("plans and abandons schemes", () => {
+    document.body.innerHTML = "";
+    const root = spymasterPanel({ currentDay: 100 });
+    document.body.appendChild(root);
+    expect(root.textContent).toContain("No schemes");
+    const target = root.querySelector('[data-testid="scheme-target-input"]') as HTMLInputElement;
+    target.value = "Brooklyn";
+    (root.querySelector('[data-testid="scheme-plan"]') as HTMLButtonElement).click();
+
+    expect(document.body.textContent).toContain("Brooklyn");
+    const table = document.body.querySelector('[data-testid="spymaster-schemes"]');
+    expect(table).not.toBeNull();
+    const abandon = [...document.body.querySelectorAll("button")].find((b) =>
+      b.getAttribute("data-testid")?.startsWith("scheme-abandon-"),
+    )!;
+    abandon.click();
+    expect(document.body.textContent).toContain("No schemes");
+  });
+
   it("shows empty states with no spies or alerts", () => {
     const root = spymasterPanel({ currentDay: 100 });
     expect(root.textContent).toContain("No spies placed");

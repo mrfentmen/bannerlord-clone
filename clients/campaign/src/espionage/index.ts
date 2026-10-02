@@ -21,3 +21,4 @@ export { planExtraction, runExtraction, type ExtractionOutcome, type ExtractionP
 export { alertResponses, raiseAlert, respondToAlert, SPY_ALERT_RESPONSES, type AlertResolution, type EnemySpyAlert, type SpyAlertResponse } from "./spyAlerts.js";
 export { dismissSpyTip, resetSpyTips, spyTip, SPY_ACTIONS, SPY_TIPS, type SpyAction } from "./spyTips.js";
 export { adjustCover, placeSpy, placedSpies, recallSpy, spyRoster, type RosterSpy } from "./roster.js";
+export { abandonScheme, schemes, startScheme, tickSchemes } from "./schemeStore.js";
