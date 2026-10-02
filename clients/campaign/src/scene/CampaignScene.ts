@@ -35,6 +35,12 @@ import {
 import { mapColor, tokens } from "../design/tokens.js";
 import { attachMapGestures } from "../input/touch/gestures.js";
 import { resolveGrade, type QualityLevel } from "../design/grade.js";
+import {
+  DEFAULT_GRAIN_INTENSITY,
+  applyLookToGrade,
+  lookPresetFor,
+  type LookPresetId,
+} from "../design/lookPresets.js";
 import { buildTerrain, terrainSummary } from "./terrain.js";
 import {
   buildNetwork,
@@ -76,6 +82,14 @@ export interface SceneOptions {
   powerPreference?: WebGLPowerPreference;
   terrainSamples?: number;
   maxFps?: number;
+  /**
+   * Player look (task 145): film grain + color grading preset id and grain
+   * slider 0..1. Missing values mean "as resolved": Standard at the default
+   * slider. Applies live through SceneHandle.applyLook; construction just
+   * reads the same path once.
+   */
+  lookPreset?: LookPresetId;
+  grainIntensity?: number;
 }
 
 export interface SceneHandle {
@@ -112,6 +126,13 @@ export interface SceneHandle {
    * disable — UI animation is killed separately by the data-reduce-motion CSS.
    */
   setReduceMotion(on: boolean): void;
+  /**
+   * Film grain + color grading look (task 145): re-grades the scene live.
+   * Unknown preset ids fall back to Standard; the grain slider clamps to
+   * 0..1. No restart: the pipeline uniforms and the grade pass update in
+   * place, and a missing grade pass is created lazily when grain appears.
+   */
+  applyLook(preset: LookPresetId, grainIntensity: number): void;
   /** One line about what the map is showing, for the data-source panel. */
   summary(): string;
   towns: TownCluster[];
@@ -312,23 +333,31 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
   let routeMesh: Mesh | null = null;
 
   // -- post-processing, from the locked recipe ------------------------------
-  const settings = resolveGrade(options.quality, options.year);
+  // Task 145: the player's look preset folds onto the quality/era grade.
+  const grade = applyLookToGrade(
+    resolveGrade(options.quality, options.year),
+    lookPresetFor(options.lookPreset),
+    options.grainIntensity ?? DEFAULT_GRAIN_INTENSITY,
+  );
   const pipeline = new DefaultRenderingPipeline("grade", true, scene, [camera]);
   pipeline.imageProcessingEnabled = true;
   pipeline.imageProcessing.toneMappingEnabled = true;
   pipeline.imageProcessing.toneMappingType = 1; // ACES
-  pipeline.imageProcessing.contrast = settings.contrast;
-  pipeline.imageProcessing.exposure = settings.exposure;
-  pipeline.imageProcessing.vignetteEnabled = settings.vignette.weight > 0;
-  pipeline.imageProcessing.vignetteWeight = settings.vignette.weight;
-  pipeline.imageProcessing.vignetteStretch = settings.vignette.stretch;
-  pipeline.imageProcessing.vignetteColor = Color4.FromHexString(`${settings.vignette.color}ff`);
-  pipeline.fxaaEnabled = settings.fxaa;
+  pipeline.imageProcessing.contrast = grade.contrast;
+  pipeline.imageProcessing.exposure = grade.exposure;
+  pipeline.imageProcessing.vignetteEnabled = grade.vignette.weight > 0;
+  pipeline.imageProcessing.vignetteWeight = grade.vignette.weight;
+  pipeline.imageProcessing.vignetteStretch = grade.vignette.stretch;
+  pipeline.imageProcessing.vignetteColor = Color4.FromHexString(`${grade.vignette.color}ff`);
+  pipeline.fxaaEnabled = grade.fxaa;
   // Saturation, split-tone and grain all happen in one pass below. Grading in two
   // places is how a look drifts between machines.
 
-  const grain =
-    settings.grain.intensity > 0 ? new GradePass(camera, settings, options.year) : null;
+  // `let`: applyLook creates the pass lazily when grain goes from 0 to >0.
+  let grain: GradePass | null =
+    grade.grain.intensity > 0 ? new GradePass(camera, grade, options.year) : null;
+  // Reduce-motion flag, so a lazily created grade pass inherits it (task 20).
+  let reduceMotionOn = false;
 
   // -- picking --------------------------------------------------------------
   scene.onPointerObservable.add((info) => {
@@ -444,7 +473,25 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       scene.fogDensity = cfg.fogDensity;
     },
     setReduceMotion(on) {
+      reduceMotionOn = on;
       grain?.setReduceMotion(on);
+    },
+    applyLook(preset, grainSlider) {
+      const next = applyLookToGrade(
+        resolveGrade(options.quality, options.year),
+        lookPresetFor(preset),
+        grainSlider,
+      );
+      pipeline.imageProcessing.contrast = next.contrast;
+      pipeline.imageProcessing.exposure = next.exposure;
+      pipeline.imageProcessing.vignetteEnabled = next.vignette.weight > 0;
+      pipeline.imageProcessing.vignetteWeight = next.vignette.weight;
+      if (grain === null && next.grain.intensity > 0) {
+        grain = new GradePass(camera, next, options.year);
+        grain.setReduceMotion(reduceMotionOn);
+      } else if (grain !== null) {
+        grain.apply(next);
+      }
     },
   };
 }
@@ -472,7 +519,7 @@ const PASS_UNIFORMS = [
 class GradePass {
   readonly #process: PostProcess;
   #time = 0;
-  readonly #settings: ReturnType<typeof resolveGrade>;
+  #grade: ReturnType<typeof resolveGrade>;
   readonly #warmth: number;
   /** Task 20: reduced motion freezes the animated grain (static grain stays). */
   #reduceMotion = false;
@@ -481,8 +528,16 @@ class GradePass {
     this.#reduceMotion = on;
   }
 
+  /**
+   * Live look change (task 145): swap the grade. The shader uniforms are read
+   * from #grade on every frame, so the next frame shows the new look.
+   */
+  apply(grade: ReturnType<typeof resolveGrade>): void {
+    this.#grade = grade;
+  }
+
   constructor(camera: ArcRotateCamera, settings: ReturnType<typeof resolveGrade>, year: number) {
-    this.#settings = settings;
+    this.#grade = settings;
     this.#warmth = eraWarmth(year);
     if (!Effect.ShadersStore["gradePassPixelShader"]) {
       Effect.ShadersStore["gradePassPixelShader"] = GRADE_FRAGMENT;
@@ -504,15 +559,15 @@ class GradePass {
     const highlight = Color3.FromHexString(settings.highlightTint.color);
     this.#process.onApply = (effect) => {
       effect.setFloat("time", this.#time);
-      effect.setFloat("saturation", this.#settings.saturation);
-      effect.setFloat("grain", this.#settings.grain.intensity);
-      effect.setFloat("grainSize", this.#settings.grain.size);
-      effect.setFloat("monochrome", this.#settings.grain.monochrome ? 1 : 0);
-      effect.setFloat("animated", this.#reduceMotion ? 0 : this.#settings.grain.animated ? 1 : 0);
+      effect.setFloat("saturation", this.#grade.saturation);
+      effect.setFloat("grain", this.#grade.grain.intensity);
+      effect.setFloat("grainSize", this.#grade.grain.size);
+      effect.setFloat("monochrome", this.#grade.grain.monochrome ? 1 : 0);
+      effect.setFloat("animated", this.#reduceMotion ? 0 : this.#grade.grain.animated ? 1 : 0);
       effect.setColor3("shadowLift", shadow);
-      effect.setFloat("shadowAmount", this.#settings.shadowLift.amount);
+      effect.setFloat("shadowAmount", this.#grade.shadowLift.amount);
       effect.setColor3("highlightTint", highlight);
-      effect.setFloat("highlightAmount", this.#settings.highlightTint.amount + this.#warmth);
+      effect.setFloat("highlightAmount", this.#grade.highlightTint.amount + this.#warmth);
     };
   }
 

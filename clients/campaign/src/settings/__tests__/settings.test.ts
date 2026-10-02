@@ -176,6 +176,28 @@ describe("settings migration", () => {
     const s = migrateSettings({ raw: { version: 99, uiScale: 90 }, readLegacy: () => null });
     expect(s).toEqual({ ...DEFAULT_SETTINGS });
   });
+
+  it("defaults the v3 look fields on older blobs and keeps valid ones", () => {
+    const fromV2 = migrateSettings({ raw: { version: 2, uiScale: 90 }, readLegacy: () => null });
+    expect(fromV2.version).toBe(3);
+    expect(fromV2.lookPreset).toBe("standard");
+    expect(fromV2.grainIntensity).toBe(DEFAULT_SETTINGS.grainIntensity);
+    const kept = migrateSettings({
+      raw: { version: 3, lookPreset: "noir", grainIntensity: 0.9 },
+      readLegacy: () => null,
+    });
+    expect(kept.lookPreset).toBe("noir");
+    expect(kept.grainIntensity).toBe(0.9);
+  });
+
+  it("falls back to Standard and clamps grain on corrupt look fields", () => {
+    const s = parseSettings({ lookPreset: "sepia-x", grainIntensity: 7 });
+    expect(s.lookPreset).toBe("standard");
+    expect(s.grainIntensity).toBe(1);
+    const s2 = parseSettings({ lookPreset: null, grainIntensity: -2 });
+    expect(s2.lookPreset).toBe("standard");
+    expect(s2.grainIntensity).toBe(0);
+  });
 });
 
 describe("settings store", () => {

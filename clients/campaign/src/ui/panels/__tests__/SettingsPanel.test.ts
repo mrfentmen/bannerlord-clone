@@ -19,6 +19,8 @@ const GRAPHICS_KEYS = [
   "powerPreference",
   "shadowQuality",
   "viewDistance",
+  "lookPreset",
+  "grainIntensity",
 ];
 const AUDIO_KEYS = ["masterVolume", "musicVolume", "sfxVolume"];
 const GAMEPLAY_KEYS = [
@@ -138,6 +140,16 @@ describe("settingsPanel", () => {
     expect(settings.get().invertMouseY).toBe(true);
   });
 
+  it("task 145: look preset select and grain slider write to the store", () => {
+    const { root } = open();
+    setSelect(root, "lookPreset", "noir");
+    expect(settings.get().lookPreset).toBe("noir");
+    setSlider(root, "grainIntensity", 0.9);
+    expect(settings.get().grainIntensity).toBeCloseTo(0.9, 10);
+    setSelect(root, "lookPreset", "gritty");
+    expect(settings.get().lookPreset).toBe("gritty");
+  });
+
   it("cancel reverts every change made since the panel opened", () => {
     const { root, closed } = open();
     setSlider(root, "renderScale", 1.5);
@@ -205,6 +217,11 @@ describe("settingsPanel", () => {
     search.value = "rumble";
     search.dispatchEvent(new Event("input", { bubbles: true }));
     expect(root.querySelector('[data-testid="setting-row-hapticsEnabled"]')).not.toBeNull();
+    // Task-145: searching "grain" finds the look preset and grain slider.
+    search.value = "grain";
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+    expect(root.querySelector('[data-testid="setting-row-lookPreset"]')).not.toBeNull();
+    expect(root.querySelector('[data-testid="setting-row-grainIntensity"]')).not.toBeNull();
   });
 
   it("graphics tab has the shadow, view-distance, and auto-detect controls", () => {

@@ -16,6 +16,7 @@ import {
   type DifficultySliderId,
 } from "../difficulty.js";
 import { migrateSettings, parseSettings, SETTINGS_VERSION } from "../schema.js";
+import { DEFAULT_GRAIN_INTENSITY } from "../../design/lookPresets.js";
 
 const IDS = DIFFICULTY_SLIDERS.map((s) => s.id);
 
@@ -123,12 +124,14 @@ describe("preset helpers", () => {
 });
 
 describe("difficulty in the settings schema", () => {
-  it("is version 2 and defaults v1 blobs to normal difficulty", () => {
-    expect(SETTINGS_VERSION).toBe(2);
+  it("is version 3 and defaults v1 blobs to normal difficulty", () => {
+    expect(SETTINGS_VERSION).toBe(3);
     const s = migrateSettings({ raw: { version: 1, renderScale: 1.5 }, readLegacy: () => null });
-    expect(s.version).toBe(2);
+    expect(s.version).toBe(3);
     expect(s.difficulty).toEqual(DEFAULT_DIFFICULTY);
     expect(s.renderScale).toBe(1.5); // the rest of the v1 blob survives
+    expect(s.lookPreset).toBe("standard"); // v3 fields default on old blobs
+    expect(s.grainIntensity).toBe(DEFAULT_GRAIN_INTENSITY);
   });
 
   it("parseSettings keeps a valid stored difficulty", () => {

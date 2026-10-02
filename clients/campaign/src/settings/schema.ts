@@ -17,8 +17,14 @@ import {
   parseDifficulty,
   type DifficultySettings,
 } from "./difficulty.js";
+import {
+  DEFAULT_GRAIN_INTENSITY,
+  clampGrainIntensity,
+  lookPresetFor,
+  type LookPresetId,
+} from "../design/lookPresets.js";
 
-export const SETTINGS_VERSION = 2;
+export const SETTINGS_VERSION = 3;
 
 /** The UI-scale steps the HUD offers (task 17: 80–150%). Anything else is clamped to the nearest. */
 export const UI_SCALE_STEPS = [80, 90, 100, 115, 130, 150] as const;
@@ -68,6 +74,10 @@ export interface Settings {
   shadowQuality: ShadowQuality;
   /** Draw distance: camera far plane + fog density. Applied live. */
   viewDistance: ViewDistance;
+  /** Film grain + color grading preset (task 145). Live: the scene re-grades. */
+  lookPreset: LookPresetId;
+  /** Grain intensity slider, 0..1. Live: scales the resolved grain; 0 disables. */
+  grainIntensity: number;
   /** Mouse orbit/zoom multiplier on the 3D canvas. Live. */
   mouseSensitivity: number;
   /** Invert mouse orbit axes. Live. */
@@ -122,6 +132,8 @@ export const DEFAULT_SETTINGS: Settings = {
   powerPreference: "default",
   shadowQuality: "off",
   viewDistance: "far",
+  lookPreset: "standard",
+  grainIntensity: DEFAULT_GRAIN_INTENSITY,
   mouseSensitivity: 1,
   invertMouseX: false,
   invertMouseY: false,
@@ -209,6 +221,8 @@ export function parseSettings(raw: unknown): Settings {
     powerPreference: pickEnum(v.powerPreference, POWER_PREFERENCES, DEFAULT_SETTINGS.powerPreference),
     shadowQuality: pickEnum(v.shadowQuality, SHADOW_QUALITIES, DEFAULT_SETTINGS.shadowQuality),
     viewDistance: pickEnum(v.viewDistance, VIEW_DISTANCES, DEFAULT_SETTINGS.viewDistance),
+    lookPreset: lookPresetFor(v.lookPreset).id,
+    grainIntensity: clampGrainIntensity(v.grainIntensity),
     mouseSensitivity: pickNumber(v.mouseSensitivity, 0.25, 3, DEFAULT_SETTINGS.mouseSensitivity),
     invertMouseX: v.invertMouseX === true,
     invertMouseY: v.invertMouseY === true,
@@ -251,7 +265,8 @@ export interface MigrationInput {
 /**
  * Bring any stored blob up to the current schema. Version upgrades chain here:
  * v0 (unversioned) -> v1 absorbed the legacy uiScale key; v1 -> v2 added the
- * difficulty sliders (parseSettings defaults them for older blobs).
+ * difficulty sliders; v2 -> v3 added the look preset + grain intensity
+ * (parseSettings defaults them for older blobs).
  * Unknown future versions fall back to defaults rather than pretending to
  * understand them.
  */

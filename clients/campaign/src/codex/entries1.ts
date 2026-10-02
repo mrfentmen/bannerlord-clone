@@ -430,6 +430,18 @@ export const SETTINGS_ENTRIES: CodexEntry[] = [
     ["setting-graphics-presets"],
   ),
   e(
+    "setting-look-preset",
+    "Look preset and film grain",
+    "settings",
+    "Five color-grading looks plus a film grain intensity slider.",
+    [
+      "The look preset re-grades the whole 3D scene: Standard is the art-directed grade; Gritty pushes grain and drains colour; Noir goes near-monochrome with a heavy vignette; Vintage warms and fades like archive film; Cinematic deepens the grade with restrained grain.",
+      "The grain intensity slider scales the resolved film grain from 0% (grain off) to 100% (about two and a half times the default). Both apply immediately, with no reload, and low graphics quality still drops grain entirely — the slider cannot re-enable what low quality removes.",
+    ],
+    ["setting:lookPreset", "setting:grainIntensity", "look", "preset", "grade", "grain", "film", "graphics"],
+    ["setting-graphics-presets"],
+  ),
+  e(
     "setting-auto-detect",
     "Automatic quality detection",
     "settings",

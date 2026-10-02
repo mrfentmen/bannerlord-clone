@@ -293,6 +293,7 @@ function applySettingsLive(): void {  const s = settings.get();
     scene.applyShadowQuality(s.shadowQuality);
     scene.applyViewDistance(s.viewDistance);
     scene.setReduceMotion(s.reduceMotion);
+    scene.applyLook(s.lookPreset, s.grainIntensity);
   }
 }
 applyUiScale(settings.get().uiScale);
@@ -399,6 +400,8 @@ scene = createCampaignScene({
   powerPreference: settings.get().powerPreference,
   terrainSamples: settings.get().terrainDetail === "low" ? 128 : 256,
   maxFps: settings.get().maxFps,
+  lookPreset: settings.get().lookPreset,
+  grainIntensity: settings.get().grainIntensity,
 });
 
 // Task 30: real draw-call counts for the perf overlay, from Babylon's own

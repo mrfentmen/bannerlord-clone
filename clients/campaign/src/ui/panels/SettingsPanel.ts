@@ -22,6 +22,7 @@ import {
   type Settings,
   type GraphicsQuality,
 } from "../../settings/index.js";
+import { LOOK_PRESETS } from "../../design/lookPresets.js";
 
 export interface SettingsPanelOptions {
   onClose: () => void;
@@ -140,6 +141,21 @@ const CONTROLS: ControlDef[] = [
         { value: "ultra", label: "Ultra" },
       ],
     },
+  },
+  {
+    key: "lookPreset", tab: "graphics", label: "Look preset",
+    hint: "Film grain + color grading preset. Applies immediately.",
+    keywords: ["look", "preset", "grade", "grading", "film", "color", "noir", "cinematic", "gritty", "vintage"],
+    kind: {
+      type: "select",
+      options: LOOK_PRESETS.map((p) => ({ value: p.id, label: `${p.name} — ${p.blurb}` })),
+    },
+  },
+  {
+    key: "grainIntensity", tab: "graphics", label: "Grain intensity",
+    hint: "How much film grain the scene renders. 0% turns grain off. Applies immediately.",
+    keywords: ["grain", "film", "noise", "grit"],
+    kind: { type: "slider", min: 0, max: 1, step: 0.05, format: pct },
   },
   {
     key: "masterVolume", tab: "audio", label: "Master volume",
