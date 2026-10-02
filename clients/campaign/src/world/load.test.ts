@@ -34,9 +34,10 @@ describe("terrarium elevation decoding", () => {
   });
 
   it("reads a real region file with a real tile list", () => {
-    // The region is the Colorado Front Range: 1500 m on the plains to over 4400 m on
-    // the continental divide. A decoder that is subtly wrong still returns numbers, so
-    // what catches it is the tile list being real rather than a hand-written example.
+    // The region is the Ohio River Valley: floodplain along the river to the Appalachian
+    // ridge east of the Appalachians. A decoder that is subtly wrong still returns
+    // numbers, so what catches it is the tile list being real rather than a hand-written
+    // example.
     const path = fileURLToPath(new URL("../../public/world/region.json", import.meta.url));
     if (!existsSync(path)) {
       throw new Error("public/world/region.json is missing. Run `npm run fetch:world`.");
@@ -47,6 +48,56 @@ describe("terrarium elevation decoding", () => {
     expect(region.elevation.tileSize).toBe(256);
     expect(region.bbox.north).toBeGreaterThan(region.bbox.south);
     expect(region.bbox.east).toBeGreaterThan(region.bbox.west);
+  });
+
+  it("names a region whose bbox is the one the settlement data is inside", () => {
+    // The failure this guards against has already happened: `region.json` and
+    // `settlements.json` described two different regions in the same directory, so every
+    // settlement projected ~28x outside the map and `heightAt` returned 0 for all of
+    // them. The files are fetched by different tooling, so nothing else catches it.
+    const dir = fileURLToPath(new URL("../../public/world/", import.meta.url));
+    const region = JSON.parse(readFileSync(`${dir}region.json`, "utf8")) as RegionFile;
+    const settlements = JSON.parse(readFileSync(`${dir}settlements.json`, "utf8")) as {
+      settlements: { lat: number; lon: number }[];
+    };
+    expect(settlements.settlements.length).toBeGreaterThan(0);
+    for (const s of settlements.settlements) {
+      expect(s.lat).toBeGreaterThanOrEqual(region.bbox.south);
+      expect(s.lat).toBeLessThanOrEqual(region.bbox.north);
+      expect(s.lon).toBeGreaterThanOrEqual(region.bbox.west);
+      expect(s.lon).toBeLessThanOrEqual(region.bbox.east);
+    }
+  });
+
+  it("has a boot tier small enough to fetch at startup, and a larger detail tier", () => {
+    // The client blocks on every tile in `elevation` before it draws. The Ohio bbox at
+    // zoom 12 is 2,236 tiles and ~250 MB, so the boot list is the zoom-10 tier and the
+    // full-resolution list is a separate, lazily-fetched one.
+    const path = fileURLToPath(new URL("../../public/world/region.json", import.meta.url));
+    const region = JSON.parse(readFileSync(path, "utf8")) as RegionFile;
+    expect(region.elevation.zoom).toBe(10);
+    expect(region.elevation.tiles.length).toBeLessThanOrEqual(200);
+    expect(region.elevationDetail).toBeDefined();
+    expect(region.elevationDetail?.zoom).toBe(12);
+    expect(region.elevationDetail!.tiles.length).toBeGreaterThan(region.elevation.tiles.length);
+  });
+
+  it("has every boot tile on disk, because a missing one stops the map drawing", () => {
+    // `loadHeightfield` throws a retryable error on the first missing tile rather than
+    // drawing a hole, so a boot list naming an absent file means the map never appears.
+    const dir = fileURLToPath(new URL("../../public/world/", import.meta.url));
+    const region = JSON.parse(readFileSync(`${dir}region.json`, "utf8")) as RegionFile;
+    for (const tier of [region.elevation, region.elevationDetail]) {
+      if (!tier) continue;
+      const missing = tier.tiles.filter((t) => !existsSync(`${dir}${t.path}`));
+      if (tier === region.elevationDetail) {
+        // The detail tier is fetched on demand and never committed, so it is either
+        // entirely present or entirely absent. A partial one is a broken fetch.
+        expect(missing.length).toBe(tier.tiles.length);
+        continue;
+      }
+      expect(missing.map((t) => t.path)).toEqual([]);
+    }
   });
 });
 
@@ -89,8 +140,10 @@ describe("settlement classification from real populations", () => {
 
 describe("the hypsometric ramp", () => {
   it("bands the region's real altitude range", () => {
-    // Longmont sits at about 1540 m, Golden at 1730 m, the divide above 4000 m, so
-    // the ramp has to reach from the high plains to snow.
+    // The Ohio River Valley runs from about 150 m on the floodplain to over 1000 m on
+    // the Appalachian ridge in the east, so the ramp has to cover lowland through
+    // wooded ridge. These are the ramp's own band boundaries, checked for the colours
+    // it assigns and its saturation ceiling.
     expect(bandFor(1520).color).toBe("#6E6A55"); // dry prairie
     expect(bandFor(1750).color).toBe("#6E6A55"); // still prairie, the band ends at 1800
     expect(bandFor(1900).color).toBe("#7E7A5C"); // steppe

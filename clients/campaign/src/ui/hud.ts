@@ -763,8 +763,12 @@ export function dataSourcePanel(options: {
     dataRow("Retrieved", options.retrieved, "data"),
     dataRow("Detail", options.summary, "caption"),
     dataRow("Elevation", "NASA SRTM and USGS via AWS Open Data, terrarium tiles", "caption"),
-    dataRow("Roads and towns", "OpenStreetMap, ODbL 1.0", "caption"),
-    dataRow("Populations", "US Census Bureau, Vintage 2024 sub-county estimates", "caption"),
+    // Not OpenStreetMap: road, rail, and settlement geometry in the deployed world
+    // data is U.S. Census TIGER/Line, which is a US Government work in the public
+    // domain and carries no ODbL attribution requirement. See
+    // `public/world/DATA-MANIFEST.md` section 2.2.
+    dataRow("Roads, rail, and towns", "US Census Bureau, TIGER/Line — public domain", "caption"),
+    dataRow("Populations", "US Census Bureau, Vintage 2023 sub-county estimates", "caption"),
   );
   body.appendChild(mapList);
 

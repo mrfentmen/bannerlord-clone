@@ -1,19 +1,25 @@
 """Build the campaign client's wire-format files from the pipeline tables.
 
-Rowan's client (``clients/campaign``) defines the exact shapes it reads in
+The campaign client (``clients/campaign``) defines the exact shapes it reads in
 ``src/world/types.ts``: ``region.json``, ``settlements.json``, ``network.json``.
-The client's own ``public/world/`` data was fetched for the Northern Colorado
-Front Range as a stopgap before this pipeline landed; its DATA-MANIFEST.md
-section 5 names this module's output the authoritative replacement:
+This module's output is what it reads, deployed into
+``clients/campaign/public/world/`` by ``tools/deploy-wire-to-client.py``. Where the
+two disagree the pipeline wins and the client changes; its DATA-MANIFEST.md section 5
+records that rule.
 
-    "The client expects region.json, settlements.json, and network.json at the
-    shapes in src/world/types.ts ... Agent 1's export is authoritative and wins
-    wherever the two differ."
+The client's ``tools/fetch-world-data.mjs`` is *not* an alternative producer for this
+data. It always fetches the Northern Colorado Front Range, so running it over a
+deployed region replaces the pipeline's data with Colorado data — which is exactly how
+a Colorado ``region.json`` came to sit beside Ohio settlements and network files, with
+nothing recording which was current.
 
 What is converted, for the V1 region recorded in the ``regions`` table:
 
-  region.json      name, bbox, and the zoom-12 terrarium tile list covering the
-                   bbox, from the pipeline's V1 region decision.
+  region.json      name, bbox, and the terrarium tile lists covering the bbox, from
+                   the pipeline's V1 region decision. Two tiers: ``elevation`` is
+                   the zoom-10 boot list the client fetches before it draws, and
+                   ``elevationDetail`` is the full zoom-12 list, which is a
+                   fetchable artifact rather than a committed one.
   settlements.json every settlement whose coordinates fall inside the V1 bbox,
                    mapped to the client's WorldSettlementFile shape.
   network.json     every road/rail route segment touching the V1 bbox, with its
@@ -44,9 +50,16 @@ from typing import Any, Iterator
 # Constants. Declared, not magic: each has a comment saying where it comes from.
 # ---------------------------------------------------------------------------
 
-# Zoom level of the terrarium elevation tiles, matching the client's existing
+# Zoom levels of the terrarium elevation tiles, matching the client's existing
 # region.json (DATA-MANIFEST.md section 2.1: zoom 12, ~30 m per pixel).
-ELEVATION_ZOOM = 12
+#
+# Two tiers, because the client's loader fetches every tile in `elevation` before it
+# draws anything and the V1 bbox is 3.7 degrees wide: at zoom 12 that is 2,236 tiles
+# and about 250 MB, which is not a boot payload. The boot tier is zoom 10 - 154
+# tiles, about 8 MB - which is coarse enough to fetch at startup and fine enough to
+# stand in for the real terrain until the detail tier is fetched in the background.
+ELEVATION_BOOT_ZOOM = 10
+ELEVATION_DETAIL_ZOOM = 12
 ELEVATION_TILE_SIZE = 256
 ELEVATION_ENCODING = "terrarium"
 ELEVATION_FORMULA = "elevation_metres = R * 256 + G + B / 256 - 32768"
@@ -88,7 +101,7 @@ def display_name(census_name: str) -> str:
     return stripped or census_name
 
 
-def slippy_tile(lon: float, lat: float, zoom: int = ELEVATION_ZOOM) -> tuple[int, int]:
+def slippy_tile(lon: float, lat: float, zoom: int = ELEVATION_DETAIL_ZOOM) -> tuple[int, int]:
     """Standard slippy-map tile (x, y) for a lon/lat at the given zoom."""
     n = 2**zoom
     x = math.floor((lon + 180.0) / 360.0 * n)
@@ -102,7 +115,7 @@ def slippy_tile(lon: float, lat: float, zoom: int = ELEVATION_ZOOM) -> tuple[int
 
 
 def tiles_for_bbox(
-    south: float, west: float, north: float, east: float, zoom: int = ELEVATION_ZOOM
+    south: float, west: float, north: float, east: float, zoom: int = ELEVATION_DETAIL_ZOOM
 ) -> list[dict[str, Any]]:
     """Every zoom-``zoom`` terrarium tile intersecting the bbox, in tile order."""
     x_west, y_north = slippy_tile(west, north, zoom)
@@ -204,14 +217,18 @@ class WireBuildResult:
     road_count: int
     rail_count: int
     tile_count: int
+    detail_tile_count: int = 0
     warnings: list[str] = field(default_factory=list)
 
     def log_lines(self) -> list[str]:
         return [
             f"wire: region {self.region_name!r}",
             f"wire: {self.settlement_count} settlements, "
-            f"{self.road_count} roads, {self.rail_count} rail segments, "
-            f"{self.tile_count} elevation tiles",
+            f"{self.road_count} roads, {self.rail_count} rail segments",
+            f"wire: {self.tile_count} boot elevation tiles at zoom {ELEVATION_BOOT_ZOOM}, "
+            f"{self.detail_tile_count} detail tiles at zoom {ELEVATION_DETAIL_ZOOM}",
+            f"wire: the boot tier is committed; fetch the detail tier with "
+            f"`python -m worlddata fetch-elevation --region <region.json> --out <dir> --tier detail`",
             *(f"wire: WARNING: {w}" for w in self.warnings),
             f"wire: wrote {self.out_dir}/region.json, settlements.json, network.json",
         ]
@@ -259,7 +276,12 @@ def build_wire_files(
     fips_to_name = {str(r["state_fips"]): str(r["name"]) for r in state_profiles}
 
     # --- region.json ---------------------------------------------------------
-    tiles = tiles_for_bbox(south, west, north, east)
+    # Two tile tiers. `elevation` is what the client fetches before it draws, so it
+    # is the zoom-10 boot list; `elevationDetail` is the full-resolution list, which
+    # is fetched on demand and never committed. The client only reads `elevation` at
+    # startup, so a region with no boot tier would draw nothing at all.
+    boot_tiles = tiles_for_bbox(south, west, north, east, zoom=ELEVATION_BOOT_ZOOM)
+    detail_tiles = tiles_for_bbox(south, west, north, east, zoom=ELEVATION_DETAIL_ZOOM)
     settlements_all = _load_table(dist, exports, "settlements")
     in_region = [
         s
@@ -276,9 +298,16 @@ def build_wire_files(
         "elevation": {
             "encoding": ELEVATION_ENCODING,
             "formula": ELEVATION_FORMULA,
-            "zoom": ELEVATION_ZOOM,
+            "zoom": ELEVATION_BOOT_ZOOM,
             "tileSize": ELEVATION_TILE_SIZE,
-            "tiles": tiles,
+            "tiles": boot_tiles,
+        },
+        "elevationDetail": {
+            "encoding": ELEVATION_ENCODING,
+            "formula": ELEVATION_FORMULA,
+            "zoom": ELEVATION_DETAIL_ZOOM,
+            "tileSize": ELEVATION_TILE_SIZE,
+            "tiles": detail_tiles,
         },
         "retrieved": retrieved,
         "stateCoverage": {
@@ -409,6 +438,7 @@ def build_wire_files(
         settlement_count=len(wire_settlements),
         road_count=len(roads),
         rail_count=len(rail),
-        tile_count=len(tiles),
+        tile_count=len(boot_tiles),
+        detail_tile_count=len(detail_tiles),
         warnings=warnings,
     )

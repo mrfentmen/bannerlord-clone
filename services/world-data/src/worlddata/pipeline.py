@@ -117,6 +117,55 @@ class PipelineResult:
         )
 
 
+# Which modules each cached stage's result is derived from, relative to the package
+# root. Adding a stage to stage caching means adding an entry here, which is what makes
+# the dependency explicit rather than remembered.
+_CACHED_STAGE_CODE = {
+    "boundaries": (
+        "transforms/boundaries.py",
+        "transforms/geometry.py",
+        "geo/shapefile.py",
+        "geo/geojson.py",
+        "geo/polygons.py",
+        "geo/wgs84.py",
+    ),
+    "routes": (
+        "transforms/roads.py",
+        "transforms/geometry.py",
+        "geo/shapefile.py",
+        "geo/polygons.py",
+        "geo/wgs84.py",
+    ),
+}
+
+
+def _stage_code(stage: str) -> tuple[Path, ...]:
+    """The modules a cached stage's result depends on, in a fixed order.
+
+    `cache.fingerprint` mixes these files' bytes into the stage's stamp, so editing
+    one of them invalidates that stage's cache. This is the only place a cached stage
+    declares its code: a stage that is not listed here is not cached, and a stage that
+    *is* cached without an entry is an error rather than a cache that quietly survives
+    an edit to the thing that produces it.
+
+    The list is per-stage rather than one module for both, because a change that
+    invalidates one does not have to invalidate the other. Adding a field to `Route`
+    has to miss the routes cache; a change to `cross_check_against_natural_earth` has
+    no business making the pipeline reread 137,000 polylines. `geo/shapefile.py` is in
+    both because both stages read their geometry through it.
+    """
+    package = Path(__file__).resolve().parent
+    try:
+        owned = _CACHED_STAGE_CODE[stage]
+    except KeyError:
+        raise WorldDataError(
+            f"{stage!r} is not one of the pipeline's cached stages "
+            f"({', '.join(sorted(_CACHED_STAGE_CODE))}), so it does not take part in stage caching; "
+            "add it here with the code it depends on if that changes"
+        ) from None
+    return tuple(package / name for name in owned)
+
+
 def _load_routes_for_cache(config: Config, settlement_points):
     """Group the route stage's three return values into the cache's shape."""
     segments, routes, notes = load_routes(config, settlement_points)
@@ -224,7 +273,9 @@ def run(
 
     # --- stage 3: boundaries ----------------------------------------------
     stage_start = time.perf_counter()
-    stamp = stage_cache.fingerprint(config.path, retrieved, "boundaries")
+    stamp = stage_cache.fingerprint(
+        config.path, retrieved, "boundaries", code=_stage_code("boundaries")
+    )
     ((state_boundaries, place_boundaries), boundary_notes), cache_note = stage_cache.cached(
         config.path_for("cache_dir"),
         "boundaries",
@@ -394,7 +445,7 @@ def run(
     # --- stage 10: routes --------------------------------------------------
     stage_start = time.perf_counter()
     routes_stamp = stage_cache.fingerprint(
-        config.path, retrieved, f"routes:{len(settlement_points)}"
+        config.path, retrieved, f"routes:{len(settlement_points)}", code=_stage_code("routes")
     )
     ((segments, routes), route_notes), cache_note = stage_cache.cached(
         config.path_for("cache_dir"),

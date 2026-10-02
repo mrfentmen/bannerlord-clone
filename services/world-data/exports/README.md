@@ -10,6 +10,8 @@ the portable Contract A deliverable.
 | File | Rows | Contents |
 |---|---|---|
 | `settlements` | 13,189 | Every settlement: id, name, state, section, size class, lat/lon, 2020 population base |
+| `notables` | 48,319 | Generated notable persons per settlement |
+| `place_boundaries` | 32,037 | Census place polygons, for settlement-to-polygon matching |
 | `state_profiles` | 51 | Per-state profile: 50 states + D.C. |
 | `sections` | 6 | The six sides and their states |
 | `section_ratings` | 30 | Six resource ratings × six sides (computed, then checked) |
@@ -29,11 +31,13 @@ JSONL) is excluded: it is render geometry, regenerable in ~3 minutes with
 --skip-postgres --reuse-stages`. The `routes` table above already carries the
 settlement-to-settlement edges the simulation needs.
 
-`place_boundaries` exported 0 rows in this run; it is omitted rather than
-shipped empty.
-
 ## Verification
 
+- Bundle self-consistency: `python -m worlddata verify-exports` checks each table's
+  JSONL, Parquet, `schema.json` and `MANIFEST.json` row counts against each other and
+  exits non-zero on any disagreement. `stamp-exports` re-derives the manifest's own
+  export lines from the files on disk, and touches no data. `tests/test_exports_bundle.py`
+  runs both, so the check is a gate rather than a command nobody types.
 - Spot-check: 36 settlements against an independent 2020 census figure —
   24 agree within 1%, 1 disagree (Nashville-Davidson, 3.83%, recorded as a
   finding), 11 unverified. See `docs/SPOT_CHECK.md`.

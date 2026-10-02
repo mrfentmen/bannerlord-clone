@@ -157,14 +157,26 @@ def test_build_wire_files_writes_the_three_wire_shapes(tiny_dist: Path, tmp_path
     assert result.road_count == 1
     assert result.rail_count == 1
     assert result.tile_count > 0
+    assert result.detail_tile_count > result.tile_count
     assert result.warnings == []
 
     region = json.loads((out / "region.json").read_text())
     assert region["name"] == "Test Valley"
     assert region["bbox"] == {"south": 37.0, "west": -86.0, "north": 38.0, "east": -85.0}
+    # Two tiers, because the client fetches the boot list before it draws anything
+    # and the zoom-12 list over a real V1 bbox is 2,236 tiles and about 250 MB.
     assert region["elevation"]["encoding"] == "terrarium"
-    assert region["elevation"]["zoom"] == 12
+    assert region["elevation"]["zoom"] == 10
     assert region["elevation"]["tiles"], "tile list must not be empty"
+    assert region["elevationDetail"]["zoom"] == 12
+    assert region["elevationDetail"]["tiles"]
+    assert len(region["elevationDetail"]["tiles"]) > len(region["elevation"]["tiles"])
+    assert all(
+        tile["path"].startswith("elevation/12/") for tile in region["elevationDetail"]["tiles"]
+    ), "the detail tier must use its own zoom directory, or it collides with the boot tier"
+    assert all(
+        tile["path"].startswith("elevation/10/") for tile in region["elevation"]["tiles"]
+    ), "the boot tier must use its own zoom directory"
     assert region["retrieved"] == "2026-09-30"
 
     settlements = json.loads((out / "settlements.json").read_text())

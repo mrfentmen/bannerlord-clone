@@ -526,16 +526,35 @@
     "spot check: 11 spot-check rows have no reference figure and are marked 'unverified'. They are reported rather than dropped, because a check that silently shrinks to the rows it could satisfy is not a check.",
     "spot_check: stage took 56.3s; process peak memory so far 575 MB",
     "schema: published 177,179 rows across 11 tables to docs/world_data.schema.json and dist/schema.json",
+    "export: route_segments 137,315 rows, route_segments.jsonl.gz (63,272,693 B) + route_segments.parquet (55,428,477 B)",
     "export: state_profiles 51 rows, state_profiles.jsonl.gz (12,169 B) + state_profiles.parquet (28,691 B)",
     "export: sections 6 rows, sections.jsonl.gz (1,862 B) + sections.parquet (4,103 B)",
     "export: section_ratings 30 rows, section_ratings.jsonl.gz (3,130 B) + section_ratings.parquet (7,258 B)",
     "export: settlements 13,189 rows, settlements.jsonl.gz (1,113,488 B) + settlements.parquet (959,338 B)",
+    "export: notables 48,319 rows, notables.jsonl.gz (910,724 B) + notables.parquet (716,303 B)",
     "export: routes 13,274 rows, routes.jsonl.gz (612,655 B) + routes.parquet (584,070 B)",
-    "export: route_segments 137,315 rows, route_segments.jsonl.gz (63,272,693 B) + route_segments.parquet (55,428,477 B)",
     "export: state_boundaries 51 rows, state_boundaries.jsonl.gz (3,005 B) + state_boundaries.parquet (4,323 B)",
-    "export: place_boundaries 0 rows, place_boundaries.jsonl.gz (1,027 B) + place_boundaries.parquet (345 B)",
+    "export: place_boundaries 32,037 rows, place_boundaries.jsonl.gz (1,782,387 B) + place_boundaries.parquet (1,784,207 B)",
     "export: ports 81 rows, ports.jsonl.gz (3,147 B) + ports.parquet (4,608 B)",
     "export: terrain_samples 13,181 rows, terrain_samples.jsonl.gz (323,459 B) + terrain_samples.parquet (312,117 B)",
     "export: regions 1 rows, regions.jsonl.gz (1,377 B) + regions.parquet (5,388 B)"
-  ]
+  ],
+  "bundle_stamp": {
+    "stamped_at": "2026-10-02T01:34:56+00:00",
+    "bundle": "exports",
+    "tables": {
+      "state_profiles": 51,
+      "sections": 6,
+      "section_ratings": 30,
+      "settlements": 13189,
+      "notables": 48319,
+      "routes": 13274,
+      "state_boundaries": 51,
+      "place_boundaries": 32037,
+      "ports": 81,
+      "terrain_samples": 13181,
+      "regions": 1
+    },
+    "note": "The `export:` lines in run_diagnostics were re-measured from the files in this bundle, not written by the run recorded above them. Row counts and file sizes come from the files; no data was changed. The run record is earlier than the tables because the tables were regenerated after it, and a full re-run was not possible from this network - see datasets[].declared_gaps and the sources that refuse automated requests. CONSTITUTION.md section 1.1: a wrong value is fixed at import, which is why this re-derives the record instead of editing it."
+  }
 }

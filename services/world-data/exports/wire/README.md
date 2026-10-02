@@ -10,14 +10,19 @@ defined in `clients/campaign/src/world/types.ts`:
 
 | File | Contents |
 |---|---|
-| `region.json` | V1 region name, bbox, and the zoom-12 terrarium tile list |
+| `region.json` | V1 region name, bbox, state coverage, and two terrarium tile tiers |
 | `settlements.json` | 487 settlements inside the V1 bbox, biggest first |
 | `network.json` | 439 road + 4,653 rail segments with real TIGER/Line geometry |
 
-The client's own `public/world/` data covers the Northern Colorado Front
-Range, fetched as a stopgap before this pipeline landed. Its DATA-MANIFEST.md
-(section 5) names this directory's files the authoritative replacement:
-"Agent 1's export is authoritative and wins wherever the two differ."
+These are the files the client actually boots from. They are deployed into
+`clients/campaign/public/world/` by `tools/deploy-wire-to-client.py`, and
+`tests/test_exports_bundle.py` fails if the deployed copies drift from this
+directory.
+
+The client's own `tools/fetch-world-data.mjs` is **not** how this data is produced.
+It always fetches the Northern Colorado Front Range, so running it over a deployed
+region replaces Ohio data with Colorado data. The region is chosen in
+`config/world_data.toml` under `[v1]`, not by that script.
 
 ## Provenance
 
@@ -30,9 +35,34 @@ Range, fetched as a stopgap before this pipeline landed. Its DATA-MANIFEST.md
 - Roads/rail: U.S. Census Bureau, TIGER/Line 2023 Primary/Secondary Roads and
   Rail Lines. Public domain, no attribution required. Geometry is the real
   polyline from the `route_segments` table, reprojected to `[lat, lon]`.
-- Elevation tiles are **not** bundled: `region.json` lists the 2,236 zoom-12
-  terrarium tiles covering the bbox; fetch them from the AWS Open Data
-  `elevation-tiles-prod` bucket the same way the client's existing tooling does.
+- Every one of the 487 settlements carries a real population figure and a
+  `populationSource` citation. There are no null populations in this region.
+
+## Elevation tiles: two tiers
+
+`region.json` names two tile tiers, and only the first is a boot dependency:
+
+| Tier | Key | Zoom | Tiles for this bbox | On disk |
+|---|---|---:|---:|---|
+| Boot | `elevation` | 10 | 154 (11 × 14) | Committed, ~7.9 MB |
+| Detail | `elevationDetail` | 12 | 2,236 | Fetched on demand, ~250 MB |
+
+The client fetches every tile in `elevation` before it draws and throws a
+retryable error on the first missing one, so the boot tier must be complete on
+disk. At zoom 12 this bbox needs 2,236 tiles, which is not a thing to block a
+game start on, so the full-resolution list is a separate key.
+
+To fetch a tier:
+
+```bash
+python -m worlddata fetch-elevation \
+  --region exports/wire/region.json \
+  --out ../../clients/campaign/public/world \
+  --tier boot
+```
+
+The tile list always comes from the client's own `region.json`, so re-bounding the
+region cannot leave a stale list behind.
 
 ## Regenerating
 
@@ -40,6 +70,7 @@ Range, fetched as a stopgap before this pipeline landed. Its DATA-MANIFEST.md
 cd services/world-data
 python -m worlddata wire            # reads dist/, writes dist/wire/
 python -m worlddata wire --out exports/wire   # refresh this directory
+python tools/deploy-wire-to-client.py         # deploy into the client
 ```
 
 The wire step needs the full pipeline output (`dist/route_segments.parquet`

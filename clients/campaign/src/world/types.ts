@@ -13,17 +13,41 @@
 /** Real public datasets. See `public/world/DATA-MANIFEST.md`. */
 export type DataProvenance = "aws-terrarium" | "openstreetmap" | "us-census" | "agent-1-export";
 
-/** `region.json`. The client reads its bounds and tile list from here, never a constant. */
+/** One elevation tile tier: a zoom, a tile size, and the tiles themselves. */
+export interface ElevationTier {
+  encoding: "terrarium";
+  formula: string;
+  zoom: number;
+  tileSize: number;
+  tiles: { z: number; x: number; y: number; path: string }[];
+}
+
+/**
+ * `region.json`. The client reads its bounds and tile list from here, never a constant.
+ *
+ * The region is the Ohio River Valley (see `public/world/DATA-MANIFEST.md`), built by
+ * `services/world-data` from Census TIGER/Line data and published as
+ * `exports/wire/region.json`.
+ */
 export interface RegionFile {
   name: string;
   bbox: { south: number; west: number; north: number; east: number };
-  elevation: {
-    encoding: "terrarium";
-    formula: string;
-    zoom: number;
-    tileSize: number;
-    tiles: { z: number; x: number; y: number; path: string }[];
-  };
+  /**
+   * The boot tier: every tile the loader fetches before it draws anything.
+   *
+   * Zoom 10 over this region is 154 tiles, about 8 MB. The detail tier below is
+   * 2,236 tiles and about 250 MB, which is why it is a separate, lazily-fetched
+   * list rather than what the game blocks on. The loader reads only this tier, so
+   * a region file with no boot tier would draw nothing.
+   */
+  elevation: ElevationTier;
+  /**
+   * The full-resolution tile list. The list itself is committed here; the ~250 MB of
+   * PNGs it names are not — they are fetched on demand with
+   * `worlddata fetch-elevation --tier detail`. Optional, because a region file with
+   * only a boot tier is valid and is what a region without a detail tier ships.
+   */
+  elevationDetail?: ElevationTier;
   retrieved: string;
   /**
    * What can honestly be said about which state this region is in.
