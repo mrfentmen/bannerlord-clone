@@ -257,3 +257,7 @@
   color: var(--ink-700);
   font-size: 0.85rem;
 }
+
+/* A commander who got away is a different notice from one who was taken: the
+   border says which, and the heading spells it out in words. */
+.aa-commander[data-kind="escaped"] { border-left-color: var(--status-warning-mark); }
