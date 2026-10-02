@@ -28,3 +28,4 @@ export * from "./scorePanel.js";
 export * from "./difficulty.js";
 export * from "./resetCampaign.js";
 export { rarityTier, sortAchievementsByRarity, type RankedAchievement, type RarityTier, type UnlockRates } from "./achievementRarity.js";
+export { campaignStats, campaignStatsBreakdown, lifetimeTotals, recordCampaignStats, removeCampaignStats, type CampaignStatsEntry } from "./campaignStats.js";
