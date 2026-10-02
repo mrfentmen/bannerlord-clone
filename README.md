@@ -1,23 +1,14 @@
 # README.md
-
 ## What this is
-
 A browser-based, full 3D (x, y, z) game in the spirit of Mount & Blade II: Bannerlord, set in the modern day on real-world geography. You start as a nobody, build a party, fight real-time battles with crowds of units, take over towns and cities, and try to keep them alive.
-
 ## The one premise
-
 **Everything affects everything.** One change ripples into ten others, and the player can trace the chain afterward.
-
 You pick a side, pick a state, and play a Bannerlord-style campaign across America: build a party, march armies (which costs time, food, and money), take towns from hundreds of rulers, and keep what you take alive.
-
 - Take a city, fail to feed it, and the council votes you out.
 - A sick town with no cure delivered loses its whole population.
 - Bandits rob a medicine caravan, a clinic runs dry, an outbreak spreads, workers die, farms go unharvested, food runs short, and unrest rises until the town turns on you.
-
 No chain is scripted. Each one emerges from independent systems reading and writing shared state. See `CAUSE_EFFECT.md`.
-
 ## Read these in order
-
 1. `README.md`: this file.
 2. `CONSTITUTION.md`: non-negotiable build rules. Wins any conflict.
 3. `DESIGN.md`: the game itself, from the player's point of view.
@@ -32,16 +23,18 @@ No chain is scripted. Each one emerges from independent systems reading and writ
 12. `PHASES.md`: build order with exit criteria.
 13. `TASKS.md`: granular checklist matching the phases.
 14. `CHANGELOG.md`: created on first task, logs everything built and everything unresolved.
-
 ## Tech stack (locked, see CONSTITUTION.md)
-
 - Rendering: Babylon.js
 - Backend: Go
 - Database: Postgres
-- Deployment: built locally, deployed via Cloudflare (see SPEC.md section 9 for a hosting decision that needs making)
+- Deployment: built locally, deployed via Cloudflare. Hosting decided 2026-10-02: Cloudflare only.
 - 3D assets: free models from Sketchfab, CGTrader, and Free3D, tracked per ASSETS.md
 - World data: real geography and population data, never hand-typed
-
-## Current status
-
-Design docs rewritten. No code yet. Next step is Phase 0 in `PHASES.md`.
+## Current status (as of 2026-10-02)
+Design docs rewritten; real code now exists and is under active development:
+- **World data** (`services/world-data`, `data/cities`): real geography and city data pipelines.
+- **Simulation** (`services/simulation`, Go): headless battle simulation (morale, rout) with a balance config and tests.
+- **Campaign client** (`clients/campaign`, Babylon.js + TypeScript): 3D campaign map, settings and achievements panels, gamepad and touch input, minimap, weather and time-of-day rendering — test suite in the hundreds.
+- **Assets** (`tools/`, `assets/`): fetch and process pipeline, processed 3D models, composed music and SFX, per-asset license tracking.
+- **Edge** (`workers/router`): Cloudflare worker deployed.
+Open items and the full build log: `CHANGELOG.md`. Build order and exit criteria: `PHASES.md`.
