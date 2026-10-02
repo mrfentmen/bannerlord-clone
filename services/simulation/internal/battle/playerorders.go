@@ -34,22 +34,28 @@ import (
 //
 // # WHAT THIS FILE WILL NOT DO
 //
-// Five of the fourteen names are not here: change-spacing, volley-fire,
-// fire-at-will, take-cover, and flank. They are not refused because they are bad
-// orders. They are refused because the formation layer has no definition of any of
-// them, and the layer's own rule is that accepting a shape or an order it cannot
-// carry out is the silent stub this codebase treats as a bug. The tactics layer
-// (internal/command) does define them, and an order that belongs there is a
-// tactics commander's business. PlanGroupOrder says so by name rather than
-// pretending the order set is smaller than it is.
+// Four of the fourteen names are not here: volley-fire, fire-at-will, take-cover,
+// and flank. They are not refused because they are bad orders. They are refused
+// because the formation layer has no definition of any of them, and the layer's
+// own rule is that accepting a shape or an order it cannot carry out is the silent
+// stub this codebase treats as a bug. The tactics layer (internal/command) does
+// define them, and an order that belongs there is a tactics commander's business.
+// PlanGroupOrder says so by name rather than pretending the order set is smaller
+// than it is.
 //
-// move and follow ARE here, and they are the two that needed no new number to
-// define. A shape walks to a point at the file's walking pace, which is the same
-// pace an advance uses because it is the same walk, and it stops when its anchor
-// is inside its own spacing of where it was told to go. A shape that follows
-// another stands immediately behind it, one rank of room back, where the room is
-// the file's own rank_spacing and the depths are the two shapes' own. Every
-// constant either of them needs is therefore one the layer already had.
+// move, follow and change-spacing ARE here, and they are the three that needed no
+// shape of its own to define. A shape walks to a point at the file's walking pace,
+// which is the same pace an advance uses because it is the same walk, and it stops
+// when its anchor is inside its own spacing of where it was told to go. A shape
+// that follows another stands immediately behind it, one rank of room back, where
+// the room is the file's own rank_spacing and the depths are the two shapes' own.
+// change-spacing scales the spacings a shape is already drawn at, and the bounds
+// that scale is held to live in the balance file next to the spacings, because
+// they are a statement about how tight a rank may get before men stand inside each
+// other rather than about how a wire order is parsed.
+//
+// Every constant the three of them need is therefore one the layer already had,
+// except the two scale bounds, and those are balance decisions rather than code.
 //
 // follow was refused here for most of a day on the grounds that following is a
 // question about another formation's anchor and this layer commands only its own
@@ -87,9 +93,16 @@ type OrderParams struct {
 	// than a zero that means the middle of the field.
 	X, Y     float64
 	HasPoint bool
+	// Spacing is the scale for change-spacing, as a fraction of the spacing in
+	// the balance file, and it is read only when HasSpacing is true for the same
+	// reason HasPoint is: 1.0 is a real spacing a player can order - the one the
+	// balance file already states - so "no scale given" has to be its own value
+	// rather than a 1.0 that means the same thing for two different reasons.
+	Spacing    float64
+	HasSpacing bool
 	// FollowGroup is the index of the group to keep station behind, and HasFollow
-	// says whether one was named, for the same reason HasPoint does: group 0 is a
-	// real group and "no group" is not group 0.
+	// says whether one was named, for the same reason HasPoint does: group 0 is
+	// a real group and "no group" is not group 0.
 	FollowGroup int
 	HasFollow   bool
 }
@@ -108,6 +121,7 @@ var executableOrders = map[OrderName]string{
 	OrderFallBack:        "break contact, keeping the shape",
 	OrderRetreat:         "break contact, keeping the shape",
 	OrderChangeFormation: "form into the named shape",
+	OrderChangeSpacing:   "close up or open out the space between men",
 	OrderFaceDirection:   "face a fixed bearing instead of the enemy",
 	OrderTacticMove:      "walk the shape to a point on the field",
 	OrderFollow:          "keep station behind another group of this side",
@@ -116,11 +130,10 @@ var executableOrders = map[OrderName]string{
 // unexecutableOrders says what happened to the names this layer does not carry
 // out, so the refusal can name the road rather than only the wall.
 var unexecutableOrders = map[OrderName]string{
-	OrderChangeSpacing: "spacing is a parameter of the shape in the balance file, not something a commander changes mid-battle",
-	OrderVolleyFire:    "fire discipline belongs to the aimed-fire stage, which has no seam for it",
-	OrderFireAtWill:    "fire discipline belongs to the aimed-fire stage, which has no seam for it",
-	OrderTakeCover:     "cover posts are a shape this layer does not implement and ParseFormation refuses by name",
-	OrderFlank:         "the tactics layer plans a flanking move; a formation that simply turned towards a wing would arrive at the wrong place",
+	OrderVolleyFire: "fire discipline belongs to the aimed-fire stage, which has no seam for it",
+	OrderFireAtWill: "fire discipline belongs to the aimed-fire stage, which has no seam for it",
+	OrderTakeCover:  "cover posts are a shape this layer does not implement and ParseFormation refuses by name",
+	OrderFlank:      "the tactics layer plans a flanking move; a formation that simply turned towards a wing would arrive at the wrong place",
 }
 
 // PlanGroupOrder turns one wire order name and its parameters into the change it
@@ -154,6 +167,25 @@ func PlanGroupOrder(name OrderName, p OrderParams) (amendment, error) {
 				"change-formation needs the shape to form and %q is not one this layer can draw", p.Formation)
 		}
 		return amendment{kind: f, saysKind: true, describes: "change-formation: " + f.String()}, nil
+	case OrderChangeSpacing:
+		if !p.HasSpacing {
+			return amendment{}, newFormationError("PlanGroupOrder", "OrderParams.Spacing",
+				"change-spacing needs a scale and none was given; the spacing in the balance file is a "+
+					"scale of exactly 1.0, so send that if it is what was meant")
+		}
+		if !isFinite(p.Spacing) || p.Spacing <= 0 {
+			return amendment{}, newFormationError("PlanGroupOrder", "OrderParams.Spacing",
+				"change-spacing was given the scale %g, which is not a scale at all; zero puts every man "+
+					"in a rank on the same point and a negative one draws the shape inside out", p.Spacing)
+		}
+		// The balance file's own bounds are checked in NewFormationCommander, where
+		// the config is: a wire order is planned without one, and refusing it here
+		// against numbers this package does not have would mean keeping a second
+		// copy of them. What this layer can check without the config is that the
+		// scale is the right SHAPE of thing, which is what is checked above.
+		scale := p.Spacing
+		return amendment{spacing: &scale, saysSpacing: true,
+			describes: fmt.Sprintf("change-spacing: %.4gx the balance file spacing", scale)}, nil
 	case OrderTacticMove:
 		if !p.HasPoint {
 			return amendment{}, newFormationError("PlanGroupOrder", "OrderParams.X",
@@ -222,14 +254,21 @@ type amendment struct {
 	facing Facing
 	at     *Destination
 	follow *int
+	// spacing is the scale a change-spacing order asks for, and saysSpacing says
+	// whether one was asked for. It is separate from a bare *float64 on the order
+	// for the reason HasSpacing is on the parameters: 1.0 is a real spacing, so a
+	// nil that meant "one" would be indistinguishable from a player who asked for
+	// exactly the balance file's spacing.
+	spacing *float64
 	// saysKind, saysOrder, and saysFacing are which fields the order spoke to.
 	// An order that does not speak to a field leaves it alone, and that is the
 	// whole reason "advance" can be sent without naming a shape.
-	saysKind   bool
-	saysOrder  bool
-	saysFacing bool
-	saysFollow bool
-	describes  string
+	saysKind    bool
+	saysOrder   bool
+	saysFacing  bool
+	saysFollow  bool
+	saysSpacing bool
+	describes   string
 }
 
 // wireMovement is the wire name to formation order mapping, kept in one place so
@@ -500,6 +539,16 @@ func (a amendment) applyTo(g GroupOrder) GroupOrder {
 			follow := *a.follow
 			g.Follow = &follow
 		}
+	}
+	// A spacing scale is set by the one order that speaks to it, and every other
+	// order leaves whatever the commander last asked for standing. That is the
+	// opposite of Follow's rule above and the reason is that a shape is still a
+	// shape after a new order: a player who forms a wedge does not thereby mean to
+	// throw away the spacing he set a moment ago. Forming, moving, facing and
+	// following all compose with a spacing order because none of them is one.
+	if a.saysSpacing && a.spacing != nil {
+		spacing := *a.spacing
+		g.Spacing = &spacing
 	}
 	return g
 }

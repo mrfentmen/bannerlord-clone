@@ -26,6 +26,7 @@ func TestEveryWireOrderIsEitherCarriedOutOrRefusedByName(t *testing.T) {
 		OrderHoldPosition: true, OrderAdvance: true, OrderCharge: true,
 		OrderFallBack: true, OrderRetreat: true, OrderChangeFormation: true,
 		OrderFaceDirection: true, OrderTacticMove: true, OrderFollow: true,
+		OrderChangeSpacing: true,
 	}
 	seen := map[OrderName]bool{}
 	for _, name := range ValidOrders() {
@@ -37,7 +38,7 @@ func TestEveryWireOrderIsEitherCarriedOutOrRefusedByName(t *testing.T) {
 		// Parameters that satisfy every order that takes one, so the test is about
 		// which orders exist rather than about which parameters were supplied.
 		p := OrderParams{Formation: "wedge", Bearing: 1.5, HasFacing: true, X: -120, Y: 40, HasPoint: true,
-			FollowGroup: 0, HasFollow: true}
+			FollowGroup: 0, HasFollow: true, Spacing: 1.5, HasSpacing: true}
 		am, err := PlanGroupOrder(name, p)
 		switch {
 		case carried[name]:
@@ -47,10 +48,10 @@ func TestEveryWireOrderIsEitherCarriedOutOrRefusedByName(t *testing.T) {
 			}
 			// An amendment that changes nothing is a silent stub: the order would
 			// be accepted and the standing order would be exactly as it was.
-			// saysFollow is in the list because follow speaks to a field of its own,
-			// and an order that amended only that field would be caught by leaving
-			// it out of this list.
-			if !am.saysKind && !am.saysOrder && !am.saysFacing && !am.saysFollow {
+			// saysFollow and saysSpacing are in the list because both speak to a
+			// field of their own, and an order that amended only one of them would
+			// be caught by leaving it out of this list.
+			if !am.saysKind && !am.saysOrder && !am.saysFacing && !am.saysFollow && !am.saysSpacing {
 				t.Errorf("order %q is carried out but amends nothing", name)
 			}
 			t.Logf("carried out: %-18s -> %s", name, am.describes)
@@ -92,15 +93,15 @@ func TestTheOrdersThisLayerDoesNotCarryOutAreAllAccountedFor(t *testing.T) {
 			t.Errorf("order %q has a reason recorded and was still accepted", name)
 		}
 	}
-	// The counts, because "nine carried out and five refused" is how the file
+	// The counts, because "ten carried out and four refused" is how the file
 	// describes itself, and a count in a comment that has drifted is a comment a
 	// reader stops trusting.
-	if len(unexecutableOrders) != 5 {
-		t.Errorf("%d orders are accounted for as somebody else's, and the file says five",
+	if len(unexecutableOrders) != 4 {
+		t.Errorf("%d orders are accounted for as somebody else's, and the file says four",
 			len(unexecutableOrders))
 	}
-	if len(executableOrders) != 9 {
-		t.Errorf("%d orders are carried out, and the file says nine", len(executableOrders))
+	if len(executableOrders) != 10 {
+		t.Errorf("%d orders are carried out, and the file says ten", len(executableOrders))
 	}
 }
 
@@ -441,6 +442,10 @@ func TestOrdersRefuseWhatTheyCannotCarryOut(t *testing.T) {
 		{name: "a follow of nobody", order: OrderFollow, params: OrderParams{}, units: []int{0}, field: "OrderParams.FollowGroup"},
 		{name: "a follow of a negative group", order: OrderFollow, params: OrderParams{FollowGroup: -1, HasFollow: true}, units: []int{0}, field: "OrderParams.FollowGroup"},
 		{name: "a face-direction with a bearing that is not a direction", order: OrderFaceDirection, params: OrderParams{Bearing: math.NaN(), HasFacing: true}, units: []int{0}, field: "OrderParams.Bearing"},
+		{name: "a change of spacing with no scale", order: OrderChangeSpacing, params: OrderParams{}, units: []int{0}, field: "OrderParams.Spacing"},
+		{name: "a change of spacing to zero", order: OrderChangeSpacing, params: OrderParams{Spacing: 0, HasSpacing: true}, units: []int{0}, field: "OrderParams.Spacing"},
+		{name: "a change of spacing to a negative scale", order: OrderChangeSpacing, params: OrderParams{Spacing: -1, HasSpacing: true}, units: []int{0}, field: "OrderParams.Spacing"},
+		{name: "a change of spacing to a scale that is not a number", order: OrderChangeSpacing, params: OrderParams{Spacing: math.NaN(), HasSpacing: true}, units: []int{0}, field: "OrderParams.Spacing"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -640,4 +645,269 @@ func idsOfSlice(units []Unit) []int {
 		out[i] = u.ID
 	}
 	return out
+}
+
+// TestASpacingOutsideTheBalanceFilesBoundsIsARefusal is where a change-spacing
+// order meets the numbers that say how tight a rank is allowed to get.
+//
+// The bounds live in the balance file rather than in this file on purpose. How
+// close two men in a rank may stand is a balance question, and the answer has a
+// reason behind it that only the balance file can state: min_separation is the
+// gap the spacing pass defends, so a commander who may scale the front spacing
+// below it is asking the pass to undo his own order every tick. The code's job is
+// to hold him to the file's bounds, not to have an opinion about them.
+//
+// It checks rather than clamps, because a clamped order reports success and
+// produces a shape the player did not ask for, which is the silent stub this
+// codebase treats as a bug. It refuses a non-finite scale for the same reason a
+// non-finite bearing is refused: a scale of NaN is not a shape.
+func TestASpacingOutsideTheBalanceFilesBoundsIsARefusal(t *testing.T) {
+	cfg := loadConfig(t)
+	lo, hi := cfg.Formation.SpacingScaleMin, cfg.Formation.SpacingScaleMax
+	t.Logf("the balance file allows a scale of %g to %g, against a front spacing of %g m and a "+
+		"minimum separation of %g m", lo, hi, cfg.Formation.FrontSpacing, cfg.Formation.MinSeparation)
+
+	refused := []struct {
+		name  string
+		scale float64
+	}{
+		{name: "tightened past the floor", scale: lo * 0.9},
+		{name: "opened out past the ceiling", scale: hi * 1.1},
+		{name: "no scale at all", scale: 0},
+		{name: "a negative scale", scale: -lo},
+		{name: "a scale that is not a number", scale: math.NaN()},
+		{name: "an infinite scale", scale: math.Inf(1)},
+	}
+	for _, tc := range refused {
+		t.Run(tc.name, func(t *testing.T) {
+			scale := tc.scale
+			c, err := NewFormationCommander(cfg, SideA, []Group{{
+				Order: GroupOrder{Kind: FormationLine, Spacing: &scale},
+				Units: []int{0, 1},
+			}})
+			if err == nil {
+				t.Fatalf("a commander was built at scale %g with %d groups", tc.scale, len(c.groups))
+			}
+			if c != nil {
+				t.Error("a refused commander was returned as well as an error")
+			}
+			if !strings.Contains(err.Error(), "Group.Order.Spacing") {
+				t.Errorf("the error does not name the field a caller set: %v", err)
+			}
+		})
+	}
+	// The bounds themselves are legal, because a bound that refuses its own edge
+	// is an off-by-one that only shows up in play. A commander who closes up to
+	// exactly the floor and opens out to exactly the ceiling gets what he asked
+	// for.
+	for _, scale := range []float64{lo, 1, hi} {
+		s := scale
+		c, err := NewFormationCommander(cfg, SideA, []Group{{
+			Order: GroupOrder{Kind: FormationLine, Spacing: &s},
+			Units: []int{0, 1, 2},
+		}})
+		if err != nil {
+			t.Errorf("scale %g is the edge of what the balance file allows and was refused: %v", scale, err)
+			continue
+		}
+		if got := c.groups[0].order.spacingScale(); got != scale {
+			t.Errorf("asked for scale %g and the commander holds %g", scale, got)
+		}
+	}
+}
+
+// TestChangeSpacingReachesTheShapeFromAWireOrder is the whole path in one test:
+// the name a client sends, the scale it sends with it, the standing order it
+// amends, the commander built from that, and the slots the commander draws.
+//
+// The endpoints are checked against the balance file's own numbers rather than
+// literals, because the point is not that a line is 1.5 m or 3 m wide, it is that
+// the number a player sent is the number that reaches the geometry. A test with
+// literals here would fail the day a designer retuned the file and tell me
+// nothing about the order.
+func TestChangeSpacingReachesTheShapeFromAWireOrder(t *testing.T) {
+	cfg := loadConfig(t)
+	front := cfg.Formation.FrontSpacing
+	const wantScale = 1.75
+
+	o, err := NewOrders(cfg, SideA, nil)
+	if err != nil {
+		t.Fatalf("building standing orders: %v", err)
+	}
+	// Three men abreast on a line, so the front spacing is the only thing setting
+	// how far apart they stand and the answer is readable straight off the slots.
+	if err := o.Apply(OrderChangeFormation, OrderParams{Formation: "line"}, []int{0, 1, 2}); err != nil {
+		t.Fatalf("ordering a line: %v", err)
+	}
+	if err := o.Apply(OrderChangeSpacing, OrderParams{Spacing: wantScale, HasSpacing: true}, []int{0, 1, 2}); err != nil {
+		t.Fatalf("ordering the spacing: %v", err)
+	}
+
+	// The standing order holds the scale, and it holds a COPY: the amendment's own
+	// pointer is not aliased into the standing order, so a caller that reuses its
+	// own OrderParams struct cannot change a battle by mutating it afterwards.
+	got := o.Groups()
+	if len(got) != 1 {
+		t.Fatalf("the standing orders hold %d groups, want 1", len(got))
+	}
+	if got[0].Order.Spacing == nil {
+		t.Fatal("the standing order for the line holds no spacing, so the order was planned and dropped")
+	}
+	if *got[0].Order.Spacing != wantScale {
+		t.Fatalf("the standing order holds a scale of %g, want %g", *got[0].Order.Spacing, wantScale)
+	}
+
+	c, err := o.Commander()
+	if err != nil {
+		t.Fatalf("building the commander: %v", err)
+	}
+	g := c.groups[0]
+	slots, err := g.slotsFor(3, FormationParamsFrom(cfg.Formation))
+	if err != nil {
+		t.Fatalf("drawing the line: %v", err)
+	}
+	if len(slots) != 3 {
+		t.Fatalf("a line of three drew %d slots", len(slots))
+	}
+	// Three abreast, so the outer two are exactly one front spacing either side of
+	// the middle man's slot.
+	if got, want := slots[2].Right-slots[0].Right, 2*front*wantScale; got != want {
+		t.Errorf("the three men of the line stand %g m apart, want %g m (%g m of front spacing at a scale of %g)",
+			got, want, front, wantScale)
+	}
+	// And a commander holding that scale is not drawing the shape it was built
+	// for, which is the bug a scale drawn but not applied would be.
+	plain, err := FormationLayout(FormationLine, 3, FormationParamsFrom(cfg.Formation))
+	if err != nil {
+		t.Fatalf("drawing an unscaled line: %v", err)
+	}
+	if plain[2].Right == slots[2].Right {
+		t.Errorf("the spacing order reached the standing order but not the shape: the line is still %g m wide",
+			plain[2].Right-plain[0].Right)
+	}
+	t.Logf("line of three: unscaled %g m wide, at scale %g it is %g m wide (front spacing %g m)",
+		plain[2].Right-plain[0].Right, wantScale, slots[2].Right-slots[0].Right, front)
+}
+
+// TestChangeSpacingComposesWithEveryOtherOrder is the composition rule for this
+// order, and it is the OPPOSITE of the rule for follow.
+//
+// follow is cleared by any later order that names a destination, because a group
+// that has been told to go somewhere is not following anybody any more: the two
+// orders contradict each other. A spacing is not that kind of thing. "Close up"
+// and "form a wedge" are two true things about one formation, and "close up" and
+// "advance" are two true things about one formation. So an order that does not
+// speak to the spacing leaves it standing, and only a second change-spacing
+// replaces it.
+func TestChangeSpacingComposesWithEveryOtherOrder(t *testing.T) {
+	cfg := loadConfig(t)
+
+	cases := []struct {
+		name    string
+		first   OrderName
+		second  OrderName
+		spacing float64
+	}{
+		{name: "close up, then form a wedge", first: OrderChangeSpacing, second: OrderChangeFormation, spacing: 1.4},
+		{name: "form a wedge, then close up", first: OrderChangeFormation, second: OrderChangeSpacing, spacing: 1.4},
+		{name: "close up, then advance", first: OrderChangeSpacing, second: OrderAdvance, spacing: 1.4},
+		{name: "close up, then turn to a bearing", first: OrderChangeSpacing, second: OrderFaceDirection, spacing: 1.4},
+		{name: "close up, then move to a point", first: OrderChangeSpacing, second: OrderTacticMove, spacing: 1.4},
+		{name: "close up, then hold", first: OrderChangeSpacing, second: OrderHoldPosition, spacing: 1.4},
+		{name: "close up, then open out again", first: OrderChangeSpacing, second: OrderChangeSpacing, spacing: 1.9},
+	}
+	// paramsFor are the parameters that satisfy one order, and only the one order:
+	// sending a change-spacing scale to a change-formation is refused for naming no
+	// shape, which is correct and which the first draft of this test tripped over
+	// in the one case where the shape order came first.
+	paramsFor := func(o OrderName, spacing float64) OrderParams {
+		switch o {
+		case OrderChangeFormation:
+			return OrderParams{Formation: "wedge"}
+		case OrderChangeSpacing:
+			return OrderParams{Spacing: spacing, HasSpacing: true}
+		case OrderFaceDirection:
+			return OrderParams{Bearing: 2.0, HasFacing: true}
+		case OrderTacticMove:
+			return OrderParams{X: -80, Y: 30, HasPoint: true}
+		}
+		return OrderParams{}
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			o, err := NewOrders(cfg, SideA, nil)
+			if err != nil {
+				t.Fatalf("building standing orders: %v", err)
+			}
+			if err := o.Apply(OrderChangeFormation, OrderParams{Formation: "line"}, []int{0, 1}); err != nil {
+				t.Fatalf("ordering a line: %v", err)
+			}
+			if err := o.Apply(tc.first, paramsFor(tc.first, 1.4), []int{0, 1}); err != nil {
+				t.Fatalf("the first order (%s): %v", tc.first, err)
+			}
+			if err := o.Apply(tc.second, paramsFor(tc.second, tc.spacing), []int{0, 1}); err != nil {
+				t.Fatalf("the second order (%s): %v", tc.second, err)
+			}
+			got := o.Groups()
+			if len(got) != 1 || got[0].Order.Spacing == nil {
+				t.Fatalf("after %s then %s the standing order is %+v and the spacing is gone", tc.first, tc.second, got)
+			}
+			if *got[0].Order.Spacing != tc.spacing {
+				t.Errorf("after %s then %s the spacing is %g, want %g",
+					tc.first, tc.second, *got[0].Order.Spacing, tc.spacing)
+			}
+			// And the commander agrees, so the composition is not only true of the
+			// struct a test can read but of the one the engine holds.
+			c, err := o.Commander()
+			if err != nil {
+				t.Fatalf("building the commander: %v", err)
+			}
+			if s := c.groups[0].order.spacingScale(); s != tc.spacing {
+				t.Errorf("the commander was built at scale %g, want %g", s, tc.spacing)
+			}
+		})
+	}
+
+	// The one case that must NOT keep the old spacing is the order that speaks to
+	// it, and that is the last line of the table above: an open-out of 1.9
+	// replaced the close-up of 1.4 rather than being ignored as "already has a
+	// spacing".
+
+	// A group that was never told a spacing holds none at all, which is the
+	// distinction the pointer exists for: no order and a scale of one draw the same
+	// shape but are not the same standing order, and only one of them is a player's
+	// instruction.
+	o, err := NewOrders(cfg, SideA, nil)
+	if err != nil {
+		t.Fatalf("building standing orders: %v", err)
+	}
+	if err := o.Apply(OrderChangeFormation, OrderParams{Formation: "line"}, []int{0, 1}); err != nil {
+		t.Fatalf("ordering a line: %v", err)
+	}
+	if got := o.Groups()[0].Order.Spacing; got != nil {
+		t.Errorf("a group ordered only its shape holds the spacing %v, want nil", *got)
+	}
+	if s := commanderScale(t, o); s != 1 {
+		t.Errorf("a group with no spacing order reads back at scale %g, want 1 (the balance file's own)", s)
+	}
+	// And a player who asks for exactly the balance file's spacing IS recorded as
+	// having asked, which is the whole reason the order's value is a pointer and
+	// not a float64 whose zero means "unchanged".
+	if err := o.Apply(OrderChangeSpacing, OrderParams{Spacing: 1, HasSpacing: true}, []int{0, 1}); err != nil {
+		t.Fatalf("ordering a scale of exactly one: %v", err)
+	}
+	if got := o.Groups()[0].Order.Spacing; got == nil {
+		t.Error("a scale of exactly one was recorded as no spacing order at all, so it is indistinguishable from never having been asked")
+	}
+}
+
+// commanderScale builds the engine's commander from standing orders and returns the
+// spacing scale the first group in it was built at.
+func commanderScale(t *testing.T, o *Orders) float64 {
+	t.Helper()
+	c, err := o.Commander()
+	if err != nil {
+		t.Fatalf("building the commander: %v", err)
+	}
+	return c.groups[0].order.spacingScale()
 }

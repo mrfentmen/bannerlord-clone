@@ -1,6 +1,7 @@
 package battle
 
 import (
+	"fmt"
 	"math"
 	"strings"
 	"testing"
@@ -948,4 +949,135 @@ func setupEffectBattle(t *testing.T, cfg *config.Config, kind Formation, facing 
 	}
 	b.formations[0] = formationState{Kind: kind, Facing: facing}
 	return b
+}
+
+// TestASpacingScaleRedrawsTheShapeAndNothingElse is the geometry a commander's
+// change-spacing order has to produce, written out to the centimetre.
+//
+// The expectations are derived by hand rather than by calling scaledBy, because a
+// test that calls the function it is checking proves only that the function does
+// not panic. The parameters are layoutTestParams: a front spacing of 2 and a line
+// three abreast, so a line of three is ONE rank of three men 2 m apart, and the
+// mean of {-2, 0, +2} is 0, so centring the slots moves nothing. That makes the
+// scale the only variable in the answer:
+//
+//	scale 1/2 -> 1 m apart -> (-1,0) (0,0) (1,0)
+//	scale 1   -> 2 m apart -> (-2,0) (0,0) (2,0)
+//	scale 3   -> 6 m apart -> (-6,0) (0,0) (6,0)
+func TestASpacingScaleRedrawsTheShapeAndNothingElse(t *testing.T) {
+	p := layoutTestParams()
+
+	for _, tc := range []struct {
+		scale float64
+		want  []wantSlot
+	}{
+		{scale: 0.5, want: []wantSlot{{right: -1, forward: 0}, {right: 0, forward: 0}, {right: 1, forward: 0}}},
+		{scale: 1, want: []wantSlot{{right: -2, forward: 0}, {right: 0, forward: 0}, {right: 2, forward: 0}}},
+		{scale: 3, want: []wantSlot{{right: -6, forward: 0}, {right: 0, forward: 0}, {right: 6, forward: 0}}},
+	} {
+		got, err := FormationLayout(FormationLine, 3, p.scaledBy(tc.scale))
+		if err != nil {
+			t.Fatalf("a line of three at scale %g: %v", tc.scale, err)
+		}
+		checkSlots(t, "line of three at scale "+ftoa(tc.scale), got, tc.want)
+	}
+
+	// The depth scales with the front, and this is the half of the order a
+	// front-only check would miss: a formation with the same width and twice the
+	// depth is a different shape that happens to look like a line from in front.
+	//
+	// A line of six, three abreast, at scale 1 is two ranks: {-2,0} {0,0} {2,0}
+	// then {-2,-3} {0,-3} {2,-3}, mean (-0, -1.5), so the centred ranks are at
+	// forward +1.5 and -1.5. At scale 2 the front spacing is 4 and the rank
+	// spacing is 6, and the mean of {-4,0} {0,0} {4,0} {-4,-6} {0,-6} {4,-6} is
+	// (0, -3), so the ranks are at forward +3 and -3.
+	deep := layoutTestParams()
+	for _, tc := range []struct {
+		scale float64
+		want  []wantSlot
+	}{
+		{scale: 1, want: []wantSlot{
+			{right: -2, forward: 1.5}, {right: 0, forward: 1.5}, {right: 2, forward: 1.5},
+			{right: -2, forward: -1.5}, {right: 0, forward: -1.5}, {right: 2, forward: -1.5},
+		}},
+		{scale: 2, want: []wantSlot{
+			{right: -4, forward: 3}, {right: 0, forward: 3}, {right: 4, forward: 3},
+			{right: -4, forward: -3}, {right: 0, forward: -3}, {right: 4, forward: -3},
+		}},
+	} {
+		got, err := FormationLayout(FormationLine, 6, deep.scaledBy(tc.scale))
+		if err != nil {
+			t.Fatalf("a line of six at scale %g: %v", tc.scale, err)
+		}
+		checkSlots(t, "line of six at scale "+ftoa(tc.scale), got, tc.want)
+	}
+}
+
+// TestTheSpacingsAScaleOrderTightensAreTheTolerancesTheShapeIsHeldTo is the
+// reason the order scales the SPACINGS and not the drawn slots.
+//
+// Every tolerance this layer applies to a man is derived from the shape's spacing:
+// how far he may be from his slot and still count as standing in it
+// (cohesionTolerance), and how far inside that he is pinned and never handed back
+// to the engine (settleRadius). If a change-spacing order scaled the slots alone,
+// a commander who closed up would get a tighter shape that still forgave being
+// shoved exactly as far as the open one did, which is not closing up at all: the
+// whole point of tightening ranks is that a man is then harder to knock out of
+// place. So a scale of 1/2 must halve the tolerance, and the test says so.
+func TestTheSpacingsAScaleOrderTightensAreTheTolerancesTheShapeIsHeldTo(t *testing.T) {
+	p := layoutTestParams()
+	for _, scale := range []float64{0.5, 1, 2} {
+		sp := p.scaledBy(scale)
+		if got, want := cohesionTolerance(FormationLine, sp), p.FrontSpacing*scale; got != want {
+			t.Errorf("at scale %g a man counts as in his slot within %g m, want %g m", scale, got, want)
+		}
+		// Skirmish order's tolerance is its loose spacing, not its front spacing,
+		// so it has to scale with that number instead and is checked here rather
+		// than left to look correct by accident.
+		if got, want := cohesionTolerance(FormationSkirmish, sp), p.LooseSpacing*scale; got != want {
+			t.Errorf("at scale %g a skirmisher counts as in his slot within %g m, want %g m", scale, got, want)
+		}
+	}
+	// And the tolerances really do move, which is the part a comment cannot hold
+	// to: the open shape forgives three times what the closed one does.
+	if cohesionTolerance(FormationLine, p.scaledBy(0.5)) >= cohesionTolerance(FormationLine, p) {
+		t.Error("closing up did not tighten the cohesion tolerance, so the order changes the drawing and not the behaviour")
+	}
+	// The jitter fraction is deliberately not scaled, and this is the reason it is
+	// exempt: it is already a fraction of the loose spacing, so scaling the loose
+	// spacing scales the scatter with it and the shape stays as loose as it was
+	// drawn to be. Scaling it as well would make the scatter grow faster than the
+	// lattice it belongs to.
+	if got := p.scaledBy(2).LooseJitterFraction; got != p.LooseJitterFraction {
+		t.Errorf("scaling the loose spacing also scaled the jitter fraction to %g, from %g", got, p.LooseJitterFraction)
+	}
+}
+
+// TestAScaleOfOneChangesNothingAtAll is the case every group's order takes by
+// default, and it has to be a no-op rather than a rebuild of the same layout: a
+// commander with no spacing order holds the balance file's spacing, and a scale of
+// one is that spacing, so the two must produce identical slots to the centimetre.
+func TestAScaleOfOneChangesNothingAtAll(t *testing.T) {
+	p := layoutTestParams()
+	for _, n := range []int{1, 2, 3, 7, 16, 33} {
+		base, err := FormationLayout(FormationWedge, n, p)
+		if err != nil {
+			t.Fatalf("a wedge of %d: %v", n, err)
+		}
+		one, err := FormationLayout(FormationWedge, n, p.scaledBy(1))
+		if err != nil {
+			t.Fatalf("a wedge of %d at scale one: %v", n, err)
+		}
+		for i := range base {
+			if base[i] != one[i] {
+				t.Fatalf("a wedge of %d at scale one: slot %d is %+v, unscaled %+v", n, i, one[i], base[i])
+			}
+		}
+	}
+}
+
+// ftoa is strconv.FormatFloat at the precision these tests want, without importing
+// strconv into a file whose other tests spell their expectations out by hand.
+func ftoa(v float64) string {
+	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%g", v), "0"), ".")
 }

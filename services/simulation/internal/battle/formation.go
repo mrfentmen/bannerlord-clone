@@ -335,6 +335,22 @@ type GroupOrder struct {
 	// so a dangling or circular follow is a refusal rather than a shape that
 	// quietly stands still.
 	Follow *int
+	// Spacing is the scale a commander has put his ranks on, as a fraction of the
+	// spacing in the balance file: 0.85 closes up fifteen per cent, 2.0 opens out
+	// to double. Nil means no order was given and the balance file's spacing stands.
+	//
+	// It is a pointer so that "no spacing order" is its own value, for the same
+	// reason At and Follow are: a float64 whose zero meant "unchanged" would make
+	// the zero GroupOrder a formation with every man on the same point, and the
+	// zero value of this struct has to be the one GroupOrder that is valid.
+	//
+	// It scales the spacings rather than the drawn slots, so every tolerance the
+	// layer derives from spacing tightens with the shape. See scaledBy.
+	//
+	// Checked when the commander is built, against the balance file's own bounds:
+	// not finite, or outside spacing_scale_min to spacing_scale_max, is a refusal
+	// rather than a shape the men are then told to stand in.
+	Spacing *float64
 }
 
 // Group is a GroupOrder and the units ordered to carry it out.
@@ -442,6 +458,11 @@ type FormationParams struct {
 	// staged, so the shape's own slots are the only thing keeping a commanded
 	// formation from standing men inside each other. See settleRadius.
 	MinSeparation float64
+	// SpacingScaleMin and SpacingScaleMax are the bounds a commander's
+	// change-spacing order is held to, as fractions of the spacings above. See
+	// GroupOrder.Spacing and scaledBy.
+	SpacingScaleMin float64
+	SpacingScaleMax float64
 
 	// Seed drives that scatter. It is data, not state: the same seed and the
 	// same men always produce the same scatter, so a recorded battle replays
@@ -464,8 +485,48 @@ func FormationParamsFrom(c config.Formation) FormationParams {
 		LooseSpacing:        c.LooseSpacing,
 		LooseJitterFraction: c.LooseJitterFraction,
 		MinSeparation:       c.MinSeparation,
+		SpacingScaleMin:     c.SpacingScaleMin,
+		SpacingScaleMax:     c.SpacingScaleMax,
 		Seed:                int64(c.LooseSeed),
 	}
+}
+
+// scaledBy returns p with its spacings multiplied by scale.
+//
+// It is the whole of how a commander's spacing order works, and it multiplies
+// the SPACINGS rather than the drawn slots on purpose. Every tolerance this
+// layer applies to a man is derived from the shape's spacing rather than
+// configured separately - how far he may be from his slot and still count as
+// standing in it (cohesionTolerance), and how far he is pinned inside that
+// (settleRadius) - so scaling the spacings is what makes a closed-up formation
+// correspondingly less forgiving of a man being shoved, which is the behaviour
+// closing up is FOR. Scaling the drawn slots instead would leave every
+// tolerance at the open-out value, and a commander would have tightened his
+// ranks into a shape that still behaved as loosely as the one he just left.
+//
+// LooseJitterFraction is deliberately left alone: it is already a fraction of
+// LooseSpacing, so scaling LooseSpacing scales the scatter with it and the
+// shape stays as loose as it was drawn to be.
+//
+// A scale of 1 returns p unchanged, which is every group that was never told
+// otherwise.
+func (p FormationParams) scaledBy(scale float64) FormationParams {
+	if scale == 1 {
+		return p
+	}
+	p.FrontSpacing *= scale
+	p.RankSpacing *= scale
+	p.LooseSpacing *= scale
+	return p
+}
+
+// spacingScale is the scale a group's order asks for, and 1 for a group that
+// asked for nothing.
+func (o GroupOrder) spacingScale() float64 {
+	if o.Spacing == nil {
+		return 1
+	}
+	return *o.Spacing
 }
 
 // validate refuses parameters a layout cannot work with, rather than dividing by
@@ -1137,11 +1198,22 @@ type formationGroup struct {
 // The returned slice belongs to the group and is only read by the caller, which
 // places it and never writes to it. Nothing outside this file may hold on to it
 // across a tick.
+//
+// The count is the whole of the cache key, and the spacing scale is deliberately
+// not part of it. That was not obvious and I got it wrong first: I added the
+// scale to the key on the reasoning that a commander who changes his spacing has
+// not changed how many men he has. But a formationGroup's order is fixed when it
+// is built and never written again, and Orders.Commander rebuilds the whole
+// commander whenever the standing orders change, so a group cannot outlive the
+// spacing it was built at. The scale is therefore constant for the life of the
+// group that holds it, and a key term that cannot vary is a term that only
+// makes the reader wonder what case it was catching. See Orders.Commander's
+// builtChanges check for the rebuild this relies on.
 func (g *formationGroup) slotsFor(n int, p FormationParams) ([]Slot, error) {
 	if n == g.slotsCount && len(g.slots) == n {
 		return g.slots, nil
 	}
-	slots, err := FormationLayout(g.order.Kind, n, p)
+	slots, err := FormationLayout(g.order.Kind, n, p.scaledBy(g.order.spacingScale()))
 	if err != nil {
 		return nil, err
 	}
@@ -1234,6 +1306,28 @@ func NewFormationCommander(cfg *config.Config, side Side, groups []Group) (*Form
 		if g.Order.Follow != nil {
 			follow := *g.Order.Follow
 			order.Follow = &follow
+		}
+		// The spacing scale is checked here for the same reason At and Follow are
+		// copied: a commander whose instructions changed because somebody edited a
+		// struct afterwards is a battle fought under orders nobody gave. It is
+		// checked rather than clamped because a scale of 0 puts every man in a rank
+		// on the same point and a negative one puts the shape inside out, and a
+		// shape like that is a refusal and not a formation.
+		if g.Order.Spacing != nil {
+			scale := *g.Order.Spacing
+			p := FormationParamsFrom(cfg.Formation)
+			if math.IsNaN(scale) || math.IsInf(scale, 0) {
+				return nil, newFormationError("NewFormationCommander", "Group.Order.Spacing",
+					"group %d was given spacing scale %v, which is not a finite number", i, scale)
+			}
+			if scale < p.SpacingScaleMin || scale > p.SpacingScaleMax {
+				return nil, newFormationError("NewFormationCommander", "Group.Order.Spacing",
+					"group %d was given spacing scale %.4g, outside the %.4g to %.4g the balance file allows; "+
+						"ranks tightened past the lower bound put men closer together than min_separation "+
+						"and a shape opened past the upper one has a cohesion tolerance wider than its own depth",
+					i, scale, p.SpacingScaleMin, p.SpacingScaleMax)
+			}
+			order.Spacing = &scale
 		}
 		c.groups = append(c.groups, &formationGroup{order: order, units: units, index: i})
 	}
@@ -1430,14 +1524,22 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 	// tolerance is how far a man may be from his slot and still count as standing
 	// in it: the shape's own spacing, once. It is read by the move order below and
 	// by the slot loop after, so it is worked out here rather than in both places.
-	tolerance := cohesionTolerance(g.order.Kind, p)
+	//
+	// Both tolerances below are derived from the group's SCALED spacings, not the
+	// balance file's. That is the whole of what a commander's change-spacing order
+	// changes about behaviour: a formation that has closed up is drawn tighter and
+	// is correspondingly less forgiving of a man who is out of his place, and one
+	// that has opened out is the reverse. Reading the unscaled numbers here would
+	// draw the new shape and then judge the men against the old one.
+	sp := p.scaledBy(g.order.spacingScale())
+	tolerance := cohesionTolerance(g.order.Kind, sp)
 	// placed is the distance inside which a man is PINNED: written to with a step
 	// of zero metres rather than walked, and never handed back to the engine. It is
 	// settleRadius for every order, including a hold, and the reason has nothing to
 	// do with which order it is: a pinned man is one the engine is not allowed to
 	// move, and the radius is the point at which two pinned neighbours would still
 	// be a minimum gap apart. See the slot loop below.
-	placed := settleRadius(g.order.Kind, p)
+	placed := settleRadius(g.order.Kind, sp)
 	// The layout, before anything that needs it. A follower measures its own depth
 	// to know where its front rank goes, and this is the layout it measures.
 	slots, err := g.slotsFor(len(c.ids), p)
