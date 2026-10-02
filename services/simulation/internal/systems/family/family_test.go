@@ -58,3 +58,29 @@ func TestAgingOccurs(t *testing.T) {
 		t.Errorf("expected aging writes")
 	}
 }
+
+func TestNaturalDeathRateIsSane(t *testing.T) {
+	// A 60-year-old should NOT die within a year (old formula gave 97%/year).
+	// Run 365 ticks with a 60-year-old, expect survival most of the time.
+	deaths := 0
+	for i := 0; i < 100; i++ {
+		v, w := testView()
+		v.State.Leaders[1].Age = 60
+		v.Rng = rng.New(uint64(i))
+		for day := 0; day < 365; day++ {
+			run(v, w)
+			// Check if died via writes
+			for _, wr := range w.Debug() {
+				if wr.Field == "is_alive" {
+					deaths++
+					break
+				}
+			}
+			w = sim.NewWriteSet()
+		}
+	}
+	// Expect < 10% death rate at 60 (annual ~1%).
+	if deaths > 10 {
+		t.Errorf("60-year-old death rate too high: %d/100 died in a year", deaths)
+	}
+}
