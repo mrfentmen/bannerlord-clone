@@ -4,3 +4,4 @@ export * from "./flow";
 export * from "./poll";
 export * from "./cohesion";
 export * from "./announcer";
+export * from "./scouting";

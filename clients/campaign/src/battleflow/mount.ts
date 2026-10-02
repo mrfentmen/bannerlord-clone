@@ -38,6 +38,7 @@ import {
 import { BattleApiError, createHttpBattleApi, type BattleApi } from "./api";
 import { encounterBanner, type EncounterBannerHandle } from "./encounterBanner";
 import { createBattleAnnouncer, type BattleAnnouncer } from "./announcer";
+import { scoutEnemy } from "./scouting";
 import {
   BattleFlow,
   type AfterActionView,
@@ -307,6 +308,29 @@ export function mountBattleUi(options: BattleMountOptions): BattleMount {
     );
     body.appendChild(
       h("p", { class: "caption", "data-testid": "battle-assessment" }, view.assessment),
+    );
+    // Scouting report (solo task 21): enemy composition estimate before deployment.
+    const enemy = view.playerIsAttacker ? view.encounter.defender : view.encounter.attacker;
+    const report = scoutEnemy(enemy.troops, enemy.power);
+    const scoutList = h("ul", { class: "scout__list", "data-testid": "scout-list" });
+    for (const est of report.estimates) {
+      scoutList.appendChild(
+        h(
+          "li",
+          { "data-testid": `scout-${est.kind}` },
+          `${est.kind}: ~${est.count} (${Math.round(est.share * 100)}%)`,
+        ),
+      );
+    }
+    body.appendChild(
+      h(
+        "section",
+        { "data-testid": "scout-report", "aria-label": "Scouting report" },
+        h("h3", {}, "Scouting report"),
+        h("p", { class: "caption" }, report.summary + "."),
+        scoutList,
+        h("p", { class: "caption" }, report.note),
+      ),
     );
     const actions = h("div", { class: "battle__actions" });
     actions.append(
