@@ -42,11 +42,20 @@ import {
 } from "../../diplomacy/warGoals.js";
 import { EMPTY_PEACE_TERMS, negotiatePeace } from "../../diplomacy/peaceConcessions.js";
 import { suggestTribute } from "../../diplomacy/tributeCalculator.js";
+import { rankGreatPowers, type ClanPower, type PowerRank } from "../../diplomacy/greatPowers.js";
 import { markHintShown, shouldShowHint } from "../../onboarding/hintCooldown.js";
 
 export interface DiplomacyPanelOptions {
   /** Campaign season; relation changes are stamped with it. */
   currentSeason: number;
+  /**
+   * The powers the player wants compared, as the caller holds them. Task 221.
+   *
+   * There is no faction roster in the diplomacy layer's own state, so the power
+   * board is drawn only when the caller supplies one — a table of invented
+   * strengths would be a map made of guesses. Omitted, the section is absent.
+   */
+  powers?: ClanPower[];
   onClose?: () => void;
   testId?: string;
 }
@@ -87,6 +96,9 @@ function buildDiplomacyPanel(options: DiplomacyPanelOptions, notice: string | nu
   body.appendChild(
     h("p", { class: "caption", "data-testid": "diplomacy-reputation" }, reputationMeterLine()),
   );
+
+  const powers = powerBoard(options.powers);
+  if (powers) body.appendChild(powers);
 
   body.appendChild(sectionHeader("War goals"));
   const wars = activeWars();
@@ -265,6 +277,51 @@ function buildDiplomacyPanel(options: DiplomacyPanelOptions, notice: string | nu
   }
 
   return root;
+}
+
+/**
+ * The power board. Task 221.
+ *
+ * A composite strength estimate per faction, ranked, with the gap to the leader and
+ * a one-line verdict. The scoring is `rankGreatPowers` from
+ * `src/diplomacy/greatPowers.ts` — troops, towns, treasury and reputation weighted
+ * into one number by that module and not re-derived here, because a second opinion
+ * about who is stronger is exactly the thing that makes a war-starting panel
+ * untrustworthy. The panel draws the ranking it is given.
+ *
+ * Absent a roster, nothing is drawn: there is no faction list in the diplomacy
+ * layer's own state, and a table of strengths nobody supplied would be a map made
+ * of guesses. An empty roster is a different thing and says so.
+ */
+function powerBoard(powers: ClanPower[] | undefined): HTMLElement | null {
+  if (powers === undefined) return null;
+  const wrap = h("section", { "data-testid": "diplomacy-powers" });
+  wrap.appendChild(sectionHeader("Strength of the powers"));
+
+  if (powers.length === 0) {
+    wrap.appendChild(
+      emptyState("No powers to compare", "Nobody has been measured yet. Powers appear once the campaign reports them."),
+    );
+    return wrap;
+  }
+
+  const ranked = rankGreatPowers(powers);
+  const columns: Column<PowerRank>[] = [
+    { header: "#", numeric: true, render: (p) => String(p.rank) },
+    { header: "Power", render: (p) => h("span", { class: "label" }, p.clanName) },
+    { header: "Strength", numeric: true, testId: "power-score", render: (p) => p.score.toLocaleString("en-US") },
+    { header: "Behind the leader", numeric: true, render: (p) => (p.gapToLeader === 0 ? "—" : p.gapToLeader.toLocaleString("en-US")) },
+    { header: "Reading", render: (p) => p.verdict },
+  ];
+  wrap.appendChild(dataTable("Power ranking", columns, ranked, "diplomacy-power-table"));
+  wrap.appendChild(
+    h(
+      "p",
+      { class: "caption", style: "margin:var(--space-2) 0 0" },
+      "Strength is troops, towns held, treasury and standing, weighted together by the campaign. It is an estimate, not a count.",
+    ),
+  );
+  return wrap;
 }
 
 function incidentCard(
