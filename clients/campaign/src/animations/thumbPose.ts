@@ -66,3 +66,16 @@ export function hasFingerBones(skeleton: Skeleton): boolean {
     return n.includes("finger") && !n.includes("thumb");
   });
 }
+
+/**
+ * Animation LOD: disable thumb bone animation at distance (Pax task 37).
+ * Thumbs are small; skipping their animation beyond 30m saves CPU
+ * with no visible difference.
+ *
+ * @param skeleton The model's skeleton
+ * @param distanceToCamera Distance in meters
+ * @returns True if thumb animation should be skipped
+ */
+export function shouldSkipThumbAnim(distanceToCamera: number): boolean {
+  return distanceToCamera > 30;
+}
