@@ -64,6 +64,22 @@ export interface ResourceWarning {
   field: string;
 }
 
+/** Village state, with fog of war relative to the player's side. */
+export interface VillageState {
+  id: string;
+  name: string;
+  factionId: string;
+  x: number;
+  y: number;
+  population: number;
+  prosperity: number;
+  /** Whether the player's side has this village in sight right now. */
+  visible: boolean;
+  /** Whether the player's side has ever had this village in sight. */
+  known: boolean;
+  lastSeenTick: number;
+}
+
 /** Town state, from `CAUSE_EFFECT.md` section 2 plus section 8. */
 export interface TownState {
   id: string;
@@ -927,6 +943,8 @@ export interface SimSnapshot {
   };
   party: PartyState;
   towns: TownState[];
+  /** Villages, with fog of war relative to the player's side. */
+  villages: VillageState[];
   /**
    * Fog of war for the side this snapshot is written from. See `FogState`.
    *

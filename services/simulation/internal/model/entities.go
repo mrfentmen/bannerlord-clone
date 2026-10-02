@@ -176,6 +176,14 @@ type Village struct {
 	// mean more output per worker, representing better tools, organization,
 	// and infrastructure.
 	Hearths int
+	// SightedSides is a bitmask over side ids, not a count. Fog of war for
+	// villages, mirroring the town fields.
+	SightedSides float64
+	// EverSeenSides is the same mask for every sighting in the run, never
+	// cleared.
+	EverSeenSides float64
+	// LastSeenTick is the last tick any side had this village in sight.
+	LastSeenTick float64
 }
 
 // Activity is what a party is doing, matching the activity field enum.

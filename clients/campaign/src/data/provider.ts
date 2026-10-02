@@ -501,7 +501,7 @@ function snapshotProblem(raw: unknown): string | null {
   if (!isFiniteNumber(raw.party.morale)) return "party.morale is not a number";
   if (!isRecord(raw.ledger)) return "ledger is missing";
   if (!isRecord(raw.ledger.netPerDay)) return "ledger.netPerDay is missing";
-  for (const key of ["towns", "sides", "rulers", "warnings", "notifications"]) {
+  for (const key of ["towns", "villages", "sides", "rulers", "warnings", "notifications"]) {
     if (!Array.isArray(raw[key])) return `${key} is not a list`;
   }
   for (const key of ["markets", "causeLog"]) {

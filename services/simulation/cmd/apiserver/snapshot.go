@@ -190,6 +190,7 @@ func buildSnapshot(s *Server) map[string]any {
 		},
 		"party":         playerParty,
 		"towns":         towns,
+		"villages":      buildVillages(s, playerSide),
 		"workshops":     buildWorkshops(st),
 		"fog":           buildFog(s, playerSide, visibleSet, knownSet),
 		"markets":       map[string]any{},
@@ -200,6 +201,37 @@ func buildSnapshot(s *Server) map[string]any {
 		"notifications": buildNotifications(s, playerSide),
 		"causeLog":      map[string]any{},
 	}
+}
+
+// buildVillages converts villages to the client's shape, with fog of war
+// relative to the player's side. A village never seen is still on the map
+// (name known from the survey); what the side does not know is anything that
+// changes.
+func buildVillages(s *Server, playerSide int) []any {
+	st := s.state
+	out := make([]any, 0, len(st.Villages))
+	// Mirror visibility.sideBit: invalid side IDs get no bit.
+	var bit uint64
+	if playerSide >= 0 && playerSide < 64 {
+		bit = uint64(1) << uint(playerSide)
+	}
+	for _, vl := range st.Villages {
+		sighted := uint64(vl.SightedSides)
+		ever := uint64(vl.EverSeenSides)
+		out = append(out, map[string]any{
+			"id":           fmt.Sprintf("village-%d", vl.ID),
+			"name":         vl.Name,
+			"factionId":    fmt.Sprintf("side-%d", vl.SideID),
+			"x":            vl.X,
+			"y":            vl.Y,
+			"population":   vl.Population,
+			"prosperity":   vl.Prosperity,
+			"visible":      sighted&bit != 0,
+			"known":        ever&bit != 0,
+			"lastSeenTick": vl.LastSeenTick,
+		})
+	}
+	return out
 }
 
 // playerLeaderID returns the leader the API acts as.

@@ -731,6 +731,7 @@ class FixtureState {
       player: { ...this.#player, resources: { ...this.#player.resources } },
       party: structuredClone(this.#party),
       towns: [...this.#towns.values()].map((t) => ({ ...t })),
+      villages: [],
       fog: this.#fog(),
       markets: Object.fromEntries([...this.#markets].map(([k, v]) => [k, structuredClone(v)])),
       sides: buildFixtureSides(),

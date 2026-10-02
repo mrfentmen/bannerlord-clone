@@ -48,6 +48,7 @@ function goodSnapshot(): Record<string, unknown> {
     party: { troops: [], morale: 0.9 },
     ledger: { day: 1, income: [], expenses: [], netPerDay: { money: 1 } },
     towns: [],
+    villages: [],
     markets: {},
     sides: [],
     rulers: [],

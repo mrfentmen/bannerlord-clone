@@ -129,6 +129,17 @@ type townSight struct {
 	radius float64
 }
 
+// villageSight is the townSight for a village: which sides can see it now.
+type villageSight struct {
+	villageID int
+	sighted   uint64
+	discovered float64
+	nearest   float64
+	observers int
+	observed  bool
+	radius    float64
+}
+
 // run recomputes every town's visibility and publishes it.
 func run(v *sim.View, w *sim.WriteSet) {
 	c := v.Cfg.Visibility
@@ -251,6 +262,51 @@ func run(v *sim.View, w *sim.WriteSet) {
 			read, causes, "towns in sight")
 		w.Set(model.KindSide, sid, "side_known_towns", knownBySide[sid],
 			read, causes, "towns ever found")
+	}
+
+	// --- villages ---
+	//
+	// Villages are fogged exactly like towns: a side sees a village when one
+	// of its parties is within sight radius. The sweep mirrors the town one
+	// above, with the village's own population floor and radius.
+	villageSights := make([]villageSight, 0, len(v.State.Villages))
+	for _, vid := range v.State.VillageIDs() {
+		vl := v.State.Villages[vid]
+		if vl == nil {
+			continue
+		}
+		if s, ok := sightVillage(v, c, vl, observers, today); ok {
+			villageSights = append(villageSights, s)
+		}
+	}
+
+	for _, s := range villageSights {
+		vl := v.State.Villages[s.villageID]
+		if vl == nil {
+			continue
+		}
+		read := shared.ReadString(
+			shared.PairI("village", s.villageID),
+			shared.PairF("nearest_leagues", nearestOrZero(s.nearest)),
+			shared.PairI("observers", s.observers),
+			shared.PairF("sight_radius_leagues", s.radius),
+		)
+		causes := v.Log.RecentFor(model.KindVillage, s.villageID,
+			[]string{"village_population"}, 2)
+
+		w.Set(model.KindVillage, s.villageID, "village_sighted_sides", maskToFloat(s.sighted),
+			read, causes, "sides that can see this village")
+
+		if s.discovered > 0 {
+			ever := maskOf(vl.EverSeenSides) | s.sighted
+			w.Set(model.KindVillage, s.villageID, "village_ever_seen_sides", maskToFloat(ever),
+				read, causes, "newly sighted by one or more sides")
+		}
+
+		if s.observers > 0 {
+			w.Set(model.KindVillage, s.villageID, "village_last_seen_tick", today,
+				read, causes, "last observed")
+		}
 	}
 }
 
@@ -400,6 +456,62 @@ func sightRadiusLeagues(c config.Visibility, t *model.Town, day int) float64 {
 		radius *= 1 + c.SettlementSizeSightBonus*share
 	}
 	return shared.Clamp(radius, 0, math.Inf(1))
+}
+
+// sightVillage is sightTown for a village: which sides can see it.
+//
+// Villages use the base sight radius with only the season penalty. They carry
+// no terrain field (unlike towns), and they are too small for the settlement-
+// size bonus to matter — a hamlet has no towers or market smoke to spot from
+// further off.
+func sightVillage(v *sim.View, c config.Visibility, vl *model.Village,
+	observers map[int][]observer, today float64) (villageSight, bool) {
+
+	if vl.Population < c.MinPopulationToBeSeen {
+		return villageSight{}, false
+	}
+
+	radius := c.SightRadiusKm / KM_PER_LEAGUE
+	radius *= 1 - c.SeasonSightPenalty*seasonWeight(v.Day)
+	radius = shared.Clamp(radius, 0, math.Inf(1))
+
+	s := villageSight{
+		villageID: vl.ID,
+		nearest:   math.Inf(1),
+		radius:    radius,
+	}
+	ever := maskOf(vl.EverSeenSides)
+
+	for _, sid := range v.State.SideIDs() {
+		bit := sideBit(sid)
+		if bit == 0 {
+			continue
+		}
+		for _, o := range observers[sid] {
+			dx := vl.X - o.x
+			dy := vl.Y - o.y
+			d := math.Sqrt(dx*dx + dy*dy)
+			if d > s.radius {
+				continue
+			}
+			s.sighted |= bit
+			s.observers++
+			if d < s.nearest {
+				s.nearest = d
+			}
+		}
+	}
+
+	if c.SightingMemoryDays > 0 && vl.LastSeenTick >= 0 && today-vl.LastSeenTick <= c.SightingMemoryDays {
+		s.sighted |= ever
+	}
+
+	if s.observers == 0 && s.sighted == 0 {
+		return villageSight{}, false
+	}
+	s.observed = s.observers > 0
+	s.discovered = countBits(s.sighted &^ ever)
+	return s, true
 }
 
 // seasonWeight is how much of the season penalty applies on a given day of the

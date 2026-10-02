@@ -363,6 +363,10 @@ func init() {
 	register(Field{"village_yield", KindVillage, ValueFloat, "person-days/day", false, 0, inf, nil, 0})
 	register(Field{"village_link", KindVillage, ValueInt, "town", false, -1, inf, nil, 0})
 	register(Field{"village_hearths", KindVillage, ValueInt, "tier", true, 1, 5, nil, 0})
+	// Village fog of war, mirroring the town fields above.
+	register(Field{"village_sighted_sides", KindVillage, ValueInt, "sides", false, 0, maskMax, nil, 0})
+	register(Field{"village_ever_seen_sides", KindVillage, ValueInt, "sides", true, 0, maskMax, nil, 0})
+	register(Field{"village_last_seen_tick", KindVillage, ValueInt, "days", false, -1, inf, nil, 0})
 	// --- party fields: parties, armies, and caravans share this shape ---
 	register(Field{"troops", KindParty, ValueInt, "troops", true, 0, inf, nil, 0})
 	register(Field{"party_food", KindParty, ValueFloat, "person-days", true, 0, inf, nil, 0})

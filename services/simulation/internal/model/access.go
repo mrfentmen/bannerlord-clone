@@ -674,6 +674,12 @@ func villageGet(v *Village, f string) (float64, bool) {
 		return float64(v.Link), true
 	case "village_hearths":
 		return float64(v.Hearths), true
+	case "village_sighted_sides":
+		return v.SightedSides, true
+	case "village_ever_seen_sides":
+		return v.EverSeenSides, true
+	case "village_last_seen_tick":
+		return v.LastSeenTick, true
 	}
 	return 0, false
 }
@@ -694,6 +700,12 @@ func villageSet(v *Village, f string, x float64) bool {
 		v.Link = int(x)
 	case "village_hearths":
 		v.Hearths = int(x)
+	case "village_sighted_sides":
+		v.SightedSides = x
+	case "village_ever_seen_sides":
+		v.EverSeenSides = x
+	case "village_last_seen_tick":
+		v.LastSeenTick = x
 	default:
 		return false
 	}

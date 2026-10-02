@@ -904,3 +904,32 @@ func TestOrderIndependence(t *testing.T) {
 		t.Error("two identical runs produced different visibility state")
 	}
 }
+
+// TestVillageVisibility mirrors the town fog for villages: a side sees the
+// village its party stands next to, and not the one far away.
+func TestVillageVisibility(t *testing.T) {
+	w := newWorld(t)
+	// Village 1 is next to side A's party (2 leagues away); village 2 is far.
+	w.state.Villages[1] = &model.Village{ID: 1, Name: "Millham", SideID: 1,
+		Population: 500, X: 3, Y: 0, LastSeenTick: -1}
+	w.state.Villages[2] = &model.Village{ID: 2, Name: "Farfield", SideID: 2,
+		Population: 500, X: 400, Y: 400, LastSeenTick: -1}
+	w.tick(t)
+
+	v1 := w.state.Villages[1]
+	v2 := w.state.Villages[2]
+	// Side A (bit 1<<1 = 2) should see village 1.
+	if uint64(v1.SightedSides)&(1<<1) == 0 {
+		t.Errorf("village 1 not sighted by side A: mask %v", v1.SightedSides)
+	}
+	if uint64(v1.EverSeenSides)&(1<<1) == 0 {
+		t.Errorf("village 1 not ever-seen by side A: mask %v", v1.EverSeenSides)
+	}
+	if v1.LastSeenTick < 0 {
+		t.Errorf("village 1 last_seen_tick not stamped: %v", v1.LastSeenTick)
+	}
+	// Village 2 is far from everyone: no sightings.
+	if v2.SightedSides != 0 {
+		t.Errorf("village 2 sighted: mask %v", v2.SightedSides)
+	}
+}
