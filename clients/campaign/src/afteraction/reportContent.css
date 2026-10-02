@@ -41,3 +41,40 @@
   color: var(--ink-900);
   font-weight: 600;
 }
+
+/* Level-up notification (task 83). */
+.aa-levelups {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--paper-300);
+  border-left: 3px solid var(--accent-primary);
+  background: var(--paper-0);
+}
+
+.aa-levelups[hidden] { display: none; }
+
+.aa-levelups__title {
+  margin: 0 0 var(--space-1);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-500);
+}
+
+.aa-levelups__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.aa-levelups__row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.aa-levelups__name { font-weight: 600; }
+.aa-levelups__rank { color: var(--accent-primary); font-weight: 600; }
+.aa-levelups__xp { margin-left: auto; color: var(--ink-500); }

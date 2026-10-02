@@ -6,6 +6,7 @@ export * from "./types.js";
 export * from "./casualties.js";
 export * from "./killDeath.js";
 export * from "./mvpHighlight.js";
+export * from "./levelUp.js";
 export * from "./report.js";
 export * from "./endScreens.js";
 export * from "./loot.js";
