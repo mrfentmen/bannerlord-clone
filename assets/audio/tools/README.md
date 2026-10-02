@@ -9,6 +9,8 @@ No samples, no licensed material, no recordings.
 - `compose.py` — batch 1: menu, loading, battle, ambient-exploration, victory, defeat
 - `compose5.py` — batch 5: tavern-rest, siege-assault, night-patrol, pursuit
 - `compose6.py` — batch 6: oath-ceremony, last-stand, homestead
+- `compose_danger.py` — danger-pulse tension layer (critical-warning bed)
+- `compose_stingers.py` — victory/defeat one-shot stingers
 - `sfx.py` — batch 1: 27 effects (weapons, vehicles, UI, foley, ambience, radio)
 - `sfx2.py` — batch 2: 10 effects (coin, quest-complete, horn, crowd, helicopter…)
 - `sfx3.py` — batch 3: 8 effects (panel whooshes, warning, arrow-volley, siren…)
@@ -24,6 +26,8 @@ python3 compose6.py   # batch-6 music -> out/
 python3 sfx.py        # batch-1 effects -> out/sfx/
 python3 sfx2.py       # batch-2 effects -> out/sfx/
 python3 sfx3.py       # batch-3 effects -> out/sfx/
+python3 compose_danger.py   # tension layer -> out/danger-pulse-mix.wav
+python3 compose_stingers.py # stingers -> out/
 python3 radio.py      # station beds + bulletins -> out/radio/
 # then MP3:
 ffmpeg -i out/tavern-rest-mix.wav -codec:a libmp3lame -b:a 192k out/tavern-rest-mix.mp3

@@ -7,6 +7,8 @@
     "assets/audio/tools/compose.py",
     "assets/audio/tools/compose5.py",
     "assets/audio/tools/compose6.py",
+    "assets/audio/tools/compose_danger.py",
+    "assets/audio/tools/compose_stingers.py",
     "assets/audio/tools/sfx.py",
     "assets/audio/tools/sfx2.py",
     "assets/audio/tools/sfx3.py",
@@ -194,6 +196,13 @@
       "sha256": "95f3c09b5cd2936c21b4e52b6137493bb565d388f185fa11ab44a4207f37f49b",
       "duration_s": 41.14,
       "bytes": 878075
+    },
+    {
+      "path": "audio/music/danger-pulse.mp3",
+      "kind": "music",
+      "sha256": "6ca6d94150e6f59f30870aed2fd0a2df9548043664280914c1a406b3db6f23ab",
+      "duration_s": 18.45,
+      "bytes": 444543
     },
     {
       "path": "audio/music/defeat-mix.mp3",
@@ -586,6 +595,20 @@
       "sha256": "a44b7db1d01f344bc4a7aae723b9fbf80a8e9ff269dacd5b705dff435ba262c4",
       "duration_s": 0.6,
       "bytes": 10493
+    },
+    {
+      "path": "audio/sfx/stinger/defeat.mp3",
+      "kind": "sfx",
+      "sha256": "35c8adfcb633652a29469f67cc319f4753eea327064c772e5862f0a148e73d85",
+      "duration_s": 7.2,
+      "bytes": 174333
+    },
+    {
+      "path": "audio/sfx/stinger/victory.mp3",
+      "kind": "sfx",
+      "sha256": "1ff34fa845e1e0a091929e0084aab90575b14c32bff010a5c09f90176281e15d",
+      "duration_s": 6.0,
+      "bytes": 145493
     },
     {
       "path": "audio/radio/bed-country-lope.mp3",

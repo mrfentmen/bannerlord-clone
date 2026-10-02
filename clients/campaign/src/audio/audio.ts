@@ -94,6 +94,9 @@ export const SFX_FILES: Record<string, string> = {
   "ambience-rain": "ambience/rain.mp3",
   "ambience-wind": "ambience/wind.mp3",
   "ambience-distant-battle": "ambience/distant-battle.mp3",
+  // stingers (one-shot; battle-outcome hooks pending sim support)
+  "stinger-victory": "stinger/victory.mp3",
+  "stinger-defeat": "stinger/defeat.mp3",
   // radio
   "radio-squelch": "radio/squelch.mp3",
   "radio-blip": "radio/blip.mp3",
@@ -143,6 +146,10 @@ export class GameAudio {
   private unlocked = false;
   private pendingScene: MusicScene | null = null;
   private muteBtn: HTMLButtonElement | null = null;
+  /** Tension layer under the music, driven by live critical warnings. */
+  private dangerEl: HTMLAudioElement;
+  private dangerOn = false;
+  private dangerFade: number | null = null;
 
   constructor(options: AudioOptions = {}) {
     this.base = options.basePath ?? "audio/";
@@ -153,6 +160,7 @@ export class GameAudio {
     this.musicB = this.makeMusicEl();
     this.active = this.musicA;
     this.idle = this.musicB;
+    this.dangerEl = this.makeMusicEl();
     for (let i = 0; i < voices; i++) {
       const el = new Audio();
       el.preload = "auto";
@@ -190,6 +198,11 @@ export class GameAudio {
       const s = this.pendingScene;
       this.pendingScene = null;
       this.setScene(s);
+    }
+    if (this.dangerOn) {
+      // setDanger early-returned before unlock; re-apply now that we can play.
+      this.dangerOn = false;
+      this.setDanger(true);
     }
   }
 
@@ -244,6 +257,49 @@ export class GameAudio {
   }
 
   /**
+   * A tension layer under the music, driven by live game state (critical
+   * resource warnings). Fades in/out on its own channel, independent of the
+   * scene crossfader. Calling with the current state is a no-op.
+   */
+  setDanger(active: boolean): void {
+    if (active === this.dangerOn) return;
+    this.dangerOn = active;
+    if (!this.unlocked) return;
+    const el = this.dangerEl;
+    if (active && !el.src) el.src = `${this.base}music/danger-pulse.mp3`;
+    if (active) {
+      void el.play().catch(() => {
+        /* autoplay still blocked; will retry on next unlock */
+      });
+    }
+    if (this.dangerFade !== null) {
+      window.clearInterval(this.dangerFade);
+      this.dangerFade = null;
+    }
+    const steps = 20;
+    const stepMs = 50;
+    let i = 0;
+    const from = el.volume;
+    const target = this.muted ? 0 : active ? 0.35 : 0;
+    this.dangerFade = window.setInterval(() => {
+      i++;
+      const t = Math.min(1, i / steps);
+      el.volume = from + (target - from) * t;
+      if (t >= 1) {
+        if (this.dangerFade !== null) {
+          window.clearInterval(this.dangerFade);
+          this.dangerFade = null;
+        }
+        if (!active) el.pause();
+      }
+    }, stepMs);
+  }
+
+  get danger(): boolean {
+    return this.dangerOn;
+  }
+
+  /**
    * Play a named effect once. Unknown names are ignored, never thrown.
    */
   playSfx(name: string, options: { volume?: number; loop?: boolean } = {}): void {
@@ -291,6 +347,7 @@ export class GameAudio {
     const v = this.muted ? 0 : 1;
     this.musicA.volume = v;
     this.musicB.volume = v;
+    this.dangerEl.volume = this.muted ? 0 : this.dangerOn ? 0.35 : 0;
     for (const el of this.sfxPool) el.volume = v;
     if (this.muteBtn) {
       this.muteBtn.textContent = this.muted ? "🔇" : "🔊";

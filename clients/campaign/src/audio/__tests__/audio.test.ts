@@ -30,8 +30,8 @@ describe("trackUrl", () => {
 });
 
 describe("sfxUrl", () => {
-  it("covers all 45 effects", () => {
-    expect(Object.keys(SFX_FILES).length).toBe(45);
+  it("covers all 47 effects", () => {
+    expect(Object.keys(SFX_FILES).length).toBe(47);
   });
 
   it("resolves known effects under audio/sfx/", () => {
@@ -42,6 +42,8 @@ describe("sfxUrl", () => {
     expect(sfxUrl("siren")).toBe("audio/sfx/vehicle/siren.mp3");
     expect(sfxUrl("panel-open")).toBe("audio/sfx/ui/panel-open.mp3");
     expect(sfxUrl("knife-slash")).toBe("audio/sfx/weapon/knife-slash.mp3");
+    expect(sfxUrl("stinger-victory")).toBe("audio/sfx/stinger/victory.mp3");
+    expect(sfxUrl("stinger-defeat")).toBe("audio/sfx/stinger/defeat.mp3");
   });
 
   it("every entry ends in .mp3", () => {

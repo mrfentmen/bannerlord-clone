@@ -1508,4 +1508,8 @@ function paint(): void {
     onFogToggle: setFogEnabled,
   };
   hud.renderState(state);
+  // Tension layer follows live critical warnings (food/money running out,
+  // etc.). paint() runs on every snapshot/tick update, so the layer tracks
+  // the world without any extra subscription.
+  audio.setDanger(snapshot.warnings.some((w) => w.severity === "critical"));
 }
