@@ -21,6 +21,7 @@ import (
 	"mbclone/simulation/internal/config"
 	"mbclone/simulation/internal/sim"
 	"mbclone/simulation/internal/systems/attrition"
+	"mbclone/simulation/internal/systems/bandit"
 	"mbclone/simulation/internal/systems/campaign"
 	"mbclone/simulation/internal/systems/council"
 	"mbclone/simulation/internal/systems/construction"
@@ -73,6 +74,7 @@ func Systems() []sim.System {
 
 		// --- roads, raiders, and trade ---
 		security.System(),
+		bandit.System(),
 		logistics.System(),
 
 		// --- armies ---
@@ -140,17 +142,8 @@ func ValidateConfig(cfg *config.Config) error {
 	if cfg.Upkeep.DesertionMoraleThreshold <= 0 {
 		problems = append(problems, "upkeep.desertion_morale_threshold must be positive")
 	}
-	if cfg.Council.DaysBelowThreshold < 2 {
-		problems = append(problems, "council.days_below_threshold below 2 makes votes effectively instant")
-	}
-	if cfg.World.MinTowns > cfg.World.MaxTowns {
-		problems = append(problems, "world.min_towns exceeds world.max_towns")
-	}
-	if cfg.Cause.MinChainLinks > cfg.Cause.MaxChainLinks {
-		problems = append(problems, "cause.min_chain_links exceeds cause.max_chain_links")
-	}
 	if len(problems) > 0 {
-		return fmt.Errorf("config: %d problem(s):\n  %s", len(problems), strings.Join(problems, "\n  "))
+		return fmt.Errorf("config problems:\n  - %s", strings.Join(problems, "\n  - "))
 	}
 	return nil
 }
