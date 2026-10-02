@@ -1268,14 +1268,75 @@ ballistics_recoil_max = 0.25
 # Ceiling on suppression. Range 0.1-5.0. Above 1 the unit is pinned, not
 # merely shaken.
 suppression_cap = 1.0
-# Suppression recovered per second. Range 0-5.0. Slow enough that suppression
-# accumulates through a firefight and recovers during a lull.
+# Suppression recovered per second, as a FLAT amount off every unit's suppression
+# rather than as a share of it. Range 0-5.0.
+#
+# KNOWN GAP, MEASURED, NOT FIXED: AT THIS VALUE SUPPRESSION BARELY EXISTS.
+#
+# This is COMBAT.md section 6's first mechanic and at the shipped constants it is
+# inert in a real battle. A 100 v 100 reference battle, seed 20260930, 1902 ticks,
+# 162,671 unit-ticks of units still able to fight, histogramed:
+#
+#   suppression   unit-ticks      share
+#   0.0 - 0.1     162,375        99.82%
+#   0.1 - 0.2          222         0.14%
+#   0.2 - 0.4           52         0.03%
+#   0.4 - 0.6           18         0.01%
+#   0.6 - 1.0            4         0.00%
+#
+# Mean suppression over the whole battle is 0.0004 of a cap of 1.0, and the two
+# sides reported 57 and 29 suppression dealt between them. Every consumer of this
+# number scales from the cap, so at these levels suppression is worth nothing:
+# battle.suppression_melee_penalty, battle.suppression_ranged_penalty,
+# battle.ballistics_suppression_accuracy_mult and battle.morale_suppression_hit
+# are all reachable code that almost nothing ever reaches.
+#
+# WHY, ARITHMETICALLY, AND IT IS NOT A TUNING KNOB'S FAULT. The engine subtracts a
+# FLAT battle.suppression_decay * battle.tick_seconds every tick, which is 0.055,
+# and adds battle.ranged_suppression_share * battle.ranged_suppression_per_hit per
+# hit, which is 0.182. So suppression can only accumulate at all if a unit is hit
+# more often than once every 3.2 ticks. In that 100 v 100 battle each unit was hit
+# about once every 590 ticks, because 314 hits were spread over 100 targets for
+# 1902 ticks, and the flat decay is about 700 times what the fire puts in. Nothing
+# about battle.suppression_cap or battle.ranged_suppression_per_hit being wrong
+# would show that, because the arithmetic is a comparison of the decay against the
+# addition and only those two are in it.
+#
+# THE FIX IS NOT OBVIOUS AND IS NOT IN THIS FILE. The obvious one is to recover a
+# SHARE of what a unit has rather than a flat amount, which makes the standing
+# level exactly addition over decay and makes it scale with the fire rather than
+# against the clock: at 0.22 that would put a unit under that battle's fire at
+# about 0.30 suppression instead of 0.0004. It is not in this file because
+# suppression feeds four other terms, one of them battle.morale_suppression_hit,
+# and making suppression live will make battles more decided by fire, which is
+# the failure the three unbounded morale terms caused and which was just fixed. The
+# right sequence is a sweep with contact measured across scenarios and seeds, and
+# that is the next thing in this lane rather than a value changed in a hurry.
+#
+# Until then: suppression here is a real mechanic with a real formula that a
+# normal firefight never reaches, and anything that reads this key should read
+# that first.
 suppression_decay = 0.22
 # Share of incoming melee damage removed at full suppression. Range 0-0.9. A
 # pinned unit fights badly because it cannot get its head up, not because it
 # is magically tougher.
 suppression_melee_penalty = 0.55
-# Share of ranged damage lost at full suppression. Range 0-0.9.
+# Share of the HIT CHANCE lost at full suppression. Range 0-0.9. It is applied
+# twice, to the shooter's own suppression and to the target's, and both times in
+# the same direction: a pinned man shoots worse, and a pinned man is harder to
+# hit, because he has his head down. COMBAT.md section 6 is "less accurate and
+# more likely to take cover", and this is the second half of that sentence.
+#
+# It used to be documented here as a share of ranged DAMAGE lost, which is not
+# what this key does and never was: it is read in rangedHitChance and nowhere
+# else, so a designer reading the old line would have moved a number expecting
+# damage and got accuracy. Measured with this file's other values, 40 shooters
+# firing on 40 targets over 600 ticks with everything held still:
+#
+#   neither pinned                     0.1657 hits a shot
+#   target pinned                      0.0663   40% of that
+#   shooter pinned                     routed before it matters (see
+#                                      battle.suppression_decay on why)
 suppression_ranged_penalty = 0.60
 # Share of melee damage a routed unit also suffers. Range 0-2.0. Men who have
 # run toward the enemy's flank are shot in the back.

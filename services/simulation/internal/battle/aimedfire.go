@@ -129,10 +129,35 @@ func (b *Battle) stageAimedFire() {
 // term to matter without skill being the whole answer. Both numbers were
 // literals 0.25 and 0.45 in this function, which made the hit chance of the
 // game's only shooting model the one thing in the [battle] section no balance
-// pass could reach. Suppression on the shooter suppresses its aim; suppression
-// on the target makes it easier to hit. A broken or routed shooter shoots badly
-// without being under fire at all, which is why its status scales the chance as
-// well as the damage.
+// pass could reach. A broken or routed shooter shoots badly without being under
+// fire at all, which is why its status scales the chance as well as the damage.
+//
+// SUPPRESSION, BOTH SIDES, IN THE SAME DIRECTION, AND THE COMMENT THAT SAID
+// OTHERWISE WAS WRONG
+//
+// This comment used to say "suppression on the target makes it easier to hit",
+// which is the opposite of what the two lines below do, and the balance file
+// said the same key was a share of ranged DAMAGE. Neither was true and the first
+// would have been read by anyone tuning suppression.
+//
+// Measured, with the shipped file, 40 shooters on 40 targets over 600 ticks with
+// the shooters pinned in place so the only thing varying is suppression:
+//
+//	neither side pinned     0.1657 hits a shot
+//	target pinned           0.0663   40% of that
+//	shooter pinned          routed within a few ticks, see below
+//
+// So a pinned man is HARDER to hit, not easier, and that is the reading: the two
+// lines are COMBAT.md section 6's "less accurate and more likely to take cover",
+// one line for each half, and they use one constant because one number for "how
+// much does being pinned cost you" is one thing to tune. The key's own comment in
+// the balance file now says hit chance rather than damage, and says both.
+//
+// The shooter-pinned row is the reason this file's battle.suppression_decay entry
+// exists in the form it does: at the cap a unit loses 0.275 morale a tick to
+// battle.morale_suppression_hit and is running before the accuracy term has
+// contributed anything worth measuring. In a real 100 v 100 battle the mean
+// suppression of a man who can still fight is 0.0004 of the cap.
 //
 // Exhaustion is deliberately not a term here. A tired man's aim is not worse
 // than a rested one's; his swing of the trigger is heavier. Exhaustion is
