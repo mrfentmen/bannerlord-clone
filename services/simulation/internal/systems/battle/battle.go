@@ -41,6 +41,13 @@ func System() sim.System {
 // of, and that composition is shared state the template system publishes
 // (Tier 6.2). Reading it is not calling into it: no decision crosses here, only
 // a number the template system already committed.
+//
+// Everything here is a property of one army: how many men, how steady, how
+// experienced, what they are made of. Nothing here depends on who is opposite,
+// because a matchup is a property of two parties and strength is called once
+// per party, from inside findPair's pair enumeration, before either of the two
+// has been chosen. The formation bonus is applied in the resolution loop where
+// both templates are in hand; see matchupBonus.
 func strength(v *sim.View, p *model.Party, leader *model.Leader) float64 {
 	base := p.Troops
 	// Morale scales effectiveness 0.5x to 1.5x.
@@ -181,6 +188,63 @@ func bluntCaptureShare(v *sim.View, winner *model.Party) float64 {
 		return 0
 	}
 	return shared.Clamp01(v.Cfg.Battle.BluntCaptureShare)
+}
+
+// matchupBonus returns how much stronger a party fighting in shape `self` is
+// against a party fighting in shape `other`, from the balance table.
+//
+// Two decisions are baked into the signature, and both of them are the reason
+// this is a function taking two shapes rather than one party.
+//
+// The first is that the table is antisymmetric: the same call with the
+// arguments the other way round returns the reciprocal, and the config
+// validator refuses a table where the two do not multiply to one. A matchup is
+// a relative advantage, so a stance line that holds against a mounted wing is
+// saying the mounted wing does not hold against the line. A directional table
+// would let both cells read above one, and then meeting would make both armies
+// stronger, which is not a matchup and cannot change who wins a fight between
+// equal armies.
+//
+// The second is that `self` is the nominal attacker, which findPair nominates as
+// the stronger of the two before the fight is resolved. That is deliberate and
+// it is the trap in this function: the stronger party is not always the winner,
+// so reading the cell by "who won" would make the multiplier a function of the
+// answer. The call sites always pass the same order, attacker first, and
+// TestMatchupIsReadAsAttackerVersusDefender pins that by reading the two
+// orientations out of the cause log.
+//
+// The shape comes from the published class counts rather than from
+// party_template, so a party mid-refit, or one whose counts have drifted from
+// its template, is matched on what it is made of. A shape outside the table
+// cannot be indexed and is treated as neutral rather than allowed to panic the
+// tick, for the same reason weaponClass is bounds-checked.
+func matchupBonus(v *sim.View, self, other model.PartyTemplate) float64 {
+	if self < 0 || int(self) >= model.TemplateCount ||
+		other < 0 || int(other) >= model.TemplateCount {
+		return 1
+	}
+	return v.Cfg.Battle.FormationBonus[self][other]
+}
+
+// shapeOf is the template a party is actually fighting in, as published class
+// counts rather than as the party_template field.
+func shapeOf(v *sim.View, p *model.Party) model.PartyTemplate {
+	return template.Shape(v, p)
+}
+
+// situational applies every modifier that depends on the encounter rather than
+// on one army, and clamps the product.
+//
+// The clamp is the reason this is one function rather than two multiplications
+// in the resolution loop. The matchup table and the terrain table are each
+// within their own validated range, and their product is not: 2.0 times 2.0 is
+// four, and a designer raising one of them has no way to see the other. The
+// band comes from the balance file for the same reason, so the limit on how far
+// ground and formation may depart from an even fight is a balance decision and
+// not a constant in a line of Go.
+func situational(v *sim.View, product float64) float64 {
+	c := v.Cfg.Battle
+	return shared.Clamp(product, c.SituationalClampMin, c.SituationalClampMax)
 }
 
 func run(v *sim.View, w *sim.WriteSet) {

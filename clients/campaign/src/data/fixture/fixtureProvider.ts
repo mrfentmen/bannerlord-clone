@@ -51,6 +51,8 @@ import type {
   RecruitResult,
   ResourceWarning,
   RulerState,
+  Rumour,
+  RumourGood,
   SimSnapshot,
   SimulationProvider,
   TickUpdate,
@@ -118,6 +120,13 @@ const FIXTURE = {
   issueRelationShare: 0.5,
   /** How long an untaken offer survives before it lapses. */
   issueStaleOfferDays: 18,
+  /**
+   * The rumour feed: the smallest per-unit difference worth telling a player about, and
+   * the most tips the feed will carry. These are the numbers the server passes to its own
+   * rumour generator, so the double and the real thing publish the same feed.
+   */
+  rumourMinMargin: 5,
+  rumourMax: 10,
   /**
    * Barter. A lord does not trade at the market price in either direction: they buy
    * under it and sell over it, and the difference is their margin. Barter is where
@@ -228,7 +237,28 @@ const FIXTURE_FOG = {
   sightRadiusKm: 24,
   sightRadiusLeagues: 24 / 4.828032,
   sightingMemoryDays: 3,
+  /**
+   * The fixture's own clock, in the unit `lastSeen` is counted in.
+   *
+   * Present because the real block carries one and a fixture that omitted it would make
+   * the staleness code path untestable against the fixture: every town would be
+   * `unknown`, nothing would fade, and a client regression there would never show up in a
+   * run. Chosen so that the fixture actually exercises both bands — towns seen 2 ticks
+   * ago are inside the 3-day memory window and towns seen 20 are well past it.
+   */
+  tick: 22,
 } as const;
+
+/** How long ago the fixture last laid eyes on each town, in `FIXTURE_FOG.tick` units. */
+const FIXTURE_LAST_SEEN: Record<FixtureTownsSpec["fog"], number> = {
+  // Seen on the current tick: in sight, and drawn in full.
+  visible: 22,
+  // Seen two ticks ago: still inside the sighting memory, so the simulation keeps counting
+  // it as visible even though nobody is standing there. This is the band that exists
+  // because of the memory window rather than because of the map.
+  remembered: 20,
+  unseen: -1,
+};
 
 const RULER_SPECS = [
   { name: "Ilse Halloway", faction: "Mountain Alliance", tier: "side-leader" as const, holdings: ["denver", "aurora", "lakewood", "thornton", "arvada", "broomfield"], influence: 92, renown: 74, loyalty: 0.81, relation: 34 },
@@ -295,6 +325,21 @@ const ISSUE_KIND_NAMES: Record<IssueKind, string> = {
   "clear-hideout": "Clear hideout",
   escort: "Escort",
 };
+
+/**
+ * The three goods the rumour generator scans, each paired with the good this client calls
+ * it by.
+ *
+ * `food` is the simulation's key for what the rest of this client calls `grain` — its
+ * price field is `PriceFood`, while `GOODS` and the top bar say "Grain" — so the pair is
+ * written out rather than worked out, and the sentence below says `food` for the same
+ * reason the real generator does.
+ */
+const RUMOUR_GOODS: { simKey: RumourGood; clientGood: GoodId }[] = [
+  { simKey: "food", clientGood: "grain" },
+  { simKey: "medicine", clientGood: "medicine" },
+  { simKey: "metal", clientGood: "metal" },
+];
 
 /** Names for generated notables, cycled by index. */
 const NOTABLE_NAMES: string[] = [
@@ -380,6 +425,7 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     acceptIssue: async (request) => state.acceptIssue(request),
     completeIssue: async (request) => state.completeIssue(request),
     abandonIssue: async (request) => state.abandonIssue(request),
+    rumours: async () => state.rumours(),
     planMarch: async (request) => state.planMarch(request),
     commitMarch: async (request) => state.commitMarch(request),
     setTimeScale: (daysPerRealSecond) => state.setTimeScale(daysPerRealSecond),
@@ -710,11 +756,21 @@ class FixtureState {
     const visibleTowns = idsFor("visible");
     const knownTowns = TOWN_SPECS.filter((s) => s.fog !== "unseen").map((s) => `town-${s.settlementId}`);
     const unseenTowns = idsFor("unseen");
+    // Only for towns this side has found, and only where the sighting is a real one —
+    // the same rule `buildFog` follows in `cmd/apiserver/snapshot.go`, so a fixture town
+    // that is unseen here is unseen there too and the two agree on what absence means.
+    const lastSeen: Record<string, number> = {};
+    for (const spec of TOWN_SPECS) {
+      const seen = FIXTURE_LAST_SEEN[spec.fog];
+      if (seen >= 0) lastSeen[`town-${spec.settlementId}`] = seen;
+    }
     return {
       sideId: FIXTURE_FOG.sideId,
       sightRadiusKm: FIXTURE_FOG.sightRadiusKm,
       sightRadiusLeagues: FIXTURE_FOG.sightRadiusLeagues,
       sightingMemoryDays: FIXTURE_FOG.sightingMemoryDays,
+      tick: FIXTURE_FOG.tick,
+      lastSeen,
       visibleTowns,
       knownTowns,
       unseenTowns,
@@ -1722,9 +1778,50 @@ class FixtureState {
     this.#logStep(issue, `taken up with ${issue.deadlineDays} days to do it`, "accepted", 5);
     issue.state = state;
     this.#logStep(issue, "the goods arrived and the work was done", state, 2);
+    // A served request is served by the world, not by the log. The step above says the
+    // goods arrived, so the town is put where the goods would have put it, in the reading
+    // the objective is measured against. Without this the seed contradicted itself: the
+    // log claimed a delivery that had not happened, while `requirement.met` — recomputed
+    // from the world on every read, which is the whole point of that field — said the larder
+    // was still short. A panel printing a full gauge beside "the world does not meet the
+    // objective" would have been reporting two of this fixture's own fields disagreeing.
+    //
+    // They are still allowed to drift apart afterwards, and that is not this bug: a served
+    // request's progress is the state it settled in, while `met` is what the world says
+    // today. The real system behaves the same way once the town has eaten the delivery.
+    this.#serveWorld(issue);
     const notable = this.#notable(issue.notableId);
     notable.relation = Math.min(100, notable.relation + issue.reward.relation);
     notable.grievance = round2(clamp(notable.grievance - 0.25, 0, 1));
+  }
+
+  /**
+   * Put a settlement where a served request says it is, in the objective's own reading.
+   *
+   * The mirror image of `#metNow`, and written through the same field each kind is
+   * measured on: a delivery is grain in the larder, a hideout is disorder coming down and
+   * an escort is a road getting safer. It is only called for a request the log records as
+   * served — a failure leaves the world exactly as it found it, which is the whole of what
+   * a failure means.
+   */
+  #serveWorld(issue: FixtureIssue): void {
+    const town = this.#towns.get(issue.settlementId);
+    if (!town) return;
+    switch (issue.kind) {
+      case "deliver-goods": {
+        // Rounded up, so the reading comes back at or above the target rather than a
+        // hundredth of a unit under it, which is the difference between a delivery that
+        // arrived and one that stopped just short of the line.
+        town.foodStock = Math.ceil(this.#targetOf(issue) * FIXTURE.grainUnitInPersonDays);
+        break;
+      }
+      case "clear-hideout":
+        town.unrest = round2(FIXTURE.issueHideoutCrimeTarget);
+        break;
+      case "escort":
+        town.roadSafety = round2(FIXTURE.issueEscortSafetyTarget);
+        break;
+    }
   }
 
   /**
@@ -1776,6 +1873,64 @@ class FixtureState {
 
   async abandonIssue(request: IssueActionRequest): Promise<IssueActionResult> {
     return this.#act(request, "abandon");
+  }
+
+  /**
+   * Trade rumours, generated from the prices this fixture's markets actually hold.
+   *
+   * The same rule and the same order as the simulation's rumour generator: for each of the
+   * three goods it scans, the cheapest town against the dearest, dropped unless the
+   * difference clears the threshold, then best margin first with ties broken by the good's
+   * name so two runs of the same world give the same feed.
+   *
+   * The double is thinner than the real generator in two places, both because the fixture
+   * has no field the simulation has. It skips no town, because these towns carry no
+   * blockade or siege state to skip on; and it caps the list at the same ten, which three
+   * goods cannot reach.
+   *
+   * The town ids are this fixture's own: the simulation numbers its towns and this one
+   * names them after the settlement, so the number sent is the town's position in the
+   * fixture's list. It is a number of the right shape for the contract and nothing more.
+   * No panel reads it — the feed shows the two names, which is the join the client can
+   * actually make.
+   */
+  async rumours(): Promise<Rumour[]> {
+    const ids = [...this.#towns.keys()];
+    const numberOf = (id: string): number => ids.indexOf(id);
+    const feed: Rumour[] = [];
+    for (const { simKey, clientGood } of RUMOUR_GOODS) {
+      const priced = [...this.#towns.values()]
+        .map((town) => ({ town, price: this.#goodPrice(town.id, clientGood) }))
+        .filter((row): row is { town: TownState; price: number } => row.price !== null)
+        .sort((a, b) => a.price - b.price);
+      if (priced.length < 2) continue;
+      const cheap = priced[0]!;
+      const dear = priced[priced.length - 1]!;
+      const margin = round2(dear.price - cheap.price);
+      if (margin < FIXTURE.rumourMinMargin) continue;
+      feed.push({
+        good: simKey,
+        buyTown: cheap.town.name,
+        buyTownId: numberOf(cheap.town.id),
+        buyPrice: cheap.price,
+        sellTown: dear.town.name,
+        sellTownId: numberOf(dear.town.id),
+        sellPrice: dear.price,
+        margin,
+        // The simulation's own sentence, its key and its rounding included. Printed as
+        // written, so the double has to write the same thing the real one does.
+        text: `Buy ${simKey} cheap in ${cheap.town.name} (${Math.round(cheap.price)}), sell dear in ${dear.town.name} (${Math.round(dear.price)}). Margin ${Math.round(margin)} per unit.`,
+      });
+    }
+    return feed
+      .sort((a, b) => b.margin - a.margin || (a.good < b.good ? -1 : a.good > b.good ? 1 : 0))
+      .slice(0, FIXTURE.rumourMax);
+  }
+
+  /** What a town charges for a good today, or `null` where it does not trade in it. */
+  #goodPrice(townId: string, goodId: GoodId): number | null {
+    const good = this.#markets.get(townId)?.goods.find((line) => line.goodId === goodId);
+    return good === undefined ? null : good.price;
   }
 
   /**

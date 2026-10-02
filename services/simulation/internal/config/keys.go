@@ -647,6 +647,16 @@ func (l *loader) load(c *Config) {
 	c.Battle.CaptureThreshold = l.f64("battle.capture_threshold")
 	c.Battle.CaptureChance = l.f64("battle.capture_chance")
 	c.Battle.BluntCaptureShare = l.f64("battle.blunt_capture_share")
+	c.Battle.SituationalClampMin = l.f64("battle.situational_clamp_min")
+	c.Battle.SituationalClampMax = l.f64("battle.situational_clamp_max")
+	// The matchup table is read row by row over the label lists declared below,
+	// so a key is named formation_bonus_<attacker>_<defender> and the pair is
+	// the one the battle system asks about.
+	for ai, att := range templateLabels {
+		for di, def := range templateLabels {
+			c.Battle.FormationBonus[ai][di] = l.f64("battle.formation_bonus_" + att + "_" + def)
+		}
+	}
 
 	// --- crime ---
 	c.Crime.DeterrencePerCoverage = l.f64("crime.deterrence_per_coverage")

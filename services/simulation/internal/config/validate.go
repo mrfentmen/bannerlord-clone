@@ -111,6 +111,12 @@ func (c *Config) validate(path string) error {
 		{"template.fit_switch_threshold", c.Template.FitSwitchThreshold, 0, 1},
 		{"template.fit_relax_per_day", c.Template.FitRelaxPerDay, 0, 1},
 		{"battle.blunt_capture_share", c.Battle.BluntCaptureShare, 0, 0.5},
+		// The situational clamp has to leave room for a real multiplier on both
+		// sides of 1: a band whose top is 1 would silently delete the matchup
+		// table every time it was read, and the table's own range check would
+		// still pass.
+		{"battle.situational_clamp_min", c.Battle.SituationalClampMin, 0.05, 20},
+		{"battle.situational_clamp_max", c.Battle.SituationalClampMax, 0.05, 20},
 		{"formation.split_min_troops", c.Formation.SplitMinTroops, 1, 100000},
 		{"formation.split_min_parent_troops", c.Formation.SplitMinParentTroops, 1, 100000},
 		{"formation.split_max_share", c.Formation.SplitMaxShare, 0.01, 1},
@@ -184,6 +190,45 @@ func (c *Config) validate(path string) error {
 			return fmt.Errorf("config: %s: template.terrain_fit_%s_* are all zero: terrain %d has no good template",
 				path, terrainLabels[ti], ti)
 		}
+	}
+
+	// The formation matchup table. Two checks, and the second is the one that
+	// matters.
+	//
+	// The first is range. A multiplier outside 0.5-2.0 is a typo rather than a
+	// balance choice, and a typo of 20.0 would ship as a rule rather than fail
+	// as a mistake.
+	//
+	// The second is antisymmetry, and it exists because the table is written as
+	// sixteen numbers where only six are decisions: for every unordered pair,
+	// the other cell is its reciprocal. A designer who tunes stance against
+	// horse to 1.3 and forgets the mirror cell leaves a world in which meeting
+	// that pairing strengthens both armies, and no range check catches that,
+	// because both numbers are in range. The product of a cell and its mirror
+	// has to be 1; the tolerance is wide enough for the rounding of two
+	// two-decimal reciprocals and narrow enough that a doubled cell fails.
+	for ai := range c.Battle.FormationBonus {
+		for di := range c.Battle.FormationBonus[ai] {
+			v := c.Battle.FormationBonus[ai][di]
+			if v < 0.5 || v > 2.0 {
+				return fmt.Errorf("config: %s: battle.formation_bonus_%s_%s = %g is outside its valid range [0.5, 2]",
+					path, templateLabels[ai], templateLabels[di], v)
+			}
+		}
+	}
+	for ai := range c.Battle.FormationBonus {
+		for di := ai; di < len(c.Battle.FormationBonus[ai]); di++ {
+			product := c.Battle.FormationBonus[ai][di] * c.Battle.FormationBonus[di][ai]
+			if product < 0.95 || product > 1.05 {
+				return fmt.Errorf("config: %s: battle.formation_bonus_%s_%s (%g) and battle.formation_bonus_%s_%s (%g) multiply to %g: a matchup is a relative advantage, so exactly one side of a pairing can be favoured",
+					path, templateLabels[ai], templateLabels[di], c.Battle.FormationBonus[ai][di],
+					templateLabels[di], templateLabels[ai], c.Battle.FormationBonus[di][ai], product)
+			}
+		}
+	}
+	if c.Battle.SituationalClampMin >= c.Battle.SituationalClampMax {
+		return fmt.Errorf("config: %s: battle.situational_clamp_min (%g) is not below battle.situational_clamp_max (%g)",
+			path, c.Battle.SituationalClampMin, c.Battle.SituationalClampMax)
 	}
 
 	for _, b := range bounds {

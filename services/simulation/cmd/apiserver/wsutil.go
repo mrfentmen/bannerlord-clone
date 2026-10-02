@@ -4,7 +4,6 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"net"
-	"strconv"
 )
 
 const wsGUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
@@ -33,8 +32,4 @@ func wsWriteText(conn net.Conn, payload []byte) error {
 	}
 	_, err := conn.Write(payload)
 	return err
-}
-
-func itoa(i int64) string {
-	return strconv.FormatInt(i, 10)
 }

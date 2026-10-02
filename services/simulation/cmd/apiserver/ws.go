@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"net/http"
 	"sync"
 )
@@ -69,18 +70,64 @@ func (s *Server) unregisterWS(ch chan []byte) {
 	close(ch)
 }
 
+// tickFrame is one push to a tick subscriber, as `TickUpdate` in
+// clients/campaign/src/data/types.ts.
+//
+// Typed rather than assembled as a string, for the same reason `fogBlock` is: this frame
+// now carries a nested object with lists in it, and string concatenation is how a fog
+// block ends up half-quoted on the wire with no error anywhere.
+type tickFrame struct {
+	Type string `json:"type"`
+	// The simulation tick, which is `state.Tick` and nothing else.
+	//
+	// It used to be a count of frames this server had pushed since startup, which is a
+	// different number: it starts at zero on every restart and drifts from the world's
+	// clock, and it was in a different unit from every `lastSeenTick` on the wire. The
+	// client's validator already refused these frames for having no `day` at all, so the
+	// field was never usable for anything; it now means what its name says.
+	Tick int64 `json:"tick"`
+	// The in-game day, in the same unit and the same place as `snapshot.day`. Required:
+	// the client refuses a frame without it, so a tick frame without it is a frame that
+	// never reaches the screen.
+	Day int `json:"day"`
+	// A complete fog block, rebuilt per frame rather than as a delta.
+	//
+	// Complete, so the client's merge is a replacement and cannot half-apply: a sparse
+	// fog block would need every client to know which of eight fields this particular
+	// frame happened to carry. Rebuilding costs one pass over the towns, and the
+	// subscriber queue drops frames rather than growing, so a client that cannot keep up
+	// sees the next whole reading instead of a torn one.
+	Fog *fogBlock `json:"fog"`
+}
+
 func (s *Server) broadcastTick() {
 	s.mu.RLock()
-	tick := s.tickCount
+	// Subscribers are collected first and the frame built second, so a server nobody has
+	// connected to does not pay for the fog pass on every tick.
 	subs := make([]chan []byte, 0, len(s.wsSubs))
 	for ch := range s.wsSubs {
 		subs = append(subs, ch)
 	}
-	s.mu.RUnlock()
 	if len(subs) == 0 {
+		s.mu.RUnlock()
 		return
 	}
-	msg := []byte(`{"type":"tick","tick":` + itoa(tick) + `}`)
+	side, visible, known := fogViewFor(s)
+	fog := buildFog(s, side, visible, known)
+	frame := tickFrame{
+		Type: "tick",
+		Tick: int64(s.state.Tick),
+		Day:  s.state.Tick % 365,
+		Fog:  &fog,
+	}
+	s.mu.RUnlock()
+
+	msg, err := json.Marshal(frame)
+	if err != nil {
+		// Unreachable for this struct, and dropping the frame is the right answer if it
+		// ever is not: a malformed frame is refused by the client anyway.
+		return
+	}
 	for _, ch := range subs {
 		select {
 		case ch <- msg:

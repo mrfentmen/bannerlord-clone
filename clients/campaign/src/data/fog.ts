@@ -27,6 +27,12 @@
  * `missingSettlementNode` in `main.ts` shows it: the place is real, with real ground and
  * a real name, and the simulation having nothing to say about it is not the same as this
  * side not knowing it exists.
+ *
+ * The three states are three questions, and the fourth one is orthogonal to all of them:
+ * how old is the reading? A `remembered` town scouted last week and one scouted last
+ * year are in the same state and are not remotely the same fact, so recency is carried
+ * beside the state rather than folded into it — `FogIndex` still has exactly three sets,
+ * and `TownRecency` is read off `FogState.tick` and `FogState.lastSeen`.
  */
 
 import type { FogState, TownState, TownVisibility } from "./types.js";
@@ -75,6 +81,145 @@ export interface FogIndex {
 }
 
 const EMPTY: ReadonlySet<string> = new Set<string>();
+
+// -- how old the news is --------------------------------------------------------
+//
+// The three states say *whether* a town is being watched. They say nothing about how
+// stale the reading is, and on a remembered town that is the only thing left to say: the
+// place is known, so the only difference between a town scouted last week and one scouted
+// last year is the age of what the client is about to show.
+//
+// `FogState.tick` is what makes this computable. There was a period where this client
+// held `TownState.lastSeenTick` and could not use it: `day` is `Tick % 365` and wraps, and
+// `TickUpdate.tick` counted frames the server had pushed since startup, so there was
+// nothing in the same unit to subtract. Nothing here computes a radius or decides what is
+// visible — the bands below are a reading of two numbers the simulation published, in its
+// own unit, against a window it also published.
+
+/**
+ * How current a town's last sighting is.
+ *
+ * Four states rather than three, and the fourth is the interesting one. `remembered`
+ * alone cannot tell the player whether the numbers on a town's panel are from yesterday
+ * or from last spring, and "Remembered" printed over both is a label that does not
+ * discriminate.
+ *
+ * - `now` — sighted on this very tick. Somebody is standing there looking.
+ * - `recent` — inside the sighting memory window. The simulation still counts it as in
+ *   `visibleTowns`, which is why this band exists at all: a town in that list with an age
+ *   of three days is *not* being watched, it is being remembered by the server on the
+ *   client's behalf, and a client that drew it identically to a watched town would be
+ *   claiming eyes that are not there.
+ * - `old` — past the window. The town is remembered and its news is out of date.
+ * - `unknown` — no age could be stated: no clock, no sighting, or a clock and a sighting
+ *   that do not go together.
+ */
+export type TownRecency = "now" | "recent" | "old" | "unknown";
+
+/** How many ticks count as "seen this tick" rather than "seen recently". */
+const NOW_TICKS = 0;
+
+/**
+ * Ticks since this town was last in any side's sight, or null when that is not knowable.
+ *
+ * Three sources, in order, and the order matters:
+ *
+ *  1. `FogState.lastSeen` — the block's own map, which is what the tick frame carries.
+ *  2. `FogState.tick` and the caller's `lastSeenTick` — the per-town copy, so a settlement
+ *     the join found but the block did not mention still has an age.
+ *  3. Nothing, and null.
+ *
+ * Null is a real answer and not a failure to try: it is the reading behind `unknown`, and
+ * every consumer treats it as "no staleness to show" rather than as zero. The alternative
+ * — defaulting a missing age to zero — would put every unreadable town in the `now` band,
+ * which is the one band that claims somebody is watching.
+ *
+ * A sighting stamped *after* the block's own clock returns null rather than a negative
+ * age. The simulation does not publish one (`buildFog` drops it), but a negative age would
+ * compare as younger than now, which is a claim about the world that nothing supports.
+ */
+export function townAge(
+  fog: FogState | undefined,
+  townId: string,
+  lastSeenTick?: number,
+): number | null {
+  if (!fog || fog.tick === undefined || fog.tick === null) return null;
+  const now = fog.tick;
+  // The never-seen sentinel differs between the two producers — -1 from the simulation's
+  // field registry, 0 from the fixture — so both are read as "never" rather than one of
+  // them being read as a sighting at tick zero.
+  const seen = fog.lastSeen?.[townId] ?? (lastSeenTick !== undefined && lastSeenTick > 0 ? lastSeenTick : null);
+  if (seen === null) return null;
+  const age = now - seen;
+  return age >= 0 ? age : null;
+}
+
+/**
+ * Which of the four recency bands a town is in.
+ *
+ * The bands are stated against the simulation's own sighting memory rather than a number
+ * picked here, because the server decides when a sighting stops counting as sight: `old`
+ * means "past the point where the simulation itself would drop this town out of
+ * `visibleTowns`", which is a fact about the world rather than a fade this client invented.
+ *
+ * With no memory window configured (`sightingMemoryDays <= 0`) every sighting with an age
+ * is `old`, and that is the correct reading of a server that does not remember anything.
+ */
+export function townRecency(
+  fog: FogState | undefined,
+  townId: string,
+  lastSeenTick?: number,
+): TownRecency {
+  const age = townAge(fog, townId, lastSeenTick);
+  if (age === null) return "unknown";
+  if (age <= NOW_TICKS) return "now";
+  const memory = fog?.sightingMemoryDays ?? 0;
+  return age <= memory ? "recent" : "old";
+}
+
+/**
+ * How old the remembered half of a map is, as one pair of numbers.
+ *
+ * Counted by its own function rather than inside `countByVisibility`, because the two
+ * answer different questions and only one of them has the town's age in hand. This one
+ * does; the census does not, and asking the census to carry ages would mean passing two
+ * maps where one of them duplicates the other's information.
+ *
+ * `stale` is a *subset of* `remembered`, not a fourth state beside the three, and that is
+ * what keeps the census's arithmetic intact: `visible + remembered + unseen + unsighted`
+ * still equals the total, with staleness read off the side rather than added to it.
+ */
+export interface FogStaleness {
+  /** Places whose last sighting is older than the sighting memory. */
+  stale: number;
+  /** The oldest age among places that have one, in ticks. Null when none does. */
+  oldestDays: number | null;
+}
+
+export const NO_STALENESS: FogStaleness = { stale: 0, oldestDays: null };
+
+/**
+ * Count the stale places and find the oldest one.
+ *
+ * Both arguments are keyed by the *client's* settlement id, the same key the census uses,
+ * so the two readings are of one map rather than of two things that were joined separately.
+ * A place missing from `ages` has no stated age and is not counted: it is drawn as its
+ * state says and nothing further is claimed about it.
+ */
+export function tallyStaleness(
+  recency: ReadonlyMap<string, TownRecency>,
+  ages: ReadonlyMap<string, number>,
+): FogStaleness {
+  let stale = 0;
+  let oldestDays: number | null = null;
+  for (const [id, band] of recency) {
+    if (band === "old") stale += 1;
+    const age = ages.get(id);
+    if (age === undefined) continue;
+    if (oldestDays === null || age > oldestDays) oldestDays = age;
+  }
+  return { stale, oldestDays };
+}
 
 /**
  * Index a snapshot's fog block.
@@ -151,6 +296,22 @@ export interface MapFogCensus {
   /** Every settlement the map is drawing, so the panel can state a total. */
   total: number;
   /**
+   * Of the three states above, how many are remembered *and* out of date.
+   *
+   * A subset of `remembered` rather than a fourth state beside it, deliberately: the four
+   * figures `visible + remembered + unseen + unsighted` have to keep summing to `total`,
+   * and adding a bucket would break the arithmetic the indicator's totals rest on.
+   */
+  stale: number;
+  /**
+   * The oldest stated age on this map, in ticks. `null` when nothing on it has one.
+   *
+   * The single most useful fog number there is, because "remembered" and "remembered from
+   * last year" are very different things to plan a campaign around, and a count of states
+   * cannot tell them apart.
+   */
+  oldestDays: number | null;
+  /**
    * Whether the three states above are being enforced on the map at all.
    *
    * Carried on the census rather than recomputed by each consumer, because the two
@@ -197,13 +358,23 @@ export function reportFog(fog: FogState | undefined, census: MapFogCensus): FogR
     };
   }
   const radius = fog.sightRadiusKm > 0 ? `${fog.sightRadiusKm.toFixed(0)} km` : "an unstated radius";
+  // The staleness clause is conditional and reads in the past tense on purpose. It says
+  // how old the oldest news is rather than when it will expire, because the client does
+  // not know whether the party is ever going back there and "will go stale in 3 days"
+  // would be a promise about the player's plans.
+  const staleness = census.stale > 0
+    ? ` The oldest thing this side knows is ${census.oldestDays?.toFixed(0) ?? "some"} ticks old, ` +
+      `and ${census.stale} of the remembered places are past the ${fog.sightingMemoryDays.toFixed(0)}-day ` +
+      "sighting memory."
+    : "";
   return {
     applied: true,
     detail:
       `Fog of war is applied for ${fog.sideId}, at a sight radius of ${radius} and a sighting memory of ` +
       `${fog.sightingMemoryDays.toFixed(0)} days. On this map: ${census.visible} in sight, ` +
       `${census.remembered} remembered but not watched, ${census.unseen} never found and not drawn` +
-      (census.unsighted > 0 ? `, and ${census.unsighted} the simulation runs no town for.` : "."),
+      (census.unsighted > 0 ? `, and ${census.unsighted} the simulation runs no town for.` : ".") +
+      staleness,
   };
 }
 
@@ -228,6 +399,10 @@ export interface FogIndicator {
   total: number;
   /** Settlements drawn in full that the simulation holds no town for. */
   unsighted: number;
+  /** Of the remembered, how many are past the sighting memory. A subset of `remembered`. */
+  stale: number;
+  /** The oldest stated age on the map, in ticks. Null when nothing has one. */
+  oldestDays: number | null;
 }
 
 /**
@@ -245,6 +420,8 @@ export function fogIndicator(census: MapFogCensus): FogIndicator {
     unseen: census.unseen,
     total: census.total,
     unsighted: census.unsighted,
+    stale: census.stale,
+    oldestDays: census.oldestDays,
   };
 }
 
@@ -260,10 +437,16 @@ export function fogIndicator(census: MapFogCensus): FogIndicator {
  * Every watched settlement is counted in one of the three states; every unwatched one
  * lands in `unsighted`. So the four figures always sum to `total`, which is the
  * property the HUD indicator's arithmetic depends on.
+ *
+ * `staleness` is read off the side rather than added in, because it is a subset of
+ * `remembered`: a place whose last sighting is older than the sighting memory cannot be
+ * `visible` on any well-formed block, and a census that counted it again as a fourth state
+ * would report more places than the map has.
  */
 export function countByVisibility(
   states: ReadonlyMap<string, TownVisibility>,
   watched: ReadonlySet<string> | null,
+  staleness: FogStaleness | null = null,
 ): MapFogCensus {
   const census: MapFogCensus = {
     visible: 0,
@@ -271,6 +454,8 @@ export function countByVisibility(
     unseen: 0,
     unsighted: 0,
     total: 0,
+    stale: staleness?.stale ?? 0,
+    oldestDays: staleness?.oldestDays ?? null,
     // A null `watched` means the caller is not tracking the join, so the census cannot
     // make the distinction and counts every drawn settlement as a fogged one. That is
     // the same reading `buildFogIndex` gives a missing block: the whole map is drawn.

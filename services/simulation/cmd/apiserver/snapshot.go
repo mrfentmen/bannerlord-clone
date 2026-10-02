@@ -18,26 +18,11 @@ func buildSnapshot(s *Server) map[string]any {
 	st := s.state
 	playerID := s.playerLeaderID()
 
-	// The player's own side is what fog of war is relative to. Everything about
-	// what this side can see is stated against it, so it is resolved once here
-	// rather than inside the town loop.
-	playerSide := -1
-	if l, ok := st.Leaders[playerID]; ok {
-		playerSide = l.SideID
-	}
-
-	knownSet := make(map[int]bool)
-	if playerSide >= 0 {
-		for _, id := range visibility.KnownTowns(st, playerSide) {
-			knownSet[id] = true
-		}
-	}
-	visibleSet := make(map[int]bool)
-	if playerSide >= 0 {
-		for _, id := range visibility.CurrentlyVisibleTowns(st, playerSide) {
-			visibleSet[id] = true
-		}
-	}
+	// The player's own side is what fog of war is relative to, and the two id sets that
+	// follow from it. Resolved by the shared helper rather than inline, because the tick
+	// frame needs the same three answers and two copies of "which side is the player's"
+	// is two copies of exactly the bug `playerLeaderID`'s comment is about.
+	playerSide, knownSet, visibleSet := fogViewFor(s)
 
 	towns := make([]map[string]any, 0, len(st.Towns))
 	for _, t := range st.Towns {
@@ -190,39 +175,128 @@ func buildSnapshot(s *Server) map[string]any {
 // and the field is immutable after startup, so this needs none.
 func (s *Server) playerLeaderID() int { return s.player }
 
-// buildFog renders the fog-of-war state for the snapshot.
+// fogViewFor answers the three questions every fog rendering starts with: which side
+// the block is stated from, which towns that side has in sight now, and which it has
+// ever had in sight.
 //
-// It reports the four numbers a client needs to draw the world honestly and
-// nothing it could work out for itself: the radius in the units the player
-// thinks in, the three counts of towns (visible, remembered, never found), and
-// the town's ids for the two states that are not "every town in the list".
+// Split out of `buildSnapshot` because `broadcastTick` in ws.go needs the same answers,
+// and the whole reason the tick frame carries fog is that visibility moves with the
+// party. Two inline copies of this would be two places for one of them to fall a tick
+// behind, which is the exact symptom the tick frame exists to remove.
+//
+// Reads `s.state` and takes no lock of its own. Every caller already holds `s.mu`: the
+// snapshot handler holds it for the duration of the request, and `broadcastTick` holds
+// it across the marshal. A second RLock here would be a lock upgrade from underneath a
+// writer, and the deadlock that shape causes is written down in `barter.go`.
+func fogViewFor(s *Server) (side int, visible, known map[int]bool) {
+	st := s.state
+	side = -1
+	if l, ok := st.Leaders[s.playerLeaderID()]; ok {
+		side = l.SideID
+	}
+	// Both sets are empty for a side that does not exist, which is what makes the
+	// no-vantage-point case below read as "nobody is looking" rather than as a world
+	// where every town is unknown.
+	visible = make(map[int]bool)
+	known = make(map[int]bool)
+	if side < 0 {
+		return side, visible, known
+	}
+	for _, id := range visibility.CurrentlyVisibleTowns(st, side) {
+		visible[id] = true
+	}
+	for _, id := range visibility.KnownTowns(st, side) {
+		known[id] = true
+	}
+	return side, visible, known
+}
+
+// fogBlock is the `fog` object as it goes on the wire.
+//
+// A typed struct rather than the map literal this used to be, and the reason is the
+// number of producers. There are two now — the HTTP snapshot and every tick frame — and
+// two hand-built maps drift: a field added to one is missing from the other, and because
+// the tick frame arrives more often than the snapshot the missing one is what the player
+// sees. That failure has no error anywhere, so the shape is pinned in a type instead.
+//
+// The client's counterpart is `FogState` in clients/campaign/src/data/types.ts and the
+// two are meant to be read together. The lists are never nil, because the client's
+// validator requires arrays and a `null` would read as "unreadable" and discard the
+// whole block.
+type fogBlock struct {
+	// Null when there is no player to state visibility from. See `buildFog`.
+	SideID             *string `json:"sideId"`
+	SightRadiusKm      float64 `json:"sightRadiusKm"`
+	SightRadiusLeagues float64 `json:"sightRadiusLeagues"`
+	SightingMemoryDays float64 `json:"sightingMemoryDays"`
+	// The simulation tick this block is stated at, in the same unit as every value in
+	// LastSeen.
+	//
+	// Sent because the client has no other clock in that unit and cannot invent one:
+	// `snapshot.day` is `Tick % 365`, which wraps every year, and `TickUpdate.tick` was
+	// a count of frames this server had pushed since startup. Without a tick in the fog
+	// block there is nothing to subtract a last-seen tick from, and every remembered town
+	// is permanently the same age. This is the field that makes "seen 12 days ago"
+	// computable rather than guessed.
+	Tick         int      `json:"tick"`
+	VisibleTowns []string `json:"visibleTowns"`
+	KnownTowns   []string `json:"knownTowns"`
+	UnseenTowns  []string `json:"unseenTowns"`
+	// When each known town was last in some side's sight, in the same ticks as `tick`.
+	//
+	// Only for towns this side has found: a town nobody has ever been near has an age of
+	// nothing, and a map of 124 identical -1s would be a frame carrying a fact the client
+	// already gets from the town being absent from `knownTowns`. Absence here means never
+	// seen, which is the one reading that is unambiguous — the model's own sentinel is
+	// -1, the client's is 0, and this block is where that disagreement gets settled
+	// rather than passed on.
+	LastSeen map[string]int `json:"lastSeen"`
+	Counts   fogCounts      `json:"counts"`
+}
+
+// fogCounts are the server's three tallies. Nullable for the same reason `SideID` is.
+type fogCounts struct {
+	Visible *int `json:"visible"`
+	Known   *int `json:"known"`
+	Unseen  *int `json:"unseen"`
+	Total   int  `json:"total"`
+}
+
+func intPtr(v int) *int       { return &v }
+func strPtr(v string) *string { return &v }
+
+// buildFog renders the fog-of-war state.
+//
+// It reports the numbers a client needs to draw the world honestly and nothing it could
+// work out for itself: the radius in the units the player thinks in, the three counts of
+// towns (visible, remembered, never found), and the town's ids for the two states that
+// are not "every town in the list".
 //
 // The unseen ids are sent as an explicit list rather than left to the client to
-// subtract. A client that had to derive "never found" by set-subtraction would
-// get it wrong the first time a town was added or removed mid-session, and the
-// failure would be a town wrongly shown rather than a town wrongly hidden.
-func buildFog(s *Server, playerSide int, visible, known map[int]bool) map[string]any {
+// subtract. A client that had to derive "never found" by set-subtraction would get it
+// wrong the first time a town was added or removed mid-session, and the failure would be
+// a town wrongly shown rather than a town wrongly hidden.
+func buildFog(s *Server, side int, visible, known map[int]bool) fogBlock {
 	st := s.state
-	fog := map[string]any{
+	fog := fogBlock{
 		// The radius is stated in both units. Kilometres is what the design was
 		// written in and what a player reads; leagues is what the map is
 		// measured in and what the client's own coordinate maths uses.
-		"sightRadiusKm":      visibility.SightRadiusKm(s.cfg.Visibility),
-		"sightRadiusLeagues": visibility.SightRadiusKm(s.cfg.Visibility) / visibility.KM_PER_LEAGUE,
-		"sightingMemoryDays": s.cfg.Visibility.SightingMemoryDays,
+		SightRadiusKm:      visibility.SightRadiusKm(s.cfg.Visibility),
+		SightRadiusLeagues: visibility.SightRadiusKm(s.cfg.Visibility) / visibility.KM_PER_LEAGUE,
+		SightingMemoryDays: s.cfg.Visibility.SightingMemoryDays,
+		Tick:               st.Tick,
+		VisibleTowns:       []string{},
+		KnownTowns:         []string{},
+		UnseenTowns:        []string{},
+		LastSeen:           map[string]int{},
 	}
-	if playerSide < 0 {
+	if side < 0 {
 		// No player means no vantage point, and a fog block claiming zero
 		// visibility would be a statement about a side that does not exist.
 		// Every list is empty and the counts are null rather than zero, because
 		// "nothing" and "nobody is looking" are different answers.
-		fog["sideId"] = nil
-		fog["visibleTowns"] = []any{}
-		fog["knownTowns"] = []any{}
-		fog["unseenTowns"] = []any{}
-		fog["counts"] = map[string]any{
-			"visible": nil, "known": nil, "unseen": nil, "total": len(st.Towns),
-		}
+		fog.Counts = fogCounts{Total: len(st.Towns)}
 		return fog
 	}
 
@@ -236,15 +310,22 @@ func buildFog(s *Server, playerSide int, visible, known map[int]bool) map[string
 		unseenIDs = append(unseenIDs, tid)
 	}
 
-	fog["sideId"] = fmt.Sprintf("side-%d", playerSide)
-	fog["visibleTowns"] = townRefList(visibleIDs)
-	fog["knownTowns"] = townRefList(knownIDs)
-	fog["unseenTowns"] = townRefList(unseenIDs)
-	fog["counts"] = map[string]any{
-		"visible": len(visibleIDs),
-		"known":   len(knownIDs),
-		"unseen":  len(unseenIDs),
-		"total":   len(st.Towns),
+	fog.SideID = strPtr(fmt.Sprintf("side-%d", side))
+	fog.VisibleTowns = townRefList(visibleIDs)
+	fog.KnownTowns = townRefList(knownIDs)
+	fog.UnseenTowns = townRefList(unseenIDs)
+	// A sighting at or after the current tick is not a sighting, it is a clock that has
+	// not gone off yet; both are dropped rather than sent as an age of zero or less.
+	for _, tid := range knownIDs {
+		if t := st.Towns[tid]; t != nil && t.LastSeenTick >= 0 && t.LastSeenTick <= float64(st.Tick) {
+			fog.LastSeen[fmt.Sprintf("town-%d", tid)] = int(t.LastSeenTick)
+		}
+	}
+	fog.Counts = fogCounts{
+		Visible: intPtr(len(visibleIDs)),
+		Known:   intPtr(len(knownIDs)),
+		Unseen:  intPtr(len(unseenIDs)),
+		Total:   len(st.Towns),
 	}
 	return fog
 }
@@ -253,8 +334,8 @@ func buildFog(s *Server, playerSide int, visible, known map[int]bool) map[string
 // numeric order. The order is numeric rather than the client's id-sorted order
 // so that the list is stable and diffable between snapshots; a client that
 // cares about drawing order can sort on the number.
-func townRefList(ids []int) []any {
-	out := make([]any, 0, len(ids))
+func townRefList(ids []int) []string {
+	out := make([]string, 0, len(ids))
 	for _, id := range ids {
 		out = append(out, fmt.Sprintf("town-%d", id))
 	}

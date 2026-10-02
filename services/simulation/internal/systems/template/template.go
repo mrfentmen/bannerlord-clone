@@ -314,6 +314,59 @@ func cultureOf(v *sim.View, p *model.Party) int {
 	return s.Culture
 }
 
+// Shape returns the template a party is actually made of, read from the class
+// counts this system publishes rather than from the party_template field.
+//
+// The two can disagree, and when they do the class counts are the truth. A
+// party part-way through a refit is counted as its old composition while
+// party_template already names the new one, and a savegame loaded mid-refit
+// restores counts and template independently. Anything that scores a party by
+// what it is made of therefore has to ask this, and asking it here rather than
+// in each reader is the point: the fallback for counts that were never
+// published, and the mapping from a class back to the template that is mostly
+// made of it, are both fiddly enough that two copies would drift.
+//
+// The mapping is derived from the balance table rather than assumed from the two
+// enums happening to be in the same order. The dominant class of a party is
+// found first, and then the template whose own composition is most of that
+// class; if two templates tie, the lower index wins, which is the same
+// tie-break bestTemplate uses and keeps the answer reproducible.
+func Shape(v *sim.View, p *model.Party) model.PartyTemplate {
+	d := dominantClass(p)
+	if d < 0 {
+		// No published counts at all: the very first tick of a run, or a party
+		// this system has not reached because it is a caravan. The field is the
+		// only evidence there is, bounds-checked because a corrupt value must
+		// not turn into an index panic in a reader.
+		if p.Template < 0 || int(p.Template) >= model.TemplateCount {
+			return model.TplStance
+		}
+		return p.Template
+	}
+	culture := cultureOf(v, p)
+	best, bestV := 0, -1.0
+	for t := 0; t < model.TemplateCount; t++ {
+		row := compositionFor(v.Cfg, model.PartyTemplate(t), culture)
+		if row[d] > bestV {
+			best, bestV = t, row[d]
+		}
+	}
+	return model.PartyTemplate(best)
+}
+
+// dominantClass returns the class a party fields most of, or -1 when the
+// published counts say it fields nothing at all.
+func dominantClass(p *model.Party) int {
+	best, bestV := -1, 0.0
+	for i := 0; i < model.ClassCount; i++ {
+		n := classCount(p, i)
+		if n > bestV {
+			best, bestV = i, n
+		}
+	}
+	return best
+}
+
 // SpeedFactor returns how much slower a party's composition makes it than a
 // party of the same size in the reference template, for the terrain it is on.
 // The march system multiplies its speed by this, which is how a horse column

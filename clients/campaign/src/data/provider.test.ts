@@ -140,6 +140,121 @@ describe("a cause chain is checked before the Why panel walks it", () => {
   });
 });
 
+/**
+ * One rumour as the server sends it.
+ *
+ * The keys are the Go field names, because the struct the server marshals carries no JSON
+ * tags and `json.NewEncoder` writes the declared name. This fixture is the shape the client
+ * is written against, so it is deliberately not camelCase.
+ */
+function goodRumour(): Record<string, unknown> {
+  return {
+    Good: "food",
+    BuyTown: "Thornton",
+    BuyTownID: 4,
+    BuyPrice: 145.6,
+    SellTown: "Golden",
+    SellTownID: 8,
+    SellPrice: 218.4,
+    Margin: 72.8,
+    Text: "Buy food cheap in Thornton (146), sell dear in Golden (218). Margin 73 per unit.",
+  };
+}
+
+describe("a rumour feed is checked before the panel sees it", () => {
+  it("reads the Go field names off the wire and hands the panel its own spelling", async () => {
+    const provider = providerWith(vi.fn(async () => jsonResponse({ rumours: [goodRumour()] })) as unknown as typeof fetch);
+    const feed = await provider.rumours();
+    expect(feed).toHaveLength(1);
+    // A cast would have left the panel reading `good` and drawing nothing, so the rewrite
+    // is the whole point of decoding here.
+    expect(feed[0]).toEqual({
+      good: "food",
+      buyTown: "Thornton",
+      buyTownId: 4,
+      buyPrice: 145.6,
+      sellTown: "Golden",
+      sellTownId: 8,
+      sellPrice: 218.4,
+      margin: 72.8,
+      text: "Buy food cheap in Thornton (146), sell dear in Golden (218). Margin 73 per unit.",
+    });
+  });
+
+  it("reads the camelCase spelling too, so a JSON tag on the server is not a broken client", async () => {
+    const provider = providerWith(
+      vi.fn(async () =>
+        jsonResponse({
+          rumours: [
+            {
+              good: "metal",
+              buyTown: "Lakewood",
+              buyTownId: 2,
+              buyPrice: 56,
+              sellTown: "Denver",
+              sellTownId: 0,
+              sellPrice: 65.68,
+              margin: 9.68,
+              text: "Buy metal cheap in Lakewood (56), sell dear in Denver (66). Margin 10 per unit.",
+            },
+          ],
+        }),
+      ) as unknown as typeof fetch,
+    );
+    const feed = await provider.rumours();
+    expect(feed[0]?.good).toBe("metal");
+    expect(feed[0]?.buyTown).toBe("Lakewood");
+  });
+
+  it("treats a null feed as an empty one, because that is what the server writes when it found nothing", async () => {
+    // Go marshals a nil slice as `null`. The simulation looked at every town and published
+    // nothing, which is an answer; refusing it would have put an error state on the screen
+    // for a world that simply has no trade worth doing.
+    const provider = providerWith(vi.fn(async () => jsonResponse({ rumours: null })) as unknown as typeof fetch);
+    await expect(provider.rumours()).resolves.toEqual([]);
+  });
+
+  const REJECTED: [string, unknown][] = [
+    ["a reply that is not an object", []],
+    ["a feed that is neither a list nor null", { rumours: { good: "food" } }],
+    ["a rumour with no good", { rumours: [{ ...goodRumour(), Good: undefined }] }],
+    ["a good the generator does not scan", { rumours: [{ ...goodRumour(), Good: "grain" }] }],
+    ["a rumour with no town to buy in", { rumours: [{ ...goodRumour(), BuyTown: "" }] }],
+    ["a rumour with no sentence", { rumours: [{ ...goodRumour(), Text: undefined }] }],
+    ["a price that is not a number", { rumours: [{ ...goodRumour(), BuyPrice: "145.60" }] }],
+    ["a price that is not finite", { rumours: [{ ...goodRumour(), SellPrice: Number.POSITIVE_INFINITY }] }],
+    ["a town id that is not a number", { rumours: [{ ...goodRumour(), BuyTownID: null }] }],
+    [
+      "a margin that is not the difference between its own two prices",
+      { rumours: [{ ...goodRumour(), Margin: 3 }] },
+    ],
+  ];
+
+  for (const [what, body] of REJECTED) {
+    it(`refuses ${what}`, async () => {
+      const provider = providerWith(vi.fn(async () => jsonResponse(body)) as unknown as typeof fetch);
+      const error = (await provider.rumours().catch((e: unknown) => e)) as SimulationUnavailableError;
+      expect(error, `${what} was handed to the panel`).toBeInstanceOf(SimulationUnavailableError);
+      expect(error.playerMessage.length).toBeGreaterThan(20);
+      expect(error.retryable, "a malformed payload will not fix itself on retry").toBe(false);
+      expect(error.developerDetail).toMatch(/failed validation/);
+      // And nothing about the payload reaches the player.
+      for (const banned of [/undefined/, /\bNaN\b/, /\bnull\b/, /Good|Buy|Sell|Margin/, /\b0\b/]) {
+        expect(banned.test(error.playerMessage), `player message contains ${banned}`).toBe(false);
+      }
+    });
+  }
+
+  it("tolerates a margin that differs from the two prices by a rounding step", async () => {
+    // The sim's prices are floats and the difference is computed in the same place, so the
+    // check allows a hundredth of a unit rather than demanding bit equality.
+    const provider = providerWith(
+      vi.fn(async () => jsonResponse({ rumours: [{ ...goodRumour(), Margin: 72.804 }] })) as unknown as typeof fetch,
+    );
+    await expect(provider.rumours()).resolves.toHaveLength(1);
+  });
+});
+
 describe("every failure is handled, not swallowed (section 1.3)", () => {
   it("reports a transport failure with a sentence the player can act on", async () => {
     const provider = providerWith(

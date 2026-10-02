@@ -38,6 +38,7 @@ import {
 } from "./network.js";
 import type { Projection, WorldData } from "../world/types.js";
 import type { TownVisibility } from "../data/types.js";
+import type { TownRecency } from "../data/fog.js";
 import { routeStrength } from "../data/fogView.js";
 
 /** 1 unit = 1 metre (ART_DIRECTION.md section 7). */
@@ -119,8 +120,17 @@ export interface SceneHandle {
    * about rather than one left over from the last snapshot. A settlement the map draws
    * and the call does not name is treated as `visible`, which is the same reading the
    * rest of the client gives a place the simulation has no town for.
+   *
+   * `recency` is the fourth dimension, optional and defaulting to `unknown` — which fades
+   * nothing, so a caller with no ages gets exactly the map this drew before recency
+   * existed. It is a separate map rather than a field on the states because it answers a
+   * different question, and folding the two together would mean inventing a state per
+   * band, which is a category the simulation never published.
    */
-  setTownVisibility(states: ReadonlyMap<string, TownVisibility>): void;
+  setTownVisibility(
+    states: ReadonlyMap<string, TownVisibility>,
+    recency?: ReadonlyMap<string, TownRecency>,
+  ): void;
   towns: TownCluster[];
 }
 
@@ -201,6 +211,11 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
   // cluster rather than diffed against the incoming map, because the incoming map is
   // keyed by settlement id and the arrays here are indexed to match.
   const appliedStates: TownVisibility[] = towns.map(() => "visible");
+  // The band each cluster was last drawn at. Held beside `appliedStates` and for the same
+  // reason: a town that ages from `recent` to `old` has not changed *state*, so a skip
+  // keyed on the state alone would leave it drawn as fresh news for the rest of the
+  // session.
+  const appliedRecency: TownRecency[] = towns.map(() => "unknown");
   // Whether every cluster has had `setTownVisibility` run at least once. Before the first
   // call, "last applied" is unknowable rather than `visible`, so a map that says
   // everything is already visible must still do the work once.
@@ -328,23 +343,26 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
     setPartyVisible(visible) {
       partyRoot.setEnabled(visible);
     },
-    setTownVisibility(next) {
+    setTownVisibility(next, recency) {
       states = next;
       let drawn = 0;
       let watched = 0;
       for (let i = 0; i < towns.length; i += 1) {
         const cluster = towns[i]!;
         const state = states.get(cluster.settlementId) ?? "visible";
-        // The skip is keyed on the *applied* state rather than on a diff, so the counts
-        // below are still computed for every cluster. Counting is arithmetic; `setEnabled`
-        // and a material swap are GPU state, and those are what the skip avoids.
-        if (statesApplied && appliedStates[i] === state) {
+        const band = recency?.get(cluster.settlementId) ?? "unknown";
+        // The skip is keyed on the *applied* state and band rather than on a diff, so the
+        // counts below are still computed for every cluster. Counting is arithmetic;
+        // `setEnabled` and a material swap are GPU state, and those are what the skip
+        // avoids.
+        if (statesApplied && appliedStates[i] === state && appliedRecency[i] === band) {
           if (state !== "unseen") drawn += 1;
           if (state === "visible") watched += 1;
           continue;
         }
-        cluster.applyVisibility(state);
+        cluster.applyVisibility(state, band);
         appliedStates[i] = state;
+        appliedRecency[i] = band;
         if (state !== "unseen") drawn += 1;
         if (state === "visible") watched += 1;
       }

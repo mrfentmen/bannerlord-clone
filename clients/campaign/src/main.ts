@@ -26,6 +26,9 @@ import {
   fogIndicator,
   isDrawn,
   reportFog,
+  tallyStaleness,
+  townAge,
+  townRecency,
   townVisibility,
 } from "./data/fog.js";
 import {
@@ -43,7 +46,7 @@ import {
   type FogSettings,
 } from "./data/fogView.js";
 import { TEST_SOURCE_WARNING, TEST_SOURCE_DETAIL } from "./data/labels.js";
-import type { FogIndicator, FogIndex } from "./data/fog.js";
+import type { FogIndicator, FogIndex, TownRecency } from "./data/fog.js";
 import { START_YEAR, eraGradeForYear } from "./design/grade.js";
 import { buildWorld } from "./world/build.js";
 import { publishWorld } from "./world/context.js";
@@ -59,6 +62,7 @@ import { barterPanel } from "./ui/panels/BarterPanel.js";
 import { partyPanel } from "./ui/panels/PartyPanel.js";
 import { marchPlanner } from "./ui/panels/MarchPlanner.js";
 import { questPanel } from "./ui/panels/QuestPanel.js";
+import { rumourFeedPanel } from "./ui/panels/RumourFeed.js";
 import { ledgerPanel } from "./ui/panels/LedgerPanel.js";
 import { rulerCard, rulerRoster } from "./ui/panels/RulerPanel.js";
 import { startScreen } from "./ui/panels/StartScreen.js";
@@ -451,6 +455,36 @@ let fogPreviousStates: ReadonlyMap<string, TownVisibility> = new Map();
 let fogRememberedKey: string | null = null;
 
 /**
+ * How old each settlement's last sighting is, and which band that falls in.
+ *
+ * The fourth fog dimension, held beside `fogStates` for the same reason the display states
+ * are: recency is read from the *server's* answer and never from the toggled map, so the
+ * numbers the indicator reports and the fade the player sees are the same reading.
+ *
+ * Keyed by the client's settlement id like everything else here, which means the join in
+ * `applyFog` is what produces it. A place with no town record gets `unknown`, which fades
+ * nothing — there is no sighting to be old.
+ */
+let fogRecency: ReadonlyMap<string, TownRecency> = new Map();
+let fogAges: ReadonlyMap<string, number> = new Map();
+
+/** One settlement's recency band. `unknown` for anything the simulation has not aged. */
+function recencyFor(placeId: string): TownRecency {
+  return fogRecency.get(placeId) ?? "unknown";
+}
+
+/**
+ * One settlement's age in ticks, or null when no age could be stated.
+ *
+ * Null rather than zero for the same reason `townAge` returns null: "seen 0 days ago" is a
+ * claim that somebody is looking, and a panel that printed it for a place with no stated
+ * age would be inventing the freshest possible news.
+ */
+function ageFor(placeId: string): number | null {
+  return fogAges.get(placeId) ?? null;
+}
+
+/**
  * One settlement's state, by the client's own id.
  *
  * A settlement the simulation runs no town for is `visible`, and the reason is the same
@@ -492,14 +526,24 @@ function applyFog(): void {
   // states because a place with no town record is drawn in full but is not a town this
   // side can see, and the census has to be able to say which is which.
   const watched = new Set<string>();
+  // The same join, for the fourth dimension. Both maps are keyed by the settlement id and
+  // built in the same loop as the states, so a settlement cannot end up with a state from
+  // one snapshot and an age from another.
+  const recency = new Map<string, TownRecency>();
+  const ages = new Map<string, number>();
+  const fog = snapshot?.fog;
   for (const place of world.data.settlements) {
     const town = townByPlaceId.get(place.id);
     if (!town) {
       states.set(place.id, "visible");
+      recency.set(place.id, "unknown");
       continue;
     }
     watched.add(place.id);
     states.set(place.id, townVisibility(index, town.id, town));
+    recency.set(place.id, townRecency(fog, town.id, town.lastSeenTick));
+    const age = townAge(fog, town.id, town.lastSeenTick);
+    if (age !== null) ages.set(place.id, age);
   }
 
   // The player's remembered floor, applied to the *server's* reading and only ever moving
@@ -511,11 +555,18 @@ function applyFog(): void {
 
   fogPreviousStates = fogStates;
   fogStates = states;
+  fogRecency = recency;
+  fogAges = ages;
   fogDisplayStates = statesForDisplay(withMemory, fogSettings);
   // `null` rather than an empty set when fog is not being applied: an empty set would
   // read as "every settlement here is watched", which is the opposite of the truth.
-  fogCensus = countByVisibility(states, index.active ? watched : null);
-  scene?.setTownVisibility(fogDisplayStates);
+  fogCensus = countByVisibility(states, index.active ? watched : null, tallyStaleness(recency, ages));
+  // Recency goes to the scene as its own map rather than being baked into the states,
+  // because a settlement the player has un-fogged is drawn in full but its news is still
+  // as old as it was, and a scene that only heard about the toggle would redraw the whole
+  // map either way. Always passed: an empty map reads as `unknown` for everything, which is
+  // the pre-recency treatment.
+  scene?.setTownVisibility(fogDisplayStates, fogRecency);
 
   rememberFogMemory(index);
   announceSightings();
@@ -652,7 +703,10 @@ function selectSettlement(id: string): void {
   // rebuilding after a snapshot must not be able to disagree about whether this settlement
   // is fogged, or a town would render one way on click and another way one tick later.
   currentPanel = town ? "town" : "none";
-  contextNode = townNodeFor(town, place, id);
+  // A settlement the map draws but the snapshot has no town for gets the "cannot be
+  // resolved" node, the same one `rebuildContext` reaches for, so selecting a place and
+  // rebuilding after a snapshot cannot disagree about a town that is not there.
+  contextNode = town ? townNodeFor(town, place, id) : missingSettlementNode(place, id);
   syncParty();
   paint();
   if (place) {
@@ -739,11 +793,15 @@ function noSimulationRecordNode(name: string): Node {
  */
 function townNodeFor(town: TownState, place: WorldSettlement | undefined, id: string): Node {
   const state = knowledgeFor(id);
-  if (!settlementFogView(state).current) {
+  const recency = recencyFor(id);
+  const days = ageFor(id);
+  if (!settlementFogView(state, recency, days).current) {
     return unknownTownPanel({
       settlementName: place?.name ?? town.name,
       town,
       state,
+      recency,
+      days,
       day: snapshot?.day ?? 0,
       onWhy: (field) => openWhy(town.id, field),
     });
@@ -904,6 +962,11 @@ function rebuildContext(): void {
       // every settlement in the region, so there is nothing here to resolve against the
       // current map selection.
       contextNode = questNode();
+      return;
+    case "rumours":
+      // No town needed either, and for a stronger reason: a rumour names two towns and
+      // the feed is a read of every market in the world rather than of the selection.
+      contextNode = rumourNode();
       return;
     case "march":
       contextNode = marchPlanner({
@@ -1152,6 +1215,28 @@ async function refreshAfterQuest(): Promise<void> {
   }
 }
 
+/**
+ * The rumour feed.
+ *
+ * `rumours` is handed as `null` on purpose, so the panel puts its skeleton up and asks the
+ * simulation for the feed itself — the same arrangement as the quest log, the barter screen
+ * and the market. Nothing is cached here for the reason nothing else is: prices move on
+ * every trade, so a feed held by the app would be a feed the player is reading after it
+ * stopped being true, and the panel would have no way to say how old it was.
+ *
+ * The day is the app's own clock, passed for the panel to date the feed with. The payload
+ * carries no day of its own, so the panel says which of the two it is printing.
+ */
+function rumourNode(): Node {
+  if (!snapshot) return noSimulationRecordNode("No trade rumours to read");
+  return rumourFeedPanel({
+    rumours: null,
+    provider,
+    day: snapshot.day,
+    onError: (m) => console.error(m),
+  }).root;
+}
+
 /** Re-read after a trade so the table shows the post-trade price, not the one before. */
 async function refreshAfterTrade(townId: string): Promise<void> {
   try {
@@ -1302,7 +1387,15 @@ function totalLength(points: { x: number; z: number }[]): number {
 
 // -- ticks -------------------------------------------------------------------
 
-/** Apply a sparse tick delta. Absent keys mean unchanged, so frames stay small. */
+/**
+ * Apply a tick frame to a snapshot.
+ *
+ * Sparse for everything except fog: absent keys mean unchanged, so frames stay small, and
+ * `fog` is the exception because it arrives whole. The two are not the same shape of thing
+ * — a partial fog block would need every client to know which of ten fields this
+ * particular frame carried, and the mistake would be a map that believes three towns are
+ * unseen because only the two that changed were mentioned.
+ */
 function applyTick(base: SimSnapshot, update: TickUpdate): SimSnapshot {
   const towns = base.towns.map((t) => {
     const delta = update.towns?.[t.id];
@@ -1324,6 +1417,17 @@ function applyTick(base: SimSnapshot, update: TickUpdate): SimSnapshot {
     ledger: update.ledger ?? base.ledger,
     warnings: update.warnings ?? base.warnings,
     notifications: update.notifications ? [...base.notifications, ...update.notifications] : base.notifications,
+    // The frame's fog block replaces rather than merges. The apiserver rebuilds it whole
+    // per frame (`broadcastTick`), so merging anything here would be merging two readings
+    // of the same three lists and taking whichever came second — and a frame from a server
+    // that has not been rebuilt carries none, in which case the snapshot's block is the
+    // most recent thing this client was told.
+    //
+    // Written as a conditional spread rather than `fog: update.fog ?? base.fog` because the
+    // project builds with `exactOptionalPropertyTypes`, where assigning an absent optional
+    // property is an error: the key has to either carry a block or not be there at all, and
+    // a snapshot with no fog block is a different thing from one whose fog is undefined.
+    ...(update.fog ?? base.fog ? { fog: update.fog ?? base.fog } : {}),
   };
 }
 

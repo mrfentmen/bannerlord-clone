@@ -3,6 +3,7 @@ package barter
 import (
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 
 	"mbclone/simulation/internal/cause"
@@ -322,6 +323,125 @@ func TestOfferingMoreThanIsHeldIsRefused(t *testing.T) {
 	}
 	if p.Accepted {
 		t.Fatal("expected a refusal for offering more than the party holds")
+	}
+}
+
+// TestTwoRowsOfOneThingAreCheckedAgainstOneAvailability is the case where the
+// per-line check is not enough.
+//
+// Two rows naming the same thing are the same line written twice, and a player
+// who typed a quantity into two rows has not done anything a trader would find
+// strange. But each row was checked against the availability of the whole hold
+// rather than of what was left of it, so a party with 100 sacks could put 100
+// grain down twice: the table read as an offer of 200 sacks, the trader priced
+// 200 sacks, and the commit moved 200 out of a hold of 100. The valuation and
+// the movement then disagree, which is the one thing a barter table cannot do.
+func TestTwoRowsOfOneThingAreCheckedAgainstOneAvailability(t *testing.T) {
+	cfg := testCfg(t)
+	req := baseRequest()
+	// The party holds 100 sacks, so each row is within the hold and only the
+	// total is not.
+	req.Offered = []Line{
+		{Kind: string(KindGood), ItemID: "grain", Quantity: 60},
+		{Kind: string(KindGood), ItemID: "grain", Quantity: 60},
+	}
+	p, err := Appraise(world(), cfg, req)
+	if err != nil {
+		t.Fatalf("Appraise: %v", err)
+	}
+	if p.Accepted {
+		t.Fatalf("120 sacks were accepted against a hold of 100: the offer is worth %g on a table that cannot carry it", p.PlayerValue)
+	}
+	if p.Reason == "" {
+		t.Error("expected the refusal to name the hold the rows add up to")
+	}
+
+	// And the rows that do add up are accepted rather than refused for being
+	// repeated, because two rows of 40 is the same as one row of 80.
+	ok := baseRequest()
+	ok.Offered = []Line{
+		{Kind: string(KindGood), ItemID: "grain", Quantity: 40},
+		{Kind: string(KindGood), ItemID: "grain", Quantity: 40},
+	}
+	p, err = Appraise(world(), cfg, ok)
+	if err != nil {
+		t.Fatalf("Appraise: %v", err)
+	}
+	if !p.Accepted {
+		t.Errorf("80 sacks in two rows was refused: %v", p.Reason)
+	}
+}
+
+// --- the carriers ---
+//
+// Validate is the one check that turns a deal the world cannot honour into a
+// sentence, and it is the whole of the commit handler's atomicity: applyOrder
+// can only shrug, so a refusal has to happen before the player has been told
+// yes. These four are the arrangements it covers.
+
+func TestACoinOnlyDealNeedsNoPartyAtAll(t *testing.T) {
+	s := world()
+	// A landed lord: still a purse, no wagon.
+	s.Parties[10] = nil
+	s.Leaders[1].PartyID = -1
+	req := baseRequest()
+	req.PartyID = -1
+	req.Offered = []Line{{Kind: string(KindGold), ItemID: GoldItemID, Quantity: 40}}
+	req.Asked = []Line{{Kind: string(KindGold), ItemID: GoldItemID, Quantity: 40}}
+	if err := Validate(s, req); err != nil {
+		t.Fatalf("a coin-only deal was refused for want of a carrier: %v", err)
+	}
+}
+
+// The other half of the same rule, and the one that is easy to get backwards:
+// goods the player *takes* go from the town's stock into the party's cargo, so a
+// lord with no party cannot receive a sack either. Counting only what the player
+// handed over would refuse a coin-for-coin trade and accept a coin-for-sack one.
+func TestGoodsForALordWithNoPartyAreRefused(t *testing.T) {
+	s := world()
+	s.Parties[10] = nil
+	s.Leaders[1].PartyID = -1
+	req := baseRequest()
+	req.PartyID = -1
+	req.Offered = []Line{{Kind: string(KindGold), ItemID: GoldItemID, Quantity: 40}}
+	req.Asked = []Line{{Kind: string(KindGood), ItemID: "medicine", Quantity: 1}}
+	err := Validate(s, req)
+	if err == nil {
+		t.Fatal("a sack of medicine was accepted for a lord with nothing to carry it in")
+	}
+	if !strings.Contains(err.Error(), "no party") {
+		t.Errorf("reason = %q, want it to name the missing party", err)
+	}
+}
+
+func TestCaptivesAreRefusedForATraderWithNoCage(t *testing.T) {
+	s := world()
+	s.Parties[20] = nil
+	s.Leaders[2].PartyID = -1
+	req := baseRequest()
+	req.Asked = append(req.Asked, Line{Kind: string(KindPrisoner), ItemID: PrisonerItemID, Quantity: 1})
+	err := Validate(s, req)
+	if err == nil {
+		t.Fatal("a captive was accepted for a trader with no party to hold them")
+	}
+	if !strings.Contains(err.Error(), "no cage") {
+		t.Errorf("reason = %q, want it to name the missing cage", err)
+	}
+}
+
+// A lord who does hold their party has every carrier the deal needs, so nothing
+// here is a special case for them. Pinned because the guard above is the kind
+// that quietly grows until it refuses ordinary trades.
+func TestALordWithAPartyIsNotRefusedByTheCarrierRules(t *testing.T) {
+	req := baseRequest()
+	req.Offered = append(req.Offered,
+		Line{Kind: string(KindGold), ItemID: GoldItemID, Quantity: 10},
+		Line{Kind: string(KindPrisoner), ItemID: PrisonerItemID, Quantity: 1})
+	req.Asked = append(req.Asked,
+		Line{Kind: string(KindGold), ItemID: GoldItemID, Quantity: 5},
+		Line{Kind: string(KindPrisoner), ItemID: PrisonerItemID, Quantity: 1})
+	if err := Validate(world(), req); err != nil {
+		t.Errorf("an ordinary deal was refused by the carrier rules: %v", err)
 	}
 }
 

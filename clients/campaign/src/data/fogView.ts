@@ -33,6 +33,7 @@
  */
 
 import type { TownVisibility } from "./types.js";
+import type { TownRecency } from "./fog.js";
 
 /**
  * How strongly something is drawn, per state.
@@ -130,6 +131,74 @@ export function partyPinStrength(state: TownVisibility): number {
   return state === "unseen" ? 0 : 1;
 }
 
+// -- recency: how old the reading is --------------------------------------------
+//
+// The states above say whether a town is watched. These say how old the news is, and the
+// two are kept apart because they fail differently: a remembered town drawn too dark is
+// a town the player stops visiting, and a remembered town drawn too bright is a town whose
+// unrest they act on from last spring.
+
+/**
+ * How much of its strength a remembered town keeps, per recency band.
+ *
+ * A multiplier rather than three colours, and that is the whole point. The alternative is
+ * three grey materials or a colour per band, which would make a remembered town last week
+ * and a remembered town from last year the same shape of thing differing only in a hue
+ * nobody can check against anything. Opacity reads as *less* without claiming a second
+ * category, and it composes with the state: a `visible` town is never faded by this table
+ * at all, so the fade can only ever mean "old news about a known place".
+ *
+ * `unknown` is 1 rather than the lowest value, and the reason is who would be misled. An
+ * unstated age means the server published no clock, and the existing `remembered`
+ * treatment — flat fill, faded pin — already says everything this client honestly knows.
+ * Fading it *further* would be inventing a claim ("this is very old") out of missing
+ * information, which is the direction all of this module's other mistakes point.
+ */
+export const RECENCY_STRENGTH: Readonly<Record<TownRecency, number>> = {
+  now: 1,
+  recent: 0.85,
+  old: 0.5,
+  unknown: 1,
+};
+
+export function recencyStrength(recency: TownRecency): number {
+  return RECENCY_STRENGTH[recency] ?? 1;
+}
+
+/** The one-word band, for a chip and for a screen reader. */
+export function recencyLabel(recency: TownRecency): string {
+  switch (recency) {
+    case "now":
+      return "Seen now";
+    case "recent":
+      return "Seen recently";
+    case "old":
+      return "Out of date";
+    default:
+      return "Age unknown";
+  }
+}
+
+/**
+ * "Seen N days ago", in a player's units.
+ *
+ * `days` is the age the simulation's own clock reported, and the unit is the
+ * simulation's tick. It is printed as a day count because `internal/model/fields.go`
+ * registers `last_seen_tick` in days and the sighting memory beside it is configured in
+ * days, so the tick is the day as far as everything that reads these numbers is
+ * concerned. If that ever changes it is this function and the `days` label in
+ * `FogState` that change together.
+ *
+ * `null` and `undefined` both return null rather than "0 days ago", and that distinction
+ * is the entire safety property: "seen 0 days ago" is a claim that somebody looked today.
+ */
+export function recencySentence(recency: TownRecency, days?: number | null): string | null {
+  if (recency === "now") return "Seen by this side today.";
+  if (recency === "unknown" || days === null || days === undefined) return null;
+  if (recency === "old") return `Last seen ${days.toFixed(0)} days ago, and out of date.`;
+  return `Last seen ${days.toFixed(0)} days ago.`;
+}
+
 /**
  * One settlement's fog state, and everything the UI needs to say about it.
  *
@@ -152,6 +221,18 @@ export interface SettlementFogView {
   current: boolean;
   /** Whether the settlement itself may be shown at all. */
   known: boolean;
+  /**
+   * "Seen N days ago", or null when no age could be stated.
+   *
+   * Carried beside `detail` rather than folded into it so that a caller showing the age
+   * next to the figures and a caller showing it in the banner cannot word it differently,
+   * which is the same reason `detail` exists.
+   */
+  age: string | null;
+  /** Which recency band this settlement is in, for the grey-out ramp. */
+  recency: TownRecency;
+  /** The age in ticks, or null. The number, for anything that wants to sort or compare. */
+  days: number | null;
 }
 
 /**
@@ -187,18 +268,35 @@ const VIEW_COPY: Record<TownVisibility, { label: string; detail: string }> = {
  * call sites from each inventing their own staleness wording. A panel that wants to
  * show remembered data says so; a panel that would rather not show it asks
  * `current` first.
+ *
+ * `recency` and `days` are optional and default to the honest nothing: a caller that has
+ * not read an age gets `unknown`, which says nothing and fades nothing. That is the same
+ * rule the rest of the module follows — absence of information is not a low value — and it
+ * means a caller cannot accidentally age a town by passing `0`.
  */
-export function settlementFogView(state: TownVisibility): SettlementFogView {
+export function settlementFogView(
+  state: TownVisibility,
+  recency: TownRecency = "unknown",
+  days?: number | null,
+): SettlementFogView {
   const copy = VIEW_COPY[state] ?? VIEW_COPY.unseen;
+  const age = recencySentence(recency, days);
   return {
     state,
     label: copy.label,
-    detail: copy.detail,
+    // The age is appended rather than replacing the state sentence. The state sentence
+    // explains why the numbers are not current; the age says how far back they are, and a
+    // panel needs both — "Remembered" alone is the failure this module exists to stop, and
+    // "last seen 40 days ago" alone would not explain why the place is dimmed at all.
+    detail: age ? `${copy.detail} ${age}` : copy.detail,
     // `unseen` is not `current` either. There is nothing current to show about a town
     // this side has never seen, and treating it as merely stale would invite a panel to
     // print last-known figures about somewhere nobody has ever been.
     current: state === "visible",
     known: state !== "unseen",
+    age,
+    recency,
+    days: days ?? null,
   };
 }
 
@@ -400,7 +498,10 @@ export interface FogLegendRow {
 export function fogLegend(): FogLegendRow[] {
   const onMap: Record<TownVisibility, string> = {
     visible: "Drawn in full, in colour.",
-    remembered: "Drawn greyed, with its pin and label faded back.",
+    // The ramp is named in the legend rather than left to be discovered, because a fade
+    // that appears and deepens over several days of play reads as the map misbehaving if
+    // nothing says it is the age of the news.
+    remembered: "Drawn greyed, with its pin and label faded back, fading further the older the news is.",
     unseen: "Not drawn at all.",
   };
   const inPanels: Record<TownVisibility, string> = {

@@ -12,12 +12,12 @@ func TestCaravanUpkeep(t *testing.T) {
 	s := &model.State{
 		Parties: map[int]*model.Party{
 			1: {
-				ID:             1,
-				IsCaravan:      true,
-				CaravanGold:    1000,
-				CaravanGuards:  10,
-				CaravanAnimals: 5,
-				CaravanAtTown:  -1,
+				ID:              1,
+				IsCaravan:       true,
+				CaravanGold:     1000,
+				CaravanGuards:   10,
+				CaravanAnimals:  5,
+				CaravanAtTown:   -1,
 				CaravanDestTown: -1,
 			},
 		},

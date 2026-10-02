@@ -1193,6 +1193,14 @@ func sideGet(d *Side, f string) (float64, bool) {
 		return d.KnownTowns, true
 	case "side_culture":
 		return float64(d.Culture), true
+	case "relation_score":
+		// A side has no single opinion score: the opinion lives in the relation
+		// matrix, keyed by a pair of sides, and the engine logs relation changes
+		// against this field name without storing anything on either side. The
+		// registry registers it for KindSide because kingdomcrime does write it,
+		// to mark a realm distrusted, and a write to a field with no reader
+		// aborts the whole tick at commit rather than being ignored.
+		return 0, true
 	default:
 		return 0, false
 	}
@@ -1270,6 +1278,9 @@ func sideSet(d *Side, f string, v float64) bool {
 		d.KnownTowns = v
 	case "side_culture":
 		d.Culture = int(v)
+	case "relation_score":
+		// Accepted and discarded, for the reason given in sideGet. The value is
+		// in the relation matrix, which is where a reader looks for it.
 	default:
 		return false
 	}

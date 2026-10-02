@@ -341,27 +341,27 @@ type Party struct {
 	TroopXP float64
 	// Cohesion is party unity, 0-1. Large armies drain it; high cohesion
 	// improves combat, zero cohesion causes desertion (Tier 5.6).
-	Cohesion         float64
-	Fatigue          float64
-	WagesOwed        float64
-	Activity         Activity
-	Intention        Intention
-	Reason           Reason
-	DecisionScore    float64
-	DestTown         int
-	DestRuler        int
-	HomeTown         int
-	DestTownParty    int
-	DaysOut          float64
-	Speed            float64
-	Distance         float64
-	DaysFood         float64
-	IsStarving       bool
-	IsRaider         bool
-	IsMercenary      bool
-	IsCaravan        bool
-	IsSieging        bool
-	SupplyDistance   float64
+	Cohesion       float64
+	Fatigue        float64
+	WagesOwed      float64
+	Activity       Activity
+	Intention      Intention
+	Reason         Reason
+	DecisionScore  float64
+	DestTown       int
+	DestRuler      int
+	HomeTown       int
+	DestTownParty  int
+	DaysOut        float64
+	Speed          float64
+	Distance       float64
+	DaysFood       float64
+	IsStarving     bool
+	IsRaider       bool
+	IsMercenary    bool
+	IsCaravan      bool
+	IsSieging      bool
+	SupplyDistance float64
 	// Caravan fields (Tier 6): mobile trading operations.
 	CaravanGold      float64 // gold held by the caravan
 	CaravanGuards    float64 // guards protecting the caravan

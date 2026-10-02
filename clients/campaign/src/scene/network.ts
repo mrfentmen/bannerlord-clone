@@ -19,6 +19,11 @@ import type { TownClassName } from "../design/tokens.js";
 // contract in `data/types.ts` and imported as a type only. This file decides how a state
 // looks; `data/fog.ts` decides which state a town is in, and neither imports the other.
 import type { TownVisibility } from "../data/types.js";
+// Recency is the fourth dimension and it is read, not chosen: `data/fogView.ts` decides
+// how old a band is drawn and `data/fog.ts` decides which band a town is in. What arrives
+// here is a number to multiply by.
+import { recencyStrength } from "../data/fogView.js";
+import type { TownRecency } from "../data/fog.js";
 
 // -- roads and rail ----------------------------------------------------------
 
@@ -239,8 +244,13 @@ export interface TownCluster {
    * drawn live beside the geometry they change, and so a caller cannot apply "visible" to
    * the cluster and forget the pin — which is the version where a remembered town keeps
    * a bright diamond over a grey mass and the map contradicts itself.
+   *
+   * `recency` is the fourth dimension, orthogonal to the three: how old the news is. It
+   * only ever moves a *remembered* town, and it defaults to `unknown`, which fades nothing
+   * — so a caller with no age to give gets exactly the treatment this had before recency
+   * existed, which is the right answer for a caller that has not read one.
    */
-  applyVisibility(state: TownVisibility): void;
+  applyVisibility(state: TownVisibility, recency?: TownRecency): void;
 }
 
 /**
@@ -317,7 +327,7 @@ export function buildTowns(
       marker,
       markerPosition: marker.position,
       silhouette,
-      applyVisibility(state) {
+      applyVisibility(state, recency = "unknown") {
         // `setEnabled` rather than a visibility of 0, so a hidden town is not drawn at
         // all and is not pickable: clicking through to a town the player has not found
         // would be a worse leak than the marker it replaced.
@@ -328,7 +338,20 @@ export function buildTowns(
         const remembered = state === "remembered";
         mesh.material = remembered ? rememberedMaterial : material;
         mesh.useVertexColors = !remembered;
-        marker.visibility = remembered ? REMEMBERED_MARKER_ALPHA : 1;
+        // The recency ramp, as an opacity multiplier on top of the remembered treatment.
+        //
+        // A multiplier and not a second grey: the two remembered states have to stay one
+        // state, and a player who cannot tell "remembered" from "remembered and ancient"
+        // has been given a category the simulation never published. Opacity on top of the
+        // flat fill reads as *less* without inventing a colour that would mean something
+        // else elsewhere in the map. And it is applied to the cluster as well as the pin,
+        // because a faded pin over an unfaded grey mass is a town that looks watched.
+        //
+        // Babylon fades a mesh with `visibility` on a StandardMaterial — the engine turns
+        // on alpha blending per mesh for it — so no third material is needed for this.
+        const fade = remembered ? recencyStrength(recency) : 1;
+        mesh.visibility = fade;
+        marker.visibility = remembered ? REMEMBERED_MARKER_ALPHA * fade : 1;
       },
     });
   }

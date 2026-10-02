@@ -140,7 +140,6 @@ type Server struct {
 	daysPerSecond float64
 	// orders queued by HTTP handlers, drained each tick
 	pendingOrders []sim.Order
-	tickCount     int64
 	// wsSubs are tick-update subscribers.
 	wsSubs map[chan []byte]struct{}
 	// player is the leader this session acts as, resolved once at startup and

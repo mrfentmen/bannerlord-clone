@@ -466,6 +466,19 @@ function fogProblem(raw: unknown): string | null {
     }
   }
   if (!isFiniteNumber(raw.counts.total)) return "fog.counts.total is not a number";
+  // `tick` and `lastSeen` are what turn a remembered town into an age. Checked when
+  // present and refused when unreadable, because a half-read age is worse than none: a
+  // `lastSeen` entry that is not a number compares as NaN, which is neither "now" nor
+  // "never", and would land a town in whichever band the code happened to write first.
+  if (raw.tick !== undefined && raw.tick !== null && !isFiniteNumber(raw.tick)) {
+    return "fog.tick is neither a number nor null";
+  }
+  if (raw.lastSeen !== undefined) {
+    if (!isRecord(raw.lastSeen)) return "fog.lastSeen is not an object";
+    for (const [id, tick] of Object.entries(raw.lastSeen)) {
+      if (!isFiniteNumber(tick)) return `fog.lastSeen.${id} is not a tick`;
+    }
+  }
   return null;
 }
 
@@ -693,9 +706,119 @@ function issueActionProblem(raw: unknown): string | null {
   return issueProblem(raw.issue, "issue");
 }
 
+/** The three goods the rumour generator scans, in the simulation's own keys. */
+const RUMOUR_GOODS: readonly RumourGood[] = ["food", "medicine", "metal"];
+
+/**
+ * This client's spelling of each field the feed carries.
+ *
+ * Written out rather than derived by lowercasing the first letter, because `BuyTownID`
+ * does not become `buyTownID` that way: Go's `ID` is an initialism and a JSON tag written
+ * by hand would be `buyTownId`, which is what `Rumour` in `types.ts` is called.
+ */
+const RUMOUR_CAMEL: Record<string, string> = {
+  Good: "good",
+  BuyTown: "buyTown",
+  BuyTownID: "buyTownId",
+  BuyPrice: "buyPrice",
+  SellTown: "sellTown",
+  SellTownID: "sellTownId",
+  SellPrice: "sellPrice",
+  Margin: "margin",
+  Text: "text",
+};
+
+/**
+ * One field of a rumour, read under either spelling of its name.
+ *
+ * The server marshals a Go struct that carries no JSON tags, so the keys on the wire are
+ * the Go field names. A tag added to that struct would change the case and nothing else,
+ * so both spellings are read and a rename is a one-line change here rather than a panel
+ * printing `undefined` for a day.
+ */
+function rumourField(raw: Record<string, unknown>, name: string): unknown {
+  const camel = RUMOUR_CAMEL[name];
+  if (camel !== undefined && raw[camel] !== undefined) return raw[camel];
+  return raw[name];
+}
+
+/**
+ * One rumour is drawable if it names a good the panel has a word for, names both towns,
+ * and carries all three prices.
+ *
+ * The town ids are checked for being numbers and for nothing else. They are the
+ * simulation's own integers and this client keys its towns by string, so the panel draws
+ * the two names; refusing an id the panel never reads would be refusing a payload for a
+ * reason it does not have.
+ *
+ * The one check here that is not about shape is the margin. It is the simulation's
+ * subtraction of its own two prices, the panel prints it beside both of them, and a tip
+ * that says "buy at 10, sell at 20, margin 3" is a panel a player cannot read. The
+ * tolerance is a hundredth of a unit, because the sim's prices are floats and the two
+ * figures are computed in the same place. If a later version prices a margin some other
+ * way — after freight, or as a share — this is the line to move, and the panel will go on
+ * printing whatever the simulation sends.
+ */
+function rumourProblem(raw: unknown, where: string): string | null {
+  if (!isRecord(raw)) return `${where} is not a JSON object`;
+  const good = rumourField(raw, "Good");
+  if (!RUMOUR_GOODS.includes(good as RumourGood)) return `${where}.good is not one the simulation generates`;
+  for (const [key, field] of [
+    ["BuyTown", "buyTown"],
+    ["SellTown", "sellTown"],
+    ["Text", "text"],
+  ] as const) {
+    if (!isString(rumourField(raw, key))) return `${where}.${field} is missing`;
+  }
+  for (const [key, field] of [
+    ["BuyTownID", "buyTownId"],
+    ["SellTownID", "sellTownId"],
+    ["BuyPrice", "buyPrice"],
+    ["SellPrice", "sellPrice"],
+    ["Margin", "margin"],
+  ] as const) {
+    if (!isFiniteNumber(rumourField(raw, key))) return `${where}.${field} is not a number`;
+  }
+  const margin = rumourField(raw, "Margin") as number;
+  const spread = (rumourField(raw, "SellPrice") as number) - (rumourField(raw, "BuyPrice") as number);
+  if (Math.abs(spread - margin) > 0.01) return `${where}.margin is not the difference between its own two prices`;
+  return null;
+}
+
+/**
+ * The feed, as the simulation sends it.
+ *
+ * `rumours` may be `null`, which is what Go writes for a nil slice, and that is an empty
+ * feed and not a broken payload: the simulation looked at every town and found no route
+ * worth publishing. A feed that is not a list at all is refused.
+ */
+function rumourFeedProblem(raw: unknown): string | null {
+  if (!isRecord(raw)) return "the reply is not a JSON object";
+  if (raw.rumours === null || raw.rumours === undefined) return null;
+  if (!Array.isArray(raw.rumours)) return "rumours is neither a list nor null";
+  for (const [index, rumour] of raw.rumours.entries()) {
+    const problem = rumourProblem(rumour, `rumour ${index}`);
+    if (problem) return problem;
+  }
+  return null;
+}
+
+/**
+ * One tick frame.
+ *
+ * `fog` goes through `fogProblem` rather than being taken on trust, and the reason is
+ * specific to this frame: it is the one payload that arrives repeatedly and unattended,
+ * every in-game day, with nobody watching it arrive. A malformed fog block on the
+ * snapshot throws a sentence a player reads; the same block arriving in a frame has to be
+ * refused the same way, or the merge would write a fog state with `visibleTowns` undefined
+ * into the snapshot and the map would draw from a `Set` that does not exist.
+ */
 function tickFrameProblem(raw: unknown): string | null {
+  if (!isRecord(raw)) return "the frame is not a JSON object";
   if (!isFiniteNumber(raw.tick)) return "tick is not a number";
   if (!isFiniteNumber(raw.day)) return "day is not a number";
+  const problem = fogProblem(raw.fog);
+  if (problem) return `the frame's ${problem}`;
   return null;
 }
 
@@ -784,4 +907,39 @@ function decodeIssueAction(raw: unknown, url: string): IssueActionResult {
     );
   }
   return raw as IssueActionResult;
+}
+
+/**
+ * The rumour feed, renamed into this client's own spelling on the way in.
+ *
+ * The rewrite is the whole reason this is a decoder and not a cast: the panel works in
+ * `buyTown` and the wire says `BuyTown`, and a cast would leave the panel reading a field
+ * that is not there. `null` becomes an empty list, which is a real answer rather than a
+ * missing one.
+ */
+function decodeRumours(raw: unknown, url: string): Rumour[] {
+  const problem = rumourFeedProblem(raw);
+  if (problem) {
+    throw new SimulationUnavailableError(
+      "The trade rumours arrived in a form this client cannot read, so none have been drawn.",
+      `GET ${url} returned a rumour feed that failed validation: ${problem}`,
+      false,
+    );
+  }
+  const rows = isRecord(raw) ? raw.rumours : null;
+  if (!Array.isArray(rows)) return [];
+  return rows.map((row) => {
+    const entry = row as Record<string, unknown>;
+    return {
+      good: rumourField(entry, "Good") as RumourGood,
+      buyTown: rumourField(entry, "BuyTown") as string,
+      buyTownId: rumourField(entry, "BuyTownID") as number,
+      buyPrice: rumourField(entry, "BuyPrice") as number,
+      sellTown: rumourField(entry, "SellTown") as string,
+      sellTownId: rumourField(entry, "SellTownID") as number,
+      sellPrice: rumourField(entry, "SellPrice") as number,
+      margin: rumourField(entry, "Margin") as number,
+      text: rumourField(entry, "Text") as string,
+    };
+  });
 }

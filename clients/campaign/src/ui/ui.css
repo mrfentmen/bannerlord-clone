@@ -724,6 +724,13 @@
 
 .fog__total { color: var(--ink-500); }
 
+/*
+ * The staleness line. A left rule rather than a swatch, because it is a property of the
+ * remembered row above rather than a state of its own, and the rail already uses a ruled
+ * margin for "a note about what is above".
+ */
+.fog__stale { border-left: 2px solid var(--paper-300); padding-left: var(--space-2); }
+
 /* The legend. A <details> so it collapses out of the way on a short screen, but it stays
    in the rail rather than moving to a modal: a legend a player has to go looking for is
    a legend most players never read. */
@@ -745,6 +752,13 @@
    the thing a player reads first if they scroll straight past the chip to the figures. */
 .fogstate { display: flex; flex-direction: column; gap: var(--space-2); }
 .fogstate__banner { margin: var(--space-2) 0 0; padding: var(--space-2); border-left: 2px solid var(--paper-300); }
+
+/* The age line, under the banner. Set as a figure rather than as body copy because it is
+   one — "12 days ago" is the number a player acts on — and left in the text colour rather
+   than the muted one so it does not read as part of the banner's explanation. The margin
+   pulls it back up under the banner it belongs to, since the flex gap above was sized for
+   the chip. */
+.fogstate__age { margin: calc(-1 * var(--space-1)) 0 0; font-variant-numeric: tabular-nums; }
 
 /* ---------- notifications ---------- */
 
@@ -1496,8 +1510,34 @@
 .quest__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
 .quest__penalty { margin: 0; }
 
-.trait { grid-template-columns: 5.5em 1fr 2.4em 5.5em; }
-.trait__label { color: var(--ink-500); }
+/* ---------- rumour feed ----------
+ *
+ * A tip is two towns and a difference, so the card is built as a pair: the margin above,
+ * because it belongs to neither town, and the two price cells below it in the two columns
+ * the barter screen already uses for its two sides of a table. The card is a card and not a
+ * button, so it is a plain article with a rule rather than a pressed control.
+ */
+.rumours { display: grid; gap: var(--space-2); }
+
+.rumour {
+  padding: var(--space-2);
+  background: var(--paper-0);
+  border: 1px solid var(--paper-300);
+  border-radius: var(--radius-1);
+  display: grid;
+  gap: var(--space-2);
+}
+
+.rumour__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.rumour__good { font-weight: 700; }
+.rumour__margin { color: var(--status-good-mark); }
+.rumour__text { margin: 0; }
+
+/* The two ends of the route, side by side. Two rather than three, because a rumour has two
+   ends and a third column would be a gap the card could use for nothing. */
+.costs--two { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.trait { grid-template-columns: 5.5em 1fr 2.4em 5.5em; }.trait__label { color: var(--ink-500); }
 .trait__value { text-align: right; }
 .trait__reading { color: var(--ink-500); }
 .trait__centre {
@@ -1601,6 +1641,15 @@
 .skeleton--quest-log .skeleton__wide { height: 62px; }
 .skeleton--quest-log .skeleton__gauge { height: 64px; }
 
+/* The rumour feed. A page of tips, each one a heading, the pair of prices side by side and
+   the simulation's sentence under them. The pair is the shape that matters: the buy end and
+   the sell end have to weigh the same before the numbers arrive as well as after. */
+.skeleton--rumour-feed { display: grid; gap: 0; }
+.skeleton--rumour-feed .skeleton__list { display: grid; gap: var(--space-2); }
+.skeleton--rumour-feed .skeleton__section { margin: 0 0 var(--space-2); }
+.skeleton--rumour-feed .skeleton__costs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-2); }
+.skeleton--rumour-feed .skeleton__cell { height: 62px; }
+
 /* ---------- responsive (ART_DIRECTION.md section 13) ----------
  *
  * Checked at 390 x 844 and 768 x 1024. No horizontal page scroll, no clipped text, and
@@ -1643,12 +1692,14 @@
 
   .costs { grid-template-columns: minmax(0, 1fr); }
   .costs--four { grid-template-columns: minmax(0, 1fr); }
+  .costs--two { grid-template-columns: minmax(0, 1fr); }
   .trait { grid-template-columns: 4.5em 1fr 2.4em; }
   .trait__reading { grid-column: 1 / -1; }
   .start__fact { flex-direction: column; align-items: flex-start; gap: 0; }
   .start__fact-value { text-align: left; }
   .ruler-card__head { flex-direction: column; align-items: flex-start; }
   .quest__head { flex-direction: column; align-items: flex-start; }
+  .rumour__head { flex-direction: column; align-items: flex-start; }
   .quest__step { grid-template-columns: 1fr; }
   .quest__actions .btn { flex: 1 1 var(--space-7); }
   .march__actions .btn { flex: 1 1 var(--space-7); }

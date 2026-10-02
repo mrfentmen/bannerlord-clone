@@ -315,6 +315,16 @@ type lineRefusal struct {
 // a sentence rather than as a failure.
 func valueLines(lines []Line, table []Item) (float64, *lineRefusal) {
 	total := 0.0
+	// put counts what the rows add up to for each line on the table, so two rows
+	// naming the same thing are measured against one hold rather than two.
+	//
+	// It has to be a running total and not a per-row check: a party with 100
+	// sacks can put 100 grain down twice, and each row is within the hold on its
+	// own. Valuing both is how a table comes to read as an offer of 200 sacks,
+	// and the trader prices 200 sacks, while the commit moves 200 out of 100 —
+	// and the engine clamps that at zero. A valuation and a movement that
+	// disagree is the one thing a barter table cannot do.
+	put := map[string]int{}
 	for _, l := range lines {
 		it, ok := findItem(table, ItemKind(l.Kind), l.ItemID)
 		if !ok {
@@ -325,18 +335,21 @@ func valueLines(lines []Line, table []Item) (float64, *lineRefusal) {
 				"%s is a whole-number trade: %s cannot be offered as %v.",
 				it.Name, it.Name, l.Quantity)}
 		}
-		if l.Quantity > it.Available {
+		put[itemKey(it)] += l.Quantity
+		if put[itemKey(it)] > it.Available {
 			return 0, &lineRefusal{reason: fmt.Sprintf(
-				"Only %s on the table, and the offer was %d.", describe(it), l.Quantity)}
+				"Only %s on the table, and the rows add up to %d.", describe(it), put[itemKey(it)])}
 		}
-		// Two lines naming the same thing are valued twice, not refused. They
-		// are the same line written twice, and a player who typed the quantity
-		// into two rows has not done anything a trader would find strange. The
-		// availability check above is against the total either way, because
-		// each line is checked as it is read.
 		total = round2(total + it.UnitValue*float64(l.Quantity))
 	}
 	return round2(total), nil
+}
+
+// itemKey names one line of a table, so two rows naming the same thing count
+// against the same hold. Kind is part of the key because a unit can be both a
+// good and a prisoner on the same table.
+func itemKey(it Item) string {
+	return string(it.Kind) + "\x00" + it.ItemID
 }
 
 // unknownLineReason explains a line that is not on the table it was offered

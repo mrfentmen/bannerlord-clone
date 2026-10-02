@@ -49,9 +49,8 @@ func (s *Server) tick() error {
 	if err := s.engine.Tick(s.state); err != nil {
 		return err
 	}
-	s.mu.Lock()
-	s.tickCount++
-	s.mu.Unlock()
+	// Outside the write lock, and it takes the read lock itself. `broadcastBarter` has to
+	// be the other way round — its comment says why, and it is a deadlock, not a style.
 	s.broadcastTick()
 	return nil
 }

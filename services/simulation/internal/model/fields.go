@@ -383,6 +383,27 @@ func init() {
 	register(Field{"is_raider", KindParty, ValueFlag, "boolean", true, zero, one, nil, 0})
 	register(Field{"is_mercenary", KindParty, ValueFlag, "boolean", true, zero, one, nil, 0})
 	register(Field{"is_caravan", KindParty, ValueFlag, "boolean", true, zero, one, nil, 0})
+	// The caravan system's own columns. They are registered because the caravan
+	// system writes them, and a write to a name the registry does not know
+	// aborts the whole tick at commit (engine.go, w.Err) rather than being
+	// ignored: a run with a caravan on the map died on the third day with
+	// `unknown field "caravan_cargo"`, which no test had noticed because the
+	// caravan's own test asserts on staged writes and staged writes are not
+	// validated.
+	//
+	// They are registered untracked on purpose. Each one is bookkeeping a
+	// player sees on a caravan panel rather than a quantity a why-chain is
+	// written against, and making them tracked is a decision for the caravan
+	// lane: it changes every run's cause-log volume, which is not a change to
+	// make on another lane's behalf while fixing a crash.
+	register(Field{"caravan_gold", KindParty, ValueFloat, "money", false, zero, inf, nil, 0})
+	register(Field{"caravan_guards", KindParty, ValueFloat, "guards", false, zero, inf, nil, 0})
+	register(Field{"caravan_animals", KindParty, ValueFloat, "animals", false, zero, inf, nil, 0})
+	register(Field{"caravan_cargo", KindParty, ValueFloat, "goods", false, zero, inf, nil, 0})
+	register(Field{"caravan_cargo_type", KindParty, ValueInt, "good", false, 0, inf, nil, 0})
+	register(Field{"caravan_at_town", KindParty, ValueInt, "town", false, -1, inf, nil, 0})
+	register(Field{"caravan_dest_town", KindParty, ValueInt, "town", false, -1, inf, nil, 0})
+	register(Field{"caravan_progress", KindParty, ValueFloat, "share", false, zero, one, nil, 0})
 	register(Field{"cargo_food", KindParty, ValueFloat, "person-days", true, 0, inf, nil, 0})
 	register(Field{"cargo_medicine", KindParty, ValueFloat, "doses", true, 0, inf, nil, 0})
 	register(Field{"cargo_metal", KindParty, ValueFloat, "metal", true, 0, inf, nil, 0})

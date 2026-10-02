@@ -755,6 +755,56 @@ capture_chance = 0.4         # probability of capture when below threshold. Rang
 # with no blunt capture at all.
 blunt_capture_share = 0.15   # Range 0-0.5.
 
+# Formation matchup: how much stronger a party of the row template is against a
+# party of the column template, in the shape the two parties are actually
+# fighting in. 1.0 is neutral, above 1.0 favours the row, below 1.0 favours the
+# column. The pair is read with the nominal attacker as the row, where the
+# nominal attacker is whichever party is stronger when they meet, so this is a
+# statement about the engagement and not about who wins it: a mounted wing that
+# wins a fight it was outmatched in still lost the matchup.
+#
+# The table is antisymmetric and the validator checks it: formation_bonus_a_b
+# times formation_b_a must be 1. Exactly one side of a pairing can be favoured,
+# because a matchup is a relative advantage. If both cells read above 1.0 then
+# meeting makes both armies stronger, which is not a matchup at all, and the
+# pairing cannot change who wins a fight between equal armies.
+#
+# Only the six unordered pairings are really decisions. The other six are their
+# reciprocals and are written out so the table can be read as a grid; the
+# validator rejects a reciprocal that has drifted, which is the whole reason the
+# range check below is not the only check.
+#
+# Range 0.5-2.0 per cell. 2.0 is deliberately generous: a matchup strong enough
+# to double an army is a matchup that decides fights on its own, and at that
+# point the troop counts are decoration.
+formation_bonus_stance_stance = 1.00
+formation_bonus_stance_heavy = 1.00   # a line cannot break an armoured core, and an armoured core cannot break a line
+formation_bonus_stance_light = 1.15   # close order closes with a skirmish screen
+formation_bonus_stance_horse = 1.30   # spears and shields hold a charge
+formation_bonus_heavy_stance = 1.00
+formation_bonus_heavy_heavy = 1.00
+formation_bonus_heavy_light = 1.20    # an armoured core walks through skirmishers
+formation_bonus_heavy_horse = 0.85    # a horse carries more than armour holds
+formation_bonus_light_stance = 0.87   # reciprocal of 1.15
+formation_bonus_light_heavy = 0.83    # reciprocal of 1.20
+formation_bonus_light_light = 1.00
+formation_bonus_light_horse = 1.25    # riders are the easiest thing on the map to shoot
+formation_bonus_horse_stance = 0.77   # reciprocal of 1.30
+formation_bonus_horse_heavy = 1.18    # reciprocal of 0.85
+formation_bonus_horse_light = 0.80    # reciprocal of 1.25
+formation_bonus_horse_horse = 1.00
+
+# Bounds on the product of every situational combat modifier applied to one
+# side, which today is the formation matchup above and the terrain the fight is
+# fought on. They exist because two tables multiplied together are 4x4 times 6x4
+# and a designer tuning one of them has no way to see the other. The product is
+# clamped to this band after the multiplication, so no combination of two
+# individually reasonable numbers can produce an army that is forty times the
+# strength of the army opposite it. Range 0.05-20 for each bound, and the low
+# bound must be below the high one.
+situational_clamp_min = 0.25
+situational_clamp_max = 4.00
+
 [crime]
 # Urban criminality (Tier 5). Crime grows in rich, under-policed towns.
 deterrence_per_coverage = 8.0  # how much troop coverage reduces target crime. Range 0-20.

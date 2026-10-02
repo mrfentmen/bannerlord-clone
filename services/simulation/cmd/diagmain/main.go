@@ -3,13 +3,13 @@ package main
 import (
 	"fmt"
 
-	"mbclone/simulation/internal/config"
 	"mbclone/simulation/internal/cause"
+	"mbclone/simulation/internal/config"
 	"mbclone/simulation/internal/profile"
 	"mbclone/simulation/internal/runner"
-	"mbclone/simulation/internal/worldgen"
 	"mbclone/simulation/internal/sim"
 	"mbclone/simulation/internal/simrun"
+	"mbclone/simulation/internal/worldgen"
 )
 
 func main() {

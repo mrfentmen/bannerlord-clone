@@ -1667,6 +1667,29 @@ type Battle struct {
 	// being created on top of it. Zero disables blunt capture entirely, which
 	// is the sharp-weapon-only world this rule is a change from.
 	BluntCaptureShare float64
+	// FormationBonus is the formation matchup table, indexed by the nominal
+	// attacker's template and then the defender's: how much stronger a party
+	// of the row shape is against a party of the column shape.
+	//
+	// It is indexed the way it is read, and the reading is deliberate. The
+	// nominal attacker is whichever party is stronger when the two meet, not
+	// whichever one wins, so the table describes the encounter rather than the
+	// result. A table written as "the winner gets a bonus" could not be
+	// evaluated until after the fight, which is the thing being decided.
+	//
+	// The table is antisymmetric: the validator requires each cell times its
+	// mirror to be 1. A matchup is a relative advantage, so exactly one side of
+	// a pairing can be favoured, and a pairing that raised both would not be
+	// able to change the outcome between equal armies.
+	FormationBonus [model.TemplateCount][model.TemplateCount]float64
+	// SituationalClampMin and SituationalClampMax bound the product of every
+	// situational combat modifier applied to one side, which is the formation
+	// matchup times the terrain the fight is fought on. The product is clamped
+	// into this band so that two individually reasonable tables cannot compose
+	// into an army that is orders of magnitude stronger than the one opposite
+	// it.
+	SituationalClampMin float64
+	SituationalClampMax float64
 }
 
 // Crime configures urban criminality (Tier 5).

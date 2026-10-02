@@ -36,6 +36,7 @@ export const CARD_SHAPE = "ruler-card";
 export const START_SHAPE = "start-sides";
 export const BARTER_SHAPE = "barter-table";
 export const QUEST_SHAPE = "quest-log";
+export const RUMOUR_SHAPE = "rumour-feed";
 
 // -- what the real panels draw -----------------------------------------------
 //
@@ -97,6 +98,20 @@ export const QUEST_LIST_ROWS = 5;
 export const QUEST_DETAIL_ROWS = 4;
 /** An accepted request shows two buttons: report it done, and walk away from it. */
 export const QUEST_ACTIONS = 2;
+
+/**
+ * The rumour feed: a page of tips, each one a headline, a pair of price cells and the
+ * simulation's own sentence.
+ *
+ * A page rather than the whole feed, for the reason the quest log pages its board: the
+ * server caps what it publishes and the panel draws what it is given, so the skeleton
+ * reserves the first few and the rest arrive as the list does.
+ */
+export const RUMOUR_LIST_ROWS = 3;
+/** A rumour has two ends — where to buy and where to sell — and they weigh the same. */
+export const RUMOUR_COST_CELLS = 2;
+/** The one line the simulation wrote about the pair. */
+export const RUMOUR_SENTENCES = 1;
 
 // -- shared block vocabulary --------------------------------------------------
 //
@@ -324,5 +339,35 @@ export function questSkeletonBody(): HTMLElement {
   root.appendChild(section(block(GAUGE), ...count(ROW, QUEST_DETAIL_ROWS)));
   // Report it done, walk away.
   root.appendChild(actions(QUEST_ACTIONS));
+  return root;
+}
+
+// -- rumour feed ---------------------------------------------------------------
+
+/**
+ * `rumour-feed-skeleton`. Tips, one after another, each a headline, the pair of prices and
+ * the sentence the simulation wrote about them.
+ *
+ * The shape that matters is the pair inside each card. A rumour is two towns and a
+ * difference, and a stub that drew one column for the lot would give the buy end and the
+ * sell end the same width on the first frame and then take it away, which is the exact
+ * weight the barter screen goes to some trouble to keep even. Each card is a `section`
+ * because each one is a heading above its own contents, which is how the real card reads.
+ */
+export function rumourSkeletonBody(): HTMLElement {
+  const root = skeleton({ shape: RUMOUR_SHAPE, testId: "rumour-skeleton", label: "Reading the trade rumours." });
+  // When the feed was read, and how much of it there is.
+  root.appendChild(h("div", { class: "skeleton__head-block" }, block(ROW, "skeleton__headline"), block(ROW)));
+  const list = h("div", { class: "skeleton__list" });
+  for (let index = 0; index < RUMOUR_LIST_ROWS; index += 1) {
+    list.appendChild(
+      section(
+        h("div", { class: "skeleton__head-block" }, block(ROW, "skeleton__headline"), block(ROW)),
+        h("div", { class: "skeleton__costs" }, ...count(CELL, RUMOUR_COST_CELLS)),
+        ...count(ROW, RUMOUR_SENTENCES),
+      ),
+    );
+  }
+  root.appendChild(list);
   return root;
 }

@@ -48,6 +48,10 @@ export interface HudOptions {
  * `quests` is here for the same reason, and for a second one: a quest log belongs to a
  * party rather than to a town, and its board is read by party id, so there is no town to
  * hang it off the way `barter` hangs off `town`.
+ *
+ * `rumours` is here for the same reason again and for a third: a rumour names two towns
+ * rather than one, and the feed is a read of the world's prices rather than of anything
+ * the map has selected, so there is no settlement on it to open the panel from.
  */
 export type HudPanel =
   | "town"
@@ -56,6 +60,7 @@ export type HudPanel =
   | "party"
   | "march"
   | "quests"
+  | "rumours"
   | "ledger"
   | "roster"
   | "why"
@@ -438,6 +443,7 @@ export function createHud(options: HudOptions): HudHandle {
       ["party", "Party", "open-party"],
       ["march", "March", "open-march"],
       ["quests", "Quests", "open-quests"],
+      ["rumours", "Rumours", "open-rumours"],
       ["barter", "Barter", "open-barter"],
       ["ledger", "Ledger", "open-ledger"],
       ["roster", "Rulers", "open-roster"],
@@ -532,9 +538,20 @@ export function createHud(options: HudOptions): HudHandle {
     // Swatch colours are the map's own: a town in sight, a remembered one, and a border
     // rule for a place with no mark at all. They are decoration for the word beside them,
     // so they are taken from existing tokens rather than introducing a second palette.
+    //
+    // The remembered swatch is a gradient rather than a flat fill, because that state is
+    // the one with a range in it: a remembered town fades further the older its news is,
+    // and a flat square beside a word called "Remembered" describes a state the map does
+    // not actually have. The gradient runs left-to-right from "just seen" to "long out of
+    // date", which is the same direction the ramp runs on the map.
     const rows: [string, number, string, string][] = [
       ["visible", fog.visible, "In sight", "var(--map-fog)"],
-      ["remembered", fog.remembered, "Remembered", "var(--paper-300)"],
+      [
+        "remembered",
+        fog.remembered,
+        "Remembered",
+        "linear-gradient(to right, var(--paper-300), var(--paper-100))",
+      ],
       ["unseen", fog.unseen, "Never found", "var(--paper-100)"],
     ];
     const list = h("dl", { class: "fog__list", style: "margin:var(--space-2) 0 0" });
@@ -582,6 +599,30 @@ export function createHud(options: HudOptions): HudHandle {
           `${fog.unsighted} of these the simulation runs no town for, so they are drawn without a fog state.`,
         ),
       );
+    }
+
+    // Staleness: how old the remembered half of the map is.
+    //
+    // Its own line rather than a fourth row in the list above, because it is not a fourth
+    // state. It is a property of the remembered row, and the three rows are meant to be
+    // read as a partition of the map — adding a fourth would break that, and a player
+    // reading four numbers as four buckets would be reading a map that does not exist.
+    //
+    // Shown only when something is actually old. A map where nothing has gone out of date
+    // does not need saying so, and a permanent "everything is current" line would be the
+    // kind of reassurance that stops being read the day it is wrong.
+    if (fog.stale > 0) {
+      const oldest = fog.oldestDays;
+      const oldestText = oldest === null
+        ? ""
+        : ` The oldest is ${oldest.toFixed(0)} day${oldest === 1 ? "" : "s"} old.`;
+      const row = h(
+        "p",
+        { class: "caption fog__stale", style: "margin:var(--space-1) 0 0", "data-testid": "fog-stale" },
+        `${fog.stale} of the remembered ${fog.stale === 1 ? "place is" : "places are"} past the ` +
+          `sighting memory, so they are faded further and their figures may be out of date.${oldestText}`,
+      );
+      card.appendChild(row);
     }
 
     card.appendChild(fogLegendBlock(legend));

@@ -206,7 +206,7 @@ describe("skeletons, not spinners (section 3.2)", () => {
       timeScale: 0,
       partyDaysOfFood: 4,
       selectionName: "",
-      fog: { applied: false, visible: 0, remembered: 0, unseen: 0, total: 0, unsighted: 0 },
+      fog: { applied: false, visible: 0, remembered: 0, unseen: 0, total: 0, unsighted: 0, stale: 0, oldestDays: null },
     });
     const sk = hud.root.querySelector("[aria-busy='true']");
     expect(sk).not.toBeNull();
@@ -286,7 +286,7 @@ describe("the HUD is operable and readable", () => {
       timeScale: 0,
       partyDaysOfFood: 4,
       selectionName: "",
-      fog: { applied: false, visible: 0, remembered: 0, unseen: 0, total: 0, unsighted: 0 },
+      fog: { applied: false, visible: 0, remembered: 0, unseen: 0, total: 0, unsighted: 0, stale: 0, oldestDays: null },
     });
     for (const id of ["money", "gold", "food", "metal", "medicine"]) {
       const res = hud.root.querySelector(`[data-testid='res-${id}']`);
@@ -312,7 +312,7 @@ describe("the HUD is operable and readable", () => {
       timeScale: 0,
       partyDaysOfFood: 4,
       selectionName: "",
-      fog: { applied: false, visible: 0, remembered: 0, unseen: 0, total: 0, unsighted: 0 },
+      fog: { applied: false, visible: 0, remembered: 0, unseen: 0, total: 0, unsighted: 0, stale: 0, oldestDays: null },
     });
     const pause = hud.root.querySelector("[data-testid='time-0']");
     expect(pause).not.toBeNull();
@@ -337,7 +337,7 @@ describe("the HUD is operable and readable", () => {
       timeScale: 0,
       partyDaysOfFood: 4.2,
       selectionName: "",
-      fog: { applied: false, visible: 0, remembered: 0, unseen: 0, total: 0, unsighted: 0 },
+      fog: { applied: false, visible: 0, remembered: 0, unseen: 0, total: 0, unsighted: 0, stale: 0, oldestDays: null },
     });
     const food = hud.root.querySelector("[data-testid='rail-food']");
     expect(food!.textContent).toMatch(/d$/);

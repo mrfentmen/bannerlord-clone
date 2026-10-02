@@ -27,6 +27,7 @@
 import { h, row, sectionHeader } from "../dom.js";
 import { panel, statusChip, type StatusKind } from "../kit.js";
 import { settlementFogView, type SettlementFogView } from "../../data/fogView.js";
+import type { TownRecency } from "../../data/fog.js";
 import type { TownState, TownVisibility } from "../../data/types.js";
 
 /** Which status shape each state wears. Shape carries it; colour is the third signal. */
@@ -43,6 +44,16 @@ export interface UnknownTownPanelOptions {
   town: TownState | null;
   /** The state, already read from the snapshot. Never inferred here. */
   state: TownVisibility;
+  /**
+   * How old the last sighting is, already read from the snapshot. Never inferred here.
+   *
+   * Optional and defaulting to `unknown`, which produces no age line at all: a panel
+   * without one still says the numbers are last-known, and a panel that could not state an
+   * age must not print "0 days ago" to stand in for one.
+   */
+  recency?: TownRecency;
+  /** The age in the simulation's ticks, alongside `recency`. Null when unknown. */
+  days?: number | null;
   /** Day the player is looking at, for the "last seen" framing. */
   day: number;
   /** Sends the player to the Why panel, for a field that has a cause chain. */
@@ -61,7 +72,7 @@ export interface UnknownTownPanelOptions {
  * with a title that cannot identify its own subject.
  */
 export function unknownTownPanel(options: UnknownTownPanelOptions): HTMLElement {
-  const view = settlementFogView(options.state);
+  const view = settlementFogView(options.state, options.recency ?? "unknown", options.days ?? null);
   const { root, body } = panel({
     title: options.settlementName,
     testId: options.testId ?? "unknown-town-panel",
@@ -98,6 +109,18 @@ export function unknownTownPanel(options: UnknownTownPanelOptions): HTMLElement 
           : "Nothing is known about this place. Your side has never had it in sight.",
       ),
     );
+    // The age, on its own line, and only when one could be stated.
+    //
+    // "Last known" tells the player the numbers are not current; it does not tell them how
+    // far back they reach, and that is the number they would act on. Placed immediately
+    // under the banner so the two read together — a figure about how old the news is is
+    // itself a figure, and the rule this panel already follows is that no number appears
+    // above its own caveat.
+    if (view.age) {
+      body.appendChild(
+        h("p", { class: "caption fogstate__age", "data-testid": "fog-age" }, view.age),
+      );
+    }
   }
 
   if (!view.known) {

@@ -110,9 +110,15 @@ export interface TownState {
   /** Whether the player's side has ever had this town in sight. Never cleared. */
   known: boolean;
   /**
-   * Tick when any side last had this town in view, or 0 when nobody ever has. The
-   * client's own clock is not this number's unit, so it is only ever compared against
-   * another `lastSeenTick`, never against `SimSnapshot.day`.
+   * Tick when any side last had this town in view, or 0 or less when nobody ever has.
+   *
+   * In the same unit as `FogState.tick`, which is the only clock in that unit anywhere on
+   * the wire — `SimSnapshot.day` is `Tick % 365` and wraps every year, so a subtraction
+   * against it is wrong twice a year and wrong silently. The never-seen sentinel is
+   * written here as "0 or less" rather than as a single number because the two producers
+   * do not agree on it: the simulation's field registry defaults to -1 (`model/fields.go`
+   * `last_seen_tick`) and the fixture uses 0. Read it with `townAge`, which treats
+   * anything at or below zero as never.
    */
   lastSeenTick: number;
   /**
@@ -174,6 +180,36 @@ export interface FogState {
   knownTowns: string[];
   /** Town ids this side has never found. Stated, not derived. */
   unseenTowns: string[];
+  /**
+   * The simulation tick this block is stated at, in the same unit as every value in
+   * `lastSeen`. `null` when the server has not published one.
+   *
+   * Sent because the client has no other clock in this unit and is not allowed to invent
+   * one. `day` is `Tick % 365` and wraps; `TickUpdate.tick` counts frames the server has
+   * pushed since it started. Without a tick in the fog block there is nothing to subtract
+   * a last-seen tick from, which is why `lastSeenTick` sat on `TownState` unread for as
+   * long as it did: there was no honest way to turn it into an age.
+   *
+   * Optional for the same reason the whole block is: a simulation that does not publish a
+   * clock is one whose towns have no stated age, and that must read as "unknown" rather
+   * than as "seen right now".
+   */
+  tick?: number | null;
+  /**
+   * When each known town was last in a side's sight, keyed by town id. Absent or missing
+   * an entry means never seen.
+   *
+   * Absent rather than set to a sentinel for one reason: the simulation's own never-seen
+   * value is -1 and this client's is 0, and a block that had to carry a magic number would
+   * be carrying the disagreement instead of settling it. An entry that is missing has one
+   * meaning.
+   *
+   * This is the block-level twin of `TownState.lastSeenTick` and exists because the tick
+   * frame carries fog but not towns: without it, a town the party has just walked past
+   * would grey out one tick after its state changed, because the age would still be
+   * reading the snapshot's copy.
+   */
+  lastSeen?: Record<string, number>;
   counts: FogCounts;
 }
 
@@ -931,13 +967,21 @@ export interface TickUpdate {
   notifications?: Notification[];
   causeRows?: CauseRow[];
   /**
-   * No `fog` here, and that is the server's decision rather than an omission here: the
-   * apiserver's tick frames (`cmd/apiserver/ws.go`) carry no fog block, so a town does
-   * not grey out or clear while the party is marching. Fog moves on the next full
-   * snapshot read, which `getSnapshot` already does after any write. Adding a fog field
-   * to this interface before the server sends one would be the client promising to
-   * handle a frame that never arrives.
+   * The frame's fog block, a *complete* one. See `FogState`.
+   *
+   * Optional, because a frame from a server that has not been rebuilt may carry none, and
+   * the merge falls back to the last full snapshot rather than dropping fog. Complete
+   * rather than sparse: every other key here means "absent means unchanged", and a fog
+   * block with eight fields where a partial read would have to know which of them this
+   * particular frame carried is a block that can be half-applied without error.
+   *
+   * This is what makes the map move with the party. The apiserver rebuilds the block per
+   * frame (`cmd/apiserver/ws.go` `broadcastTick`) from the same `fogViewFor` the snapshot
+   * uses, so a town greys out on the tick it leaves sight instead of on the next full
+   * snapshot read — and because the block carries `FogState.tick` and `lastSeen`, it
+   * carries the ages with it.
    */
+  fog?: FogState;
 }
 
 /** The full read and write surface the client needs from the simulation. */

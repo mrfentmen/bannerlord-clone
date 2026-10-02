@@ -33,6 +33,7 @@ import { barterPanel, type BarterPanelHandle } from "../panels/BarterPanel.js";
 import { marketPanel, type MarketPanelHandle } from "../panels/MarketPanel.js";
 import { partyPanel, partyPanelError } from "../panels/PartyPanel.js";
 import { questPanel, type QuestPanelHandle } from "../panels/QuestPanel.js";
+import { rumourFeedPanel, type RumourFeedHandle } from "../panels/RumourFeed.js";
 import { townPanel, townPanelError } from "../panels/TownPanel.js";
 import {
   BARTER_ACTIONS,
@@ -43,6 +44,9 @@ import {
   QUEST_ACTIONS,
   QUEST_LIST_ROWS,
   questSkeletonBody,
+  RUMOUR_COST_CELLS,
+  RUMOUR_LIST_ROWS,
+  rumourSkeletonBody,
 } from "../panels/panel-skeletons.js";
 import { marketSkeletonBody, partySkeletonBody, townSkeletonBody, TOWN_SECTIONS } from "../panels/skeletons.js";
 import type {
@@ -53,6 +57,7 @@ import type {
   IssueState,
   PartyState,
   RulerState,
+  Rumour,
   SimSnapshot,
   SimulationProvider,
   TownState,
@@ -1293,6 +1298,232 @@ describe("the quest panel", () => {
       ["quest-settled", quest({ selectedId: issueIn("failed").id }).root],
       ["quest-closed-notice", quest({ lastOutcome: { tone: "critical", text: "The request was not taken up." } }).root],
       ["quest-no-steps", quest({ board: { ...board, issues: [{ ...offered, steps: [] }] } }).root],
+    ];
+    const offenders: string[] = [];
+    for (const [name, node] of states) {
+      for (const line of visibleText(node).split(/(?<=[.:])\s+/)) {
+        for (const pattern of BANNED_COPY) {
+          if (pattern.test(line)) offenders.push(`${name}: ${pattern} in "${line.slice(0, 80)}"`);
+        }
+      }
+    }
+    expect(offenders, offenders.join("\n")).toHaveLength(0);
+  });
+});
+
+// -- the rumour feed ------------------------------------------------------------
+//
+// The feed is the one panel with no buttons and no orders in it, so the properties worth
+// checking are the ones a panel that started helping too much would break:
+//
+//  - Every figure is the simulation's own, printed at the market panel's two decimal
+//    places, and the margin is the sim's rather than the panel's own subtraction.
+//  - The order is the feed's. Which tip a player reads first is the generator's decision,
+//    made where the prices are, and this panel has no sort of its own to impose.
+//  - The good is named in this client's words — the sim's `food` is the client's `grain` —
+//    while the sim's own sentence is quoted as written, key and all.
+//  - A rumour is a tip and not an order, so the panel offers no way to buy anything: the
+//    buying is done at a market, and a feed that could take a trade would be a second place
+//    where prices are set.
+//  - The first frame is the shape of the feed, a failed read says so in plain words and
+//    offers a real retry, and an empty feed says what to do next.
+
+describe("the rumour feed", () => {
+  let rumourProvider: SimulationProvider;
+  let feed: Rumour[];
+
+  /**
+   * The three goods in this client's words. The one that differs is the point: the
+   * simulation prices grain as `food`, and the panel must not print a field name as a
+   * heading.
+   */
+  const word: Record<Rumour["good"], string> = { food: "Grain", medicine: "Medicine", metal: "Metal" };
+
+  /** Its own provider: the feed test buys into a market, and the panels above share theirs. */
+  beforeAll(async () => {
+    rumourProvider = createFixtureSimulationProvider();
+    feed = await rumourProvider.rumours();
+  });
+
+  function rumours(
+    opts: { rumours?: Rumour[] | null; provider?: SimulationProvider; loading?: boolean; day?: number | null } = {},
+  ): RumourFeedHandle {
+    return rumourFeedPanel({
+      rumours: opts.rumours === undefined ? feed : opts.rumours,
+      provider: opts.provider ?? rumourProvider,
+      loading: opts.loading ?? false,
+      ...(opts.day === undefined ? {} : { day: opts.day }),
+      onError: noop,
+    });
+  }
+
+  it("shows every rumour the feed carried, in the order it arrived", () => {
+    const root = rumours().root;
+    const cards = Array.from(root.querySelectorAll("[data-testid^='rumour-card-']"));
+    expect(cards.length).toBe(feed.length);
+    for (const [index, rumour] of feed.entries()) {
+      expect(cards[index]!.getAttribute("data-testid")).toBe(`rumour-card-${index}`);
+      // The card's own accessible name carries the whole tip, so a screen reader is not
+      // left walking four unrelated figures.
+      expect(cards[index]!.getAttribute("aria-label")).toBe(
+        `${word[rumour.good]}: buy in ${rumour.buyTown} at ${rumour.buyPrice.toFixed(2)}, ` +
+          `sell in ${rumour.sellTown} at ${rumour.sellPrice.toFixed(2)}, ${rumour.margin.toFixed(2)} per unit.`,
+      );
+    }
+    // The sequence is the generator's: best margin first. The panel does not re-sort, so
+    // this is the same order the provider handed over.
+    const margins = feed.map((r) => r.margin);
+    expect([...margins].sort((a, b) => b - a)).toEqual(margins);
+    expect(visibleText(root.querySelector("[data-testid='rumour-count']")!)).toContain(`${feed.length} rumours`);
+  });
+
+  it("prints both towns, both prices and the margin at the simulation's own figures", () => {
+    const root = rumours().root;
+    for (const [index, rumour] of feed.entries()) {
+      const card = root.querySelector(`[data-testid='rumour-card-${index}']`)!;
+      // The two prices, each in a cell of its own, because a rumour has two ends and they
+      // have to weigh the same.
+      expect(card.querySelector(`[data-testid='rumour-buy-price-${index}'] .data`)!.textContent).toBe(
+        rumour.buyPrice.toFixed(2),
+      );
+      expect(card.querySelector(`[data-testid='rumour-sell-price-${index}'] .data`)!.textContent).toBe(
+        rumour.sellPrice.toFixed(2),
+      );
+      expect(visibleText(card)).toContain(rumour.buyTown);
+      expect(visibleText(card)).toContain(rumour.sellTown);
+      // The margin is the sim's figure, to the cent, and not a subtraction done here.
+      expect(card.querySelector(`[data-testid='rumour-margin-${index}']`)!.textContent).toBe(
+        `+${rumour.margin.toFixed(2)}`,
+      );
+      // Two decimal places, the same convention the market panel prints a price in, so the
+      // two screens are comparing the same numbers.
+      expect(rumour.buyPrice.toFixed(2)).toMatch(/^\d+\.\d\d$/);
+    }
+  });
+
+  it("names the good in this client's words and quotes the simulation's sentence as written", () => {
+    const root = rumours().root;
+    // The one good whose two vocabularies differ: the sim prices it as `food` and the rest
+    // of this client calls it grain, and the panel must not print a field name as a heading.
+    const grain = feed.find((r) => r.good === "food");
+    for (const [index, rumour] of feed.entries()) {
+      const card = root.querySelector(`[data-testid='rumour-card-${index}']`)!;
+      expect(card.querySelector(".rumour__good")!.textContent).toBe(word[rumour.good]);
+      // The sentence is the sim's, verbatim, its own key and its own rounding included.
+      expect(card.querySelector(`[data-testid='rumour-text-${index}']`)!.textContent).toBe(rumour.text);
+    }
+    if (grain) {
+      // Both halves at once on the same card: the heading says Grain and the quoted
+      // sentence says food, because the sentence is the simulation's and is not edited.
+      const card = root.querySelector(`[data-testid='rumour-card-${feed.indexOf(grain)}']`)!;
+      expect(visibleText(card.querySelector(".rumour__good")!)).toBe("Grain");
+      expect(visibleText(card)).toContain("food");
+    }
+  });
+
+  it("offers no way to buy anything, because a rumour is a tip and not an order", () => {
+    const root = rumours().root;
+    // Not one control: the buying happens at a market, at the price that market holds, and a
+    // feed that could take a trade would be a second place where prices are set.
+    expect(root.querySelectorAll("button")).toHaveLength(0);
+    expect(root.querySelectorAll("input, select")).toHaveLength(0);
+    expect(visibleText(root)).toMatch(/not an order|tip/i);
+  });
+
+  it("gives the feed a skeleton shaped like a list of cards, each with a pair of prices", () => {
+    const sk = rumourSkeletonBody();
+    const live = rumours().root;
+    // A page of cards, and inside each one the pair of price cells.
+    expect(sk.querySelectorAll(".skeleton__list > .skeleton__section").length).toBe(RUMOUR_LIST_ROWS);
+    for (const card of Array.from(sk.querySelectorAll(".skeleton__list > .skeleton__section"))) {
+      expect(card.querySelectorAll(".skeleton__costs .skeleton__block").length).toBe(RUMOUR_COST_CELLS);
+    }
+    expect(sk.getAttribute("data-testid")).toBe("rumour-skeleton");
+    expect(visibleText(sk)).toMatch(/reading the trade rumours/i);
+    // And the live panel draws the pair the skeleton reserved, so the two cannot drift.
+    expect(live.querySelectorAll(".costs--two").length).toBe(feed.length);
+    for (const cells of Array.from(live.querySelectorAll(".costs--two"))) {
+      expect(cells.querySelectorAll(".cost").length).toBe(RUMOUR_COST_CELLS);
+    }
+    // Nothing in the skeleton rotates, so it is a placeholder and not a spinner in costume.
+    expect(uiCss()).not.toMatch(/@keyframes\s+\w*spin\b/);
+    // And the shape is styled, so it is never an unmeasured block.
+    expect(uiCss()).toContain(".skeleton--rumour-feed ");
+  });
+
+  it("puts the skeleton up before the request rather than a blank sheet", async () => {
+    // Handed no feed, the panel draws the shape of the screen and then asks for one.
+    const handle = rumours({ rumours: null });
+    expect(handle.root.querySelector("[data-testid='rumour-skeleton']")).not.toBeNull();
+    await handle.reload();
+    expect(handle.root.querySelector("[data-testid='rumour-skeleton']")).toBeNull();
+    expect(handle.root.querySelectorAll("[data-testid^='rumour-card-']").length).toBe(feed.length);
+  });
+
+  it("says a plain thing and offers a real retry when the feed cannot be read", async () => {
+    let fail = true;
+    const flaky: SimulationProvider = {
+      ...rumourProvider,
+      rumours: async () => {
+        if (fail) throw new SimulationUnavailableError("The trade rumours could not be read.", "HTTP 503");
+        return rumourProvider.rumours();
+      },
+    };
+    const handle = rumours({ rumours: null, provider: flaky });
+    await flush();
+    const error = handle.root.querySelector("[data-testid='rumour-error']")!;
+    expect(visibleText(error)).toContain("The trade rumours could not be read.");
+    expect(error.getAttribute("role")).toBe("alert");
+    // Developer detail to the console, never to the player.
+    expect(visibleText(error)).not.toMatch(/503|ECONNREFUSED/);
+    // The retry is a request, not a repaint of the same missing feed.
+    expect(handle.root.querySelector("[data-testid='rumour-error-retry']")).not.toBeNull();
+    fail = false;
+    handle.root.querySelector<HTMLButtonElement>("[data-testid='rumour-error-retry']")!.click();
+    await flush();
+    expect(handle.root.querySelector("[data-testid='rumour-error']")).toBeNull();
+    expect(handle.root.querySelectorAll("[data-testid^='rumour-card-']").length).toBe(feed.length);
+  });
+
+  it("says what to do next when there is no trade worth making", () => {
+    const root = rumours({ rumours: [] }).root;
+    const empty = root.querySelector("[data-testid='empty-state']")!;
+    expect(visibleText(empty)).toMatch(/No trade is worth travelling for/);
+    // CONSTITUTION.md 3.3: the next move, not an apology.
+    expect(visibleText(empty)).toMatch(/market/i);
+    // And no card, because there is nothing to draw one for.
+    expect(root.querySelectorAll("[data-testid^='rumour-card-']")).toHaveLength(0);
+  });
+
+  it("dates the feed with the caller's clock and says which clock that is", () => {
+    // The payload carries no day of its own, so the panel is given the app's and does not
+    // claim the simulation dated the rumour.
+    const root = rumours({ day: 41 }).root;
+    const chip = root.querySelector("[data-testid='rumour-day']")!;
+    expect(visibleText(chip)).toContain("Day 41");
+    // A chip rather than a bare figure, so the mark is the glyph as well as the colour.
+    expect(chip.querySelector(".chip__glyph")!.textContent!.trim()).toMatch(/^(◆|▲|●|■|○)$/);
+    expect(chip.getAttribute("title")).toMatch(/no day of its own/);
+    // Handed nothing to date it with, it prints no date rather than a made-up one.
+    expect(rumours({ day: null }).root.querySelector("[data-testid='rumour-day']")).toBeNull();
+  });
+
+  it("sets every price in mono with tabular figures, so a column of margins cannot jitter", () => {
+    const root = rumours().root;
+    for (const cell of Array.from(root.querySelectorAll(".cost .data, .rumour__margin"))) {
+      expect(cell.classList.contains("data")).toBe(true);
+    }
+    expect(css_block(".data")).toMatch(/font-family: var\(--font-mono\)/);
+    expect(css_block(".data")).toMatch(/tabular-nums/);
+  });
+
+  it("has no developer-speak in any of its states", () => {
+    const BANNED_COPY = [/\bTODO\b/, /\bplaceholder\b/i, /\bundefined\b/, /\bNaN\b/, /\bnull\b/, /\[[\]]/, /!/];
+    const states: [string, Node][] = [
+      ["rumours", rumours().root],
+      ["rumour-skeleton", rumours({ loading: true }).root],
+      ["rumour-empty", rumours({ rumours: [] }).root],
+      ["rumour-no-day", rumours({ day: null }).root],
     ];
     const offenders: string[] = [];
     for (const [name, node] of states) {

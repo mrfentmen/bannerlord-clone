@@ -68,24 +68,24 @@ func Load(path string) (*model.State, error) {
 // stateJSON is the serializable form of model.State.
 // Pair keys are encoded as "a:b" strings.
 type stateJSON struct {
-	Year          float64                  `json:"year"`
-	Tick          int                      `json:"tick"`
-	Season        float64                  `json:"season"`
-	Towns         map[int]*model.Town      `json:"towns"`
-	Villages      map[int]*model.Village   `json:"villages"`
-	Parties       map[int]*model.Party     `json:"parties"`
-	Leaders       map[int]*model.Leader    `json:"leaders"`
-	Sides         map[int]*model.Side      `json:"sides"`
-	Routes        map[int]*model.Route     `json:"routes"`
-	Sieges        map[int]*model.Siege     `json:"sieges"`
-	Wars          map[int]*model.War       `json:"wars"`
+	Year          float64                     `json:"year"`
+	Tick          int                         `json:"tick"`
+	Season        float64                     `json:"season"`
+	Towns         map[int]*model.Town         `json:"towns"`
+	Villages      map[int]*model.Village      `json:"villages"`
+	Parties       map[int]*model.Party        `json:"parties"`
+	Leaders       map[int]*model.Leader       `json:"leaders"`
+	Sides         map[int]*model.Side         `json:"sides"`
+	Routes        map[int]*model.Route        `json:"routes"`
+	Sieges        map[int]*model.Siege        `json:"sieges"`
+	Wars          map[int]*model.War          `json:"wars"`
 	Organizations map[int]*model.Organization `json:"organizations"`
-	Workshops     map[int]*model.Workshop  `json:"workshops"`
-	Notables      map[int]*model.Notable   `json:"notables"`
-	Issues        map[int]*model.Issue     `json:"issues"`
-	NextID        map[int]int              `json:"nextID"`
-	Relations     map[string]float64       `json:"relations"`
-	SideRelations map[string]float64       `json:"sideRelations"`
+	Workshops     map[int]*model.Workshop     `json:"workshops"`
+	Notables      map[int]*model.Notable      `json:"notables"`
+	Issues        map[int]*model.Issue        `json:"issues"`
+	NextID        map[int]int                 `json:"nextID"`
+	Relations     map[string]float64          `json:"relations"`
+	SideRelations map[string]float64          `json:"sideRelations"`
 }
 
 func pairKey(p model.Pair) string {

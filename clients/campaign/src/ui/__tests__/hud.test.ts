@@ -33,6 +33,8 @@ const FOG: FogIndicator = {
   unseen: 4,
   total: 13,
   unsighted: 0,
+  stale: 0,
+  oldestDays: null,
 };
 
 function hudAt(overrides: Partial<HudState> = {}): HTMLElement {
@@ -490,7 +492,7 @@ describe("the party rail", () => {
   it("shows the party, its grain in days, and the panels it can open", () => {
     const rail = hudAt().querySelector("[data-testid='party-rail']")!;
     expect(rail.textContent).toContain(snapshot.player.characterName);
-    for (const id of ["open-party", "open-march", "open-barter", "open-ledger", "open-roster", "open-data-source"]) {
+    for (const id of ["open-party", "open-march", "open-quests", "open-rumours", "open-barter", "open-ledger", "open-roster", "open-data-source"]) {
       const btn = hudAt().querySelector(`[data-testid='${id}']`);
       expect(btn, `the rail is missing ${id}`).not.toBeNull();
       expect(btn!.getAttribute("aria-label")?.length ?? (btn!.textContent ?? "").length).toBeGreaterThan(0);
@@ -548,6 +550,8 @@ describe("the party rail", () => {
     for (const [testId, panel] of [
       ["open-party", "party"],
       ["open-march", "march"],
+      ["open-quests", "quests"],
+      ["open-rumours", "rumours"],
       ["open-barter", "barter"],
       ["open-ledger", "ledger"],
       ["open-roster", "roster"],
@@ -555,7 +559,7 @@ describe("the party rail", () => {
       hud.root.querySelector<HTMLElement>(`[data-testid='${testId}']`)!.click();
       expect(opened[opened.length - 1], `${testId} opened the wrong panel`).toBe(panel);
     }
-    expect(opened).toEqual(["party", "march", "barter", "ledger", "roster"]);
+    expect(opened).toEqual(["party", "march", "quests", "rumours", "barter", "ledger", "roster"]);
   });
 
   it("keeps the keyboard where the player left it across a repaint", () => {
@@ -664,7 +668,7 @@ describe("the fog of war indicator", () => {
     // "Nobody is looking" and "there is nothing to see" are different claims, and 0/0/0
     // above a fully drawn map would be the second one.
     const root = hudAt({
-      fog: { applied: false, visible: 0, remembered: 0, unseen: 0, total: 13, unsighted: 0 },
+      fog: { applied: false, visible: 0, remembered: 0, unseen: 0, total: 13, unsighted: 0, stale: 0, oldestDays: null },
     });
     const note = root.querySelector("[data-testid='fog-inactive']")!;
     expect(note).not.toBeNull();
@@ -712,7 +716,7 @@ describe("the fog of war indicator", () => {
     // "Not being applied" tells a player nothing about what the three states mean, so a
     // card that dropped the legend there would leave them with no way to find out.
     const root = hudAt({
-      fog: { applied: false, visible: 0, remembered: 0, unseen: 0, total: 13, unsighted: 0 },
+      fog: { applied: false, visible: 0, remembered: 0, unseen: 0, total: 13, unsighted: 0, stale: 0, oldestDays: null },
     });
     expect(root.querySelector("[data-testid='fog-legend']")).not.toBeNull();
   });
