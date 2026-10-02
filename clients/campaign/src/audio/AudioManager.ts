@@ -22,6 +22,16 @@ export interface AudioAsset {
   volume?: number;
 }
 
+/**
+ * Clamps a bus level to 0..1. A garbage value can only make things quieter:
+ * the mixer must never get louder than a slider asks because a caller built a
+ * settings-shaped object by hand.
+ */
+function clampVolume(volume: number): number {
+  if (!Number.isFinite(volume)) return 0;
+  return Math.min(1, Math.max(0, volume));
+}
+
 export type MusicTrack =
   | 'loading-theme'
   | 'menu-theme'
@@ -134,6 +144,16 @@ export class AudioManager {
   private combatVoices = new Map<SfxId, Voice>();
 
   private muted = false;
+  /**
+   * The live bus levels, 0..1 (task 561). Kept beside the Web Audio nodes for
+   * two reasons: a level set before `init()` must be applied when the context
+   * arrives (the settings sliders apply as soon as the store loads, which can
+   * beat the async audio boot), and unmuting must restore the player's master
+   * level rather than jumping back to full volume.
+   *
+   * Defaults match the bus gains `init()` used to hard-code.
+   */
+  private levels = { master: 1, music: 0.7, sfx: 0.9, ambient: 0.5 };
 
   async init(): Promise<void> {
     if (this.ctx) return;
@@ -144,17 +164,24 @@ export class AudioManager {
     }
     this.ctx = new AC();
     this.masterGain = this.ctx.createGain();
-    this.masterGain.gain.value = 1.0;
     this.masterGain.connect(this.ctx.destination);
     this.musicGain = this.ctx.createGain();
-    this.musicGain.gain.value = 0.7;
     this.musicGain.connect(this.masterGain);
     this.sfxGain = this.ctx.createGain();
-    this.sfxGain.gain.value = 0.9;
     this.sfxGain.connect(this.masterGain);
     this.ambientGain = this.ctx.createGain();
-    this.ambientGain.gain.value = 0.5;
     this.ambientGain.connect(this.masterGain);
+    this.applyLevels();
+  }
+
+  /** Pushes the stored levels and mute state onto the live buses (task 561). */
+  private applyLevels(): void {
+    if (!this.ctx) return;
+    const at = this.ctx.currentTime;
+    this.masterGain?.gain.setValueAtTime(this.muted ? 0 : this.levels.master, at);
+    this.musicGain?.gain.setValueAtTime(this.levels.music, at);
+    this.sfxGain?.gain.setValueAtTime(this.levels.sfx, at);
+    this.ambientGain?.gain.setValueAtTime(this.levels.ambient, at);
   }
 
   async loadManifest(manifestUrl: string): Promise<void> {
@@ -373,19 +400,32 @@ export class AudioManager {
     this.playSfx(`sfx-ui-${type}`, { volume: 0.5 });
   }
 
+  /**
+   * Task 562: silence everything without losing the slider values. Unmuting
+   * restores the master level the player set, not full volume.
+   */
   setMuted(muted: boolean): void {
     this.muted = muted;
-    if (this.masterGain && this.ctx) {
-      this.masterGain.gain.setValueAtTime(muted ? 0 : 1, this.ctx.currentTime);
-    }
+    this.applyLevels();
   }
 
+  /**
+   * Task 561: the master volume slider, 0..1. The level is remembered even
+   * before `init()`; mute (task 562) still wins over it.
+   */
+  setMasterVolume(volume: number): void {
+    this.levels.master = clampVolume(volume);
+    this.applyLevels();
+  }
+
+  /**
+   * Task 561: sets one bus level, 0..1. Remembered before `init()` so the
+   * settings sliders can be applied at boot and not be lost to the async
+   * audio startup.
+   */
   setVolume(category: 'music' | 'sfx' | 'ambient', volume: number): void {
-    if (!this.ctx) return;
-    const gain = { music: this.musicGain, sfx: this.sfxGain, ambient: this.ambientGain }[category];
-    if (gain) {
-      gain.gain.setValueAtTime(Math.max(0, Math.min(1, volume)), this.ctx.currentTime);
-    }
+    this.levels[category] = clampVolume(volume);
+    this.applyLevels();
   }
 }
 

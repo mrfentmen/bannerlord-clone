@@ -28,6 +28,7 @@ import { installUpdateNotifier } from "./ui/updateNotifier.js";
 import { installPerfOverlay, setPerfStatsProvider } from "./ui/perfOverlay.js";
 import { BUILD_HASH } from "./buildHash.js";
 import { getAudioManager } from "./audio/AudioManager.js";
+import { applyAudioSettings } from "./audio/applySettings.js";
 
 // Task 25/26: the error boundary, console tail, and bug reporter are imported
 // here but installed after the canvas handles exist (see below).
@@ -192,6 +193,12 @@ installUpdateNotifier();
   void audio.init().then(() => audio.loadManifest("/audio-manifest.json")).catch(() => {
     // Audio is enhancement, not requirement; the game boots fine silent.
   });
+  // Task 561: the volume sliders apply at boot and on every change. The mixer
+  // remembers levels set before the context exists, so this is safe to run
+  // while the async audio boot is still in flight.
+  const applyVolumeSettings = (): void => applyAudioSettings(audio, settings.get());
+  applyVolumeSettings();
+  settings.subscribe(applyVolumeSettings);
   // Global UI click sounds: delegate on the app root for any button press.
   app.addEventListener("click", (e) => {
     const target = e.target as HTMLElement;
@@ -315,8 +322,8 @@ function applySettingsLive(): void {  const s = settings.get();
   applyReduceMotion(s.reduceMotion);
   applyFactionPalette(s.colorblindMode);
   applyHighContrast(s.highContrast);
-  // Audio levels are stored and validated here; the audio pipeline (Hana's lane)
-  // subscribes to the store and applies them.
+  // Audio levels are applied by the audio pipeline's own store subscription
+  // (applyAudioSettings, wired in the audio boot block).
   if (scene) {
     scene.engine.setHardwareScalingLevel(s.renderScale);
     scene.setMaxFps(s.maxFps);
