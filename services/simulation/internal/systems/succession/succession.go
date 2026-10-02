@@ -34,15 +34,32 @@ func run(v *sim.View, w *sim.WriteSet) {
 		if leader != nil && leader.IsAlive {
 			continue
 		}
-		// Leader is dead or missing: find the eldest living member.
+		// Leader is dead or missing: find the heir.
+		// First check for a designated heir (HeirID). If the designated heir
+		// is alive and a member, they inherit. Otherwise, fall back to the
+		// eldest living member.
 		var heir *model.Leader
-		for _, mid := range cl.MemberIDs {
-			m := v.State.Leaders[mid]
-			if m == nil || !m.IsAlive || m.ID == cl.LeaderID {
-				continue
+		if leader != nil && leader.HeirID >= 0 {
+			if designated := v.State.Leaders[leader.HeirID]; designated != nil && designated.IsAlive {
+				// Verify the designated heir is a clan member.
+				for _, mid := range cl.MemberIDs {
+					if mid == designated.ID {
+						heir = designated
+						break
+					}
+				}
 			}
-			if heir == nil || m.Age > heir.Age {
-				heir = m
+		}
+		// Fall back to eldest living member if no valid designated heir.
+		if heir == nil {
+			for _, mid := range cl.MemberIDs {
+				m := v.State.Leaders[mid]
+				if m == nil || !m.IsAlive || m.ID == cl.LeaderID {
+					continue
+				}
+				if heir == nil || m.Age > heir.Age {
+					heir = m
+				}
 			}
 		}
 		read := shared.ReadString(
@@ -52,8 +69,12 @@ func run(v *sim.View, w *sim.WriteSet) {
 		causes := v.Log.RecentFor(model.KindOrganization, id,
 			[]string{"clan_renown"}, 2)
 		if heir != nil {
+			causeMsg := "succession: eldest member inherits"
+			if leader != nil && leader.HeirID == heir.ID {
+				causeMsg = "succession: designated heir inherits"
+			}
 			w.Set(model.KindOrganization, id, "clan_leader", float64(heir.ID),
-				read, causes, "succession: eldest member inherits")
+				read, causes, causeMsg)
 			continue
 		}
 		// No heir: the clan dissolves. Every fief it still holds reverts to
