@@ -8,6 +8,7 @@
 import { h } from "../ui/dom.js";
 import type { FeedbackProjection, FeedbackSource } from "./types.js";
 import { createKillFeed, type KillFeed } from "./killFeed.js";
+import { createKillConfirm, type KillConfirm } from "./killConfirm.js";
 import { createBattleLog, type BattleLog } from "./battleLog.js";
 import { createDamageNumbers, type DamageNumbers } from "./damageNumbers.js";
 import { createDirectionIndicator, type DirectionIndicator } from "./directionIndicator.js";
@@ -57,6 +58,8 @@ export interface BattleFeedbackOptions {
 export interface BattleFeedback {
   root: HTMLElement;
   killFeed: KillFeed;
+  /** Kill confirm skull (task 47). */
+  killConfirm: KillConfirm;
   battleLog: BattleLog;
   damageNumbers: DamageNumbers;
   direction: DirectionIndicator;
@@ -79,6 +82,7 @@ export function createBattleFeedback(
 ): BattleFeedback {
   const root = h("div", { class: "fb-root", "data-testid": "fb-root" });
   const killFeed = createKillFeed(source);
+  const killConfirm = createKillConfirm(source);
   const battleLog = createBattleLog(source);
   // Task 75: the memorial records every hero kill alongside the feed, so a
   // battle death is a stone even when nobody opens the memorial panel.
@@ -99,6 +103,7 @@ export function createBattleFeedback(
   );
   root.append(
     killFeed.root,
+    killConfirm.root,
     battleLog.root,
     damageNumbers.root,
     direction.root,
@@ -123,6 +128,7 @@ export function createBattleFeedback(
   return {
     root,
     killFeed,
+    killConfirm,
     battleLog,
     damageNumbers,
     direction,
@@ -138,6 +144,7 @@ export function createBattleFeedback(
       cancelAnimationFrame(raf);
       unmemorial?.();
       killFeed.destroy();
+      killConfirm.destroy();
       battleLog.destroy();
       damageNumbers.destroy();
       direction.destroy();
