@@ -35,6 +35,7 @@ export const ROSTER_SHAPE = "ruler-roster";
 export const CARD_SHAPE = "ruler-card";
 export const START_SHAPE = "start-sides";
 export const BARTER_SHAPE = "barter-table";
+export const QUEST_SHAPE = "quest-log";
 
 // -- what the real panels draw -----------------------------------------------
 //
@@ -82,6 +83,20 @@ export const BARTER_TABLE_COLUMNS = 4;
 export const BARTER_TABLE_ROWS = 2;
 export const BARTER_TOTAL_CELLS = 2;
 export const BARTER_ACTIONS = 2;
+
+/**
+ * The quest log: a page of requests, then the one open request in full, then its buttons.
+ *
+ * A page and not the whole board, because `QUESTS_AND_NOTABLES.md` section 7 caps the
+ * requests a region can hold and a log that grew without bound would be the one screen on
+ * the map that pushed everything else off it. Exported for the same reason the rest of
+ * this file exports its counts.
+ */
+export const QUEST_LIST_ROWS = 5;
+/** Who asked, what is wanted, what it pays, and the log heading. */
+export const QUEST_DETAIL_ROWS = 4;
+/** An accepted request shows two buttons: report it done, and walk away from it. */
+export const QUEST_ACTIONS = 2;
 
 // -- shared block vocabulary --------------------------------------------------
 //
@@ -285,5 +300,29 @@ export function barterSkeletonBody(): HTMLElement {
   root.appendChild(h("div", { class: "skeleton__costs" }, ...count(CELL, BARTER_TOTAL_CELLS)));
   // Ask, then strike the deal.
   root.appendChild(actions(BARTER_ACTIONS));
+  return root;
+}
+
+// -- quest log ----------------------------------------------------------------
+
+/**
+ * `quest-skeleton`. A page of request cards, then the selected request in full: the
+ * progress gauge, then the rows that carry the giver, the requirement, the reward and
+ * the log, then the two buttons an accepted request is allowed to show.
+ *
+ * The shape that matters is the two halves, list above and detail below, because a quest
+ * log is a list the player picks from and one open request they are reading. A single
+ * undifferentiated block of grey would stand in for neither.
+ */
+export function questSkeletonBody(): HTMLElement {
+  const root = skeleton({ shape: QUEST_SHAPE, testId: "quest-skeleton", label: "Reading the quest log." });
+  // Whose log this is, and the day it was read on.
+  root.appendChild(h("div", { class: "skeleton__head-block" }, block(ROW, "skeleton__headline"), block(ROW)));
+  // The page of requests, each a card of the size the real cards are.
+  root.appendChild(section(h("div", { class: "skeleton__list" }, ...count(WIDE, QUEST_LIST_ROWS))));
+  // The open request: how far along it is, then who asked and what is wanted.
+  root.appendChild(section(block(GAUGE), ...count(ROW, QUEST_DETAIL_ROWS)));
+  // Report it done, walk away.
+  root.appendChild(actions(QUEST_ACTIONS));
   return root;
 }

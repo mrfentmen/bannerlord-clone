@@ -699,6 +699,31 @@
 
 .rail__name { margin: 0 0 var(--space-1); }
 
+/* ---------- fog of war indicator ---------- */
+
+/*
+ * A definition list, so the label and the figure are associated in the accessibility
+ * tree rather than sitting as loose spans. `dd`'s default indent is reset here because
+ * the rail cards have no other use for it.
+ */
+.fog__list { display: flex; flex-direction: column; gap: var(--space-1); }
+
+.fog__row { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+
+.fog__row dd { margin: 0; }
+
+.fog__label { display: inline-flex; align-items: center; gap: var(--space-1); }
+
+/*
+ * The swatch is redundant with the word beside it by design — it is there so the three
+ * rows are distinguishable at a glance, not so the row can be read without its label.
+ */
+.fog__swatch { width: 0.6rem; height: 0.6rem; border-radius: 1px; flex: 0 0 auto; }
+
+.fog__value { text-align: right; font-variant-numeric: tabular-nums; }
+
+.fog__total { color: var(--ink-500); }
+
 /* ---------- notifications ---------- */
 
 .notices { display: flex; flex-direction: column; gap: var(--space-2); max-height: 30vh; overflow-y: auto; }
@@ -751,6 +776,10 @@
 .stack > * { flex: 1 1 var(--space-7); }
 
 .costs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-2); }
+/* The quest reward has four parts — money, gold, renown and standing — and standing is
+   the one the player cannot spend, so it stays on the same row as the money rather than
+   being split into a second section. */
+.costs--four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 
 .cost {
   padding: var(--space-2);
@@ -1121,6 +1150,7 @@
   .notice { max-width: 16rem; }
   /* The warning list and the cost cells need the full width to stay readable. */
   .costs { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .costs--four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .why__link[data-depth="3"] { margin-left: var(--space-4); }
   .why__link[data-depth="4"] { margin-left: var(--space-5); }
 }
@@ -1412,6 +1442,38 @@
 .ruler-card__line { margin: 0 0 var(--space-1); }
 .ruler-card__note { margin: 0 0 var(--space-1); }
 
+/* ---------- quest log ----------
+ *
+ * A request card is the same shape as a roster card, because it is the same control: the
+ * whole card is the button, and the facts ride along inside it rather than beside it.
+ */
+.quests { display: grid; gap: var(--space-2); }
+
+.quest {
+  text-align: left;
+  padding: var(--space-2);
+  background: var(--paper-0);
+  border: 1px solid var(--paper-300);
+  color: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.quest[aria-pressed="true"] { border-color: var(--accent-primary); background: var(--paper-100); }
+.quest__head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-2); }
+.quest__name { font-weight: 700; }
+.quest__foot { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; justify-content: space-between; }
+
+.quest__section { margin-top: var(--space-3); }
+.quest__note { margin: 0 0 var(--space-2); }
+.quest__give { margin: 0 0 var(--space-1); }
+.quest__log { list-style: none; margin: var(--space-1) 0 0; padding: 0; display: grid; gap: 2px; }
+.quest__step { display: grid; grid-template-columns: 5em 1fr; gap: var(--space-2); font-size: var(--type-caption-size); }
+.quest__step-day { color: var(--ink-500); }
+.quest__actions { display: flex; flex-wrap: wrap; gap: var(--space-2); }
+.quest__penalty { margin: 0; }
+
 .trait { grid-template-columns: 5.5em 1fr 2.4em 5.5em; }
 .trait__label { color: var(--ink-500); }
 .trait__value { text-align: right; }
@@ -1510,6 +1572,13 @@
 .skeleton--start-sides .skeleton__grid--narrow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .skeleton--start-sides .skeleton__wide { height: 132px; }
 
+/* The quest log. A page of request cards over the one open request, because that is how
+   the screen is read: pick from the list, then read what you picked. */
+.skeleton--quest-log { display: grid; gap: 0; }
+.skeleton--quest-log .skeleton__list { display: grid; gap: var(--space-2); }
+.skeleton--quest-log .skeleton__wide { height: 62px; }
+.skeleton--quest-log .skeleton__gauge { height: 64px; }
+
 /* ---------- responsive (ART_DIRECTION.md section 13) ----------
  *
  * Checked at 390 x 844 and 768 x 1024. No horizontal page scroll, no clipped text, and
@@ -1551,11 +1620,15 @@
   .skeleton--barter-table .skeleton__costs { grid-template-columns: minmax(0, 1fr); }
 
   .costs { grid-template-columns: minmax(0, 1fr); }
+  .costs--four { grid-template-columns: minmax(0, 1fr); }
   .trait { grid-template-columns: 4.5em 1fr 2.4em; }
   .trait__reading { grid-column: 1 / -1; }
   .start__fact { flex-direction: column; align-items: flex-start; gap: 0; }
   .start__fact-value { text-align: left; }
   .ruler-card__head { flex-direction: column; align-items: flex-start; }
+  .quest__head { flex-direction: column; align-items: flex-start; }
+  .quest__step { grid-template-columns: 1fr; }
+  .quest__actions .btn { flex: 1 1 var(--space-7); }
   .march__actions .btn { flex: 1 1 var(--space-7); }
 }
 

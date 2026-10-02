@@ -28,9 +28,11 @@ import { beforeAll, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { createFixtureSimulationProvider } from "../../data/fixture/index.js";
+import { SimulationUnavailableError } from "../../data/provider.js";
 import { barterPanel, type BarterPanelHandle } from "../panels/BarterPanel.js";
 import { marketPanel, type MarketPanelHandle } from "../panels/MarketPanel.js";
 import { partyPanel, partyPanelError } from "../panels/PartyPanel.js";
+import { questPanel, type QuestPanelHandle } from "../panels/QuestPanel.js";
 import { townPanel, townPanelError } from "../panels/TownPanel.js";
 import {
   BARTER_ACTIONS,
@@ -38,10 +40,17 @@ import {
   BARTER_TABLE_ROWS,
   BARTER_TOTAL_CELLS,
   barterSkeletonBody,
+  QUEST_ACTIONS,
+  QUEST_LIST_ROWS,
+  questSkeletonBody,
 } from "../panels/panel-skeletons.js";
 import { marketSkeletonBody, partySkeletonBody, townSkeletonBody, TOWN_SECTIONS } from "../panels/skeletons.js";
 import type {
   BarterTerms,
+  Issue,
+  IssueActionResult,
+  IssueBoard,
+  IssueState,
   PartyState,
   RulerState,
   SimSnapshot,
@@ -57,6 +66,14 @@ function uiCss(): string {
 /** The generated token stylesheet, where the type classes are defined. */
 function tokensCss(): string {
   return readFileSync(join(process.cwd(), "src", "design", "tokens.css"), "utf8");
+}
+
+/** One CSS rule body, so a test asserts on the rule rather than on the file. */
+function css_block(selector: string): string {
+  const css = tokensCss();
+  const at = css.indexOf(selector);
+  if (at < 0) return "";
+  return css.slice(at, css.indexOf("}", at));
 }
 
 let provider: SimulationProvider;
@@ -927,6 +944,355 @@ describe("the barter panel", () => {
       ["barter-no-trader", barter({ traderId: null, terms: null }).root],
       ["barter-empty-offer", barter({ terms: { ...terms, playerItems: [] } }).root],
       ["barter-empty-give", barter({ terms: { ...terms, traderItems: [] } }).root],
+    ];
+    const offenders: string[] = [];
+    for (const [name, node] of states) {
+      for (const line of visibleText(node).split(/(?<=[.:])\s+/)) {
+        for (const pattern of BANNED_COPY) {
+          if (pattern.test(line)) offenders.push(`${name}: ${pattern} in "${line.slice(0, 80)}"`);
+        }
+      }
+    }
+    expect(offenders, offenders.join("\n")).toHaveLength(0);
+  });
+});
+
+// -- the quest panel -----------------------------------------------------------
+//
+// The quest log is the one panel whose buttons are chosen by a field rather than by the
+// player, so the properties worth checking are the ones where a client that decided
+// things for itself would be doing so plausibly and wrongly:
+//
+//  - The client's only arithmetic is `Math.round` on a figure the simulation sent. The
+//    progress figure, the reward, the notice and the penalty are all read off the board
+//    and asserted against it, because a quest log that computed its own progress would
+//    agree with the world exactly when the world agreed with the quest log.
+//  - The buttons are decided by `state` alone, and `state` is the simulation's. An offer
+//    cannot be reported done and a settled request cannot be taken on.
+//  - **The report button is shown even when the objective is not met.** `requirement.met`
+//    is a reading taken when the board was read, and it is recomputed every tick, so
+//    hiding the button until the gauge crossed a line would be the client settling a
+//    matter the simulation exists to settle. What must appear is the refusal, in full,
+//    in the simulation's own sentence.
+//  - The cost of walking away is printed *before* the button, not only in the refusal.
+//  - The board's order is the simulation's, and a settled request is replaced in place,
+//    so pressing a button cannot shuffle the list under the cursor.
+
+describe("the quest panel", () => {
+  let questProvider: SimulationProvider;
+  let questSnapshot: SimSnapshot;
+  let board: IssueBoard;
+
+  /** Its own provider: an order changes the world, and the tests above share theirs. */
+  beforeAll(async () => {
+    questProvider = createFixtureSimulationProvider();
+    questSnapshot = await questProvider.getSnapshot();
+    board = await questProvider.issueBoard(questSnapshot.party.id);
+  });
+
+  function quest(
+    opts: {
+      board?: IssueBoard | null;
+      provider?: SimulationProvider;
+      loading?: boolean;
+      selectedId?: string;
+      lastOutcome?: { tone: "good" | "critical"; text: string } | null;
+      onAction?: (result: IssueActionResult) => void;
+    } = {},
+  ): QuestPanelHandle {
+    return questPanel({
+      partyId: questSnapshot.party.id,
+      partyName: questSnapshot.party.name,
+      board: opts.board === undefined ? board : opts.board,
+      provider: opts.provider ?? questProvider,
+      loading: opts.loading ?? false,
+      onAction: opts.onAction ?? noop,
+      onError: noop,
+      ...(opts.selectedId === undefined ? {} : { selectedId: opts.selectedId }),
+      ...(opts.lastOutcome === undefined ? {} : { lastOutcome: opts.lastOutcome }),
+    });
+  }
+
+  /** The fixture seeds one request in each of the four states, which is what makes the
+   *  four button sets testable at all. */
+  function issueIn(state: IssueState): Issue {
+    const found = board.issues.find((issue) => issue.state === state);
+    expect(found, `the fixture seeds no ${state} request`).toBeDefined();
+    return found!;
+  }
+
+  function press(root: HTMLElement, testId: string): void {
+    const button = root.querySelector<HTMLButtonElement>(`[data-testid='${testId}']`);
+    expect(button, `no control ${testId}`).not.toBeNull();
+    button!.click();
+  }
+
+  it("shows every request on the board, in the simulation's own order", () => {
+    const root = quest().root;
+    const cards = Array.from(root.querySelectorAll("[data-testid^='quest-card-']"));
+    expect(cards.length).toBe(board.issues.length);
+    // The order is the simulation's, not a sort of the panel's own: read straight off the
+    // board in the sequence it arrived.
+    for (const [index, issue] of board.issues.entries()) {
+      expect(cards[index]!.getAttribute("data-testid")).toBe(`quest-card-${issue.id}`);
+    }
+  });
+
+  it("opens on a request that can still be acted on, and shows type, giver, reward, requirement and progress", () => {
+    const root = quest().root;
+    const open = board.issues.find((issue) => issue.state === "accepted")!;
+    // Resolved by the panel, not handed in: the log must be useful the moment it opens.
+    const pressed = root.querySelector("[aria-pressed='true']");
+    expect(pressed?.getAttribute("data-testid")).toBe(`quest-card-${open.id}`);
+
+    const detail = root.querySelector(`[data-testid='quest-detail-${open.id}']`)!;
+    const text = visibleText(detail);
+    // Type, in the player's words rather than the sim's key, and checked against the one
+    // this request actually is rather than against any of the three.
+    const KIND_WORD: Record<Issue["kind"], string> = {
+      "deliver-goods": "Deliver goods",
+      "clear-hideout": "Clear a hideout",
+      escort: "Escort",
+    };
+    expect(visibleText(root.querySelector(`[data-testid='quest-kind-${open.id}']`)!)).toContain(KIND_WORD[open.kind]);
+    expect(text).not.toContain(open.kind); // The raw key never reaches the screen.
+    // Giver, with the role and the settlement.
+    expect(text).toContain(open.notable.name);
+    expect(text).toContain(open.notable.role);
+    // The reward, all four parts, as the sim priced them.
+    expect(root.querySelector("[data-testid='quest-reward-money'] .data")!.textContent).toBe(
+      `$${Math.round(open.reward.money).toLocaleString("en-US")}`,
+    );
+    expect(root.querySelector("[data-testid='quest-reward-relation'] .data")!.textContent).toMatch(/^[+-]\d+$/);
+    // The requirement, in the simulation's own sentence, verbatim.
+    expect(visibleText(root.querySelector(`[data-testid='quest-requirement-${open.id}']`)!)).toContain(
+      open.requirement.text,
+    );
+    expect(text).toContain(`${Math.round(open.requirement.amount).toLocaleString("en-US")} ${open.requirement.unit}`);
+    // And progress, the only figure on the screen that moves, at the sim's own reading.
+    const meter = root.querySelector(`[data-testid='quest-progress-${open.id}'] [role='meter']`)!;
+    expect(meter.getAttribute("aria-valuenow")).toBe(String(Number(open.progress.toFixed(2))));
+  });
+
+  it("draws the step log the simulation wrote, in its own words", () => {
+    const issue = issueIn("offered");
+    const root = quest({ selectedId: issue.id }).root;
+    const log = root.querySelector(`[data-testid='quest-log-${issue.id}']`)!;
+    const steps = Array.from(log.querySelectorAll("li")).map((li) => li.textContent ?? "");
+    expect(steps.length).toBe(issue.steps.length);
+    for (const step of issue.steps) expect(steps.join(" ")).toContain(step.text);
+  });
+
+  it("offers the three buttons the request's state allows, and no others", () => {
+    // An offer can only be taken on. Reporting it done would be reporting a fact, and
+    // walking away from something never accepted is a refusal to help rather than a broken
+    // promise.
+    const offered = issueIn("offered");
+    const offer = quest({ selectedId: offered.id }).root;
+    expect(offer.querySelector(`[data-testid='quest-accept-${offered.id}']`)).not.toBeNull();
+    expect(offer.querySelector(`[data-testid='quest-complete-${offered.id}']`)).toBeNull();
+    expect(offer.querySelector(`[data-testid='quest-abandon-${offered.id}']`)).toBeNull();
+
+    // An accepted one carries both remaining buttons.
+    const accepted = issueIn("accepted");
+    const live = quest({ selectedId: accepted.id }).root;
+    expect(live.querySelector(`[data-testid='quest-accept-${accepted.id}']`)).toBeNull();
+    expect(live.querySelector(`[data-testid='quest-complete-${accepted.id}']`)).not.toBeNull();
+    expect(live.querySelector(`[data-testid='quest-abandon-${accepted.id}']`)).not.toBeNull();
+
+    // A settled one has no order left to send, so it offers neither.
+    const done = issueIn("succeeded");
+    const shut = quest({ selectedId: done.id }).root;
+    expect(shut.querySelector(`[data-testid='quest-accept-${done.id}']`)).toBeNull();
+    expect(shut.querySelector(`[data-testid='quest-complete-${done.id}']`)).toBeNull();
+    expect(shut.querySelector(`[data-testid='quest-abandon-${done.id}']`)).toBeNull();
+  });
+
+  it("keeps the report button up when the world does not meet the objective, and shows the refusal in full", async () => {
+    const accepted = issueIn("accepted");
+    const root = quest({ selectedId: accepted.id }).root;
+    // The sim's own reading, taken when the board was read. Whatever it says, the button
+    // is the player's to press and the sim is the one to refuse.
+    const button = root.querySelector<HTMLButtonElement>(`[data-testid='quest-complete-${accepted.id}']`)!;
+    expect(button).not.toBeNull();
+    if (!accepted.requirement.met) {
+      expect(button.getAttribute("title")).toMatch(/will refuse/);
+    }
+
+    press(root, `quest-complete-${accepted.id}`);
+    await flush();
+
+    const message = root.querySelector("[data-testid='quest-message']")!;
+    expect(visibleText(message).length).toBeGreaterThan(0);
+    if (!accepted.requirement.met) {
+      // Refused, and refused in the simulation's own sentence rather than a red border.
+      expect(visibleText(message)).toMatch(/met|reach|short|deliver/);
+      expect(root.querySelector("[data-testid='quest-message-chip']")!.getAttribute("data-status")).toBe("critical");
+    }
+  });
+
+  it("prints what walking away costs before the button, not only in the refusal", () => {
+    const accepted = issueIn("accepted");
+    const root = quest({ selectedId: accepted.id }).root;
+    const penalty = root.querySelector("[data-testid='quest-abandon-penalty']")!;
+    expect(penalty).not.toBeNull();
+    expect(visibleText(penalty)).toContain(String(Math.abs(accepted.abandonPenalty)));
+    // And it comes first in the row: the figure is above the control that spends it.
+    const actions = root.querySelector("[data-testid='quest-actions']")!;
+    const penaltyAt = Array.from(actions.children).indexOf(penalty);
+    const abandonAt = Array.from(actions.children).indexOf(
+      root.querySelector(`[data-testid='quest-abandon-${accepted.id}']`)!,
+    );
+    expect(penaltyAt).toBeGreaterThanOrEqual(0);
+    expect(penaltyAt).toBeLessThan(abandonAt);
+  });
+
+  it("replaces a request with the simulation's version of it, in place, when an order lands", async () => {
+    const offered = issueIn("offered");
+    const results: IssueActionResult[] = [];
+    const root = quest({ selectedId: offered.id, onAction: (r) => results.push(r) }).root;
+
+    press(root, `quest-accept-${offered.id}`);
+    await flush();
+
+    // The app was told, so it can carry the confirmation across its own re-render.
+    expect(results.length).toBe(1);
+    expect(results[0]!.accepted).toBe(true);
+    expect(results[0]!.action).toBe("accept");
+
+    // The card is the one the sim sent back, with its new state and its new step.
+    const fresh = await questProvider.issueBoard(questSnapshot.party.id);
+    const settled = fresh.issues.find((issue) => issue.id === offered.id)!;
+    expect(settled.state).toBe("accepted");
+    expect(settled.steps.length).toBe(offered.steps.length + 1);
+    // The list did not shuffle. The simulation sorts live work to the front, so the board
+    // it would now send leads with issue-0 — but the panel holds the order it was given
+    // and swaps the settled request into it, because a list that reorders under the
+    // cursor on the same click that pressed the button is a list nobody can hit. The sim's
+    // order is re-established on the next read, which is what the reload below checks.
+    const before = board.issues.map((issue) => `quest-card-${issue.id}`);
+    const cards = Array.from(root.querySelectorAll("[data-testid^='quest-card-']"));
+    expect(cards.map((c) => c.getAttribute("data-testid"))).toEqual(before);
+    expect(fresh.issues.map((issue) => `quest-card-${issue.id}`)).not.toEqual(before);
+    // And on a re-read the panel is in the simulation's order, because the simulation
+    // decides it and this file has no sort of its own to impose.
+    const reread = quest({ selectedId: offered.id });
+    await reread.reload();
+    expect(Array.from(reread.root.querySelectorAll("[data-testid^='quest-card-']")).map((c) => c.getAttribute("data-testid"))).toEqual(
+      fresh.issues.map((issue) => `quest-card-${issue.id}`),
+    );
+    // And the card on screen says so, from the sim's state rather than a local flag.
+    expect(visibleText(root.querySelector(`[data-testid='quest-card-${offered.id}']`)!)).toContain("Accepted");
+    // The notice survives the action that produced it.
+    expect(visibleText(root.querySelector("[data-testid='quest-message']")!)).toContain(results[0]!.verdict);
+  });
+
+  it("gives the quest screen a skeleton shaped like the list over the detail", () => {
+    const sk = questSkeletonBody();
+    const live = quest().root;
+    // A page of request cards, then the open request with its gauge, then two buttons.
+    expect(sk.querySelectorAll(".skeleton__list .skeleton__block").length).toBe(QUEST_LIST_ROWS);
+    expect(sk.querySelectorAll(".skeleton__gauge").length).toBe(1);
+    expect(sk.querySelectorAll(".skeleton__actions .skeleton__block").length).toBe(QUEST_ACTIONS);
+    expect(sk.getAttribute("data-testid")).toBe("quest-skeleton");
+    // And the live panel draws the gauge the skeleton reserved, so the two cannot drift.
+    expect(live.querySelectorAll("[role='meter']").length).toBe(1);
+    // Nothing in the skeleton rotates, so it is a placeholder and not a spinner in costume.
+    expect(uiCss()).not.toMatch(/@keyframes\s+spin/);
+  });
+
+  it("puts the skeleton up before the request rather than a blank sheet", async () => {
+    // Handed no board, the panel draws the shape of the screen and then asks for it.
+    const handle = quest({ board: null, loading: false });
+    expect(handle.root.querySelector("[data-testid='quest-skeleton']")).not.toBeNull();
+    await handle.reload();
+    expect(handle.root.querySelector("[data-testid='quest-skeleton']")).toBeNull();
+    expect(handle.root.querySelectorAll("[data-testid^='quest-card-']").length).toBe(board.issues.length);
+  });
+
+  it("says a plain thing and offers a real retry when the log cannot be read", async () => {
+    const broken: SimulationProvider = {
+      ...questProvider,
+      issueBoard: () => Promise.reject(new SimulationUnavailableError("The quest log could not be read.", "HTTP 503")),
+    };
+    const handle = quest({ board: null, provider: broken, loading: false });
+    await flush();
+    const error = handle.root.querySelector("[data-testid='quest-error']")!;
+    expect(visibleText(error)).toContain("The quest log could not be read.");
+    expect(error.getAttribute("role")).toBe("alert");
+    // The retry is a request, not a repaint of the same missing data.
+    expect(handle.root.querySelector("[data-testid='quest-error-retry']")).not.toBeNull();
+    // A panel that is still loading says nothing about the failure.
+    expect(handle.root.querySelector("[data-testid='quest-skeleton']")).toBeNull();
+  });
+
+  it("says what to do next when nobody has asked for anything", () => {
+    const root = quest({ board: { ...board, issues: [] } }).root;
+    const empty = root.querySelector("[data-testid='empty-state']")!;
+    expect(visibleText(empty)).toMatch(/No one has asked you for anything/);
+    // CONSTITUTION.md 3.3: the next move, not an apology.
+    expect(visibleText(empty)).toMatch(/short of food|unsafe|troubled|go (somewhere|to a settlement)/i);
+  });
+
+  it("carries every status as a glyph as well as a colour, and every numeral in mono", () => {
+    const root = quest().root;
+    const glyphs = new Set<string>();
+    for (const chip of Array.from(root.querySelectorAll(".chip"))) {
+      const glyph = chip.querySelector<HTMLElement>(".chip__glyph")!;
+      expect(glyph.textContent!.trim()).toMatch(/^(◆|▲|●|■|○)$/);
+      expect(glyph.style.color).toMatch(/^var\(--/);
+      expect(chip.getAttribute("aria-label")).toMatch(/^(Critical|Warning|Healthy|For information|No change):/);
+      glyphs.add(glyph.textContent!.trim());
+    }
+    // Four states on the board, so the chips have to carry more than one mark between them.
+    expect(glyphs.size).toBeGreaterThan(1);
+    // Figures are set in mono with tabular figures, so a changing gauge cannot reflow.
+    expect(css_block(".data")).toMatch(/font-family: var\(--font-mono\)/);
+    expect(css_block(".data")).toMatch(/tabular-nums/);
+  });
+
+  it("names every control, and gives the whole card a name rather than a strip of text", () => {
+    const root = quest().root;
+    for (const el of Array.from(root.querySelectorAll("button"))) {
+      expect(el.getAttribute("type")).toBe("button");
+      const label = el.getAttribute("aria-label") ?? el.textContent;
+      expect(label?.trim().length ?? 0, `unnamed ${el.textContent ?? "button"}`).toBeGreaterThan(0);
+    }
+    for (const card of Array.from(root.querySelectorAll(".quest"))) {
+      // The whole card is the control, so the name has to be on the card and name the
+      // request rather than repeating the settlement line.
+      expect(card.getAttribute("aria-label")).toMatch(/asked by .+ of .+, (Offered|Accepted|Done|Failed)$/);
+      expect(card.getAttribute("aria-pressed")).toMatch(/^(true|false)$/);
+    }
+  });
+
+  it("keeps the keyboard on the request the player opened", () => {
+    const handle = quest();
+    document.body.appendChild(handle.root);
+    const other = board.issues.find((issue) => issue.id !== board.issues[0]!.id)!;
+    const card = handle.root.querySelector<HTMLButtonElement>(`[data-testid='quest-card-${other.id}']`)!;
+    card.focus();
+    expect(document.activeElement).toBe(card);
+    card.click();
+    // The panel rebuilds itself on every selection, so this is what has to survive it.
+    const again = handle.root.querySelector<HTMLButtonElement>(`[data-testid='quest-card-${other.id}']`)!;
+    expect(again).not.toBe(card);
+    expect(document.activeElement).toBe(again);
+    expect(again.getAttribute("aria-pressed")).toBe("true");
+    handle.root.remove();
+  });
+
+  it("has no developer-speak in any of its states", () => {
+    const BANNED_COPY = [/\bTODO\b/, /\bplaceholder\b/i, /\bundefined\b/, /\bNaN\b/, /\bnull\b/, /\[[\]]/, /!/];
+    const offered = issueIn("offered");
+    const states: [string, Node][] = [
+      ["quest", quest().root],
+      ["quest-skeleton", quest({ loading: true }).root],
+      ["quest-empty", quest({ board: { ...board, issues: [] } }).root],
+      ["quest-accepted", quest({ selectedId: issueIn("accepted").id }).root],
+      ["quest-settled", quest({ selectedId: issueIn("failed").id }).root],
+      ["quest-closed-notice", quest({ lastOutcome: { tone: "critical", text: "The request was not taken up." } }).root],
+      ["quest-no-steps", quest({ board: { ...board, issues: [{ ...offered, steps: [] }] } }).root],
     ];
     const offenders: string[] = [];
     for (const [name, node] of states) {

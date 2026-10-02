@@ -1103,3 +1103,36 @@ reward_money_share = 0.25          # share of the treasury an issue may promise.
 # The same shortage is worth more when asked by someone who matters, which is
 # what a notable's power is for.
 relation_share = 0.5               # how much of the reward a notable's power adds. Range 0-2.0.
+
+# ---------------------------------------------------------------------------
+# BARTER — two tables, no money (ECONOMY.md section 5, docs/missing-vs-bannerlord.md row 7.11)
+# ---------------------------------------------------------------------------
+# A lord does not deal at the market price in either direction. They buy under
+# it and sell over it, and the difference is their margin. Barter is where that
+# margin shows up most plainly, because there is no money on the table to hide
+# it behind. The two shares below ARE the trader's spread: buy_share is what
+# they pay for what the player puts down, sell_share is what they ask for what
+# the player takes.
+[barter]
+buy_share = 0.82                 # share of market price paid for goods taken. Range 0.3-1.0.
+sell_share = 1.24                # share of market price charged for goods given. Range 1.0-3.0.
+# The two must leave a margin. At or below parity there is no reason to trade
+# across a table rather than at a counter, and the screen would stop meaning
+# anything it does not already mean in the market panel.
+# How far short of even a deal this lord will still shake hands with a
+# stranger, and how much a point of standing widens that. Both bounded at
+# either end by the two shares below, because an enemy refusing every deal is
+# not hostility and a close friend giving away a town is not friendship.
+tolerance = 0.04                # shortfall a stranger may offer. Range 0-0.3.
+tolerance_per_relation = 0.0006 # tolerance per point of standing, -100 to 100. Range 0-0.01.
+tolerance_relation_floor = -0.04 # bound on the tolerance adjustment. Range -0.3-0.
+tolerance_relation_cap = 0.12    # bound on the tolerance adjustment. Range 0-0.5.
+# A prisoner is priced even though barter moves no money: every line on a
+# barter table is valued in money, and the coin only ever names the value.
+# The daily rise is the whole of the ransom argument — a captive kept long
+# enough gets expensive to feed — and the cap is what stops a year in the cage
+# from making one man worth a ship.
+prisoner_base = 34.0             # money one average captive fetches on day one. Range 5-500.
+prisoner_quality_weight = 12.0   # money per quality point above average. Range 0-200.
+prisoner_daily_rise = 0.02       # share added per day held. Range 0-0.2.
+prisoner_daily_cap = 0.40        # ceiling on that share. Range 0-2.0.

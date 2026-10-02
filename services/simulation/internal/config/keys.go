@@ -658,6 +658,7 @@ func (l *loader) load(c *Config) {
 	loadFormation(l, &c.Formation)
 	loadVisibility(l, &c.Visibility)
 	loadIssue(l, &c.Issue)
+	loadBarter(l, &c.Barter)
 }
 
 // loadVisibility reads the fog-of-war constants (gap 6.5). The two switches are
@@ -789,6 +790,21 @@ func loadIssue(l *loader, i *Issue) {
 	i.AbandonRelationPenalty = l.f64("issue.abandon_relation_penalty")
 	i.RewardMoneyShare = l.f64("issue.reward_money_share")
 	i.RelationShare = l.f64("issue.relation_share")
+
+	}
+
+// loadBarter reads the trader's spread and tolerance (ECONOMY.md section 5).
+func loadBarter(l *loader, b *Barter) {
+	b.BuyShare = l.f64("barter.buy_share")
+	b.SellShare = l.f64("barter.sell_share")
+	b.Tolerance = l.f64("barter.tolerance")
+	b.TolerancePerRelation = l.f64("barter.tolerance_per_relation")
+	b.ToleranceRelationFloor = l.f64("barter.tolerance_relation_floor")
+	b.ToleranceRelationCap = l.f64("barter.tolerance_relation_cap")
+	b.PrisonerBase = l.f64("barter.prisoner_base")
+	b.PrisonerQualityWeight = l.f64("barter.prisoner_quality_weight")
+	b.PrisonerDailyRise = l.f64("barter.prisoner_daily_rise")
+	b.PrisonerDailyCap = l.f64("barter.prisoner_daily_cap")
 }
 
 func itoa(v int) string {

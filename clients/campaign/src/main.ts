@@ -23,11 +23,13 @@ import { readConfig, providerFromConfig, SimulationUnavailableError } from "./da
 import {
   buildFogIndex,
   countByVisibility,
+  fogIndicator,
   isDrawn,
   reportFog,
   townVisibility,
 } from "./data/fog.js";
 import { TEST_SOURCE_WARNING, TEST_SOURCE_DETAIL } from "./data/labels.js";
+import type { FogIndicator } from "./data/fog.js";
 import { START_YEAR, eraGradeForYear } from "./design/grade.js";
 import { buildWorld } from "./world/build.js";
 import { publishWorld } from "./world/context.js";
@@ -40,6 +42,7 @@ import { marketPanel } from "./ui/panels/MarketPanel.js";
 import { barterPanel } from "./ui/panels/BarterPanel.js";
 import { partyPanel } from "./ui/panels/PartyPanel.js";
 import { marchPlanner } from "./ui/panels/MarchPlanner.js";
+import { questPanel } from "./ui/panels/QuestPanel.js";
 import { ledgerPanel } from "./ui/panels/LedgerPanel.js";
 import { rulerCard, rulerRoster } from "./ui/panels/RulerPanel.js";
 import { startScreen } from "./ui/panels/StartScreen.js";
@@ -47,6 +50,8 @@ import { townPanel } from "./ui/panels/TownPanel.js";
 import { whyPanel } from "./ui/panels/WhyPanel.js";
 import type {
   BarterResult,
+  IssueActionResult,
+  IssueReward,
   RulerState,
   SettlementOption,
   SimSnapshot,
@@ -373,7 +378,7 @@ function townFor(settlementId: string): TownState | undefined {
  * Recomputed in `paint`, which is the one place that runs after a snapshot lands.
  */
 let fogStates = new Map<string, TownVisibility>();
-let fogCensus = countByVisibility([]);
+let fogCensus = countByVisibility(fogStates, null);
 
 /**
  * One settlement's state, by the client's own id.
@@ -401,21 +406,37 @@ function applyFog(): void {
   const index = buildFogIndex(snapshot?.fog);
 
   const states = new Map<string, TownVisibility>();
+  // The settlements the simulation actually runs a town for. Tracked separately from the
+  // states because a place with no town record is drawn in full but is not a town this
+  // side can see, and the census has to be able to say which is which.
+  const watched = new Set<string>();
   for (const place of world.data.settlements) {
     const town = townByPlaceId.get(place.id);
-    states.set(
-      place.id,
-      town ? townVisibility(index, town.id, town) : "visible",
-    );
+    if (!town) {
+      states.set(place.id, "visible");
+      continue;
+    }
+    watched.add(place.id);
+    states.set(place.id, townVisibility(index, town.id, town));
   }
   fogStates = states;
-  fogCensus = countByVisibility(states.values());
+  // `null` rather than an empty set when fog is not being applied: an empty set would
+  // read as "every settlement here is watched", which is the opposite of the truth.
+  fogCensus = countByVisibility(states, index.active ? watched : null);
   scene?.setTownVisibility(states);
 }
 
 /** The fog sentence for the data-source panel, in the product's voice. */
 function fogDetail(): string {
   return reportFog(snapshot?.fog, fogCensus).detail;
+}
+
+/**
+ * The figures for the HUD's persistent fog indicator. See `fogIndicator` in
+ * `src/data/fog.ts` for why these are the client's own counts.
+ */
+function fogIndicatorState(): FogIndicator {
+  return fogIndicator(fogCensus);
 }
 
 // -- selection ---------------------------------------------------------------
@@ -638,6 +659,12 @@ function rebuildContext(): void {
         onWhy: (field) => openWhy(snap.party.id, field),
       });
       return;
+    case "quests":
+      // No town needed. The board is keyed by party, and its requests are spread across
+      // every settlement in the region, so there is nothing here to resolve against the
+      // current map selection.
+      contextNode = questNode();
+      return;
     case "march":
       contextNode = marchPlanner({
         party: snap.party,
@@ -806,6 +833,79 @@ async function refreshAfterBarter(): Promise<void> {
     previous = snapshot;
     snapshot = fresh;
     if (currentPanel === "barter") rebuildContext();
+    paint();
+  } catch (err) {
+    console.error(err instanceof SimulationUnavailableError ? err.developerDetail : String(err));
+  }
+}
+
+/**
+ * The quest log for this party.
+ *
+ * `board` is handed as `null` on purpose, so the panel puts its skeleton up and reads the
+ * board itself — the same arrangement the barter screen and the market use, and the reason
+ * the first frame is the shape of the screen rather than a blank one. The app keeps the
+ * *outcome* and never the data, because a board cached here would already be stale: the
+ * simulation ages offers on every read, so an offer nobody took up lapses between one draw
+ * and the next, and a log holding yesterday's board would offer a deadline that no longer
+ * means anything.
+ */
+function questNode(): Node {
+  if (!snapshot) return noSimulationRecordNode("No quest log to read");
+  return questPanel({
+    partyId: snapshot.party.id,
+    partyName: snapshot.party.name,
+    board: null,
+    provider,
+    lastOutcome: lastQuest,
+    onAction: (result: IssueActionResult) => {
+      lastQuest = {
+        tone: result.accepted ? "good" : "critical",
+        text: result.accepted
+          ? result.paid
+            ? `${result.verdict} Paid ${describeReward(result.paid)}.`
+            : result.verdict
+          : (result.reason ?? result.verdict),
+      };
+      void refreshAfterQuest();
+    },
+    onError: (m) => console.error(m),
+  }).root;
+}
+
+/**
+ * The last order's outcome, held by the app rather than the panel.
+ *
+ * The same reason `lastBarter` and `lastTrade`: taking on or reporting a request moves the
+ * notable's opinion, the purse and the settlement's own readings, so the app re-reads the
+ * world and rebuilds the panel, and without this the confirmation would be wiped by the
+ * refresh that displayed it.
+ */
+let lastQuest: { tone: "good" | "critical"; text: string } | null = null;
+
+/** The reward in a sentence, for the notice that survives the re-render which shows it. */
+function describeReward(reward: IssueReward): string {
+  const parts: string[] = [];
+  if (reward.money !== 0) parts.push(money(reward.money));
+  if (reward.gold !== 0) parts.push(`${Math.round(reward.gold)} gold`);
+  if (reward.renown !== 0) parts.push(`${Math.round(reward.renown)} renown`);
+  if (reward.relation !== 0) parts.push(`${Math.round(reward.relation)} standing`);
+  return parts.length === 0 ? "nothing" : parts.join(", ");
+}
+
+/**
+ * Re-read after an order, because the world the panel is drawing has just moved.
+ *
+ * Only the snapshot: the panel reads the board itself on the rebuild, so there is no second
+ * copy of the requests to keep in step. The snapshot is what the rail draws — coin, renown
+ * and every settlement's own readings — and the reward has already moved all of it.
+ */
+async function refreshAfterQuest(): Promise<void> {
+  try {
+    const fresh = await provider.getSnapshot();
+    previous = snapshot;
+    snapshot = fresh;
+    if (currentPanel === "quests") rebuildContext();
     paint();
   } catch (err) {
     console.error(err instanceof SimulationUnavailableError ? err.developerDetail : String(err));
@@ -1001,6 +1101,7 @@ function paint(): void {
     timeScale,
     partyDaysOfFood: dailyFood === 0 ? 0 : snapshot.party.food / dailyFood,
     selectionName: selectedSettlement ? (settlement(selectedSettlement)?.name ?? "") : "",
+    fog: fogIndicatorState(),
   };
   hud.renderState(state);
 }

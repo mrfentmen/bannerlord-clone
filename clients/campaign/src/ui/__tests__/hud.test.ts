@@ -14,8 +14,26 @@ import { beforeAll, describe, expect, it, vi } from "vitest";
 import { createHud, dataSourcePanel, type HudPanel, type HudState, TIME_POSITIONS } from "../hud.js";
 import { createFixtureSimulationProvider } from "../../data/fixture/index.js";
 import type { SimSnapshot } from "../../data/types.js";
+import type { FogIndicator } from "../../data/fog.js";
 
 let snapshot: SimSnapshot;
+
+/**
+ * A fog state for tests that are not about fog.
+ *
+ * The fixture declares 6 towns in sight, 3 remembered and 4 never found, and the
+ * fixture's own fog block is the authority for that. These numbers are held here
+ * explicitly rather than read from the snapshot so that a test asserting the indicator
+ * fails on the indicator and not on a fixture edit somewhere else.
+ */
+const FOG: FogIndicator = {
+  applied: true,
+  visible: 6,
+  remembered: 3,
+  unseen: 4,
+  total: 13,
+  unsighted: 0,
+};
 
 function hudAt(overrides: Partial<HudState> = {}): HTMLElement {
   const noop = (): void => {};
@@ -35,6 +53,7 @@ function hudAt(overrides: Partial<HudState> = {}): HTMLElement {
     timeScale: 0,
     partyDaysOfFood: 4.2,
     selectionName: "",
+    fog: FOG,
     ...overrides,
   });
   return hud.root;
@@ -93,6 +112,7 @@ describe("the time dial (ART_DIRECTION.md section 6.8)", () => {
       timeScale: 0,
       partyDaysOfFood: 4.2,
       selectionName: "",
+      fog: FOG,
     });
     const dial = hud.root.querySelector("[data-testid='time-dial']")!;
     dial.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowRight", bubbles: true }));
@@ -119,6 +139,7 @@ describe("the time dial (ART_DIRECTION.md section 6.8)", () => {
       timeScale: 0,
       partyDaysOfFood: 4.2,
       selectionName: "",
+      fog: FOG,
     });
     const dial = hud.root.querySelector("[data-testid='time-dial']")!;
     dial.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", bubbles: true }));
@@ -187,6 +208,7 @@ describe("skip to arrival", () => {
       timeScale: 0,
       partyDaysOfFood: 4.2,
       selectionName: "",
+      fog: FOG,
       ...overrides,
     });
     return hud.root;
@@ -266,6 +288,7 @@ describe("the text-size setting (ART_DIRECTION.md section 12)", () => {
       timeScale: 0,
       partyDaysOfFood: 4.2,
       selectionName: "",
+      fog: FOG,
     });
     const select = hud.root.querySelector<HTMLSelectElement>("[data-testid='ui-scale']")!;
     select.value = "130";
@@ -338,6 +361,7 @@ describe("the top resource bar", () => {
       timeScale: 0,
       partyDaysOfFood: 0,
       selectionName: "",
+      fog: FOG,
     });
     const note = hud.root.querySelector("[data-testid='res-note-food']")!;
     expect(note.textContent).toBe("spent");
@@ -365,6 +389,7 @@ describe("the top resource bar", () => {
       timeScale: 0,
       partyDaysOfFood: 4.2,
       selectionName: "",
+      fog: FOG,
     });
     const money = hud.root.querySelector("[data-testid='res-money'] .res__trend")!;
     const food = hud.root.querySelector("[data-testid='res-food'] .res__trend")!;
@@ -412,6 +437,7 @@ describe("the notification tray", () => {
       timeScale: 0,
       partyDaysOfFood: 4.2,
       selectionName: "",
+      fog: FOG,
     });
     const tray = hud.root.querySelector("[data-testid='notifications']")!;
     for (const notice of Array.from(tray.querySelectorAll(".notice"))) {
@@ -488,6 +514,7 @@ describe("the party rail", () => {
       timeScale: 0,
       partyDaysOfFood: 4.2,
       selectionName: "",
+      fog: FOG,
     });
     for (const el of Array.from(hud.root.querySelectorAll("button"))) {
       const name = el.getAttribute("aria-label") ?? el.textContent ?? "";
@@ -516,6 +543,7 @@ describe("the party rail", () => {
       timeScale: 0,
       partyDaysOfFood: 4.2,
       selectionName: "",
+      fog: FOG,
     });
     for (const [testId, panel] of [
       ["open-party", "party"],
@@ -549,6 +577,7 @@ describe("the party rail", () => {
       timeScale: 0,
       partyDaysOfFood: 4.2,
       selectionName: "",
+      fog: FOG,
     };
     document.body.appendChild(hud.root);
     hud.renderState(state);
@@ -617,5 +646,52 @@ describe("player-visible copy in the HUD (CONSTITUTION.md section 3.3)", () => {
       }
     }
     expect(offenders, `banned copy in the data-source panel:\n${offenders.join("\n")}`).toHaveLength(0);
+  });
+});
+
+describe("the fog of war indicator", () => {
+  it("shows the three counts and the total they are a share of", () => {
+    const root = hudAt();
+    const card = root.querySelector("[data-testid='fog-indicator']")!;
+    expect(card).not.toBeNull();
+    expect(card.querySelector("[data-testid='fog-visible']")!.textContent).toBe("6");
+    expect(card.querySelector("[data-testid='fog-remembered']")!.textContent).toBe("3");
+    expect(card.querySelector("[data-testid='fog-unseen']")!.textContent).toBe("4");
+    expect(card.querySelector("[data-testid='fog-total']")!.textContent).toMatch(/of 13 settlements/);
+  });
+
+  it("states that fog is not applied instead of showing three zeroes", () => {
+    // "Nobody is looking" and "there is nothing to see" are different claims, and 0/0/0
+    // above a fully drawn map would be the second one.
+    const root = hudAt({
+      fog: { applied: false, visible: 0, remembered: 0, unseen: 0, total: 13, unsighted: 0 },
+    });
+    const note = root.querySelector("[data-testid='fog-inactive']")!;
+    expect(note).not.toBeNull();
+    expect(note.textContent).toMatch(/Not being applied/);
+    expect(root.querySelector("[data-testid='fog-visible']")).toBeNull();
+  });
+
+  it("names the unwatched settlements only when there are some", () => {
+    const clean = hudAt();
+    expect(clean.querySelector("[data-testid='fog-unsighted']")).toBeNull();
+
+    const caveated = hudAt({ fog: { ...FOG, unsighted: 2 } });
+    const note = caveated.querySelector("[data-testid='fog-unsighted']")!;
+    expect(note.textContent).toMatch(/2 of these/);
+  });
+
+  it("labels the three rows in words as well as colour", () => {
+    // The swatches are decoration for the words, so with no colour vision the row has
+    // to still be readable — which means the word has to be real text, not a title.
+    const card = hudAt().querySelector("[data-testid='fog-indicator']")!;
+    const labels = Array.from(card.querySelectorAll(".fog__label")).map((el) => el.textContent?.trim());
+    expect(labels).toEqual(["In sight", "Remembered", "Never found"]);
+  });
+
+  it("is a named group, so it is reachable as one landmark by a screen reader", () => {
+    const card = hudAt().querySelector("[data-testid='fog-indicator']")!;
+    expect(card.getAttribute("role")).toBe("group");
+    expect(card.getAttribute("aria-label")).toBe("Fog of war");
   });
 });

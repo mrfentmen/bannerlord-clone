@@ -18,6 +18,7 @@ import type {
   ResourceWarning,
   SimSnapshot,
 } from "../data/types.js";
+import type { FogIndicator } from "../data/fog.js";
 
 export interface HudOptions {
   onSelectPanel: (panel: HudPanel) => void;
@@ -42,8 +43,22 @@ export interface HudOptions {
  * needs a town *and* a lord to bargain with, and the rail is where the player chooses a
  * panel: adding a fourth button there is cheaper than adding an action the town panel
  * would have to grow a skeleton row for.
+ *
+ * `quests` is here for the same reason, and for a second one: a quest log belongs to a
+ * party rather than to a town, and its board is read by party id, so there is no town to
+ * hang it off the way `barter` hangs off `town`.
  */
-export type HudPanel = "town" | "market" | "barter" | "party" | "march" | "ledger" | "roster" | "why" | "none";
+export type HudPanel =
+  | "town"
+  | "market"
+  | "barter"
+  | "party"
+  | "march"
+  | "quests"
+  | "ledger"
+  | "roster"
+  | "why"
+  | "none";
 
 /** Which detent of the time dial is live. Used by the pointer and the tick scale. */
 export type TimePositionId = "paused" | "normal" | "fast" | "very-fast";
@@ -142,6 +157,12 @@ export interface HudState {
   timeScale: number;
   partyDaysOfFood: number;
   selectionName: string;
+  /**
+   * What this side can see, for the persistent fog indicator. Always present, because
+   * "the simulation published no fog" is a state the indicator has to render rather
+   * than an absence it can skip.
+   */
+  fog: FogIndicator;
 }
 
 export function createHud(options: HudOptions): HudHandle {
@@ -401,6 +422,7 @@ export function createHud(options: HudOptions): HudHandle {
     for (const [id, label, testId] of [
       ["party", "Party", "open-party"],
       ["march", "March", "open-march"],
+      ["quests", "Quests", "open-quests"],
       ["barter", "Barter", "open-barter"],
       ["ledger", "Ledger", "open-ledger"],
       ["roster", "Rulers", "open-roster"],
@@ -430,11 +452,107 @@ export function createHud(options: HudOptions): HudHandle {
     }
     rail.appendChild(warnings);
 
+    rail.appendChild(fogIndicatorCard(state.fog));
+
     const dataBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-data-source" }, "Where does this data come from?");
     dataBtn.addEventListener("click", () => options.onOpenDataSource());
     rail.appendChild(dataBtn);
 
     return rail;
+  }
+
+  /**
+   * The fog indicator: how much of this map this side can actually see.
+   *
+   * Persistent rather than sitting in the data-source modal, because the modal is
+   * something the player goes looking for, and the question fog raises — how much of my
+   * map is actually mine — is one they should be able to answer without leaving the map.
+   *
+   * The three states are three numbers and not a progress bar, because they are not
+   * fractions of one journey: `unseen` is a place the player may never find, so a bar
+   * filling toward "explored" would frame exploring as work owed rather than a fact
+   * about the world.
+   *
+   * Each row carries its own colour swatch *and* its own word, so the three are
+   * distinguishable with no colour vision and by a screen reader, which is the same
+   * redundancy rule the notifications tray follows.
+   */
+  function fogIndicatorCard(fog: FogIndicator): HTMLElement {
+    const card = h("div", {
+      class: "sheet rail__card",
+      "data-testid": "fog-indicator",
+      role: "group",
+      "aria-label": "Fog of war",
+    });
+    card.appendChild(h("h4", { class: "section-header" }, "Fog of war"));
+
+    if (!fog.applied) {
+      // The no-fog and no-vantage-point cases, stated rather than shown as zeroes.
+      card.appendChild(
+        h("p", {
+          class: "caption",
+          style: "margin:0",
+          "data-testid": "fog-inactive",
+        }, "Not being applied. Every settlement on this map is drawn in full, which is not a claim that this side can see all of it."),
+      );
+      return card;
+    }
+
+    // Swatch colours are the map's own: a town in sight, a remembered one, and a border
+    // rule for a place with no mark at all. They are decoration for the word beside them,
+    // so they are taken from existing tokens rather than introducing a second palette.
+    const rows: [string, number, string, string][] = [
+      ["visible", fog.visible, "In sight", "var(--map-fog)"],
+      ["remembered", fog.remembered, "Remembered", "var(--paper-300)"],
+      ["unseen", fog.unseen, "Never found", "var(--paper-100)"],
+    ];
+    const list = h("dl", { class: "fog__list", style: "margin:var(--space-2) 0 0" });
+    for (const [id, value, label, swatch] of rows) {
+      list.appendChild(
+        h(
+          "div",
+          { class: "fog__row" },
+          h(
+            "dt",
+            { class: "fog__label label" },
+            h("span", {
+              class: "fog__swatch",
+              "aria-hidden": "true",
+              "data-state": id,
+              style: `background:${swatch}`,
+            }),
+            label,
+          ),
+          h("dd", {
+            class: "fog__value data",
+            "data-testid": `fog-${id}`,
+          }, String(value)),
+        ),
+      );
+    }
+    card.appendChild(list);
+
+    // The denominator, so the three numbers above have something to be a share of.
+    card.appendChild(
+      h(
+        "p",
+        { class: "caption fog__total", style: "margin:var(--space-2) 0 0", "data-testid": "fog-total" },
+        `of ${fog.total} settlements on this map`,
+      ),
+    );
+
+    if (fog.unsighted > 0) {
+      // Only stated when non-zero, because it is a caveat on the totals above and a
+      // standing caveat on a map with nothing to caveat would just be noise.
+      card.appendChild(
+        h(
+          "p",
+          { class: "caption", style: "margin:var(--space-1) 0 0", "data-testid": "fog-unsighted" },
+          `${fog.unsighted} of these the simulation runs no town for, so they are drawn without a fog state.`,
+        ),
+      );
+    }
+    return card;
   }
 
   function renderRight(state: HudState): Node {

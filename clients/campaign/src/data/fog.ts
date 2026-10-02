@@ -150,6 +150,15 @@ export interface MapFogCensus {
   unsighted: number;
   /** Every settlement the map is drawing, so the panel can state a total. */
   total: number;
+  /**
+   * Whether the three states above are being enforced on the map at all.
+   *
+   * Carried on the census rather than recomputed by each consumer, because the two
+   * questions — "what are the counts" and "is this map filtered" — have to agree, and
+   * two independent readings of the same index is how a panel ends up reporting zero
+   * towns in sight above a map that is plainly showing them all.
+   */
+  applied: boolean;
 }
 
 /**
@@ -198,12 +207,79 @@ export function reportFog(fog: FogState | undefined, census: MapFogCensus): FogR
   };
 }
 
-/** The count of settlements the client is drawing in each state, for `reportFog`. */
-export function countByVisibility(states: Iterable<TownVisibility>): MapFogCensus {
-  const census: MapFogCensus = { visible: 0, remembered: 0, unseen: 0, unsighted: 0, total: 0 };
-  for (const state of states) {
+/**
+ * What the persistent HUD fog indicator shows.
+ *
+ * The counts are the client's own, from `MapFogCensus`, because they describe the map
+ * this client is drawing. The server's `FogCounts` describes the simulation's whole
+ * world, which is a larger set than this region's settlements, and presenting the two
+ * as one number would be a claim about a map that is not on screen.
+ *
+ * `applied: false` is a first-class state rather than three zeroes. With no vantage
+ * point the honest reading is "nobody is looking", and an indicator that showed
+ * `0 / 0 / 0` next to a fully drawn map would be actively lying.
+ */
+export interface FogIndicator {
+  applied: boolean;
+  visible: number;
+  remembered: number;
+  unseen: number;
+  /** Every settlement the map is drawing. The denominator for the three counts. */
+  total: number;
+  /** Settlements drawn in full that the simulation holds no town for. */
+  unsighted: number;
+}
+
+/**
+ * The indicator's figures, from the census.
+ *
+ * `total` is the number of settlements on the map, not the sum of the three states, so
+ * that the unwatched settlements are visible as a gap rather than silently inflating
+ * one of the three buckets.
+ */
+export function fogIndicator(census: MapFogCensus): FogIndicator {
+  return {
+    applied: census.applied,
+    visible: census.visible,
+    remembered: census.remembered,
+    unseen: census.unseen,
+    total: census.total,
+    unsighted: census.unsighted,
+  };
+}
+
+/**
+ * The count of settlements the client is drawing in each state, for `reportFog`.
+ *
+ * `watched` is which settlements the simulation actually holds a town for. It is a
+ * separate argument rather than something inferred from the states, because "drawn in
+ * full" and "in this side's sight" are different claims and the census has to keep them
+ * apart: a settlement with no town record is drawn, and counting it as `visible` would
+ * report the map's full settlement total back to the player as towns they can see.
+ *
+ * Every watched settlement is counted in one of the three states; every unwatched one
+ * lands in `unsighted`. So the four figures always sum to `total`, which is the
+ * property the HUD indicator's arithmetic depends on.
+ */
+export function countByVisibility(
+  states: ReadonlyMap<string, TownVisibility>,
+  watched: ReadonlySet<string> | null,
+): MapFogCensus {
+  const census: MapFogCensus = {
+    visible: 0,
+    remembered: 0,
+    unseen: 0,
+    unsighted: 0,
+    total: 0,
+    // A null `watched` means the caller is not tracking the join, so the census cannot
+    // make the distinction and counts every drawn settlement as a fogged one. That is
+    // the same reading `buildFogIndex` gives a missing block: the whole map is drawn.
+    applied: watched !== null,
+  };
+  for (const [id, state] of states) {
     census.total += 1;
-    census[state] += 1;
+    if (watched !== null && !watched.has(id)) census.unsighted += 1;
+    else census[state] += 1;
   }
   return census;
 }

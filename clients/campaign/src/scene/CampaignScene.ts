@@ -56,6 +56,21 @@ const PARTY_PIN_PIXELS = 20;
 const PARTY_PIN_MIN_M = 30;
 const PARTY_PIN_MAX_M = 900;
 
+/**
+ * The fog states the scene is actually drawing, counted from the clusters.
+ *
+ * A tally rather than the caller's states, because the scene is the thing that knows
+ * what reached the screen. Three states, no `unsighted` bucket: that distinction is
+ * about the settlement-to-town join, which happens above the scene and is reported by
+ * `MapFogCensus` in `src/data/fog.ts`. This is "what is on the map".
+ */
+export interface SceneFogTally {
+  visible: number;
+  remembered: number;
+  unseen: number;
+  total: number;
+}
+
 export interface SceneOptions {
   canvas: HTMLCanvasElement;
   world: WorldData;
@@ -76,6 +91,16 @@ export interface SceneHandle {
   setPartyVisible(visible: boolean): void;
   /** One line about what the map is showing, for the data-source panel. */
   summary(): string;
+  /**
+   * How many settlements the map is actually drawing in each fog state.
+   *
+   * Counted from the clusters rather than taken from the caller's map, so this is what
+   * the screen shows and not what was asked for. The distinction matters: a caller that
+   * passes a map keyed by a different vocabulary than the clusters use would report its
+   * own numbers, and the scene's would silently disagree. A cluster missing from the map
+   * falls back to `visible`, matching `setTownVisibility`.
+   */
+  fogTally(): SceneFogTally;
   /**
    * Put the map into a fog state, keyed by the client's settlement id.
    *
@@ -158,6 +183,11 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
   // count frozen at boot would claim a map that is no longer the one on screen.
   let drawnSettlements = towns.length;
   let watchedSettlements = towns.length;
+
+  // The last fog map the scene was given. Held so `fogTally` can report the states the
+  // scene is drawing without the caller having to keep them, and so `fogTally` cannot
+  // drift from `setTownVisibility` — one source, read two ways.
+  let states: ReadonlyMap<string, TownVisibility> = new Map();
 
   // -- party marker ---------------------------------------------------------
   // A small convoy: two vehicles and a pennant. Enough to read as a party moving at
@@ -272,7 +302,8 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
     setPartyVisible(visible) {
       partyRoot.setEnabled(visible);
     },
-    setTownVisibility(states) {
+    setTownVisibility(next) {
+      states = next;
       let drawn = 0;
       let watched = 0;
       for (const cluster of towns) {
@@ -283,6 +314,13 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       }
       drawnSettlements = drawn;
       watchedSettlements = watched;
+    },
+    fogTally() {
+      // Recounted from the clusters rather than served from the counters above, because
+      // `drawnSettlements` and `watchedSettlements` deliberately collapse `visible` and
+      // `remembered` into one figure for the summary sentence, and a caller asking for
+      // the three states separately needs all three.
+      return tallyFogStates(states, towns.map((cluster) => cluster.settlementId));
     },
     summary() {
       // The settlement count is the map's, and it moves with fog: saying 48 when 41 are
@@ -298,6 +336,29 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       );
     },
   };
+}
+
+/**
+ * Count the fog states the scene is drawing, keyed over the ids that are actually on the
+ * map.
+ *
+ * Split out as a pure function so the tally can be tested without a GPU — the scene needs
+ * a canvas and a real engine, and this is the arithmetic `fogTally` exists to get right.
+ *
+ * Ids drive the count rather than the map's own entries, so the total is the number of
+ * clusters on screen and cannot drift when the caller sends states for settlements this
+ * region does not hold. A cluster missing from the map falls back to `visible`, matching
+ * `setTownVisibility`, so the tally can never report fewer towns than were drawn.
+ */
+export function tallyFogStates(
+  states: ReadonlyMap<string, TownVisibility>,
+  drawnIds: readonly string[],
+): SceneFogTally {
+  const tally: SceneFogTally = { visible: 0, remembered: 0, unseen: 0, total: drawnIds.length };
+  for (const id of drawnIds) {
+    tally[states.get(id) ?? "visible"] += 1;
+  }
+  return tally;
 }
 
 const PASS_UNIFORMS = [

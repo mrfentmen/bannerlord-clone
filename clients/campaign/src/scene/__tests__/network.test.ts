@@ -25,6 +25,7 @@ import {
   silhouetteGeometry,
   townSilhouette,
 } from "../network.js";
+import { tallyFogStates } from "../CampaignScene.js";
 import { mapColor, tokens, townColor } from "../../design/tokens.js";
 import { makeProjection } from "../../world/load.js";
 import { metresPerDegreeLat } from "../../world/types.js";
@@ -398,5 +399,42 @@ describe("the route graph", () => {
     const graph = buildRouteGraph(roads, settlements, projection);
     // The trunk and the primary reach East, so the weakest of the two is the primary.
     expect(findRoute(graph, "1", "2").weakestClass).toBe("primary");
+  });
+});
+describe("tallyFogStates", () => {
+  it("counts the three states over the ids that are actually drawn", () => {
+    const tally = tallyFogStates(
+      new Map([
+        ["denver", "visible"],
+        ["boulder", "remembered"],
+        ["nederland", "unseen"],
+      ]),
+      ["denver", "boulder", "nederland"],
+    );
+    expect(tally).toEqual({ visible: 1, remembered: 1, unseen: 1, total: 3 });
+  });
+
+  it("counts a cluster the map says nothing about as visible, matching setTownVisibility", () => {
+    // The two must agree or the indicator reports a different map from the screen: if the
+    // scene drew it lit and the tally left it out, "in sight" would be understated.
+    const tally = tallyFogStates(new Map([["denver", "unseen"]]), ["denver", "boulder"]);
+    expect(tally).toEqual({ visible: 1, remembered: 0, unseen: 1, total: 2 });
+  });
+
+  it("ignores states for settlements the region does not hold", () => {
+    const tally = tallyFogStates(
+      new Map([
+        ["denver", "visible"],
+        ["atlantis", "unseen"],
+      ]),
+      ["denver"],
+    );
+    expect(tally.total).toBe(1);
+    expect(tally.unseen).toBe(0);
+  });
+
+  it("reports everything visible before any fog has been applied", () => {
+    const tally = tallyFogStates(new Map(), ["a", "b", "c"]);
+    expect(tally).toEqual({ visible: 3, remembered: 0, unseen: 0, total: 3 });
   });
 });

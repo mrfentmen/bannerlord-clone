@@ -56,6 +56,7 @@ type Config struct {
 	Formation  Formation
 	Issue      Issue
 	Visibility Visibility
+	Barter     Barter
 }
 
 // World controls world generation.
@@ -2036,6 +2037,51 @@ type Issue struct {
 	// RelationShare scales the reward by the notable's power, so the same
 	// shortage is worth more when asked by someone who matters.
 	RelationShare float64
+}
+
+// Barter is what a lord will accept across a table instead of at a market
+// counter, per ECONOMY.md section 5 and docs/missing-vs-bannerlord.md row 7.11.
+//
+// Barter is not trading at a price. It is two tables, one item against another,
+// with no money moving at all, and the only question worth asking is whether
+// the two sides are worth the same to each other. That valuation is the
+// trader's, and it is a spread rather than a price: a lord buys under the
+// market and sells over it, and the gap between those two figures is the whole
+// reason a deal can be refused.
+type Barter struct {
+	// BuyShare is the fraction of a town's market price a lord pays for
+	// anything taken off the table against them. Below one, because a lord
+	// dealing in person does not get the counter rate.
+	BuyShare float64
+	// SellShare is the fraction a lord charges for anything put on it, above
+	// one for the same reason. The two together are the trader's margin, and
+	// BuyShare*SellShare > 1 is what makes a fair-looking deal refusable.
+	SellShare float64
+	// Tolerance is how far short of even a deal this lord will still shake
+	// hands with a stranger. It is the lord's disposition, not the player's
+	// judgement, which is why it lives here rather than in the client.
+	Tolerance float64
+	// TolerancePerRelation is how much a point of standing with the trader
+	// widens that tolerance, so a friend takes a worse deal than a stranger.
+	TolerancePerRelation float64
+	// ToleranceRelationFloor and ToleranceRelationCap bound the adjustment
+	// at both ends. Without the floor an enemy could refuse any deal at all,
+	// which is not what an enemy does; without the cap a close friend could
+	// be talked into giving away a town.
+	ToleranceRelationFloor float64
+	ToleranceRelationCap   float64
+	// PrisonerBase is what one prisoner of average quality is worth on the day
+	// they are taken, in money. It is a money figure because barter prices
+	// every line in money even though no money moves.
+	PrisonerBase float64
+	// PrisonerQualityWeight scales that base by the captive's quality, so a
+	// trained officer in the cage is worth more than a farmhand.
+	PrisonerQualityWeight float64
+	// PrisonerDailyRise is how much a day in the cage adds to a captive's
+	// price, and PrisonerDailyCap bounds it. A prisoner left long enough
+	// becomes expensive to feed, which is the whole of the ransom argument.
+	PrisonerDailyRise float64
+	PrisonerDailyCap  float64
 }
 
 // Load reads and validates a balance file.
