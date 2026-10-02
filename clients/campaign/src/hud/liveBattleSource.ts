@@ -1,7 +1,8 @@
 /**
  * Battle HUD's live readouts, fed from `BattleFlow.liveView()`.
  *
- * Tasks 22-25: the two live troop counts, then the two morale figures.
+ * Tasks 22-25, 37: the two troop counts, the two morale figures, and the two
+ * faction names.
  *
  * `BattleFlow` exposes its live state through a getter rather than an event, so
  * the source polls that getter and re-notifies a listener only when the figure
@@ -28,6 +29,12 @@ export type LiveBattleReader = () => LiveBattleView | null;
 
 export type Unsubscribe = () => void;
 
+/** The two armies in a battle, named. */
+export interface BattleFactions {
+  player: string;
+  enemy: string;
+}
+
 export interface LiveBattleSourceOptions {
   /** How often the reader is polled; defaults to 250ms. */
   pollMs?: number;
@@ -46,6 +53,8 @@ export interface LiveBattleSource {
   onPlayerMorale(fn: (fraction: number) => void): Unsubscribe;
   /** The enemy's morale as a fraction of a full force, 0..1. */
   onEnemyMorale(fn: (fraction: number) => void): Unsubscribe;
+  /** The two sides' names, as the encounter knows them. */
+  onFactions(fn: (factions: BattleFactions) => void): Unsubscribe;
   /** Stops polling. The caller owns this; listeners only unsubscribe. */
   destroy(): void;
 }
@@ -56,13 +65,17 @@ const DEFAULT_POLL_MS = 250;
  * One live figure: a set of listeners, the last value pushed, and the rule that
  * an unchanged poll is not a change. Each figure gets its own, so a casualty on
  * one side never wakes the readout for the other.
+ *
+ * `same` decides what "unchanged" means. The default suits the numbers; a figure
+ * built fresh on every read needs a field-by-field comparison of its own, because
+ * identity would call every poll a change.
  */
-function liveFigure<T>() {
+function liveFigure<T>(same: (a: T, b: T) => boolean = (a, b) => a === b) {
   const listeners = new Set<(value: T) => void>();
   let last: T | null = null;
   return {
     push(value: T): void {
-      if (last === value) return;
+      if (last !== null && same(last, value)) return;
       last = value;
       for (const fn of listeners) fn(value);
     },
@@ -94,6 +107,9 @@ export function createLiveBattleSource(
   const enemyTroops = liveFigure<number>();
   const playerMorale = liveFigure<number>();
   const enemyMorale = liveFigure<number>();
+  const factions = liveFigure<BattleFactions>(
+    (a, b) => a.player === b.player && a.enemy === b.enemy,
+  );
   let handle = 0;
 
   function publish(): void {
@@ -103,6 +119,7 @@ export function createLiveBattleSource(
     enemyTroops.push(view.enemySide.troops);
     playerMorale.push(view.playerSide.morale);
     enemyMorale.push(view.enemySide.morale);
+    factions.push({ player: view.playerSide.name, enemy: view.enemySide.name });
   }
 
   handle = set(publish, pollMs);
@@ -112,6 +129,9 @@ export function createLiveBattleSource(
     onEnemyTroops: enemyTroops.subscribe,
     onPlayerMorale: playerMorale.subscribe,
     onEnemyMorale: enemyMorale.subscribe,
+    // The names are handed over as a copy, so a listener cannot write back into
+    // the source's own last value.
+    onFactions: (fn) => factions.subscribe((value) => fn({ ...value })),
     destroy() {
       clear(handle);
       handle = 0;
@@ -119,6 +139,7 @@ export function createLiveBattleSource(
       enemyTroops.clear();
       playerMorale.clear();
       enemyMorale.clear();
+      factions.clear();
     },
   };
 }

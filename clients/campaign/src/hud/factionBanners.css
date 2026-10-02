@@ -1,0 +1,58 @@
+/* Task 37: the faction banners. One top-left, one top-right, each a narrow
+   strip of the faction's own cloth beside its name. The two are the same widget
+   mirrored, which is why the mirroring is a row-reverse here rather than a second
+   markup shape in the module.
+
+   Static — nothing animates. */
+
+.hud-banners {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  pointer-events: none;
+}
+
+.hud-banner {
+  display: inline-flex;
+  align-items: stretch;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--ink-700);
+  border-radius: var(--radius-2);
+  background: var(--paper-0);
+  box-shadow: var(--sheet-1);
+}
+
+/* The enemy's cloth hangs on the outer edge, so the two banners frame the screen
+   rather than both leaning the same way. */
+.hud-banner--enemy {
+  flex-direction: row-reverse;
+}
+
+.hud-banner__field {
+  width: 6px;
+  border-radius: var(--radius-1);
+}
+
+.hud-banner__text {
+  display: inline-flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.hud-banner__owner {
+  font-size: 12px;
+  line-height: 16px;
+  color: var(--ink-500);
+}
+
+.hud-banner__name {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 700;
+  color: var(--ink-900);
+}
