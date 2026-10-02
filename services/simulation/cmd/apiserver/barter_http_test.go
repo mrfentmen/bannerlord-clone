@@ -378,9 +378,19 @@ func TestCommitRefusesADealWithNoCarrierAndSaysWhy(t *testing.T) {
 // the one arrangement that works, or the fix above would have cost a legitimate
 // trade to buy an accurate refusal.
 //
-// This is also the case that proves the old behaviour was not merely a bad
-// message: a coin-only deal needs no carrier at all, and it was still reported
-// as struck with both purses unchanged.
+// Coin on *both* sides is that arrangement, and it is the whole of it: coin moves
+// between two purses, so nothing on the table needs a carrier. This used to ask
+// for a sack of medicine instead, which is a different deal — see the test above
+// for why a landed lord cannot receive one, and `barter.Validate` for the rule. A
+// coin-for-sack bargain has nowhere to put the sack, so it is refused, and a
+// test asserting otherwise was asking for the bug the carrier check exists to
+// catch.
+//
+// The purses do not move, and that is the arithmetic rather than a skipped
+// commit: 40 in and 40 out of the same field is zero, and the engine sums the
+// two additive writes before it commits. So what this asserts is that the deal
+// was *struck* — the deal row below is the proof, because a commit that had done
+// nothing would leave no row for the panel's Why chain to walk.
 func TestALandedLordCanStillDealInCoin(t *testing.T) {
 	st := testWorld()
 	st.Parties[10] = nil
@@ -388,7 +398,7 @@ func TestALandedLordCanStillDealInCoin(t *testing.T) {
 	body := dealBody()
 	body["partyId"] = ""
 	body["offered"] = []any{map[string]any{"kind": "gold", "itemId": "gold", "quantity": 40}}
-	body["asked"] = []any{map[string]any{"kind": "good", "itemId": "medicine", "quantity": 1}}
+	body["asked"] = []any{map[string]any{"kind": "gold", "itemId": "gold", "quantity": 40}}
 	s := testServer(t, st)
 	rec, out := post(t, s, "/v1/barter/commit", body)
 	if rec.Code != http.StatusOK {
@@ -397,11 +407,25 @@ func TestALandedLordCanStillDealInCoin(t *testing.T) {
 	if out["accepted"] != true {
 		t.Fatalf("a coin-only deal from a landed lord was refused: %v", out["reason"])
 	}
-	if st.Leaders[1].Gold != 110 {
-		t.Errorf("player gold = %v, want 110 after handing over 40", st.Leaders[1].Gold)
+	if st.Leaders[1].Gold != 150 {
+		t.Errorf("player gold = %v, want 150: 40 in and 40 out is no change", st.Leaders[1].Gold)
 	}
-	if st.Leaders[2].Gold != 340 {
-		t.Errorf("trader gold = %v, want 340", st.Leaders[2].Gold)
+	if st.Leaders[2].Gold != 300 {
+		t.Errorf("trader gold = %v, want 300", st.Leaders[2].Gold)
+	}
+	// The town is untouched as well: coin is the one thing on a barter table
+	// that crosses without a wagon.
+	if st.Towns[100].MedicineStock != 200 {
+		t.Errorf("town medicine = %v, want untouched at 200", st.Towns[100].MedicineStock)
+	}
+	deals := 0
+	for _, r := range s.log.Rows() {
+		if r.System == "barter" && r.Field == "barter_deal" {
+			deals++
+		}
+	}
+	if deals != 1 {
+		t.Errorf("found %d deal rows, want 1: the deal was reported struck, so it has to be in the log", deals)
 	}
 }
 
@@ -556,8 +580,16 @@ func TestPlayerIdentityIsStable(t *testing.T) {
 func TestWhyExplainsTheGoldABargainSpent(t *testing.T) {
 	st := testWorld()
 	s := testServer(t, st)
-	if _, body := post(t, s, "/v1/barter/commit", dealBody()); body["accepted"] != true {
-		t.Fatalf("setup deal was refused: %v", body["reason"])
+	// The deal has to spend coin, because the question asked of /v1/why is about
+	// the trader's gold and gold is the field in the query. A grain-for-metal
+	// bargain moves no gold at all, so there is nothing to explain and the chain
+	// would be empty for the honest reason that nothing happened. This one is
+	// the same deal with 5 coin added to the player's side.
+	body := dealBody()
+	body["offered"] = append(body["offered"].([]any),
+		map[string]any{"kind": "gold", "itemId": "gold", "quantity": 5})
+	if _, out := post(t, s, "/v1/barter/commit", body); out["accepted"] != true {
+		t.Fatalf("setup deal was refused: %v", out["reason"])
 	}
 
 	rec := httptest.NewRecorder()
@@ -577,7 +609,7 @@ func TestWhyExplainsTheGoldABargainSpent(t *testing.T) {
 		t.Fatalf("decode why: %v (%s)", err, rec.Body)
 	}
 	if len(why.Rows) == 0 {
-		t.Fatal("no cause rows for the trader's gold after a struck deal")
+		t.Fatalf("no cause rows for the trader's gold, which the deal raised to %v", st.Leaders[2].Gold)
 	}
 
 	// Somewhere in the chain there is the deal, and the gold row points at it.

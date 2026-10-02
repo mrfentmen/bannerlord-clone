@@ -796,6 +796,44 @@ export interface IssueActionResult {
   causedBy: string;
 }
 
+// -- rumours -------------------------------------------------------------------
+
+/**
+ * The goods the rumour feed prices, in the simulation's own keys.
+ *
+ * The simulation scans three, and it says `food` where the rest of this client says
+ * `grain`: `GOODS` names the good `grain`, the market panel's first row is grain, and the
+ * top bar prints "Grain". The panel translates rather than printing the raw key beside a
+ * different word for the same goods, and `Text` — the simulation's own sentence — is
+ * printed as written, `food` and all.
+ *
+ * A closed set, because the panel has a word for each of these and no word at all for a
+ * fourth. A good it cannot name is refused at the boundary rather than drawn as a key.
+ */
+export type RumourGood = "food" | "medicine" | "metal";
+
+/**
+ * One trade tip: a good, the town it is cheapest in, the town it is dearest in, and what
+ * the difference is worth per unit.
+ *
+ * `margin` is the simulation's own subtraction of its own two prices, and the panel prints
+ * it as sent rather than working it out again. `buyTownId` and `sellTownId` are the
+ * simulation's integer town ids; the rest of this client keys towns by string, so the panel
+ * shows the two names and does not pretend it can open either town from a number.
+ */
+export interface Rumour {
+  good: RumourGood;
+  buyTown: string;
+  buyTownId: number;
+  buyPrice: number;
+  sellTown: string;
+  sellTownId: number;
+  sellPrice: number;
+  margin: number;
+  /** The tip in a full sentence, written by the simulation. Shown verbatim. */
+  text: string;
+}
+
 /**
  * One row of the cause log, `CAUSE_EFFECT.md` section 4.
  *
@@ -930,6 +968,16 @@ export interface SimulationProvider {
   completeIssue(request: IssueActionRequest): Promise<IssueActionResult>;
   /** Give up an accepted request, and pay the notable for it. */
   abandonIssue(request: IssueActionRequest): Promise<IssueActionResult>;
+  /**
+   * The trade rumours the simulation has generated from live market prices, best margin
+   * first.
+   *
+   * A read and nothing else: the feed is a query over the world's prices, and no order
+   * rides on it. Which rumours are worth publishing is the simulation's call — it holds the
+   * threshold that a tip has to clear and the order it hands them over in, and this client
+   * asks for the list and draws it as it arrives.
+   */
+  rumours(): Promise<Rumour[]>;
   planMarch(request: MarchRequest): Promise<MarchPlan>;
   commitMarch(request: MarchRequest): Promise<void>;
   /** Days of game time per real second. Zero pauses the clock. */

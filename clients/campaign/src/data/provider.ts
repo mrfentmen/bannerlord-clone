@@ -36,6 +36,8 @@ import type {
   MarchRequest,
   RecruitRequest,
   RecruitResult,
+  Rumour,
+  RumourGood,
   SimSnapshot,
   SimulationProvider,
   TickUpdate,
@@ -228,6 +230,11 @@ export class HttpSimulationProvider implements SimulationProvider {
   async abandonIssue(request: IssueActionRequest): Promise<IssueActionResult> {
     const url = `${this.#httpUrl}/v1/issues/abandon`;
     return decodeIssueAction(await this.#post<unknown>(url, request, "The request was not given up."), url);
+  }
+
+  async rumours(): Promise<Rumour[]> {
+    const url = `${this.#httpUrl}/v1/rumours`;
+    return decodeRumours(await this.#getJson(url, "The trade rumours could not be read."), url);
   }
 
   setTimeScale(daysPerRealSecond: number): void {
@@ -687,7 +694,6 @@ function issueActionProblem(raw: unknown): string | null {
 }
 
 function tickFrameProblem(raw: unknown): string | null {
-  if (!isRecord(raw)) return "the frame is not a JSON object";
   if (!isFiniteNumber(raw.tick)) return "tick is not a number";
   if (!isFiniteNumber(raw.day)) return "day is not a number";
   return null;

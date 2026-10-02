@@ -378,10 +378,9 @@ func applyOrder(v *sim.View, w *sim.WriteSet, o sim.Order) {
 	if touchesCaptives(deal) && st.Parties[trader.PartyID] == nil {
 		return
 	}
-	// And a deal whose goods have no carrier at all, for the same reason.
-	if party == nil && touchesCargo(deal) {
-		return
-	}
+	// Note: a landed lord with no party can still receive goods (they go to
+	// local storage). Validation already refuses deals where the player OFFERS
+	// goods without a party to carry them. No whole-deal refusal needed here.
 
 	// What each side holds, read once so the read string on every row names
 	// the state the deal was struck against rather than whatever the write
@@ -547,16 +546,25 @@ func Validate(st *model.State, req Request) error {
 	// trade and accept a coin-for-grain one, which is backwards.
 	needsParty := false
 	movesCaptives := false
-	for _, side := range [][]Line{req.Offered, req.Asked} {
-		for _, l := range side {
-			switch ItemKind(l.Kind) {
-			case KindGood, KindPrisoner:
-				needsParty = true
-			}
-			if ItemKind(l.Kind) == KindPrisoner {
-				movesCaptives = true
-			}
+	// A landed lord with no party can still trade: goods they receive go
+	// into local storage, and coin needs no transport. But goods or prisoners
+	// they OFFER must be carried away, which requires a party in the field.
+	// Prisoners in either direction need a cage (party).
+	for _, l := range req.Offered {
+		switch ItemKind(l.Kind) {
+		case KindGood, KindPrisoner:
+			needsParty = true
 		}
+		if ItemKind(l.Kind) == KindPrisoner {
+			movesCaptives = true
+		}
+	}
+	for _, l := range req.Asked {
+		if ItemKind(l.Kind) == KindPrisoner {
+			movesCaptives = true
+			needsParty = true // need a cage to receive captives
+		}
+		// Goods asked for go to local storage; no party needed.
 	}
 	if needsParty && partyOf(st, req.PlayerID) < 0 {
 		return fmt.Errorf("You have no party in the field, so there is nothing here to carry %s. Coin is the only thing you can put on a table alone.",
@@ -637,7 +645,21 @@ func stageLine(w *sim.WriteSet, m lineMove) {
 	switch m.kind {
 	case KindGood:
 		g, ok := goodByID[m.itemID]
-		if !ok || m.party == nil {
+		if !ok {
+			return
+		}
+		if m.party == nil {
+			// Landed lord with no party: goods go to local storage (town stock).
+			// The town is the trader's town; for the player's receiving, we
+			// add to the town stock instead of party cargo.
+			if !m.toTrader {
+				// Player receiving: add to town stock (lord's local storage).
+				w.Add(model.KindTown, townID, g.TownField, float64(m.quantity),
+					m.read, m.causedBy,
+					fmt.Sprintf("%s's %s %s received at the table", m.player.Name, g.Name, trim(float64(m.quantity))))
+			}
+			// If player is offering goods with no party, validation should have
+			// refused this; skip silently.
 			return
 		}
 		partyID := m.party.ID
