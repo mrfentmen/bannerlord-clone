@@ -10,10 +10,13 @@ export { createGroupIndicators, type GroupIndicators, type GroupIndicatorsOption
 export {
   createFormationSelector,
   FORMATION_CHOICES,
+  FORMATION_SPACING_M,
+  formationSlots,
   type FormationChoice,
   type FormationSelector,
   type FormationSelectorOptions,
 } from "./formation.js";
+export { createFormationGhost, type FormationGhost } from "./formationGhost.js";
 export {
   ORDER_LABEL,
   STANCE_LABEL,

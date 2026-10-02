@@ -42,6 +42,58 @@ export interface FormationSelector {
   destroy(): void;
 }
 
+/** Battlefield metres between two ranks or files — about a soldier's width. */
+export const FORMATION_SPACING_M = 2;
+
+/**
+ * Pure: where `count` units stand in a formation, as offsets in metres from the
+ * centre of the formation. The scene turns these into real positions; the
+ * preview ghost (task 71) draws them where the pointer is.
+ *
+ * Line is a front across x, column is a single file down z, wedge opens back
+ * from an apex at the front, and circle spreads the units on a ring whose
+ * circumference is roughly `count * spacing`, so a bigger group stands wider
+ * rather than tighter.
+ */
+export function formationSlots(
+  formation: FormationKind,
+  count: number,
+  spacing: number = FORMATION_SPACING_M,
+): { x: number; z: number }[] {
+  if (count <= 0) return [];
+  const slots: { x: number; z: number }[] = [];
+  switch (formation) {
+    case "line":
+      for (let i = 0; i < count; i++) {
+        slots.push({ x: (i - (count - 1) / 2) * spacing, z: 0 });
+      }
+      return slots;
+    case "column":
+      for (let i = 0; i < count; i++) {
+        slots.push({ x: 0, z: (i - (count - 1) / 2) * spacing });
+      }
+      return slots;
+    case "wedge": {
+      for (let i = 0; i < count; i++) {
+        // Rows hold 1, 3, 5, ... so row r ends at index (r + 1)^2.
+        const r = Math.floor(Math.sqrt(i));
+        const k = i - r * r;
+        // `r === 0 ? 0 : ...` keeps -0 out of a field coordinate.
+        slots.push({ x: r === 0 ? 0 : -r * spacing, z: (k - r) * spacing });
+      }
+      return slots;
+    }
+    case "circle": {
+      const radius = Math.max(spacing / 2, (spacing * count) / (2 * Math.PI));
+      for (let i = 0; i < count; i++) {
+        const angle = (2 * Math.PI * i) / count;
+        slots.push({ x: Math.cos(angle) * radius, z: Math.sin(angle) * radius });
+      }
+      return slots;
+    }
+  }
+}
+
 export function createFormationSelector(options: FormationSelectorOptions): FormationSelector {
   const choices = options.choices ?? FORMATION_CHOICES;
   const buttons = new Map<FormationKind | null, HTMLButtonElement>();

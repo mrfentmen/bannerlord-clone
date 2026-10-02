@@ -37,6 +37,7 @@ import { createOrderPanel, type OrderPanel } from "./orderPanel.js";
 import { createSelectionRings, type SelectionRings } from "./selectionRings.js";
 import { createGroupIndicators, type GroupIndicators } from "./groupIndicators.js";
 import { createFormationSelector, type FormationSelector } from "./formation.js";
+import { createFormationGhost } from "./formationGhost.js";
 import type { CommandSurface, FormationKind, Order, OrderKind } from "./types.js";
 
 export interface Commander {
@@ -183,10 +184,29 @@ export function createCommander(
   const formationSelector: FormationSelector = createFormationSelector({
     onPick: (picked) => {
       formation = picked;
+      refreshGhost();
     },
   });
   // Mounted in the order row's slot so the command widgets stack together.
   orderPanel.slot.appendChild(formationSelector.root);
+  // Task 71: the ghost that previews the shape under the pointer.
+  const ghost = createFormationGhost(surface);
+  overlay.appendChild(ghost.root);
+
+  /**
+   * Task 71: preview the formation under the pointer. Nothing to preview until
+   * a shape is chosen and units are selected, so the ghost stays hidden — and an
+   * empty selection is not a formation of zero, it is no order at all.
+   */
+  function refreshGhost(): void {
+    const count = selection.selected().length;
+    if (!formation || count === 0) {
+      ghost.hide();
+      return;
+    }
+    const at = surface.screenToField(lastPointer.x, lastPointer.y);
+    ghost.show(formation, count, at);
+  }
   const delays: OrderDelayHandle[] = [];
   /** Task 47: the last order issued to each unit — the panel's "stance". */
   const lastOrder = new Map<string, OrderKind>();
@@ -229,6 +249,8 @@ export function createCommander(
     );
     // Task 69: the chips follow assign and recall.
     groupIndicators.update();
+    // Task 71: the ghost follows the selection and the pointer.
+    refreshGhost();
   }
 
   /** Every order goes through here: sim gets it, the panel learns the stance,
@@ -654,6 +676,7 @@ export function createCommander(
       rings.destroy();
       groupIndicators.destroy();
       formationSelector.destroy();
+      ghost.destroy();
       modeHint.remove();
     },
   };
