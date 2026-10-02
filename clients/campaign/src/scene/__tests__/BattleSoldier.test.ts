@@ -51,14 +51,14 @@ describe("BattleSoldier lifecycle", () => {
     const soldiers = Array.from({ length: 5 }, () => new SoldierHarness());
 
     // Kill them in different orders with different damage
-    soldiers[2].damage(100, new Vector3(1, 0, 0));
-    soldiers[0].damage(50);
-    soldiers[0].damage(50, new Vector3(0, 0, 1));
-    soldiers[4].damage(200);
-    soldiers[1].damage(100);
-    soldiers[3].damage(30);
-    expect(soldiers[3].alive).toBe(true); // still alive
-    soldiers[3].damage(70);
+    soldiers[2]!.damage(100, new Vector3(1, 0, 0));
+    soldiers[0]!.damage(50);
+    soldiers[0]!.damage(50, new Vector3(0, 0, 1));
+    soldiers[4]!.damage(200);
+    soldiers[1]!.damage(100);
+    soldiers[3]!.damage(30);
+    expect(soldiers[3]!.alive).toBe(true); // still alive
+    soldiers[3]!.damage(70);
 
     // All 5 should be dead with ragdolls triggered
     for (const s of soldiers) {
@@ -68,8 +68,8 @@ describe("BattleSoldier lifecycle", () => {
     }
 
     // Impulses should reflect damage directions
-    expect(soldiers[2].impulseApplied!.x).toBeGreaterThan(0);
-    expect(soldiers[0].impulseApplied!.z).toBeGreaterThan(0);
+    expect(soldiers[2]!.impulseApplied!.x).toBeGreaterThan(0);
+    expect(soldiers[0]!.impulseApplied!.z).toBeGreaterThan(0);
   });
 
   it("dead soldiers ignore further damage", () => {
