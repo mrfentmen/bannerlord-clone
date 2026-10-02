@@ -12,6 +12,7 @@
 
 import "./killConfirm.css";
 import { h } from "../ui/dom.js";
+import { prefersReducedMotion } from "./motion.js";
 import type { FeedbackSource, Unsubscribe } from "./types.js";
 
 /** How long the skull stays on screen after a kill. */
@@ -20,16 +21,6 @@ export const KILL_CONFIRM_MS = 700;
 export interface KillConfirm {
   root: HTMLElement;
   destroy(): void;
-}
-
-function prefersReducedMotion(): boolean {
-  if (typeof document === "undefined") return false;
-  if (document.documentElement.hasAttribute("data-reduce-motion")) return true;
-  return (
-    typeof window !== "undefined" &&
-    typeof window.matchMedia === "function" &&
-    window.matchMedia("(prefers-reduced-motion: reduce)").matches
-  );
 }
 
 export function createKillConfirm(source: FeedbackSource): KillConfirm {
