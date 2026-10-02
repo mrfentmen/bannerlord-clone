@@ -325,14 +325,128 @@ layout would break CI.
 
 ## What landed, and how
 
-1. `worker/local/battlesim-sim-only` branched from `origin/main` @ `4dd4a5c`.
+1. `worker/local/battlesim-sim-only` branched from `origin/main` @ `4dd4a5c`, then rebased onto `main` as it moved (final parent `a65c0ca`).
 2. The 35 SIM commits cherry-picked in original order, oldest first.
 3. The 3 mixed commits split by path — only their `services/simulation/` files taken.
 4. All 6 collision files resolved as **union (main + milo)**, never "theirs".
 5. Zero files under `clients/campaign/src/ui/` touched. Verified.
 6. `cmd/battleserver` present on `main`. Verified.
-7. `go build ./...` and `go test ./...` run in `services/simulation/`. Results
-   recorded in the "Verification" section of the merge commit and on the bus.
+7. `go build ./...`, `go vet`, `go test ./...` and a determinism check run in
+   `services/simulation/`. Full results below.
+
+Branch state: `worker/local/battlesim-sim-only` — 38 commits ahead of `main`,
+118 files under `services/simulation/`, plus `CHANGELOG.md` (one battle-morale
+row) and this doc. Zero files under `clients/`, `content/` or `labs/`.
+
+### Branch moved during the work
+
+`main` advanced repeatedly while this was in flight (`4dd4a5c` → `237cdba` →
+`2165880` → `4998ff2`), and a concurrent process rebased this branch onto the
+newer `main` mid-task and reset it. It was finally rebased onto `4998ff2` with no
+conflicts. The sim work survived the rebase intact — the tree of
+`services/simulation/` after the rebase is byte-identical to the tree before it —
+and the branch was fast-forwarded back onto that rebased commit rather than
+force-pushed. Worth knowing: another agent is using the same `local-agent-1`
+identity and has been committing **Rowan UI work** to `main` (`2165880`,
+`0b88423`, `867a1dd`). Two agents sharing an identity on one repo is how the
+branch got reset out from under this one.
+
+---
+
+## Verification
+
+Run in `services/simulation/` on branch `ed7b24c`, Go 1.26.6 darwin/amd64.
+
+### `go build ./...` — 7 packages fail, all pre-existing
+
+```
+mbclone/simulation/cmd/apiserver            FAIL
+mbclone/simulation/cmd/apiserver/api        FAIL
+mbclone/simulation/cmd/apiserver/campaign    FAIL
+mbclone/simulation/cmd/simrun               FAIL
+mbclone/simulation/internal/runner          FAIL
+mbclone/simulation/internal/simrun          FAIL
+mbclone/simulation/internal/systems/bandit   FAIL
+```
+
+Two independent root causes, **both on pristine `main` as well**:
+
+```
+cmd/apiserver/campaign/prisoners.go:55:7:  c.prisoners undefined
+cmd/apiserver/campaign/prisoners.go:75:13: c.companions undefined
+internal/systems/bandit/bandit.go:9:2:      "fmt" imported and not used
+```
+
+`cmd/simrun`, `internal/simrun` and `internal/runner` fail downstream of
+`internal/runner`.
+
+Verified by building every package individually on both `origin/main` and this
+branch and diffing the two failing sets: **identical, 7 and 7.** This merge
+introduces **no** new build failure. Note `cmd/simrun` is one of the pre-existing
+failures, so the replay CLI cannot be built on `main` today; the sim engine
+itself is unaffected.
+
+Every sim package builds:
+
+```
+./cmd/battleserver      OK      ./internal/battle/...      OK
+./cmd/battleverify      OK      ./internal/formation/...   OK
+./cmd/simrun            OK      ./internal/replay/...     OK
+                                 ./internal/battleverify/... OK
+```
+
+### `go vet` — clean
+
+Clean across all 10 new sim packages (`battle`, `formation`, `replay`,
+`battleverify`, `command`, `battleapi`, `barks`, `scale`, `autoresolve`,
+`writeback`) plus `cmd/battleserver` and `cmd/battleverify`.
+
+### `go test ./...` — 14 packages ok, 4 fail (all pre-existing), 7 cannot build
+
+**Pre-existing, not caused by this merge.** Verified by running the same 4
+packages on milo's **untouched** `worker/milo/simulation` worktree
+(`0af6e7a`) — all 4 fail there identically:
+
+| Package | Status | Failing tests (same on both branches) |
+|---|---|---|
+| `internal/battle` | FAIL | `TestGoldenReplaysAreTheBattlesTheyWere` (2 of 3 fixtures) |
+| `internal/battleverify` | FAIL | `TestProbeSeesEveryTick`, `TestSuiteRunsAndPasses` |
+| `internal/command` | FAIL | `TestCommandedBattle50v50` |
+| `internal/replay` | FAIL | `TestDeterminismSameSeedSameBytes`, `TestDeterminismAcrossProcessBoundaries`, `TestDifferentSeedsProduceDifferentBattles`, `TestRecordingDoesNotChangeTheBattle` |
+
+Passing (15): `autoresolve`, `barks`, `battleapi`, `cause`, `config`,
+`formation`, `model`, `scale`, `simfeed`, `simrun`, `systems/construction`,
+`systems/election`, `systems/player`, `systems/siege`, `writeback`.
+
+**The golden-fixture failures are a real bug, not drift.** Two of the three
+fixtures report `orders now 0, fixture says 8` and `orders now 0, fixture says 4`
+— the recorded battle ran, the outcome and tick count are right, but **no orders
+were delivered to the field**. That is the same defect as `0c50732` ("a player's
+order has to reach the field, and seven of the fourteen cannot") failing to hold
+for the scripted path. It needs a real fix, and `BATTLE_UPDATE_GOLDEN` must
+**not** be used to silence it: the fixtures are the only thing recording that
+orders reach a battle, and re-blessing them would delete the evidence.
+
+A further 7 packages cannot be tested at all, because they do not build — the
+same 7 as above, on `main` either.
+
+### Determinism — holds
+
+`internal/battle/testdata/golden/` has 3 fixtures. `uncommanded-4v4` matches its
+recorded hash, 3 runs out of 3, in separate processes:
+`e5f70b16e018c832` every time.
+
+`battleverify -seed 777` run twice and diffed: **every game-relevant value is
+identical** — ticks, casualties, result hash, outcome, per-scenario verdicts. The
+only differences are the wall-clock columns (`790ms` vs `663ms`), which are
+timing, not state. Byte-comparing whole reports will always differ because of
+those columns; the hashes are the thing to compare, and they are stable.
+
+So: the engine is deterministic run-to-run on a fixed seed, which is the claim
+the replay harness exists to protect. The `replay` package's *own* determinism
+tests fail for a different reason — they report `the battle reported N ticks but
+published 0 frames`, i.e. the frame publisher produces nothing, so there is
+nothing to replay.
 
 Cherry-pick order matters here and was preserved: the sim commits form a chain
 (`e880fd9` formation AI → `0a1fb8b` config keys → … → `0af6e7a` snapshot), and each
@@ -343,14 +457,35 @@ produces compile failures that look like conflicts but are not.
 
 ## What is still open
 
+- **The SIM branch is pushed but not merged to `main`.** Step 4 of the brief is
+  outstanding. It is ready to merge, but the merge was not performed — see
+  "Not done" below.
+- **A real bug in the scripted battle path.** Recorded orders are not reaching
+  the field: 2 of 3 golden fixtures replay with `orders 0`. This predates the
+  merge (it fails on milo's branch too) and it is the one finding here that
+  needs an actual fix.
+- **`cmd/apiserver` does not build on `main`.** `prisoners.go` references
+  `c.prisoners` and `c.companions`, which do not exist on `Campaign`. Unrelated
+  to the sim lane, but it means three packages are untestable and `apiserver`
+  cannot run.
 - **Rowan vs milo UI ownership** — 18 commits, 3 genuine conflicts
   (`MarchPlanner.ts`, `MarketPanel.ts`, `ui.css`), plus a flat-vs-nested layout
   disagreement that no file-level merge can settle.
-- **ASSETS branch review** — 40 commits, 100+ MP3s and dozens of PNGs, needs its
-  own licence/provenance pass. Staged on `worker/local/battlesim-assets`.
+- **ASSETS branch review** — 38 commits, 100+ MP3s and dozens of PNGs, needs its
+  own licence/provenance pass. Staged on `worker/local/battlesim-assets` @ `b9670fa`.
 - **`battle-hud.ts` / `battle-result.ts`** — new capability, currently stranded
   on milo's branch. Highest-value hand-port for Rowan.
 - **milo's branch is 211 behind main.** Even after the sim code lands, milo's
   branch should be rebased or retired so it stops being a divergence trap.
 - **The phantom SHAs** mean milo's bus traffic cannot be used to locate work.
   Worth a convention fix: cite resolvable SHAs only.
+
+### Not done
+
+- **Step 4 (merge to `main`) was not performed.** The branches were pushed and
+  the SIM branch is verified, but the merge to `main` was interrupted. Nothing
+  has been force-pushed and `main` was not modified by this triage.
+- **The crew bus was not notified.** `~/workspace/skills/relay-bus/bin/relay.py`
+  does not exist on this machine — `~/workspace` did not exist before this task
+  created it, and there is no `relay-bus` anywhere on the filesystem. No bus
+  message was sent.
