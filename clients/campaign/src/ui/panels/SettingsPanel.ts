@@ -174,6 +174,12 @@ const CONTROLS: ControlDef[] = [
     kind: { type: "toggle" },
   },
   {
+    key: "ragdollEnabled", tab: "graphics", label: "Ragdoll physics",
+    hint: "Dead soldiers collapse with Havok ragdoll physics. Turn off for a performance boost on low-end machines. Applies immediately.",
+    keywords: ["ragdoll", "physics", "death", "corpse", "havok"],
+    kind: { type: "toggle" },
+  },
+  {
     key: "vignetteEnabled", tab: "graphics", label: "Vignette",
     hint: "Darkened frame corners from the look grade. Applies immediately.",
     keywords: ["vignette", "corners", "post", "fx"],
