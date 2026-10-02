@@ -12,6 +12,8 @@
  *   audio.playFootstep('concrete'); // foley based on surface
  */
 
+import { COMBAT_LAYERS, battleLayersFor } from "./combatLayers.js";
+
 export interface AudioAsset {
   id: string;
   path: string;
@@ -96,6 +98,13 @@ export const EXPLOSION_SFX: Record<ExplosionKind, SfxId> = {
 export const MUSIC_CROSSFADE_SECONDS = 2;
 
 /**
+ * Task 563: how long a combat layer takes to come in or drop out, in seconds.
+ * Short enough to follow a charge, long enough that the change is heard as a
+ * swell rather than a click.
+ */
+export const COMBAT_LAYER_RAMP_SECONDS = 0.5;
+
+/**
  * Task 571: how long an ambient bed takes to hand over to the next, in seconds.
  * The same length as the music crossfade so a biome change and a track change
  * are heard as the same gesture.
@@ -121,6 +130,8 @@ export class AudioManager {
 
   private currentVoice: Voice | null = null;
   private currentAmbient: Voice | null = null;
+  /** The combat bed's stems, keyed by id (task 563). */
+  private combatVoices = new Map<SfxId, Voice>();
 
   private muted = false;
 
@@ -232,21 +243,76 @@ export class AudioManager {
     if (voice) this.fadeOutVoice(voice, 0.5);
   }
 
-  /** Builds a looping voice on `bus`: silent, then up to full over `seconds`. */
-  private startVoice(id: string, buffer: AudioBuffer, seconds: number, bus: GainNode): Voice {
+  /**
+   * Builds a silent looping voice on `bus`; every stem started with the same
+   * `at` stays in phase because they are the same length (task 563).
+   */
+  private buildVoice(id: string, buffer: AudioBuffer, bus: GainNode, at?: number): Voice {
     const ctx = this.ctx!;
     const gain = ctx.createGain();
-    const now = ctx.currentTime;
-    gain.gain.setValueAtTime(0, now);
-    gain.gain.linearRampToValueAtTime(1, now + seconds);
+    gain.gain.setValueAtTime(0, ctx.currentTime);
     gain.connect(bus);
 
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.loop = true;
     source.connect(gain);
-    source.start();
+    source.start(at);
     return { id, source, gain };
+  }
+
+  /** Builds a looping voice on `bus`: silent, then up to full over `seconds`. */
+  private startVoice(id: string, buffer: AudioBuffer, seconds: number, bus: GainNode): Voice {
+    const voice = this.buildVoice(id, buffer, bus);
+    const now = this.ctx!.currentTime;
+    voice.gain.gain.linearRampToValueAtTime(1, now + seconds);
+    return voice;
+  }
+
+  /**
+   * Task 563: start the layered combat bed. Every stem of `battle-theme` starts
+   * together and stays silent until {@link setCombatIntensity} says which layers
+   * should be heard; the plain battle track is faded out first so the two never
+   * double up. A stem that will not load drops that layer only — the rest of the
+   * bed still plays.
+   */
+  async startCombatMusic(): Promise<void> {
+    if (!this.ctx) await this.init();
+    if (!this.ctx || !this.musicGain) return;
+    if (this.combatVoices.size > 0) return;
+    this.stopMusic();
+    await this.preload(COMBAT_LAYERS.map((layer) => layer.id));
+    const at = this.ctx.currentTime;
+    for (const layer of COMBAT_LAYERS) {
+      const buffer = this.buffers.get(layer.id);
+      if (!buffer) continue;
+      this.combatVoices.set(layer.id, this.buildVoice(layer.id, buffer, this.musicGain, at));
+    }
+  }
+
+  /**
+   * Task 563: which layers the fight should be hearing, 0..1. Each stem ramps to
+   * its target over {@link COMBAT_LAYER_RAMP_SECONDS}; a layer already where it
+   * belongs is left alone, so calling this every frame is cheap and silent.
+   */
+  setCombatIntensity(intensity: number): void {
+    const ctx = this.ctx;
+    if (!ctx) return;
+    const wanted = new Set(battleLayersFor(intensity));
+    const now = ctx.currentTime;
+    for (const [id, voice] of this.combatVoices) {
+      const target = wanted.has(id) ? 1 : 0;
+      if (voice.gain.gain.value === target) continue;
+      voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
+      voice.gain.gain.linearRampToValueAtTime(target, now + COMBAT_LAYER_RAMP_SECONDS);
+    }
+  }
+
+  /** Fades the whole combat bed out and forgets it (task 563). */
+  stopCombatMusic(): void {
+    if (!this.ctx) return;
+    for (const voice of this.combatVoices.values()) this.fadeOutVoice(voice, 0.5);
+    this.combatVoices.clear();
   }
 
   /** Ramps one voice to silence and stops its source after the fade. */
