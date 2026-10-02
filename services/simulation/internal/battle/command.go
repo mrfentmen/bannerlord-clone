@@ -207,8 +207,8 @@ func NewMultiCommanders(cmds ...Commander) (Commander, error) {
 	for i, c := range cmds {
 		if c == nil {
 			return nil, &Error{
-				Kind:   ErrUnitInvalid,
-				Field:  "NewMultiCommanders",
+				Kind:  ErrUnitInvalid,
+				Field: "NewMultiCommanders",
 				Detail: fmt.Sprintf("commander %d is nil, and a nil commander in the middle of a composite "+
 					"is a tick that half the field was never ordered for", i),
 			}

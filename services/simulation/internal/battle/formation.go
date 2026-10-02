@@ -151,7 +151,14 @@ func (f Formation) Valid() bool {
 // accepted in place of hyphens for the same reason the orders accept them.
 func ParseFormation(s string) (Formation, error) {
 	want := strings.ToLower(strings.TrimSpace(s))
+	// The manuals, the UI and the wire all spell these differently: "hollow
+	// square", "hollow_square", "hollow-square". Underscores and spaces are the
+	// same separator in every language this game is written in, so both fold to a
+	// hyphen before anything is compared. Without that, the name the manual prints
+	// is refused with a list of the names that would have worked, which is the worst
+	// possible answer to somebody typing what they were told to type.
 	want = strings.ReplaceAll(want, "_", "-")
+	want = strings.ReplaceAll(want, " ", "-")
 	switch want {
 	case "loose", "skirmish", "skirmish-line", "loose-order":
 		return FormationSkirmish, nil
@@ -232,7 +239,11 @@ func (o FormationOrder) Valid() bool {
 // reason ParseFormation refuses an unknown shape.
 func ParseFormationOrder(s string) (FormationOrder, error) {
 	want := strings.ToLower(strings.TrimSpace(s))
+	// As ParseFormation: the same separators, folded the same way, so a caller
+	// spelling an order with a space or an underscore gets the same answer it would
+	// get for the hyphenated name.
 	want = strings.ReplaceAll(want, "_", "-")
+	want = strings.ReplaceAll(want, " ", "-")
 	for _, o := range AllFormationOrders() {
 		if formationOrderNames[o] == want {
 			return o, nil
@@ -421,9 +432,17 @@ type FormationParams struct {
 	LooseSpacing float64
 	// LooseJitterFraction is how far a man may be pushed off his lattice point,
 	// as a fraction of LooseSpacing. It is bounded by the balance file below
-	// one half, so two neighbours cannot be pushed into each other by the
+	// one half: past that, two neighbours can be pushed into each other by the
 	// scatter alone.
 	LooseJitterFraction float64
+	// MinSeparation is the smallest gap the engine's spacing pass will allow
+	// between any two men. The formation layer needs it and not only the pass,
+	// because a formation that is commanded does not get the pass: the seam
+	// writes the commander's movement over whatever separation the intent stage
+	// staged, so the shape's own slots are the only thing keeping a commanded
+	// formation from standing men inside each other. See settleRadius.
+	MinSeparation float64
+
 	// Seed drives that scatter. It is data, not state: the same seed and the
 	// same men always produce the same scatter, so a recorded battle replays
 	// exactly and no generator state has to travel with the snapshot.
@@ -444,6 +463,7 @@ func FormationParamsFrom(c config.Formation) FormationParams {
 		WedgeRowGrowth:      int(c.WedgeRowGrowth),
 		LooseSpacing:        c.LooseSpacing,
 		LooseJitterFraction: c.LooseJitterFraction,
+		MinSeparation:       c.MinSeparation,
 		Seed:                int64(c.LooseSeed),
 	}
 }
@@ -480,7 +500,84 @@ func (p FormationParams) validate() error {
 			"loose jitter is %g of the loose spacing; at or above one half two neighbours can be "+
 				"pushed into each other by the scatter alone", p.LooseJitterFraction)
 	}
+	// MinSeparation is deliberately NOT range-checked here, and the reason is
+	// that a FormationParams built by hand has always been legal with any field
+	// left at its zero. Checking it would refuse every layout test that spells out
+	// a shape without spelling out a spacing pass it never runs, and a value of
+	// zero here is not dangerous: settleRadius reads it as "this caller has no
+	// minimum gap", widens the in-place radius to half the shape's own spacing,
+	// and the only thing it can produce is a formation tidied to the spacing it was
+	// drawn at. The production path is FormationParamsFrom, and the balance file
+	// bounds min_separation to 0.1-20 m in internal/config's own validator.
 	return nil
+}
+
+// settleRadius is how far a man may be from his slot and still be left standing
+// in it by a HOLD: half of what the shape's own neighbour gap has to give up
+// before two of its men could stand closer together than the smallest gap the
+// balance file allows.
+//
+// It is derived from two numbers the balance file already holds rather than
+// configured, for the reason every other derived number in this file is: "in his
+// place" is a rule about what a slot is, and a configured tolerance would be a
+// second opinion about it.
+//
+// # WHY A HOLD NEEDS A DIFFERENT ANSWER FROM EVERY OTHER ORDER
+//
+// cohesionTolerance is a whole spacing, and that is the right answer for a man
+// who is about to be moved again — a fall-back, a move, anything where the shape
+// is on its way somewhere — because there the tolerance exists only to stop a man
+// who is already there from being told to walk, and a shape that shivers is worse
+// than a shape that is a spacing out.
+//
+// It is the wrong answer for a hold, and measurably so. Two neighbours in a line
+// are one spacing apart, and if each may be a whole spacing out from his own slot
+// then the tightest pair a settled hold can produce is zero: they meet in the
+// middle. A line at 1.5 m front spacing holding its men inside 1.5 m of a 1.5 m
+// slot is not a line at 1.5 m; it is a crowd that happens to have a line drawn
+// on it.
+//
+// Nothing used to catch that, because a hold also drifted — see the slot loop in
+// orderGroup. The drift carried the men past each other continuously and the
+// engine's own movement kept undoing the crowding, so a hold that did not hold was
+// quietly tidying itself by walking. The moment the hold was made to hold, the
+// crowding it had been hiding became visible: on the thirty-a-side test session,
+// two men of a held line settled 0.20 m apart, against a balance file that names
+// 1.2 m as the smallest gap the spacing pass will allow.
+//
+// # WHY THE MINIMUM SEPARATION AND NOT A FRACTION OF THE SPACING
+//
+// Because the pass that would otherwise catch this does not run. The command seam
+// writes the commander's movement over the intent stage's deltas wholesale, so a
+// commanded unit keeps no separation nudge at all and the shape's slots are the
+// only thing standing between a formation and men inside each other. A fraction
+// of the spacing would have been a guess at how much room the spacing has to
+// spare, and the answer depends on the balance file: 1.5 m of front spacing with
+// a 1.2 m minimum has 0.3 m to give and 1.5 m with a 0.2 m minimum has 1.3 m. Half
+// of what is left over is the largest radius that still cannot put two neighbours
+// closer than the minimum, which is the invariant worth having and the one the
+// config validator already insists the shape can satisfy.
+//
+// The loose-order case is not a special one, and it is worth saying why, because
+// the obvious worry is that a skirmisher would be tidied into a grid. The scatter
+// is in the SLOTS, not in the men's positions: skirmishSlots bakes a hash of
+// (seed, index) into every lattice point before the shape is ever drawn. Tidying a
+// man onto his slot therefore tidies him onto his own scattered point, and the
+// loose look is the shape's rather than the men's. The gap used for a skirmisher
+// is the lattice spacing less the scatter from both sides, which is the same
+// quantity the config validator calls the tightest gap any shape produces.
+func settleRadius(kind Formation, p FormationParams) float64 {
+	gap := p.FrontSpacing
+	if kind == FormationSkirmish {
+		gap = p.LooseSpacing * (1 - 2*p.LooseJitterFraction)
+	}
+	if r := (gap - p.MinSeparation) / 2; r > 0 {
+		return r
+	}
+	// A balance file whose minimum separation is as wide as the tightest gap any
+	// shape produces. The config validator allows it, and the honest reading is
+	// that a man has to be exactly in his slot to count as in it.
+	return 0
 }
 
 // cohesionTolerance is how far a man may be from his slot and still count as
@@ -1334,6 +1431,14 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 	// in it: the shape's own spacing, once. It is read by the move order below and
 	// by the slot loop after, so it is worked out here rather than in both places.
 	tolerance := cohesionTolerance(g.order.Kind, p)
+	// inPlace is the distance inside which a man is left where he is rather than
+	// walked to his slot. It is the shape's spacing, once, for every order except
+	// a hold, and a fraction of it for a hold; the reason is in the slot loop
+	// below, where a whole spacing turns out to be too loose to stand still at.
+	inPlace := tolerance
+	if g.order.Order == OrderFormationHold {
+		inPlace = settleRadius(g.order.Kind, p)
+	}
 	// The layout, before anything that needs it. A follower measures its own depth
 	// to know where its front rank goes, and this is the layout it measures.
 	slots, err := g.slotsFor(len(c.ids), p)
@@ -1518,8 +1623,39 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 		// not consulted and a man in his slot is told to walk with the shape.
 		// He is still never told to walk PAST his slot: the cap below is what
 		// stops a man reversing every tick, and it is the same cap either way.
-		if (!isFinite(dist) || dist <= tolerance) && !walking {
-			cmd.Set = false
+		//
+		// # AND WHY A HOLD ANSWERS WITH SILENCE NO LONGER
+		//
+		// The silence above was read as "he is in his place, so he is left to the
+		// engine's rules". For a man in contact that is right: the engine's rules
+		// for a man in contact are to fight and spread, which is what he should
+		// be doing. For a man who is not in contact they are to CLOSE ON THE
+		// ENEMY, and that is the exact opposite of a hold.
+		//
+		// Measured on the thirty-a-side test session, a line ordered to hold
+		// position and given nothing else:
+		//
+		//	tick  10: g0 (-448.4, -2.9)  g1 (-441.7, -1.2)
+		//	tick 210: g0 (-413.3, -5.0)  d(+35.1, -2.1)
+		//	tick 210: g1 (-404.4, -0.5)  d(+37.2, +0.7)
+		//
+		// Thirty-five metres towards the enemy in two hundred ticks, steady, and
+		// never stopping: a hold that walks. The rate is the engine's approach
+		// pace fighting the cohesion step and losing slowly, which is the worst
+		// of both readings — the shape is not standing, and the man is not
+		// fighting either, because the shape never reached the enemy to fight at.
+		// Over a battle the drift is most of a hundred metres, and a player who
+		// told a line to hold and watched it walk to the enemy has been told
+		// nothing at all.
+		//
+		// So a hold speaks. UnitCommand's own contract says it has to: "a
+		// zero-length order on a commander that means 'stand still' must
+		// therefore set Set, and a commander that says nothing leaves it clear."
+		// A hold is a commander that means stand still, and the zero step is
+		// written over the intent stage's advance, which is the whole of what a
+		// stand-still order is for.
+		if (!isFinite(dist) || dist <= inPlace) && !walking {
+			cmd.Set = g.order.Order == OrderFormationHold
 		} else {
 			// The cohesion step: toward the slot, at the formation's pace, and
 			// never past it. Capping at the distance is what stops a man from
