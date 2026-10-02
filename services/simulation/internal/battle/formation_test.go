@@ -1701,3 +1701,75 @@ func TestTwoHeldGroupsAreStillSeparatedOnTheSecondTick(t *testing.T) {
 			"separated", worst, ms)
 	}
 }
+
+// TestEveryLegalSpacingScaleKeepsAShapeAShape is the change-spacing order's
+// invariant, over the whole of the range the balance file allows rather than at
+// the one scale everybody uses.
+//
+// A formation's slots are the only separation a commanded unit has: the seam
+// writes the commander's movement over the intent stage's deltas wholesale, so
+// nothing else pushes two men of the same group apart. A shape whose own slots
+// crowd below min_separation therefore puts two men inside each other by
+// arithmetic, and the cohesion pass then fights the shape forever instead of the
+// men arriving in it.
+//
+// The scale is the axis that can do that, because closing up scales every spacing
+// in the shape at once. TestShapesKeepMenApart covers every shape at the scale
+// everybody uses and measures against half a front spacing; this measures the
+// whole legal range against min_separation itself, which is the number the
+// balance file calls the smallest gap the spacing pass allows.
+//
+// There is already a check at the tightest end of this, and it is worth being
+// exact about the difference. The config loader refuses a FILE whose
+// spacing_scale_min times the tightest gap any shape produces is below
+// min_separation, which is the arithmetic done once on the numbers as written.
+// This is the same promise checked on the shapes as they are actually drawn, over
+// every count, so it catches the loader's arithmetic being right and the
+// implementation being wrong - a scale applied tighter than the one it was given.
+//
+// Measured on a scratch copy: dividing the scale by 1.5 inside scaledBy fails
+// this on every shape and every count, a line of two putting its two slots 0.850 m
+// apart against 1.20 m. Multiplying it by 1.5 passes, and it should: a shape drawn
+// looser than it was asked for is a different mistake, and this test is not the
+// one that catches it.
+//
+// Skirmish is the one that can crowd, because its scatter is baked into the slots
+// and the tightest gap it produces is the lattice spacing less the scatter from
+// both sides. At the tightest legal scale that is the tightest case there is, so
+// the corners of the range are where a violation would live.
+func TestEveryLegalSpacingScaleKeepsAShapeAShape(t *testing.T) {
+	cfg := loadConfig(t)
+	base := FormationParamsFrom(cfg.Formation)
+	ms := cfg.Formation.MinSeparation
+	// Both ends of the range and the scale everybody uses, because the ends are
+	// where a violation would be and the middle is where a regression in the
+	// scaling itself would show.
+	scales := []float64{base.SpacingScaleMin, 1, base.SpacingScaleMax}
+	// A count of one has no pair to measure and two is the smallest shape with a
+	// gap at all; the rest are one rank, one file, an awkward prime and a crowd
+	// big enough for the ranks and the files to both be full.
+	counts := []int{2, 7, 30, 125, 500}
+	for _, kind := range AllFormations() {
+		for _, n := range counts {
+			for _, sc := range scales {
+				p := base.scaledBy(sc)
+				slots, err := FormationLayout(kind, n, p)
+				if err != nil {
+					t.Fatalf("%s of %d at scale %g: %v", kind, n, sc, err)
+				}
+				got, err := MinSlotDistance(slots)
+				if err != nil {
+					t.Fatalf("%s of %d at scale %g: %v", kind, n, sc, err)
+				}
+				if got < ms {
+					t.Errorf("%s of %d men at spacing scale %g puts two of its slots %.3f m apart, "+
+						"against a min_separation of %.2f m. The slots are the only separation a "+
+						"commanded unit has, so this is two men inside each other by arithmetic",
+						kind, n, sc, got, ms)
+				}
+			}
+		}
+	}
+	t.Logf("%d shapes x %d counts x %d scales checked against a min_separation of %.2f m",
+		len(AllFormations()), len(counts), len(scales), ms)
+}
