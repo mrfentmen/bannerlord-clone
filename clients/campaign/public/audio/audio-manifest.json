@@ -5,8 +5,10 @@
   "tools": [
     "~/workspace/game-music/compose.py",
     "~/workspace/game-music/compose5.py",
+    "~/workspace/game-music/compose6.py",
     "~/workspace/game-music/sfx.py",
-    "~/workspace/game-music/sfx2.py"
+    "~/workspace/game-music/sfx2.py",
+    "~/workspace/game-music/sfx3.py"
   ],
   "entries": [
     {
@@ -199,6 +201,20 @@
       "bytes": 1492807
     },
     {
+      "path": "audio/music/homestead-mix.mp3",
+      "kind": "music",
+      "sha256": "543be27966b3e22d16ed9f2d23cb7cbab231c7c1596c1714aed3bb821b1572d7",
+      "duration_s": 66.67,
+      "bytes": 1601872
+    },
+    {
+      "path": "audio/music/last-stand-mix.mp3",
+      "kind": "music",
+      "sha256": "bef3c242e395e79b253bedf861b303270197cc2454ab66f32534e1f8c3fc8da3",
+      "duration_s": 36.36,
+      "bytes": 874623
+    },
+    {
       "path": "audio/music/loading-theme-mix.mp3",
       "kind": "music",
       "sha256": "7849486d11241eb8f339e99922da0987176340d6f5243b50bd1b326a67cb11c3",
@@ -218,6 +234,13 @@
       "sha256": "12fe57e6f8dd57c41c1b337f3ee5b4386bb7a5e0f71b8d6415ad6c5b00f902bc",
       "duration_s": 53.33,
       "bytes": 1281506
+    },
+    {
+      "path": "audio/music/oath-ceremony-mix.mp3",
+      "kind": "music",
+      "sha256": "74e570e9dbed2bd5e3f07d8ce3c031705fe44a23f8275c9b811981996b6acbd4",
+      "duration_s": 50.53,
+      "bytes": 1214424
     },
     {
       "path": "audio/music/pursuit-mix.mp3",
@@ -267,6 +290,13 @@
       "sha256": "5f5cbf95a886b34c8581846c0c46461816e2ac95f160aee086b124ea6d40ba94",
       "duration_s": 2.8,
       "bytes": 16385
+    },
+    {
+      "path": "audio/sfx/weapon/knife-slash.mp3",
+      "kind": "sfx",
+      "sha256": "7c00efb6aa186856214eb0d2c9f3d4dce71526e800740394dfe058fc7ceebc2f",
+      "duration_s": 0.35,
+      "bytes": 6731
     },
     {
       "path": "audio/sfx/weapon/pistol.mp3",
@@ -339,6 +369,13 @@
       "bytes": 61066
     },
     {
+      "path": "audio/sfx/vehicle/siren.mp3",
+      "kind": "sfx",
+      "sha256": "b55796fb85a047e2410ef2671e866047a58c94f7406fc8fe6e0aed9a616db196",
+      "duration_s": 3.7,
+      "bytes": 60230
+    },
+    {
       "path": "audio/sfx/ui/click.mp3",
       "kind": "sfx",
       "sha256": "88428d4b10faaaccfa1b79c91c2a727355f92f80affcb63573369b0eb661535c",
@@ -388,6 +425,20 @@
       "bytes": 13836
     },
     {
+      "path": "audio/sfx/ui/panel-close.mp3",
+      "kind": "sfx",
+      "sha256": "8020fdc759d6f22a7d0bbca341dbe0706249ac06eb12fac6153c970b9f75d310",
+      "duration_s": 0.3,
+      "bytes": 5895
+    },
+    {
+      "path": "audio/sfx/ui/panel-open.mp3",
+      "kind": "sfx",
+      "sha256": "928310b927ee34c3d8308fa2479747222c0b7c19f4e787aa3cce1878a4c1cf99",
+      "duration_s": 0.35,
+      "bytes": 6731
+    },
+    {
       "path": "audio/sfx/ui/quest-complete.mp3",
       "kind": "sfx",
       "sha256": "a6007eea7608e33e9e983d12ba74282022165ee204fc98e058e8a8bf60d57adb",
@@ -400,6 +451,13 @@
       "sha256": "19b20861b5a912f87e714b21483315bb45d4be5d82e5dff43ddab23875840334",
       "duration_s": 0.12,
       "bytes": 1921
+    },
+    {
+      "path": "audio/sfx/ui/warning.mp3",
+      "kind": "sfx",
+      "sha256": "afb4ab3b68f23f1c96b599e6e825cbca4ea3dfa027c6445aad5b06714419b9f3",
+      "duration_s": 0.9,
+      "bytes": 15508
     },
     {
       "path": "audio/sfx/foley/car-door.mp3",
@@ -428,6 +486,13 @@
       "sha256": "0e2e69c007386a3bd65112cca5aa196805e07b065b979edeed75930f75f32e57",
       "duration_s": 0.11,
       "bytes": 1999
+    },
+    {
+      "path": "audio/sfx/ambience/city-day.mp3",
+      "kind": "sfx",
+      "sha256": "a0a89b479a66b02b10b564885f42c42860e5258d578d7fd4dd1e130f9ffa5237",
+      "duration_s": 5.5,
+      "bytes": 89069
     },
     {
       "path": "audio/sfx/ambience/distant-battle.mp3",
@@ -486,11 +551,25 @@
       "bytes": 9562
     },
     {
+      "path": "audio/sfx/battle/arrow-volley.mp3",
+      "kind": "sfx",
+      "sha256": "77456345f77b6f306a88986049088880ea9945464a1549f18644b11ee8a8fb94",
+      "duration_s": 1.8,
+      "bytes": 29719
+    },
+    {
       "path": "audio/sfx/battle/crowd-cheer.mp3",
       "kind": "sfx",
       "sha256": "ae66946ee48653e70dbbfbafd272ccb42f0de07f4365a17c45a8f7fcd810ee94",
       "duration_s": 3.0,
       "bytes": 48945
+    },
+    {
+      "path": "audio/sfx/battle/distant-gunfire.mp3",
+      "kind": "sfx",
+      "sha256": "2f1f2304c4f02bdfb9289fa85528b23559b2ec306eac3c77ede61f7220fd2061",
+      "duration_s": 4.0,
+      "bytes": 65245
     },
     {
       "path": "audio/sfx/battle/horn.mp3",

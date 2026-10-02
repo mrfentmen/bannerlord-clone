@@ -35,6 +35,7 @@ import { h, sectionHeader } from "../dom.js";
 import { dataTable, emptyState, errorState, panel, statusChip, type Column, type StatusKind } from "../kit.js";
 import { asBottomSheet, stackable } from "./narrow.js";
 import { barterSkeletonBody } from "./panel-skeletons.js";
+import { gameAudio } from "../../audio/audio.js";
 import type {
   BarterItem,
   BarterLine,
@@ -258,6 +259,7 @@ export function barterPanel(options: BarterPanelOptions): BarterPanelHandle {
         expectedDay: terms.day,
       });
       if (result.accepted) {
+        gameAudio().playSfx("coin");
         // The tables that come back are the ones the simulation now holds. Everything on
         // screen is replaced by them, so nothing here can disagree with the world.
         terms = { ...copyTerms(terms)!, playerItems: result.playerItems, traderItems: result.traderItems };

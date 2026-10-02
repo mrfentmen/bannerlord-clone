@@ -19,9 +19,12 @@ export type MusicScene =
   | "campaign-night"
   | "battle"
   | "siege"
+  | "last-stand"
   | "victory"
   | "defeat"
   | "tavern"
+  | "homestead"
+  | "oath"
   | "pursuit";
 
 /** Track file for each scene. Pure data, so it is unit-testable. */
@@ -32,9 +35,12 @@ export const SCENE_TRACKS: Record<MusicScene, string> = {
   "campaign-night": "night-patrol-mix.mp3",
   battle: "battle-theme-mix.mp3",
   siege: "siege-assault-mix.mp3",
+  "last-stand": "last-stand-mix.mp3",
   victory: "victory-fanfare-mix.mp3",
   defeat: "defeat-mix.mp3",
   tavern: "tavern-rest-mix.mp3",
+  homestead: "homestead-mix.mp3",
+  oath: "oath-ceremony-mix.mp3",
   pursuit: "pursuit-mix.mp3",
 };
 
@@ -46,6 +52,9 @@ export const SFX_FILES: Record<string, string> = {
   "confirm": "ui/confirm.mp3",
   "error": "ui/error.mp3",
   "toggle": "ui/toggle.mp3",
+  "panel-open": "ui/panel-open.mp3",
+  "panel-close": "ui/panel-close.mp3",
+  "warning": "ui/warning.mp3",
   "coin": "ui/coin.mp3",
   "quest-complete": "ui/quest-complete.mp3",
   "notify": "ui/notify.mp3",
@@ -54,6 +63,8 @@ export const SFX_FILES: Record<string, string> = {
   "horn": "battle/horn.mp3",
   "crowd-cheer": "battle/crowd-cheer.mp3",
   "melee-hit": "battle/melee-hit.mp3",
+  "arrow-volley": "battle/arrow-volley.mp3",
+  "distant-gunfire": "battle/distant-gunfire.mp3",
   // weapons
   "pistol": "weapon/pistol.mp3",
   "rifle": "weapon/rifle.mp3",
@@ -64,11 +75,13 @@ export const SFX_FILES: Record<string, string> = {
   "reload": "weapon/reload.mp3",
   "dry-fire": "weapon/dry-fire.mp3",
   "thunder": "weapon/thunder.mp3",
+  "knife-slash": "weapon/knife-slash.mp3",
   // vehicles
   "engine-idle": "vehicle/engine-idle.mp3",
   "engine-cruise": "vehicle/engine-cruise.mp3",
   "engine-load": "vehicle/engine-load.mp3",
   "helicopter": "vehicle/helicopter.mp3",
+  "siren": "vehicle/siren.mp3",
   // foley
   "footstep-concrete": "foley/footstep-concrete.mp3",
   "footstep-dirt": "foley/footstep-dirt.mp3",
@@ -77,6 +90,7 @@ export const SFX_FILES: Record<string, string> = {
   // ambience beds (loop these with loop: true)
   "ambience-town-day": "ambience/town-day.mp3",
   "ambience-town-night": "ambience/town-night.mp3",
+  "ambience-city-day": "ambience/city-day.mp3",
   "ambience-rain": "ambience/rain.mp3",
   "ambience-wind": "ambience/wind.mp3",
   "ambience-distant-battle": "ambience/distant-battle.mp3",

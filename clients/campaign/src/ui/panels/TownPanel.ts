@@ -22,6 +22,7 @@ import { h, numberField, row, sectionHeader } from "../dom.js";
 import { emptyState, errorState, gauge, panel, statusChip, type StatusKind } from "../kit.js";
 import { townSkeleton } from "./skeletons.js";
 import { asBottomSheet } from "./narrow.js";
+import { gameAudio } from "../../audio/audio.js";
 import type { RecruitableUnit, RecruitResult, TownState } from "../../data/types.js";
 import { SimulationUnavailableError } from "../../data/provider.js";
 
@@ -382,6 +383,7 @@ function recruitRow(
         hire.disabled = false;
         message.style.display = "";
         if (result.accepted) {
+          gameAudio().playSfx("coin");
           message.textContent =
             `Hired ${result.quantity} ${result.unitName.toLowerCase()} for $${Math.round(result.totalCost).toLocaleString("en-US")}. ` +
             `${result.newCount} in the party now.`;

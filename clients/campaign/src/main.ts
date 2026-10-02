@@ -154,6 +154,19 @@ const unlockAudio = (): void => {
 window.addEventListener("pointerdown", unlockAudio);
 window.addEventListener("keydown", unlockAudio);
 
+// Every button in the game gets a click sound through one delegated listener.
+// The mute button stops propagation, so it is never double-sounded.
+window.addEventListener(
+  "pointerdown",
+  (ev) => {
+    const t = ev.target as HTMLElement | null;
+    if (t && t.closest("button") && !t.closest(".audio-mute-btn")) {
+      audio.playSfx("click", { volume: 0.5 });
+    }
+  },
+  { capture: true },
+);
+
 // -- 1. skeleton first, then the world ---------------------------------------
 
 const bootScreen = startScreen({
@@ -864,7 +877,10 @@ function townNode(town: TownState): Node {
 // -- panels ------------------------------------------------------------------
 
 function openPanel(panel: HudPanel): void {
+  const was = currentPanel;
   currentPanel = panel;
+  if (panel !== "none" && was === "none") audio.playSfx("panel-open", { volume: 0.4 });
+  if (panel === "none" && was !== "none") audio.playSfx("panel-close", { volume: 0.4 });
   if (panel === "why" && !lastWhy) {
     const worst = snapshot ? [...snapshot.towns].sort((a, b) => b.unrest - a.unrest)[0] : undefined;
     if (worst) lastWhy = { entityId: worst.id, field: "unrest" };
@@ -996,6 +1012,7 @@ function rebuildContext(): void {
         destinations: destinationsFor(),
         provider,
         onCommitted: () => {
+          audio.playSfx("confirm");
           currentPanel = "party";
           rebuildContext();
           paint();
@@ -1124,6 +1141,7 @@ function barterNode(townId: string, townName: string): Node {
     provider,
     lastOutcome: lastBarter,
     onDealt: (result: BarterResult) => {
+      if (result.accepted) audio.playSfx("coin");
       lastBarter = {
         tone: result.accepted ? "good" : "critical",
         text: result.accepted ? `${result.verdict} Struck on day ${result.day}.` : (result.reason ?? "The deal was refused."),
