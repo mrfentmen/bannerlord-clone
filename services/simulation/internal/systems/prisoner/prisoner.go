@@ -49,6 +49,7 @@ func System() sim.System {
 }
 
 func run(v *sim.View, w *sim.WriteSet) {
+	c := v.Cfg
 	for _, pid := range v.State.PartyIDs() {
 		p := v.State.Parties[pid]
 		if p == nil || p.Prisoners <= 0 {
@@ -91,10 +92,10 @@ func run(v *sim.View, w *sim.WriteSet) {
 		// Conformity drops fast and prisoners may die or escape.
 		if p.Prisoners > 0 && p.Food <= 0 {
 			// Conformity collapses when unfed.
-			w.Add(model.KindParty, pid, "prisoner_conformity", -0.2,
+			w.Add(model.KindParty, pid, "prisoner_conformity", -c.RulerAI.PrisonerStarvationConformityDrop,
 				read, causes, "prisoners starving: conformity collapses")
-			// 5% of prisoners die per day without food.
-			deaths := p.Prisoners * 0.05
+			// Prisoners die per day without food (configurable rate).
+			deaths := p.Prisoners * c.RulerAI.PrisonerStarvationDeathRate
 			if deaths >= 1 {
 				w.Add(model.KindParty, pid, "prisoners", -deaths,
 					read, causes, "prisoners starved to death")

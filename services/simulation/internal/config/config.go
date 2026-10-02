@@ -1236,6 +1236,10 @@ type RulerAI struct {
 	PrisonerRansomGold float64
 	// PrisonerRansomRelation is the relation cost of ransoming.
 	PrisonerRansomRelation float64
+	// PrisonerStarvationDeathRate is the share of prisoners dying per day without food.
+	PrisonerStarvationDeathRate float64
+	// PrisonerStarvationConformityDrop is conformity lost per day without food.
+	PrisonerStarvationConformityDrop float64
 	// PrisonerReleaseRelation is the relation gain from releasing a prisoner.
 	// Positive, because release is the honorable political tool.
 	PrisonerReleaseRelation float64
