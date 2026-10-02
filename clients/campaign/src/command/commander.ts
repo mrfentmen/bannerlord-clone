@@ -88,6 +88,16 @@ const registeredBattleOrders = new WeakSet<InputRegistry>();
 function ensureAttackMoveAction(registry: InputRegistry): void {
   if (registeredBattleOrders.has(registry)) return;
   registeredBattleOrders.add(registry);
+  if (!registry.actions().some((a) => a.id === "battle.holdFire")) {
+    registry.registerAction({
+      id: "battle.holdFire",
+      label: "Order: hold fire",
+      description: "Selected units never start a fight; they wait for a target.",
+      category: "battle-command",
+      defaultKeys: [{ key: "F7" }],
+      preventDefault: true,
+    });
+  }
   if (!registry.actions().some((a) => a.id === "battle.fireAtWill")) {
     registry.registerAction({
       id: "battle.fireAtWill",
@@ -613,12 +623,21 @@ export function createCommander(
   offs.push(registry.on("battle.orderSpread", () => orderSelection("spread", false)));
   offs.push(registry.on("battle.orderFormUp", () => orderSelection("form-up", false)));
 
-  // -- fire at will (task 74) -----------------------------------------------------
+  // -- fire modes (tasks 74-75) ----------------------------------------------------
+  // Both are pointerless: they say how the group fights, not where to go, so
+  // they ride on an attack order aimed at the pointer rather than moving anyone.
   offs.push(
     registry.on("battle.fireAtWill", () => {
       fireMode = "at-will";
       fireToggle.set("at-will");
       orderSelection("attack", true);
+    }),
+  );
+  offs.push(
+    registry.on("battle.holdFire", () => {
+      fireMode = "hold-fire";
+      fireToggle.set("hold-fire");
+      orderSelection("hold", false);
     }),
   );
 

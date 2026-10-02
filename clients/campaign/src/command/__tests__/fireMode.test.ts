@@ -1,6 +1,6 @@
 /**
- * The fire-mode row (Buffy task 74): one button that puts the selected group on
- * fire at will, through the input registry.
+ * The fire-mode row (Buffy tasks 74-75): fire at will and hold fire, each a
+ * button that dispatches its own input action.
  *
  * @vitest-environment jsdom
  */
@@ -56,22 +56,25 @@ beforeEach(() => {
 });
 
 describe("fire-mode toggle", () => {
-  it("has one button, off to start, saying what the mode does", () => {
+  it("has both modes, off to start, each saying what it does", () => {
     const toggle = createFireModeToggle({ registry: fireRegistry() });
     document.body.appendChild(toggle.root);
     try {
       expect(toggle.root.getAttribute("aria-label")).toBe("Fire mode");
       expect(toggle.current()).toBeNull();
-      const btn = document.querySelector('[data-testid="cmd-fire-at-will"]') as HTMLButtonElement;
-      expect(btn.getAttribute("aria-pressed")).toBe("false");
-      expect(btn.textContent).toBe("Fire at will");
-      expect(btn.title).toContain("without waiting to be told");
+      const labels = [...toggle.root.querySelectorAll(".cmd-fire__label")].map((el) => el.textContent);
+      expect(labels).toEqual(["Fire at will", "Hold fire"]);
+      const atWill = document.querySelector('[data-testid="cmd-fire-at-will"]') as HTMLButtonElement;
+      const holdFire = document.querySelector('[data-testid="cmd-hold-fire"]') as HTMLButtonElement;
+      expect(atWill.getAttribute("aria-pressed")).toBe("false");
+      expect(atWill.title).toContain("without waiting to be told");
+      expect(holdFire.title).toContain("only at a target");
     } finally {
       toggle.destroy();
     }
   });
 
-  it("a press dispatches the action and reflects the mode", () => {
+  it("each button dispatches its own action and only its own reflects", () => {
     const registry = fireRegistry();
     const fired: string[] = [];
     for (const spec of FIRE_MODE_BUTTONS) {
@@ -82,12 +85,23 @@ describe("fire-mode toggle", () => {
     document.body.appendChild(toggle.root);
     try {
       pick("cmd-fire-at-will");
-
       expect(fired).toEqual(["battle.fireAtWill:touch"]);
-      expect(onPress).toHaveBeenCalledWith("at-will");
+      expect(onPress).toHaveBeenLastCalledWith("at-will");
       expect(toggle.current()).toBe("at-will");
       expect(
         document.querySelector('[data-testid="cmd-fire-at-will"]')!.getAttribute("aria-pressed"),
+      ).toBe("true");
+      expect(
+        document.querySelector('[data-testid="cmd-hold-fire"]')!.getAttribute("aria-pressed"),
+      ).toBe("false");
+
+      pick("cmd-hold-fire");
+      expect(fired).toEqual(["battle.fireAtWill:touch", "battle.holdFire:touch"]);
+      expect(toggle.current()).toBe("hold-fire");
+      // Exactly one mode in force at a time.
+      expect(toggle.root.querySelectorAll('[aria-pressed="true"]')).toHaveLength(1);
+      expect(
+        document.querySelector('[data-testid="cmd-hold-fire"]')!.getAttribute("aria-pressed"),
       ).toBe("true");
     } finally {
       toggle.destroy();
@@ -191,6 +205,32 @@ describe("fire-at-will in the commander", () => {
       input.dispatch("battle.selectAll", "keyboard");
       input.dispatch("battle.orderHold", "keyboard");
       expect(orders[0]!.fireMode).toBeUndefined();
+    } finally {
+      commander.destroy();
+    }
+  });
+
+  it("F7 puts the group on hold fire and orders them to hold where they are", () => {
+    const { surface, orders } = fakeSurface();
+    const commander = createCommander(surface);
+    try {
+      input.dispatch("battle.selectAll", "keyboard");
+      pointerMove(640, 480);
+      input.handleKeyEvent(new KeyboardEvent("keydown", { key: "F7" }));
+
+      // Pointerless: hold fire says how they fight, not where to stand.
+      expect(orders[0]).toMatchObject({ kind: "hold", fireMode: "hold-fire" });
+      expect(orders[0]!.target).toBeUndefined();
+      expect(
+        document.querySelector('[data-testid="cmd-hold-fire"]')!.getAttribute("aria-pressed"),
+      ).toBe("true");
+
+      // A later order keeps the mode, and switching back is one press.
+      input.dispatch("battle.orderHold", "keyboard");
+      expect(orders[1]!.fireMode).toBe("hold-fire");
+      pick("cmd-fire-at-will");
+      input.dispatch("battle.orderHold", "keyboard");
+      expect(orders[2]!.fireMode).toBe("at-will");
     } finally {
       commander.destroy();
     }

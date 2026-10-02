@@ -6,6 +6,10 @@
  * button and the hotkey are the same order with the same path through the
  * registry. The button reflects what was asked for, not what the sim has done —
  * this layer does not know, and does not guess.
+ *
+ * Task 75 adds hold fire beside fire at will. They are two buttons and two
+ * actions rather than one switch that flips: each says what the group will do,
+ * and pressing the one already in force is not a way back to the other.
  */
 
 import "./fireMode.css";
@@ -22,13 +26,19 @@ export interface FireModeButtonSpec {
   testId: string;
 }
 
-/** Task 74's single button; task 75 prepends hold fire to this list. */
+/** The row, in reading order: shoot on sight, or shoot only when told. */
 export const FIRE_MODE_BUTTONS: readonly FireModeButtonSpec[] = [
   {
     mode: "at-will",
     action: "battle.fireAtWill",
     hint: "Shoot anything in reach without waiting to be told.",
     testId: "cmd-fire-at-will",
+  },
+  {
+    mode: "hold-fire",
+    action: "battle.holdFire",
+    hint: "Never start a fight. Fire only at a target you have been given.",
+    testId: "cmd-hold-fire",
   },
 ];
 

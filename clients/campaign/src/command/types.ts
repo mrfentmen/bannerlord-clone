@@ -76,7 +76,7 @@ export type StanceKind = "aggressive" | "defensive" | "passive";
 
 /**
  * Task 74: whether the group opens fire on its own. `at-will` shoots what comes
- * into reach; `hold-fire` waits for an attack order (task 75).
+ * into reach; `hold-fire` (task 75) waits to be given a target.
  */
 export type FireMode = "at-will" | "hold-fire";
 
