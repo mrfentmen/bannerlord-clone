@@ -22,7 +22,13 @@ import { h, row, sectionHeader } from "../dom.js";
 import { emptyState, errorState, gauge, panel, stamp, statusChip, dataTable, type Column, type StatusKind } from "../kit.js";
 import { partySkeleton } from "./skeletons.js";
 import { asBottomSheet, stackable } from "./narrow.js";
-import type { PartyState, ResourceWarning, TroopStack } from "../../data/types.js";
+import type {
+  PartyState,
+  ResourceWarning,
+  TroopStack,
+  UpgradeTroopsResult,
+} from "../../data/types.js";
+import { troopTier, TROOP_TIERS } from "../../data/types.js";
 
 /** The empty-wagon copy, verbatim from ART_DIRECTION.md section 10.2. */
 const NOTHING_TO_HAUL = "Caravan holds no goods. Buy something in a market before hauling.";
@@ -38,6 +44,15 @@ export interface PartyPanelOptions {
    * alongside the ones this panel derives from its own figures.
    */
   warnings?: ResourceWarning[];
+  /**
+   * Promote one troop stack a tier. Task 146.
+   *
+   * The panel decides whether the button is live from the stack's own XP bank and
+   * the tier ladder in `data/types.ts`; the simulation owns whether the promotion
+   * happens and what it costs, and its answer — including the reason a promotion
+   * was refused — is printed verbatim.
+   */
+  onUpgradeTroops?: (stackId: string) => Promise<UpgradeTroopsResult>;
   /** The party roll is still being read. `party-skeleton` goes up first. */
   loading?: boolean;
   testId?: string;
@@ -233,6 +248,14 @@ export function partyPanel(options: PartyPanelOptions): HTMLElement {
     body.appendChild(stackable(dataTable("Party troops", columns, party.troops, "party-troops")));
   }
 
+  // -- training (tasks 146, 147) ---------------------------------------------
+  // Only drawn when the caller can actually send the order: a training section
+  // whose button does nothing is worse than no training section, because it tells
+  // the player their troops can be trained when no order can leave the panel.
+  if (options.onUpgradeTroops) {
+    body.appendChild(trainingSection(party, options));
+  }
+
   // -- goods -----------------------------------------------------------------
   body.appendChild(sectionHeader("Goods in the wagons"));
   const held = party.goods.filter((g) => g.quantity > 0);
@@ -256,6 +279,148 @@ export function partyPanel(options: PartyPanelOptions): HTMLElement {
   }
 
   return root;
+}
+
+/**
+ * Training: what each stack has banked, what the next tier costs in experience,
+ * and the button that sends the order. Tasks 146 and 147.
+ *
+ * Two rules shape this. The panel reads the ladder from `troopTier` — the same
+ * `TROOP_TIERS` table the simulation walks — so the XP a stack is shown as needing
+ * is the XP the simulation will ask for, not a number typed here. And the panel
+ * never decides the promotion: the button sends a stack id and the simulation's
+ * answer is printed verbatim, refusal included, because "you cannot afford that" and
+ * "they have not trained long enough" are different problems with different answers.
+ *
+ * A stack at the top of the ladder has no next tier, so it gets a line saying so
+ * rather than a disabled button and a blank cost.
+ */
+function trainingSection(party: PartyState, options: PartyPanelOptions): HTMLElement {
+  const wrap = h("section", { "data-testid": "party-training" });
+  wrap.appendChild(sectionHeader("Training"));
+
+  const stackable_ = party.troops.filter((t) => t.count > 0);
+  if (stackable_.length === 0) {
+    wrap.appendChild(emptyState("No troops to train.", "A party with nobody in it has nothing to train."));
+    return wrap;
+  }
+
+  const message = h("p", {
+    class: "caption",
+    "data-testid": "party-training-message",
+    role: "status",
+    style: "margin:var(--space-2) 0 0",
+  });
+  message.style.display = "none";
+
+  for (const stack of stackable_) {
+    wrap.appendChild(trainingRow(stack, options, message));
+  }
+  wrap.appendChild(message);
+  return wrap;
+}
+
+function trainingRow(
+  stack: TroopStack,
+  options: PartyPanelOptions,
+  message: HTMLElement,
+): HTMLElement {
+  const tier = troopTier(stack.tier);
+  const next = tier.tier >= TROOP_TIERS.length ? null : troopTier(tier.tier + 1);
+  // XP thresholds are per soldier, and the threshold belongs to the tier being
+  // left: a stack of N at tier 2 needs `troopTier(2).xpToNext * N` banked to become
+  // tier 3. That is the arithmetic the simulation runs, so the button unlocks at
+  // exactly the point the order will be accepted rather than a tier early or late.
+  const needed = next && tier.xpToNext !== null ? tier.xpToNext * stack.count : 0;
+  const ready = next !== null && tier.xpToNext !== null && stack.xp >= needed;
+
+  const row = h("div", {
+    class: "training-row",
+    "data-testid": `training-${stack.id}`,
+    "data-ready": String(ready),
+  });
+
+  const head = h("div", { class: "field-row", style: "justify-content:space-between;align-items:baseline;gap:var(--space-2)" });
+  head.append(
+    h("strong", { class: "label" }, stack.name),
+    h(
+      "span",
+      { class: "mono caption", "data-testid": `training-tier-${stack.id}` },
+      next ? `Tier ${tier.tier} ${tier.name} → ${next.name}` : `Tier ${tier.tier} ${tier.name} — top of the ladder`,
+    ),
+  );
+  row.appendChild(head);
+
+  if (!next) {
+    row.appendChild(
+      h("p", { class: "caption", style: "margin:var(--space-1) 0 0" },
+        "There is nothing above this tier. Only time or numbers will change it."),
+    );
+    return row;
+  }
+
+  // The path, not just the price: what the promotion makes them better at and what
+  // it adds to the wage bill, both straight off the tier table.
+  row.appendChild(
+    h(
+      "p",
+      { class: "caption", style: "margin:var(--space-1) 0 0", "data-testid": `training-path-${stack.id}` },
+      `${next.name}: ×${next.combatMultiplier.toFixed(1)} in a line fight, ` +
+        `×${next.wageMultiplier.toFixed(1)} on the wage bill.`,
+    ),
+  );
+
+  const bar = gauge({
+    label: "Experience banked",
+    value: needed > 0 ? Math.min(1, stack.xp / needed) : 0,
+    format: () => `${Math.round(stack.xp).toLocaleString("en-US")} / ${Math.round(needed).toLocaleString("en-US")} XP`,
+    thresholds: { warningBelow: 0.5, goodAbove: 1 },
+    testId: `training-xp-${stack.id}`,
+  });
+  row.appendChild(bar);
+
+  const foot = h("div", { class: "field-row", style: "justify-content:space-between;align-items:center;gap:var(--space-2)" });
+  foot.appendChild(
+    h("span", { class: "caption" },
+      ready
+        ? "Trained out. The order goes to the simulation."
+        : `${Math.max(0, Math.round(needed - stack.xp)).toLocaleString("en-US")} XP short for ${next.name}.`),
+  );
+
+  const btn = h("button", {
+    type: "button",
+    class: "btn",
+    "data-testid": `upgrade-${stack.id}`,
+    ...(ready ? {} : { disabled: "true" }),
+    "aria-label": ready
+      ? `Train ${stack.name} up to ${next.name}`
+      : `${stack.name} cannot be trained to ${next.name} yet`,
+  }, ready ? `Train to ${next.name}` : "Not ready");
+  btn.addEventListener("click", () => {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    void options.onUpgradeTroops!(stack.id).then(
+      (result) => {
+        btn.disabled = false;
+        message.style.display = "";
+        if (result.upgraded) {
+          message.textContent =
+            `${stack.name} trained up to tier ${result.toTier}. ` +
+            `${Math.round(result.xpSpent).toLocaleString("en-US")} XP and ${money(result.goldSpent)} spent.`;
+        } else {
+          message.textContent = result.reason ?? "The training order was refused.";
+        }
+      },
+      () => {
+        btn.disabled = false;
+        message.style.display = "";
+        message.textContent = "The training order did not go through.";
+      },
+    );
+  });
+  foot.appendChild(btn);
+  row.appendChild(foot);
+  return row;
 }
 
 /** Nothing under command. The roster is the way out of the state, so it is offered. */
