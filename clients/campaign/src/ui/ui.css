@@ -1824,14 +1824,14 @@ html[data-reduce-motion] *::after {
   box-shadow: var(--sheet-2);
 }
 
+.deployment-title { grid-column: 1; }
+
 .deployment-header h2 {
-  grid-column: 1;
   margin: 0;
   font-size: 1.1rem;
 }
 
 .deployment-header p {
-  grid-column: 1;
   margin: 0;
   font-size: 0.85rem;
   opacity: 0.8;
@@ -1850,9 +1850,29 @@ html[data-reduce-motion] *::after {
   font-variant-numeric: tabular-nums;
 }
 
-.deploy-done {
+/* One slot per side. The enemy slot is a state, not a control, so it sits in the
+   same place and takes the same width as the player's button. */
+.deploy-sides {
   grid-column: 2;
-  align-self: end;
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.deploy-side {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.deploy-side__label {
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.deploy-ready {
   padding: var(--space-1) var(--space-3);
   background: var(--accent-primary);
   color: var(--accent-primary-ink);
@@ -1862,7 +1882,19 @@ html[data-reduce-motion] *::after {
   cursor: pointer;
 }
 
-.deploy-done:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+button.deploy-ready:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+/* The AI's readiness is reported, not requested: a status chip, not a button. */
+.deploy-ready--ai {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: var(--status-good-fill);
+  color: var(--status-good-ink);
+  cursor: default;
+}
+
+.deploy-ready__glyph { font-size: 0.7em; }
 
 /* -- quest journal ------------------------------------------------------------ */
 .journal__filters {

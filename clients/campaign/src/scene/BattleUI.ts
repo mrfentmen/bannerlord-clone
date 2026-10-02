@@ -5,7 +5,7 @@
  * The 3D scene is in BattleScene.ts; this is the overlay UI.
  */
 
-import { battleSide } from "../design/tokens.js";
+import { battleSide, status } from "../design/tokens.js";
 import { h } from "../ui/dom.js";
 
 /** Deployment phase: player places troops before battle starts. */
@@ -39,7 +39,33 @@ export class DeploymentUI {
     this.hide();
 
     const timerEl = h("span", { class: "deploy-timer", role: "timer" }, formatCountdown(DEPLOY_SECONDS));
-    const btn = h("button", { type: "button", class: "deploy-done" }, "Start Battle");
+    const btn = h("button", { type: "button", class: "deploy-ready" }, "Ready");
+
+    // Single player: the enemy is the AI, which is never waiting on the player, so its
+    // side of the strip is a state rather than a control. Both sides are rendered as
+    // labelled slots because a battle where only one side can act has to say so.
+    const sides = h(
+      "div",
+      { class: "deploy-sides" },
+      h(
+        "div",
+        { class: "deploy-side deploy-side--player" },
+        h("span", { class: "deploy-side__label" }, "Your troops"),
+        btn,
+      ),
+      h(
+        "div",
+        { class: "deploy-side deploy-side--enemy" },
+        h("span", { class: "deploy-side__label" }, "Enemy troops"),
+        h(
+          "span",
+          { class: "deploy-ready deploy-ready--ai", role: "status" },
+          h("span", { class: "deploy-ready__glyph", "aria-hidden": "true" }, status.good.glyph),
+          h("span", { class: "deploy-ready__label" }, "Ready"),
+          h("span", { class: "visually-hidden" }, " — the enemy is computer controlled and deploys for you"),
+        ),
+      ),
+    );
 
     const container = h(
       "div",
@@ -47,22 +73,31 @@ export class DeploymentUI {
       h(
         "div",
         { class: "deployment-header" },
-        h("h2", {}, "Deploy Your Troops"),
-        h("p", {}, "Place your units in the highlighted zone"),
+        h(
+          "div",
+          { class: "deployment-title" },
+          h("h2", {}, "Deploy Your Troops"),
+          h("p", {}, "Place your units in the highlighted zone"),
+        ),
         timerEl,
-        btn,
+        sides,
       ),
     );
     document.body.appendChild(container);
 
     btn.addEventListener("click", () => {
-      this.hide();
-      onComplete();
+      this.complete(onComplete);
     });
 
     this.container = container;
     this.timerEl = timerEl;
     this.startCountdown();
+  }
+
+  /** The one way the deployment phase ends: the overlay goes, the battle begins. */
+  private complete(onComplete: () => void): void {
+    this.hide();
+    onComplete();
   }
 
   /**

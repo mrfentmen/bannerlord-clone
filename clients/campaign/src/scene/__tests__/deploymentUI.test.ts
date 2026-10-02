@@ -86,3 +86,46 @@ describe("deployment countdown (task 6)", () => {
     expect(DEPLOY_SECONDS).toBe(60);
   });
 });
+
+describe("ready control per side (task 7)", () => {
+  it("gives the player a real Ready button that ends the phase", () => {
+    const onComplete = vi.fn();
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE, ENEMY_ZONE], onComplete);
+
+    const btn = document.querySelector<HTMLButtonElement>(".deploy-side--player .deploy-ready");
+    expect(btn).not.toBeNull();
+    expect(btn?.tagName).toBe("BUTTON");
+    expect(btn?.textContent).toBe("Ready");
+
+    btn?.click();
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(document.querySelector(".battle-deployment")).toBeNull();
+
+    ui.hide();
+  });
+
+  it("shows the enemy as already ready, because the AI never waits", () => {
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE, ENEMY_ZONE], () => {});
+
+    const ai = document.querySelector(".deploy-side--enemy .deploy-ready--ai");
+    expect(ai).not.toBeNull();
+    expect(ai?.tagName).not.toBe("BUTTON");
+    expect(ai?.textContent).toContain("Ready");
+    // The glyph is decorative; the text beside it is what a screen reader reads.
+    expect(ai?.querySelector('[aria-hidden="true"]')).not.toBeNull();
+    expect(ai?.textContent).toContain("computer controlled");
+
+    ui.hide();
+  });
+
+  it("offers exactly one action: the enemy side is not a control", () => {
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE, ENEMY_ZONE], () => {});
+
+    expect(document.querySelectorAll("button")).toHaveLength(1);
+
+    ui.hide();
+  });
+});
