@@ -38,6 +38,7 @@ import {
 } from "./network.js";
 import type { Projection, WorldData } from "../world/types.js";
 import type { TownVisibility } from "../data/types.js";
+import { routeStrength } from "../data/fogView.js";
 
 /** 1 unit = 1 metre (ART_DIRECTION.md section 7). */
 export const VERTICAL_SCALE = 1.6;
@@ -85,8 +86,17 @@ export interface SceneHandle {
   engine: Engine;
   dispose(): void;
   focus(x: number, z: number, radius?: number): void;
-  /** Draw the planned march route. An empty array clears it. */
-  showRoute(points: Vector3[]): void;
+  /**
+   * Draw the planned march route. An empty array clears it.
+   *
+   * `state` is the fog state of the destination, and it only changes how loudly the line
+   * is drawn — never whether it is drawn. The player ordered this march, so the route
+   * stays on screen even when its destination is somewhere the side has never been;
+   * hiding it would leave them watching a party walk into nothing. See
+   * `routeStrength` in `src/data/fogView.ts` for why the unseen case is a ghost line
+   * rather than nothing or full strength.
+   */
+  showRoute(points: Vector3[], state?: TownVisibility): void;
   setPartyPosition(x: number, z: number, heading: number): void;
   setPartyVisible(visible: boolean): void;
   /** One line about what the map is showing, for the data-source panel. */
@@ -184,6 +194,18 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
   let drawnSettlements = towns.length;
   let watchedSettlements = towns.length;
 
+  // The state each cluster was last put into, so `setTownVisibility` can skip the ones
+  // that did not move. Fog changes on every snapshot but only for a handful of
+  // settlements, and re-swapping materials and re-running `setEnabled` over every cluster
+  // in the region to change three of them is the shape of work task 74 is about. Held per
+  // cluster rather than diffed against the incoming map, because the incoming map is
+  // keyed by settlement id and the arrays here are indexed to match.
+  const appliedStates: TownVisibility[] = towns.map(() => "visible");
+  // Whether every cluster has had `setTownVisibility` run at least once. Before the first
+  // call, "last applied" is unknowable rather than `visible`, so a map that says
+  // everything is already visible must still do the work once.
+  let statesApplied = false;
+
   // The last fog map the scene was given. Held so `fogTally` can report the states the
   // scene is drawing without the caller having to keep them, and so `fogTally` cannot
   // drift from `setTownVisibility` — one source, read two ways.
@@ -280,7 +302,7 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       camera.setTarget(new Vector3(x, projection.heightAt(x, z) * VERTICAL_SCALE, z));
       if (radius !== undefined) camera.radius = radius;
     },
-    showRoute(points) {
+    showRoute(points, state = "visible") {
       routeMesh?.dispose();
       routeMesh = null;
       if (points.length < 2) return;
@@ -289,6 +311,10 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       );
       const line = MeshBuilder.CreateLines("route", { points: lifted }, scene);
       line.color = Color3.FromHexString(tokens.accent.influence);
+      // Fading rather than recolouring: the route keeps the one accent colour the map
+      // uses for it, and alpha is the control that reads as "less certain" without
+      // introducing a second colour that means something else elsewhere.
+      line.alpha = routeStrength(state);
       line.isPickable = false;
       line.renderingGroupId = 1;
       routeMesh = line;
@@ -306,12 +332,23 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       states = next;
       let drawn = 0;
       let watched = 0;
-      for (const cluster of towns) {
+      for (let i = 0; i < towns.length; i += 1) {
+        const cluster = towns[i]!;
         const state = states.get(cluster.settlementId) ?? "visible";
+        // The skip is keyed on the *applied* state rather than on a diff, so the counts
+        // below are still computed for every cluster. Counting is arithmetic; `setEnabled`
+        // and a material swap are GPU state, and those are what the skip avoids.
+        if (statesApplied && appliedStates[i] === state) {
+          if (state !== "unseen") drawn += 1;
+          if (state === "visible") watched += 1;
+          continue;
+        }
         cluster.applyVisibility(state);
+        appliedStates[i] = state;
         if (state !== "unseen") drawn += 1;
         if (state === "visible") watched += 1;
       }
+      statesApplied = true;
       drawnSettlements = drawn;
       watchedSettlements = watched;
     },

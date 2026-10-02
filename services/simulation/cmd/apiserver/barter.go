@@ -45,6 +45,11 @@ type barterRequest struct {
 	// ExpectedDay is the day the client's tables were read. A deal against a
 	// table that has gone stale is refused rather than silently repriced.
 	ExpectedDay int `json:"expectedDay"`
+	// resolvedOffered and resolvedAsked are the decoded lines, kept beside the
+	// wire struct rather than in a second return value so that resolveBarter is
+	// the only thing that has to carry both.
+	resolvedOffered []sim.BarterLine
+	resolvedAsked   []sim.BarterLine
 }
 
 // barterLine is one line of the table as it arrives.
@@ -75,12 +80,13 @@ func (s *Server) handleBarterTerms(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	terms, err := barter.BuildTerms(s.state, s.cfg, barter.Request{
+	req := barter.Request{
 		PlayerID: s.playerLeaderID(),
 		PartyID:  s.playerPartyID(),
 		Trader:   trader,
 		Town:     town,
-	})
+	}
+	terms, err := barter.BuildTerms(s.state, s.cfg, req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
@@ -94,12 +100,17 @@ func (s *Server) handleBarterPropose(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{})
 		return
 	}
-	req, ok := s.decodeBarter(w, r)
+	body, ok := decodeBarter(w, r)
 	if !ok {
 		return
 	}
 	s.mu.RLock()
 	defer s.mu.RUnlock()
+	req, code, ok := s.resolveBarter(body)
+	if !ok {
+		http.Error(w, "not your party", code)
+		return
+	}
 	proposal, err := barter.Appraise(s.state, s.cfg, req)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusNotFound)
@@ -121,16 +132,24 @@ func (s *Server) handleBarterCommit(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{})
 		return
 	}
-	req, ok := s.decodeBarter(w, r)
+	body, ok := decodeBarter(w, r)
 	if !ok {
 		return
 	}
 
-	// Write-locked for the appraisal and the apply together. Between the two
-	// the state must not move, or the deal would be checked against one set of
-	// stock and applied against another.
+	// Write-locked for the appraisal, the apply and the broadcast together.
+	// Between the appraisal and the apply the state must not move, or the deal
+	// would be checked against one set of stock and applied against another; and
+	// the broadcast has to happen inside the same critical section, because the
+	// subscriber set it reads is the same lock's.
 	s.mu.Lock()
 	defer s.mu.Unlock()
+
+	req, code, ok := s.resolveBarter(body)
+	if !ok {
+		http.Error(w, "not your party", code)
+		return
+	}
 
 	proposal, err := barter.Appraise(s.state, s.cfg, req)
 	if err != nil {
@@ -169,67 +188,84 @@ func (s *Server) handleBarterCommit(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	s.broadcastBarter(req, terms)
+	s.broadcastBarter(terms)
 	writeJSON(w, renderResult(proposal, terms, s.state, req))
 }
 
-// decodeBarter reads and resolves a request body, writing the error itself.
+// decodeBarter reads and validates a request body, writing any error itself.
+//
+// It touches no simulation state. That split is the point of it: the previous
+// version resolved the session's own party and player here, which meant reading
+// s.state.Leaders and s.state.Parties before the handler had taken the lock —
+// and the handlers call this before they lock, because they did not yet know
+// whether the body was worth locking for. Under a running tick loop that is a
+// data race on two maps, and the race detector is the only thing that reliably
+// finds it, because the wrong answer looks like a plausible one.
 //
 // Resolution is the part worth noting: the client addresses entities by the
 // string ids the snapshot gave them ("town-37", "leader-4"), and those are
-// parsed back to integers here rather than carried as strings into the
-// simulation, which keys everything on integers. A malformed id is a bad
-// request; an id that parses but names nothing is a 404 from the handler below.
-func (s *Server) decodeBarter(w http.ResponseWriter, r *http.Request) (barter.Request, bool) {
+// parsed back to integers rather than carried as strings into the simulation,
+// which keys everything on integers. A malformed id is a bad request; an id that
+// parses but names nothing is a 404 from the handler.
+func decodeBarter(w http.ResponseWriter, r *http.Request) (barterRequest, bool) {
 	var body barterRequest
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		http.Error(w, "bad request", http.StatusBadRequest)
-		return barter.Request{}, false
+		return barterRequest{}, false
 	}
-	trader, err := parseRef(body.Trader)
-	if err != nil {
+	if _, err := parseRef(body.Trader); err != nil {
 		http.Error(w, "bad trader id", http.StatusBadRequest)
-		return barter.Request{}, false
+		return barterRequest{}, false
 	}
-	town, err := parseRef(body.Town)
-	if err != nil {
+	if _, err := parseRef(body.Town); err != nil {
 		http.Error(w, "bad town id", http.StatusBadRequest)
-		return barter.Request{}, false
+		return barterRequest{}, false
 	}
-	partyID := s.playerPartyID()
-	// The client's partyId is checked rather than ignored. A commit naming
-	// somebody else's party would otherwise be silently reinterpreted as the
-	// player's own, which is a way to spend another lord's gold.
 	if body.PartyID != "" {
-		wanted, err := parseRef(body.PartyID)
-		if err != nil {
+		if _, err := parseRef(body.PartyID); err != nil {
 			http.Error(w, "bad party id", http.StatusBadRequest)
-			return barter.Request{}, false
-		}
-		if wanted != partyID {
-			http.Error(w, "not your party", http.StatusForbidden)
-			return barter.Request{}, false
+			return barterRequest{}, false
 		}
 	}
 	offered, err := decodeBarterLines(body.Offered)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		return barter.Request{}, false
+		return barterRequest{}, false
 	}
 	asked, err := decodeBarterLines(body.Asked)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
-		return barter.Request{}, false
+		return barterRequest{}, false
+	}
+	body.resolvedOffered, body.resolvedAsked = offered, asked
+	return body, true
+}
+
+// resolveBarter turns a decoded body into a request against this session's
+// world. The caller must hold s.mu, because it reads the state maps.
+//
+// The player's own party id is checked rather than ignored. A commit naming
+// somebody else's party would otherwise be silently reinterpreted as the
+// player's own, which is a way to spend another lord's gold.
+func (s *Server) resolveBarter(body barterRequest) (barter.Request, int, bool) {
+	trader, _ := parseRef(body.Trader)
+	town, _ := parseRef(body.Town)
+	partyID := s.playerPartyID()
+	if body.PartyID != "" {
+		wanted, _ := parseRef(body.PartyID)
+		if wanted != partyID {
+			return barter.Request{}, http.StatusForbidden, false
+		}
 	}
 	return barter.Request{
 		PartyID:     partyID,
 		PlayerID:    s.playerLeaderID(),
 		Trader:      trader,
 		Town:        town,
-		Offered:     offered,
-		Asked:       asked,
+		Offered:     body.resolvedOffered,
+		Asked:       body.resolvedAsked,
 		ExpectedDay: body.ExpectedDay,
-	}, true
+	}, 0, true
 }
 
 // decodeBarterLines converts wire lines to simulation lines.
@@ -378,9 +414,18 @@ func parseRef(v string) (int, error) {
 // it. The panel re-reads the world itself, which is why it does not need this,
 // but a second window open on the same server would otherwise keep drawing a
 // market that has already changed.
-func (s *Server) broadcastBarter(req barter.Request, terms barter.Terms) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+//
+// **The caller must already hold s.mu for writing.** The subscriber set is
+// snapshotted and the frames are sent non-blocking, so there is nothing here
+// that needs the lock and everything here that would deadlock if it took it:
+// this function previously took s.mu.RLock() of its own accord, which it cannot
+// do while the commit handler holds s.mu.Lock(). Go's RWMutex is not reentrant,
+// so that was not a slow path but a hang — every accepted deal would have wedged
+// the request goroutine and, because the write lock was still held, every other
+// request behind it. It went unnoticed because no subscriber had ever been
+// registered: the early return on an empty set happened to be below the lock
+// acquisition on the first read of the code, and it is not.
+func (s *Server) broadcastBarter(terms barter.Terms) {
 	if len(s.wsSubs) == 0 {
 		return
 	}

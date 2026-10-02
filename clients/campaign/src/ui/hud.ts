@@ -19,6 +19,7 @@ import type {
   SimSnapshot,
 } from "../data/types.js";
 import type { FogIndicator } from "../data/fog.js";
+import type { FogLegendRow } from "../data/fogView.js";
 
 export interface HudOptions {
   onSelectPanel: (panel: HudPanel) => void;
@@ -163,6 +164,27 @@ export interface HudState {
    * than an absence it can skip.
    */
   fog: FogIndicator;
+  /**
+   * The three states, and what each does to the map and to the panels.
+   *
+   * Two columns because the thing players misread is that a remembered town's *panel* is
+   * showing them old numbers, which a legend that only described the map would leave out.
+   * Passed in rather than imported so the rail has one source of truth and this module
+   * keeps no fog policy of its own.
+   */
+  fogLegend: readonly FogLegendRow[];
+  /**
+   * Whether the player has turned fog off.
+   *
+   * The toggle is in the rail rather than a settings panel because it changes what the map
+   * claims to be, and burying that behind a settings screen is how a player ends up with an
+   * unfiltered map and no memory of having turned it on.
+   */
+  fogEnabled: boolean;
+  /** The sentence that must accompany an unfiltered map. `null` while fog is on. */
+  fogCaveat: string | null;
+  /** Turns the display setting. Never changes what the simulation publishes. */
+  onFogToggle: (enabled: boolean) => void;
 }
 
 export function createHud(options: HudOptions): HudHandle {
@@ -452,7 +474,9 @@ export function createHud(options: HudOptions): HudHandle {
     }
     rail.appendChild(warnings);
 
-    rail.appendChild(fogIndicatorCard(state.fog));
+    rail.appendChild(
+      fogIndicatorCard(state.fog, state.fogLegend, state.fogEnabled, state.fogCaveat, state.onFogToggle),
+    );
 
     const dataBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-data-source" }, "Where does this data come from?");
     dataBtn.addEventListener("click", () => options.onOpenDataSource());
@@ -477,7 +501,13 @@ export function createHud(options: HudOptions): HudHandle {
    * distinguishable with no colour vision and by a screen reader, which is the same
    * redundancy rule the notifications tray follows.
    */
-  function fogIndicatorCard(fog: FogIndicator): HTMLElement {
+  function fogIndicatorCard(
+    fog: FogIndicator,
+    legend: readonly FogLegendRow[],
+    fogEnabled: boolean,
+    caveat: string | null,
+    onFogToggle: (enabled: boolean) => void,
+  ): HTMLElement {
     const card = h("div", {
       class: "sheet rail__card",
       "data-testid": "fog-indicator",
@@ -493,8 +523,13 @@ export function createHud(options: HudOptions): HudHandle {
           class: "caption",
           style: "margin:0",
           "data-testid": "fog-inactive",
-        }, "Not being applied. Every settlement on this map is drawn in full, which is not a claim that this side can see all of it."),
+        },           "Not being applied. Every settlement on this map is drawn in full, which is not a claim that this side can see all of it."),
       );
+      // The legend and the toggle are still rendered when fog is inactive. Both are
+      // explanations of the three states, and a player who is told "not being applied" and
+      // given nothing else has no way to find out what the states would even mean.
+      card.appendChild(fogLegendBlock(legend));
+      card.appendChild(fogToggleBlock(fogEnabled, caveat, onFogToggle));
       return card;
     }
 
@@ -552,7 +587,77 @@ export function createHud(options: HudOptions): HudHandle {
         ),
       );
     }
+
+    card.appendChild(fogLegendBlock(legend));
+    card.appendChild(fogToggleBlock(fogEnabled, caveat, onFogToggle));
     return card;
+  }
+
+  /**
+   * The legend: a swatch and a word per state, and what it does to the map and the panels.
+   *
+   * A `<details>` element rather than a permanent block, because three states of prose
+   * above the map's own controls would push them off a short screen. It is *not* behind
+   * the data-source modal, which is where fog explanations used to be reachable: that is
+   * a panel a player goes looking for, and a legend that has to be found is a legend most
+   * players never read.
+   */
+  function fogLegendBlock(legend: readonly FogLegendRow[]): HTMLElement {
+    const details = h("details", { class: "fog__legend", "data-testid": "fog-legend" });
+    details.appendChild(h("summary", { class: "label" }, "What the three states mean"));
+    const list = h("dl", { class: "fog__legend-list" });
+    for (const row of legend) {
+      list.appendChild(
+        h(
+          "div",
+          { class: "fog__legend-row", "data-state": row.state },
+          h("dt", { class: "fog__legend-label label" }, row.label),
+          h("dd", { class: "fog__legend-body caption" }, h("span", {}, row.onMap), " ", h("span", {}, row.inPanels)),
+        ),
+      );
+    }
+    details.appendChild(list);
+    return details;
+  }
+
+  /**
+   * The fog toggle, and the caveat that must accompany turning it off.
+   *
+   * A checkbox rather than a button, because the control reports a *setting* rather than
+   * performing an action, and a checkbox is the control a screen reader will call a
+   * checkbox. The caveat is rendered inside the card whenever the map is unfiltered, and
+   * only then — a permanent notice on a correctly-filtered map is the same noise as the
+   * unsighted caveat in the counts above.
+   */
+  function fogToggleBlock(
+    fogEnabled: boolean,
+    caveat: string | null,
+    onFogToggle: (enabled: boolean) => void,
+  ): HTMLElement {
+    const wrap = h("div", { class: "fog__toggle-wrap" });
+    const id = "fog-enabled-toggle";
+    const input = h("input", {
+      type: "checkbox",
+      id,
+      class: "fog__toggle-input",
+      "data-testid": "fog-toggle",
+    }) as HTMLInputElement;
+    input.checked = fogEnabled;
+    input.addEventListener("change", () => onFogToggle(input.checked));
+    wrap.appendChild(
+      h(
+        "label",
+        { class: "fog__toggle label", for: id },
+        input,
+        h("span", {}, "Fog of war"),
+      ),
+    );
+    if (caveat !== null) {
+      wrap.appendChild(
+        h("p", { class: "caption fog__caveat", role: "status", "data-testid": "fog-caveat" }, caveat),
+      );
+    }
+    return wrap;
   }
 
   function renderRight(state: HudState): Node {

@@ -136,8 +136,12 @@ export function unknownTownPanel(options: UnknownTownPanelOptions): HTMLElement 
   // Remembered, with real last-known data. Shown, and shown as last-known.
   body.appendChild(sectionHeader("Last known", h("span", { class: "caption" }, `as of day ${options.day}`)));
 
+  // `population` is the one nullable figure here, and "Not surveyed" is `TownPanel`'s own
+  // wording for it. Reusing the word rather than printing 0 matters for a *fogged* town
+  // more than for a live one: zero would read as a place that has emptied out, which is a
+  // claim about the world rather than a statement about the survey.
   const figures: [string, string, keyof TownState][] = [
-    ["Population", town.population.toLocaleString("en-US"), "population"],
+    ["Population", town.population === null ? "Not surveyed" : town.population.toLocaleString("en-US"), "population"],
     ["Unrest", town.unrest.toFixed(2), "unrest"],
     ["Loyalty", town.loyalty.toFixed(2), "loyalty"],
     ["Garrison", town.garrison.toLocaleString("en-US"), "garrison"],

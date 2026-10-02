@@ -177,16 +177,16 @@ func buildSnapshot(s *Server) map[string]any {
 	}
 }
 
-// playerLeaderID returns the leader the API acts as. For now this is the
-// first living leader; a real session would pick this at login.
-func (s *Server) playerLeaderID() int {
-	for id, l := range s.state.Leaders {
-		if l.IsAlive {
-			return id
-		}
-	}
-	return -1
-}
+// playerLeaderID returns the leader the API acts as.
+//
+// Resolved once at startup by pickPlayerLeader and never re-derived, because the
+// original implementation walked the Leaders map and returned the first living
+// lord it happened to reach. Go randomises map iteration, so that returned a
+// different lord on successive calls within one request: the panel could read
+// the snapshot as one lord, name a trader from it, and have the commit resolved
+// against another. Every caller already holds the lock (or is the constructor),
+// and the field is immutable after startup, so this needs none.
+func (s *Server) playerLeaderID() int { return s.player }
 
 // buildFog renders the fog-of-war state for the snapshot.
 //

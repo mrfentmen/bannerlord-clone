@@ -223,6 +223,66 @@ type WriteSet struct {
 	issueSteps []issueStepOp
 	// spawns are parties created mid-tick, such as a gathered army.
 	spawns []*model.Party
+	// events are cause rows for moments that changed no field.
+	//
+	// A cause row per changed field is enough to explain a number, but not
+	// enough to explain a *decision*: a struck bargain has no field of its own,
+	// yet it is the reason a lord's gold moved. Without a node for it, every
+	// field row the deal produces is an orphan and the Why panel dead-ends at
+	// "the barter system did this", which is a restatement rather than an
+	// answer.
+	//
+	// It is staged rather than appended by the system for the reason creates
+	// are: a system must not reach into committed state mid-tick, and an id
+	// only exists once the engine has committed.
+	events []eventOp
+}
+
+// eventOp is one staged cause row for a moment rather than a change.
+//
+// Old and New are both zero because an event did not move a number. What it
+// records is the reading behind a decision, and the decision's own name, which
+// is what a player reads in the Why panel.
+type eventOp struct {
+	// Name identifies the kind of moment, such as "barter-deal". It is not an
+	// entity and not a field, so it is reported by the snapshot rather than
+	// indexed as one.
+	Name   string
+	Kind   model.Kind
+	Entity int
+	// Field is the field this event is about, so that a Why query for that
+	// field finds the decision behind it and not only the moves it caused.
+	Field string
+	// Read is the state the decision was made from.
+	Read string
+	// CausedBy names the prior events behind this one.
+	CausedBy []int
+	// Note is the sentence the panel prints.
+	Note string
+	// system names the system staging the event, filled in by the tick loop.
+	system string
+}
+
+// EventToken is a reference to a staged event, returned by RecordEvent so a
+// system can cite the decision it is about to cause changes by.
+//
+// It is negative and the log's ids are positive, so the two can share the
+// CausedBy slice without a system having to know which kind of number it is
+// holding. The engine resolves every token before a row reaches the log.
+type EventToken int
+
+// RecordEvent stages a cause row for a decision and returns a token naming it.
+//
+// The token belongs in the CausedBy of every write the decision goes on to
+// cause, which is what makes the chain walk backwards from a number to the
+// moment a player acted.
+func (w *WriteSet) RecordEvent(name string, kind model.Kind, entity int, field, read, note string, causedBy []int) EventToken {
+	w.events = append(w.events, eventOp{
+		Name: name, Kind: kind, Entity: entity, Field: field,
+		Read: read, CausedBy: causedBy, Note: note,
+	})
+	// -(index+1), so the first event is -1 and none of them is zero.
+	return EventToken(-(len(w.events)))
 }
 
 type write struct {
@@ -663,6 +723,9 @@ func (e *Engine) ApplyNow(s *model.State, sys System, orders []Order) error {
 	for j := range w.writes {
 		w.writes[j].system = sys.Name
 	}
+	for j := range w.events {
+		w.events[j].system = sys.Name
+	}
 	if err := w.Err(); err != nil {
 		return err
 	}
@@ -699,6 +762,7 @@ func (e *Engine) Tick(s *model.State) error {
 		before := len(w.writes)
 		relBefore := len(w.relationAdds)
 		sideRelBefore := len(w.sideRelationAdds)
+		eventBefore := len(w.events)
 		sys.Runs(&sv, w)
 		// Attribute everything this system staged, so every cause-log row names
 		// the system responsible for the change.
@@ -710,6 +774,9 @@ func (e *Engine) Tick(s *model.State) error {
 		}
 		for j := sideRelBefore; j < len(w.sideRelationAdds); j++ {
 			w.sideRelationAdds[j].system = sys.Name
+		}
+		for j := eventBefore; j < len(w.events); j++ {
+			w.events[j].system = sys.Name
 		}
 	}
 	if err := w.Err(); err != nil {
@@ -749,6 +816,38 @@ func (e *Engine) takeOrders() []Order {
 // Numeric writes are sorted before application so that two additive writes to
 // the same field always accumulate in the same sequence, and any clamping
 // happens against the same intermediate values every run.
+// resolveCauses turns a staged CausedBy slice into log ids.
+//
+// Staged events are held as negative tokens and are replaced by the id the
+// engine gave them. A positive entry is already an id and passes through, so a
+// system that cites both a prior log row and an event it just staged needs one
+// slice and no second mechanism.
+//
+// An unresolvable token is dropped rather than logged as a negative id. The one
+// way to produce it is a system citing an event it did not stage in this same
+// write set, which is a bug worth having the row survive; a row whose parent is
+// missing is still a true record of the change, whereas a row naming id -3 is
+// noise a Why panel would try to resolve and fail to find.
+func resolveCauses(causes []int, tokens map[int]int) []int {
+	if len(causes) == 0 {
+		return nil
+	}
+	out := make([]int, 0, len(causes))
+	for _, c := range causes {
+		if c < 0 {
+			if id, ok := tokens[c]; ok {
+				out = append(out, id)
+			}
+			continue
+		}
+		out = append(out, c)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
 func (e *Engine) apply(s *model.State, w *WriteSet) error {
 	for _, fn := range w.creates {
 		fn(s)
@@ -759,6 +858,26 @@ func (e *Engine) apply(s *model.State, w *WriteSet) error {
 		s.Parties[id] = p
 		s.SetIDCounter(model.IDParty, id)
 	}
+	// Events first, so a field write can cite the decision that caused it. The
+	// tokens are resolved to real ids here, because an id does not exist until
+	// the row has been appended.
+	tokens := make(map[int]int, len(w.events))
+	for i := range w.events {
+		op := &w.events[i]
+		e.Log.Append(cause.Row{
+			Tick:     s.Tick,
+			Year:     s.Year,
+			Kind:     op.Kind,
+			Entity:   op.Entity,
+			Field:    op.Field,
+			System:   op.system,
+			Read:     op.Read,
+			CausedBy: resolveCauses(op.CausedBy, tokens),
+			Note:     op.Note,
+		})
+		tokens[int(EventToken(-(i + 1)))] = e.Log.LastID()
+	}
+
 	// Deterministic accumulation order. Every write to one field is summed into
 	// a single committed change, and the commits are then applied in a fixed
 	// (kind, entity, field) order, so the floating-point rounding of a sum
@@ -857,7 +976,7 @@ func (e *Engine) apply(s *model.State, w *WriteSet) error {
 				Delta:    next - old,
 				System:   x.system,
 				Read:     x.Read,
-				CausedBy: x.CausedBy,
+				CausedBy: resolveCauses(x.CausedBy, tokens),
 				Note:     x.Note,
 			})
 		} else if f.Tracked {

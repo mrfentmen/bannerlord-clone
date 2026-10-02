@@ -28,6 +28,20 @@ import {
   reportFog,
   townVisibility,
 } from "./data/fog.js";
+import {
+  applyRememberedFloor,
+  fogMemoryKey,
+  foundIds,
+  loadRemembered,
+  saveRemembered,
+} from "./data/fogMemory.js";
+import {
+  DEFAULT_FOG_SETTINGS,
+  fogLegend,
+  fogViewDetail,
+  statesForDisplay,
+  type FogSettings,
+} from "./data/fogView.js";
 import { TEST_SOURCE_WARNING, TEST_SOURCE_DETAIL } from "./data/labels.js";
 import type { FogIndicator } from "./data/fog.js";
 import { START_YEAR, eraGradeForYear } from "./design/grade.js";
@@ -37,7 +51,9 @@ import { classifySettlement } from "./world/load.js";
 import type { WorldSettlement } from "./world/types.js";
 import { createCampaignScene, type SceneHandle } from "./scene/CampaignScene.js";
 import { findRoute, shortestPath } from "./scene/network.js";
-import { createHud, dataSourcePanel, fatalError, type HudPanel, type HudState } from "./ui/hud.js";
+import { createHud, dataSourcePanel, fatalError, type FogLegendRow, type HudPanel, type HudState } from "./ui/hud.js";
+import { settlementFogView } from "./data/fogView.js";
+import { unknownTownPanel } from "./ui/panels/UnknownTownPanel.js";
 import { marketPanel } from "./ui/panels/MarketPanel.js";
 import { barterPanel } from "./ui/panels/BarterPanel.js";
 import { partyPanel } from "./ui/panels/PartyPanel.js";
@@ -243,7 +259,10 @@ function mountCampaign(): void {
       // camera to an empty patch of ground with a panel open about a place the player
       // cannot see, which is the map contradicting itself.
       const ids = (world?.data.settlements ?? [])
-        .filter((s) => isDrawn(visibilityFor(s.id)))
+        // `isDrawn(visibilityFor(...))` rather than the knowledge reading: the cycle walks
+      // what is on the map, so it follows the toggle. Cycling onto a settlement the map is
+      // not drawing would be cycling onto nothing.
+      .filter((s) => isDrawn(visibilityFor(s.id)))
         .map((s) => s.id);
       if (ids.length === 0) return;
       const at = selectedSettlement ? ids.indexOf(selectedSettlement) : -1;
@@ -381,6 +400,57 @@ let fogStates = new Map<string, TownVisibility>();
 let fogCensus = countByVisibility(fogStates, null);
 
 /**
+ * The states as they should actually be *drawn*, after the player's fog toggle.
+ *
+ * Kept beside `fogStates` rather than folded into it, because the two answer different
+ * questions and the census depends on the difference: `fogStates` is what the simulation
+ * said, and the indicator counts must report that rather than what the player chose to
+ * look at. With the toggle off the map shows every town and the indicator still reports
+ * what this side actually knows — which is the only honest pairing, since the map is then
+ * visibly not filtered and the numbers are still true.
+ */
+let fogDisplayStates: ReadonlyMap<string, TownVisibility> = fogStates;
+
+/**
+ * Whether the player has turned fog off, and whether they have been told what that does.
+ *
+ * A display setting, not a switch on the simulation — see `FogSettings` in
+ * `src/data/fogView.ts`. The server keeps applying fog either way; the player has asked to
+ * see the survey as drawn.
+ */
+let fogSettings: FogSettings = { ...DEFAULT_FOG_SETTINGS };
+
+/**
+ * The player's own memory of what this side has found, across sessions.
+ *
+ * A floor under the server's answer and never an override — see `applyRememberedFloor`.
+ * Read once per side and region, because the key holds both, and a client pointed at a
+ * different survey must not inherit another region's settlement ids.
+ */
+let fogRemembered: ReadonlySet<string> = new Set<string>();
+
+/**
+ * Ids this client has already announced as sighted, and the in-game day of the last
+ * announcement.
+ *
+ * Session state rather than persisted, deliberately. Fog moves constantly as a party
+ * marches, and re-announcing every town the player has ever seen on the first snapshot of
+ * a new session is noise, not news. `sightingsSince` holds the empty-first-read rule; this
+ * holds the per-session memory that makes it bite across days.
+ */
+let fogAnnounced: ReadonlySet<string> = new Set<string>();
+let fogLastAnnouncedDay = -1;
+
+/** The previous reading, so a snapshot can be compared against the one before it. */
+let fogPreviousStates: ReadonlyMap<string, TownVisibility> = new Map();
+
+/**
+ * The key `fogRemembered` was loaded from, so a side or region change reloads the memory
+ * instead of quietly inheriting the previous one's towns.
+ */
+let fogRememberedKey: string | null = null;
+
+/**
  * One settlement's state, by the client's own id.
  *
  * A settlement the simulation runs no town for is `visible`, and the reason is the same
@@ -390,6 +460,18 @@ let fogCensus = countByVisibility(fogStates, null);
  * player who has done nothing.
  */
 function visibilityFor(placeId: string): TownVisibility {
+  return fogDisplayStates.get(placeId) ?? "visible";
+}
+
+/**
+ * What this side actually knows about a settlement, ignoring the display toggle.
+ *
+ * The distinction from `visibilityFor` is the whole safety property of the toggle: the map
+ * is drawn from `fogDisplayStates` and the player may have turned fog off, but a panel
+ * asking whether this side knows a town is asking about the world, and answering from the
+ * toggled map would report a town's name as something the side has never found.
+ */
+function knowledgeFor(placeId: string): TownVisibility {
   return fogStates.get(placeId) ?? "visible";
 }
 
@@ -419,11 +501,110 @@ function applyFog(): void {
     watched.add(place.id);
     states.set(place.id, townVisibility(index, town.id, town));
   }
+
+  // The player's remembered floor, applied to the *server's* reading and only ever moving
+  // a town up from `unseen`. The census is then taken from the pre-floor reading, because
+  // "how much has this side found" is a question about the world and the floor is the
+  // client's convenience — folding the two would let a remembered town inflate a count
+  // this side has not actually seen.
+  const withMemory = applyRememberedFloor(states, fogRemembered);
+
+  fogPreviousStates = fogStates;
   fogStates = states;
+  fogDisplayStates = statesForDisplay(withMemory, fogSettings);
   // `null` rather than an empty set when fog is not being applied: an empty set would
   // read as "every settlement here is watched", which is the opposite of the truth.
   fogCensus = countByVisibility(states, index.active ? watched : null);
-  scene?.setTownVisibility(states);
+  scene?.setTownVisibility(fogDisplayStates);
+
+  rememberFogMemory(index);
+  announceSightings();
+}
+
+/**
+ * Load this side's remembered settlements once, and write them back on every read.
+ *
+ * Keyed per side *and* per region, so a client pointed at a different survey does not
+ * inherit settlement ids that mean nothing there, and switching sides does not make towns
+ * the other side had not found appear grey.
+ */
+function rememberFogMemory(index: FogIndex): void {
+  const sideId = index.sideId;
+  if (!sideId || !world) return;
+  const key = fogMemoryKey(sideId, world.data.region.name);
+  if (fogRememberedKey !== key) {
+    fogRememberedKey = key;
+    fogRemembered = loadRemembered(readStorage(), key);
+  }
+  saveRemembered(readStorage(), key, foundIds(fogStates), snapshot?.day ?? 0);
+}
+
+/**
+ * `localStorage`, or `null` when it is unavailable.
+ *
+ * The same try/catch the UI scale uses, for the same reason: a browser with storage
+ * disabled gets a working session and no memory, which is a smaller loss than a campaign
+ * that refuses to start.
+ */
+function readStorage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Announce settlements this side has just come into sight of.
+ *
+ * `sightingsSince` owns the two rules that keep this from being noise — no announcements
+ * on the first reading of a session, and at most one batch per in-game day — and this
+ * function supplies the session state they need and puts the result where the player will
+ * see it.
+ */
+function announceSightings(): void {
+  if (!snapshot || fogPreviousStates.size === 0) {
+    // First reading of a session: record it as the baseline without announcing anything.
+    fogPreviousStates = fogStates;
+    return;
+  }
+  const { sighted, announced } = sightingsSince(
+    fogPreviousStates,
+    fogStates,
+    fogAnnounced,
+    snapshot.day,
+    fogLastAnnouncedDay,
+  );
+  fogAnnounced = announced;
+  if (sighted.length === 0) return;
+  fogLastAnnouncedDay = snapshot.day;
+  const names = sighted
+    .map((id) => settlement(id)?.name ?? id)
+    .slice(0, 4)
+    .join(", ");
+  const more = sighted.length > 4 ? ` and ${sighted.length - 4} more` : "";
+  hud.announcer.textContent = `Newly in sight: ${names}${more}.`;
+}
+
+/**
+ * Turn fog off or on, and say plainly what the map is now showing.
+ *
+ * The caveat is the point of this handler. Turning fog off draws the whole map from the
+ * survey, which is the leak `UNSEEN_POLICY` exists to prevent — so the setting is allowed
+ * and the cost is stated, rather than the setting being hidden and the cost with it.
+ */
+function setFogEnabled(enabled: boolean): void {
+  fogSettings = { enabled, caveatShown: enabled ? fogSettings.caveatShown : true };
+  const display = statesForDisplay(
+    applyRememberedFloor(fogStates, fogRemembered),
+    fogSettings,
+  );
+  fogDisplayStates = display;
+  scene?.setTownVisibility(display);
+  syncParty();
+  paint();
+  const caveat = fogViewDetail(fogSettings);
+  hud.announcer.textContent = caveat ?? "Fog of war is on. This map is filtered to what your side knows.";
 }
 
 /** The fog sentence for the data-source panel, in the product's voice. */
@@ -453,9 +634,34 @@ function selectSettlement(id: string): void {
   }
   currentPanel = town ? "town" : "none";
   contextNode = town ? townNode(town) : missingSettlementNode(place, id);
+  // A settlement the map is drawing but this side cannot currently see gets the fog
+  // panel instead of the ordinary town panel, even though it has a town record and the
+  // snapshot has its numbers. `unknownTownPanel` shows those numbers *as last-known*, and
+  // the remembered case is a real one — a player who scouted a place and marched away
+  // wants to remember what they found, just not as though it were today.
+  if (town && !settlementFogView(knowledgeFor(id)).current) {
+    currentPanel = "town";
+    contextNode = unknownTownPanel({
+      settlementName: place?.name ?? town.name,
+      town,
+      state: knowledgeFor(id),
+      day: snapshot?.day ?? 0,
+      onWhy: (field) => {
+        const here = townFor(id);
+        if (here) openWhy(here.id, field);
+      },
+    });
+  }
   syncParty();
   paint();
-  if (place) hud.announcer.textContent = `${place.name} selected.`;
+  if (place) {
+    const state = knowledgeFor(id);
+    const view = settlementFogView(state);
+    hud.announcer.textContent =
+      state === "visible"
+        ? `${place.name} selected.`
+        : `${place.name} selected. ${view.label}. ${view.detail}`;
+  }
 }
 
 /**
@@ -634,7 +840,25 @@ function rebuildContext(): void {
   switch (currentPanel) {
     case "town": {
       const selected = settlement(selectedSettlement ?? "");
-      contextNode = town ? townNode(town) : missingSettlementNode(selected, selectedSettlement ?? "No town");
+      if (!town) {
+        contextNode = missingSettlementNode(selected, selectedSettlement ?? "No town");
+        return;
+      }
+      // Rebuilt on every snapshot, so the stale panel follows the map: a town that comes
+      // back into sight during a march stops being presented as last-known without the
+      // player having to re-select it. `selectSettlement` sets the same branch, and both
+      // read `knowledgeFor` so the toggle cannot make a panel lie about what is known.
+      const id = selectedSettlement ?? "";
+      const state = knowledgeFor(id);
+      contextNode = settlementFogView(state).current
+        ? townNode(town)
+        : unknownTownPanel({
+            settlementName: selected?.name ?? town.name,
+            town,
+            state,
+            day: snap.day,
+            onWhy: (field) => openWhy(town.id, field),
+          });
       return;
     }
     case "market": {
@@ -1017,7 +1241,11 @@ function syncParty(): void {
       // shows before the player commits.
       days: Math.max(1, Math.ceil(length / 1000 / Math.max(1, snapshot.party.speedKmPerDay))),
     };
-    scene.showRoute(route.worldPath);
+    // The destination's state decides how loudly the line is drawn. Passing it means a
+    // march into never-found territory is still visible as a route the player ordered —
+    // a ghost line rather than nothing, so they are not watching their party walk into a
+    // blank. See `routeStrength` in `src/data/fogView.ts`.
+    scene.showRoute(route.worldPath, visibilityFor(destination.settlementId));
   }
 
   const leg = travel;
@@ -1102,6 +1330,10 @@ function paint(): void {
     partyDaysOfFood: dailyFood === 0 ? 0 : snapshot.party.food / dailyFood,
     selectionName: selectedSettlement ? (settlement(selectedSettlement)?.name ?? "") : "",
     fog: fogIndicatorState(),
+    fogLegend: fogLegend(),
+    fogEnabled: fogSettings.enabled,
+    fogCaveat: fogViewDetail(fogSettings),
+    onFogToggle: setFogEnabled,
   };
   hud.renderState(state);
 }

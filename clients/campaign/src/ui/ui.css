@@ -724,6 +724,28 @@
 
 .fog__total { color: var(--ink-500); }
 
+/* The legend. A <details> so it collapses out of the way on a short screen, but it stays
+   in the rail rather than moving to a modal: a legend a player has to go looking for is
+   a legend most players never read. */
+.fog__legend { margin-top: var(--space-2); border-top: 1px solid var(--paper-300); padding-top: var(--space-2); }
+.fog__legend summary { cursor: pointer; }
+.fog__legend-list { display: flex; flex-direction: column; gap: var(--space-2); margin: var(--space-2) 0 0; }
+.fog__legend-row { display: flex; flex-direction: column; gap: var(--space-1); }
+.fog__legend-row dt { margin: 0; }
+.fog__legend-row dd { margin: 0; }
+
+/* The toggle. The input stays in the label rather than beside it, so the whole row is one
+   hit target and the accessible name covers the visible word. */
+.fog__toggle-wrap { margin-top: var(--space-2); border-top: 1px solid var(--paper-300); padding-top: var(--space-2); }
+.fog__toggle { display: flex; align-items: center; gap: var(--space-2); cursor: pointer; }
+.fog__toggle-input { flex: 0 0 auto; }
+.fog__caveat { margin: var(--space-2) 0 0; }
+
+/* The fogged-settlement panel. `.fogstate__detail` sits under the chip, and the banner is
+   the thing a player reads first if they scroll straight past the chip to the figures. */
+.fogstate { display: flex; flex-direction: column; gap: var(--space-2); }
+.fogstate__banner { margin: var(--space-2) 0 0; padding: var(--space-2); border-left: 2px solid var(--paper-300); }
+
 /* ---------- notifications ---------- */
 
 .notices { display: flex; flex-direction: column; gap: var(--space-2); max-height: 30vh; overflow-y: auto; }

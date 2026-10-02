@@ -222,6 +222,14 @@ func (l *Log) Rows() []Row { return l.rows[l.base:] }
 // Len returns the number of retained rows.
 func (l *Log) Len() int { return len(l.rows) - l.base }
 
+// LastID is the id of the most recently appended row.
+//
+// The engine uses it to tell a staged system what its own event was numbered,
+// so that the writes the event caused can cite it. It is nextID minus one rather
+// than the id of the last retained row, because the newest row is by definition
+// retained and the oldest may not be.
+func (l *Log) LastID() int { return l.nextID - 1 }
+
 // Suppressed returns how many changes were below the logging threshold.
 func (l *Log) Suppressed() int { return l.suppressed }
 
