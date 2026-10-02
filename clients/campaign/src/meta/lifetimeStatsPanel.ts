@@ -21,6 +21,7 @@ import {
   type LifetimeStatsRecord,
 } from "./lifetimeStats.js";
 import { buildShowcase } from "./profileShowcase.js";
+import { campaignStatsBreakdown } from "./campaignStats.js";
 import { diplomaticReputation, reputationTitle } from "../diplomacy/reputation.js";
 import "./lifetimeStats.css";
 
@@ -146,11 +147,14 @@ export function lifetimeStatsPanel(options: LifetimeStatsPanelOptions = {}): Lif
   footer.appendChild(resetBtn);
   const showcase = h("div", { class: "lifetime__showcase", "data-testid": "lifetime-showcase" });
   body.appendChild(showcase);
+  const perCampaign = h("div", { class: "lifetime__campaigns", "data-testid": "lifetime-campaigns" });
+  body.appendChild(perCampaign);
 
   function render(): void {
     const stats = loadLifetimeStats();
     grid.textContent = "";
     renderShowcase(stats);
+    renderPerCampaign();
     const anyActivity =
       stats.battlesFought > 0 || stats.playSeconds > 0 || stats.campaignsStarted > 0;
     if (!anyActivity) {
@@ -210,6 +214,28 @@ export function lifetimeStatsPanel(options: LifetimeStatsPanelOptions = {}): Lif
       pre,
       copy,
     );
+  }
+
+  /** Per-campaign drill-down (solo task 99). */
+  function renderPerCampaign(): void {
+    perCampaign.textContent = "";
+    const entries = campaignStatsBreakdown();
+    if (entries.length === 0) return;
+    perCampaign.appendChild(h("p", { class: "label" }, "Per campaign"));
+    for (const e of entries) {
+      perCampaign.appendChild(
+        h(
+          "div",
+          { class: "lifetime__campaign", "data-testid": `lifetime-campaign-${e.campaignId}` },
+          h("p", { class: "lifetime__campaign-name label" }, e.campaignName),
+          h(
+            "p",
+            { class: "caption" },
+            `${formatCount(e.stats.battlesWon)} battles won · ${formatCount(e.stats.seasonsPlayed)} seasons · $${formatCount(e.stats.coinEarned)} earned`,
+          ),
+        ),
+      );
+    }
   }
 
   render();
