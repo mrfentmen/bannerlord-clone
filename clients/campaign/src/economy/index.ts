@@ -19,3 +19,4 @@ export * from "./militia.js";
 export { logTreasury, treasuryBalance, treasuryLog, treasuryTotals, type TreasuryEntry } from "./treasuryLog.js";
 export { recordWorkshopSeason, workshopPL, type WorkshopPL, type WorkshopSeason } from "./workshopPL.js";
 export { rankCaravanRoutes, type RouteRanking } from "./caravanRanking.js";
+export { cancelPriceAlert, checkPriceAlerts, pendingPriceAlerts, priceAlertLine, setPriceAlert, type PriceAlert } from "./priceAlerts.js";
