@@ -1032,7 +1032,7 @@
       "table": "routes",
       "row_count": 13274,
       "sampled_rows_for_types": 500,
-      "column_count": 8,
+      "column_count": 10,
       "columns": [
         {
           "name": "distance_km",
@@ -1056,6 +1056,16 @@
         },
         {
           "name": "kind",
+          "type": "string",
+          "nullable": false,
+          "examples": [
+            "rail",
+            "rail",
+            "rail"
+          ]
+        },
+        {
+          "name": "road_class",
           "type": "string",
           "nullable": false,
           "examples": [
@@ -1112,6 +1122,16 @@
             "01-33856",
             "01-21136",
             "01-31384"
+          ]
+        },
+        {
+          "name": "travel_hours",
+          "type": "number",
+          "nullable": false,
+          "examples": [
+            "0.8002594600393019",
+            "0.0682609933041752",
+            "0.052303762696417955"
           ]
         }
       ]

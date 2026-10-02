@@ -179,6 +179,35 @@ def _load_boundaries(config: Config):
     return (state_boundaries, place_boundaries), notes + place_notes
 
 
+# The exported `routes` row, as a function rather than an inline dict literal, so the
+# contract can be checked against the committed bundle without running the pipeline.
+#
+# `road_class` and `travel_hours` are the two columns every travel-time consumer needs:
+# `tools/build-travel-graph.py` reads them to weight each edge in minutes, and the sim
+# feed reads `road_class` to report it. They were added to this row after the committed
+# `exports/routes.*` had already been published, so the bundle carried eight columns
+# while the pipeline wrote ten. Nothing failed: every downstream reader used a default,
+# so `minutes` came out as 0.0 on all 13,274 edges and every road came out `secondary`.
+# A cost-free graph still pathfinds, and it pathfinds to whatever it reaches first.
+#
+# Naming the columns here means `tests/test_export_contract.py` can assert the committed
+# bundle has exactly this set, which is the check that would have caught it.
+def route_export_row(route: Route) -> dict[str, Any]:
+    """One row of the published `routes` table."""
+    return {
+        "route_id": route.route_id,
+        "from_settlement_id": route.from_settlement_id,
+        "to_settlement_id": route.to_settlement_id,
+        "distance_km": route.distance_km,
+        "road_safety": route.road_safety,
+        "kind": route.kind,
+        "road_class": route.road_class,
+        "travel_hours": route.travel_hours,
+        "segment_count": len(route.segment_ids),
+        "segment_ids": json.dumps(list(route.segment_ids)),
+    }
+
+
 def _now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
@@ -747,21 +776,7 @@ def _assemble_tables(
     # deterministic across runs.
     notable_rows = generate_notables(seeds)
 
-    route_rows = [
-        {
-            "route_id": route.route_id,
-            "from_settlement_id": route.from_settlement_id,
-            "to_settlement_id": route.to_settlement_id,
-            "distance_km": route.distance_km,
-            "road_safety": route.road_safety,
-            "kind": route.kind,
-            "road_class": route.road_class,
-            "travel_hours": route.travel_hours,
-            "segment_count": len(route.segment_ids),
-            "segment_ids": json.dumps(list(route.segment_ids)),
-        }
-        for route in routes
-    ]
+    route_rows = [route_export_row(route) for route in routes]
 
     # Compact the 137,000 route segment objects into plain tuples before the
     # export, then drop the objects. The export runs three separate passes over
