@@ -44,6 +44,8 @@ export interface LiveBattleSource {
   onEnemyTroops(fn: (troops: number) => void): Unsubscribe;
   /** The player's morale as a fraction of a full force, 0..1. */
   onPlayerMorale(fn: (fraction: number) => void): Unsubscribe;
+  /** The enemy's morale as a fraction of a full force, 0..1. */
+  onEnemyMorale(fn: (fraction: number) => void): Unsubscribe;
   /** Stops polling. The caller owns this; listeners only unsubscribe. */
   destroy(): void;
 }
@@ -91,6 +93,7 @@ export function createLiveBattleSource(
   const playerTroops = liveFigure<number>();
   const enemyTroops = liveFigure<number>();
   const playerMorale = liveFigure<number>();
+  const enemyMorale = liveFigure<number>();
   let handle = 0;
 
   function publish(): void {
@@ -99,6 +102,7 @@ export function createLiveBattleSource(
     playerTroops.push(view.playerSide.troops);
     enemyTroops.push(view.enemySide.troops);
     playerMorale.push(view.playerSide.morale);
+    enemyMorale.push(view.enemySide.morale);
   }
 
   handle = set(publish, pollMs);
@@ -107,12 +111,14 @@ export function createLiveBattleSource(
     onPlayerTroops: playerTroops.subscribe,
     onEnemyTroops: enemyTroops.subscribe,
     onPlayerMorale: playerMorale.subscribe,
+    onEnemyMorale: enemyMorale.subscribe,
     destroy() {
       clear(handle);
       handle = 0;
       playerTroops.clear();
       enemyTroops.clear();
       playerMorale.clear();
+      enemyMorale.clear();
     },
   };
 }
