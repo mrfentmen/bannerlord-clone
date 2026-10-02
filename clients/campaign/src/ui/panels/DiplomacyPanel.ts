@@ -7,7 +7,7 @@
  * current season (relation changes are season-stamped).
  */
 
-import { button, h, row, sectionHeader } from "../dom.js";
+import { button, h, numberField, row, sectionHeader } from "../dom.js";
 import { dataTable, emptyState, panel, type Column } from "../kit.js";
 import {
   adjustRelation,
@@ -40,6 +40,7 @@ import {
   WAR_GOAL_DESCRIPTIONS,
   type WarGoal,
 } from "../../diplomacy/warGoals.js";
+import { EMPTY_PEACE_TERMS, negotiatePeace } from "../../diplomacy/peaceConcessions.js";
 import { markHintShown, shouldShowHint } from "../../onboarding/hintCooldown.js";
 
 export interface DiplomacyPanelOptions {
@@ -125,6 +126,34 @@ function buildDiplomacyPanel(options: DiplomacyPanelOptions, notice: string | nu
       button("Season passes", () => { tickWarWeariness(); rerender(); }, { variant: "quiet", testId: "war-tick" }),
     ),
   );
+
+  // -- peace negotiation (solo task 84): terms against a live war ---------
+  if (wars.length > 0) {
+    body.appendChild(sectionHeader("Negotiate peace"));
+    const peaceWar = h(
+      "select",
+      { "aria-label": "War to negotiate", "data-testid": "peace-war-select" },
+      ...wars.map((w) => h("option", { value: w.id }, w.enemyName)),
+    ) as HTMLSelectElement;
+    const { field: scoreField, input: scoreInput } = numberField("peace-score", "War score (-100 to 100)", 0, { min: -100, max: 100 });
+    const { field: coinField, input: coinInput } = numberField("peace-coin", "Coin offered", 0, { min: 0 });
+    const peaceLine = h("p", { class: "caption", "data-testid": "peace-result", role: "status" },
+      "Set terms; the odds read comes from their weariness and your war score.");
+    body.appendChild(
+      h("div", { class: "form-row" }, peaceWar, scoreField, coinField,
+        button("Read the odds", () => {
+          const war = wars.find((w) => w.id === peaceWar.value);
+          if (!war) return;
+          const score = Number(scoreInput.value);
+          const coin = Number(coinInput.value);
+          if (!Number.isFinite(score) || !Number.isFinite(coin) || coin < 0) return;
+          const view = negotiatePeace(war.enemyName, score, war.weariness, { ...EMPTY_PEACE_TERMS, coinOffered: coin });
+          peaceLine.textContent = view.line;
+        }, { testId: "peace-read" }),
+      ),
+    );
+    body.appendChild(peaceLine);
+  }
 
   body.appendChild(sectionHeader("Border incidents"));
   const incidents = pendingBorderIncidents();

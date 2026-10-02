@@ -81,3 +81,23 @@ describe("diplomacy panel war goals (integration)", () => {
     document.body.innerHTML = "";
   });
 });
+
+describe("diplomacy panel peace negotiation (integration)", () => {
+  it("reads acceptance odds from a live war's weariness", () => {
+    document.body.innerHTML = "";
+    document.body.appendChild(diplomacyPanel({ currentSeason: 12 }));
+
+    (document.body.querySelector('[data-testid="war-enemy-input"]') as HTMLInputElement).value = "The Ironborn";
+    (document.body.querySelector('[data-testid="war-declare"]') as HTMLButtonElement).click();
+    (document.body.querySelector('[data-testid="war-tick"]') as HTMLButtonElement).click();
+
+    (document.body.querySelector("#peace-score") as HTMLInputElement).value = "50";
+    (document.body.querySelector("#peace-coin") as HTMLInputElement).value = "2000";
+    (document.body.querySelector('[data-testid="peace-read"]') as HTMLButtonElement).click();
+
+    const line = document.body.querySelector('[data-testid="peace-result"]')!;
+    expect(line.textContent).toContain("The Ironborn");
+    expect(line.textContent).toMatch(/accept|refuse/i);
+    document.body.innerHTML = "";
+  });
+});
