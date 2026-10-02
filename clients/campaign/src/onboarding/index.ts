@@ -15,3 +15,4 @@ export * from "./introStoryPanel.js";
 export * from "./goalCelebration.js";
 export { completeStep, currentStep, skipStep, startBattleTutorial, tutorialProgress, TUTORIAL_ACTIONS, type BattleTutorial, type TutorialAction, type TutorialStep } from "./battleTutorial.js";
 export { HINT_COOLDOWN_MS, hintCooldownRemaining, markHintShown, shouldShowHint } from "./hintCooldown.js";
+export { HELP_EXEMPT_PANELS, helpCoveredPanels, PANEL_HELP_MAP, panelHelp } from "./panelHelp.js";
