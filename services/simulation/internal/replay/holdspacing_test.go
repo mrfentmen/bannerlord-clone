@@ -132,6 +132,14 @@ const holdTicks = 900
 // balance file's `min_separation` is what the engine's own spacing pass enforces
 // everywhere, and a held formation that does not clear it has men standing inside
 // each other whatever the derivation says.
+//
+// This test measures the tightest pair WITHOUT saying which kind of pair it was,
+// which is the guarantee and not the diagnosis: it cannot tell a healthy layout
+// with two groups' ground overlapping from a layout that is wrong inside each
+// group, and it must not be read as though it could. TestWhereTheGroupsCollapse
+// below makes the same three measurements with the pairs classified by group, and
+// that is where the inter-group reading in this file's failure message below comes
+// from. The two agree; only the second one is entitled to the explanation.
 func TestASettledHeldFormationKeepsItsMenApartAtEveryGroupCount(t *testing.T) {
 	if testing.Short() {
 		t.Skip("a 500 v 500 hold is not a short-mode test")
