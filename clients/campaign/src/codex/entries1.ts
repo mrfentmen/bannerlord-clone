@@ -467,6 +467,17 @@ export const SETTINGS_ENTRIES: CodexEntry[] = [
     ["setting-graphics-engine", "setting-look-preset"],
   ),
   e(
+    "setting-ragdoll",
+    "Ragdoll physics",
+    "settings",
+    "Dead soldiers collapse with Havok ragdoll physics instead of playing a canned death animation.",
+    [
+      "When enabled, soldiers killed in battle switch to a 6DoF ragdoll with joint limits calibrated to the visible mesh — feet stay on the floor, no folding into a ball, no limbs clipping through the torso. The toggle applies immediately and can be turned off for a performance boost on low-end machines.",
+    ],
+    ["setting:ragdollEnabled", "ragdoll", "physics", "death", "corpse", "havok", "graphics"],
+    ["setting-graphics-engine"],
+  ),
+  e(
     "setting-damage-vignette",
     "Damage vignette",
     "settings",
