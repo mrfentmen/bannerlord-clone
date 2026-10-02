@@ -58,6 +58,18 @@ export const CONTROL_ENTRIES: CodexEntry[] = [
     ["setting-mouse", "setting-graphics-presets"],
   ),
   e(
+    "action-game-quicksave",
+    "Quicksave",
+    "controls",
+    "Writes the live campaign to the Quicksave slot. F5 by default.",
+    [
+      "Press F5 any time a campaign is running to snapshot it into the dedicated Quicksave slot. It is a named slot like any other: it shows up in Save / Load, and pressing F5 again overwrites it instead of piling up copies.",
+      "Quicksave is off on Ironman — ironman runs keep only the 5-minute autosave, and the manual Save / Load path is blocked for the same reason. The keybinding editor can rebind it, and because F5 normally reloads the browser tab, the action swallows that default.",
+    ],
+    ["action:game.quicksave", "quicksave", "save"],
+    ["mechanic-keybinding-editor"],
+  ),
+  e(
     "action-map-pan-up",
     "Pan map up",
     "controls",

@@ -144,6 +144,7 @@ import {
 } from "./economy/routePanel.js";
 import { saveLoadPanel } from "./saves/mount.js";
 import { SaveManager, SaveUiError } from "./saves/screens.js";
+import { performQuicksave } from "./saves/quicksave.js";
 import { ALL_CODEX_ENTRIES, CODEX_CATEGORIES } from "./codex/index.js";
 import { toast } from "./ui/kit.js";
 import { settings, type Settings } from "./settings/index.js";
@@ -1045,6 +1046,35 @@ function bindInputActions(): void {
   });
 
   input.on("ui.settings", () => openSettings());
+
+  // -- Quicksave (Rowan) ------------------------------------------------------
+  // F5 writes the live campaign into the dedicated Quicksave slot — the fast
+  // path before a risky engagement. `performQuicksave` owns the rules (no
+  // campaign yet, ironman refusal, store failure); this handler only says
+  // them in plain language. preventDefault on the action def keeps the
+  // browser from reloading the tab on F5.
+  input.on("game.quicksave", () => {
+    void performQuicksave({
+      store: sharedSaveManager(),
+      currentSnapshot: () => snapshot,
+      ironman: () => manualSaveBlocked(ironman),
+    }).then((res) => {
+      if (res.ok) {
+        toast(`Quicksaved — Day ${res.day}.`);
+        return;
+      }
+      if (res.reason === "no-campaign") {
+        toast("Nothing to save yet.");
+        return;
+      }
+      if (res.reason === "ironman") {
+        toast("Quicksave is off on Ironman — your run keeps the 5-minute autosave.");
+        return;
+      }
+      console.warn("Quicksave failed");
+      toast("Quicksave failed — the save did not go through. Try Save / Load instead.");
+    });
+  });
 
   // Touch A behaves like gamepad A: keyboard Enter is left alone — it already
   // activates natively, and this guard keeps the two from double-firing.

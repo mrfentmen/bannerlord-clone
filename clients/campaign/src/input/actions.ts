@@ -27,6 +27,7 @@ export type InputActionId =
   | "ui.cancel"
   | "ui.confirm"
   | "ui.settings"
+  | "game.quicksave"
   // -- campaign map ----------------------------------------------------------
   | "map.panUp"
   | "map.panDown"
@@ -98,6 +99,9 @@ export const ACTION_DEFS: readonly ActionDef[] = [
   def("ui.settings", "Open settings", "interface",
     "Opens the settings panel. Unbound by default — assign a key in the keybinding editor.",
     []),
+  def("game.quicksave", "Quicksave", "interface",
+    "Writes the live campaign to the Quicksave slot. Blocked on Ironman — ironman runs keep only the 5-minute autosave.",
+    [{ key: "F5" }], { preventDefault: true }),
 
   def("map.panUp", "Pan map up", "campaign-map",
     "Moves the campaign camera north.", [{ key: "ArrowUp" }, { key: "w" }],
