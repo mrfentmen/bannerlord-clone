@@ -6,6 +6,7 @@ import (
 	"strconv"
 	"strings"
 
+	"mbclone/simulation/internal/cause"
 	"mbclone/simulation/internal/model"
 	"mbclone/simulation/internal/systems/visibility"
 )
@@ -331,28 +332,124 @@ func (s *Server) whyChain(entity, field string) map[string]any {
 		return map[string]any{"entity": entity, "field": field, "chain": []any{}}
 	}
 	rows := s.log.RecentFor(kind, id, []string{field}, 8)
+	truncated := false
 	chain := make([]map[string]any, 0, len(rows))
+	seen := map[int]bool{}
+	depth := map[int]int{}
+	queue := make([]int, 0, len(rows))
 	for _, rowID := range rows {
 		r, ok := s.log.Row(rowID)
 		if !ok {
+			truncated = true
 			continue
 		}
-		chain = append(chain, map[string]any{
-			"id":       fmt.Sprintf("cause-%d", r.ID),
-			"tick":     r.Tick,
-			"old":      r.Old,
-			"new":      r.New,
-			"causedBy": []any{},
-			"note":     r.Note,
-			"system":   r.System,
-		})
+		chain = append(chain, causeNode(r, 0))
+		seen[r.ID] = true
+		depth[r.ID] = 0
+		queue = append(queue, r.ID)
+	}
+
+	// Walk what caused each of those rows.
+	//
+	// This used to send `"causedBy": []any{}` and `"related": []any{}`
+	// unconditionally, which made every chain a dead end: the panel could show
+	// that the barter system spent a lord's gold and nothing at all about the
+	// bargain that spent it. The rows carried their edges all along — every
+	// other system had been passing RecentFor into them — so this was a renderer
+	// discarding information the log was already keeping.
+	//
+	// Breadth-first and depth-bounded, because a cause graph is not a tree: the
+	// rows for six lines of one deal share a parent, and walking it naively would
+	// reprint that parent six times and return a chain longer than the history it
+	// summarizes.
+	for len(queue) > 0 {
+		id := queue[0]
+		queue = queue[1:]
+		d := depth[id]
+		if d >= whyMaxDepthSteps || len(chain) >= whyMaxRows {
+			truncated = true
+			break
+		}
+		r, ok := s.log.Row(id)
+		if !ok {
+			continue
+		}
+		for _, parent := range r.CausedBy {
+			if seen[parent] {
+				continue
+			}
+			pr, ok := s.log.Row(parent)
+			if !ok {
+				// A cited event that has aged out of the log. The chain stops
+				// here rather than inventing a parent, and `truncated` says so.
+				truncated = true
+				continue
+			}
+			seen[pr.ID] = true
+			depth[pr.ID] = d + 1
+			chain = append(chain, causeNode(pr, d+1))
+			queue = append(queue, pr.ID)
+		}
 	}
 	return map[string]any{
 		"entityId":   entity,
 		"field":      field,
 		"rows":       chain,
 		"related":    []any{},
-		"totalDepth": len(chain),
-		"truncated":  false,
+		"totalDepth": deepest(chain),
+		"truncated":  truncated,
 	}
+}
+
+// whyMaxRows bounds one chain, so a field with a long history cannot produce a
+// response the panel has to render without limit.
+const whyMaxRows = 64
+
+// whyMaxDepthSteps bounds how far back a walk goes from the rows it started at.
+// Four is enough to get from a number to the bargain that moved it to the market
+// row that priced it; deeper than that is history the player did not ask for.
+const whyMaxDepthSteps = 4
+
+// deepest is the depth of the furthest row in a chain, which is what the panel
+// reports as the chain's depth.
+func deepest(chain []map[string]any) int {
+	max := 0
+	for _, n := range chain {
+		if d, ok := n["depth"].(int); ok && d > max {
+			max = d
+		}
+	}
+	return max
+}
+
+// causeNode renders one row.
+//
+// Depth is added here rather than kept on the row because it is a property of
+// the walk that reached the row, not of the event itself: the same event sits at
+// depth 1 behind a lord's gold and at depth 0 behind a query for the deal.
+func causeNode(r cause.Row, depth int) map[string]any {
+	return map[string]any{
+		"id":       fmt.Sprintf("cause-%d", r.ID),
+		"tick":     r.Tick,
+		"old":      r.Old,
+		"new":      r.New,
+		"causedBy": causeRefs(r.CausedBy),
+		"note":     r.Note,
+		"system":   r.System,
+		"depth":    depth,
+	}
+}
+
+// causeRefs renders a row's edges in the same "cause-N" form the chain uses for
+// ids, so a client can join on the string rather than having to know that one
+// side is a number and the other a reference.
+//
+// It is always a list and never null, for the same reason renderItems is: an
+// empty edge set and a missing one are different answers.
+func causeRefs(ids []int) []any {
+	out := make([]any, 0, len(ids))
+	for _, id := range ids {
+		out = append(out, fmt.Sprintf("cause-%d", id))
+	}
+	return out
 }

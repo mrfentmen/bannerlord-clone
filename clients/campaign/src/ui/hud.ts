@@ -598,7 +598,7 @@ export function createHud(options: HudOptions): HudHandle {
    * a panel a player goes looking for, and a legend that has to be found is a legend most
    * players never read.
    */
-  function fogLegendBlock(legend: readonly FogLegendRow[]): HTMLElement {
+  function fogLegendBlock(legend: ReturnType<typeof fogLegend>): HTMLElement {
     const details = h("details", { class: "fog__legend", "data-testid": "fog-legend" });
     details.appendChild(h("summary", { class: "label" }, "What the three states mean"));
     const list = h("dl", { class: "fog__legend-list" });

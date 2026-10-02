@@ -694,4 +694,66 @@ describe("the fog of war indicator", () => {
     expect(card.getAttribute("role")).toBe("group");
     expect(card.getAttribute("aria-label")).toBe("Fog of war");
   });
+
+  it("carries a legend that explains the panels as well as the map", () => {
+    // The misreading this corrects is that a remembered town's panel is showing old
+    // numbers, and a legend with only an "on the map" column leaves that uncorrected. It
+    // also lives in the rail rather than the data-source modal: a legend a player has to go
+    // looking for is a legend most players never read.
+    const legend = hudAt().querySelector("[data-testid='fog-legend']")!;
+    expect(legend).not.toBeNull();
+    const text = legend.textContent ?? "";
+    expect(text).toContain("Remembered");
+    expect(text).toMatch(/Drawn greyed/);
+    expect(text).toMatch(/Last known/);
+  });
+
+  it("shows the legend even when fog is not applied, so the states can still be learned", () => {
+    // "Not being applied" tells a player nothing about what the three states mean, so a
+    // card that dropped the legend there would leave them with no way to find out.
+    const root = hudAt({
+      fog: { applied: false, visible: 0, remembered: 0, unseen: 0, total: 13, unsighted: 0 },
+    });
+    expect(root.querySelector("[data-testid='fog-legend']")).not.toBeNull();
+  });
+
+  it("offers the toggle as a checkbox that reports the setting, not as a one-shot button", () => {
+    // A checkbox is the control a screen reader will call a checkbox; a button that has to
+    // be pressed to find out whether fog is on is a control whose state is invisible.
+    const toggle = hudAt().querySelector<HTMLInputElement>("[data-testid='fog-toggle']")!;
+    expect(toggle.type).toBe("checkbox");
+    expect(toggle.checked).toBe(true);
+    // And the input is inside its label, so the hit target and the accessible name are one.
+    expect(toggle.closest("label")).not.toBeNull();
+    expect(toggle.closest("label")!.textContent).toContain("Fog of war");
+  });
+
+  it("defaults to fog on for a caller that passes no setting at all", () => {
+    // The unsafe direction must be the one that has to be asked for.
+    expect(hudAt().querySelector<HTMLInputElement>("[data-testid='fog-toggle']")!.checked).toBe(true);
+  });
+
+  it("requires a caveat whenever the map is drawn whole, and says fog is still applied", () => {
+    // The regression this card exists to prevent: an unfiltered map presented with no
+    // notice is the simulation's own stated reason for fog failing, with the client doing
+    // the raiding for it.
+    const on = hudAt();
+    expect(on.querySelector("[data-testid='fog-caveat']")).toBeNull();
+
+    const off = hudAt({ fogEnabled: false });
+    const caveat = off.querySelector("[data-testid='fog-caveat']")!;
+    expect(caveat).not.toBeNull();
+    expect(caveat.textContent).toContain("simulation is still applying fog");
+  });
+
+  it("reports the new setting when the toggle is used", () => {
+    const seen: boolean[] = [];
+    const root = hudAt({ onFogToggle: (enabled) => void seen.push(enabled) });
+    // Queried off `root`, not `document`: the HUD is built detached, and a test that
+    // reached into the document would be asserting about a previous test's node.
+    const toggle = root.querySelector<HTMLInputElement>("[data-testid='fog-toggle']")!;
+    toggle.checked = false;
+    toggle.dispatchEvent(new Event("change"));
+    expect(seen).toEqual([false]);
+  });
 });

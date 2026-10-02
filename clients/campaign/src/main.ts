@@ -38,7 +38,6 @@ import {
 import { sightingsSince } from "./data/fogView.js";
 import {
   DEFAULT_FOG_SETTINGS,
-  fogLegend,
   fogViewDetail,
   statesForDisplay,
   type FogSettings,
@@ -52,7 +51,7 @@ import { classifySettlement } from "./world/load.js";
 import type { WorldSettlement } from "./world/types.js";
 import { createCampaignScene, type SceneHandle } from "./scene/CampaignScene.js";
 import { findRoute, shortestPath } from "./scene/network.js";
-import { createHud, dataSourcePanel, fatalError, type FogLegendRow, type HudPanel, type HudState } from "./ui/hud.js";
+import { createHud, dataSourcePanel, fatalError, type HudPanel, type HudState } from "./ui/hud.js";
 import { settlementFogView } from "./data/fogView.js";
 import { unknownTownPanel } from "./ui/panels/UnknownTownPanel.js";
 import { marketPanel } from "./ui/panels/MarketPanel.js";
@@ -537,7 +536,17 @@ function rememberFogMemory(index: FogIndex): void {
     fogRememberedKey = key;
     fogRemembered = loadRemembered(readStorage(), key);
   }
-  saveRemembered(readStorage(), key, foundIds(fogStates), snapshot?.day ?? 0);
+  // Only the settlements the simulation actually runs a town for are written. `fogStates`
+  // includes every OSM settlement in the region — most of them `visible` because there is
+  // no town for them — and persisting those would fill the store with places this side
+  // never had anything to do with. It would be harmless when read back (they are not
+  // `unseen`, so the floor skips them) but it is a store claiming knowledge that was never
+  // observed, which is the exact confusion `foundIds` exists to prevent.
+  const watchedStates = new Map<string, TownVisibility>();
+  for (const [id, state] of fogStates) {
+    if (townByPlaceId.has(id)) watchedStates.set(id, state);
+  }
+  saveRemembered(readStorage(), key, foundIds(watchedStates), snapshot?.day ?? 0);
 }
 
 /**
@@ -633,26 +642,17 @@ function selectSettlement(id: string): void {
     const { klass } = classifySettlement(place);
     scene.focus(p.x, p.z, klass === "city" ? 20_000 : klass === "town" ? 13_000 : 7_500);
   }
+  // A settlement the map is drawing but this side cannot currently see gets the fog panel
+  // instead of the ordinary town panel, even though it has a town record and the snapshot
+  // has its numbers. `unknownTownPanel` shows those numbers *as last-known*, and the
+  // remembered case is a real one — a player who scouted a place and marched away wants to
+  // remember what they found, just not as though it were today.
+  //
+  // The branch is the same one `rebuildContext` takes, deliberately: selecting a town and
+  // rebuilding after a snapshot must not be able to disagree about whether this settlement
+  // is fogged, or a town would render one way on click and another way one tick later.
   currentPanel = town ? "town" : "none";
-  contextNode = town ? townNode(town) : missingSettlementNode(place, id);
-  // A settlement the map is drawing but this side cannot currently see gets the fog
-  // panel instead of the ordinary town panel, even though it has a town record and the
-  // snapshot has its numbers. `unknownTownPanel` shows those numbers *as last-known*, and
-  // the remembered case is a real one — a player who scouted a place and marched away
-  // wants to remember what they found, just not as though it were today.
-  if (town && !settlementFogView(knowledgeFor(id)).current) {
-    currentPanel = "town";
-    contextNode = unknownTownPanel({
-      settlementName: place?.name ?? town.name,
-      town,
-      state: knowledgeFor(id),
-      day: snapshot?.day ?? 0,
-      onWhy: (field) => {
-        const here = townFor(id);
-        if (here) openWhy(here.id, field);
-      },
-    });
-  }
+  contextNode = townNodeFor(town, place, id);
   syncParty();
   paint();
   if (place) {
@@ -723,6 +723,32 @@ function noSimulationRecordNode(name: string): Node {
   body.append(head, p);
   box.appendChild(body);
   return box;
+}
+
+/**
+ * The town panel for a selected settlement, fog or no fog.
+ *
+ * Both entry points — a click and a rebuild after a snapshot — go through here, so the
+ * decision "is this settlement in sight?" is made in exactly one place. Splitting it is how
+ * a town renders as a live panel on click and as last-known one tick later, which is worse
+ * than either: the player cannot tell which reading of the world they are looking at.
+ *
+ * The gate is `settlementFogView(...).current`, so `remembered` and `unseen` both take the
+ * fog path and only `visible` gets the live panel. That single boolean is the mechanism;
+ * no panel decides for itself what "old" counts as "showable".
+ */
+function townNodeFor(town: TownState, place: WorldSettlement | undefined, id: string): Node {
+  const state = knowledgeFor(id);
+  if (!settlementFogView(state).current) {
+    return unknownTownPanel({
+      settlementName: place?.name ?? town.name,
+      town,
+      state,
+      day: snapshot?.day ?? 0,
+      onWhy: (field) => openWhy(town.id, field),
+    });
+  }
+  return townNode(town);
 }
 
 function townNode(town: TownState): Node {
@@ -847,19 +873,8 @@ function rebuildContext(): void {
       }
       // Rebuilt on every snapshot, so the stale panel follows the map: a town that comes
       // back into sight during a march stops being presented as last-known without the
-      // player having to re-select it. `selectSettlement` sets the same branch, and both
-      // read `knowledgeFor` so the toggle cannot make a panel lie about what is known.
-      const id = selectedSettlement ?? "";
-      const state = knowledgeFor(id);
-      contextNode = settlementFogView(state).current
-        ? townNode(town)
-        : unknownTownPanel({
-            settlementName: selected?.name ?? town.name,
-            town,
-            state,
-            day: snap.day,
-            onWhy: (field) => openWhy(town.id, field),
-          });
+      // player having to re-select it.
+      contextNode = townNodeFor(town, selected, selectedSettlement ?? "");
       return;
     }
     case "market": {
@@ -1331,9 +1346,7 @@ function paint(): void {
     partyDaysOfFood: dailyFood === 0 ? 0 : snapshot.party.food / dailyFood,
     selectionName: selectedSettlement ? (settlement(selectedSettlement)?.name ?? "") : "",
     fog: fogIndicatorState(),
-    fogLegend: fogLegend(),
     fogEnabled: fogSettings.enabled,
-    fogCaveat: fogViewDetail(fogSettings),
     onFogToggle: setFogEnabled,
   };
   hud.renderState(state);

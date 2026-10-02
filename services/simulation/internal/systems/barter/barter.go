@@ -41,6 +41,24 @@ import (
 // constant rather than a literal at each call site.
 const SystemName = "barter"
 
+// EventName is the name the one cause row per struck deal carries.
+//
+// A deal has no field of its own, so without a row for the decision itself every
+// row it produces is an orphan and the Why panel can only say "the barter system
+// did this" — which is a restatement of the question. This is the node a player
+// walks back to.
+const EventName = "barter-deal"
+
+// DealField is the synthetic field the deal row is indexed under.
+//
+// It is a name rather than a real tracked field on purpose. Indexing the event
+// under `gold` or `food_stock` would make it the most recent change to that
+// field in the log's own index, so a Why query for a lord's gold would return a
+// row that moved nothing, with an old and a new of zero, in place of the row
+// that actually explains the number. The field rows cite this one instead, and
+// the walk from a number to the decision goes through CausedBy.
+const DealField = "barter_deal"
+
 // ItemKind is one of the three kinds of thing that can go on a barter table.
 // It is a string because it goes on the wire as one, and because a kind the
 // simulation does not know is then rejected by name rather than by a number
@@ -335,10 +353,14 @@ func applyOrder(v *sim.View, w *sim.WriteSet, o sim.Order) {
 	if player == nil {
 		return
 	}
+	// The player's party is optional, and resolving it is not a precondition for
+	// the deal. A landed lord holds no party but still spends coin, and the old
+	// unconditional check made `st.Parties[-1]` a nil that refused the whole
+	// order — so a coin-only bargain was reported struck and moved nothing at all.
+	//
+	// What a party is required for is a carrier, and that is checked per line
+	// below rather than once for the deal.
 	party := st.Parties[deal.Party]
-	if party == nil {
-		return
-	}
 
 	// A deal naming a captive is refused outright if the trader has no cage to
 	// put them in, rather than having that one line quietly dropped.
@@ -349,7 +371,15 @@ func applyOrder(v *sim.View, w *sim.WriteSet, o sim.Order) {
 	// and not the trader's would hand over captives to nobody while reporting
 	// the deal as struck. A whole-deal refusal is the only answer that leaves
 	// the world consistent with what the client was told.
+	//
+	// Validate refuses this in the trader's own words before a commit reaches
+	// here, so this is the guard for the tick path, where an order can arrive
+	// without anybody having asked.
 	if touchesCaptives(deal) && st.Parties[trader.PartyID] == nil {
+		return
+	}
+	// And a deal whose goods have no carrier at all, for the same reason.
+	if party == nil && touchesCargo(deal) {
 		return
 	}
 
@@ -366,6 +396,26 @@ func applyOrder(v *sim.View, w *sim.WriteSet, o sim.Order) {
 	read := fmt.Sprintf("player_gold=%.2f,trader_gold=%.2f,day=%d",
 		playerGold, traderGold, v.Tick)
 
+	// The deal itself, as one row, before any of the numbers it moves.
+	//
+	// Staged rather than appended because the engine owns the log and hands back
+	// the id; the token is what every field row below cites, so a Why query on a
+	// lord's gold reaches the bargain that spent it rather than stopping at the
+	// arithmetic. The event's own causes are the market rows that set the prices
+	// this deal was priced against, which is the house pattern every other system
+	// uses: the reading behind a decision is itself the product of earlier
+	// events.
+	token := w.RecordEvent(
+		EventName,
+		model.KindLeader, trader.ID, DealField,
+		describeDeal(deal, read),
+		fmt.Sprintf("%s struck a bargain with %s: %s for %s.",
+			player.Name, trader.Name, describeLines(deal.Offered), describeLines(deal.Asked)),
+		v.Log.RecentFor(model.KindTown, deal.Town,
+			[]string{"food_stock", "medicine_stock", "metal", "price_food", "price_medicine", "price_metal"}, 4),
+	)
+	causedBy := []int{int(token)}
+
 	// What goes from the player to the trader: the party's cargo and cage down,
 	// the town's stock and the trader's coin up.
 	for _, l := range deal.Offered {
@@ -380,6 +430,7 @@ func applyOrder(v *sim.View, w *sim.WriteSet, o sim.Order) {
 			player:      player,
 			toTrader:    true,
 			read:        read,
+			causedBy:    causedBy,
 		})
 	}
 
@@ -396,8 +447,56 @@ func applyOrder(v *sim.View, w *sim.WriteSet, o sim.Order) {
 			player:      player,
 			toTrader:    false,
 			read:        read,
+			causedBy:    causedBy,
 		})
 	}
+}
+
+// describeLines renders one side of a deal as "20 grain and 30 gold", so the
+// deal row reads as the sentence a player would have spoken.
+func describeLines(lines []Line) string {
+	if len(lines) == 0 {
+		return "nothing"
+	}
+	parts := make([]string, 0, len(lines))
+	for _, l := range lines {
+		name := l.ItemID
+		if name == GoldItemID {
+			name = "coin"
+		}
+		parts = append(parts, fmt.Sprintf("%d %s", l.Quantity, name))
+	}
+	if len(parts) == 1 {
+		return parts[0]
+	}
+	return strings.Join(parts[:len(parts)-1], ", ") + " and " + parts[len(parts)-1]
+}
+
+// describeDeal is the read state behind the decision: what crossed, in which
+// direction, and the day it happened on.
+func describeDeal(deal *sim.BarterDeal, read string) string {
+	return fmt.Sprintf("offered=%s,asked=%s,%s",
+		describeLines(deal.Offered), describeLines(deal.Asked), read)
+}
+
+// touchesCargo reports whether a deal moves anything a party has to carry: goods
+// or captives on either side.
+//
+// It is the per-deal half of Validate's per-line check, and it exists because a
+// lord with no party still holds a purse. Requiring a party for every deal threw
+// away the coin trade as well.
+func touchesCargo(deal *sim.BarterDeal) bool {
+	for _, l := range deal.Offered {
+		if k := ItemKind(l.Kind); k == KindGood || k == KindPrisoner {
+			return true
+		}
+	}
+	for _, l := range deal.Asked {
+		if k := ItemKind(l.Kind); k == KindGood || k == KindPrisoner {
+			return true
+		}
+	}
+	return false
 }
 
 // touchesCaptives reports whether a deal moves any prisoner in either
@@ -441,19 +540,22 @@ func touchesCaptives(deal *sim.BarterDeal) bool {
 // the trader's voice and carry no error prefix, because Appraise hands them
 // straight to the panel as the reason a deal was refused.
 func Validate(st *model.State, req Request) error {
+	// Both sides need checking, and the asked side is the one that is easy to
+	// forget: goods the player takes go from the town's stock into the party's
+	// cargo, so a landed lord cannot receive a sack of medicine either. A deal
+	// that only counted what the player handed over would refuse a coin-for-coin
+	// trade and accept a coin-for-grain one, which is backwards.
 	needsParty := false
 	movesCaptives := false
-	for _, l := range req.Offered {
-		if k := ItemKind(l.Kind); k == KindGood || k == KindPrisoner {
-			needsParty = true
-		}
-		if ItemKind(l.Kind) == KindPrisoner {
-			movesCaptives = true
-		}
-	}
-	for _, l := range req.Asked {
-		if ItemKind(l.Kind) == KindPrisoner {
-			movesCaptives = true
+	for _, side := range [][]Line{req.Offered, req.Asked} {
+		for _, l := range side {
+			switch ItemKind(l.Kind) {
+			case KindGood, KindPrisoner:
+				needsParty = true
+			}
+			if ItemKind(l.Kind) == KindPrisoner {
+				movesCaptives = true
+			}
 		}
 	}
 	if needsParty && partyOf(st, req.PlayerID) < 0 {
@@ -495,6 +597,9 @@ type lineMove struct {
 	// flag on the line rather than a sign threaded through three branches.
 	toTrader bool
 	read     string
+	// causedBy names the deal row this line's changes belong to, so the Why
+	// panel can walk from a number back to the bargain that moved it.
+	causedBy []int
 }
 
 // stageLine stages one line of a deal as a pair of writes: what leaves one side
@@ -519,7 +624,6 @@ func stageLine(w *sim.WriteSet, m lineMove) {
 	if m.quantity <= 0 {
 		return
 	}
-	partyID := m.party.ID
 	townID := m.town.ID
 
 	// deltas for the two ends, named so the notes read as sentences.
@@ -533,35 +637,40 @@ func stageLine(w *sim.WriteSet, m lineMove) {
 	switch m.kind {
 	case KindGood:
 		g, ok := goodByID[m.itemID]
-		if !ok {
+		if !ok || m.party == nil {
 			return
 		}
+		partyID := m.party.ID
 		// A good leaves one hold and arrives in the other: the party's cargo
 		// against the town's stock. The party is always the player's, and the
 		// town is always the trader's, because that is the pair a barter
 		// happens between.
-		w.Add(model.KindParty, partyID, g.PartyField, from, m.read, nil,
+		w.Add(model.KindParty, partyID, g.PartyField, from, m.read, m.causedBy,
 			fmt.Sprintf("%s of %s %s to %s across the table", g.Name, trim(q), "moved", toWho))
-		w.Add(model.KindTown, townID, g.TownField, to, m.read, nil,
+		w.Add(model.KindTown, townID, g.TownField, to, m.read, m.causedBy,
 			fmt.Sprintf("%s's %s %s %s by %s at the table", m.town.Name, g.Name, trim(q), fromVerb(m.toTrader), fromWho))
 
 	case KindGold:
 		// Gold moves between the two rulers and nowhere else. It is not the
 		// town's reserve: a lord bartering with their own purse is not the
 		// town bankrolling them.
-		w.Add(model.KindLeader, m.player.ID, "gold", from, m.read, nil,
+		w.Add(model.KindLeader, m.player.ID, "gold", from, m.read, m.causedBy,
 			fmt.Sprintf("%s's gold %s by %s at the table", m.player.Name, trim(q), fromVerb(m.toTrader)))
-		w.Add(model.KindLeader, m.trader.ID, "gold", to, m.read, nil,
+		w.Add(model.KindLeader, m.trader.ID, "gold", to, m.read, m.causedBy,
 			fmt.Sprintf("%s's gold %s by %s at the table", m.trader.Name, trim(q), toVerb(m.toTrader)))
 
 	case KindPrisoner:
 		// A captive moves between cages, and the trader's cage is their own
 		// party. applyOrder has already refused any deal that moves captives
 		// to a lord with no party in the field, so this is never nil here.
+		if m.party == nil || m.traderParty == nil {
+			return
+		}
+		partyID := m.party.ID
 		traderParty := m.traderParty
-		w.Add(model.KindParty, partyID, "prisoners", from, m.read, nil,
+		w.Add(model.KindParty, partyID, "prisoners", from, m.read, m.causedBy,
 			fmt.Sprintf("%s prisoners %s by %s", m.party.Name, trim(q), fromVerb(m.toTrader)))
-		w.Add(model.KindParty, traderParty.ID, "prisoners", to, m.read, nil,
+		w.Add(model.KindParty, traderParty.ID, "prisoners", to, m.read, m.causedBy,
 			fmt.Sprintf("%s's prisoners %s by %s", traderParty.Name, trim(q), toVerb(m.toTrader)))
 	}
 }
