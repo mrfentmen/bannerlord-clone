@@ -17,3 +17,4 @@ export * from "./chronicle.js";
 export * from "./music.js";
 export * from "./identity.js";
 export { applyPhotoFilter, photoFilterCss, PHOTO_FILTERS, PHOTO_FILTER_LABELS, type FilteredCapture, type PhotoFilter } from "./photoFilters.js";
+export { applyWarPaintPreset, warPaintPreset, WAR_PAINT_PRESETS, type WarPaintPreset } from "./warPaintPresets.js";
