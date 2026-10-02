@@ -323,9 +323,12 @@ func TestALayoutIsRebuiltWhenAGroupLosesMen(t *testing.T) {
 		}
 	}
 	// The two shoved men are three metres off the smaller shape and are ordered
-	// back toward it. The two in the middle of it are standing on their slots and
-	// are left alone, which is the same rule the cohesion test checks and is
-	// stated here because a rebuilt layout is what puts them there.
+	// back toward it. The two in the middle of it are standing on their slots, and
+	// what they get is the pin: written to, with a step of zero metres. Not
+	// silence, which is the same rule the cohesion test checks and is stated here
+	// because a rebuilt layout is what puts them there, and not a walk either,
+	// because a formation that walks a man inside his own slot is arguing with
+	// itself every tick.
 	if _, _, ok := centreOfMass(shrunken, []int{0, 2, 3, 5}); !ok {
 		t.Fatal("the four men have no weight between them")
 	}
@@ -335,9 +338,16 @@ func TestALayoutIsRebuiltWhenAGroupLosesMen(t *testing.T) {
 		}
 	}
 	for _, id := range []int{2, 3} {
-		if shrunken.Commands[id].Set {
+		c := shrunken.Commands[id]
+		if !c.Set {
+			t.Errorf("unit %d is standing on his slot in the line of four and was given no order at "+
+				"all; a man the shape has placed is pinned, because silence hands him to an engine "+
+				"that advances him", id)
+			continue
+		}
+		if c.DX != 0 || c.DY != 0 {
 			t.Errorf("unit %d is standing on his slot in the line of four and was told to walk %g, %g",
-				id, shrunken.Commands[id].DX, shrunken.Commands[id].DY)
+				id, c.DX, c.DY)
 		}
 	}
 	ordered := 0
@@ -905,6 +915,11 @@ type fieldSpy struct {
 	// the shape has arrived, so a follower that has taken up its station and
 	// stopped is not evidence that the follow was never obeyed.
 	everMoved map[int]int
+	// walked is how many unit-ticks of movement the whole group was given over the
+	// whole window, which is the one probe that survives an order which finishes:
+	// a shape that has arrived is silent on the last tick and was not silent for
+	// the three hundred ticks it took to get there.
+	walked int
 }
 
 func (f *fieldSpy) Command(v *View) error {
@@ -927,6 +942,7 @@ func (f *fieldSpy) Command(v *View) error {
 		}
 		if c.Set && (c.DX != 0 || c.DY != 0) {
 			f.moved++
+			f.walked++
 			if i < len(f.ids) {
 				f.everMoved[f.ids[i]]++
 			}
@@ -1160,8 +1176,16 @@ func TestEveryCarriedOrderReachesTheFieldOnItsOwn(t *testing.T) {
 			ticks: 300,
 			desc:  "move: the shape walks to the point it was given",
 			want: func(t *testing.T, f *fieldSpy, _ []map[int]bool, before, after map[int]UnitView) {
-				if f.moved == 0 {
-					t.Error("a move to a point sixty metres north moved nobody")
+				// Not "is anybody moving on the last tick". A move to a point is
+				// the one carried order that finishes: a formation that has walked
+				// to where it was told to go is standing there, correctly, and a
+				// probe on the last tick scores an order that worked as an order
+				// nobody obeyed. What has to hold is that the shape walked there
+				// at all, which is the drift below, and that the drift is the
+				// drift of the point and not of the enemy.
+				if f.walked <= 0 {
+					t.Error("a move to a point sixty metres north never moved a man over the whole " +
+						"window")
 				}
 				for i, c := range f.cmds {
 					if c.Set && c.Intent != IntentAdvance {

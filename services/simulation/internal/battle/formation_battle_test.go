@@ -1501,17 +1501,39 @@ func TestAnArrivedMoveCementsItselfAtTheHoldPace(t *testing.T) {
 		t.Errorf("a man 2 m from his slot in an arrived move was told to walk %.4f m in a tick; the hold's "+
 			"pace is %.4f m and the marching pace is %.4f m", step, hold, march)
 	}
-	// And the shape is not marching: every other man, being within their slots, is
-	// left to the engine's own rules.
+	// And the shape is not marching. Every other man is within his own spacing of
+	// his slot, and inside that spacing there are two answers and only two: a man
+	// within the pinning radius is pinned with a step of zero, and a man between
+	// the pinning radius and a whole frontage is walked back onto his slot at the
+	// hold's own pace. Neither is the marching pace, which is the whole of what
+	// "an arrived shape cements itself" means, and neither is silence, because
+	// silence hands a man to an engine whose own rules for one out of contact are
+	// to close on the enemy.
+	pinned, tidied := 0, 0
 	for i := 1; i < n; i++ {
-		if v.Commands[i].Set {
-			t.Errorf("man %d, within his own spacing of his slot in an arrived move, was given an order "+
-				"(%+.4f, %+.4f); an arrived shape is a hold", i, v.Commands[i].DX, v.Commands[i].DY)
+		got := v.Commands[i]
+		if !got.Set {
+			t.Errorf("man %d, within his own spacing of his slot in an arrived move, was given no "+
+				"order at all; an arrived shape pins or tidies its men, because silence hands them "+
+				"to an engine that advances them", i)
+			continue
+		}
+		step := math.Hypot(got.DX, got.DY)
+		switch {
+		case step == 0:
+			pinned++
+		case math.Abs(step-hold) <= 1e-9:
+			tidied++
+		default:
+			t.Errorf("man %d, within his own spacing of his slot in an arrived move, was told to "+
+				"walk %.4f m, which is neither the hold's %.4f m nor nothing at all; an arrived "+
+				"shape is a hold", i, step, hold)
 		}
 	}
 	t.Logf("a move to the point (%+.2f, %+.2f) the shape was already standing on: a man shoved 2 m from "+
 		"his slot was told %.4f m this tick, which is the hold's %.4f m and not the march's %.4f m, and "+
-		"the other %d were left to their own rules", hx, hy, step, hold, march, n-1)
+		"of the other %d, %d were pinned and %d tidied at the hold's pace",
+		hx, hy, step, hold, march, n-1, pinned, tidied)
 }
 
 // countSpoken is how many order slots were spoken to at all, movement or shape.
@@ -2107,4 +2129,410 @@ func TestAFormationSurvivesARoutAndReformsOnRally(t *testing.T) {
 		"them (%d of them asked to step, %d already in place)",
 		men, broken, routedMetre, routTicks, int(back), mean, worst, spacing,
 		recentred, broken, len(held), movedHeld, silentHeld)
+}
+
+// pairSpy watches a commanded formation for the two things a whole battle can do
+// to it: put two of its men inside each other, and fail to finish forming up.
+//
+// Both are read off the commander itself rather than recomputed. The commander
+// publishes the anchor it worked from and keeps the layout it laid out, so the spy
+// measures the men against the slots they were actually given, which is the only
+// measurement that cannot quietly disagree with the code it is testing.
+type pairSpy struct {
+	under Commander
+	ids   []int
+	// standing is the distance within which every man of the shape counts as being
+	// on his own slot, and it is the shape's own drawn gap between its two closest
+	// slots rather than battle.front_spacing, because the shapes do not share a
+	// spacing: a line draws its men 1.50 m apart and skirmish 3.49 m. This is the
+	// state in which the question of order across the rank is asked at all.
+	standing float64
+	// scatter is how far this shape's own layout pushes a man off his lattice
+	// point, which is zero for every shape but skirmish. Two slots closer across
+	// than this are the same column and their left-to-right order is the hash's.
+	scatter float64
+	// comparable counts the pairs skipped for that reason over the whole battle,
+	// so the number of pairs the question was actually asked of is visible in the
+	// log rather than implied.
+	comparable int
+	// tight is the closest pair of members on each tick, and off is the furthest
+	// any member is from his own slot on that tick.
+	tight []float64
+	off   []float64
+	tick  []int
+	// gap is the distance from the nearest man of the group to the nearest enemy,
+	// per tick, which is what says whether the formation is marching or fighting.
+	gap []float64
+	// crossed counts the pairs of men whose order across the shape has inverted on
+	// each tick, and the first one that ever did is kept with its tick.
+	crossed   []int
+	worstPair int
+	firstTick int
+	firstA    int
+	firstB    int
+	firstD    float64
+	// firstAxis is which axis the first inversion was on, because a column's
+	// inversions are in depth and a rank's are across, and "the wrong way round"
+	// is not the same defect in the two.
+	firstAxis string
+	// tightest is the closest pair over the whole battle, for the log
+	tightest float64
+	at       int
+	byA      int
+	byB      int
+}
+
+func (s *pairSpy) Command(v *View) error {
+	if err := s.under.Command(v); err != nil {
+		return err
+	}
+	fc, ok := s.under.(*FormationCommander)
+	if !ok || len(fc.groups) != 1 {
+		return nil
+	}
+	g := fc.groups[0]
+	placed := make([]int, 0, len(s.ids))
+	for _, id := range s.ids {
+		if id < len(v.Units) && v.Units[id].Status == StatusFighting && v.Commands[id].FormationSet {
+			placed = append(placed, id)
+		}
+	}
+	if len(placed) < 2 {
+		return nil
+	}
+	// tight is over the men the formation is placing this tick, which is the only
+	// set it is responsible for: a man who has broken or run is not in the shape
+	// and walks off under the engine's own rules.
+	tight := math.Inf(1)
+	var a, b int
+	for i := 0; i < len(placed); i++ {
+		ua := &v.Units[placed[i]]
+		for j := i + 1; j < len(placed); j++ {
+			ub := &v.Units[placed[j]]
+			if d := math.Hypot(ua.X-ub.X, ua.Y-ub.Y); d < tight {
+				tight, a, b = d, placed[i], placed[j]
+			}
+		}
+	}
+	// off is the furthest any of them is from the slot the commander gave him.
+	off := 0.0
+	for i, id := range placed {
+		if i >= len(g.slots) {
+			break
+		}
+		sx, sy := g.slots[i].place(g.anchorX, g.anchorY, g.facing)
+		u := &v.Units[id]
+		if d := math.Hypot(sx-u.X, sy-u.Y); d > off {
+			off = d
+		}
+	}
+	s.tight = append(s.tight, tight)
+	s.off = append(s.off, off)
+	s.tick = append(s.tick, v.Tick)
+	s.gap = append(s.gap, nearestEnemy(v, placed))
+	// Crossed: for every pair of men in the shape, the order the shape gave them
+	// them, compared with the order they are actually standing in.
+	//
+	// Each pair is asked on the axis along which the SHAPE separated its two slots
+	// furthest, which is not the same axis for every pair and is the reason this is
+	// not a lateral-only measure. Two men abreast in a rank are separated across,
+	// so their order across is the shape's and is asked. Two men in one file of a
+	// column are separated in depth - a column is single file, and the only order
+	// it has is front to back - so their depth is asked instead. A lateral-only
+	// measure skips those pairs, which is how a column came to report zero pairs
+	// examined and look like it had been tested.
+	//
+	// Both axes are the shape's own, rotated by the commander's facing: for a
+	// formation facing east that is north-south across and east-west in depth, and
+	// a test that hard-coded an axis would only be right while the enemy was due
+	// east.
+	//
+	// Two men are the wrong way round when the order of their positions along that
+	// axis is not the order of their slots along it, which is the whole of "a rank
+	// walks through another rank": a man who has crossed his neighbour is standing
+	// somewhere the shape never put him, and no amount of tidying afterwards undoes
+	// it, because each of them is walking back to a slot the other one now holds.
+	//
+	// It is only asked of a shape that is standing. A roster that deploys as a block
+	// and is walking into a line has most of its pairs the wrong way round at tick
+	// zero, and counting those would be counting the formation's own work.
+	//
+	// And a pair is only asked on an axis the shape actually ordered it on. In a
+	// scattered shape each man is pushed off his lattice point by a hash of
+	// (seed, index), so two slots closer together than one scatter amplitude were
+	// not ordered by the shape on that axis at all - which of the two is on the
+	// left is the hash's decision - and asking about it asks a question about the
+	// hash.
+	//
+	// With the shipped lattice this guard never fires, and the log says so: every
+	// combination above reports zero pairs skipped, skirmish included, because two
+	// men in one lattice column are always a whole rank spacing apart in depth
+	// however their scatter falls sideways. It is here for the lattice it would
+	// catch rather than as the thing that fixed skirmish, and the thing that fixed
+	// skirmish was asking each pair on the axis the shape separated it on. Keeping
+	// it costs one comparison and documents that a closer lattice is not a licence
+	// to reorder men.
+	acrossX, acrossY := math.Sin(g.facing), -math.Cos(g.facing)
+	depthX, depthY := math.Cos(g.facing), math.Sin(g.facing)
+	inverted := 0
+	if off <= s.standing {
+		for i := 0; i < len(placed); i++ {
+			for j := i + 1; j < len(placed); j++ {
+				si, sj := g.slots[i], g.slots[j]
+				dRight, dDepth := math.Abs(si.Right-sj.Right), math.Abs(si.Forward-sj.Forward)
+				axX, axY, want := acrossX, acrossY, si.Right < sj.Right
+				if dDepth > dRight {
+					// Depth is the axis this pair was separated on.
+					axX, axY, want = depthX, depthY, si.Forward < sj.Forward
+				}
+				sep := math.Max(dRight, dDepth)
+				if sep <= s.scatter {
+					// The same lattice point within the scatter: not an order the
+					// shape set on either axis.
+					s.comparable++
+					continue
+				}
+				ui, uj := &v.Units[placed[i]], &v.Units[placed[j]]
+				li := (ui.X-g.anchorX)*axX + (ui.Y-g.anchorY)*axY
+				lj := (uj.X-g.anchorX)*axX + (uj.Y-g.anchorY)*axY
+				if want == (li < lj) {
+					continue
+				}
+				inverted++
+				if s.worstPair == 0 {
+					s.firstTick, s.firstA, s.firstB = v.Tick, placed[i], placed[j]
+					s.firstD = math.Hypot(ui.X-uj.X, ui.Y-uj.Y)
+					s.firstAxis = "depth"
+					if axX == acrossX {
+						s.firstAxis = "across"
+					}
+				}
+			}
+		}
+	}
+	s.crossed = append(s.crossed, inverted)
+	if inverted > s.worstPair {
+		s.worstPair = inverted
+	}
+	if tight < s.tightest {
+		s.tightest, s.at, s.byA, s.byB = tight, v.Tick, a, b
+	}
+	return nil
+}
+
+// nearestEnemy is how close the fight has come to a formation: the smallest gap
+// between any man in it and any enemy on the field. It is the measure that
+// separates marching from fighting, and it is measured to the nearest man rather
+// than to the enemy's centre because a line that has reached contact has its front
+// rank in the enemy and its rear rank a hundred metres back, and a centre-of-mass
+// gap would describe neither end of it.
+func nearestEnemy(v *View, mine []int) float64 {
+	best := math.Inf(1)
+	for _, id := range mine {
+		u := &v.Units[id]
+		for j := range v.Units {
+			e := &v.Units[j]
+			if e.Side == u.Side || !e.Status.OnField() {
+				continue
+			}
+			if d := math.Hypot(u.X-e.X, u.Y-e.Y); d < best {
+				best = d
+			}
+		}
+	}
+	return best
+}
+
+// firstAt is the first tick at which the measured series first went under limit.
+//
+// Both windows this test measures are read off the measurement rather than written
+// down as numbers, because a window fixed as a number is a number that is wrong
+// for some other shape. A column converges in a second and a square takes a
+// minute; a test that fixed the marching window at the column's answer would be
+// measuring a square's second minute and calling it marching.
+func (s *pairSpy) firstAt(series []float64, under float64) (int, bool) {
+	for i, v := range series {
+		if v <= under {
+			return s.tick[i], true
+		}
+	}
+	return 0, false
+}
+
+// A formation is a set of places, and the men in it are told to stand on them. The
+// question this asks is the one that decides whether that is more than drawing: do
+// the men end up in the order the shape put them in, or do they end up shuffled,
+// each standing where his neighbour was?
+//
+// It is asked over whole battles rather than over ticks, because the answer is a
+// statement about a fight: every shape, walking at an advance and at a charge, with
+// the order across the rank of every pair of men in the group compared against the
+// order of the slots they were given, on every tick the group is on the field.
+//
+// # WHY ORDER AND NOT DISTANCE
+//
+// The first version of this measured the closest pair and held it to min_separation,
+// and it failed in every shape with pairs at 0.00 m. That was measuring the wrong
+// thing, and the measurement is worth keeping in the log to show why. Men walking to
+// their slots from the roster's own spread cross each other's paths: two men in the
+// same column of two ranks are given slots two metres apart and both start out west
+// of them, so for a few ticks they are closer together than the shape will ever
+// hold them, and by the time they have arrived they are the right way round. A pair
+// closing while a squad converges is not a rank walking through another rank.
+//
+// Order is the thing that cannot be undone. A man who has crossed his neighbour is
+// standing where the shape never put him, and no amount of tidying afterwards fixes
+// it, because each of the two is walking back to a slot the other now holds: the
+// shape and the men disagree about where the line is, and they go on disagreeing
+// until one of them is destroyed. A pair that is briefly close while it converges is
+// a man walking past his neighbour on the way to his own place.
+//
+// The window is measured rather than chosen. From the tick the shape first stood
+// (every man within a frontage of his own slot) to the tick the fight reached it
+// (the nearest enemy within a swing) is the stretch in which this layer is the only
+// thing placing these men. After contact it is not: the engine's own separation
+// rule adds to the staged delta rather than replacing it, so it moves commanded men
+// too, and a pair that changes places in a melee is that rule and not these slots.
+// Those ticks are counted and printed rather than asserted on, because asserting on
+// them would be asserting that this layer owns a fight it does not.
+func TestAMarchingFormationNeverWalksARankThroughAnother(t *testing.T) {
+	cfg := loadConfig(t)
+	p := FormationParamsFrom(cfg.Formation)
+	const (
+		seed = 20260930
+		n    = 40
+	)
+	orders := []FormationOrder{OrderFormationAdvance, OrderFormationCharge}
+	for _, f := range AllFormations() {
+		setup, err := standardForce(t, cfg, seed, n)
+		if err != nil {
+			t.Fatalf("%s: building the force failed: %v", f, err)
+		}
+		setup.Label = fmt.Sprintf("%d v %d, side A in %s", n, n, f)
+		// The shape's own tightest gap, which is the floor a live formation of
+		// this shape can reach and which the balance file's validator holds at or
+		// above min_separation.
+		ids := make([]int, n)
+		for i := range ids {
+			ids[i] = i
+		}
+		// The shape's own tightest gap, which is the floor a live formation of
+		// this shape can reach and which the balance file's validator holds at or
+		// above min_separation. It is drawn once per shape rather than once per
+		// order because it is a property of the shape and the count, not of the
+		// order, and it doubles as the tolerance for whether the shape has arrived.
+		slots, err := FormationLayout(f, n, p)
+		if err != nil {
+			t.Fatalf("%s of %d: %v", f, n, err)
+		}
+		drawn, err := MinSlotDistance(slots)
+		if err != nil {
+			t.Fatalf("%s of %d: %v", f, n, err)
+		}
+		if drawn < p.MinSeparation {
+			t.Errorf("%s of %d puts its closest two slots %.2f m apart, below the min_separation "+
+				"of %.2f m the balance file promises; the shape is crowded before it is marched",
+				f, n, drawn, p.MinSeparation)
+		}
+		for _, o := range orders {
+			formed, err := NewFormationCommander(cfg, SideA, []Group{
+				{Order: GroupOrder{Kind: f, Order: o}, Units: ids},
+			})
+			if err != nil {
+				t.Fatalf("%s %s: building the commander failed: %v", f, o, err)
+			}
+			// Only the scattered shape scatters. Setting the amplitude for every shape was a
+			// bug in this test that the log caught: a line reported a hundred thousand
+			// pairs "skipped as scatter-ordered" and a line has no scatter, so those
+			// were pairs of a line being thrown away on a tolerance belonging to
+			// another shape. The guard is derived from the shape under test.
+			spy := &pairSpy{under: formed, ids: ids, standing: drawn, tightest: math.Inf(1)}
+			if f == FormationSkirmish {
+				spy.scatter = p.LooseJitterFraction * p.LooseSpacing
+			}
+			if _, err := RunCommanded(cfg, seed, setup, spy); err != nil {
+				t.Fatalf("%s %s: the battle did not run: %v", f, o, err)
+			}
+			if len(spy.tick) == 0 {
+				t.Fatalf("%s %s: no tick with two of the group's men in the shape", f, o)
+			}
+			// The marching window is measured, not chosen: from the tick the shape
+			// was first standing to the tick the fight reached it. In that window
+			// the formation layer is the only thing placing these men, and it is the
+			// only window in which its slots can be held to the order it drew them
+			// in. After contact the engine's own separation rule is moving men too
+			// (it adds to the delta rather than replacing it), so a pair that
+			// changes places in a melee is the intent stage's rule and not this
+			// layer's slots; it is counted and reported, not asserted.
+			marchCrossed, fightCrossed := 0, 0
+			contactAt, inContact := spy.firstAt(spy.gap, cfg.Battle.MeleeRange)
+			for i, t := range spy.tick {
+				if spy.crossed[i] == 0 {
+					continue
+				}
+				if inContact && t >= contactAt {
+					fightCrossed++
+					continue
+				}
+				marchCrossed++
+			}
+			marchGap, marchAt, standingTicks := marching(spy, drawn)
+			t.Logf("%-8s %-8s: %d men, %d ticks, contact at tick %d; closest pair %.2f m (tick %d, "+
+				"units %d and %d); shape standing on %d of %d ticks, tightest pair while standing "+
+				"%.2f m at tick %d, the shape as drawn %.2f m, min_separation %.2f m; %d pairs "+
+				"skipped as scatter-ordered, %d inverted on %d marching ticks and %d fighting ticks, "+
+				"worst tick %d pairs",
+				f, o, n, len(spy.tick), contactAt, spy.tightest, spy.at, spy.byA, spy.byB,
+				standingTicks, len(spy.tick), marchGap, marchAt, drawn, p.MinSeparation,
+				spy.comparable, marchCrossed, len(spy.tick)-marchCrossed-fightCrossed,
+				fightCrossed, spy.worstPair)
+			if marchCrossed > 0 {
+				t.Errorf("%s %s: %d of %d ticks had two men the wrong way round from the slots they "+
+					"were given, before the fight reached them at tick %d: at tick %d units %d and %d "+
+					"stood %.2f m apart the wrong way round %s the shape, and %d pairs were inverted at "+
+					"once at the worst tick. A man who has walked through his neighbour is standing "+
+					"where the shape never put him, and no amount of tidying afterwards undoes it, "+
+					"because each of them is walking back to a slot the other one now holds",
+					f, o, marchCrossed, len(spy.tick), contactAt, spy.firstTick,
+					spy.firstA, spy.firstB, spy.firstD, spy.firstAxis, spy.worstPair)
+			}
+		}
+	}
+}
+
+// marching is the tightest pair seen on any tick on which every man of the shape
+// was within a frontage of his own slot, which is the state the question is asked
+// about: a shape that is still tidying itself out of the roster's spread is not
+// yet a shape, and a pair closing while it converges says nothing about whether
+// the shape holds once it has arrived.
+//
+// The tolerance is the shape's OWN drawn gap between its two closest slots, not
+// battle.front_spacing, because the shapes do not share a spacing. A line, a
+// column, a wedge and a square draw their men 1.50 m apart and skirmish draws its
+// own men 3.49 m apart, so asking whether a skirmish is standing to within 1.50 m
+// of its slots asks a question no skirmish can ever answer: it printed +Inf for
+// every tick of a charge and was about to be read as a passing measurement. The
+// shape's own gap is the distance at which two of its men are still two men and
+// not one man in two places, which is what "the shape has arrived" means for that
+// shape.
+//
+// It also returns the tick and how many ticks were like that, because an infinite
+// answer is otherwise unreadable: it means the shape never once had every man of
+// it inside one drawn gap of his own slot for the whole battle. That is either a
+// question this test cannot answer - the fight reached the shape before it formed
+// up - or a defect, and the tick count says which.
+func marching(s *pairSpy, drawn float64) (gap float64, at, ticks int) {
+	gap = math.Inf(1)
+	at = -1
+	for i := range s.tick {
+		if s.off[i] > drawn {
+			continue
+		}
+		ticks++
+		if s.tight[i] >= gap {
+			continue
+		}
+		gap, at = s.tight[i], s.tick[i]
+	}
+	return gap, at, ticks
 }

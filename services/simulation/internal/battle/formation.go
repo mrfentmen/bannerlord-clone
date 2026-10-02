@@ -1431,14 +1431,13 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 	// in it: the shape's own spacing, once. It is read by the move order below and
 	// by the slot loop after, so it is worked out here rather than in both places.
 	tolerance := cohesionTolerance(g.order.Kind, p)
-	// inPlace is the distance inside which a man is left where he is rather than
-	// walked to his slot. It is the shape's spacing, once, for every order except
-	// a hold, and a fraction of it for a hold; the reason is in the slot loop
-	// below, where a whole spacing turns out to be too loose to stand still at.
-	inPlace := tolerance
-	if g.order.Order == OrderFormationHold {
-		inPlace = settleRadius(g.order.Kind, p)
-	}
+	// placed is the distance inside which a man is PINNED: written to with a step
+	// of zero metres rather than walked, and never handed back to the engine. It is
+	// settleRadius for every order, including a hold, and the reason has nothing to
+	// do with which order it is: a pinned man is one the engine is not allowed to
+	// move, and the radius is the point at which two pinned neighbours would still
+	// be a minimum gap apart. See the slot loop below.
+	placed := settleRadius(g.order.Kind, p)
 	// The layout, before anything that needs it. A follower measures its own depth
 	// to know where its front rank goes, and this is the layout it measures.
 	slots, err := g.slotsFor(len(c.ids), p)
@@ -1624,13 +1623,15 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 		// He is still never told to walk PAST his slot: the cap below is what
 		// stops a man reversing every tick, and it is the same cap either way.
 		//
-		// # AND WHY A HOLD ANSWERS WITH SILENCE NO LONGER
+		// # AND WHY NO ORDER ANSWERS WITH SILENCE
 		//
 		// The silence above was read as "he is in his place, so he is left to the
-		// engine's rules". For a man in contact that is right: the engine's rules
-		// for a man in contact are to fight and spread, which is what he should
-		// be doing. For a man who is not in contact they are to CLOSE ON THE
-		// ENEMY, and that is the exact opposite of a hold.
+		// engine's rules". For a man in contact that looked right: the engine's
+		// rules for a man in contact are to fight and spread, which is what he
+		// should be doing. For a man who is not in contact the engine's own rules
+		// are to CLOSE ON THE ENEMY, and for a man standing in a formation that is
+		// being obeyed they are to walk him through the rank next to him. Neither
+		// is what the shape ordered.
 		//
 		// Measured on the thirty-a-side test session, a line ordered to hold
 		// position and given nothing else:
@@ -1648,19 +1649,34 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 		// told a line to hold and watched it walk to the enemy has been told
 		// nothing at all.
 		//
-		// So a hold speaks. UnitCommand's own contract says it has to: "a
-		// zero-length order on a commander that means 'stand still' must
-		// therefore set Set, and a commander that says nothing leaves it clear."
-		// A hold is a commander that means stand still, and the zero step is
-		// written over the intent stage's advance, which is the whole of what a
-		// stand-still order is for.
-		if (!isFinite(dist) || dist <= inPlace) && !walking {
-			cmd.Set = g.order.Order == OrderFormationHold
+		// And the same silence, in a formation that had reached contact and so was
+		// no longer walking, put two men of the same rank in the same place. On
+		// forty a side at seed 20260930, in every shape and under both an advance
+		// and a charge, the closest pair in the group reached 0.00-0.02 m against
+		// a min_separation of 1.20 m: a fighting man inside the pin radius was
+		// handed back to a party that knows nothing about his formation, and the
+		// party walked him into his neighbour. The shape's slots are the only
+		// separation a commanded formation has, because the seam writes the
+		// commander's movement over the intent stage's deltas wholesale, so the
+		// one thing this layer may not do is stop writing.
+		//
+		// So every order pins. UnitCommand's own contract says a stand-still order
+		// has to set Set and that a commander which says nothing leaves the unit to
+		// the engine; a man the formation layer has placed is a man it is holding
+		// there, and the zero step is the whole of the order.
+		if (!isFinite(dist) || dist <= placed) && !walking {
+			cmd.Set = true
 		} else {
 			// The cohesion step: toward the slot, at the formation's pace, and
 			// never past it. Capping at the distance is what stops a man from
 			// arriving and reversing every tick, which is a formation that
 			// shivers in place instead of holding.
+			//
+			// A man between the pinning radius and the shape's own spacing walks
+			// rather than being pinned where he is, so a shape that has arrived
+			// still puts itself back in order while it stands there: a line that
+			// arrived as a crowd reforms in place and shoots from there, which is
+			// what advance_standoff is for.
 			step := u.Speed * stepPace / c.cfg.Battle.RosterSpeedBase * dt
 			if step > dist || !isFinite(step) {
 				step = dist
