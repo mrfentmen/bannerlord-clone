@@ -56,6 +56,18 @@
   white-space: nowrap;
 }
 
+/* Task 70: the strip command widgets mount into, so the formation row sits in
+   the toolbar instead of anchoring itself against the viewport. */
+.cmd-orders__slot {
+  flex-basis: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+.cmd-orders__slot:empty {
+  display: none;
+}
+
 /* Task 61: the hotkey chip. Muted so the label reads first. The browser's own
    monospace for <kbd> is left alone — CONSTITUTION.md section 3.4 puts every font
    choice in the token file, and a key cap is the one place mono belongs. */

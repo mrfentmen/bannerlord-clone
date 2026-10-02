@@ -36,11 +36,27 @@ export interface Order {
   target?: { x: number; z: number };
   /** Task 43: multi-leg waypoints, in order. Present on "move" orders. */
   waypoints?: { x: number; z: number }[];
+  /**
+   * Task 70: the shape the player asked the group to hold. Absent means "as the
+   * sim's default formation has it" — the commander only states a shape when the
+   * player chose one.
+   */
+  formation?: FormationKind;
   /** Task 46: the scene's estimate of how long the order takes to arrive, ms. */
   delayMs?: number;
   /** ms since epoch, for delay visualization downstream. */
   at: number;
 }
+
+/** Task 70: the shapes a group can be ordered into. */
+export type FormationKind = "line" | "column" | "wedge" | "circle";
+
+export const FORMATION_LABEL: Record<FormationKind, string> = {
+  line: "Line",
+  column: "Column",
+  wedge: "Wedge",
+  circle: "Circle",
+};
 
 export const ORDER_LABEL: Record<OrderKind, string> = {
   attack: "Attack",

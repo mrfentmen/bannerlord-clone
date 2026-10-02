@@ -36,7 +36,8 @@ import { createSelectionPanel, type SelectionPanel } from "./selectionPanel.js";
 import { createOrderPanel, type OrderPanel } from "./orderPanel.js";
 import { createSelectionRings, type SelectionRings } from "./selectionRings.js";
 import { createGroupIndicators, type GroupIndicators } from "./groupIndicators.js";
-import type { CommandSurface, Order, OrderKind } from "./types.js";
+import { createFormationSelector, type FormationSelector } from "./formation.js";
+import type { CommandSurface, FormationKind, Order, OrderKind } from "./types.js";
 
 export interface Commander {
   selection: SelectionModel;
@@ -177,6 +178,15 @@ export function createCommander(
     members: (group) => selection.group(group),
   });
   overlay.appendChild(groupIndicators.root);
+  /** Task 70: the shape the player wants the group to hold, or null for none. */
+  let formation: FormationKind | null = null;
+  const formationSelector: FormationSelector = createFormationSelector({
+    onPick: (picked) => {
+      formation = picked;
+    },
+  });
+  // Mounted in the order row's slot so the command widgets stack together.
+  orderPanel.slot.appendChild(formationSelector.root);
   const delays: OrderDelayHandle[] = [];
   /** Task 47: the last order issued to each unit — the panel's "stance". */
   const lastOrder = new Map<string, OrderKind>();
@@ -224,6 +234,9 @@ export function createCommander(
   /** Every order goes through here: sim gets it, the panel learns the stance,
    *  and the courier runs the delay visualization. */
   function issue(order: Order): void {
+    // Task 70: a chosen shape rides on the order. Absent means the player asked
+    // for no particular formation, so the order says nothing about shape.
+    if (formation && order.formation === undefined) order.formation = formation;
     surface.issueOrder(order);
     for (const id of order.unitIds) lastOrder.set(id, order.kind);
     const { byId } = liveUnits();
@@ -640,6 +653,7 @@ export function createCommander(
       orderPanel.destroy();
       rings.destroy();
       groupIndicators.destroy();
+      formationSelector.destroy();
       modeHint.remove();
     },
   };

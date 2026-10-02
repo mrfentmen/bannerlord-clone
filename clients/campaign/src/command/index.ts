@@ -4,11 +4,23 @@ export { createCommander, type Commander, type CommanderEvents } from "./command
 export { createMarkers, type Markers } from "./markers.js";
 export { showOrderDelay, type OrderDelayHandle } from "./orderDelay.js";
 export { createSelectionPanel, type PanelUnit, type SelectionPanel } from "./selectionPanel.js";
+export { createOrderPanel, ORDER_BUTTONS, type OrderButtonSpec, type OrderPanel, type OrderPanelOptions } from "./orderPanel.js";
+export { createSelectionRings, ringDiameter, type SelectionRings } from "./selectionRings.js";
+export { createGroupIndicators, type GroupIndicators, type GroupIndicatorsOptions } from "./groupIndicators.js";
+export {
+  createFormationSelector,
+  FORMATION_CHOICES,
+  type FormationChoice,
+  type FormationSelector,
+  type FormationSelectorOptions,
+} from "./formation.js";
 export {
   ORDER_LABEL,
   STANCE_LABEL,
+  FORMATION_LABEL,
   type CommandSurface,
   type CommandableUnit,
+  type FormationKind,
   type Order,
   type OrderKind,
 } from "./types.js";

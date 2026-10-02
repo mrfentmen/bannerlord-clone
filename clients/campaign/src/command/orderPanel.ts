@@ -57,6 +57,11 @@ export interface OrderPanelOptions {
 
 export interface OrderPanel {
   root: HTMLElement;
+  /**
+   * An empty strip inside the row. Task 70 hangs the formation selector here, so
+   * command widgets stack in one place instead of each anchoring itself.
+   */
+  slot: HTMLElement;
   /** The buttons, in panel order — the later hotkey task decorates them. */
   buttons(): HTMLButtonElement[];
   /** Nothing selected means nothing to order: the row goes disabled. */
@@ -113,6 +118,8 @@ export function createOrderPanel(options: OrderPanelOptions): OrderPanel {
     root.appendChild(btn);
     row.push(btn);
   }
+  const slot = h("div", { class: "cmd-orders__slot", "data-testid": "cmd-orderpanel-slot" });
+  root.appendChild(slot);
 
   function hotkeyText(action: string): string {
     const bindings = registered.has(action) ? registry.bindingFor(action) : [];
@@ -133,6 +140,7 @@ export function createOrderPanel(options: OrderPanelOptions): OrderPanel {
 
   return {
     root,
+    slot,
     buttons: () => [...row],
     setEnabled,
     destroy() {
