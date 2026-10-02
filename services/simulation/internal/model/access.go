@@ -758,6 +758,22 @@ func partyGet(p *Party, f string) (float64, bool) {
 		return b2f(p.IsSieging), true
 	case "supply_distance":
 		return p.SupplyDistance, true
+	case "caravan_gold":
+		return p.CaravanGold, true
+	case "caravan_guards":
+		return p.CaravanGuards, true
+	case "caravan_animals":
+		return p.CaravanAnimals, true
+	case "caravan_cargo":
+		return p.CaravanCargo, true
+	case "caravan_cargo_type":
+		return p.CaravanCargoType, true
+	case "caravan_at_town":
+		return float64(p.CaravanAtTown), true
+	case "caravan_dest_town":
+		return float64(p.CaravanDestTown), true
+	case "caravan_progress":
+		return p.CaravanProgress, true
 	case "cargo_food":
 		return p.CargoFood, true
 	case "cargo_medicine":
@@ -883,6 +899,22 @@ func partySet(p *Party, f string, v float64) bool {
 		p.IsSieging = f2b(v)
 	case "supply_distance":
 		p.SupplyDistance = v
+	case "caravan_gold":
+		p.CaravanGold = v
+	case "caravan_guards":
+		p.CaravanGuards = v
+	case "caravan_animals":
+		p.CaravanAnimals = v
+	case "caravan_cargo":
+		p.CaravanCargo = v
+	case "caravan_cargo_type":
+		p.CaravanCargoType = v
+	case "caravan_at_town":
+		p.CaravanAtTown = int(v)
+	case "caravan_dest_town":
+		p.CaravanDestTown = int(v)
+	case "caravan_progress":
+		p.CaravanProgress = v
 	case "cargo_food":
 		p.CargoFood = v
 	case "cargo_medicine":

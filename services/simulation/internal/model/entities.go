@@ -362,6 +362,15 @@ type Party struct {
 	IsCaravan        bool
 	IsSieging        bool
 	SupplyDistance   float64
+	// Caravan fields (Tier 6): mobile trading operations.
+	CaravanGold      float64 // gold held by the caravan
+	CaravanGuards    float64 // guards protecting the caravan
+	CaravanAnimals   float64 // pack animals
+	CaravanCargo     float64 // total cargo units
+	CaravanCargoType float64 // hashed good type (1=food, 2=medicine, 3=metal)
+	CaravanAtTown    int     // town ID where caravan is, -1 if traveling
+	CaravanDestTown  int     // destination town ID, -1 if none
+	CaravanProgress  float64 // travel progress 0-1
 	CargoFood        float64
 	CargoMedicine    float64
 	CargoMetal       float64

@@ -27,6 +27,7 @@ import (
 	"mbclone/simulation/internal/systems/clan"
 	"mbclone/simulation/internal/systems/council"
 	"mbclone/simulation/internal/systems/courtship"
+	"mbclone/simulation/internal/systems/caravan"
 	"mbclone/simulation/internal/systems/crime"
 	"mbclone/simulation/internal/systems/currency"
 	"mbclone/simulation/internal/systems/demography"
@@ -134,6 +135,7 @@ func Systems() []sim.System {
 		workshop.System(),
 		smithing.System(),
 		naval.System(),
+		caravan.System(),
 
 		// --- party composition and formation (Tier 6) ---
 		//
