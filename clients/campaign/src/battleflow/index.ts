@@ -5,3 +5,5 @@ export * from "./poll";
 export * from "./cohesion";
 export * from "./announcer";
 export * from "./scouting";
+export * from "./rally";
+export * from "./rallyButton";
