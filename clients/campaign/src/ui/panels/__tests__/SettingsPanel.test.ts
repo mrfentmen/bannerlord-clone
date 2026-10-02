@@ -27,6 +27,7 @@ const GRAPHICS_KEYS = [
   "motionBlurEnabled",
   "particleDensity",
   "damageVignetteEnabled",
+  "ragdollEnabled",
 ];
 const AUDIO_KEYS = ["masterVolume", "musicVolume", "sfxVolume"];
 const GAMEPLAY_KEYS = [
