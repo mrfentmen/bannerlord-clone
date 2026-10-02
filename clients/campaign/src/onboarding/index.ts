@@ -13,3 +13,4 @@ export * from "./progress.js";
 export * from "./introStory.js";
 export * from "./introStoryPanel.js";
 export * from "./goalCelebration.js";
+export { completeStep, currentStep, skipStep, startBattleTutorial, tutorialProgress, TUTORIAL_ACTIONS, type BattleTutorial, type TutorialAction, type TutorialStep } from "./battleTutorial.js";
