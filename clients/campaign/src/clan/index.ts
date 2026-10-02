@@ -14,3 +14,4 @@ export * from "./bannerPalette.js";
 export * from "./companions.js";
 export * from "./loyalty.js";
 export { lawsPanel, type LawsRoster, type LawsPanelOptions, type LawsPanelHandle } from "./lawsPanel.js";
+export * from "./comingOfAge.js";
