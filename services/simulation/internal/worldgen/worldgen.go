@@ -331,6 +331,10 @@ func newTown(cfg *config.Config, r *rng.Rng, s Settlement) *model.Town {
 	t.Gold = s.Population * cfg.World.TownGoldPerCapita
 	t.MedicineStock = s.Population * cfg.World.MedicinePerCapita
 	t.Garrison = math.Max(1, s.Population*cfg.World.GarrisonPerCapita)
+	// Militia starts as a share of the population: the volunteers a town
+	// can raise on day one. Without this the recruit pool is zero in every
+	// town until someone builds a Watch, and the player can never hire.
+	t.Militia = math.Max(1, s.Population*cfg.World.MilitiaPerCapita)
 	t.RoadSafety = cfg.Security.BaseRoadSafety
 	// Ports start better supplied, because they trade; inland towns start
 	// poorer, which is the Atlantic and Pacific food problem from FACTIONS.md.
