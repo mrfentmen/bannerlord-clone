@@ -13,3 +13,4 @@ export * from "./weather";
 export * from "./casualties";
 export * from "./mvp";
 export * from "./loot";
+export * from "./interrogation";
