@@ -275,6 +275,11 @@ func applyRecruit(v *sim.View, w *sim.WriteSet, o sim.Order) {
 	if v.State.AtWar(t.SideID, r.SideID) {
 		return
 	}
+	// Access check: very negative relations (< -0.5) block recruitment
+	// even without formal war (treaty-like access denial).
+	if rel := v.State.SideRelation(t.SideID, r.SideID); rel < -0.5 {
+		return
+	}
 	// Troop cap check: party can't exceed max troops (configurable).
 	maxTroops := 500.0
 	if c != nil {
