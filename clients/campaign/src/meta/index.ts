@@ -30,3 +30,5 @@ export * from "./resetCampaign.js";
 export { rarityTier, sortAchievementsByRarity, type RankedAchievement, type RarityTier, type UnlockRates } from "./achievementRarity.js";
 export { campaignStats, campaignStatsBreakdown, lifetimeTotals, recordCampaignStats, removeCampaignStats, type CampaignStatsEntry } from "./campaignStats.js";
 export { buildShowcase, parseShowcaseCode, type ProfileShowcase, type ShowcaseCard } from "./profileShowcase.js";
+export * from "./lifetimeStats.js";
+export * from "./leaderboards.js";
