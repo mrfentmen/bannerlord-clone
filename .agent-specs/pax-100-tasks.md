@@ -167,3 +167,5 @@ Completed:
 - Tasks 30-32 (364a52b): cheer() and surrender() triggers (block/parry already existed)
 - Tasks 33-35: verified existing (takeHit(), blend in/out, setSpeed() all implemented)
 - Tasks 36-37 (e506843): models test passes, thumb LOD (my code clean; pre-existing e2e errors in metaPanels.spec.ts not my lane)
+- Tasks 60,63,64 (d2f47ee): battle UI (deployment, intro, outro)
+- Tasks 71-72: audio audit (109 files), SFX wired via AudioManager
