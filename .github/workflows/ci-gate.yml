@@ -1,8 +1,5 @@
 name: ci-gate
 
-# The pre-review gate for the Bannerlord-clone repo. Runs the same
-# tools/ci-gate.sh script a developer runs locally, so CI and local
-# results mean the same thing.
 on:
   push:
     branches: ["**"]
@@ -23,6 +20,9 @@ jobs:
       - name: Install world-data deps
         run: pip install "./services/world-data[dev,parquet]"
 
+      - name: World-data pytest
+        run: cd services/world-data && python3 -m pytest -q
+
       - name: Set up Node
         uses: actions/setup-node@v5
         with:
@@ -33,5 +33,11 @@ jobs:
       - name: Install client deps
         run: npm ci --prefix clients/campaign
 
-      - name: Run the gate
-        run: bash tools/ci-gate.sh
+      - name: Client vitest
+        run: npm test --prefix clients/campaign
+
+      - name: Client typecheck
+        run: npm run typecheck --prefix clients/campaign
+
+      - name: Client build
+        run: npm run build --prefix clients/campaign
