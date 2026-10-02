@@ -259,19 +259,37 @@ func TestHeadlessReference(t *testing.T) {
 	// CHANGELOG.md, and the gap between 49 and 33 is the grid hot path's to
 	// close.
 	const budgetPerUnitTick = 250 * time.Microsecond
+	// The race detector is the one perturbation this test cannot be run under,
+	// and it is worth naming separately from machine load because it is not a
+	// contention problem and there is no way around it. Measured on this branch
+	// 20261002, the same 500 v 500 battle took 49.8 s in an ordinary build and
+	// 15m19.501s under -race: 25.9 us per unit per tick against 479.406 us, so
+	// the figure below would be 479 us against this 250 us ceiling and the test
+	// would report a slow engine where there is a fast one. -race instruments
+	// every memory access, which is the whole point of it, and it is not a
+	// constant factor that could be divided out.
+	//
+	// So the budget is asserted in an ordinary build and REPORTED under -race.
+	// The battle is checked either way, and in fact the battle came out
+	// bit-identical under the detector: 1918 ticks, side A 111 dead and 258
+	// wounded, side B 106 dead and 246 wounded, winner B by enemy broke. The
+	// detector changed how long the engine took and nothing about what it
+	// decided, which is itself worth knowing.
 	if res.Ticks > 0 {
 		perUnitTick := elapsed / time.Duration(2*n) / time.Duration(res.Ticks)
 		t.Logf("tick cost: %s per unit per tick, budget %s, target %s per the 30 fps figure",
 			perUnitTick.Round(time.Nanosecond), budgetPerUnitTick,
 			(33 * time.Microsecond).Round(time.Nanosecond))
-		if perUnitTick > budgetPerUnitTick {
+		if perUnitTick > budgetPerUnitTick && !raceDetectorEnabled {
 			t.Errorf("a tick of a %d unit field cost %s per unit, over the %s ceiling; "+
 				"the tick cost needs looking at", n*2, perUnitTick.Round(time.Nanosecond), budgetPerUnitTick)
 		}
 	}
 	// And a coarse cap, so a run that stops making progress is caught here
-	// rather than by whoever is waiting on the suite.
-	if elapsed > 10*time.Minute {
+	// rather than by whoever is waiting on the suite. The same exclusion: a
+	// -race build of this battle takes a quarter of an hour and that is the
+	// detector, not a hang.
+	if elapsed > 10*time.Minute && !raceDetectorEnabled {
 		t.Errorf("a %d unit battle took %s of wall clock; something is not finishing", n*2, elapsed)
 	}
 	t.Logf("wall %s, sim %s, %d ticks", elapsed.Round(time.Millisecond), simTime, res.Ticks)
