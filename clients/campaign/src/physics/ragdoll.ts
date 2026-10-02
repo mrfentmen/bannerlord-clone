@@ -8,9 +8,19 @@
  *
  * Verified recipe (Babylon 8.56.2, Havok 1.3.14):
  * - scene.useRightHandedSystem = true (required for GLB ragdolls)
- * - 18 major bones (fingers/toes excluded — they cause instability)
+ * - 18 major bones for humanoids (fingers/toes excluded — they cause instability)
+ * - 16 bones for horses (quadruped auto-detected by bone names)
  * - putBoxInBoneCenter: true (boxOffset is in meters; 0.5 launches finger boxes)
  * - Physics ground 12cm above visual ground (boxes smaller than mesh)
+ *
+ * @example
+ * ```ts
+ * const scene = new Scene(engine);
+ * scene.useRightHandedSystem = true;
+ * await initPhysics(scene);
+ * const soldier = await BattleSoldier.create(scene, { model: "operator-viper.glb" });
+ * soldier.damage(100, new Vector3(1, 0, 0)); // dies, ragdoll triggers
+ * ```
  */
 import {
   Scene,
