@@ -432,6 +432,31 @@ because the units finished somewhere else.
 
 ## 7. Limits worth knowing before you rely on any of this
 
+- **No battle the game fights is recorded, and no order a client sends reaches
+  the engine.** This is the largest gap in the system and it is not in the replay
+  code. `internal/battleapi` is the shipped battle transport, and it never calls
+  `Session.Record`, so every battle it fights is unrecorded: no order log, no
+  `Recording`, nothing for `BattleStore.Save`, and nothing for `VerifyEncoded`. It
+  also never calls `Session.Command`; `POST /v1/battle/orders` validates an order
+  name against the fourteen, appends it to the session entry's own slice, returns
+  `accepted: N`, and stops there. `orders_logged` in the state response goes up
+  anyway. A battle fought through that API with five orders accepted is
+  bit-identical to the same battle with none.
+
+  So everything in this document is reachable from `simrun battle` and from the
+  tests, and from nothing else in the shipped program. The order-log half of that
+  is a missing call. The orders half additionally needs a wire-format decision —
+  an order on the wire is `{name, params}` with no side and no group, while
+  `Session.Command` needs a commander built for one side's formations — so it is
+  not a one-line fix. Both are in `CHANGELOG.md` under **Unresolved** with
+  reproduction commands, and both are proved by failing tests in
+  `internal/replay/apipath_test.go`.
+
+  Worth being explicit about why this does not show up as a replay mismatch: with
+  no order crossing the seam the order log is empty, and an empty log replays
+  cleanly, because an empty log correctly means nobody commanded anything. The
+  failure mode is invisible to every check in this document.
+
 - **Bit-exactness is claimed for one build on one platform, not across
   architectures.** Float64 arithmetic is not portable and no amount of care in
   this package makes it so.
