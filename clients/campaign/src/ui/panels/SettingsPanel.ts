@@ -192,6 +192,12 @@ const CONTROLS: ControlDef[] = [
     kind: { type: "toggle" },
   },
   {
+    key: "damageVignetteEnabled", tab: "graphics", label: "Damage vignette",
+    hint: "Red edge flash when you take damage, plus the low-health vignette near death. Turn off for a calmer screen. Never flashes under reduced motion. Applies to battles started after the change.",
+    keywords: ["damage", "vignette", "flash", "hit", "health", "low"],
+    kind: { type: "toggle" },
+  },
+  {
     key: "masterVolume", tab: "audio", label: "Master volume",
     hint: "Overall loudness.", keywords: ["volume", "master", "loud"],
     kind: { type: "slider", min: 0, max: 1, step: 0.05, format: pct },

@@ -455,6 +455,18 @@ export const SETTINGS_ENTRIES: CodexEntry[] = [
     ["setting-graphics-engine", "setting-look-preset"],
   ),
   e(
+    "setting-damage-vignette",
+    "Damage vignette",
+    "settings",
+    "A red edge flash when the player takes damage, plus a pulsing low-health vignette near death.",
+    [
+      "The damage flash fires once per hit and is coalesced so it can never strobe faster than 3 flashes per second; its brightness scales with how hard the hit was. The low-health vignette appears over the last 40% of the health bar and strengthens as health drops.",
+      "One toggle controls both, in the Graphics tab. Both respect reduced motion: the flash never fires and the vignette pulse stops when reduced motion is on. The change applies to battles started after you flip it.",
+    ],
+    ["setting:damageVignetteEnabled", "damage", "vignette", "flash", "hit", "health", "graphics"],
+    ["setting-postfx"],
+  ),
+  e(
     "setting-auto-detect",
     "Automatic quality detection",
     "settings",

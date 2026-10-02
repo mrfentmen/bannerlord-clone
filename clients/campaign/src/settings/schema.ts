@@ -97,6 +97,8 @@ export interface Settings {
   depthOfFieldEnabled: boolean;
   /** Motion blur post-process (task 146). Live; forced off by reduceMotion. */
   motionBlurEnabled: boolean;
+  /** Damage flash + low-health vignette (task 150). Read when the battle feedback suite is built. */
+  damageVignetteEnabled: boolean;
   /** Mouse orbit/zoom multiplier on the 3D canvas. Live. */
   mouseSensitivity: number;
   /** Invert mouse orbit axes. Live. */
@@ -158,6 +160,7 @@ export const DEFAULT_SETTINGS: Settings = {
   vignetteEnabled: true,
   depthOfFieldEnabled: false,
   motionBlurEnabled: false,
+  damageVignetteEnabled: true,
   mouseSensitivity: 1,
   invertMouseX: false,
   invertMouseY: false,
@@ -251,6 +254,7 @@ export function parseSettings(raw: unknown): Settings {
     vignetteEnabled: v.vignetteEnabled !== false,
     depthOfFieldEnabled: v.depthOfFieldEnabled === true,
     motionBlurEnabled: v.motionBlurEnabled === true,
+    damageVignetteEnabled: v.damageVignetteEnabled !== false,
     mouseSensitivity: pickNumber(v.mouseSensitivity, 0.25, 3, DEFAULT_SETTINGS.mouseSensitivity),
     invertMouseX: v.invertMouseX === true,
     invertMouseY: v.invertMouseY === true,

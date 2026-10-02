@@ -147,6 +147,15 @@ describe("settings schema", () => {
     expect(s.motionBlurEnabled).toBe(false);
   });
 
+  it("validates the task-150 damage vignette toggle (default on, explicit off)", () => {
+    expect(parseSettings({}).damageVignetteEnabled).toBe(true);
+    expect(parseSettings({ damageVignetteEnabled: false }).damageVignetteEnabled).toBe(false);
+    expect(parseSettings({ damageVignetteEnabled: true }).damageVignetteEnabled).toBe(true);
+    // Truthy non-boolean is not an explicit opt-in: strict boolean, defaults on.
+    expect(parseSettings({ damageVignetteEnabled: 1 }).damageVignetteEnabled).toBe(true);
+    expect(parseSettings({ damageVignetteEnabled: "no" }).damageVignetteEnabled).toBe(true);
+  });
+
   it("clamps and enum-falls-back the new fields on garbage", () => {
     const s = parseSettings({
       renderScale: 99,

@@ -2072,6 +2072,13 @@ html[data-reduce-motion] *::after {
 .fb-edge-arrow.is-enemy { color: var(--status-critical-mark); }
 .fb-vignette { position: fixed; inset: 0; background: radial-gradient(ellipse at center, transparent 55%, color-mix(in srgb, var(--status-critical-mark) calc(var(--vignette-strength, 0) * 80%), transparent) 100%); animation: fb-vignette-pulse 1.1s ease-in-out infinite; }
 @keyframes fb-vignette-pulse { 0%, 100% { opacity: calc(0.55 + var(--vignette-strength, 0) * 0.45); } 50% { opacity: 1; } }
+/* Task 150: damage flash. A one-shot red edge flash per hit; JS adds
+   .is-visible on the next frame and removes the node after 350 ms. The
+   component never creates the node under reduced motion (see damageFlash.ts),
+   and the global data-reduce-motion kill-switch below is the second guard. */
+.fb-damage-layer { position: fixed; inset: 0; pointer-events: none; }
+.fb-damage-flash { position: absolute; inset: 0; opacity: 0; background: radial-gradient(ellipse at center, transparent 45%, color-mix(in srgb, var(--status-critical-mark) calc(var(--flash-strength, 0.5) * 85%), transparent) 100%); transition: opacity 120ms ease-out; }
+.fb-damage-flash.is-visible { opacity: 1; transition: opacity 230ms ease-in; }
 .fb-impact-layer { position: fixed; inset: 0; }
 
 /* Battle modes menu (MASTER_PLAN 2D, tasks 58-67). */

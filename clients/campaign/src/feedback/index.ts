@@ -15,6 +15,7 @@ import { createThreatIndicator, type ThreatIndicator } from "./threatIndicator.j
 import { createObjectiveMarkers, type ObjectiveMarkers } from "./objectiveMarkers.js";
 import { createEdgeIndicators, type EdgeIndicators } from "./edgeIndicators.js";
 import { createHealthVignette, type HealthVignette } from "./healthVignette.js";
+import { createDamageFlash, type DamageFlash } from "./damageFlash.js";
 import { createImpactFX, type ImpactFX } from "./impact.js";
 import type { Memorial } from "../afteraction/memorial.js";
 export {
@@ -46,6 +47,11 @@ export interface BattleFeedbackOptions {
   memorial?: Memorial;
   /** Label for the battle, carved onto the stones ("Redfield"). */
   battleLabel?: string;
+  /**
+   * Damage flash + low-health vignette (MASTER_PLAN task 150). Driven from
+   * the `damageVignetteEnabled` setting; defaults to true.
+   */
+  damageVignette?: boolean;
 }
 
 export interface BattleFeedback {
@@ -58,6 +64,8 @@ export interface BattleFeedback {
   objectives: ObjectiveMarkers;
   edges: EdgeIndicators;
   vignette: HealthVignette;
+  /** Damage edge flash (task 150). */
+  damageFlash: DamageFlash;
   impact: ImpactFX;
   /** The battle log as plain text (task 50 accept). */
   exportLog(): string;
@@ -82,7 +90,9 @@ export function createBattleFeedback(
   const threat = createThreatIndicator(source, projection);
   const objectives = createObjectiveMarkers(source, projection);
   const edges = createEdgeIndicators(source, projection);
-  const vignette = createHealthVignette(source);
+  const damageVignetteOn = opts.damageVignette !== false;
+  const vignette = createHealthVignette(source, { enabled: damageVignetteOn });
+  const damageFlash = createDamageFlash(source, { enabled: damageVignetteOn });
   const impact = createImpactFX(
     source,
     opts.shakeTarget ? { shakeTarget: opts.shakeTarget } : {},
@@ -96,6 +106,7 @@ export function createBattleFeedback(
     objectives.root,
     edges.root,
     vignette.root,
+    damageFlash.root,
     impact.root,
   );
 
@@ -119,6 +130,7 @@ export function createBattleFeedback(
     objectives,
     edges,
     vignette,
+    damageFlash,
     impact,
     exportLog: () => battleLog.exportText(),
     destroy() {
@@ -133,6 +145,7 @@ export function createBattleFeedback(
       objectives.destroy();
       edges.destroy();
       vignette.destroy();
+      damageFlash.destroy();
       impact.destroy();
       root.remove();
     },
