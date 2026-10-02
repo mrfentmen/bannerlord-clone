@@ -300,6 +300,14 @@ func applyRecruit(v *sim.View, w *sim.WriteSet, o sim.Order) {
 	if want > available {
 		want = available
 	}
+	// Clamp to remaining capacity (not just block at cap).
+	remaining := int(maxTroops - party.Troops)
+	if want > remaining {
+		want = remaining
+	}
+	if want < 1 {
+		return
+	}
 	// Cost: 10 gold per recruit (base).
 	cost := float64(want * 10)
 	if r.Gold < cost {
