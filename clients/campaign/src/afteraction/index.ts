@@ -17,3 +17,4 @@ export { memorialPanel, type MemorialPanelOptions, type MemorialPanelHandle } fr
 export * from "./replay.js";
 export * from "./share.js";
 export { createReportScreen } from "./reportScreen.js";
+export * from "./unitXp.js";
