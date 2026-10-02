@@ -171,3 +171,46 @@ go test -race ./internal/battle/ -run 'Morale|Surrender|Cycle|Broken|Rout|Rally|
 As of this date, on this box: the harness's own tests take 30 s and the engine's
 size, morale and surrender suites take 81 s including a 53 s 500 v 500 reference
 battle.
+
+## 8. When a golden fixture moves, which commit moved it
+
+The three fixtures in `internal/battle/testdata/golden` were re-recorded on
+2026-10-02 after all three had gone red together. They had last been written on
+2026-10-01, before two changes to the morale stage, so they were 25 commits stale.
+The interesting part is not that they moved but that the cause was worth knowing,
+and that it took a bisect to find rather than a guess.
+
+| Fixture | Was | Now |
+|---|---|---|
+| `both-sides-ordered-8v8` | `c152b47f12ef7c5f` 333 ticks, A (enemy broke) | `ece0abc308963bac` 485 ticks, A (enemy broke) |
+| `one-side-ordered-4v4` | `536862cfcf23cc29` 471 ticks, A (enemy **destroyed**) | `8de36a29c4bba544` 512 ticks, A (enemy broke) |
+| `uncommanded-4v4` | `e5f70b16e018c832` 461 ticks, B (enemy **destroyed**) | `2ec2dbe0b6948de0` 474 ticks, B (enemy broke) |
+
+Two commits moved them, both agent4's, both in `internal/battle/morale.go`, and
+both logged in `CHANGELOG.md` under Built with their measurements:
+
+| Commit | What it changed | Hashes at that commit |
+|---|---|---|
+| `fb57a1c` "the casualty term divided its own side's dead by the living" | the casualty term counted bodies against a spatial hash that holds a dead unit for the rest of the battle, so it was unbounded | `ebd9378a8b9b833a` / `cd349e9517db8466` / `59ca84b70da7a5d3` |
+| `d33b0bf` "sweep morale_casualty_hit, and the size table at the value it gives" | the constant, swept against four scenarios | `ece0abc308963bac` / `8de36a29c4bba544` / `2ec2dbe0b6948de0` |
+
+Nothing after `d33b0bf` moved them, including the formation hold work
+(`3ca6483`, `151f6ed`) and the three ending tests added later.
+
+The `destroyed` to `broke` change in two of the three is the documented effect and
+not a new bug: bounding the casualty term is what stops a battle being decided by
+arithmetic, and a battle decided by arithmetic ends when one army is gone while a
+battle decided by attrition ends when it breaks. `CHANGELOG.md`'s own before/after
+row for the same fix says `296 routs` becoming `263 breaks, 228 routs`.
+
+To attribute a golden move yourself, bisect on the hashes rather than on "does the
+test pass", and note that the failure line prints both numbers:
+
+```
+the battle moved. it hashed to ece0abc308963bac and the fixture says c152b47f12ef7c5f
+```
+
+Taking the first sixteen hex characters off that line takes the fixture's as well,
+which is how a first attempt at this bisected all the way to a `.glb` asset commit
+that cannot touch the simulation. Match on `hashed to ([0-9a-f]{16})` and take the
+first group only.
