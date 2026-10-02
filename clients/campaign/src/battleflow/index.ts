@@ -8,3 +8,4 @@ export * from "./scouting";
 export * from "./rally";
 export * from "./rallyButton";
 export * from "./rearguard";
+export * from "./autoresolvePreview";

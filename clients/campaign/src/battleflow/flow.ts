@@ -98,7 +98,7 @@ function seededDraw(seed: number): number {
   return (s >>> 0) / 0xffffffff;
 }
 
-function winChance(attackerPower: number, defenderPower: number): number {
+export function winChance(attackerPower: number, defenderPower: number): number {
   const total = attackerPower + defenderPower;
   if (total <= 0) return 0.5;
   return attackerPower / total;

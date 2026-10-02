@@ -39,6 +39,7 @@ import { BattleApiError, createHttpBattleApi, type BattleApi } from "./api";
 import { encounterBanner, type EncounterBannerHandle } from "./encounterBanner";
 import { createBattleAnnouncer, type BattleAnnouncer } from "./announcer";
 import { scoutEnemy } from "./scouting";
+import { previewAutoResolve } from "./autoresolvePreview";
 import {
   BattleFlow,
   type AfterActionView,
@@ -333,6 +334,15 @@ export function mountBattleUi(options: BattleMountOptions): BattleMount {
       ),
     );
     const actions = h("div", { class: "battle__actions" });
+    // Auto-resolve preview (solo task 28): estimated losses before choosing.
+    const preview = previewAutoResolve(view.encounter, view.playerIsAttacker);
+    actions.append(
+      h(
+        "p",
+        { class: "caption", "data-testid": "battle-autoresolve-preview" },
+        `${preview.summary}. ${preview.note}`,
+      ),
+    );
     actions.append(
       button("Fight the battle", () => void run(() => flow.escalate()), {
         variant: "primary",
