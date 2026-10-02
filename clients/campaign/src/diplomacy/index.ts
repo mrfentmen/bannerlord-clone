@@ -6,3 +6,7 @@ export * from "./types.js";
 export * from "./envoys.js";
 export * from "./negotiation.js";
 export * from "./statecraft.js";
+export * from "./deals.js";
+export * from "./notables.js";
+export * from "./weariness.js";
+export * from "./herald.js";
