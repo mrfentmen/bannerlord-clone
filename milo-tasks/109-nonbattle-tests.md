@@ -27,3 +27,10 @@ the crew bus 2026-10-02. Not re-recorded unilaterally.
 
 All other non-battle packages: pass. (Note: my original run script had an
 `EXIT=$?` pipeline bug that masked the failure; the log above is the true result.)
+
+## Correction (2026-10-02)
+The three stale fixtures noted above were specific to the milo/save-load branch
+state at test time. On worker branch HEAD (milo/tasks-101-200), the golden
+fixtures test PASSES — agent2's analysis (4629a7b) identified the cause and the
+fixtures are green. The task 109 finding (stale hashes after intentional behavior
+change) was accurate for the tested branch; it does not indicate a current bug.
