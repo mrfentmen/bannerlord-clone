@@ -1,11 +1,14 @@
 /**
- * Deployment placement interaction for the battle scene (Buffy tasks 3-4).
+ * Deployment placement interaction for the battle scene (Buffy tasks 3-5).
  *
  * During deployment a semi-transparent soldier ghost follows the cursor over
  * the battlefield, and a click inside the player's deployment zone drops a
  * solid marker where the unit will stand. The placer owns the pointer
  * subscription, the ghost visuals, and the placement list; later deployment
- * tasks (cancel, grid snap, undo, clear) build on the same handle.
+ * tasks (grid snap, undo, clear) build on the same handle.
+ *
+ * The primary button places; the secondary button cancels the preview, which
+ * hides the ghost and hands the unit back to the caller (`onCancel`).
  *
  * The ghost starts as a primitive proxy so it is there the moment deployment
  * begins, and upgrades to a translucent clone of the soldier GLB once the
@@ -37,6 +40,8 @@ const GHOST_ROOT_NAME = "deployGhost";
 const GHOST_MODEL_FILE = "operator-viper.glb";
 /** Ghosts are see-through: solid enough to read, faint enough not to occlude. */
 const GHOST_ALPHA = 0.45;
+/** Right mouse button — cancels the placement preview (Buffy task 5). */
+const SECONDARY_BUTTON = 2;
 
 /** A placed unit's footprint on the battlefield, in world metres. */
 export interface DeploymentPlacement {
@@ -51,6 +56,8 @@ export interface DeploymentPlacerOptions {
   zones?: DeploymentZone[];
   /** Fired after every successful placement, in order. */
   onPlace?: (placement: DeploymentPlacement) => void;
+  /** Fired once when the preview is cancelled, so the caller can return the unit. */
+  onCancel?: () => void;
 }
 
 /**
@@ -72,6 +79,7 @@ export class DeploymentPlacer {
   private readonly modelFile: string;
   private readonly zones: DeploymentZone[];
   private readonly onPlace: ((placement: DeploymentPlacement) => void) | null;
+  private readonly onCancel: (() => void) | null;
   private readonly ghostRoot: TransformNode;
   private readonly ghostMaterial: StandardMaterial;
   private readonly proxyMeshes: Mesh[] = [];
@@ -89,6 +97,7 @@ export class DeploymentPlacer {
     this.modelFile = options.modelFile ?? GHOST_MODEL_FILE;
     this.zones = options.zones ? [...options.zones] : [];
     this.onPlace = options.onPlace ?? null;
+    this.onCancel = options.onCancel ?? null;
 
     this.ghostRoot = new TransformNode(GHOST_ROOT_NAME, scene);
 
@@ -133,6 +142,8 @@ export class DeploymentPlacer {
         this.followCursor();
       } else if (info.type === PointerEventTypes.POINTERPICK) {
         this.handlePick(info);
+      } else if (info.type === PointerEventTypes.POINTERTAP) {
+        this.handleSecondaryTap(info);
       }
     });
     this.ghostRoot.setEnabled(true);
@@ -146,6 +157,20 @@ export class DeploymentPlacer {
       this.observer = null;
     }
     this.ghostRoot.setEnabled(false);
+  }
+
+  /**
+   * Cancel the running preview (Buffy task 5): hide the ghost, stop tracking
+   * the cursor, and fire `onCancel` so the caller can send the unit back to
+   * its roster. Returns false when no preview was running — with the
+   * placement list untouched, since cancelling backs out the ghost, not the
+   * markers already dropped.
+   */
+  cancelPreview(): boolean {
+    if (this.disposed || !this.observer) return false;
+    this.stop();
+    this.onCancel?.();
+    return true;
   }
 
   /** Stand the ghost at a battlefield point (y is always ground level). */
@@ -189,6 +214,16 @@ export class DeploymentPlacer {
     if (info.event.button > 0) return;
     const point = this.pickGround();
     if (point) this.placeAt(point);
+  }
+
+  /**
+   * A secondary-button tap cancels the preview (Buffy task 5). Taps arrive
+   * whether or not the click landed on a mesh, and Babylon suppresses them
+   * after a drag, so panning the camera does not cancel the preview.
+   */
+  private handleSecondaryTap(info: PointerInfo): void {
+    if (info.event.button !== SECONDARY_BUTTON) return;
+    this.cancelPreview();
   }
 
   /** Ground point under the cursor, or null when it is off the battlefield. */

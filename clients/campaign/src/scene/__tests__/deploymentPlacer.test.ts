@@ -1,17 +1,27 @@
 /**
- * Deployment ghost preview and placement (Buffy tasks 3-4).
+ * Deployment ghost preview and placement (Buffy tasks 3-5).
  *
  * The placer owns the battlefield side of the deployment phase: a translucent
- * soldier ghost that tracks the cursor, and solid markers dropped by clicks
- * inside the player's deployment zone. These tests run the real class on a
- * NullEngine — real meshes, no GPU — and cover show/hide, position updates,
- * observer hygiene, teardown, and placement validation. The GLB upgrade
- * cannot run headless (no network to /models/), which is exactly the case the
- * proxy fallback has to survive.
+ * soldier ghost that tracks the cursor, solid markers dropped by clicks
+ * inside the player's deployment zone, and a right-click that cancels the
+ * preview. These tests run the real class on a NullEngine — real meshes, no
+ * GPU — and cover show/hide, position updates, observer hygiene, teardown,
+ * placement validation, and cancel. The GLB upgrade cannot run headless (no
+ * network to /models/), which is exactly the case the proxy fallback has to
+ * survive.
  */
 
 import { describe, expect, it, vi } from "vitest";
-import { Scene, Vector3, type Mesh, type StandardMaterial } from "@babylonjs/core";
+import {
+  PickingInfo,
+  PointerEventTypes,
+  PointerInfo,
+  Scene,
+  Vector3,
+  type IPointerEvent,
+  type Mesh,
+  type StandardMaterial,
+} from "@babylonjs/core";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import type { DeploymentZone } from "../BattleUI.js";
 import {
@@ -29,6 +39,12 @@ function newScene(): Scene {
     lockstepMaxSteps: 4,
   });
   return new Scene(engine);
+}
+
+/** Deliver a pointer event to the scene observable — a NullEngine has no DOM to click. */
+function tapPointer(scene: Scene, type: number, button: number): void {
+  const event = { button } as unknown as IPointerEvent;
+  scene.onPointerObservable.notifyObservers(new PointerInfo(type, event, new PickingInfo()));
 }
 
 describe("DeploymentPlacer ghost preview", () => {
@@ -222,6 +238,103 @@ describe("DeploymentPlacer placement clicks", () => {
 
     expect(scene.getMeshByName("deployPlaced0Body")).toBeNull();
     expect(placer.getPlacements()).toEqual([]);
+  });
+});
+
+describe("DeploymentPlacer right-click cancel", () => {
+  it("cancels the preview: hides the ghost, unsubscribes, fires onCancel once", async () => {
+    const scene = newScene();
+    let cancels = 0;
+    const placer = new DeploymentPlacer(scene, { onCancel: () => cancels++ });
+    placer.start();
+    const ghost = scene.getTransformNodeByName("deployGhost")!;
+    expect(ghost.isEnabled()).toBe(true);
+
+    expect(placer.cancelPreview()).toBe(true);
+
+    expect(ghost.isEnabled()).toBe(false);
+    expect(cancels).toBe(1);
+    // The subscription is gone. Babylon drops observers on the next tick.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(scene.onPointerObservable.observers.length).toBe(0);
+
+    placer.dispose();
+  });
+
+  it("cancels on a secondary-button tap", () => {
+    const scene = newScene();
+    let cancels = 0;
+    const placer = new DeploymentPlacer(scene, { onCancel: () => cancels++ });
+    placer.start();
+
+    tapPointer(scene, PointerEventTypes.POINTERTAP, 2);
+
+    expect(cancels).toBe(1);
+    expect(scene.getTransformNodeByName("deployGhost")!.isEnabled()).toBe(false);
+
+    placer.dispose();
+  });
+
+  it("keeps the preview on a primary-button tap", () => {
+    const scene = newScene();
+    let cancels = 0;
+    const placer = new DeploymentPlacer(scene, { onCancel: () => cancels++ });
+    placer.start();
+
+    tapPointer(scene, PointerEventTypes.POINTERTAP, 0);
+    tapPointer(scene, PointerEventTypes.POINTERTAP, 1); // middle button
+
+    expect(cancels).toBe(0);
+    expect(scene.getTransformNodeByName("deployGhost")!.isEnabled()).toBe(true);
+
+    placer.dispose();
+  });
+
+  it("reports nothing to cancel before start() and after a cancel", () => {
+    const scene = newScene();
+    let cancels = 0;
+    const placer = new DeploymentPlacer(scene, { onCancel: () => cancels++ });
+
+    expect(placer.cancelPreview()).toBe(false);
+    expect(cancels).toBe(0);
+
+    placer.start();
+    expect(placer.cancelPreview()).toBe(true);
+    expect(placer.cancelPreview()).toBe(false);
+    expect(cancels).toBe(1);
+
+    placer.dispose();
+  });
+
+  it("leaves already-placed markers alone when cancelling", () => {
+    const scene = newScene();
+    const zone: DeploymentZone = { x: 0, z: 0, width: 20, depth: 10, faction: "player" };
+    const placer = new DeploymentPlacer(scene, { zones: [zone] });
+    placer.placeAt(new Vector3(1, 0, 1));
+    placer.start();
+
+    expect(placer.cancelPreview()).toBe(true);
+
+    expect(placer.getPlacements()).toEqual([{ x: 1, z: 1 }]);
+    expect(scene.getMeshByName("deployPlaced0Body")).not.toBeNull();
+
+    placer.dispose();
+  });
+
+  it("can be restarted after a cancel", () => {
+    const scene = newScene();
+    let cancels = 0;
+    const placer = new DeploymentPlacer(scene, { onCancel: () => cancels++ });
+
+    placer.start();
+    placer.cancelPreview();
+    placer.start();
+
+    expect(scene.getTransformNodeByName("deployGhost")!.isEnabled()).toBe(true);
+    tapPointer(scene, PointerEventTypes.POINTERTAP, 2);
+    expect(cancels).toBe(2);
+
+    placer.dispose();
   });
 });
 
