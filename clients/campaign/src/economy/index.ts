@@ -26,3 +26,4 @@ export { answerProposal, proposeTradeDeal, type TradeAgreement, type TradePropos
 export { shortageWarnings, type ShortageWarning, type SupplyNeed } from "./shortages.js";
 export { forecastTreasury, type ForecastLine, type TreasuryForecast } from "./treasuryForecast.js";
 export { accrueLoanInterest, activeLoans, borrow, defaultLoan, payLoan, type LoanRecord } from "./loans.js";
+export { DOMINANCE_THRESHOLD, dominanceBar, tradeDominance, type DominanceProgress } from "./tradeDominance.js";
