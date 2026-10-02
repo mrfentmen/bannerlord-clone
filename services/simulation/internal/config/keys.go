@@ -742,6 +742,8 @@ func (l *loader) load(c *Config) {
 	// from them; how they arrived from a file is not its business.
 	c.Formation.FrontSpacing = l.f64("formation.front_spacing")
 	c.Formation.RankSpacing = l.f64("formation.rank_spacing")
+	c.Formation.SpacingScaleMin = l.f64("formation.spacing_scale_min")
+	c.Formation.SpacingScaleMax = l.f64("formation.spacing_scale_max")
 	c.Formation.LineFrontWidth = l.f64("formation.line_front_width")
 	c.Formation.ColumnFrontWidth = l.f64("formation.column_front_width")
 	c.Formation.WedgeTipUnits = l.f64("formation.wedge_tip_units")

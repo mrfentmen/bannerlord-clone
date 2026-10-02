@@ -136,6 +136,8 @@ func (c *Config) validate(path string) error {
 		// this table cannot disagree about what a designer may type.
 		{"formation.front_spacing", c.Formation.FrontSpacing, 0.3, 10},
 		{"formation.rank_spacing", c.Formation.RankSpacing, 0.3, 50},
+		{"formation.spacing_scale_min", c.Formation.SpacingScaleMin, 0.1, 1},
+		{"formation.spacing_scale_max", c.Formation.SpacingScaleMax, 1, 5},
 		{"formation.line_front_width", c.Formation.LineFrontWidth, 1, 60},
 		{"formation.column_front_width", c.Formation.ColumnFrontWidth, 1, 30},
 		{"formation.wedge_tip_units", c.Formation.WedgeTipUnits, 1, 9},
@@ -364,12 +366,17 @@ func validateBattleRelations(path string, b *Battle) error {
 // validateFormationRelations checks the formation constants that are only
 // wrong in combination with each other, and the one that has no range at all.
 //
-// Two of them. First, min_separation is the gap the spacing pass defends, so a
+// Four of them. First, min_separation is the gap the spacing pass defends, so a
 // value wider than the tightest gap any shape produces means the pass would
 // spend every tick shoving men off the slot they are trying to reach and the
 // formation would never form up. The tightest gap is the smaller of the abreast
 // spacing and the rank spacing, or in loose order the lattice spacing less the
 // scatter from both sides.
+//
+// Second, the change-spacing floor must not scale that tightest gap below
+// min_separation, and the ceiling must not sit below the floor.
+//
+// Third, spacing_scale_max must not be below spacing_scale_min.
 //
 // Second, loose_seed has no range because any integer is a legal seed and
 // clamping one would be inventing a rule. It is still checked for being a
@@ -385,6 +392,24 @@ func validateFormationRelations(path string, f *Formation) error {
 	}
 	if math.IsNaN(f.LooseSeed) || math.IsInf(f.LooseSeed, 0) {
 		return fmt.Errorf("config: %s: formation.loose_seed is %v, which is not a finite number", path, f.LooseSeed)
+	}
+	if f.SpacingScaleMax < f.SpacingScaleMin {
+		return fmt.Errorf("config: %s: formation.spacing_scale_max (%g) is below formation.spacing_scale_min (%g); "+
+			"a commander's change-spacing order would have no scale it could legally be given",
+			path, f.SpacingScaleMax, f.SpacingScaleMin)
+	}
+	// The floor has to be safe on its own terms, and it is not: the tightest gap
+	// any shape produces is computed above for the un-scaled shape, and a commander
+	// who closes to spacing_scale_min scales that gap with it. If the closed shape
+	// is tighter than min_separation then every man in it stands closer to his
+	// neighbour than the spacing pass defends, and the radius inside which a man
+	// counts as pinned (which is derived as half the difference between the two)
+	// goes to zero, so the shape cannot absorb a man being shoved at all.
+	if closed := f.SpacingScaleMin * tightest; closed < f.MinSeparation {
+		return fmt.Errorf("config: %s: formation.spacing_scale_min (%g) times the tightest gap any shape "+
+			"produces (%g) is %g m, below formation.min_separation (%g); a commander who closed up "+
+			"that far would be ordered into a shape whose men stand inside min_separation of each other",
+			path, f.SpacingScaleMin, tightest, closed, f.MinSeparation)
 	}
 	return nil
 }

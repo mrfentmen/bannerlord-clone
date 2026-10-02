@@ -97,7 +97,7 @@ func sectionLines(lines []string, section string) (start, end int, ok bool) {
 }
 
 // TestShippedBalanceLoads is the floor: the file the service ships must load,
-// and all twenty-seven formation constants must come back with the values the
+// and all twenty-nine formation constants must come back with the values the
 // file states rather than as zeroes.
 func TestShippedBalanceLoads(t *testing.T) {
 	c, err := Load(shippedBalance)
@@ -107,6 +107,8 @@ func TestShippedBalanceLoads(t *testing.T) {
 	got := map[string]float64{
 		"front_spacing":            c.Formation.FrontSpacing,
 		"rank_spacing":             c.Formation.RankSpacing,
+		"spacing_scale_min":        c.Formation.SpacingScaleMin,
+		"spacing_scale_max":        c.Formation.SpacingScaleMax,
 		"line_front_width":         c.Formation.LineFrontWidth,
 		"column_front_width":       c.Formation.ColumnFrontWidth,
 		"wedge_tip_units":          c.Formation.WedgeTipUnits,
@@ -133,14 +135,15 @@ func TestShippedBalanceLoads(t *testing.T) {
 		"flank_sweep_deg":          c.Formation.FlankSweepDeg,
 		"flank_sweep_rate_deg":     c.Formation.FlankSweepRateDeg,
 	}
-	if len(got) != 27 {
-		t.Fatalf("this test reads %d formation keys, the section defines 27", len(got))
+	if len(got) != 29 {
+		t.Fatalf("this test reads %d formation keys, the section defines 29", len(got))
 	}
 	// Every key the balance file documents a minimum above zero for must be
 	// non-zero here: a zero would mean the mapping was not wired up at all, and
 	// a simulation with no spacing and no speed would still run.
 	neverZero := map[string]float64{
 		"front_spacing": c.Formation.FrontSpacing, "rank_spacing": c.Formation.RankSpacing,
+		"spacing_scale_min": c.Formation.SpacingScaleMin, "spacing_scale_max": c.Formation.SpacingScaleMax,
 		"line_front_width": c.Formation.LineFrontWidth, "column_front_width": c.Formation.ColumnFrontWidth,
 		"wedge_tip_units": c.Formation.WedgeTipUnits, "wedge_row_growth": c.Formation.WedgeRowGrowth,
 		"loose_spacing": c.Formation.LooseSpacing, "min_separation": c.Formation.MinSeparation,
@@ -155,7 +158,7 @@ func TestShippedBalanceLoads(t *testing.T) {
 			t.Errorf("formation.%s came back as %g", key, got[key])
 		}
 	}
-	t.Logf("loaded 27 formation constants, %d of which document a minimum above zero", len(neverZero))
+	t.Logf("loaded 29 formation constants, %d of which document a minimum above zero", len(neverZero))
 }
 
 // TestLoadNamesAMissingFormationKey: a section read by a second private parser

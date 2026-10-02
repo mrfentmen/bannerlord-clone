@@ -1648,7 +1648,7 @@ type Battle struct {
 	// RangedHitChanceBase is the chance a shot connects at zero ranged skill,
 	// and RangedHitChanceSkillWeight is the share of a point of skill added to
 	// it. Together they are the whole skill term of the shooting model.
-	RangedHitChanceBase       float64
+	RangedHitChanceBase        float64
 	RangedHitChanceSkillWeight float64
 	// RangedHitEffectivenessFloor is the worst share of the hit chance a
 	// shooter keeps when its effectiveness is zero, that is when it is broken
@@ -1919,6 +1919,22 @@ type Formation struct {
 	// move off. A formation with a real-world reason to be deeper (a wedge
 	// driving through a gap, say) can be given its own knob here.
 	RankSpacing float64
+
+	// SpacingScaleMin and SpacingScaleMax are the bounds a commander's
+	// change-spacing order is held to, as fractions of the spacing above and
+	// LooseSpacing below.
+	//
+	// They exist because every tolerance the formation layer uses is DERIVED
+	// from the shape's own spacing: how far a man may be from his slot and still
+	// count as in it, how far he is walked back, and how fast. Scaling the shape
+	// scales all of them together, which is correct and is also why the scale
+	// needs bounds rather than being free. Below the floor the radius inside
+	// which a man is pinned reaches zero and the shape cannot absorb a man being
+	// shoved; above the ceiling a rank's cohesion tolerance is wider than the
+	// depth of the shape, so a man counts as in place anywhere inside the whole
+	// formation and it stops holding men apart.
+	SpacingScaleMin float64
+	SpacingScaleMax float64
 
 	// LineFrontWidth is how many men stand abreast in one rank of a line. The
 	// rest of the line goes into further ranks behind, so a bigger number is a

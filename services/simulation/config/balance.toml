@@ -1636,6 +1636,33 @@ surrender_chance = 0.30
 # neighbour. Range 0.3-10. Below ~1.0 a line is shoulder to shoulder; above
 # ~2.5 the men in a rank start screening each other.
 front_spacing = 1.5
+# How tightly a commander may close his ranks below the spacing above, as a
+# fraction of it. This is the change-spacing order's floor, and it exists
+# because the shape has to stay standable: every tolerance the formation layer
+# uses - how far a man may be from his slot and still count as in it, how far
+# he is walked back, how fast he walks back - is derived from the shape's own
+# spacing, so closing up tightens all of them at once.
+#
+# The floor is NOT a free design choice in this file and is worth reading twice.
+# A line's men are 1.5 m apart and min_separation is 1.2 m, so there is only
+# 0.3 m of room in a rank to close into: a scale below 0.8 would put every man
+# closer to his neighbour than the spacing pass defends, and the loader refuses
+# that outright. At 0.85 the closed line is 1.275 m and the radius inside which
+# a man counts as standing in his slot is half of 0.075 m - about 4 cm. So
+# close up is a shallow order in this file: it tightens a line that is already
+# shoulder to shoulder, and a commander who wants real room has to open out
+# instead. Widening front_spacing, or lowering min_separation, would buy a
+# deeper close-up, and both are balance decisions rather than code ones.
+# Range 0.1-1.
+spacing_scale_min = 0.85
+# How far a commander may open his ranks above the spacing in the balance file,
+# as a fraction of it. Opening out is how a line avoids being charged and how a
+# skirmish line avoids one burst catching three men, so the ceiling is set well
+# above one. Past roughly two a rank is no longer a rank: its own cohesion
+# tolerance is then wider than the depth of the shape, so a man is "in place"
+# anywhere inside the whole formation and the shape stops holding men apart.
+# Range 1-5.
+spacing_scale_max = 2.0
 # Metres of depth between one rank and the next, shared by line, column, and
 # wedge: the room a rank needs to form up and move off. Range 0.3-50. Below ~1
 # a formation cannot walk, because men are standing in each other's space.
