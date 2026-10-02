@@ -6,6 +6,9 @@
 // orders back into it through the same tick boundary every other order uses. There
 // is no database and no second process: the world lives in this process's memory,
 // and a periodic snapshot on disk is an inspection record rather than a save game.
+// Real saves are the versioned JSON documents written by POST /v1/save (or
+// -save-file on shutdown) and restored by POST /v1/load (or -load-file on boot);
+// see campaign/save.go for the contract.
 //
 // The full contract is in docs/_draft/apiserver-contract.md. The lifecycle is in
 // docs/_draft/apiserver-lifecycle.md, and the WebSocket handoff in
