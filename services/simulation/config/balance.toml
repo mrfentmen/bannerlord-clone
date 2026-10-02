@@ -887,6 +887,35 @@ state_tax_default = 0.03       # starting state rate. Range 0-0.5.
 # 4. These rows are single seed. The size knob is proven by them; nothing about
 #    the shape of the fight is proven by one seed at one size.
 #
+# ### MEASURED: 4000 UNITS ON THE FIELD, WHICH IS TWICE THE 1000 UNIT TARGET
+#
+# The cost of a tick at the largest size anyone has run here, so the row above is
+# not read as a claim that the engine is cheap at every size. Two thousand a side,
+# seven hundred ticks, seed 11, four thousand units on the field at the start:
+#
+#   tick   25    100    250    500    700     wall total
+#   per tick  700ms  613ms  585ms  553ms  430ms
+#
+# The per-tick cost FALLS as the run goes on, and that is not the engine getting
+# faster: it is the field emptying. At tick 700 of that run side A had lost 1,266
+# of its 2,000 bodies and side B 1,472, and every casualty is a unit that stops
+# being indexed, hashed, and walked by the other three thousand nine hundred. So
+# the figure to quote for a full field is the opening one, 700 ms a tick for four
+# thousand units, which is 175 microseconds per unit per tick against SPEC.md
+# section 5.1's 33 for a thousand units at 30 fps. The whole 700 tick run took
+# 5m00.7s of wall clock on two cores shared with three other agent sessions, and
+# the cumulative average over it, 107 microseconds per unit per tick, is a number
+# about a battle half of which is over rather than about the engine's cost at
+# size.
+#
+# What this does and does not say. It says the engine builds, indexes, stages and
+# commits four thousand units for seven hundred ticks without an error, a panic, or
+# a stall, and that the cost per unit grows faster than linearly with the field:
+# 9.7, 15.9, 27.0 and 38.0 microseconds per unit per tick at 100, 200, 500 and
+# 1000 units, then 175 at 4000. It does not say the 1000 unit target is met at
+# 30 fps on this box, which it is not, and closing that gap is the grid hot path's
+# lane rather than this file's.
+#
 # The ceiling knob was exercised in the same pass, because a size limit nobody
 # has seen refuse a size is a comment. Setting max_units_per_side to 200 with a
 # reference of 250 fails at load, before a single unit exists, naming both
