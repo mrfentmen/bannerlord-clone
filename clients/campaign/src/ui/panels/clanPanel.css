@@ -82,3 +82,25 @@
 .clan-list__row:last-child {
   border-bottom: none;
 }
+.clan-member__badge {
+  display: inline-block;
+  margin-left: var(--space-2);
+  padding: 0 var(--space-1);
+  border: 1px solid var(--paper-400);
+  border-radius: var(--radius-1);
+  font-family: var(--font-sans);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  color: var(--ink-500);
+}
+
+/* A dead member is greyed as well as labelled; the word carries it either way. */
+.clan-member__badge--dead {
+  border-color: var(--paper-300);
+  color: var(--ink-300);
+}
+
+.clan-member__facts {
+  flex: 0 1 auto;
+  text-align: right;
+}
