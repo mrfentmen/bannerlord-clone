@@ -1,0 +1,40 @@
+{
+  "schema_version": 1,
+  "id": "companion-3",
+  "kind": "batch",
+  "file": "companion-3.mp3",
+  "voice_id": "avocado_v2:miles",
+  "character": "Satiny Moon",
+  "class": "companion",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 8.69,
+  "loudness_lufs": -23.2,
+  "lines": [
+    {
+      "index": 0,
+      "text": "Get off me, go, get out from under me.",
+      "emotion": "solemn",
+      "context_tags": [
+        "idle"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "I was going to tell you later. I am telling you now.",
+      "emotion": "solemn",
+      "context_tags": [
+        "idle"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "Do not waste the ride back. Take the truck.",
+      "emotion": "solemn",
+      "context_tags": [
+        "idle"
+      ]
+    }
+  ]
+}

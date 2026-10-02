@@ -1,0 +1,5233 @@
+{
+  "schema_version": 1,
+  "lines": [
+    {
+      "schema_version": 1,
+      "id": "african-1",
+      "kind": "batch",
+      "file": "african-1.mp3",
+      "voice_id": "avocado_v2:NoSugar",
+      "character": "Calm Bridge",
+      "class": "african",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 17.47,
+      "loudness_lufs": -28.5,
+      "lines": [
+        {
+          "index": 0,
+          "text": "We have been through fire before. This is just weather.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "My people built half this country. We are not giving it up.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Stand tall. They need to see us standing.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Nobody outworks us. Nobody outlasts us. Push.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "african-2",
+      "kind": "batch",
+      "file": "african-2.mp3",
+      "voice_id": "avocado_v2:NoSugar",
+      "character": "Calm Bridge",
+      "class": "african",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 16.63,
+      "loudness_lufs": -24.7,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Hold the line. The line is all we have and it is enough.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "My grandmother walked further than this road. Walk it.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "We move as one or not at all. Together.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Dignity first, then the hill. Both, today.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "announcer-1",
+      "kind": "batch",
+      "file": "announcer-1.mp3",
+      "voice_id": "avocado_v2:vdc_NOID102",
+      "character": "Lofty Throne",
+      "class": "announcer",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 37.92,
+      "loudness_lufs": -15.4,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Ladies and gentlemen, welcome to the main event.",
+          "emotion": "neutral",
+          "context_tags": [
+            "radio"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "In the north corner, forty men strong with a reputation to match, the challenger.",
+          "emotion": "neutral",
+          "context_tags": [
+            "radio"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "The rules are simple. Steel stays sheathed, first blood takes the round, and the crowd decides the rest.",
+          "emotion": "neutral",
+          "context_tags": [
+            "radio"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "That is a hit. The judges saw it, I saw it, and his mother saw it.",
+          "emotion": "neutral",
+          "context_tags": [
+            "radio"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "We have got a new champion, folks. Make some noise for the winner.",
+          "emotion": "neutral",
+          "context_tags": [
+            "radio"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "Next bout starts in five minutes. Fighters to the ring, medics to the sidelines.",
+          "emotion": "neutral",
+          "context_tags": [
+            "radio"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "No weapons past this line. I do not care whose crest is on your truck.",
+          "emotion": "neutral",
+          "context_tags": [
+            "radio"
+          ]
+        },
+        {
+          "index": 7,
+          "text": "The purse today is five hundred in scrip and a name people remember.",
+          "emotion": "neutral",
+          "context_tags": [
+            "radio"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "announcer-2",
+      "kind": "batch",
+      "file": "announcer-2.mp3",
+      "voice_id": "avocado_v2:vdc_NOID102",
+      "character": "Lofty Throne",
+      "class": "announcer",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 37.25,
+      "loudness_lufs": -15.5,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Returning to the ring, last season's finalist, undefeated on home soil.",
+          "emotion": "neutral",
+          "context_tags": [
+            "radio"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "One round, clean weapons, no strikes below the belt. Judges have the final word.",
+          "emotion": "neutral",
+          "context_tags": [
+            "radio"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "The crowd wants blood, folks, but the rules want a winner. Here we go.",
+          "emotion": "neutral",
+          "context_tags": [
+            "radio"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Halfway through and neither fighter has found a hole. Patience or panic.",
+          "emotion": "neutral",
+          "context_tags": [
+            "radio"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "That is the round. The judges are conferring, and so is the entire town.",
+          "emotion": "neutral",
+          "context_tags": [
+            "radio"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "Winner by decision, and the purse is his. Five hundred in scrip, paid in full.",
+          "emotion": "neutral",
+          "context_tags": [
+            "radio"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "Next event starts at sundown. Bring a friend, bring a drink, bring a bet.",
+          "emotion": "neutral",
+          "context_tags": [
+            "radio"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "bartender-1",
+      "kind": "batch",
+      "file": "bartender-1.mp3",
+      "voice_id": "avocado_v2:qvd_01645",
+      "character": "Weathered Hinge",
+      "class": "bartender",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 37.32,
+      "loudness_lufs": -24.6,
+      "lines": [
+        {
+          "index": 0,
+          "text": "First round is beer, second round is a question. Sit anywhere.",
+          "emotion": "warm",
+          "context_tags": [
+            "tavern",
+            "greeting"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Well if it is not the man with the truck problems. Take a stool.",
+          "emotion": "warm",
+          "context_tags": [
+            "tavern",
+            "greeting"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Sit down. You are carrying a long day and I can see it from here.",
+          "emotion": "warm",
+          "context_tags": [
+            "tavern",
+            "greeting"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Two captains in town, and they are not friendly, and they are sharing a parking lot.",
+          "emotion": "warm",
+          "context_tags": [
+            "tavern",
+            "greeting"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "The big order came in at four in the morning. Cash. That part is interesting.",
+          "emotion": "warm",
+          "context_tags": [
+            "tavern",
+            "greeting"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "Road south is fine if you leave before dark and you keep moving.",
+          "emotion": "warm",
+          "context_tags": [
+            "tavern",
+            "greeting"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "Tab is open but I am writing what I actually poured, not what you said.",
+          "emotion": "warm",
+          "context_tags": [
+            "tavern",
+            "greeting"
+          ]
+        },
+        {
+          "index": 7,
+          "text": "Two drinks for one? Friend, I have seen that math before and it always ends at my register.",
+          "emotion": "warm",
+          "context_tags": [
+            "tavern",
+            "greeting"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "bartender-2",
+      "kind": "batch",
+      "file": "bartender-2.mp3",
+      "voice_id": "avocado_v2:qvd_01645",
+      "character": "Weathered Hinge",
+      "class": "bartender",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 30.41,
+      "loudness_lufs": -29.9,
+      "lines": [
+        {
+          "index": 0,
+          "text": "New face, new rules. You pay first, you drink second.",
+          "emotion": "warm",
+          "context_tags": [
+            "tavern",
+            "greeting"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Sit at the far end. The stool by the door is for men who want to leave fast.",
+          "emotion": "warm",
+          "context_tags": [
+            "tavern",
+            "greeting"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "I have heard every story. Yours better have a shorter ending.",
+          "emotion": "warm",
+          "context_tags": [
+            "tavern",
+            "greeting"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "The soup is yesterday's. The beer is today's. Choose wisely.",
+          "emotion": "warm",
+          "context_tags": [
+            "tavern",
+            "greeting"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Last call is when I say so, and I say so early.",
+          "emotion": "warm",
+          "context_tags": [
+            "tavern",
+            "greeting"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "You want gossip, buy two rounds. One round buys you silence.",
+          "emotion": "warm",
+          "context_tags": [
+            "tavern",
+            "greeting"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "barter-1",
+      "kind": "batch",
+      "file": "barter-1.mp3",
+      "voice_id": "unknown",
+      "character": "Barter",
+      "class": "barter",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 34.08,
+      "loudness_lufs": -28.4,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Shop rate is hourly, and I do not discount the hourly.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "I can do it cheap or I can do it right. Pick one and I will stop arguing.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Cash gets it out tonight. Card gets it out when the parts truck gets here.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "That is not a repair, that is a miracle. Miracles cost more.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Price is the price and it is the same for everybody in this room.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "I do not haggle, I negotiate, and the difference is who wants it more.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "Pay cash and it is done in ten minutes. Paperwork means I have to know who you are for a week.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 7,
+          "text": "Trade in your old one and we will talk, but I am going to undervalue it and I will tell you by how much.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "barter-2",
+      "kind": "batch",
+      "file": "barter-2.mp3",
+      "voice_id": "unknown",
+      "character": "Barter",
+      "class": "barter",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 25.03,
+      "loudness_lufs": -23.8,
+      "lines": [
+        {
+          "index": 0,
+          "text": "That price includes my rent, my license, and the light bill. It is real.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "You want a discount, bring me a trade I can move by Friday.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "I will match their price and throw in the strap. That is the ceiling.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Do not tell me what you paid elsewhere. I am not elsewhere.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Three percent off for cash today. That is the whole promotion.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "Take it now or take your chances at the fair. Both are prices.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "I will not go lower, but I will make it worth your walk. Done?",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "captain-1",
+      "kind": "batch",
+      "file": "captain-1.mp3",
+      "voice_id": "avocado_v2:vdc_5723",
+      "character": "Solemn Pillar",
+      "class": "captain",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 14.23,
+      "loudness_lufs": -21.7,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Hold where you are, nobody crosses that line.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Fire, all guns, center mass.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "They want us to break here. We are not breaking here.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Hold the line. Whatever else happens, the line holds.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Reserves, forward, on my left.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "captain-2",
+      "kind": "batch",
+      "file": "captain-2.mp3",
+      "voice_id": "avocado_v2:vdc_5723",
+      "character": "Solemn Pillar",
+      "class": "captain",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 25.73,
+      "loudness_lufs": -22.4,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Forward, all of you, keep it up.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Left flank, swing left, go now.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Fall back twenty yards, twenty yards and no more.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Hold your fire. Hold it until I count.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Cease fire, cease fire, they are not there anymore.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "Shoot at the ones standing. Shoot at the ones standing.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "Gunners, walk your guns up to the fence line.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 7,
+          "text": "Medics, get to the man in the ditch and forget the fight.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "captain-3",
+      "kind": "batch",
+      "file": "captain-3.mp3",
+      "voice_id": "avocado_v2:vdc_5723",
+      "character": "Solemn Pillar",
+      "class": "captain",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 37.85,
+      "loudness_lufs": -22.6,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Close up on me, I want the line shut.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Double time, we are behind the schedule.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Do not cross the road until I give the word.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Form on the ridge and hold the high side of it.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Shift left, thirty yards, everyone shift left.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "Save your ammunition, do not shoot at smoke.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "Nobody fires past the ditch. That is the whole rule.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 7,
+          "text": "Withdraw to the road, and do it in order, and do it fast.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 8,
+          "text": "Pick your ground, do not let them pick it for you.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 9,
+          "text": "Steady, steady. Slow is fine. Fast and dead is not fine.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "captain-4",
+      "kind": "batch",
+      "file": "captain-4.mp3",
+      "voice_id": "avocado_v2:vdc_5723",
+      "character": "Solemn Pillar",
+      "class": "captain",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 40.13,
+      "loudness_lufs": -23.3,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Right flank, take the open ground, do not wait for me.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Stop where you are and let them come to us.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Rounds on that gun, ignore the trucks for one minute.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Reserve stays back until I say, that is what a reserve is for.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Supply, we need ammunition in the next ten minutes or we lose this.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "Scouts, find me a way around them and do not announce yourself.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "Water first, then food, in that order, and do not argue.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 7,
+          "text": "Everybody back twenty yards, I am doing the same thing.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 8,
+          "text": "We are outnumbered and that changes nothing until somebody panics.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        },
+        {
+          "index": 9,
+          "text": "I need a body in that ditch and I need one now.",
+          "emotion": "stern",
+          "context_tags": [
+            "combat",
+            "order"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "chinese-1",
+      "kind": "batch",
+      "file": "chinese-1.mp3",
+      "voice_id": "avocado_v2:vd2_steady_riverstone",
+      "character": "Steadying Riverstone",
+      "class": "chinese",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 15.48,
+      "loudness_lufs": -23.7,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Patience is a weapon too. Hold your position.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "My family crossed an ocean for a future. I carry it here.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Discipline wins what courage starts. Stay in formation.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "One step at a time, one hill at a time. We take them all.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "chinese-2",
+      "kind": "batch",
+      "file": "chinese-2.mp3",
+      "voice_id": "avocado_v2:vd2_steady_riverstone",
+      "character": "Steadying Riverstone",
+      "class": "chinese",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 15.48,
+      "loudness_lufs": -25.4,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Still water holds the deepest current. Be still.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "A thousand steps start with one. Take it.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "We have waited this long. We can wait one minute more.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "The wall is old. The men behind it are tired. Push.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "companion-1",
+      "kind": "batch",
+      "file": "companion-1.mp3",
+      "voice_id": "avocado_v2:miles",
+      "character": "Satiny Moon",
+      "class": "companion",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 12.07,
+      "loudness_lufs": -23.0,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Finish the job. Do not come back for me, finish the job.",
+          "emotion": "solemn",
+          "context_tags": [
+            "idle"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "This was a good crew. Tell somebody that too.",
+          "emotion": "solemn",
+          "context_tags": [
+            "idle"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "It is all right. It is all right. Keep moving.",
+          "emotion": "solemn",
+          "context_tags": [
+            "idle"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "I am not angry. I want you to know I am not angry.",
+          "emotion": "solemn",
+          "context_tags": [
+            "idle"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Give my rifle to the next man who asks for it.",
+          "emotion": "solemn",
+          "context_tags": [
+            "idle"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "companion-2",
+      "kind": "batch",
+      "file": "companion-2.mp3",
+      "voice_id": "avocado_v2:miles",
+      "character": "Satiny Moon",
+      "class": "companion",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 22.87,
+      "loudness_lufs": -20.1,
+      "lines": [
+        {
+          "index": 0,
+          "text": "I am hit. I am hit, I am down here.",
+          "emotion": "solemn",
+          "context_tags": [
+            "idle"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Take the book out of my pocket. That is all I want.",
+          "emotion": "solemn",
+          "context_tags": [
+            "idle"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Tell them I said the road, not the town. Road.",
+          "emotion": "solemn",
+          "context_tags": [
+            "idle"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Do not stand over me. Go help somebody who can still walk.",
+          "emotion": "solemn",
+          "context_tags": [
+            "idle"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "You were right about all of it. Say that at the table.",
+          "emotion": "solemn",
+          "context_tags": [
+            "idle"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "I have got the good coffee in the truck. Somebody drink it.",
+          "emotion": "solemn",
+          "context_tags": [
+            "idle"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "My people are in the north. Somebody tell them it was the road.",
+          "emotion": "solemn",
+          "context_tags": [
+            "idle"
+          ]
+        },
+        {
+          "index": 7,
+          "text": "I got them out. I want that said out loud before I stop.",
+          "emotion": "solemn",
+          "context_tags": [
+            "idle"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "companion-3",
+      "kind": "batch",
+      "file": "companion-3.mp3",
+      "voice_id": "avocado_v2:miles",
+      "character": "Satiny Moon",
+      "class": "companion",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 8.69,
+      "loudness_lufs": -23.2,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Get off me, go, get out from under me.",
+          "emotion": "solemn",
+          "context_tags": [
+            "idle"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "I was going to tell you later. I am telling you now.",
+          "emotion": "solemn",
+          "context_tags": [
+            "idle"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Do not waste the ride back. Take the truck.",
+          "emotion": "solemn",
+          "context_tags": [
+            "idle"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "execution-1",
+      "kind": "batch",
+      "file": "execution-1.mp3",
+      "voice_id": "unknown",
+      "character": "Execution",
+      "class": "execution",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 40.32,
+      "loudness_lufs": -18.0,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Kneel. You know the sentence. We all heard it read.",
+          "emotion": "solemn",
+          "context_tags": [
+            "threat"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Any last words, say them to the sky. Nobody here is writing them down.",
+          "emotion": "solemn",
+          "context_tags": [
+            "threat"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "This is not anger. Anger would be quicker. This is the law, and the law is slow.",
+          "emotion": "solemn",
+          "context_tags": [
+            "threat"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "You had your trial. You had your say. This is the part after.",
+          "emotion": "solemn",
+          "context_tags": [
+            "threat"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Look at me when it happens. It is the least you owe the people watching.",
+          "emotion": "solemn",
+          "context_tags": [
+            "threat"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "May whoever is keeping score be kinder to you than you were to them.",
+          "emotion": "solemn",
+          "context_tags": [
+            "threat"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "execution-2",
+      "kind": "batch",
+      "file": "execution-2.mp3",
+      "voice_id": "unknown",
+      "character": "Execution",
+      "class": "execution",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 19.51,
+      "loudness_lufs": -18.0,
+      "lines": [
+        {
+          "index": 0,
+          "text": "The sentence is read. It does not get read twice.",
+          "emotion": "solemn",
+          "context_tags": [
+            "threat"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "You made your choices. I am here because of them.",
+          "emotion": "solemn",
+          "context_tags": [
+            "threat"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "No prayers on my account. Pray for the people you left.",
+          "emotion": "solemn",
+          "context_tags": [
+            "threat"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "I have done this eleven times. It does not get lighter.",
+          "emotion": "solemn",
+          "context_tags": [
+            "threat"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Stand straight. Give them that much.",
+          "emotion": "solemn",
+          "context_tags": [
+            "threat"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "When it is done, we do not talk about it. We drink.",
+          "emotion": "solemn",
+          "context_tags": [
+            "threat"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "german-1",
+      "kind": "batch",
+      "file": "german-1.mp3",
+      "voice_id": "avocado_v2:vd2_dry_tambour",
+      "character": "Dry Tambour",
+      "class": "german",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 15.19,
+      "loudness_lufs": -21.7,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Precision beats passion. Aim, breathe, fire.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Order is our advantage. Keep the formation tight.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "My grandfather rebuilt a country from rubble. I can hold a hill.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Calm, steady, relentless. That is the plan.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "german-2",
+      "kind": "batch",
+      "file": "german-2.mp3",
+      "voice_id": "avocado_v2:vd2_dry_tambour",
+      "character": "Dry Tambour",
+      "class": "german",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 17.95,
+      "loudness_lufs": -28.4,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Breathe slow. Listen for the click before the bang.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Methodical, always. Panic is a luxury we do not carry.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Check your line twice. Then check your neighbor.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "They break formation, we win. Stay patient.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "gunner-1",
+      "kind": "batch",
+      "file": "gunner-1.mp3",
+      "voice_id": "avocado_v2:Argue",
+      "character": "Intense Cymbal",
+      "class": "gunner",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 20.71,
+      "loudness_lufs": -23.9,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Reload, reload, everybody reload.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Range is good. Range is very good. Somebody stop shaking.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Thirty yards, one round, on the go.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Barrel is fouled. Barrel is fouled, I am done, somebody else take this lane.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Coming across the open, whole squad, on the go.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "gunner-2",
+      "kind": "batch",
+      "file": "gunner-2.mp3",
+      "voice_id": "avocado_v2:Argue",
+      "character": "Intense Cymbal",
+      "class": "gunner",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 36.77,
+      "loudness_lufs": -40.6,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Heat is climbing, I have got maybe another minute.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Their muzzle just lit up. Thirty seconds out, get down.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "I have him in the reticle. I need everybody quiet for three seconds.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "They dug in. I can hit that dirt. I cannot hit a man in it.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Shifting left thirty, shifting, watch your own feet.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "That was our last belt for this position, do with it what you want.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "First one walked into my lane. First one. That is going in the report.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 7,
+          "text": "Ammunition is at the truck. Get somebody to go get ammunition.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "gunner-3",
+      "kind": "batch",
+      "file": "gunner-3.mp3",
+      "voice_id": "avocado_v2:Argue",
+      "character": "Intense Cymbal",
+      "class": "gunner",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 9.53,
+      "loudness_lufs": -33.5,
+      "lines": [
+        {
+          "index": 0,
+          "text": "On the truck, on the truck, he is behind the truck.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Spotters, where is he, I cannot see anything from in here.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "infantry-1",
+      "kind": "batch",
+      "file": "infantry-1.mp3",
+      "voice_id": "avocado_v2:vincent",
+      "character": "Gruff Brick",
+      "class": "infantry",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 19.99,
+      "loudness_lufs": -14.5,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Contact front, contact front, they are in the tree line.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Hold this ditch and this fight is over, so hold the ditch.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Six o'clock, six o'clock, behind us.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "We are pushing them back. Keep pressure on, keep pressure on.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Ammo getting low. Count your shots and do not waste any.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "They are trying to come around our right. Right, everybody look right.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "infantry-2",
+      "kind": "batch",
+      "file": "infantry-2.mp3",
+      "voice_id": "avocado_v2:vincent",
+      "character": "Gruff Brick",
+      "class": "infantry",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 32.21,
+      "loudness_lufs": -24.3,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Rifles on the left, rifles on the right, me in the middle.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "I see them. Two hundred meters and coming.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Moving up on the ridge, keep your heads down till I say.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Nobody move until the captain says move. That is the whole order.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Magazine out. I am out. Somebody got me a rifle.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "Smoke on the left, that is not ours.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "Do not fire until you hear the word. I will say the word.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 7,
+          "text": "They are stacking on that fence line. Tell the gunners.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "infantry-3",
+      "kind": "batch",
+      "file": "infantry-3.mp3",
+      "voice_id": "avocado_v2:vincent",
+      "character": "Gruff Brick",
+      "class": "infantry",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 36.0,
+      "loudness_lufs": -24.1,
+      "lines": [
+        {
+          "index": 0,
+          "text": "The truck is stuck. Do not get yourself killed going around it.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Third man back is down. Watch your spacing.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "They just found the road. They know where the road is.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Somebody get that man out of the way, he is in the lane.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "They have trucks coming up behind them. More than I want to see.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "Flats are open, use the ditches. Ditches, not the road.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "Fix your helmet. Fix it now, we do not have time to argue.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 7,
+          "text": "Watch the muzzle, that flash is theirs, we are down and we are staying down.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 8,
+          "text": "I am out of magazines and I am not moving until somebody says I can.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "irish-1",
+      "kind": "batch",
+      "file": "irish-1.mp3",
+      "voice_id": "avocado_v2:conor",
+      "character": "Polished Coin",
+      "class": "irish",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 13.37,
+      "loudness_lufs": -24.3,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Rain never stopped us and neither will they. Move.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "I have seen worse weather and worse odds in the same week.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "My people left an island for less than this. We are not leaving this.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Sing later. Fight now.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "irish-2",
+      "kind": "batch",
+      "file": "irish-2.mp3",
+      "voice_id": "avocado_v2:conor",
+      "character": "Polished Coin",
+      "class": "irish",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 16.87,
+      "loudness_lufs": -24.5,
+      "lines": [
+        {
+          "index": 0,
+          "text": "The rain is just weather. They are just men. Push through.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "My father worked a harder ground than this. So do I.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Laugh loud, march louder. Let them hear us coming.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Fortune favors the ones who show up. Show up.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "italian-1",
+      "kind": "batch",
+      "file": "italian-1.mp3",
+      "voice_id": "avocado_v2:vdc_14595",
+      "character": "Thoughtful Boot",
+      "class": "italian",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 20.11,
+      "loudness_lufs": -29.5,
+      "lines": [
+        {
+          "index": 0,
+          "text": "They built roads over every hill in this country. We will use them all.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "My grandfather fought for a village nobody remembers. I remember.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Hold the line the way my mother holds a grudge. Forever.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "We eat after the work is done. That is the whole rule.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "italian-2",
+      "kind": "batch",
+      "file": "italian-2.mp3",
+      "voice_id": "avocado_v2:vdc_14595",
+      "character": "Thoughtful Boot",
+      "class": "italian",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 18.77,
+      "loudness_lufs": -25.6,
+      "lines": [
+        {
+          "index": 0,
+          "text": "My grandmother fed a street with half a pantry. I can do this.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "The work comes first. The wine comes after. Always.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "This hill is ours the way Sunday dinner is ours. Claimed.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Hold like family. Family does not let go.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "jamaican-1",
+      "kind": "batch",
+      "file": "jamaican-1.mp3",
+      "voice_id": "avocado_v2:vd2_jovial_drum",
+      "character": "Mirthful Drum",
+      "class": "jamaican",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 14.35,
+      "loudness_lufs": -28.1,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Easy now. Steady hands win the fight.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "We move like water and hit like thunder.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "One love for the squad, no love for the enemy.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "They cannot catch what they cannot see. Run the flank.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "jamaican-2",
+      "kind": "batch",
+      "file": "jamaican-2.mp3",
+      "voice_id": "avocado_v2:vd2_jovial_drum",
+      "character": "Mirthful Drum",
+      "class": "jamaican",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 13.92,
+      "loudness_lufs": -26.6,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Cool head, warm heart, strong legs. Forward.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "The drum is steady and so are we. March.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "We smile before we strike. It confuses them.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "One people, one road. Take it together.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "korean-1",
+      "kind": "batch",
+      "file": "korean-1.mp3",
+      "voice_id": "avocado_v2:vd2_bright_thistle",
+      "character": "Tart Thistle",
+      "class": "korean",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 20.71,
+      "loudness_lufs": -33.0,
+      "lines": [
+        {
+          "index": 0,
+          "text": "We do not bend. We do not break. Forward.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "My grandmother survived worse than this morning. So will I.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Fast and clean. Strike before they are ready.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Honor is earned in the hard minutes. This is a hard minute.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "korean-2",
+      "kind": "batch",
+      "file": "korean-2.mp3",
+      "voice_id": "avocado_v2:vd2_bright_thistle",
+      "character": "Tart Thistle",
+      "class": "korean",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 11.57,
+      "loudness_lufs": -27.4,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Sharp and fast. Like the wind through the pass.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "My mother carried more than this. Carry it.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Discipline is a promise. Keep it now.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "We strike as one blade. No hesitation.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "leader-1",
+      "kind": "batch",
+      "file": "leader-1.mp3",
+      "voice_id": "unknown",
+      "character": "Leader",
+      "class": "leader",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 21.72,
+      "loudness_lufs": -27.6,
+      "lines": [
+        {
+          "index": 0,
+          "text": "California has eleven days of grain, and I count every one of them before breakfast.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "You want my trust? Be somewhere on a schedule, repeatedly, with men who can carry.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "I do not need you to be brave. I need you to be on time.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Every disaster I have ever seen was a spreadsheet that ran out of margin.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "You are worth exactly as many trucks as you can keep moving. Remember that.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "leader-1b",
+      "kind": "batch",
+      "file": "leader-1b.mp3",
+      "voice_id": "unknown",
+      "character": "Leader",
+      "class": "leader",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 20.21,
+      "loudness_lufs": -24.5,
+      "lines": [
+        {
+          "index": 0,
+          "text": "The ports are open and the trucks are rolling. That is the headline, learn it.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "You want my time? Bring me numbers I have not already seen.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Los Angeles did not survive the fall by hoping. It survived by counting.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Every promise in this room costs diesel. Count it or drop it.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "I am Marisol Vega. If you lie to me, lie with a spreadsheet. I respect effort.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "leader-2",
+      "kind": "batch",
+      "file": "leader-2.mp3",
+      "voice_id": "unknown",
+      "character": "Leader",
+      "class": "leader",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 29.64,
+      "loudness_lufs": -28.7,
+      "lines": [
+        {
+          "index": 0,
+          "text": "I am going to say this once, and I am going to say it slow, so listen.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "A man who finishes a sentence is a man I can work with. Be that man.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Denver did not get built by people in a hurry. It got built by people who stayed.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "You give me your word, you keep it. That is the whole contract.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "I do not rush. Rushing is how you lose men and mountains both.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "leader-2b",
+      "kind": "batch",
+      "file": "leader-2b.mp3",
+      "voice_id": "unknown",
+      "character": "Leader",
+      "class": "leader",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 27.6,
+      "loudness_lufs": -28.6,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Sit down. The coffee is terrible and the company is worse, but sit.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "I have buried men who rushed. I will not rush you and you will not rush me.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "A handshake from me is worth more than a contract from most. Remember that.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Denver remembers who showed up in the hard winter. So do I.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Say it plain and say it once. I will do the rest.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "leader-3",
+      "kind": "batch",
+      "file": "leader-3.mp3",
+      "voice_id": "unknown",
+      "character": "Leader",
+      "class": "leader",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 27.05,
+      "loudness_lufs": -28.6,
+      "lines": [
+        {
+          "index": 0,
+          "text": "A union is like a harvest. You plant in spring and you do not eat the seed corn.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Chicago thinks the food comes from a warehouse. It comes from dirt and rain.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "I have seen bad years. We are in one. We will plant through it.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "You want to know my plan? Same as every year. Work, store, share, repeat.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "The land does not care about your politics. It cares if you showed up.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "leader-3b",
+      "kind": "batch",
+      "file": "leader-3b.mp3",
+      "voice_id": "unknown",
+      "character": "Leader",
+      "class": "leader",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 20.83,
+      "loudness_lufs": -28.8,
+      "lines": [
+        {
+          "index": 0,
+          "text": "The rain came late and the wheat came short. We adjust, we do not panic.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Chicago eats because Iowa works. Do not forget which way the truck drives.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "I will feed your people too, but you will remember who planted it.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "A promise in spring is a debt in fall. I collect debts.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "The soil teaches patience. I teach the rest.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "leader-4",
+      "kind": "batch",
+      "file": "leader-4.mp3",
+      "voice_id": "unknown",
+      "character": "Leader",
+      "class": "leader",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 30.72,
+      "loudness_lufs": -25.4,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Friend, you look like a man with a problem I can solve before lunch.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Atlanta runs on handshakes and I have got two hands, so let us get to it.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "I like you. That is forty percent of my decision and the other sixty is the numbers.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Nobody ever got rich standing still. Move with me and we both eat.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "You bring the men, I bring the market, and we split the future down the middle.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "leader-4b",
+      "kind": "batch",
+      "file": "leader-4b.mp3",
+      "voice_id": "unknown",
+      "character": "Leader",
+      "class": "leader",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 21.65,
+      "loudness_lufs": -24.9,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Friend, you have got thirty seconds of my charm left. Use them well.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Atlanta is open for business and business is me.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "I do not lose partners. I collect them, and I keep them fed.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "You want in? Step closer. You want out? Step faster.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "This town, this road, this whole corridor. All of it is negotiable.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "leader-5",
+      "kind": "batch",
+      "file": "leader-5.mp3",
+      "voice_id": "unknown",
+      "character": "Leader",
+      "class": "leader",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 22.51,
+      "loudness_lufs": -29.1,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Here is my price. I said it before you asked because I do not waste time.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Texas does not do ceremony. We do deals, and deals have numbers.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "You want my fuel, my roads, my men? That costs what it costs.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "I do not care who you were before the fall. I care what you can deliver Thursday.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Shake or walk. Those are the options and I am fine with either.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "leader-5b",
+      "kind": "batch",
+      "file": "leader-5b.mp3",
+      "voice_id": "unknown",
+      "character": "Leader",
+      "class": "leader",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 21.41,
+      "loudness_lufs": -26.6,
+      "lines": [
+        {
+          "index": 0,
+          "text": "The ranch is mine, the roads are mine, the price is what I say.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "I do not shake on maybes. I shake on numbers.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "You want my trucks? They leave at dawn with or without you.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Texas taught me one lesson: feed the strong and the rest sorts itself.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Talk fast or pay slow. Your choice, and I do not care which.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "leader-6",
+      "kind": "batch",
+      "file": "leader-6.mp3",
+      "voice_id": "unknown",
+      "character": "Leader",
+      "class": "leader",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 27.24,
+      "loudness_lufs": -20.9,
+      "lines": [
+        {
+          "index": 0,
+          "text": "If you want my protection, understand what it costs before you ask for it.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "I have never raised my voice. I have never needed to. Listen carefully.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "When the corridor holds, it holds because everyone in it knows the terms.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "If you break faith with me, you will find the terms were the kind part.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Precision is not coldness. It is respect, delivered on time.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "leader-6b",
+      "kind": "batch",
+      "file": "leader-6b.mp3",
+      "voice_id": "unknown",
+      "character": "Leader",
+      "class": "leader",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 22.85,
+      "loudness_lufs": -19.3,
+      "lines": [
+        {
+          "index": 0,
+          "text": "If you cannot state your terms in one sentence, you do not have terms.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "The Corridor does not beg and it does not bluff. It bills.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "I have read your offer twice. I will not read it a third time.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Come back when you can afford my attention. It is not cheap.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Precision, people. It is the only kindness that scales.",
+          "emotion": "stern",
+          "context_tags": [
+            "quest_offer"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "medic-1",
+      "kind": "batch",
+      "file": "medic-1.mp3",
+      "voice_id": "avocado_v2:vdc_2561",
+      "character": "Tender Cushion",
+      "class": "medic",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 18.17,
+      "loudness_lufs": -23.1,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Somebody is hit, in the ditch, in the ditch.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "casualty"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Tourniquet first, then we move him. Do not move him yet.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "casualty"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Keep talking to me, look at me, not at the road.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "casualty"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "He is breathing. Tell everybody he is breathing, it matters.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "casualty"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "I need two guys to carry him out and I need them now.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "casualty"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "medic-2",
+      "kind": "batch",
+      "file": "medic-2.mp3",
+      "voice_id": "avocado_v2:vdc_2561",
+      "character": "Tender Cushion",
+      "class": "medic",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 31.75,
+      "loudness_lufs": -22.1,
+      "lines": [
+        {
+          "index": 0,
+          "text": "I need a hand here, get me a hand, do not just stand there looking.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "casualty"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Pressure here. Hold it. Do not let go and do not look up.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "casualty"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Four down in the ditch line. Four. Somebody count them again and tell me a smaller number.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "casualty"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "His leg is going, we cannot stop that on the field, we go now.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "casualty"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Do not step over him, do not step over him, go around.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "casualty"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "I am out of tape, I am out of tape, does anybody have tape.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "casualty"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "Get me the bag out of the second truck. Not the first one, the second one.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "casualty"
+          ]
+        },
+        {
+          "index": 7,
+          "text": "There is a man in that truck and he is not talking and I do not like that.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "casualty"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "medic-3",
+      "kind": "batch",
+      "file": "medic-3.mp3",
+      "voice_id": "avocado_v2:vdc_2561",
+      "character": "Tender Cushion",
+      "class": "medic",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 8.83,
+      "loudness_lufs": -26.5,
+      "lines": [
+        {
+          "index": 0,
+          "text": "If you find somebody face down, check before you move them. I mean check.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "casualty"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "It is worse than the one in the ditch, go to the one in the ditch first.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "casualty"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "merchant-2",
+      "kind": "batch",
+      "file": "merchant-2.mp3",
+      "voice_id": "unknown",
+      "character": "Merchant",
+      "class": "merchant",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 32.11,
+      "loudness_lufs": -26.5,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Morning. Touch it, lift it, smell it if you want. Everything here is honest.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "That price is already me being nice. Do not make me be nicer, it hurts.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "I take cash, trade, or a story good enough to repeat. Cash is fastest.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "You break it, you bought it, and I watched you break it, so do not argue.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Come back Thursday. Thursday is when the truck comes, and the truck decides everything.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "I have sold to all six factions and every one of them thinks I like them best.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "No refunds on rope, fuel, or anything that goes bang. Store policy.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "merchant-3",
+      "kind": "batch",
+      "file": "merchant-3.mp3",
+      "voice_id": "unknown",
+      "character": "Merchant",
+      "class": "merchant",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 27.53,
+      "loudness_lufs": -20.9,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Step up, step up. The truck came early and the prices came low.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "I have got exactly three of these left and six people who want them.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Trade me the boots and we will call it even. I have been wanting boots.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Everything on this table crossed three counties to meet you. Buy it something.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Cash, scrip, or a favor from your captain. I prefer cash.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "Come back Sunday. Sunday is when the real stuff arrives and the fake stuff leaves.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "mexican-1",
+      "kind": "batch",
+      "file": "mexican-1.mp3",
+      "voice_id": "avocado_v2:vd2_bold_sled",
+      "character": "Stubborn Sled",
+      "class": "mexican",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 17.83,
+      "loudness_lufs": -25.3,
+      "lines": [
+        {
+          "index": 0,
+          "text": "For my family, for my street, for every one of us. Forward.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "We work harder than anyone. Today we fight harder too.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "My father taught me to finish what I start. Watch me.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "No retreat. Not today. Not ever.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "mexican-2",
+      "kind": "batch",
+      "file": "mexican-2.mp3",
+      "voice_id": "avocado_v2:vd2_bold_sled",
+      "character": "Stubborn Sled",
+      "class": "mexican",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 14.11,
+      "loudness_lufs": -25.9,
+      "lines": [
+        {
+          "index": 0,
+          "text": "My hands built this town. They can hold it too.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Heart of fire, feet of thunder. Move.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Nobody takes what we built. Not today.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Family is watching. Make them proud.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "persuade-1",
+      "kind": "batch",
+      "file": "persuade-1.mp3",
+      "voice_id": "unknown",
+      "character": "Persuade",
+      "class": "persuade",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 40.87,
+      "loudness_lufs": -25.0,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Look, nobody has to lose here. That is the whole point of me standing in front of you.",
+          "emotion": "warm",
+          "context_tags": [
+            "bargain",
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "You have got a problem and I have got the shape of a solution. Let us talk shapes.",
+          "emotion": "warm",
+          "context_tags": [
+            "bargain",
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "I am not asking you to trust me. I am asking you to trust the math, and the math is on my side of the table.",
+          "emotion": "warm",
+          "context_tags": [
+            "bargain",
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Every man in this room wants the same thing. I am just the first one saying it out loud.",
+          "emotion": "warm",
+          "context_tags": [
+            "bargain",
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Walk away from this table and you walk away with nothing. Stay, and we both leave richer.",
+          "emotion": "warm",
+          "context_tags": [
+            "bargain",
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "You do not have to like the deal. You just have to like it better than the alternative.",
+          "emotion": "warm",
+          "context_tags": [
+            "bargain",
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "Give me ten minutes and I will show you a version of this where you look like the smart one.",
+          "emotion": "warm",
+          "context_tags": [
+            "bargain",
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 7,
+          "text": "I have talked warlords out of worse moods than this with less to offer.",
+          "emotion": "warm",
+          "context_tags": [
+            "bargain",
+            "quest_offer"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "persuade-2",
+      "kind": "batch",
+      "file": "persuade-2.mp3",
+      "voice_id": "unknown",
+      "character": "Persuade",
+      "class": "persuade",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 24.91,
+      "loudness_lufs": -23.2,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Let me tell you what I see from my side of the table, and it is not a threat.",
+          "emotion": "warm",
+          "context_tags": [
+            "bargain",
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "You have got the men, I have got the map. Neither of us wins with only half.",
+          "emotion": "warm",
+          "context_tags": [
+            "bargain",
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Think about Tuesday. Now think about Tuesday with this deal in it.",
+          "emotion": "warm",
+          "context_tags": [
+            "bargain",
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Nobody walks away from my table feeling robbed. That is bad for business.",
+          "emotion": "warm",
+          "context_tags": [
+            "bargain",
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Say yes to the small part today and the big part sells itself tomorrow.",
+          "emotion": "warm",
+          "context_tags": [
+            "bargain",
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "I am not asking you to move first. I am asking you to let me show you how.",
+          "emotion": "warm",
+          "context_tags": [
+            "bargain",
+            "quest_offer"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "Shake my hand and we both get to tell the story our way.",
+          "emotion": "warm",
+          "context_tags": [
+            "bargain",
+            "quest_offer"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "puertorican-1",
+      "kind": "batch",
+      "file": "puertorican-1.mp3",
+      "voice_id": "avocado_v2:pirate-4",
+      "character": "Rugged Hull",
+      "class": "puertorican",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 15.07,
+      "loudness_lufs": -24.6,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Boricua pride on my shoulder. Let them see it.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "We survived storms that broke cities. This is nothing.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Fast feet, brave heart. That is how we do it.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "For the island and everyone who left it. Push forward.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "puertorican-2",
+      "kind": "batch",
+      "file": "puertorican-2.mp3",
+      "voice_id": "avocado_v2:pirate-4",
+      "character": "Rugged Hull",
+      "class": "puertorican",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 13.68,
+      "loudness_lufs": -25.0,
+      "lines": [
+        {
+          "index": 0,
+          "text": "We weathered the storm. We will weather them.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Move like the water around the rocks. Flow.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Island blood, city streets. We adapt to both.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "For the ones back home watching the news. Hold.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "rebel-1",
+      "kind": "batch",
+      "file": "rebel-1.mp3",
+      "voice_id": "avocado_v2:vdc_NOID29",
+      "character": "Cranky Sandpaper",
+      "class": "rebel",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 37.01,
+      "loudness_lufs": -32.1,
+      "lines": [
+        {
+          "index": 0,
+          "text": "They taxed the road, they taxed the well, and now they want to tax the air we breathe.",
+          "emotion": "angry",
+          "context_tags": [
+            "threat",
+            "idle"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "I did not pick up a rifle because I hate them. I picked it up because they stopped listening.",
+          "emotion": "angry",
+          "context_tags": [
+            "threat",
+            "idle"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Every town between here and the river is asking the same question. We are the answer.",
+          "emotion": "angry",
+          "context_tags": [
+            "threat",
+            "idle"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "You want to know what rebellion looks like? It looks like your neighbors, and it is already here.",
+          "emotion": "angry",
+          "context_tags": [
+            "threat",
+            "idle"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "They call it treason when we meet. They call it order when they burn a farm.",
+          "emotion": "angry",
+          "context_tags": [
+            "threat",
+            "idle"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "Bring your brother, bring your truck, bring whatever you have got. We march at dawn.",
+          "emotion": "angry",
+          "context_tags": [
+            "threat",
+            "idle"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "No more petitions. Petitions are what you file before you learn how the game works.",
+          "emotion": "angry",
+          "context_tags": [
+            "threat",
+            "idle"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "rebel-2",
+      "kind": "batch",
+      "file": "rebel-2.mp3",
+      "voice_id": "avocado_v2:vdc_NOID29",
+      "character": "Cranky Sandpaper",
+      "class": "rebel",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 27.05,
+      "loudness_lufs": -28.4,
+      "lines": [
+        {
+          "index": 0,
+          "text": "They took the bridge toll money and built a wall around it.",
+          "emotion": "angry",
+          "context_tags": [
+            "threat",
+            "idle"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "I am done asking. Asking was the old me.",
+          "emotion": "angry",
+          "context_tags": [
+            "threat",
+            "idle"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "You want freedom, it is priced in work. Start paying.",
+          "emotion": "angry",
+          "context_tags": [
+            "threat",
+            "idle"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "They call us a mob when we show up together. Fine. Mob up.",
+          "emotion": "angry",
+          "context_tags": [
+            "threat",
+            "idle"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Nobody voted for the fence. Nobody voted for the curfew either.",
+          "emotion": "angry",
+          "context_tags": [
+            "threat",
+            "idle"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "Bring the neighbors. The brave ones, the quiet ones, all of them.",
+          "emotion": "angry",
+          "context_tags": [
+            "threat",
+            "idle"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "We take the mill back at dawn. Sleep now or march hungry.",
+          "emotion": "angry",
+          "context_tags": [
+            "threat",
+            "idle"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "russian-1",
+      "kind": "batch",
+      "file": "russian-1.mp3",
+      "voice_id": "avocado_v2:vdc_17383",
+      "character": "Jovial Cello",
+      "class": "russian",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 17.88,
+      "loudness_lufs": -28.6,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Winter taught us everything. Cold, hunger, patience. We endure.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "They will break before we do. They always do.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "My blood is winter and my heart is fire. Come and take this hill.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "No step back. The line holds here.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "russian-2",
+      "kind": "batch",
+      "file": "russian-2.mp3",
+      "voice_id": "avocado_v2:vdc_17383",
+      "character": "Jovial Cello",
+      "class": "russian",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 18.31,
+      "loudness_lufs": -32.1,
+      "lines": [
+        {
+          "index": 0,
+          "text": "The snow never hurried, and neither do we.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "My father froze for this land. I will not give it up warm.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Laugh in the cold. It is the only fire we get.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Hold the line like the winter holds. Forever.",
+          "emotion": "determined",
+          "context_tags": [
+            "rally"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "scout-1",
+      "kind": "batch",
+      "file": "scout-1.mp3",
+      "voice_id": "avocado_v2:Twenty",
+      "character": "Bold Flag",
+      "class": "scout",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 19.73,
+      "loudness_lufs": -20.3,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Ridge is clear, I have eyes on the valley.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "They have a spotter on that roof, somebody take that roof out.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Enemy picking up, two minutes, maybe less.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Bridge is passable, bridge is mined, I cannot tell which, pick one.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Second stack coming up behind the first one. Same road, faster.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "scout-2",
+      "kind": "batch",
+      "file": "scout-2.mp3",
+      "voice_id": "avocado_v2:Twenty",
+      "character": "Bold Flag",
+      "class": "scout",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 38.59,
+      "loudness_lufs": -25.0,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Truck column, maybe eight vehicles, still out of range.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "I marked the enemy position. Do not ask me to explain it, just look.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Dirt road comes out at their rear. Rear, where they are not looking.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "I have got eyes on the pass. Nothing moving and that worries me.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Field of fire is open all the way to that tree line. Nowhere to hide.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "Came up on a supply wagon. No guard on it, that is a mistake or a trap.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "There is a culvert under that road. Culvert. Get somebody who listens.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 7,
+          "text": "Enemy mortar just moved. I say moved, they will shoot the old spot first.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "scout-3",
+      "kind": "batch",
+      "file": "scout-3.mp3",
+      "voice_id": "avocado_v2:Twenty",
+      "character": "Bold Flag",
+      "class": "scout",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 12.55,
+      "loudness_lufs": -25.6,
+      "lines": [
+        {
+          "index": 0,
+          "text": "If we are doing this I need to know now, I am not spending another hour out here.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "I can see the driver. I am not going to do anything about it yet, I am telling you.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Ground between here and them is bare. Nothing to move behind.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat",
+            "contact"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "shopkeeper-1",
+      "kind": "batch",
+      "file": "shopkeeper-1.mp3",
+      "voice_id": "avocado_v2:vdc_24103",
+      "character": "Gracious Scarf",
+      "class": "shopkeeper",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 35.83,
+      "loudness_lufs": -25.3,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Flour is up again. Everything made of wheat is up again. Welcome to the circle.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Tires. Nobody has tires. That is the whole market report this quarter.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "If you need a part, ask me for the part you can afford and then I will tell you what breaks first.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "That is the price on the tag and the tag is not a suggestion.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Cash gets you the sale price. Card gets you the regular price and the receipt.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "Last one at that price. When it is gone I will not get another one for weeks.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "Come back before the list runs out. It will run out.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 7,
+          "text": "Drive careful. That road wants one truck at a time and no heroics.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "shopkeeper-2",
+      "kind": "batch",
+      "file": "shopkeeper-2.mp3",
+      "voice_id": "avocado_v2:vdc_24103",
+      "character": "Gracious Scarf",
+      "class": "shopkeeper",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 23.76,
+      "loudness_lufs": -18.9,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Morning, friend. Everything is where you left it, including the good stuff.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "That jar is local honey. The label is my cousin. Both are honest.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Two for one on nails this week. Do not ask me why. Just take them.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Broken handle? Bring it back and I will make it right. That is the store.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "The bell over the door means hello and goodbye. It does not mean hurry.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "If it is not on the shelf, tell me Thursday and it will be.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "bargain"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "siege-attacker-1",
+      "kind": "batch",
+      "file": "siege-attacker-1.mp3",
+      "voice_id": "unknown",
+      "character": "Siege Attacker",
+      "class": "siege-attacker",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 35.57,
+      "loudness_lufs": -28.3,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Up the ramp, single file, hands off the wall.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Do not stop at the parapet. Do not stop, do not look around, do not stop.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Sappers left, riflemen right, keep the lane open.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Grenade the stairwell, then go up it fast.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Clear room by room. Kick it in and throw first.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "Second wave, you are the second wave, move now, do not wait for me.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "Hole is opening, get the ladder crew up.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 7,
+          "text": "Ramp is down and the first two are through.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "siege-attacker-2",
+      "kind": "batch",
+      "file": "siege-attacker-2.mp3",
+      "voice_id": "unknown",
+      "character": "Siege Attacker",
+      "class": "siege-attacker",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 20.64,
+      "loudness_lufs": -18.2,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Breach is open, breach is open, move now.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Through the gap, through the gap, do not bunch up at the mouth.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Keep your head down at the stairs. Their riflemen are waiting for daylight.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "First rank holds the street. Second rank takes the doors.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Do not chase them into the alleys. Corners cost men.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "Smoke the gatehouse and push, smoke the gatehouse and push.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "Gate crew, you have thirty seconds. Gate crew, now.",
+          "emotion": "angry",
+          "context_tags": [
+            "combat"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "siege-defender-1",
+      "kind": "batch",
+      "file": "siege-defender-1.mp3",
+      "voice_id": "unknown",
+      "character": "Siege Defender",
+      "class": "siege-defender",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 24.96,
+      "loudness_lufs": -28.9,
+      "lines": [
+        {
+          "index": 0,
+          "text": "The gate is down, it is open, everything is coming in.",
+          "emotion": "determined",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Back up, back up, back to the school, everybody back up.",
+          "emotion": "determined",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "They are in the street, they are in the street already.",
+          "emotion": "determined",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Get the clinic off the north side, move it, move it now.",
+          "emotion": "determined",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "The officers are down, there is nobody giving orders in this street.",
+          "emotion": "determined",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "Do not run, do not run, I cannot find you if you run.",
+          "emotion": "determined",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "Water break is open, go to the water break, do not go out past it.",
+          "emotion": "determined",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 7,
+          "text": "Everything we built is on one road and they are on that road.",
+          "emotion": "determined",
+          "context_tags": [
+            "combat"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "siege-defender-2",
+      "kind": "batch",
+      "file": "siege-defender-2.mp3",
+      "voice_id": "unknown",
+      "character": "Siege Defender",
+      "class": "siege-defender",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 28.63,
+      "loudness_lufs": -25.4,
+      "lines": [
+        {
+          "index": 0,
+          "text": "They are at the south wall. South wall, everybody who can walk.",
+          "emotion": "determined",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Keep the doors barred and the windows lit. Make them think twice.",
+          "emotion": "determined",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Do not leave the well. If we lose the well we lose the week.",
+          "emotion": "determined",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Wounded go to the cellar, not the street. The cellar, I said.",
+          "emotion": "determined",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Hold the landing, not the stairs. Let the stairs eat them.",
+          "emotion": "determined",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "If the wall falls, the school is the wall. Everybody knows the plan.",
+          "emotion": "determined",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "Stay off the parapet and keep your rifles loaded. They are not done.",
+          "emotion": "determined",
+          "context_tags": [
+            "combat"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "townsman-1",
+      "kind": "batch",
+      "file": "townsman-1.mp3",
+      "voice_id": "avocado_v2:ronan",
+      "character": "Fluid Hammock",
+      "class": "townsman",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 20.64,
+      "loudness_lufs": -25.9,
+      "lines": [
+        {
+          "index": 0,
+          "text": "We get four kinds of weather here. Two of them are summer.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Soldiers everywhere and not one of them will help carry groceries.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "The fruit is fine, the shipping is not, and the middlemen are the reason.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Traffic on the bridge is worse than the war, and I say that as a joke.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Half this town showed up from three different states to complain about one bridge.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "townsman-2",
+      "kind": "batch",
+      "file": "townsman-2.mp3",
+      "voice_id": "avocado_v2:ronan",
+      "character": "Fluid Hammock",
+      "class": "townsman",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 21.67,
+      "loudness_lufs": -25.7,
+      "lines": [
+        {
+          "index": 0,
+          "text": "The convoy woke my dog at four. The dog is still mad. So am I.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Somebody's generator is running all night again. That is the sound of money.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "They paved half the road and left. Classic.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "My cousin joined a faction. My aunt joined a different one. Dinner is tense.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Rain is coming. You can smell it before the radio says it.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "The price of nails went up again. Nails. Somebody explain nails to me.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "townsman-3",
+      "kind": "batch",
+      "file": "townsman-3.mp3",
+      "voice_id": "avocado_v2:ronan",
+      "character": "Fluid Hammock",
+      "class": "townsman",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 16.8,
+      "loudness_lufs": -25.6,
+      "lines": [
+        {
+          "index": 0,
+          "text": "The well broke again. We are drinking rainwater till Thursday.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "My mule outran the constable. Whole street saw it.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Market was supposed to open at six. It opened at nine. Whatever.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "They say the ferry is fixed. They said that last month too.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Somebody's goat is loose in the chapel. Mass is cancelled.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "townswoman-1",
+      "kind": "batch",
+      "file": "townswoman-1.mp3",
+      "voice_id": "avocado_v2:MAI_01",
+      "character": "Aria",
+      "class": "townswoman",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 22.03,
+      "loudness_lufs": -27.5,
+      "lines": [
+        {
+          "index": 0,
+          "text": "I am not a spy. I am a woman with a loud voice, which is different.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "The water is the best in the state. I pay too much to live next to it and I would pay more.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Word from up north is they are pulling boats off the docks before dark.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "They took the good chairs off the porch. Chairs, my friend.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "If you are recruiting, at least knock first.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "townswoman-2",
+      "kind": "batch",
+      "file": "townswoman-2.mp3",
+      "voice_id": "avocado_v2:MAI_01",
+      "character": "Aria",
+      "class": "townswoman",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 23.57,
+      "loudness_lufs": -25.6,
+      "lines": [
+        {
+          "index": 0,
+          "text": "I hung the laundry and the wind took a sock to the next county.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "The school is open again. Half the kids, twice the noise.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Somebody planted tomatoes in the median. I respect it.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "My neighbor trades eggs for news and the news is always bad.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "The clinic line was short today. That is the best news I have had all week.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "If the power holds till Friday I am calling it a miracle and baking for it.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "townswoman-3",
+      "kind": "batch",
+      "file": "townswoman-3.mp3",
+      "voice_id": "avocado_v2:MAI_01",
+      "character": "Aria",
+      "class": "townswoman",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 19.75,
+      "loudness_lufs": -24.8,
+      "lines": [
+        {
+          "index": 0,
+          "text": "The baker's boy ran off with the church donations. Pray for him, I guess.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "My sister's kettle whistles the battle hymn now. Nobody knows why.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "If the well runs dry again, I am moving to the river, invite and all.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "The price of beans went up. Again. Beans, people.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "I saw the captain smile today. Write it in the town record.",
+          "emotion": "warm",
+          "context_tags": [
+            "town",
+            "greeting"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "troop-1",
+      "kind": "batch",
+      "file": "troop-1.mp3",
+      "voice_id": "avocado_v2:chip",
+      "character": "Warm Pebble",
+      "class": "troop",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 17.83,
+      "loudness_lufs": -25.6,
+      "lines": [
+        {
+          "index": 0,
+          "text": "On me. On me, I have you, come on.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "They broke. They broke and they are not coming back.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "We won. We actually won this one.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Hold the line and we win. Hold it, that is all I am asking.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Breathe. Everybody breathe. We are going to win this.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "troop-2",
+      "kind": "batch",
+      "file": "troop-2.mp3",
+      "voice_id": "avocado_v2:chip",
+      "character": "Warm Pebble",
+      "class": "troop",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 30.05,
+      "loudness_lufs": -24.1,
+      "lines": [
+        {
+          "index": 0,
+          "text": "We got them pinned and I like it here.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "They are breaking and I can see where it starts.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Keep the pace up, keep the pace up, we are rolling them.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "Our captain is still on his feet, so I am still on my feet.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Captain is up, get up, follow the captain.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "Stay down, stay down, the rounds are going over.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "Got one.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 7,
+          "text": "That is the last of them, that is the last of them right there.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 8,
+          "text": "Nobody cheer until I check the tree line, nobody.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "troop-3",
+      "kind": "batch",
+      "file": "troop-3.mp3",
+      "voice_id": "avocado_v2:chip",
+      "character": "Warm Pebble",
+      "class": "troop",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 38.81,
+      "loudness_lufs": -24.8,
+      "lines": [
+        {
+          "index": 0,
+          "text": "Forward is open. Forward, we can go forward.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Give them the ground, we will take it back with interest.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "Their ammunition outlasts ours, that is not courage, that is math.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "We are out of time and everybody in this ditch knows it.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "I counted their trucks. I did not like the number.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "Two of ours in the last minute and I am getting jumpy.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "We are pulling back and I do not want to talk about why.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 7,
+          "text": "Somebody get a message to the captain, we cannot hold this lane.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 8,
+          "text": "One more time, together, on the word.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 9,
+          "text": "I can see the ammunition truck. Put your eyes on the truck.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        }
+      ]
+    },
+    {
+      "schema_version": 1,
+      "id": "troop-4",
+      "kind": "batch",
+      "file": "troop-4.mp3",
+      "voice_id": "avocado_v2:chip",
+      "character": "Warm Pebble",
+      "class": "troop",
+      "format": "mp3",
+      "role": "delivery",
+      "sample_rate_hz": 48000,
+      "duration_s": 37.25,
+      "loudness_lufs": -24.2,
+      "lines": [
+        {
+          "index": 0,
+          "text": "They have stopped coming. Did everybody notice they stopped coming.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 1,
+          "text": "Four down from ours and a lot more than that from theirs.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 2,
+          "text": "We are back in the ditch and the ditch still exists.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 3,
+          "text": "They overshot, they are out of position, we can use that.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 4,
+          "text": "Good man. Whoever said reload, that was the right call.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 5,
+          "text": "Nothing left in the gun. Nothing. What do we do now.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 6,
+          "text": "I am on my back with a rifle I cannot reload.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 7,
+          "text": "Do not stand up for anything except the captain's word.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 8,
+          "text": "Pick up the rifle off the body, that is an order, not a suggestion.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        },
+        {
+          "index": 9,
+          "text": "Down, he is down.",
+          "emotion": "urgent",
+          "context_tags": [
+            "combat"
+          ]
+        }
+      ]
+    }
+  ]
+}

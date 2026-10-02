@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "id": "shopkeeper-2",
+  "kind": "batch",
+  "file": "shopkeeper-2.mp3",
+  "voice_id": "avocado_v2:vdc_24103",
+  "character": "Gracious Scarf",
+  "class": "shopkeeper",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 23.76,
+  "loudness_lufs": -18.9,
+  "lines": [
+    {
+      "index": 0,
+      "text": "Morning, friend. Everything is where you left it, including the good stuff.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "That jar is local honey. The label is my cousin. Both are honest.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "Two for one on nails this week. Do not ask me why. Just take them.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "Broken handle? Bring it back and I will make it right. That is the store.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "The bell over the door means hello and goodbye. It does not mean hurry.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 5,
+      "text": "If it is not on the shelf, tell me Thursday and it will be.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    }
+  ]
+}

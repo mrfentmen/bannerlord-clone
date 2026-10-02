@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "id": "leader-3",
+  "kind": "batch",
+  "file": "leader-3.mp3",
+  "voice_id": "unknown",
+  "character": "Leader",
+  "class": "leader",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 27.05,
+  "loudness_lufs": -28.6,
+  "lines": [
+    {
+      "index": 0,
+      "text": "A union is like a harvest. You plant in spring and you do not eat the seed corn.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "Chicago thinks the food comes from a warehouse. It comes from dirt and rain.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "I have seen bad years. We are in one. We will plant through it.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "You want to know my plan? Same as every year. Work, store, share, repeat.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "The land does not care about your politics. It cares if you showed up.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    }
+  ]
+}

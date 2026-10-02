@@ -1,0 +1,72 @@
+{
+  "schema_version": 1,
+  "id": "announcer-2",
+  "kind": "batch",
+  "file": "announcer-2.mp3",
+  "voice_id": "avocado_v2:vdc_NOID102",
+  "character": "Lofty Throne",
+  "class": "announcer",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 37.25,
+  "loudness_lufs": -15.5,
+  "lines": [
+    {
+      "index": 0,
+      "text": "Returning to the ring, last season's finalist, undefeated on home soil.",
+      "emotion": "neutral",
+      "context_tags": [
+        "radio"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "One round, clean weapons, no strikes below the belt. Judges have the final word.",
+      "emotion": "neutral",
+      "context_tags": [
+        "radio"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "The crowd wants blood, folks, but the rules want a winner. Here we go.",
+      "emotion": "neutral",
+      "context_tags": [
+        "radio"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "Halfway through and neither fighter has found a hole. Patience or panic.",
+      "emotion": "neutral",
+      "context_tags": [
+        "radio"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "That is the round. The judges are conferring, and so is the entire town.",
+      "emotion": "neutral",
+      "context_tags": [
+        "radio"
+      ]
+    },
+    {
+      "index": 5,
+      "text": "Winner by decision, and the purse is his. Five hundred in scrip, paid in full.",
+      "emotion": "neutral",
+      "context_tags": [
+        "radio"
+      ]
+    },
+    {
+      "index": 6,
+      "text": "Next event starts at sundown. Bring a friend, bring a drink, bring a bet.",
+      "emotion": "neutral",
+      "context_tags": [
+        "radio"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "id": "companion-2",
+  "kind": "batch",
+  "file": "companion-2.mp3",
+  "voice_id": "avocado_v2:miles",
+  "character": "Satiny Moon",
+  "class": "companion",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 22.87,
+  "loudness_lufs": -20.1,
+  "lines": [
+    {
+      "index": 0,
+      "text": "I am hit. I am hit, I am down here.",
+      "emotion": "solemn",
+      "context_tags": [
+        "idle"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "Take the book out of my pocket. That is all I want.",
+      "emotion": "solemn",
+      "context_tags": [
+        "idle"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "Tell them I said the road, not the town. Road.",
+      "emotion": "solemn",
+      "context_tags": [
+        "idle"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "Do not stand over me. Go help somebody who can still walk.",
+      "emotion": "solemn",
+      "context_tags": [
+        "idle"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "You were right about all of it. Say that at the table.",
+      "emotion": "solemn",
+      "context_tags": [
+        "idle"
+      ]
+    },
+    {
+      "index": 5,
+      "text": "I have got the good coffee in the truck. Somebody drink it.",
+      "emotion": "solemn",
+      "context_tags": [
+        "idle"
+      ]
+    },
+    {
+      "index": 6,
+      "text": "My people are in the north. Somebody tell them it was the road.",
+      "emotion": "solemn",
+      "context_tags": [
+        "idle"
+      ]
+    },
+    {
+      "index": 7,
+      "text": "I got them out. I want that said out loud before I stop.",
+      "emotion": "solemn",
+      "context_tags": [
+        "idle"
+      ]
+    }
+  ]
+}

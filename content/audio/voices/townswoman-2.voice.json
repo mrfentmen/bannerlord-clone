@@ -1,0 +1,70 @@
+{
+  "schema_version": 1,
+  "id": "townswoman-2",
+  "kind": "batch",
+  "file": "townswoman-2.mp3",
+  "voice_id": "avocado_v2:MAI_01",
+  "character": "Aria",
+  "class": "townswoman",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 23.57,
+  "loudness_lufs": -25.6,
+  "lines": [
+    {
+      "index": 0,
+      "text": "I hung the laundry and the wind took a sock to the next county.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "greeting"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "The school is open again. Half the kids, twice the noise.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "greeting"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "Somebody planted tomatoes in the median. I respect it.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "greeting"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "My neighbor trades eggs for news and the news is always bad.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "greeting"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "The clinic line was short today. That is the best news I have had all week.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "greeting"
+      ]
+    },
+    {
+      "index": 5,
+      "text": "If the power holds till Friday I am calling it a miracle and baking for it.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "greeting"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,61 @@
+{
+  "schema_version": 1,
+  "id": "townsman-1",
+  "kind": "batch",
+  "file": "townsman-1.mp3",
+  "voice_id": "avocado_v2:ronan",
+  "character": "Fluid Hammock",
+  "class": "townsman",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 20.64,
+  "loudness_lufs": -25.9,
+  "lines": [
+    {
+      "index": 0,
+      "text": "We get four kinds of weather here. Two of them are summer.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "greeting"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "Soldiers everywhere and not one of them will help carry groceries.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "greeting"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "The fruit is fine, the shipping is not, and the middlemen are the reason.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "greeting"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "Traffic on the bridge is worse than the war, and I say that as a joke.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "greeting"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "Half this town showed up from three different states to complain about one bridge.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "greeting"
+      ]
+    }
+  ]
+}

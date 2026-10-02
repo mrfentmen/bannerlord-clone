@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "id": "leader-6b",
+  "kind": "batch",
+  "file": "leader-6b.mp3",
+  "voice_id": "unknown",
+  "character": "Leader",
+  "class": "leader",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 22.85,
+  "loudness_lufs": -19.3,
+  "lines": [
+    {
+      "index": 0,
+      "text": "If you cannot state your terms in one sentence, you do not have terms.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "The Corridor does not beg and it does not bluff. It bills.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "I have read your offer twice. I will not read it a third time.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "Come back when you can afford my attention. It is not cheap.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "Precision, people. It is the only kindness that scales.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "id": "barter-1",
+  "kind": "batch",
+  "file": "barter-1.mp3",
+  "voice_id": "unknown",
+  "character": "Barter",
+  "class": "barter",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 34.08,
+  "loudness_lufs": -28.4,
+  "lines": [
+    {
+      "index": 0,
+      "text": "Shop rate is hourly, and I do not discount the hourly.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "I can do it cheap or I can do it right. Pick one and I will stop arguing.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "Cash gets it out tonight. Card gets it out when the parts truck gets here.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "That is not a repair, that is a miracle. Miracles cost more.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "Price is the price and it is the same for everybody in this room.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 5,
+      "text": "I do not haggle, I negotiate, and the difference is who wants it more.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 6,
+      "text": "Pay cash and it is done in ten minutes. Paperwork means I have to know who you are for a week.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 7,
+      "text": "Trade in your old one and we will talk, but I am going to undervalue it and I will tell you by how much.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    }
+  ]
+}
