@@ -23,7 +23,7 @@ Files processed: 116. Too hot: 0.
 | bolt-action-rifle.wav | -21.28 | 5.28 | -21.28 | 0.99 | peak-limited |
 | breaching-charge-beep.wav | -16.0 | 0.0 | -16.0 | 0.705 | - |
 | bullet-crack-overhead.wav | -23.38 | 7.38 | -23.38 | 0.99 | peak-limited |
-| campaign-pad-loop.wav | -16.0 | 0.0 | -16.0 | 0.642 | - |
+| campaign-pad-loop.wav | -16.0 | 0.0 | -16.0 | 0.643 | - |
 | campfire-night.wav | -18.95 | 2.95 | -18.94 | 0.99 | peak-limited |
 | car-door-slam.wav | -21.31 | 5.31 | -21.31 | 0.99 | peak-limited |
 | catapult-release.wav | -17.86 | 1.86 | -17.86 | 0.99 | peak-limited |
@@ -36,7 +36,7 @@ Files processed: 116. Too hot: 0.
 | crowd-battle-mid-loop.wav | -20.13 | 4.13 | -19.3 | 0.99 | peak-limited |
 | crowd-cheer.wav | -17.17 | 1.17 | -17.17 | 0.99 | peak-limited |
 | crowd-gasp.wav | -17.47 | 1.47 | -17.47 | 0.99 | peak-limited |
-| crowd-murmur-unrest.wav | -16.0 | 0.0 | -16.0 | 0.924 | - |
+| crowd-murmur-unrest.wav | -16.0 | 0.0 | -16.0 | 0.925 | - |
 | crowd-panic.wav | -16.0 | 0.0 | -16.0 | 0.665 | - |
 | defeat-stinger.wav | -16.0 | 0.0 | -16.0 | 0.379 | - |
 | dice-roll.wav | -19.93 | 3.93 | -19.93 | 0.99 | peak-limited |
@@ -106,14 +106,14 @@ Files processed: 116. Too hot: 0.
 | tension-riser.wav | -16.0 | 0.0 | -16.0 | 0.331 | - |
 | thunder-distant.wav | -33.26 | 17.26 | -33.26 | 0.99 | peak-limited, large-gain-review |
 | thunder-near.wav | -22.18 | 6.18 | -22.18 | 0.99 | peak-limited |
-| town-day-small.wav | -16.0 | 0.0 | -16.0 | 0.558 | - |
+| town-day-small.wav | -16.0 | 0.0 | -16.0 | 0.559 | - |
 | train-pass.wav | -17.82 | 1.82 | -17.82 | 0.99 | peak-limited |
 | truck-engine-idle.wav | -14.16 | -1.84 | -16.0 | 0.728 | - |
 | truck-engine-rev.wav | -13.33 | -2.67 | -16.0 | 0.662 | - |
 | truck-engine.wav | -20.36 | 4.36 | -20.35 | 0.99 | peak-limited |
 | ui-cancel.wav | -16.0 | 0.0 | -16.0 | 0.594 | - |
 | ui-click.wav | -16.0 | 0.0 | -16.0 | 0.534 | - |
-| ui-confirm.wav | -16.0 | 0.0 | -16.0 | 0.47 | - |
+| ui-confirm.wav | -16.0 | 0.0 | -16.0 | 0.471 | - |
 | ui-error.wav | -16.0 | 0.0 | -16.0 | 0.742 | - |
 | ui-hover.wav | -16.0 | 0.0 | -16.0 | 0.429 | - |
 | ui-select.wav | -16.33 | 0.33 | -16.32 | 0.99 | peak-limited |
