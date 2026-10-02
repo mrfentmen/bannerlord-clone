@@ -8,3 +8,6 @@ export * from "./schemes.js";
 export * from "./informants.js";
 export * from "./counterIntel.js";
 export * from "./plots.js";
+export * from "./rumors.js";
+export * from "./infiltration.js";
+export * from "./blackmail.js";

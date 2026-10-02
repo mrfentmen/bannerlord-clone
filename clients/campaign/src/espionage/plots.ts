@@ -32,6 +32,45 @@ export interface AssassinationPlot {
   complete: boolean;
 }
 
+export interface FalloutSuspect {
+  /** Role that would be implicated, e.g. "the bribed guard". */
+  role: string;
+  /** Why they'd be suspected. */
+  why: string;
+  /** How badly exposure hurts them. */
+  risk: "low" | "high";
+}
+
+/**
+ * Task 97 acceptance: fallout preview. Lists who'd be suspected if the plot
+ * burned right now, derived from the stages already worked — the spymaster
+ * is always exposed, and each completed stage implicates its assets.
+ */
+export function previewFallout(plot: AssassinationPlot): FalloutSuspect[] {
+  const suspects: FalloutSuspect[] = [
+    {
+      role: "your spymaster",
+      why: "Every plot traces back to its master.",
+      risk: plot.stage >= 2 ? "high" : "low",
+    },
+  ];
+  if (plot.stage >= 1) {
+    suspects.push({
+      role: "the recruited assets",
+      why: "Recruited in the open during stage one.",
+      risk: "high",
+    });
+  }
+  if (plot.stage >= 3) {
+    suspects.push({
+      role: "the bribed guard",
+      why: "Took your coin to look away.",
+      risk: "high",
+    });
+  }
+  return suspects;
+}
+
 let nextPlot = 1;
 
 export function startPlot(target: string): AssassinationPlot {
