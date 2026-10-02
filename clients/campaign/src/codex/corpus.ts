@@ -5,6 +5,7 @@
 import { CONTROL_ENTRIES, SETTINGS_ENTRIES } from "./entries1.js";
 import { CAMPAIGN_ENTRIES, COMMAND_ENTRIES, ECONOMY_ENTRIES } from "./entries2.js";
 import { WORLD_ENTRIES } from "./entries3.js";
+import { SOLO_ENTRIES } from "./entries4.js";
 import type { CodexEntry } from "./types.js";
 
 export const ALL_CODEX_ENTRIES: readonly CodexEntry[] = [
@@ -14,6 +15,7 @@ export const ALL_CODEX_ENTRIES: readonly CodexEntry[] = [
   ...CAMPAIGN_ENTRIES,
   ...ECONOMY_ENTRIES,
   ...WORLD_ENTRIES,
+  ...SOLO_ENTRIES,
 ];
 
 export const CODEX_ENTRY_COUNT = ALL_CODEX_ENTRIES.length;
