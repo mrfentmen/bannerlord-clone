@@ -83,7 +83,34 @@ const DefaultBattleDir = "logs/battles"
 // times a 12 v 12 one. WithBattleStore's sibling WithOrderLogBound raises it.
 const defaultOrderLogBound = 1 << 20
 
+// resolveChunkTicks is how many ticks handleResolve advances before it lets go of
+// the battle's lock.
+//
+// Ten, and it is a tick count rather than a time budget on purpose. A tick costs
+// what the field costs — measured on this box at about 0.0052 s at 250 v 250 and
+// 0.0477 s at 500 v 500 — so ten ticks is about 50 ms and 480 ms at the two sizes
+// anyone runs, against the 5 s a reader is allowed to wait. A budget that expires
+// mid-Advance cannot release the lock until the Advance returns, so a rule written
+// in seconds would be a rule that only works below the size it was measured at.
+const resolveChunkTicks = 10
+
 type entry struct {
+	// mu guards everything below, and it is PER BATTLE rather than per server.
+	//
+	// It used to be the server's single mutex, held across a whole
+	// `for phase != resolved { Advance(1000) }`, which meant one player skipping to
+	// the end of a battle stopped every other battle on the server for as long as
+	// that battle took to decide — measured at 91.4 s of block on a 500 v 500,
+	// during which 2 of about 365 polled state requests were served.
+	//
+	// What a per-battle lock buys is that a reader of an UNRELATED battle is never
+	// waiting on this one at all, and a reader of THIS battle waits for one chunk of
+	// ticks rather than for the battle. See resolveChunkTicks.
+	//
+	// The invariant is the one Go wants anyway: a session is not safe for
+	// concurrent use, so every path that touches e.session holds this. s.mu guards
+	// the MAP and nothing else.
+	mu                 sync.Mutex
 	session           *battle.Session
 	campaignSessionID string
 	orders            []loggedOrder
@@ -213,35 +240,47 @@ func (s *Server) Run(ctx context.Context) {
 }
 
 func (s *Server) pump() {
+	// The map is snapshotted under its own lock and RELEASED before any battle is
+	// advanced. Holding it for the whole sweep would mean a 500 v 500 Advance(2) —
+	// about 95 ms here — delays every lookup on the server, which is a hundredth
+	// of the old problem and still not nothing.
 	s.mu.Lock()
-	defer s.mu.Unlock()
-	for id, e := range s.sessions {
-		ph := e.session.Phase()
-		if ph != battle.PhaseFighting && ph != battle.PhaseRout {
-			continue
-		}
-		if err := e.session.Advance(ticksPerWake); err != nil {
-			e.lastErr = fmt.Errorf("battle %s: %w", id, err)
-		}
+	type live struct {
+		id string
+		e  *entry
 	}
-	// Battles that DECIDED on their own, rather than through handleResolve, are
-	// saved here. A battle fought at the pump rate resolves without anybody asking
-	// for it, and without this its record is never written — which would make
-	// recording work only for the one path that already had a bug in it.
+	var all []live
 	for id, e := range s.sessions {
-		if e.session.Phase() == battle.PhaseResolved {
-			s.saveRecord(id, e)
+		all = append(all, live{id, e})
+	}
+	s.mu.Unlock()
+
+	for _, l := range all {
+		l.e.mu.Lock()
+		ph := l.e.session.Phase()
+		if ph == battle.PhaseFighting || ph == battle.PhaseRout {
+			if err := l.e.session.Advance(ticksPerWake); err != nil {
+				l.e.lastErr = fmt.Errorf("battle %s: %w", l.id, err)
+			}
 		}
+		// Battles that DECIDED on their own, rather than through handleResolve, are
+		// saved here. A battle fought at the pump rate resolves without anybody
+		// asking for it, and without this its record is never written — which would
+		// make recording work only for the one path that already had a bug in it.
+		if l.e.session.Phase() == battle.PhaseResolved {
+			s.saveRecord(l.id, l.e)
+		}
+		l.e.mu.Unlock()
 	}
 }
 
 // saveRecord writes a resolved battle's order log, setup, seed and result into the
 // store, once.
 //
-// It is called with s.mu held, from both pump and handleResolve, and it does no
-// locking of its own. Every failure is kept on the entry rather than returned,
-// because the caller is a route handler for a battle that has already been fought
-// and decided: there is nothing left to refuse.
+// It is called with the entry's own lock held, from both pump and handleResolve,
+// and it does no locking of its own. Every failure is kept on the entry rather
+// than returned, because the caller is a route handler for a battle that has
+// already been fought and decided: there is nothing left to refuse.
 //
 // The record is the session's own Setup and its own seed, which is why gaps (a)
 // and (c) in the CHANGELOG entry for this had to be closed first. Before
@@ -362,12 +401,15 @@ func (s *Server) handleStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// The map lock is taken for the id and the seed and then released, so the
+	// sim work below does not sit inside it. Everything after this point is about
+	// ONE battle and belongs to that battle's own lock.
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.nextID++
 	s.battleCounter++
 	id := fmt.Sprintf("btl-%d", s.nextID)
 	seed := battle.DeriveBattleSeed(s.campaignSeed, s.battleCounter, req.AttackerPartyID, req.DefenderPartyID)
+	s.mu.Unlock()
 
 	attacker := battle.PartyRef{ID: req.AttackerPartyID, Name: req.AttackerPartyName}
 	defender := battle.PartyRef{ID: req.DefenderPartyID, Name: req.DefenderPartyName}
@@ -405,7 +447,11 @@ func (s *Server) handleStart(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, &apiError{http.StatusInternalServerError, "begin", err.Error()})
 		return
 	}
+	// Published last, and only once it can be served: a reader that found the entry
+	// mid-construction would find a session with no commander and no recorder.
+	s.mu.Lock()
 	s.sessions[id] = e
+	s.mu.Unlock()
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"battle_id": id,
 		"phase":     sess.Phase().String(),
@@ -518,9 +564,10 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, apiErr)
 		return
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	writeJSON(w, http.StatusOK, s.stateOf(e))
+	e.mu.Lock()
+	state := s.stateOf(e)
+	e.mu.Unlock()
+	writeJSON(w, http.StatusOK, state)
 }
 
 // SessionForces generates both sides and their leaders for a battle from ONE seed.
@@ -609,8 +656,11 @@ func (s *Server) handleOrders(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, apiErr)
 		return
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
+	// The BATTLE's lock, not the server's: sending orders to one battle must not
+	// wait behind a resolve of another, and this is the request a player makes
+	// mid-fight, so it is the one whose latency they feel.
+	e.mu.Lock()
+	defer e.mu.Unlock()
 
 	// Everything is validated and applied before anything is attached, and a
 	// failure part-way through restores the standing orders it had already
@@ -997,19 +1047,43 @@ func (s *Server) handleResolve(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, apiErr)
 		return
 	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for e.session.Phase() != battle.PhaseResolved {
-		if err := e.session.Advance(1000); err != nil {
+	// The fast-forward is done in CHUNKS, taking the battle's lock for each and
+	// releasing it in between, rather than once for the whole battle.
+	//
+	// That is the entire fix for "one player resolving a battle stops the whole
+	// battle server". A reader of an unrelated battle never contends for this
+	// lock at all; a reader of THIS battle waits for one chunk. The chunk is ten
+	// ticks because the cost of a tick scales with the field — measured here at
+	// about 0.0052 s a tick at 250 v 250 and 0.0477 s at 500 v 500 — so ten ticks
+	// is roughly 50 ms and 480 ms respectively, against a 5 s budget, and a
+	// constant tick count is the only chunk rule that holds at both sizes. A
+	// tick-count rule beats a time-budget rule for the obvious reason: a budget
+	// that expires mid-Advance still cannot release the lock until the Advance
+	// returns.
+	//
+	// Nothing about the battle changes. Ticks are ticks whoever advances them, so
+	// the result is the same as the one loop-across-the-whole-battle produced, and
+	// pump may interleave its own two ticks between chunks.
+	for {
+		e.mu.Lock()
+		if e.session.Phase() == battle.PhaseResolved {
+			// The same save pump does, so that a battle resolved here and a battle
+			// that resolved on its own leave the same thing behind. Guarded by
+			// entry.saved, so resolving twice — which this route promises is fine —
+			// saves once.
+			s.saveRecord(req.BattleID, e)
+			state := s.stateOf(e)
+			e.mu.Unlock()
+			writeJSON(w, http.StatusOK, state)
+			return
+		}
+		err := e.session.Advance(resolveChunkTicks)
+		e.mu.Unlock()
+		if err != nil {
 			writeAPIError(w, &apiError{http.StatusInternalServerError, "advance", err.Error()})
 			return
 		}
 	}
-	// The same save pump does, so that a battle resolved here and a battle that
-	// resolved on its own leave the same thing behind. Guarded by entry.saved, so
-	// resolving twice — which this route promises is fine — saves once.
-	s.saveRecord(req.BattleID, e)
-	writeJSON(w, http.StatusOK, s.stateOf(e))
 }
 
 // --- /v1/version ---

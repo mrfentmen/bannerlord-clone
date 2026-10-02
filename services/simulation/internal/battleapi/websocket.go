@@ -77,9 +77,9 @@ func (s *Server) handleStream(w http.ResponseWriter, r *http.Request) {
 			if err := s.writeStreamFrame(conn, e, &lastSeq, false); err != nil {
 				return
 			}
-			s.mu.Lock()
+			e.mu.Lock()
 			resolved := e.session.Phase() == battle.PhaseResolved
-			s.mu.Unlock()
+			e.mu.Unlock()
 			if resolved {
 				return
 			}
@@ -117,8 +117,15 @@ func hijack(w http.ResponseWriter) (net.Conn, *bufio.ReadWriter, error) {
 // writeStreamFrame sends one snapshot. When full is true the message carries
 // the whole state; otherwise it carries the tick, the phase, and only the
 // events since the last message.
+// writeStreamFrame builds one stream message from a consistent snapshot of a
+// battle.
+//
+// It holds the BATTLE's lock, not the server's. A stream is a reader: it is open
+// for the whole fight and reads ten times a second, so under the old single server
+// mutex a resolve would have stopped this battle's own stream as well as every
+// other request — which is the opposite of what a stream is for.
 func (s *Server) writeStreamFrame(conn net.Conn, e *entry, lastSeq *int, full bool) error {
-	s.mu.Lock()
+	e.mu.Lock()
 	sess := e.session
 	var evs []battle.Event
 	for _, ev := range sess.RecentEvents(50) {
@@ -145,7 +152,7 @@ func (s *Server) writeStreamFrame(conn net.Conn, e *entry, lastSeq *int, full bo
 		msg["type"] = "resolved"
 		msg["outcome"] = map[string]string{"kind": o.Kind.String(), "reason": o.Reason.String()}
 	}
-	s.mu.Unlock()
+	e.mu.Unlock()
 
 	payload, err := json.Marshal(msg)
 	if err != nil {

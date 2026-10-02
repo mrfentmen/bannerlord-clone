@@ -59,10 +59,21 @@ import (
 // wait for a battle to finish". There is no assertion that could be satisfied by a
 // slow machine: the alternative to blocking is not blocking more slowly.
 //
-// NOT FIXED HERE. `internal/battleapi` is nobody's declared lane, and the fix is a
-// design decision rather than a line: resolve outside the lock, or give the
-// simulator its own lock and snapshot state for readers. Both change what a
-// concurrent reader can see mid-resolve, so both are the API owner's call.
+// FIXED, and the fix was the second of the two options, done properly.
+//
+// The server's mutex now guards the MAP and nothing else; each battle has its own
+// lock, and every path that touches a session holds it. handleResolve advances ten
+// ticks per acquisition and releases in between, so a reader of an unrelated battle
+// never contends for that lock at all and a reader of the resolving battle waits for
+// one chunk rather than for the battle.
+//
+// A tick count and not a time budget, because a budget that expires mid-Advance
+// cannot release the lock until the Advance returns: ten ticks is about 50 ms at
+// 250 v 250 and 480 ms at 500 v 500 against a 5 s allowance, and a rule written in
+// seconds only works below the size it was measured at.
+//
+// The measurement above is the BEFORE. It is kept because the after is a single
+// number in the test output and this is the thing that number is an answer to.
 
 // TestResolvingOneBattleDoesNotFreezeTheServer is the availability claim.
 func TestResolvingOneBattleDoesNotFreezeTheServer(t *testing.T) {
