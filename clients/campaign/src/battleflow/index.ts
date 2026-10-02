@@ -19,3 +19,4 @@ export * from "./promotions";
 export * from "./warStories";
 export * from "./rivals";
 export * from "./snapshots";
+export * from "./comparison";
