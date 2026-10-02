@@ -452,7 +452,7 @@ describe("the market panel", () => {
     const table = market().root.querySelector("[data-testid='market-table']")!;
     expect(table.classList.contains("table--stack")).toBe(true);
     const headings = Array.from(table.querySelectorAll("thead th")).map((th) => th.textContent ?? "");
-    expect(headings).toEqual(["Good", "Price", "History", "Stock", "Held", "Trade"]);
+    expect(headings).toEqual(["Good", "Price", "History", "Stock", "Demand", "Held", "Trade"]);
     for (const cell of Array.from(table.querySelectorAll("tbody td"))) {
       expect(headings).toContain(cell.getAttribute("data-label"));
     }
