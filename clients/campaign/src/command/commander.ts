@@ -5,6 +5,7 @@
  * Gesture summary:
  * - click a unit: select it (Shift+click toggles into the selection)
  * - drag a box: select every live unit inside
+ * - right-click the field: move the selected units there (task 51)
  * - Shift+click empty ground: queue a waypoint for the selected units
  * - Alt+click: drop a ping marker (visible 5 s, edge arrow when off-screen)
  * - hold the command-menu key (Space): radial opens at the pointer; flick toward
@@ -210,8 +211,25 @@ export function createCommander(
     dragStart = { x: ev.clientX, y: ev.clientY };
   };
 
+  /**
+   * Task 51: right-click on the field moves the selected units there. Right-click
+   * on one of your own units is ignored — the drag gesture owns the left button,
+   * so nothing else is listening for it.
+   */
+  const onContextMenu = (ev: MouseEvent): void => {
+    ev.preventDefault();
+    if (radial || placingRally) return;
+    const unitIds = selection.selected();
+    if (unitIds.length === 0) return;
+    const field = surface.screenToField(ev.clientX, ev.clientY);
+    clearWaypoints();
+    issue({ kind: "move", unitIds, target: field, at: Date.now() });
+  };
+
   const onPointerUp = (ev: PointerEvent): void => {
-    if (!dragStart || ev.button !== 0) return;
+    if (ev.button !== 0) return;
+    // Right-click orders a move; it never ends a selection drag.
+    if (!dragStart) return;
     const start = dragStart;
     dragStart = null;
 
@@ -417,6 +435,7 @@ export function createCommander(
 
   // -- surface events ------------------------------------------------------------
   overlay.addEventListener("pointerdown", onPointerDown);
+  overlay.addEventListener("contextmenu", onContextMenu);
   window.addEventListener("pointermove", onPointerMove);
   window.addEventListener("pointermove", beginMarquee);
   window.addEventListener("pointerup", onPointerUp);
@@ -446,6 +465,7 @@ export function createCommander(
     destroy() {
       for (const off of offs) off();
       overlay.removeEventListener("pointerdown", onPointerDown);
+      overlay.removeEventListener("contextmenu", onContextMenu);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointermove", beginMarquee);
       window.removeEventListener("pointerup", onPointerUp);

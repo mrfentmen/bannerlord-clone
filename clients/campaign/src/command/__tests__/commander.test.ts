@@ -76,6 +76,62 @@ describe("commander", () => {
     commander.destroy();
   });
 
+  it("right-click on the field moves the selection there (task 51)", () => {
+    const surface = fakeSurface();
+    const commander = createCommander(surface);
+    input.dispatch("battle.selectAll", "keyboard");
+
+    surface.overlay().dispatchEvent(
+      new MouseEvent("contextmenu", { bubbles: true, clientX: 250, clientY: 350 }),
+    );
+
+    expect(surface.orders).toHaveLength(1);
+    expect(surface.orders[0]).toMatchObject({
+      kind: "move",
+      unitIds: ["a", "b", "c"],
+      target: { x: 250, z: 350 },
+    });
+    // A single leg: a plain move, not a queued waypoint chain.
+    expect(surface.orders[0]!.waypoints).toBeUndefined();
+    commander.destroy();
+  });
+
+  it("right-click with nothing selected moves nobody, and the browser menu stays suppressed", () => {
+    const surface = fakeSurface();
+    const commander = createCommander(surface);
+
+    const ev = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 10, clientY: 10 });
+    surface.overlay().dispatchEvent(ev);
+
+    expect(surface.orders).toHaveLength(0);
+    expect(ev.defaultPrevented).toBe(true);
+    commander.destroy();
+  });
+
+  it("right-click drops any queued waypoints and moves to the clicked spot (task 51)", () => {
+    const surface = fakeSurface();
+    const commander = createCommander(surface);
+    input.dispatch("battle.selectAll", "keyboard");
+
+    // Queue two legs with Shift+click, then right-click somewhere else.
+    pointer(surface.overlay(), "pointerdown", { button: 0, clientX: 700, clientY: 100, shiftKey: true });
+    pointer(window, "pointerup", { button: 0, clientX: 700, clientY: 100, shiftKey: true });
+    pointer(surface.overlay(), "pointerdown", { button: 0, clientX: 700, clientY: 300, shiftKey: true });
+    pointer(window, "pointerup", { button: 0, clientX: 700, clientY: 300, shiftKey: true });
+    expect(document.querySelectorAll('[data-testid="cmd-waypoints"] .cmd-waypoint')).toHaveLength(2);
+
+    surface.overlay().dispatchEvent(
+      new MouseEvent("contextmenu", { bubbles: true, clientX: 200, clientY: 200 }),
+    );
+
+    const last = surface.orders[surface.orders.length - 1]!;
+    expect(last.kind).toBe("move");
+    expect(last.target).toEqual({ x: 200, z: 200 });
+    expect(last.waypoints).toBeUndefined();
+    expect(document.querySelector('[data-testid="cmd-waypoints"]')).toBeNull();
+    commander.destroy();
+  });
+
   it("select-all grabs every live unit", () => {
     const surface = fakeSurface();
     const commander = createCommander(surface);
