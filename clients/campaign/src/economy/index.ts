@@ -16,3 +16,4 @@ export * from "./smuggling.js";
 export * from "./convoy.js";
 export * from "./garrison.js";
 export * from "./militia.js";
+export { logTreasury, treasuryBalance, treasuryLog, treasuryTotals, type TreasuryEntry } from "./treasuryLog.js";
