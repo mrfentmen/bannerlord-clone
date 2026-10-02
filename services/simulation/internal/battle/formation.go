@@ -1733,6 +1733,21 @@ func (c *FormationCommander) separateAnchors(g *formationGroup, ax, ay float64) 
 // follower on its own remembered anchor is what made it fall twenty-one metres
 // behind a leader that had walked twenty-six, in TestAFollowerKeepsUpWithTheGroup
 // ItFollows, which is a real measurement and not a hypothetical.
+//
+// # WHY THE SEPARATION PASS RUNS BEFORE THIS AND NOT AFTER
+//
+// orderGroup separates a group's anchor from its neighbours' and then asks this
+// question, and the other order is wrong in a way that is measurable. The
+// separation is a shift computed from where the groups are now; a remembered
+// ground has a shift applied to it on every tick, and shifts applied to a
+// remembered thing accumulate instead of cancelling. Doing it the other way round
+// puts the hold-drift failure straight back: a line ordered to hold walks
+// +3.19 m, +2.18 m over 210 ticks instead of standing still, which is
+// TestAFormationToldToHoldStandsWhereItIs and is the measurement this whole
+// function exists to fix. So the freeze comes last, and a hold's remembered
+// ground is the already-separated anchor rather than a bare centre of mass.
+// TestTwoHeldGroupsAreStillSeparatedOnTheSecondTick checks that the separation
+// still reaches a held group on the ticks after it takes its ground.
 func (c *FormationCommander) holdAnchor(g *formationGroup, ax, ay float64, slots []Slot) (float64, float64) {
 	if g.order.Order != OrderFormationHold || g.lead != nil {
 		return ax, ay

@@ -1595,3 +1595,109 @@ func TestAMarchingShapePinsNobody(t *testing.T) {
 		"radius (tightest %.3f m) - inside the radius and not pinned is the whole distinction",
 		n, inside, pin, tightest)
 }
+
+// TestTwoHeldGroupsAreStillSeparatedOnTheSecondTick is the question a hold's
+// remembered ground raises about the separation pass, and it is a real one rather
+// than a theoretical one.
+//
+// A hold does not take its ground from its men (see holdAnchor), so from the
+// second tick onwards its anchor is a remembered one rather than a reading of
+// where the men are. The separation pass pushes groups apart by moving anchors.
+// If a hold's remembered ground is the anchor the pass moved on the tick it was
+// taken, the separation survives; if the pass runs on this tick's centre of mass
+// and the hold then overrides it, the shape is drawn around a ground nobody
+// separated, and two held lines are drawn through each other again - which is the
+// whole defect TestTwoGroupsOfOneSideAreNotDrawnOnTopOfEachOther is about, back
+// one tick later.
+//
+// So the same four groups of a hundred and twenty-five, twelve metres apart,
+// ordered twice instead of once, and the same measurement: the nearest two slots
+// of different groups, as drawn.
+//
+// WHAT THIS DOES NOT DO, because a test that claims more than it checks is worse
+// than no test. It passes whichever order the separation and the freeze are
+// applied in, so on its own it does not pin that order down. The order is
+// load-bearing and it is pinned down elsewhere: running the separation AFTER the
+// freeze puts the hold-drift failure straight back, at +3.19 m and +2.18 m over
+// 210 ticks, because a separation shift applied to a remembered ground
+// accumulates and a held line walks east on it again. That is
+// TestAFormationToldToHoldStandsWhereItIs, and this test is here because the
+// invariant it checks is the one a reader of holdAnchor cannot see from the
+// function alone.
+func TestTwoHeldGroupsAreStillSeparatedOnTheSecondTick(t *testing.T) {
+	cfg := loadConfig(t)
+	p := FormationParamsFrom(cfg.Formation)
+	ms := cfg.Formation.MinSeparation
+	perGroup := []int{125, 125, 125, 125}
+	const anchorGap = 12.0
+
+	order := func(cmd *FormationCommander, v *View) {
+		t.Helper()
+		if err := cmd.Command(v); err != nil {
+			t.Fatalf("ordering the field: %v", err)
+		}
+	}
+
+	// Tick 1 is where a hold takes its ground, from where its men are standing.
+	v := syntheticField(t, perGroup, anchorGap)
+	var ids []int
+	for i := range v.Units {
+		ids = append(ids, i)
+	}
+	groups := SplitIntoGroups(ids, len(perGroup))
+	var spec []Group
+	for _, g := range groups {
+		spec = append(spec, Group{
+			Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold}, Units: g,
+		})
+	}
+	cmd, err := NewFormationCommander(cfg, SideA, spec)
+	if err != nil {
+		t.Fatalf("building the commander: %v", err)
+	}
+	order(cmd, v)
+
+	// Tick 2 is where a hold is standing on remembered ground, and the whole
+	// question is whether the separation pass still reaches it. The men have not
+	// moved, which is the point: nothing about the field changed, so nothing
+	// about the answer may either.
+	order(cmd, v)
+
+	worst := math.Inf(1)
+	var worstPair string
+	for i := 0; i < len(cmd.groups); i++ {
+		for j := i + 1; j < len(cmd.groups); j++ {
+			gi, gj := cmd.groups[i], cmd.groups[j]
+			si, err := FormationLayout(gi.order.Kind, len(gi.units), p)
+			if err != nil {
+				t.Fatal(err)
+			}
+			sj, err := FormationLayout(gj.order.Kind, len(gj.units), p)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, a := range si {
+				ax, ay := a.place(gi.anchorX, gi.anchorY, gi.facing)
+				for _, b := range sj {
+					bx, by := b.place(gj.anchorX, gj.anchorY, gj.facing)
+					if d := math.Hypot(ax-bx, ay-by); d < worst {
+						worst = d
+						worstPair = fmt.Sprintf("group %d and group %d", i, j)
+					}
+				}
+			}
+		}
+	}
+	t.Logf("two ticks in, the nearest two slots of different held groups come within %.2f m (%s); "+
+		"min_separation is %.2f m", worst, worstPair, ms)
+	if !isFinite(worst) {
+		t.Fatalf("measured no distance between any two groups' slots, so there was nothing to compare "+
+			"against min_separation %g; %d groups drew nothing", ms, len(cmd.groups))
+	}
+	if worst < ms {
+		t.Errorf("two held groups of one side are being drawn %.2f m apart on the second tick, against a "+
+			"min_separation of %.2f m. A hold remembers its ground, and if the separation pass is run on "+
+			"this tick's centre of mass and then overridden, the ground it remembers is a ground nobody "+
+			"separated", worst, ms)
+	}
+}
