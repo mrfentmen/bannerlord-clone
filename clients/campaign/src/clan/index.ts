@@ -20,3 +20,4 @@ export { createClanRoles, CLAN_ROLES, type ClanRole, type OfficeCandidate, type 
 export { ceremonyLine, NAME_CULTURES, suggestNames, validateName, type CeremonyName, type NameCulture, type NameValidation } from "./namingCeremony.js";
 export { completeRecruitmentStage, RECRUITMENT_CHAINS, recruitmentProgress, type RecruitmentChain, type RecruitmentProgress, type RecruitmentStage } from "./recruitment.js";
 export { previewLawEffects, type LawEffect, type LawEffectsPreview } from "./lawEffects.js";
+export { bannerShieldSvg, shieldPreview, type ShieldPreviewOptions } from "./bannerPreview.js";
