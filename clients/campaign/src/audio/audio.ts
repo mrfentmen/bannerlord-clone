@@ -94,7 +94,7 @@ export const SFX_FILES: Record<string, string> = {
   "ambience-rain": "ambience/rain.mp3",
   "ambience-wind": "ambience/wind.mp3",
   "ambience-distant-battle": "ambience/distant-battle.mp3",
-  // stingers (one-shot; battle-outcome hooks pending sim support)
+  // stingers (one-shot; fired from main.ts on battle/siege notifications)
   "stinger-victory": "stinger/victory.mp3",
   "stinger-defeat": "stinger/defeat.mp3",
   // radio

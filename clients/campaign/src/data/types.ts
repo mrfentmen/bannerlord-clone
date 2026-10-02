@@ -952,6 +952,11 @@ export interface Notification {
   field: string | null;
   /** Cause-log id, so a notification opens straight into the Why panel. */
   causedBy?: string;
+  /** "battle" | "siege" | "rebellion" — what happened. */
+  kind?: string;
+  /** Side IDs for victory/defeat determination (client compares with player side). */
+  winnerSide?: number;
+  loserSide?: number;
 }
 
 export interface TickUpdate {

@@ -293,3 +293,44 @@ func TestCapturedMenReachThePrisonerEconomy(t *testing.T) {
 		t.Error("captured men gain no conformity, so they can never be recruited")
 	}
 }
+
+// TestBattleEmitsNotification verifies the battle system appends a user-facing
+// notification when it resolves a fight, with the winner/loser sides and town
+// the apiserver needs to render and prioritize it.
+func TestBattleEmitsNotification(t *testing.T) {
+	s := battleState(model.TplStance, model.TplStance)
+	if len(s.Notifications) != 0 {
+		t.Fatalf("expected no notifications before tick, got %d", len(s.Notifications))
+	}
+	resolve(t, s, 42)
+	if len(s.Notifications) != 1 {
+		t.Fatalf("expected 1 notification after battle, got %d", len(s.Notifications))
+	}
+	n := s.Notifications[0]
+	if n.Kind != "battle" {
+		t.Errorf("kind = %q, want battle", n.Kind)
+	}
+	// Strong side (1) must beat weak side (2); see strongTroops/weakTroops.
+	if n.WinnerSide != 1 || n.LoserSide != 2 {
+		t.Errorf("winner/loser = %d/%d, want 1/2", n.WinnerSide, n.LoserSide)
+	}
+	if n.TownID != 1 {
+		t.Errorf("town = %d, want 1", n.TownID)
+	}
+	if n.Text == "" {
+		t.Error("notification text is empty")
+	}
+	// IDs are unique and increasing.
+	id2 := s.Notify(99, "battle", 1, 2, 1, "x")
+	if id2 != n.ID+1 {
+		t.Errorf("second notify ID = %d, want %d", id2, n.ID+1)
+	}
+	// Drain returns everything and clears the queue.
+	drained := s.DrainNotifications()
+	if len(drained) != 2 {
+		t.Fatalf("drained %d, want 2", len(drained))
+	}
+	if len(s.Notifications) != 0 {
+		t.Errorf("queue not empty after drain: %d", len(s.Notifications))
+	}
+}

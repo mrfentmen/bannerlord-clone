@@ -1035,3 +1035,23 @@ type Issue struct {
 	// Steps is the per-issue log of what happened and when.
 	Steps []IssueStep
 }
+
+// Notification is a user-facing event: a battle won, a siege lifted, a town
+// rebelled. Systems append them when something happens that the player should
+// know about; the apiserver drains them into the snapshot and tick frames.
+// They are facts about the world (like Issues), not staged writes, because a
+// notification must survive the tick that created it.
+type Notification struct {
+	ID int
+	// Tick is when it happened; Day is Tick % 365 for the client.
+	Tick int
+	// Kind is "battle", "siege", or "rebellion".
+	Kind string
+	// WinnerSide and LoserSide are side IDs (-1 if none/independent).
+	WinnerSide int
+	LoserSide  int
+	// TownID is where it happened (-1 if in the field).
+	TownID int
+	// Text is the human-readable summary.
+	Text string
+}

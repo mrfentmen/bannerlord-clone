@@ -328,6 +328,21 @@ function mountCampaign(): void {
       if (!snapshot) return;
       previous = snapshot;
       snapshot = applyTick(snapshot, update);
+      // Battle/siege outcome stingers: the sim now emits notifications for
+      // these, and the apiserver tags the player's side. Victory plays when
+      // the player's side won, defeat when it lost.
+      if (update.notifications) {
+        const playerSideId = snapshot.player.factionId;
+        for (const n of update.notifications) {
+          if (n.kind !== "battle" && n.kind !== "siege") continue;
+          if (typeof n.winnerSide !== "number" || typeof n.loserSide !== "number") continue;
+          if (`side-${n.winnerSide}` === playerSideId) {
+            audio.playSfx("stinger-victory");
+          } else if (`side-${n.loserSide}` === playerSideId) {
+            audio.playSfx("stinger-defeat");
+          }
+        }
+      }
       if (currentPanel === "town" || currentPanel === "party" || currentPanel === "ledger") {
         rebuildContext();
       }

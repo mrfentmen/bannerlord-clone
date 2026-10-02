@@ -61,6 +61,7 @@
 package battle
 
 import (
+	"fmt"
 	"math"
 	"sort"
 
@@ -798,6 +799,23 @@ func run(v *sim.View, w *sim.WriteSet) {
 			read, causes, "battle experience")
 		w.Add(model.KindParty, loser.ID, "troop_xp", loserXP,
 			read, causes, "battle experience")
+		// User-facing notification: the battle happened and someone should
+		// know. The text is neutral (winner beat loser); the client decides
+		// victory/defeat from the player's side.
+		winnerSideName := "an independent force"
+		loserSideName := "an independent force"
+		if s := v.State.Sides[winner.SideID]; s != nil {
+			winnerSideName = s.Name
+		}
+		if s := v.State.Sides[loser.SideID]; s != nil {
+			loserSideName = s.Name
+		}
+		townName := "the field"
+		if t := v.State.Towns[townID]; t != nil {
+			townName = t.Name
+		}
+		v.State.Notify(v.Tick, "battle", winner.SideID, loser.SideID, townID,
+			fmt.Sprintf("%s defeated %s near %s", winnerSideName, loserSideName, townName))
 		// Defeated leader may be captured. A capture names the captor, so
 		// there is nothing to write when the winner has no leader on the
 		// state: a raider band that wins has no ruler to hold anyone.

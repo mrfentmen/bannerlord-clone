@@ -13,6 +13,8 @@
 package siege
 
 import (
+	"fmt"
+
 	"mbclone/simulation/internal/model"
 	"mbclone/simulation/internal/sim"
 	"mbclone/simulation/internal/systems/shared"
@@ -198,6 +200,12 @@ func run(v *sim.View, w *sim.WriteSet) {
 				w.Set(model.KindTown, t.ID, "is_besieged", 0, read, causes, "")
 				w.Add(model.KindLeader, s.DefenderID, "influence", -c.Siege.InfluenceLossOnFall,
 					"town lost", nil, "town lost to assault")
+				attackerName := "an independent force"
+				if sd := v.State.Sides[attacker.SideID]; sd != nil {
+					attackerName = sd.Name
+				}
+				v.State.Notify(v.Tick, "siege", attacker.SideID, t.SideID, t.ID,
+					fmt.Sprintf("%s stormed %s after breaching its walls", attackerName, t.Name))
 				continue
 			}
 		}
@@ -240,6 +248,12 @@ func run(v *sim.View, w *sim.WriteSet) {
 				"town surrendered", nil, "town surrendered without a fight")
 			w.Add(model.KindLeader, attacker.LeaderID, "renown", c.Influence.RenownPerVictory*c.Siege.RenownForBloodlessWin,
 				"town surrendered", nil, "took a town without a battle")
+			attackerName := "an independent force"
+			if sd := v.State.Sides[attacker.SideID]; sd != nil {
+				attackerName = sd.Name
+			}
+			v.State.Notify(v.Tick, "siege", attacker.SideID, t.SideID, t.ID,
+				fmt.Sprintf("%s opened its gates to %s", t.Name, attackerName))
 			continue
 		}
 
@@ -253,6 +267,12 @@ func run(v *sim.View, w *sim.WriteSet) {
 			w.Set(model.KindTown, t.ID, "is_besieged", 0, read, causes, "")
 			w.Add(model.KindLeader, attacker.LeaderID, "influence", -c.Siege.InfluenceLossOnFailedSiege,
 				"siege failed", nil, "could not take a walled town")
+			defenderName := "its defenders"
+			if sd := v.State.Sides[t.SideID]; sd != nil {
+				defenderName = sd.Name
+			}
+			v.State.Notify(v.Tick, "siege", t.SideID, attacker.SideID, t.ID,
+				fmt.Sprintf("The siege of %s was lifted: %s held out", t.Name, defenderName))
 			continue
 		}
 	}

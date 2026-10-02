@@ -11,6 +11,39 @@ import (
 	"mbclone/simulation/internal/systems/visibility"
 )
 
+// buildNotifications drains the sim's pending notifications and converts them
+// to the client's Notification shape. Priority is player-relative: anything
+// involving the player's side is critical, other battles and sieges are
+// important. Draining here means each notification is delivered once, in the
+// first snapshot or tick frame after it fires.
+func buildNotifications(s *Server, playerSide int) []any {
+	st := s.state
+	pending := st.DrainNotifications()
+	out := make([]any, 0, len(pending))
+	for _, n := range pending {
+		priority := "important"
+		if n.WinnerSide == playerSide || n.LoserSide == playerSide {
+			priority = "critical"
+		}
+		entityID := any(nil)
+		if n.TownID >= 0 {
+			entityID = fmt.Sprintf("town-%d", n.TownID)
+		}
+		out = append(out, map[string]any{
+			"id":         fmt.Sprintf("notif-%d", n.ID),
+			"day":        n.Tick % 365,
+			"priority":   priority,
+			"text":       n.Text,
+			"entityId":   entityID,
+			"field":      nil,
+			"kind":       n.Kind,
+			"winnerSide": n.WinnerSide,
+			"loserSide":  n.LoserSide,
+		})
+	}
+	return out
+}
+
 // buildSnapshot converts live simulation state into the JSON shape the
 // campaign client's HttpSimulationProvider expects (see
 // clients/campaign/src/data/types.ts SimSnapshot).
@@ -159,7 +192,7 @@ func buildSnapshot(s *Server) map[string]any {
 		"rulers":        rulers,
 		"ledger":        map[string]any{"entries": []any{}, "netPerDay": map[string]any{}},
 		"warnings":      []any{},
-		"notifications": []any{},
+		"notifications": buildNotifications(s, playerSide),
 		"causeLog":      map[string]any{},
 	}
 }

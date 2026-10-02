@@ -98,10 +98,13 @@ type tickFrame struct {
 	// subscriber queue drops frames rather than growing, so a client that cannot keep up
 	// sees the next whole reading instead of a torn one.
 	Fog *fogBlock `json:"fog"`
+	// Notifications fired since the last frame, drained from the sim's queue.
+	// The client appends these to its notification tray.
+	Notifications []any `json:"notifications,omitempty"`
 }
 
 func (s *Server) broadcastTick() {
-	s.mu.RLock()
+	s.mu.Lock()
 	// Subscribers are collected first and the frame built second, so a server nobody has
 	// connected to does not pay for the fog pass on every tick.
 	subs := make([]chan []byte, 0, len(s.wsSubs))
@@ -109,18 +112,22 @@ func (s *Server) broadcastTick() {
 		subs = append(subs, ch)
 	}
 	if len(subs) == 0 {
-		s.mu.RUnlock()
+		s.mu.Unlock()
 		return
 	}
 	side, visible, known := fogViewFor(s)
 	fog := buildFog(s, side, visible, known)
+	// Notifications are drained here (under the write lock) so each one is
+	// delivered exactly once, in the first tick frame after it fires.
+	notifications := buildNotifications(s, side)
 	frame := tickFrame{
-		Type: "tick",
-		Tick: int64(s.state.Tick),
-		Day:  s.state.Tick % 365,
-		Fog:  &fog,
+		Type:          "tick",
+		Tick:          int64(s.state.Tick),
+		Day:           s.state.Tick % 365,
+		Fog:           &fog,
+		Notifications: notifications,
 	}
-	s.mu.RUnlock()
+	s.mu.Unlock()
 
 	msg, err := json.Marshal(frame)
 	if err != nil {

@@ -38,6 +38,13 @@ type State struct {
 	Notables map[int]*Notable
 	Issues   map[int]*Issue
 
+	// Notifications are user-facing events appended by systems and drained by
+	// the apiserver into snapshots and tick frames. They live in the state
+	// (not the WriteSet) because they must survive the tick that created them.
+	Notifications []Notification
+	// NextNotificationID hands out notification IDs.
+	NextNotificationID int
+
 	// NextID hands out identifiers for entities created mid-run, such as a
 	// party formed when a ruler gathers an army.
 	NextID map[int]int
@@ -153,6 +160,32 @@ func (s *State) IDValue(kind int) int {
 	return s.NextID[kind]
 }
 
+// Notify appends a user-facing notification and returns its ID. Systems call
+// this when something happens the player should know about; the apiserver
+// drains them into snapshots and tick frames.
+func (s *State) Notify(tick int, kind string, winnerSide, loserSide, townID int, text string) int {
+	id := s.NextNotificationID
+	s.NextNotificationID++
+	s.Notifications = append(s.Notifications, Notification{
+		ID:         id,
+		Tick:     tick,
+		Kind:     kind,
+		WinnerSide: winnerSide,
+		LoserSide:  loserSide,
+		TownID:   townID,
+		Text:     text,
+	})
+	return id
+}
+
+// DrainNotifications returns all pending notifications and clears the queue.
+// The apiserver calls this when building a snapshot or tick frame.
+func (s *State) DrainNotifications() []Notification {
+	out := s.Notifications
+	s.Notifications = nil
+	return out
+}
+
 // Clone returns a deep copy of the state. The engine clones at the start of a
 // tick so a system's reads always see committed state, and commits the clone
 // at the end, which is what makes the tick atomic: a panic mid-tick cannot
@@ -174,7 +207,9 @@ func (s *State) Clone() *State {
 		Workshops:     make(map[int]*Workshop, len(s.Workshops)),
 		Notables:      make(map[int]*Notable, len(s.Notables)),
 		Issues:        make(map[int]*Issue, len(s.Issues)),
+		Notifications: append([]Notification(nil), s.Notifications...),
 		NextID:        make(map[int]int, len(s.NextID)),
+		NextNotificationID: s.NextNotificationID,
 		Relations:     make(map[Pair]float64, len(s.Relations)),
 		SideRelations: make(map[Pair]float64, len(s.SideRelations)),
 		Oaths:         make(map[int]Oath, len(s.Oaths)),

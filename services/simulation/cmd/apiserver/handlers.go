@@ -80,8 +80,8 @@ func (s *Server) handleSnapshot(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, map[string]any{})
 		return
 	}
-	s.mu.RLock()
-	defer s.mu.RUnlock()
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	writeJSON(w, buildSnapshot(s))
 }
 
