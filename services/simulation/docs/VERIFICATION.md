@@ -131,10 +131,14 @@ before any unit exists; `TestSizeKnobsComeFromConfig` checks that refusal.
 
 ## 6. What is NOT claimed
 
-- **Casualty rates of 68% to 75% are high.** They are the price of
-  `battle.morale_casualty_hit = 1.0`, chosen by a sweep whose table is in the
-  balance file. A fight in which both sides lose seven men in ten is a long one,
-  and whether that is the right price belongs to whoever owns
+- **Casualty rates of 68% to 75% are high.** Most of that is not the tuning: it
+  is that these battles stopped being decided by arithmetic, so they last four
+  times as long and the men have four times as long to kill each other. The same
+  scenario at the same seed went from 13% casualties to 55% when a morale term's
+  denominator was fixed, and from 55% to 70% when
+  `battle.morale_casualty_hit` was swept from 3.4 to 1.0. Both steps and the
+  five-seed sweep behind them are in the balance file beside the key. Whether a
+  fight should cost both sides seven men in ten belongs to whoever owns
   TESTING_AND_BALANCE.md.
 - **The 1000 unit target is not met on this box.** 175 us per unit per tick at
   4000 units against SPEC.md section 5.1's 33. Closing that is the grid hot

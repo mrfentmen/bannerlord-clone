@@ -872,13 +872,17 @@ state_tax_default = 0.03       # starting state rate. Range 0-0.5.
 #
 # WHAT IS NOT CLAIMED, PLAINLY:
 #
-# 1. Casualty rates of 68% to 75% are HIGH for a field battle, and they are the
-#    direct price of morale_casualty_hit at 1.0; the reasoning and the sweep are
-#    written beside that key. Whether a battle should cost both sides seven men
-#    in ten is a question for TESTING_AND_BALANCE.md and is NOT settled here.
-#    What is claimed is only that the engine produces blows, that it produces them
-#    at every size from 50 to 500 a side, and that no row is decided before the
-#    armies have closed.
+# 1. Casualty rates of 68% to 75% are HIGH for a field battle. Most of that is
+#    not this table's tuning: it is that the battles stopped being decided by
+#    arithmetic, so they last four times as long and the men have four times as
+#    long to kill each other. The three runs that separate the two are written
+#    beside morale_casualty_hit, and the short of it is that the same scenario at
+#    the same seed went 13% to 55% casualties when a morale term's denominator
+#    was fixed, and 55% to 70% when the constant was swept. Whether a battle
+#    should cost both sides seven men in ten is a question for
+#    TESTING_AND_BALANCE.md and is NOT settled here. What is claimed is only that
+#    the engine produces blows, that it produces them at every size from 50 to
+#    500 a side, and that no row is decided before the armies have closed.
 # 2. The winner flips between the 250 and the 500 row. Two even forces at one
 #    seed are not a measurement of which side is stronger, and a single seed at
 #    a single size should never be read as one.
@@ -1312,9 +1316,13 @@ routed_exposure = 1.30
 # arrived. That is not a judgement about shooting, it is a fight decided at range
 # by a number nobody had swept.
 #
-# Swept against all four scenarios of the verification suite at one seed, same
-# binary, config only, best of nothing: ticks / closest approach the two armies
-# ever came / swings thrown / side B's casualties.
+# Swept against all four scenarios of the verification suite, same binary, config
+# line only. First at one seed, to find the range worth sweeping properly; then at
+# five seeds (20260930, 1, 4242, 777777, 20250101), which is what the numbers a
+# designer should read come from.
+#
+# ONE SEED. Ticks / closest approach the two armies ever came / swings thrown /
+# side B's casualties.
 #
 #   hit   symmetric 50v50      outnumbered 100v50   skirmishers 40v40   morale 30v30
 #   3.4   485 / 0.4 m / 55     335 / 0.4 m / 65    427 / 22.0 m / 0    1331 / 0.5 / 66
@@ -1327,19 +1335,73 @@ routed_exposure = 1.30
 # The skirmishers column is the one that matters: forty units of light shooters
 # against forty units of slow heavy infantry, decided by the arrows or by the
 # clubs, and at 1.5 the two armies came within 2.3 m of each other once and threw
-# two swings between them. At 1.0 they fight for 29 ticks inside a blow's reach
-# and 42 swings are thrown. Below 1.0 the marginal return flattens (0.7 buys the
-# same 29 contact ticks and fewer swings than 1.0) and the casualty rate keeps
-# climbing, so 1.0 is the smallest change that puts the melee stage in the fight.
+# two swings between them.
 #
-# WHAT IT COSTS, STATED RATHER THAN DISMISSED: casualty rates at this value are
-# high, 68% to 75% of bodies on both sides across the four sizes in the table at
-# the head of this file, and a fight in which both sides lose seven men in ten is
-# a long one. That is the trade being made deliberately. The other side of it is
-# that at 3.4 the same four battles ended with between 12% and 40% casualties and
-# hundreds of units routed, because the men never got the time to kill each other.
-# A casualty rate is a balance question and belongs to whoever owns
-# TESTING_AND_BALANCE.md; what is measured here is that the melee stage now runs.
+# FIVE SEEDS. Worst case over the five, because the question is whether the
+# property holds on every seed and not on the average one. "worst" is the WORST
+# closest approach, the fewest ticks inside a blow's reach, and the fewest swings.
+#
+#   hit          worst closest      mean ticks in     mean swings      mean casualties,
+#                 approach            a blow's reach     thrown          both sides
+#   skirmishers 40v40 only:
+#   3.4               39.3 m                 0                 0            11.8%
+#   2.0               20.2 m                 1                 0            17.5%
+#   1.5               13.7 m                 3                 4            20.0%
+#   1.0                1.1 m                16                22            25.5%
+#   0.7                0.4 m                27                38            30.0%
+#
+# 1.0 is the smallest value at which EVERY one of the five seeds put two men who
+# could strike each other inside battle.melee_range, which is what "contact" has
+# to mean. 2.0 and 1.5 are not close: at 2.0 the five seeds threw zero swings
+# between them.
+#
+# The other three scenarios reach contact at every value in the table above 3.4,
+# so they are not what this constant is for. What they are for is the casualty
+# column, and that is where the honest part of this entry is.
+#
+# WHAT THE CASUALTY RATE IS ACTUALLY ABOUT, CORRECTING AN EARLIER CLAIM IN HERE
+#
+# An earlier version of this comment said the 68% to 75% casualty rates at this
+# value were the price of lowering this constant from 3.4. That was wrong, and it
+# was wrong in the direction that matters, because it charged the constant for
+# something a bug was doing. Three runs of the same scenario at the same seed:
+#
+#   symmetric 50v50, seed 20260930
+#     before the casualty term's denominator was fixed, hit 3.4
+#       485 ticks, 14.0% / 12.0% casualties        <- decided by arithmetic
+#     after the denominator fix,               hit 3.4
+#      1962 ticks, 50.0% / 60.0% casualties        <- decided by the men in front of it
+#     after the denominator fix,               hit 1.0
+#      1868 ticks, 70.0% / 70.0% casualties
+#
+# The battle went from four hundred and eighty-five ticks to two thousand, so it
+# had four times as long in which to kill somebody, and the casualty rate went up
+# with it. Most of the rise is the FIX. This constant is worth about sixteen
+# points on top of that, and five seeds put it at 53.8% at 3.4 against 70.4% at
+# 1.0 for the same scenario.
+#
+# So the number to argue with is 70%, not this constant, and the reason the fight
+# is expensive is that it is now a fight: 2365 swings thrown in the 500 v 500
+# reference battle, where the pre-fix version threw none and decided on panic. A
+# casualty rate is a balance question and belongs to whoever owns
+# TESTING_AND_BALANCE.md. What is measured here is narrower and is what this entry
+# was written to record: at 1.0 the melee stage runs in every scenario on every
+# seed swept.
+#
+# WHAT THE OTHER THREE SCENARIOS LOOK LIKE ACROSS FIVE SEEDS AT 1.0, so the sweep
+# is not read as four scenarios agreeing with each other:
+#
+#   scenario                      mean ticks  worst closest  mean swings  winners
+#   symmetric 50v50                    1906        0.6 m           212      A3 B2
+#   outnumbered defence 100v50          502        0.5 m           109      A5
+#   skirmishers against heavies 40v40   469        1.1 m            22      A5
+#   morale shock, early rout 30v30      1867        0.7 m           122      B4
+#
+# The even fight splits, the two-to-one attacker wins every time, the matchup
+# built to separate fast from slow is won by the light shooters every time, and
+# the side that starts shaken loses four times out of five. A model that returned
+# the same winner for all four would pass every rule in the verification suite,
+# because every rule there is about internal consistency.
 morale_casualty_hit = 1.0
 # Reference distance over which a nearby casualty frightens a unit, in metres.
 # Range 5-1000. A formation breaks because of what it can see.
