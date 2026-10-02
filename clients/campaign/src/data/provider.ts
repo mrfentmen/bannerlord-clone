@@ -483,7 +483,8 @@ function fogProblem(raw: unknown): string | null {
 }
 
 /** The first thing wrong with a payload, as a developer-readable sentence. */
-function snapshotProblem(raw: unknown): string | null {
+/** Exported for the cross-language snapshot test: validates a raw snapshot. */
+export function snapshotProblem(raw: unknown): string | null {
   if (!isRecord(raw)) return "the reply is not a JSON object";
   if (!isFiniteNumber(raw.day)) return "day is not a number";
   if (!isFiniteNumber(raw.year)) return "year is not a number";
