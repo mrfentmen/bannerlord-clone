@@ -23,6 +23,7 @@ import {
   type GraphicsQuality,
 } from "../../settings/index.js";
 import { LOOK_PRESETS } from "../../design/lookPresets.js";
+import { SHADOW_LEVELS, shadowConfigFor } from "../../design/shadows.js";
 
 export interface SettingsPanelOptions {
   onClose: () => void;
@@ -118,15 +119,19 @@ const CONTROLS: ControlDef[] = [
   },
   {
     key: "shadowQuality", tab: "graphics", label: "Shadow quality",
-    hint: "Real-time shadows from the sun. Applies immediately.",
-    keywords: ["shadow", "shadows", "sun", "lighting"],
+    hint: "Real-time shadows from the sun. Each level states its cost; switching levels reports the measured fps. Applies immediately.",
+    keywords: ["shadow", "shadows", "sun", "lighting", "cascade"],
     kind: {
       type: "select",
-      options: [
-        { value: "off", label: "Off" },
-        { value: "low", label: "Low (1024)" },
-        { value: "high", label: "High (2048)" },
-      ],
+      // Options come from the shadow policy (design/shadows.ts) so the
+      // labels can never drift from what the scene actually builds.
+      options: SHADOW_LEVELS.map((level) => {
+        const cfg = shadowConfigFor(level);
+        return {
+          value: level,
+          label: cfg ? `${cfg.label} — ${cfg.blurb}` : "Off — no shadow maps (fastest)",
+        };
+      }),
     },
   },
   {

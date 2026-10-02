@@ -11,7 +11,8 @@
  *   5. terrainDetail ............ terrainSamples -> buildTerrain mesh density (reload)
  *   6. maxFps .................. render-loop frame-skip threshold (live)
  *   7. shadowQuality ............ shadow generator enabled/disabled (live)
- *   8. shadowQuality ............ shadow map size 1024/2048 (live)
+ *   8. shadowQuality ............ map size 1024/2048, 1-3 cascades, shadow
+ *                                 range 90k/200k/400k (live; task 147)
  *   9. viewDistance ............. camera.maxZ far plane (live)
  *  10. viewDistance ............. scene.fogDensity (live)
  *
@@ -57,7 +58,7 @@ export const GRAPHICS_PRESETS: Record<GraphicsQuality, GraphicsBundle> = {
     terrainDetail: "high",
     maxFps: 0,
     powerPreference: "default",
-    shadowQuality: "low",
+    shadowQuality: "medium",
     viewDistance: "far",
   },
   ultra: {

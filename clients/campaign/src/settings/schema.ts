@@ -39,13 +39,16 @@ export type GraphicsQuality = "low" | "medium" | "high" | "ultra";
 export type TerrainDetail = "low" | "high";
 export type PowerPreference = "default" | "low-power" | "high-performance";
 /** Real-time shadow maps on the key light. Default off: today's rendering, unchanged. */
-export type ShadowQuality = "off" | "low" | "high";
+export type ShadowQuality = "off" | "low" | "medium" | "high";
 /** Draw distance. "far" is today's tuned fog/maxZ; the others trade reach for speed. */
 export type ViewDistance = "near" | "far" | "ultra";
 
-/** Shadow map resolution per quality level ("off" creates no generator). */
+/** Shadow map resolution per quality level (task 147). "off" creates no generator.
+ * Kept for compatibility; new code should use SHADOW_LEVEL_CONFIG from
+ * design/shadows.ts, which also carries distance/cascade/filtering policy. */
 export const SHADOW_MAP_SIZE: Record<Exclude<ShadowQuality, "off">, number> = {
   low: 1024,
+  medium: 2048,
   high: 2048,
 };
 
@@ -166,7 +169,7 @@ const POWER_PREFERENCES: readonly PowerPreference[] = ["default", "low-power", "
 const COLORBLIND_MODES: readonly ColorblindMode[] = ["off", "deuteranopia", "protanopia", "tritanopia"];
 const SUBTITLE_SIZES: readonly SubtitleSize[] = ["small", "medium", "large"];
 const SUBTITLE_BACKGROUNDS: readonly SubtitleBackground[] = ["off", "translucent", "solid"];
-const SHADOW_QUALITIES: readonly ShadowQuality[] = ["off", "low", "high"];
+const SHADOW_QUALITIES: readonly ShadowQuality[] = ["off", "low", "medium", "high"];
 const VIEW_DISTANCES: readonly ViewDistance[] = ["near", "far", "ultra"];
 
 function isRecord(v: unknown): v is Record<string, unknown> {

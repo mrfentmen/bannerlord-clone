@@ -28,7 +28,7 @@ describe("graphics presets", () => {
       expect(["low", "high"]).toContain(patch.terrainDetail);
       expect([0, 30, 60, 120]).toContain(patch.maxFps);
       expect(["default", "low-power", "high-performance"]).toContain(patch.powerPreference);
-      expect(["off", "low", "high"]).toContain(patch.shadowQuality);
+      expect(["off", "low", "medium", "high"]).toContain(patch.shadowQuality);
       expect(["near", "far", "ultra"]).toContain(patch.viewDistance);
       // 8 fields in the patch; the documented engine-value count holds.
       expect(Object.keys(patch)).toHaveLength(8);
@@ -49,7 +49,7 @@ describe("graphics presets", () => {
     expect(GRAPHICS_PRESETS.low.antialias).toBe(false);
     expect(GRAPHICS_PRESETS.ultra.antialias).toBe(true);
     // Shadows and view distance climb with the preset.
-    const shadowRank = { off: 0, low: 1, high: 2 } as const;
+    const shadowRank = { off: 0, low: 1, medium: 2, high: 3 } as const;
     const viewRank = { near: 0, far: 1, ultra: 2 } as const;
     for (let i = 1; i < ORDER.length; i++) {
       expect(shadowRank[GRAPHICS_PRESETS[ORDER[i]!].shadowQuality]).toBeGreaterThanOrEqual(

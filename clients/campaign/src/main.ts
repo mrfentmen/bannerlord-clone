@@ -42,7 +42,7 @@ installConsoleTail();
 }
 import { status } from "./design/tokens.js";
 import { factionPalette, PLAYABLE_SIDE_IDS } from "./design/factions.js";
-import type { ColorblindMode } from "./settings/schema.js";
+import type { ColorblindMode, ShadowQuality } from "./settings/schema.js";
 
 import { readConfig, providerFromConfig, SimulationUnavailableError } from "./data/provider.js";
 import { TEST_SOURCE_WARNING, TEST_SOURCE_DETAIL } from "./data/labels.js";
@@ -144,6 +144,7 @@ import { ALL_CODEX_ENTRIES, CODEX_CATEGORIES } from "./codex/index.js";
 import { toast } from "./ui/kit.js";
 import { settings, type Settings } from "./settings/index.js";
 import { FpsBenchmark, presetForFps } from "./settings/autodetect.js";
+import { shadowConfigFor } from "./design/shadows.js";
 import { presetPatch } from "./settings/presets.js";
 
 const appEl = document.getElementById("app");
@@ -1582,10 +1583,51 @@ function openDeployment(): void {
 
 // Feed per-key settings changes into the achievements store.
 let prevSettingsJson: string | null = null;
+
+// -- Shadow quality fps probe (MASTER_PLAN task 147) -------------------------
+// When the player switches shadow levels, measure real fps for ~1.5s and
+// toast it next to the change: the "fps delta" is visible where it was
+// caused. Measurements are per-level and in-memory; a delta shows once both
+// the old and new level have been measured this session. Never measured
+// while the tab is hidden (rAF throttling would fake the numbers).
+const shadowFpsSeen = new Map<ShadowQuality, number>();
+let shadowProbeRunning = false;
+
+function probeShadowFps(level: ShadowQuality, previous: ShadowQuality | null): void {
+  if (shadowProbeRunning || !scene) return;
+  if (typeof requestAnimationFrame !== "function") return;
+  if (document.visibilityState !== "visible") return;
+  shadowProbeRunning = true;
+  const bench = new FpsBenchmark();
+  const tick = (): void => {
+    if (!bench.frame()) {
+      requestAnimationFrame(tick);
+      return;
+    }
+    shadowProbeRunning = false;
+    const fps = bench.result();
+    if (fps == null || fps <= 0) return;
+    const rounded = Math.round(fps);
+    shadowFpsSeen.set(level, rounded);
+    const label = shadowConfigFor(level)?.label ?? level;
+    const prevFps = previous != null && previous !== level ? shadowFpsSeen.get(previous) : undefined;
+    const prevLabel = previous != null ? (shadowConfigFor(previous)?.label ?? previous) : "";
+    toast(
+      prevFps != null
+        ? `Shadow quality: ${label} — ${rounded} fps (was ${prevFps} fps at ${prevLabel})`
+        : `Shadow quality: ${label} — ${rounded} fps measured`,
+    );
+  };
+  requestAnimationFrame(tick);
+}
+
 function trackSettingsChanges(): void {
   const current = settings.get();
   if (prevSettingsJson !== null) {
     const prev = JSON.parse(prevSettingsJson) as Settings;
+    if (prev.shadowQuality !== current.shadowQuality) {
+      probeShadowFps(current.shadowQuality, prev.shadowQuality);
+    }
     for (const key of Object.keys(current) as (keyof Settings)[]) {
       if (key === "version") continue;
       if (JSON.stringify(current[key]) !== JSON.stringify(prev[key])) {

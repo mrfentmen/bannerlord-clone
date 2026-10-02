@@ -9,6 +9,7 @@
 
 import {
   ArcRotateCamera,
+  CascadedShadowGenerator,
   Color3,
   Color4,
   DefaultRenderingPipeline,
@@ -27,11 +28,11 @@ import {
   Vector3,
 } from "@babylonjs/core";
 import {
-  SHADOW_MAP_SIZE,
   VIEW_DISTANCE_CONFIG,
   type ShadowQuality,
   type ViewDistance,
 } from "../settings/schema.js";
+import { shadowConfigFor } from "../design/shadows.js";
 import { mapColor, tokens } from "../design/tokens.js";
 import { attachMapGestures } from "../input/touch/gestures.js";
 import { resolveGrade, type QualityLevel } from "../design/grade.js";
@@ -248,15 +249,23 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
   key.position = new Vector3(projection.width / 2, 60_000, projection.depth / 2);
   key.autoCalcShadowZBounds = true;
 
-  // Real-time shadow maps (task 15). Off by default: today's look, unchanged.
+  // Real-time shadow maps (task 15; task 147: four levels with
+  // cascade/distance tradeoffs). Off by default: today's look, unchanged.
+  // Every non-off level uses a CascadedShadowGenerator so the per-level
+  // shadowDistance is honored: the range is split into `cascades` bands
+  // (1 = one band, i.e. a single effective map). Higher levels buy more
+  // cascades over a longer range at the same or higher resolution.
   let shadowGen: ShadowGenerator | null = null;
   function setShadowQuality(q: ShadowQuality): void {
     shadowGen?.dispose();
     shadowGen = null;
     terrainMesh.receiveShadows = false;
-    if (q === "off") return;
-    const gen = new ShadowGenerator(SHADOW_MAP_SIZE[q], key);
-    if (q === "high") gen.usePercentageCloserFiltering = true;
+    const cfg = shadowConfigFor(q);
+    if (!cfg) return;
+    const gen = new CascadedShadowGenerator(cfg.mapSize, key, false, camera);
+    gen.numCascades = cfg.cascades;
+    gen.shadowMaxZ = cfg.shadowDistance;
+    if (cfg.filtering === "pcf") gen.usePercentageCloserFiltering = true;
     // Conservative biases for a kilometre-scale heightfield: enough to avoid
     // acne, small enough not to visibly detach shadows. Untuned on real
     // hardware — adjust if shadowing looks wrong.

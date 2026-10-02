@@ -423,7 +423,7 @@ export const SETTINGS_ENTRIES: CodexEntry[] = [
     "Render scale, anti-aliasing, terrain detail, frame cap, GPU preference, shadows, view distance.",
     [
       "Render scale sets the 3D resolution relative to the canvas: below 100% is faster, above is sharper. The frame cap limits how often the scene renders — 30 fps is the laptop-battery choice.",
-      "Shadow quality turns real-time shadows from the sun on and off — off by default, so the classic look is unchanged — and view distance trades camera reach and haze for speed. Both apply immediately.",
+      "Shadow quality has four levels — off, low, medium, high — trading shadow-map resolution, cascade count, and shadow range against speed; switching levels reports the measured fps. Off by default, so the classic look is unchanged — and view distance trades camera reach and haze for speed. Both apply immediately.",
       "Anti-aliasing, terrain detail, and GPU preference are read once when the 3D engine starts. Changing them shows a restart banner in the settings panel; everything else applies immediately.",
     ],
     ["setting:renderScale", "setting:antialias", "setting:terrainDetail", "setting:maxFps", "setting:powerPreference", "setting:shadowQuality", "setting:viewDistance", "graphics", "engine"],
