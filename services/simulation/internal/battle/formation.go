@@ -1668,6 +1668,84 @@ func (c *FormationCommander) separateAnchors(g *formationGroup, ax, ay float64) 
 	return ax, ay
 }
 
+// holdAnchor returns the ground a group is standing on: for every order but a
+// hold, where its men are, and for a hold, where it was told to stand.
+//
+// # WHY A HOLD IS THE ONE ORDER THAT DOES NOT TAKE ITS GROUND FROM ITS MEN
+//
+// Every other order wants the anchor to follow the men, because the men are what
+// the order is about: an advance's anchor is ahead of the men so they keep
+// coming, a fall-back's is behind them so they keep going, and a follower takes
+// the station behind the group ahead of it every tick. A hold wants the opposite,
+// and reading its ground off its men is a rule that cannot hold.
+//
+// The shape is drawn around the anchor and every man is walked onto his own slot,
+// so if the anchor is the centre of mass then the shape is drawn around wherever
+// the men have drifted to and the men are walked onto the shape drawn there. That
+// is a closed loop with no reference to the ground the order was given on: walk
+// the men three metres and the shape is redrawn three metres on, so they are
+// never out of place and the formation never comes back. A hold that cannot come
+// back is not a hold.
+//
+// Measured, thirty a side at seed 5157, two lines both ordered to hold with
+// nothing else, over 210 ticks:
+//
+//	tick  10: g0 (-448.51, -2.97)  g1 (-441.87, -1.20)
+//	tick  60: g0 (-448.75, -4.22)  g1 (-441.60, -0.89)
+//	tick 130: g0 (-448.73, -4.74)  g1 (-435.27, +4.93)
+//	tick 210: g0 (-448.73, -4.74)  g1 (-435.27, +4.93)
+//
+// The first group stands where it was put. The second walks 6.6 m east and 6.1 m
+// north between ticks 60 and 130, which is toward the enemy, and then stops there
+// for the remaining eighty ticks. The stop is the tell: it is not a slow walk
+// driven by anything outside, it is the shape finishing a piece of tidying that
+// moved it, and once every man is on his slot the loop is satisfied again
+// somewhere else. On the same battle the settled centre of mass was 3.85 m from
+// where the line started, against a metre the test allows.
+//
+// # WHY THE GROUND IS REMEMBERED AND NOT SET ONCE AND FOR ALL
+//
+// The anchor a hold remembers is last tick's, not one frozen at the order. The
+// difference is the leash below, and the leash is what keeps this from being a
+// worse bug than the one it fixes: a group that has been carried off, broken and
+// rallied, or dropped somewhere else by whatever moved it has to be allowed to
+// re-form where it actually is rather than walk the length of the field to a
+// place it was ordered to stand in half a minute ago. The leash is the shape's
+// own width across its front, so it scales with the shape: a line fifteen men
+// abreast keeps its ground for twenty-one metres and a column of four abreast for
+// six.
+//
+// # WHY A FOLLOWER IS EXEMPT
+//
+// A group told to follow has been told where its ground is, and it is not where
+// it happens to be standing: it is behind the group ahead of it. Leaving the
+// follower on its own remembered anchor is what made it fall twenty-one metres
+// behind a leader that had walked twenty-six, in TestAFollowerKeepsUpWithTheGroup
+// ItFollows, which is a real measurement and not a hypothetical.
+func (c *FormationCommander) holdAnchor(g *formationGroup, ax, ay float64, slots []Slot) (float64, float64) {
+	if g.order.Order != OrderFormationHold || g.lead != nil {
+		return ax, ay
+	}
+	// anchored is false on the first tick this group is ordered, so the first tick
+	// of a hold takes its ground from where the men are standing, which is the
+	// only place there has ever been for it to stand.
+	if !g.anchored {
+		return ax, ay
+	}
+	minR, maxR, _, _, err := FormationExtent(slots)
+	if err != nil {
+		// A layout with no extent is a layout nobody can stand on, and slotsFor
+		// has already refused anything it cannot draw. Reaching here with one is
+		// not a state this layer has an answer for, and the honest answer for a
+		// group whose ground cannot be measured is the ground its men are on.
+		return ax, ay
+	}
+	if d := math.Hypot(ax-g.anchorX, ay-g.anchorY); isFinite(d) && d > maxR-minR {
+		return ax, ay
+	}
+	return g.anchorX, g.anchorY
+}
+
 // orderGroup gives every living member of one group its slot and its movement
 // for this tick.
 func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float64, haveEnemy bool) error {
@@ -1718,9 +1796,8 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 
 	// The anchor is the group's centre of mass, bodies-weighted, so a squad of
 	// ten pulls the shape harder than a single man does. It is recomputed every
-	// tick rather than stored: the anchor is a reading of where the men are now,
-	// not a place they were told to be, and a formation that carried a stale
-	// anchor would be marching toward where it used to be.
+	// tick rather than stored, because a formation that carried a stale anchor
+	// would be marching toward where it used to be.
 	//
 	// It is then pushed clear of the other groups on this side. A centre of mass
 	// is where a group's men happen to be, and two groups whose centres of mass
@@ -1732,16 +1809,13 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 			"group %s has %d members standing on the field and not one of them has any bodies left to stand there with", g.order.Kind, len(c.ids))
 	}
 	ax, ay = c.separateAnchors(g, ax, ay)
-	g.facing = g.order.Facing.resolve(ax, ay, ex, ey, haveEnemy, g.facing)
 
 	// The anchor is where the shape is centred, and where each man's slot is
-	// placed. For a hold it is simply where the men are: a formation is not a
-	// place its commander picked, it is the shape of the men he has, and a hold
-	// tidies that shape where it stands. Every other order is about WHERE the
-	// body of troops ends up rather than only about how it is arranged, and the
-	// anchor is what carries it there: an advance and a charge push it toward
-	// the enemy, a fall-back pulls it away, and a shape whose anchor does not
-	// move is a shape that was drawn correctly and obeyed not at all.
+	// placed. Every order is about WHERE the body of troops ends up as well as
+	// about how it is arranged, and the anchor is what carries it there: an
+	// advance and a charge push it toward the enemy, a fall-back pulls it away,
+	// and a shape whose anchor does not move is a shape that was drawn correctly
+	// and obeyed not at all.
 	anchorX, anchorY := ax, ay
 	// walking is set when the order is about WHERE the formation ends up rather
 	// than only about how it is arranged. A hold tidies a shape where it stands,
@@ -1776,6 +1850,12 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 	if err != nil {
 		return err
 	}
+	// A hold's ground is not where its men are. See holdAnchor, which is why this
+	// is asked after the layout rather than with the centre of mass above: the
+	// leash it measures is the shape's own width, so it needs the slots.
+	ax, ay = c.holdAnchor(g, ax, ay, slots)
+	anchorX, anchorY = ax, ay
+	g.facing = g.order.Facing.resolve(ax, ay, ex, ey, haveEnemy, g.facing)
 	// stepPace is how fast a man walks toward his slot, and it is the whole
 	// difference between the orders: an advance walks the shape forward, a
 	// charge walks it faster, a hold walks nobody anywhere but a man who has

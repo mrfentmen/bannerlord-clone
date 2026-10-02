@@ -1287,3 +1287,132 @@ func centreOfMassView(v *View, g *formationGroup) (float64, float64, bool) {
 	}
 	return sx / w, sy / w, true
 }
+
+// oneHeldLine builds a view of one group of n men ordered to hold in a line,
+// together with the commander that orders it, so a test can ask what ground the
+// group is standing on without fighting a battle to ask it.
+//
+// The group's anchor after a Command is read straight off the group, which is the
+// thing the whole of the hold rule is about: the anchor is where the shape is
+// drawn, and the shape is what the men are walked onto.
+func oneHeldLine(t *testing.T, n int) (*View, *FormationCommander) {
+	t.Helper()
+	cfg := loadConfig(t)
+	v := syntheticField(t, []int{n}, 0)
+	ids := make([]int, 0, n)
+	for i := range v.Units {
+		ids = append(ids, i)
+	}
+	cmd, err := NewFormationCommander(cfg, SideA, []Group{
+		{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold}, Units: ids},
+	})
+	if err != nil {
+		t.Fatalf("building the commander: %v", err)
+	}
+	if err := cmd.Command(v); err != nil {
+		t.Fatalf("ordering the field: %v", err)
+	}
+	if len(cmd.groups) != 1 {
+		t.Fatalf("built a commander with %d groups from one group of men", len(cmd.groups))
+	}
+	return v, cmd
+}
+
+// shove moves every man of the field by (dx, dy), which is what a melee push, a
+// rally or a spawn looks like to the formation layer: the whole body of troops is
+// somewhere else and the order has not changed.
+func shove(v *View, dx, dy float64) {
+	for i := range v.Units {
+		v.Units[i].X += dx
+		v.Units[i].Y += dy
+	}
+}
+
+// TestAHoldKeepsItsGroundWhenItsMenAreShoved is the invariant that was broken,
+// stated without a battle so it cannot be argued with.
+//
+// A hold drew its shape around its own centre of mass and walked every man onto
+// his slot in it. That is a closed loop with nothing in it holding the ground:
+// shove the men five metres and the shape is redrawn five metres on, so they are
+// never out of place and the group never comes back. Measured over 210 ticks on
+// the thirty-a-side session, one of two held lines walked 6.6 m east and 6.1 m
+// north and stayed there, and the settled centre of mass was 3.85 m from where
+// the line started against a metre the test allows.
+//
+// Five metres is well inside the shape's own width, so this is a group that was
+// jostled, not one that was carried off: it keeps the ground it was ordered onto
+// and its men are walked back to it.
+func TestAHoldKeepsItsGroundWhenItsMenAreShoved(t *testing.T) {
+	const n = 15
+	v, cmd := oneHeldLine(t, n)
+	g := cmd.groups[0]
+	ax, ay := g.anchorX, g.anchorY
+
+	shove(v, 5, 0)
+	if err := cmd.Command(v); err != nil {
+		t.Fatalf("ordering the field after the shove: %v", err)
+	}
+	if got := math.Hypot(g.anchorX-ax, g.anchorY-ay); got > 1e-9 {
+		t.Errorf("a line ordered to hold on (%.2f, %.2f) was drawn on (%.2f, %.2f) after all %d of "+
+			"its men were shoved five metres east; a hold keeps the ground it was given",
+			ax, ay, g.anchorX, g.anchorY, n)
+	}
+	// The other half of the same statement: the ground is kept, and the men are
+	// told to come back to it. A formation that kept its ground by ignoring its
+	// men would pass the check above and be a different bug.
+	ordered := 0
+	for i := range v.Units {
+		c := v.Commands[i]
+		if !c.Set {
+			continue
+		}
+		// Shoved east, so walking home is a negative x.
+		if c.DX < 0 {
+			ordered++
+		}
+	}
+	if ordered != n {
+		t.Errorf("%d of %d men were told to walk back west to the held ground; every man of a "+
+			"shoved hold is out of his slot and every one of them is out of his slot because of the shove",
+			ordered, n)
+	}
+}
+
+// TestAHoldTakesNewGroundWhenItsMenAreCarriedOff is the other half of the rule, and
+// it is here because the fix without it is a worse bug than the one it fixed.
+//
+// Remembering the ground forever means a group that has been broken and rallied,
+// or dropped somewhere else by whatever moved it, walks the length of the field to
+// a place it was ordered to stand in half a minute ago. Past the shape's own width
+// the men are not jostled, they are somewhere else, and the group takes new ground
+// where they are.
+func TestAHoldTakesNewGroundWhenItsMenAreCarriedOff(t *testing.T) {
+	const n = 15
+	cfg := loadConfig(t)
+	v, cmd := oneHeldLine(t, n)
+	g := cmd.groups[0]
+	ax, ay := g.anchorX, g.anchorY
+
+	slots, err := FormationLayout(FormationLine, n, FormationParamsFrom(cfg.Formation))
+	if err != nil {
+		t.Fatalf("layout: %v", err)
+	}
+	minR, maxR, _, _, err := FormationExtent(slots)
+	if err != nil {
+		t.Fatalf("extent: %v", err)
+	}
+	leash := maxR - minR
+	// Carried twice the shape's own width, which is further than anything that
+	// could be a shove.
+	carried := 2 * leash
+	shove(v, carried, 0)
+	if err := cmd.Command(v); err != nil {
+		t.Fatalf("ordering the field after the carry: %v", err)
+	}
+	if d := math.Hypot(g.anchorX-(ax+carried), g.anchorY-ay); d > 1e-9 {
+		t.Errorf("a line whose %d men were carried %.1f m, twice its own %.1f m width, is still drawn "+
+			"on (%.2f, %.2f) instead of (%.2f, %.2f); a formation that has been picked up and put "+
+			"down somewhere else re-forms where it is",
+			n, carried, leash, g.anchorX, g.anchorY, ax+carried, ay)
+	}
+}
