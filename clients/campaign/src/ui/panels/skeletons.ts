@@ -89,8 +89,8 @@ function tableStub(columns: number, rows: number): HTMLElement {
 
 // -- town ---------------------------------------------------------------------
 
-/** The seven sections of the town panel, plus the header block and the three actions. */
-export const TOWN_SECTIONS = 10;
+/** The sections of the town panel, plus the header block and the three actions. */
+export const TOWN_SECTIONS = 11;
 
 /**
  * `town-skeleton`. Food, health, sanitation and housing, unrest and loyalty, taxes,
@@ -122,6 +122,8 @@ export function townSkeletonBody(): HTMLElement {
   root.appendChild(section(rows(3)));
   // Trade agreement: the three term fields and the propose button.
   root.appendChild(section([...rows(3), block(STUB)]));
+  // Recent events: the event list.
+  root.appendChild(section(rows(3)));
   // The three actions, in the order the real panel puts them in.
   root.appendChild(
     h(
