@@ -30,6 +30,20 @@ export type MusicTrack =
 
 export type SfxId = string;
 
+/**
+ * Task 554: how long one music track takes to hand over to the next, in seconds.
+ * Long enough that the two are heard as one move rather than a cut, short enough
+ * that the battle theme is in place before the first volley.
+ */
+export const MUSIC_CROSSFADE_SECONDS = 2;
+
+/** One playing music track: its source and the gain that carries its fade. */
+interface MusicVoice {
+  id: string;
+  source: AudioBufferSourceNode;
+  gain: GainNode;
+}
+
 export class AudioManager {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
@@ -40,8 +54,7 @@ export class AudioManager {
   private buffers = new Map<string, AudioBuffer>();
   private manifest = new Map<string, AudioAsset>();
 
-  private currentMusic: string | null = null;
-  private currentMusicNodes: AudioBufferSourceNode[] = [];
+  private currentVoice: MusicVoice | null = null;
 
   private muted = false;
 
@@ -101,43 +114,64 @@ export class AudioManager {
     );
   }
 
+  /**
+   * Task 554: start a track, crossfading from whatever is playing into the new
+   * one over {@link MUSIC_CROSSFADE_SECONDS}. The old track is faded and stopped,
+   * not cut, and it keeps playing while the new buffer is fetched — a track that
+   * is not loaded yet never silences the one that is.
+   */
   async playMusic(track: string): Promise<void> {
     if (!this.ctx) await this.init();
     if (!this.ctx || !this.musicGain) return;
-    if (this.currentMusic === track) return;
-    this.stopMusic();
+    if (this.currentVoice?.id === track) return;
+
     if (!this.buffers.has(track)) {
       await this.preload([track]);
     }
     const buffer = this.buffers.get(track);
     if (!buffer) return;
-    const source = this.ctx.createBufferSource();
-    source.buffer = buffer;
-    source.loop = true;
-    source.connect(this.musicGain);
-    source.start();
-    this.currentMusic = track;
-    this.currentMusicNodes = [source];
+
+    const previous = this.currentVoice;
+    if (previous) this.fadeOutVoice(previous, MUSIC_CROSSFADE_SECONDS);
+    this.currentVoice = this.startVoice(track, buffer, MUSIC_CROSSFADE_SECONDS);
   }
 
+  /** Builds a music voice: silent, then up to full over `seconds` (task 554). */
+  private startVoice(track: string, buffer: AudioBuffer, seconds: number): MusicVoice {
+    const ctx = this.ctx!;
+    const gain = ctx.createGain();
+    const now = ctx.currentTime;
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(1, now + seconds);
+    gain.connect(this.musicGain!);
+
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    source.connect(gain);
+    source.start();
+    return { id: track, source, gain };
+  }
+
+  /** Ramps one voice to silence and stops its source after the fade (task 554). */
+  private fadeOutVoice(voice: MusicVoice, seconds: number): void {
+    const ctx = this.ctx!;
+    const now = ctx.currentTime;
+    try {
+      voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
+      voice.gain.gain.linearRampToValueAtTime(0, now + seconds);
+      voice.source.stop(now + seconds + 0.1);
+    } catch {
+      try { voice.source.stop(); } catch { /* already stopped */ }
+    }
+  }
+
+  /** Stops the music with its own short fade; there is nothing to cross into. */
   stopMusic(): void {
     if (!this.ctx || !this.musicGain) return;
-    const now = this.ctx.currentTime;
-    for (const node of this.currentMusicNodes) {
-      try {
-        const gain = this.ctx.createGain();
-        node.disconnect();
-        node.connect(gain);
-        gain.connect(this.musicGain);
-        gain.gain.setValueAtTime(1, now);
-        gain.gain.linearRampToValueAtTime(0, now + 0.5);
-        node.stop(now + 0.6);
-      } catch {
-        try { node.stop(); } catch { /* already stopped */ }
-      }
-    }
-    this.currentMusicNodes = [];
-    this.currentMusic = null;
+    const voice = this.currentVoice;
+    this.currentVoice = null;
+    if (voice) this.fadeOutVoice(voice, 0.5);
   }
 
   async playSfx(id: SfxId, options: { volume?: number; rate?: number } = {}): Promise<void> {
