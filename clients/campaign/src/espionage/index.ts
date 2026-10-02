@@ -16,3 +16,4 @@ export { canCraft, craftKit, KIT_QUALITIES, KIT_RECIPES, type CraftResult, type 
 export { exposureRisk, missedPayments, payInformant, totalPaid, type PaymentRecord } from "./paymentLedger.js";
 export { schemeTimeline, type SchemeStage, type SchemeTimeline } from "./schemeTimeline.js";
 export { addLeverage, leverage, leverageBoard, LEVERAGE_DECAY, spendLeverage, type LeverageRecord } from "./leverage.js";
+export { APPROACH_PROFILES, ASSASSINATION_APPROACHES, attemptAssassination, type AssassinationApproach, type AssassinationOutcome, type ApproachProfile } from "./assassination.js";
