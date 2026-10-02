@@ -6,11 +6,10 @@
  * hits, the alert fires and is consumed. Persists in localStorage.
  */
 
-import type { Good } from "./types.js";
-
 export interface PriceAlert {
   id: string;
-  good: Good;
+  /** Goods id — matches the live market's GoodId or the standalone Good list. */
+  good: string;
   settlementId: string;
   settlementName: string;
   /** Fire when the price crosses this target. */
@@ -42,7 +41,7 @@ function save(alerts: PriceAlert[]): void {
 
 /** Set an alert: notified when price crosses `target` in `direction`. */
 export function setPriceAlert(
-  good: Good,
+  good: string,
   settlementId: string,
   settlementName: string,
   target: number,
@@ -69,7 +68,7 @@ export function setPriceAlert(
  * Check live prices against alerts. Returns the newly fired alerts (each
  * marked fired and consumed). `priceAt` is the current market price.
  */
-export function checkPriceAlerts(priceAt: (good: Good, settlementId: string) => number | null): PriceAlert[] {
+export function checkPriceAlerts(priceAt: (good: string, settlementId: string) => number | null): PriceAlert[] {
   const alerts = load();
   const fired: PriceAlert[] = [];
   for (const alert of alerts) {
