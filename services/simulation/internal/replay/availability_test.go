@@ -10,7 +10,6 @@ import (
 	"testing"
 	"time"
 
-	"mbclone/simulation/internal/battleapi"
 )
 
 // One player's "skip to the end" takes the whole battle server down.
@@ -78,7 +77,7 @@ import (
 // TestResolvingOneBattleDoesNotFreezeTheServer is the availability claim.
 func TestResolvingOneBattleDoesNotFreezeTheServer(t *testing.T) {
 	cfg := loadConfig(t)
-	srv := httptest.NewServer(battleapi.New(cfg, 4242, "availability").Handler())
+	srv := httptest.NewServer(newServerOverAPI(t, cfg, 4242).Handler())
 	defer srv.Close()
 
 	big := startBattle(t, srv.URL, 4242, 250)

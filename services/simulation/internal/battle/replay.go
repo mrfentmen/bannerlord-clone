@@ -136,7 +136,49 @@ func NewRecorder(inner Commander, bound int, source string) (*Recorder, *OrderLo
 // It calls the inner commander first, then records what the inner commander wrote,
 // then returns. Recording after the call rather than before is what keeps the
 // log's row order the same as the order in which the engine applied the orders.
+// Release hands the log to the caller and stops recording into it.
+//
+// It exists because the log is the largest thing a finished battle holds and it is
+// not needed once the log has been WRITTEN SOMEWHERE. Measured on a battle server:
+// six 100 v 100 battles, each ordered with a wedge and fought to a conclusion,
+// retain 20.63 MB each after they resolve, and 165777 of those rows are order-log
+// rows. Nulling a caller's own reference to the log frees nothing, because the
+// session holds it through this recorder — so the holder has to be the one to let
+// go.
+//
+// A released recorder refuses to record rather than quietly appending to nothing.
+// Recording into a log the caller has already written out would make the file a
+// partial record of its battle, and a partial record replays to a different battle
+// while looking like a whole one. So:
+//
+//   - Command returns an error naming the release, and the battle stops there
+//     rather than fighting on with orders nobody is keeping;
+//   - a second Release returns nil, because there is nothing left to hand over;
+//   - Refused still reports whatever the log refused BEFORE the release, which is
+//     the number a caller needed Release's return value to decide about.
+//
+// Only call this once the log has been handed to whatever is going to keep it. The
+// battle this recorder wraps is expected to be finished: an order log for a battle
+// still being fought is not a record of it.
+func (r *Recorder) Release() *OrderLog {
+	if r.log == nil {
+		return nil
+	}
+	log := r.log
+	r.log = nil
+	return log
+}
+
+// Released reports whether this recorder has given its log away.
+func (r *Recorder) Released() bool { return r.log == nil }
+
 func (r *Recorder) Command(v *View) error {
+	if r.log == nil {
+		return &Error{Kind: ErrInternal, Field: "Recorder",
+			Detail: "this recorder has released its order log, so it cannot record any more orders; " +
+				"releasing a log a battle is still producing would make the file a partial record of it, " +
+				"and a partial record replays to a different battle while looking like a whole one"}
+	}
 	if r.failed != nil {
 		// A commander that has already failed is not called again. The battle is
 		// about to stop on the error that already happened; calling it again would
@@ -223,7 +265,10 @@ func (r *Recorder) Inner() Commander {
 	return r.inner
 }
 
-// Log returns the log the recorder writes into.
+// Log returns the log the recorder writes into, or nil once it has been released.
+//
+// See Release. The nil here is the whole of what Release promises: the recorder
+// stops holding the log, not merely stops writing to it.
 func (r *Recorder) Log() *OrderLog { return r.log }
 
 // Spoken is how many orders were recorded.

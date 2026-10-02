@@ -117,10 +117,25 @@ type entry struct {
 	lastErr           error
 	created           time.Time
 
-	// record is this battle's order log, or nil if recording never started.
-	// handleStart attaches the recorder before the first tick, so this is
-	// non-nil for every battle this server has fought since it was built.
+	// record is this battle's order log, or nil if recording never started or the
+	// record has already been written and released. handleStart attaches the
+	// recorder before the first tick, so this is non-nil for every battle this
+	// server is still fighting.
 	record *battle.OrderLog
+	// The order log is by far the largest thing a finished battle holds — see
+	// TestARecordedAndResolvedBattleCostsWhat, which measures 20.63 MB retained per
+	// resolved and recorded 100 v 100 against a 0.76 MB floor for one that was never
+	// fought — and once store.Save has written it to disk the file IS the log. So a
+	// successful save releases it and keeps these four numbers, which is everything
+	// the API reports about it. See saveRecord.
+	recordRows      int
+	recordTruncated bool
+	recordHash      uint64
+	recordRoster    uint64
+	// released is set when the log has been handed to the store and dropped. It is
+	// not the same as saved: a save that FAILED keeps the log, because then the file
+	// does not have it and this is the only copy.
+	released bool
 	// unitsPerSide is the roster both sides were generated from, kept so the
 	// record can name the force it describes. See saveRecord.
 	unitsPerSide int
@@ -307,7 +322,27 @@ func (s *Server) saveRecord(id string, e *entry) {
 	}
 	if err := s.store.Save(id, roster, roster, res, rec); err != nil {
 		e.recordErr = err.Error()
+		return
 	}
+	// The file is the log now. Keeping the in-memory copy as well is what makes a
+	// long-running server's heap a function of how many battles it has ever fought,
+	// and the log is the part of that which is large — a 100 v 100 battle with a
+	// wedge holds 165777 rows. The four numbers below are everything the state
+	// response says about the log, and they are what a later reader needs to know it
+	// was complete.
+	//
+	// The release has to come from the SESSION, not from here. Setting e.record to
+	// nil was tried first and freed nothing, because the session reaches the same log
+	// through its recorder; that version measured 20.63 MB a battle afterwards, to
+	// two decimal places, exactly as before. TestARecordedAndResolvedBattleCostsWhat
+	// is what caught it.
+	e.recordRows = e.record.Len()
+	e.recordTruncated = e.record.Truncated()
+	e.recordHash = e.record.Hash()
+	e.recordRoster = e.record.RosterHash()
+	e.session.ReleaseRecord()
+	e.record = nil
+	e.released = true
 }
 
 // lookup returns the entry for a battle id, enforcing the campaign-session
@@ -526,30 +561,38 @@ func (s *Server) stateOf(e *entry) map[string]any {
 	// ACCEPTED and nothing about whether the battle they were given to is
 	// reproducible. Those are different questions and a client that cannot tell them
 	// apart is a client being told a battle was recorded when it may not have been.
-	out["order_log_rows"] = 0
-	out["order_log_truncated"] = false
-	out["record_saved"] = e.saved
+	out["order_log_rows"] = e.recordRows
+	out["order_log_truncated"] = e.recordTruncated
+	out["record_saved"] = e.saved && e.recordErr == ""
 	switch {
-	case e.record == nil:
-		if e.recordErr != "" {
-			out["record_error"] = e.recordErr
-		} else {
-			out["record_error"] = "this battle is not being recorded"
-		}
-	case e.saved && e.recordErr != "":
+	case e.recordErr != "":
+		out["record_saved"] = false
+		out["record_error"] = e.recordErr
+	case !e.saved:
+		out["record_error"] = "this battle is still fighting; its record is written when it resolves"
+	case s.store == nil:
+		out["record_error"] = "the battle's order log is in memory only; no battle store is configured"
+	case e.released:
+		out["record_error"] = ""
+		// The log's two digests, so the numbers in this response can be CHECKED
+		// against the record on disk rather than taken on trust. OrderHash is in the
+		// record's index and RosterHash is what battle.Replay refuses a mismatch
+		// against; publishing them here means a reader holding both can compare them
+		// without opening the file.
+		// %016x is battle's own hashHex format — sixteen lowercase hex digits, no
+		// prefix — so a digest here, in the record file and in a verdict are the
+		// same string in all three places. battle.formatHash is unexported and
+		// exporting it for two call sites would be a wider change than this.
+		out["order_log_hash"] = fmt.Sprintf("%016x", e.recordHash)
+		out["order_log_roster"] = fmt.Sprintf("%016x", e.recordRoster)
+	}
+	if e.record != nil {
+		// Still being recorded, so these are live. They are also what a battle that
+		// is being fought reports, and a client watching a fight should see its log
+		// grow rather than sit at zero until the end.
 		out["order_log_rows"] = e.record.Len()
 		out["order_log_truncated"] = e.record.Truncated()
 		out["record_saved"] = false
-		out["record_error"] = e.recordErr
-	case e.saved:
-		out["order_log_rows"] = e.record.Len()
-		out["order_log_truncated"] = e.record.Truncated()
-		if s.store == nil {
-			out["record_error"] = "the battle's order log is in memory only; no battle store is configured"
-		}
-	default:
-		out["order_log_rows"] = e.record.Len()
-		out["order_log_truncated"] = e.record.Truncated()
 	}
 	if e.lastErr != nil {
 		out["sim_error"] = e.lastErr.Error()

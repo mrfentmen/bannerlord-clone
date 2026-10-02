@@ -373,6 +373,29 @@ func (s *Session) Record(bound int, source string) (*OrderLog, error) {
 // is the one thing about a log that decides whether it is replayable at all.
 func (s *Session) Recorder() *Recorder { return s.rec }
 
+// ReleaseRecord hands this session's order log to the caller and stops recording
+// into it. It returns nil when the session is not recording, or when the log has
+// already been released.
+//
+// It is the session-level counterpart to Recorder.Release, and it exists for the
+// same reason: an order log is the largest thing a finished battle holds — 165777
+// rows for one 100 v 100 battle with a wedge, measured — and once it has been
+// written somewhere it does not need to be in memory as well. A caller that has
+// saved it, or handed it to whoever will, calls this and drops its own reference.
+//
+// A session that is still being fought should not have its log released. The
+// recorder refuses to record afterwards, loudly, because a log written out before
+// the battle ended is a partial record of it — and a partial record replays to a
+// different battle while looking like a whole one. Nothing here checks the phase,
+// because the caller knows whether its battle is over and the recorder's refusal is
+// the backstop for when it does not.
+func (s *Session) ReleaseRecord() *OrderLog {
+	if s.rec == nil {
+		return nil
+	}
+	return s.rec.Release()
+}
+
 // Setup returns the Setup this session fought with: the frozen rosters, the
 // leaders filtered to their own sides, open terrain, and the label Deploy built
 // from the two party names.
