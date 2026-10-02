@@ -292,18 +292,20 @@ type neighbourhood struct {
 //
 // The index this walks is the one built at battle.ranged_grid_cell_size, not the
 // one at battle.grid_cell_size, and that is the single most important performance
-// decision in the tick. battle.morale_neighbourhood is ninety metres and
-// battle.grid_cell_size is twelve, so walking this query on the melee hash costs a
-// fifteen-by-fifteen block of cells — two hundred and twenty-five of them — for
-// every unit, every tick. On the coarse hash, whose cells are tens of metres
-// across, the same neighbourhood is a five-by-five block: twenty-five.
+// decision in the tick. Measured on the shipped balance file by
+// TestACoarseRadiusCostsFewerCellsThanAFineOne, a battle.morale_neighbourhood of
+// ninety metres is a two-hundred-and eighty-nine cell block keeping a hundred and
+// forty-three on the twelve-metre melee index, against a twenty-five cell block
+// keeping nine on the sixty-four-metre aimed-fire one. That is a factor of twelve
+// on the cells the walk visits and sixteen on the cells the caller is handed, for
+// every unit, every tick.
 //
 // The number of UNITS examined is much the same either way, because a wide cell
 // in a crowded block holds about as many units as several narrow ones. What
-// changes by a factor of nine is the cost of finding them, and a CPU profile of
-// the 100 v 100 battle put 78% of the run in cell lookup rather than in the
-// neighbour arithmetic. A battle that cannot be simulated is a battle that is not
-// simulated, so the query takes the shape its radius actually wants.
+// changes is the cost of finding them, and a CPU profile of the 100 v 100 battle
+// put 78% of the run in cell lookup rather than in the neighbour arithmetic. A
+// battle that cannot be simulated is a battle that is not simulated, so the query
+// takes the shape its radius actually wants.
 //
 // # WHY IT IS WRITTEN PER CANDIDATE AND NOT PER CELL
 //

@@ -570,23 +570,23 @@ func (h *hash) cellMisses(ix, iy int, x, y, r2 float64) bool {
 	hi := lo + h.size
 	// Distance from the query point to the cell's span on this axis: zero if it
 	// is inside, otherwise the gap to the nearer edge.
-	d := 0.0
-	if x < lo {
-		d = lo - x
-	} else if x > hi {
-		d = x - hi
-	}
-	dx := d * d
+	//
+	// Written as two maxes rather than as the three-way branch it replaced, and
+	// that is a speed change and not a behaviour one: max(lo-x, x-hi, 0) is the
+	// gap whether x is left of the cell, right of it, or inside it, because in
+	// each case exactly one of the three is the largest and the other two are not.
+	// A point inside the span cannot make either difference positive, so the zero
+	// is what survives. What it buys is that this function now inlines: written
+	// with the branches it cost 95 against the compiler's budget of 80 and was
+	// left as a real call, on a path the profile had at 6.2% flat - six floating
+	// point operations behind a call frame, once per cell of every query.
+	dx := max(max(lo-x, x-hi), 0)
 
 	lo = h.minY + float64(iy)*h.size
 	hi = lo + h.size
-	d = 0.0
-	if y < lo {
-		d = lo - y
-	} else if y > hi {
-		d = y - hi
-	}
-	return dx+d*d > r2
+	dy := max(max(lo-y, y-hi), 0)
+
+	return dx*dx+dy*dy > r2
 }
 
 // floorCell is the cell coordinate of v for a cell of the given width, rounding
