@@ -51,6 +51,10 @@ function attackerVictory(): AfterActionView {
     loot: 420,
     ticks: 40,
     summary: "Victory.",
+    // Present but empty: these tests are about the numbers the lifetime-stats
+    // translation reads, not the after-action narrative, and `aftermath` became
+    // required on `AfterActionView` after this fixture was written.
+    aftermath: { warStory: null, rivalLine: null, comparison: null, lootAppraisal: "No spoils." },
   };
 }
 

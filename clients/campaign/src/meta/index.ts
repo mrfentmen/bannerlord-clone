@@ -15,8 +15,6 @@ export * from "./heatmapProjector.js";
 export * from "./ironman.js";
 export * from "./newgameplus.js";
 export * from "./timeline.js";
-export * from "./leaderboard.js";
-export * from "./leaderboardPanel.js";
 export * from "./victory.js";
 export * from "./victoryPanel.js";
 export * from "./defeat.js";
@@ -32,3 +30,4 @@ export { campaignStats, campaignStatsBreakdown, lifetimeTotals, recordCampaignSt
 export { buildShowcase, parseShowcaseCode, type ProfileShowcase, type ShowcaseCard } from "./profileShowcase.js";
 export * from "./lifetimeStats.js";
 export * from "./leaderboards.js";
+export * from "./leaderboardsPanel.js";
