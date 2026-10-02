@@ -22,3 +22,4 @@ export { historicalProgress, isHistoricalUnlocked, recordHistoricalWin, resetHis
 export { createRosterBuilder, ROSTER_BUDGET, unitCost, type RosterBuilder, type RosterEntry, type UnitKind, type UnitTier } from "./rosterBuilder.js";
 export { exportShareCode, importShareCode, skirmishShareCode, type ShareCodeResult } from "./shareCodes.js";
 export { dailyStreak, dayNumber, recordDailyCompletion, resetDailyStreak, streakLabel, type DailyStreak } from "./dailyStreak.js";
+export { canRematch, lastBattle, rematch, rememberBattle } from "./rematch.js";
