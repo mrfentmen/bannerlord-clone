@@ -1,0 +1,83 @@
+/**
+ * Campaign-map DOM overlay styles (src/map/*.ts).
+ *
+ * Every value comes from src/design/tokens.css — no invented colours, fonts or
+ * spacing steps (CONSTITUTION.md 3.4). The overlays float over the canvas, so they
+ * carry their own paper ground rather than relying on whatever is behind them.
+ */
+
+.map-overlay {
+  position: absolute;
+  z-index: 2;
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  background: var(--paper-100);
+  border: 1px solid var(--paper-300);
+  border-radius: var(--radius-2);
+  box-shadow: var(--sheet-1);
+}
+
+.map-overlay--zoom {
+  right: var(--space-3);
+  bottom: var(--space-5);
+  flex-direction: column;
+}
+
+.map-overlay--centre {
+  right: var(--space-3);
+  bottom: var(--space-3);
+}
+
+.map-overlay--readout {
+  left: var(--space-3);
+  bottom: var(--space-3);
+  align-items: center;
+  font-family: var(--font-mono);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  color: var(--ink-700);
+  /* The readout is hidden until the pointer is over the map: an empty coordinate
+   * box in the corner says nothing and takes up the corner. */
+  visibility: hidden;
+}
+
+.map-overlay--readout[data-visible="true"] {
+  visibility: visible;
+}
+
+.map-overlay__btn {
+  min-width: 2.25rem;
+  justify-content: center;
+}
+
+.map-overlay__value {
+  padding: 0 var(--space-2);
+  white-space: nowrap;
+}
+
+/* -- terrain tooltip (task 199) ------------------------------------------- */
+
+.map-tooltip {
+  position: absolute;
+  z-index: 3;
+  max-width: 18rem;
+  padding: var(--space-1) var(--space-2);
+  background: var(--paper-0);
+  border: 1px solid var(--paper-300);
+  border-radius: var(--radius-2);
+  box-shadow: var(--sheet-1);
+  color: var(--ink-900);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  pointer-events: none;
+}
+
+.map-tooltip__name {
+  font-weight: var(--type-section-weight);
+}
+
+.map-tooltip__detail {
+  display: block;
+  color: var(--ink-500);
+}
