@@ -1115,10 +1115,13 @@ relation_share = 0.5               # how much of the reward a notable's power ad
 # the player takes.
 [barter]
 buy_share = 0.82                 # share of market price paid for goods taken. Range 0.3-1.0.
-sell_share = 1.24                # share of market price charged for goods given. Range 1.0-3.0.
-# The two must leave a margin. At or below parity there is no reason to trade
-# across a table rather than at a counter, and the screen would stop meaning
-# anything it does not already mean in the market panel.
+sell_share = 1.45                # share of market price charged for goods given. Range 1.0-3.0.
+# The two must leave a margin worth the crossing, and a thin one is worse than
+# none. At 0.82 and 1.24 the spread is under two percent, which is less than the
+# tolerance below: a trader would then shake hands on deals that pay them less
+# than nothing and feel reasonable about it. At 1.45 the spread is about 19
+# percent, so dealing across a table beats dealing across a counter and the
+# tolerance stays a tolerance rather than the price.
 # How far short of even a deal this lord will still shake hands with a
 # stranger, and how much a point of standing widens that. Both bounded at
 # either end by the two shares below, because an enemy refusing every deal is

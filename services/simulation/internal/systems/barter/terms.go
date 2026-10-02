@@ -116,13 +116,12 @@ func relationToPlayer(st *model.State, player, trader int) float64 {
 // other side of this table.
 func playerTable(st *model.State, cfg *config.Config, p *model.Leader, party int, t *model.Town) []Item {
 	items := make([]Item, 0, len(goods)+2)
+	var pt *model.Party
+	if party >= 0 {
+		pt = st.Parties[party]
+	}
 	for _, g := range goods {
-		held := 0.0
-		if party >= 0 {
-			if pt := st.Parties[party]; pt != nil {
-				held = readField(pt, g.PartyField)
-			}
-		}
+		held := partyHold(pt, g.PartyField)
 		if held <= 0 {
 			continue
 		}
@@ -143,16 +142,14 @@ func playerTable(st *model.State, cfg *config.Config, p *model.Leader, party int
 			UnitValue: goldPerMoney(cfg),
 		})
 	}
-	if party >= 0 {
-		if pt := st.Parties[party]; pt != nil && pt.Prisoners > 0 {
-			items = append(items, Item{
-				Kind:      KindPrisoner,
-				ItemID:    PrisonerItemID,
-				Name:      prisonerName,
-				Available: clampInt(pt.Prisoners),
-				UnitValue: prisonerValue(cfg, averageQuality, 0),
-			})
-		}
+	if pt != nil && pt.Prisoners > 0 {
+		items = append(items, Item{
+			Kind:      KindPrisoner,
+			ItemID:    PrisonerItemID,
+			Name:      prisonerName,
+			Available: clampInt(pt.Prisoners),
+			UnitValue: prisonerValue(cfg, averageQuality, 0),
+		})
 	}
 	return items
 }
@@ -167,7 +164,7 @@ func playerTable(st *model.State, cfg *config.Config, p *model.Leader, party int
 func traderTable(st *model.State, cfg *config.Config, l *model.Leader, t *model.Town) []Item {
 	items := make([]Item, 0, len(goods)+2)
 	for _, g := range goods {
-		stock := readField(t, g.TownField)
+		stock := townHold(t, g.TownField)
 		if stock <= 0 {
 			continue
 		}
@@ -202,22 +199,22 @@ func traderTable(st *model.State, cfg *config.Config, l *model.Leader, t *model.
 	return items
 }
 
-// readField reads one of the fields named in the goods table off a struct that
-// has it. It exists so `goods` can be one table rather than a switch per half,
-// and it fails loudly rather than reading zero: a good named in one column and
-// missing from the other is a data error, not an empty hold.
-func readField(v any, field string) float64 {
-	switch e := v.(type) {
-	case *model.Party:
-		if got, ok := e.Value(field); ok {
-			return got
-		}
-	case *model.Town:
-		if got, ok := e.Value(field); ok {
-			return got
-		}
+// partyHold is what a party is carrying of one good.
+func partyHold(p *model.Party, field string) float64 {
+	if p == nil {
+		return 0
 	}
-	return 0
+	v, _ := p.Value(field)
+	return v
+}
+
+// townHold is what a town is holding of one good.
+func townHold(t *model.Town, field string) float64 {
+	if t == nil {
+		return 0
+	}
+	v, _ := t.Value(field)
+	return v
 }
 
 // Appraise is the trader's answer to a proposed deal, and it writes nothing.
@@ -386,5 +383,3 @@ func max0(v float64) float64 {
 	}
 	return v
 }
-
-

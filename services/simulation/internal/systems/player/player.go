@@ -320,9 +320,20 @@ func applyPrisoner(v *sim.View, w *sim.WriteSet, o sim.Order) {
 	}
 	if o.Kind == sim.OrderRansomPrisoner {
 		// A ransom is money for a life: gold to the captor, and a quieter
-		// outcome than an execution.
-		w.Add(model.KindLeader, o.LeaderID, "gold", c.RulerAI.PrisonerRansomGold,
-			"ransomed a prisoner", nil, "ransom received")
+		// outcome than an execution. Split: half to the leader, half to
+		// the party treasury (for wages and supplies).
+		half := c.RulerAI.PrisonerRansomGold / 2
+		w.Add(model.KindLeader, o.LeaderID, "gold", half,
+			"ransomed a prisoner", nil, "ransom received (leader share)")
+		// Find the captor's party for the party share.
+		for _, pid := range v.State.PartyIDs() {
+			p := v.State.Parties[pid]
+			if p != nil && p.LeaderID == o.LeaderID {
+				w.Add(model.KindParty, pid, "party_gold", half,
+					"ransomed a prisoner", nil, "ransom received (party share)")
+				break
+			}
+		}
 		w.Set(model.KindLeader, o.Target, "captured_by", -1, "ransomed", nil, "released for ransom")
 		w.AddRelation(o.LeaderID, o.Target, -c.RulerAI.PrisonerRansomRelation, "ransomed", nil, "ransom")
 		return
@@ -340,6 +351,30 @@ func applyPrisoner(v *sim.View, w *sim.WriteSet, o sim.Order) {
 	// damage are read by other systems from the shared state this leaves.
 	w.Set(model.KindLeader, o.Target, "is_alive", 0, "executed", nil, "executed")
 	w.Set(model.KindLeader, o.Target, "captured_by", -1, "executed", nil, "")
+	// Dread: executing a prisoner terrifies nearby towns.
+	// Towns within 50km lose morale (they fear the same fate).
+	if captor != nil {
+		for _, tid := range v.State.TownIDs() {
+			t := v.State.Towns[tid]
+			if t == nil {
+				continue
+			}
+			// Find captor's party position for distance check.
+			for _, pid := range v.State.PartyIDs() {
+				p := v.State.Parties[pid]
+				if p != nil && p.LeaderID == o.LeaderID {
+					dx := p.X - t.X
+					dy := p.Y - t.Y
+					if dx*dx+dy*dy < 2500 { // 50km squared
+						w.Add(model.KindTown, tid, "morale", -0.1,
+							"execution nearby", nil, "dread from execution")
+					}
+					break
+				}
+			}
+			break // only check once
+		}
+	}
 	// Every oath the prisoner had made is broken by their death, and the
 	// relation system reads the oaths, not this system.
 	for _, oath := range v.State.Oaths {

@@ -790,8 +790,7 @@ func loadIssue(l *loader, i *Issue) {
 	i.AbandonRelationPenalty = l.f64("issue.abandon_relation_penalty")
 	i.RewardMoneyShare = l.f64("issue.reward_money_share")
 	i.RelationShare = l.f64("issue.relation_share")
-
-	}
+}
 
 // loadBarter reads the trader's spread and tolerance (ECONOMY.md section 5).
 func loadBarter(l *loader, b *Barter) {

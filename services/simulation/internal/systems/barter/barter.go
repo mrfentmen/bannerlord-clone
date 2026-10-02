@@ -166,9 +166,9 @@ type Item struct {
 // with. Same market underneath, two margins, and the gap between them is the
 // whole reason a deal can be refused.
 type Terms struct {
-	TownID    string
-	TraderID  string
-	PartyID   string
+	TownID     string
+	TraderID   string
+	PartyID    string
 	TraderName string
 	// TraderItems is what the trader can put on the table.
 	TraderItems []Item
@@ -646,5 +646,3 @@ func findItem(items []Item, kind ItemKind, itemID string) (Item, bool) {
 func describe(it Item) string {
 	return fmt.Sprintf("%d %s", it.Available, strings.ToLower(it.Name))
 }
-
-

@@ -86,5 +86,19 @@ func run(v *sim.View, w *sim.WriteSet) {
 			w.Add(model.KindParty, pid, "party_food", -foodCost, read, causes,
 				"prisoners consume food")
 		}
+
+		// Starvation check: if the party has no food, prisoners starve.
+		// Conformity drops fast and prisoners may die or escape.
+		if p.Prisoners > 0 && p.Food <= 0 {
+			// Conformity collapses when unfed.
+			w.Add(model.KindParty, pid, "prisoner_conformity", -0.2,
+				read, causes, "prisoners starving: conformity collapses")
+			// 5% of prisoners die per day without food.
+			deaths := p.Prisoners * 0.05
+			if deaths >= 1 {
+				w.Add(model.KindParty, pid, "prisoners", -deaths,
+					read, causes, "prisoners starved to death")
+			}
+		}
 	}
 }

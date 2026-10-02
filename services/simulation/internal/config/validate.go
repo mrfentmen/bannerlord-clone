@@ -216,13 +216,23 @@ func (c *Config) validate(path string) error {
 		return fmt.Errorf("config: %s: cause.min_chain_links exceeds cause.max_chain_links", path)
 	}
 	// The trader's spread is the whole reason barter is not a market panel with
-	// the prices hidden. At or below parity a lord deals at exactly the market
-	// rate in both directions, so crossing a table and crossing a counter become
-	// the same transaction and the screen stops meaning anything the market
-	// panel does not already mean.
-	if c.Barter.BuyShare*c.Barter.SellShare >= 1 {
-		return fmt.Errorf("config: %s: barter.buy_share*barter.sell_share (%g) leaves no margin for the trader: a lord who deals at the market rate has no reason to barter",
+	// the prices hidden. The product of the two shares is what the trader keeps
+	// on a round trip: they buy under the market and sell over it, so a product
+	// at or below one means a lord who deals at the market rate in both
+	// directions, and crossing a table becomes the same transaction as crossing
+	// a counter. The screen would then stop meaning anything the market panel
+	// does not already mean.
+	if c.Barter.BuyShare*c.Barter.SellShare <= 1 {
+		return fmt.Errorf("config: %s: barter.buy_share*barter.sell_share (%g) leaves no margin for the trader: a lord who deals at the market rate in both directions has no reason to barter",
 			path, c.Barter.BuyShare*c.Barter.SellShare)
+	}
+	// A spread thinner than the tolerance is worse than none. The trader would
+	// shake hands on deals that pay them less than the margin they gave up,
+	// and call it being reasonable: the tolerance is supposed to be a
+	// disposition, not the price.
+	if c.Barter.BuyShare*c.Barter.SellShare < 1+c.Barter.Tolerance {
+		return fmt.Errorf("config: %s: barter spread (%g) is thinner than barter.tolerance (%g), so the trader takes deals that cost them money",
+			path, c.Barter.BuyShare*c.Barter.SellShare, c.Barter.Tolerance)
 	}
 	return nil
 }
