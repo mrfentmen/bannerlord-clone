@@ -15,3 +15,4 @@ export * from "./mvp";
 export * from "./loot";
 export * from "./interrogation";
 export * from "./medicine";
+export * from "./promotions";
