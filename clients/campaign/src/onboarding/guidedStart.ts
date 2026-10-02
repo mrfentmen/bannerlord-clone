@@ -26,8 +26,24 @@ export interface GuidedStart {
   reset(): void;
 }
 
-export function createGuidedStart(storage: Pick<Storage, "getItem" | "setItem"> | null = null): GuidedStart {
+export interface GuidedStartOptions {
+  storage?: Pick<Storage, "getItem" | "setItem"> | null;
+  /** Fired once per goal, when it is newly completed (solo task 8). */
+  onGoalComplete?: (goal: StartGoal) => void;
+}
+
+export function createGuidedStart(
+  storageOrOptions?: Pick<Storage, "getItem" | "setItem"> | null | GuidedStartOptions,
+): GuidedStart {
   const KEY = "campaign.guidedStart.v1";
+  const isStorageLike =
+    storageOrOptions !== null &&
+    typeof storageOrOptions === "object" &&
+    typeof (storageOrOptions as { getItem?: unknown }).getItem === "function";
+  const opts: GuidedStartOptions = isStorageLike
+    ? { storage: storageOrOptions as Pick<Storage, "getItem" | "setItem"> }
+    : ((storageOrOptions as GuidedStartOptions | null) ?? {});
+  const storage = opts.storage ?? null;
   let goals: StartGoal[] = START_GOALS.map((g) => ({ ...g, done: false }));
   try {
     const raw = storage?.getItem(KEY);
@@ -52,6 +68,7 @@ export function createGuidedStart(storage: Pick<Storage, "getItem" | "setItem"> 
       if (goal && !goal.done) {
         goal.done = true;
         persist();
+        opts.onGoalComplete?.({ ...goal });
       }
     },
     doneCount: () => goals.filter((g) => g.done).length,

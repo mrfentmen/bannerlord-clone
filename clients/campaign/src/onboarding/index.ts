@@ -12,3 +12,4 @@ export * from "./guidedStart.js";
 export * from "./progress.js";
 export * from "./introStory.js";
 export * from "./introStoryPanel.js";
+export * from "./goalCelebration.js";
