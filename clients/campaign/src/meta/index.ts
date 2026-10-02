@@ -26,3 +26,4 @@ export * from "./retirePanel.js";
 export * from "./campaignScore.js";
 export * from "./scorePanel.js";
 export * from "./difficulty.js";
+export * from "./resetCampaign.js";
