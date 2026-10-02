@@ -39,6 +39,7 @@ import { createGroupIndicators, type GroupIndicators } from "./groupIndicators.j
 import { createFormationSelector, type FormationSelector } from "./formation.js";
 import { createFormationGhost } from "./formationGhost.js";
 import { createStanceSelector, type StanceSelector } from "./stance.js";
+import { createStanceIcons } from "./stanceIcons.js";
 import type { CommandSurface, FormationKind, Order, OrderKind, StanceKind } from "./types.js";
 
 export interface Commander {
@@ -195,9 +196,13 @@ export function createCommander(
   const stanceSelector: StanceSelector = createStanceSelector({
     onPick: (picked) => {
       stance = picked;
+      updatePanel(); // task 73: the icons follow the pick at once
     },
   });
   orderPanel.slot.appendChild(stanceSelector.root);
+  // Task 73: the chosen stance shown over each selected unit.
+  const stanceIcons = createStanceIcons(surface);
+  overlay.appendChild(stanceIcons.root);
   // Task 71: the ghost that previews the shape under the pointer.
   const ghost = createFormationGhost(surface);
   overlay.appendChild(ghost.root);
@@ -242,6 +247,10 @@ export function createCommander(
   function updatePanel(): void {
     const { byId } = liveUnits();
     const selected = selection.selected();
+    const selectedUnits = selected.flatMap((id) => {
+      const u = byId.get(id);
+      return u ? [u] : [];
+    });
     panel.update(
       selected.flatMap((id) => {
         const u = byId.get(id);
@@ -250,12 +259,9 @@ export function createCommander(
         return [{ id: u.id, label: u.label, kind: u.kind, count: u.count, ...(lo ? { lastOrder: lo } : {}) }];
       }),
     );
-    rings.update(
-      selected.flatMap((id) => {
-        const u = byId.get(id);
-        return u ? [u] : [];
-      }),
-    );
+    rings.update(selectedUnits);
+    // Task 73: one stance icon per selected unit.
+    stanceIcons.update(selectedUnits, stance);
     // Task 69: the chips follow assign and recall.
     groupIndicators.update();
     // Task 71: the ghost follows the selection and the pointer.
@@ -689,6 +695,7 @@ export function createCommander(
       formationSelector.destroy();
       stanceSelector.destroy();
       ghost.destroy();
+      stanceIcons.destroy();
       modeHint.remove();
     },
   };

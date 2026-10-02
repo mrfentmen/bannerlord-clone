@@ -24,6 +24,7 @@ export {
   type StanceSelector,
   type StanceSelectorOptions,
 } from "./stance.js";
+export { createStanceIcons, type StanceIcons } from "./stanceIcons.js";
 export {
   ORDER_LABEL,
   STANCE_LABEL,
