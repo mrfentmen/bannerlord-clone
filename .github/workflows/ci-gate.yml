@@ -34,7 +34,7 @@ jobs:
         run: npm ci --prefix clients/campaign
 
       - name: Client vitest
-        run: npm test --prefix clients/campaign -- --maxWorkers=2 --reporter=basic
+        run: npm test --prefix clients/campaign -- --maxWorkers=2
 
       - name: Client typecheck
         run: npm run typecheck --prefix clients/campaign
