@@ -29,6 +29,11 @@
  *
  * Task 605: {@link ModelLoader.preloadBattle} loads the battlefield categories
  * in one pass and reports which ids arrived and which failed.
+ *
+ * Task 606: {@link ModelLoader.beginLoad} hands back something to draw right
+ * now — a placeholder mesh — while the real model streams; the placeholder is
+ * disposed when the model lands. The scene owner decides what the stand-in
+ * looks like through `createPlaceholder` (default: a 1 m Babylon box).
  */
 
 /** Attempts per model, including the first. Task 601. */
@@ -55,6 +60,11 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** Removes a mesh if it knows how; a placeholder may be any drawable (task 606). */
+function disposeMesh(mesh: unknown): void {
+  (mesh as { dispose?: () => void } | null)?.dispose?.();
+}
+
 /** One progress reading for one model (task 603). */
 export interface LoadProgress {
   /** The model these bytes belong to. */
@@ -67,6 +77,14 @@ export interface LoadProgress {
 
 /** How a loader reports bytes; `(loaded, total)` (task 603). */
 export type ProgressReporter = (loaded: number, total: number) => void;
+
+/** A load in flight, plus what to draw until it lands (task 606). */
+export interface PlaceholderLoad {
+  /** Draw this now; null when the model is cached or unknown. */
+  placeholder: unknown;
+  /** The real model, or null when the load failed. */
+  ready: Promise<unknown>;
+}
 
 /** What a preload pass managed to fetch (task 605). */
 export interface PreloadReport {
@@ -89,6 +107,11 @@ export interface ModelLoaderOptions {
    */
   onProgress?: (progress: LoadProgress) => void;
   /**
+   * Builds the stand-in shown while a model loads (task 606). Defaults to a
+   * 1 m Babylon box named `<id>__placeholder`.
+   */
+  createPlaceholder?: (id: string) => unknown | Promise<unknown>;
+  /**
    * Loads one model. Defaults to Babylon's `SceneLoader`; tests inject a fake
    * so retry behaviour is observable without a scene (task 601).
    */
@@ -104,6 +127,7 @@ export class ModelLoader {
   private retryDelayMs: number;
   private timeoutMs: number;
   private onProgress: ((progress: LoadProgress) => void) | null;
+  private createPlaceholder: (id: string) => unknown | Promise<unknown>;
   private loadImpl: (info: ModelInfo, report: ProgressReporter) => Promise<unknown>;
 
   constructor(scene: any, options: ModelLoaderOptions = {}) {
@@ -112,6 +136,8 @@ export class ModelLoader {
     this.retryDelayMs = Math.max(0, options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS);
     this.timeoutMs = Math.max(0, options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
     this.onProgress = options.onProgress ?? null;
+    this.createPlaceholder =
+      options.createPlaceholder ?? ((id) => this.defaultPlaceholder(id));
     this.loadImpl = options.load ?? ((info, report) => this.loadModel(info, report));
   }
 
@@ -237,6 +263,32 @@ export class ModelLoader {
   /** Turns a loader's byte counts into this loader's progress events (task 603). */
   private reporterFor(info: ModelInfo): ProgressReporter {
     return (loaded, total) => this.onProgress?.({ id: info.id, loaded, total });
+  }
+
+  /**
+   * Task 606: start a load and get something to draw right away. `placeholder`
+   * is the stand-in for the field, or null when the model was already cached or
+   * is not in the manifest. `ready` resolves with the real model, or with null
+   * when the load failed — in that case the placeholder is left where it is, so
+   * the caller still has a box on the field.
+   */
+  async beginLoad(id: string): Promise<PlaceholderLoad> {
+    if (this.cache.has(id) || !this.manifest.has(id)) {
+      return { placeholder: null, ready: this.load(id) };
+    }
+
+    const placeholder = await this.createPlaceholder(id);
+    const ready = this.load(id).then((model) => {
+      if (model) disposeMesh(placeholder);
+      return model;
+    });
+    return { placeholder, ready };
+  }
+
+  /** A plain box, named so a screenshot or a scene dump says what it is (task 606). */
+  private async defaultPlaceholder(id: string): Promise<unknown> {
+    const { MeshBuilder } = await import("@babylonjs/core/Meshes/meshBuilder");
+    return MeshBuilder.CreateBox(`${id}__placeholder`, { size: 1 }, this.scene);
   }
 
   /**

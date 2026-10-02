@@ -14,6 +14,9 @@
  *
  * Task 605: preloadBattle loads the battlefield categories in one pass and
  * reports which ids arrived and which failed, without rejecting.
+ *
+ * Task 606: beginLoad returns a placeholder to draw while the model streams and
+ * disposes it when the model lands.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -156,6 +159,79 @@ describe("ModelLoader retry (task 601)", () => {
     const loader = await readyLoader({ load: flaky.load });
 
     await expect(loader.load("absent")).resolves.toBeNull();
+    expect(flaky.calls()).toBe(0);
+    loader.dispose();
+  });
+});
+
+describe("ModelLoader placeholder (task 606)", () => {
+  /** A stand-in that records its own disposal. */
+  function standIn(id: string) {
+    const mesh = { name: `${id}__placeholder`, disposed: false, dispose() { this.disposed = true; } };
+    return mesh;
+  }
+
+  it("hands back a placeholder now and the real model when it lands", async () => {
+    let release: (m: unknown) => void = () => {};
+    const load = () => new Promise<unknown>((resolve) => { release = resolve; });
+    const created: string[] = [];
+    const loader = await readyLoader({
+      load,
+      createPlaceholder: (id) => {
+        created.push(id);
+        return standIn(id);
+      },
+    });
+
+    const { placeholder, ready } = await loader.beginLoad("troop-gunner");
+    expect(created).toEqual(["troop-gunner"]);
+    expect(placeholder).toMatchObject({ name: "troop-gunner__placeholder", disposed: false });
+
+    release({ name: "gunner" });
+    await expect(ready).resolves.toEqual({ name: "gunner" });
+    expect(placeholder).toMatchObject({ disposed: true });
+    loader.dispose();
+  });
+
+  it("leaves the placeholder in place when the model failed", async () => {
+    const load = async () => {
+      throw new Error("down");
+    };
+    const loader = await readyLoader({
+      load,
+      attempts: 1,
+      createPlaceholder: (id) => standIn(id),
+    });
+
+    const { placeholder, ready } = await loader.beginLoad("humvee");
+    await expect(ready).resolves.toBeNull();
+    expect(placeholder).toMatchObject({ disposed: false });
+    loader.dispose();
+  });
+
+  it("returns no placeholder for a cached model", async () => {
+    const flaky = flakyLoader(0, "gunner");
+    const loader = await readyLoader({
+      load: flaky.load,
+      createPlaceholder: () => {
+        throw new Error("should not be asked for a placeholder");
+      },
+    });
+    await loader.load("troop-gunner");
+
+    const { placeholder, ready } = await loader.beginLoad("troop-gunner");
+    expect(placeholder).toBeNull();
+    await expect(ready).resolves.toEqual({ name: "gunner" });
+    loader.dispose();
+  });
+
+  it("returns no placeholder for a model that is not in the manifest", async () => {
+    const flaky = flakyLoader(0);
+    const loader = await readyLoader({ load: flaky.load });
+
+    const { placeholder, ready } = await loader.beginLoad("absent");
+    expect(placeholder).toBeNull();
+    await expect(ready).resolves.toBeNull();
     expect(flaky.calls()).toBe(0);
     loader.dispose();
   });
