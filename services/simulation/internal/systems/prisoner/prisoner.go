@@ -52,10 +52,12 @@ func run(v *sim.View, w *sim.WriteSet) {
 	c := v.Cfg
 	// Default values if config is nil (e.g., in tests).
 	deathRate := 0.05
+	despairRate := 0.02
 	conformityDrop := 0.20
 	foodUpkeep := 0.10
 	if c != nil {
 		deathRate = c.RulerAI.PrisonerStarvationDeathRate
+		despairRate = c.RulerAI.PrisonerDespairDeathRate
 		conformityDrop = c.RulerAI.PrisonerStarvationConformityDrop
 		foodUpkeep = c.RulerAI.PrisonerFoodUpkeep
 	}
@@ -115,7 +117,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 		// This is separate from starvation; even fed prisoners with 0 conformity
 		// are at risk.
 		if p.Prisoners > 0 && p.PrisonerConformity <= 0 {
-			deaths := p.Prisoners * 0.02 // 2% per day at 0 conformity
+			deaths := p.Prisoners * despairRate
 			if deaths >= 1 {
 				w.Add(model.KindParty, pid, "prisoners", -deaths,
 					read, causes, "prisoners died from despair (0 conformity)")

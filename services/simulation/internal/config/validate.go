@@ -147,6 +147,7 @@ func (c *Config) validate(path string) error {
 		{"visibility.settlement_size_sight_bonus", c.Visibility.SettlementSizeSightBonus, 0, 5},
 		{"visibility.min_population_to_be_seen", c.Visibility.MinPopulationToBeSeen, 0, 1e9},
 		{"visibility.sighting_memory_days", c.Visibility.SightingMemoryDays, 0, 3650},
+		{"ruler_ai.prisoner_despair_death_rate", c.RulerAI.PrisonerDespairDeathRate, 0, 0.2},
 	}
 	// A template whose shares are all zero describes a party with no troops,
 	// and a party with no troops cannot march or fight, so a run would be

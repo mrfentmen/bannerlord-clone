@@ -481,6 +481,7 @@ func (l *loader) load(c *Config) {
 	c.RulerAI.PrisonerRansomRelation = l.f64("ruler_ai.prisoner_ransom_relation")
 	c.RulerAI.PrisonerReleaseRelation = l.f64("ruler_ai.prisoner_release_relation")
 	c.RulerAI.PrisonerStarvationDeathRate = l.f64("ruler_ai.prisoner_starvation_death_rate")
+	c.RulerAI.PrisonerDespairDeathRate = l.f64("ruler_ai.prisoner_despair_death_rate")
 	c.RulerAI.PrisonerStarvationConformityDrop = l.f64("ruler_ai.prisoner_starvation_conformity_drop")
 	c.RulerAI.PrisonerFoodUpkeep = l.f64("ruler_ai.prisoner_food_upkeep")
 	c.RulerAI.DecideEveryDays = l.f64("ruler_ai.decide_every_days")

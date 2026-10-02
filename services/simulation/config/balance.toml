@@ -590,6 +590,7 @@ prisoner_ransom_gold = 260.0    # gold expected from ransoming a ruler. Range 20
 prisoner_ransom_relation = 0.10  # relation cost of ransoming. Range 0-0.5.
 prisoner_release_relation = 0.15  # relation gain from releasing a prisoner (honorable). Range 0-0.5.
 prisoner_starvation_death_rate = 0.05  # share of prisoners dying per day without food. Range 0-0.2.
+prisoner_despair_death_rate = 0.02  # share of prisoners dying per day at 0 conformity (despair). Range 0-0.2.
 prisoner_starvation_conformity_drop = 0.20  # conformity lost per day without food. Range 0-1.0.
 prisoner_food_upkeep = 0.10  # food consumed per prisoner per day. Range 0-1.0.
 decide_every_days = 4.0         # how often a ruler makes a decision. Range 1-30. Daily decisions make rulers twitchy.

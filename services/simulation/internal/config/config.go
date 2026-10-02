@@ -1245,6 +1245,8 @@ type RulerAI struct {
 	PrisonerRansomRelation float64
 	// PrisonerStarvationDeathRate is the share of prisoners dying per day without food.
 	PrisonerStarvationDeathRate float64
+	// PrisonerDespairDeathRate is the share of prisoners dying per day at 0 conformity.
+	PrisonerDespairDeathRate float64
 	// PrisonerStarvationConformityDrop is conformity lost per day without food.
 	PrisonerStarvationConformityDrop float64
 	// PrisonerFoodUpkeep is food consumed per prisoner per day.
