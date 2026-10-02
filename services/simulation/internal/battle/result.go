@@ -452,6 +452,49 @@ func formatDuration(seconds float64) string {
 	return fmt.Sprintf("%d:%02d", m, s)
 }
 
+// PrisonersTakenBy is how many bodies the given side is holding as prisoners at
+// the end of the battle.
+//
+// It is the loser's SURRENDERED BODIES and nothing else, and the reasoning is
+// short. This engine's only surrender rule is a routed unit that has escaped the
+// fight giving itself up (battle.surrender_chance, with no enemy within
+// battle.surrender_range), so a surrendered unit is a body that walked off the
+// field intact and belongs to whoever beat it. Dead bodies are not prisoners and
+// routed bodies are not prisoners either: a routed man is alive, on the run, and
+// unaccounted for, and counting him would hand the winner troops he does not have.
+//
+// WHY THIS IS HERE RATHER THAN IN THE CAMPAIGN LAYER, AND WHAT IT DOES NOT DO:
+// internal/autoresolve is where a battle fought on paper turns into prisoners, and
+// internal/writeback is where prisoners become a cause-log row. Neither of them
+// has ever seen a battle that was actually fought, because nothing outside this
+// package consumes battle.Result, so a field battle's surrenders currently reach
+// no prisoner count at all. That gap is somebody else's to close by reading this,
+// and this is here so that when they do there is one answer rather than two.
+//
+// The invariants it rests on, both of which are checked elsewhere: a surrendered
+// unit is counted once and never again (the status tally in commit), and the two
+// sides' bodies add up (the verification harness's casualties-add-up rule). A draw
+// has no prisoner-taker, so asking about either side of one returns that side's
+// own number rather than an error, and the caller can see the draw in Outcome.Kind
+// if it cares.
+func (r *Result) PrisonersTakenBy(side Side) float64 {
+	i := side.index()
+	if i < 0 || i >= len(r.Sides) {
+		return 0
+	}
+	return r.Sides[i].SurrenderedBodies
+}
+
+// PrisonersTaken is the loser's surrendered bodies, indexed the way the campaign
+// layer indexes a result: [0] is what side A is holding, [1] is what side B is.
+//
+// autoresolve.Result.PrisonersTaken means exactly this and is what
+// internal/writeback reads, so a caller holding a battle.Result and a caller
+// holding an autoresolve.Result can both say "prisoners taken" and mean one thing.
+func (r *Result) PrisonersTaken() [2]float64 {
+	return [2]float64{r.PrisonersTakenBy(SideA), r.PrisonersTakenBy(SideB)}
+}
+
 // Summary renders a result as a compact block of plain text.
 //
 // It is the form a headless harness prints and the form a screenshot of a
