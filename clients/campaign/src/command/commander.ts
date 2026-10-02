@@ -31,6 +31,7 @@ import { createRadialMenu, type RadialMenu } from "./radial.js";
 import { createMarkers, type Markers } from "./markers.js";
 import { showOrderDelay, type OrderDelayHandle } from "./orderDelay.js";
 import { createSelectionPanel, type SelectionPanel } from "./selectionPanel.js";
+import { createOrderPanel, type OrderPanel } from "./orderPanel.js";
 import type { CommandSurface, Order, OrderKind } from "./types.js";
 
 export interface Commander {
@@ -153,6 +154,9 @@ export function createCommander(
   const markers: Markers = createMarkers(overlay);
   const panel: SelectionPanel = createSelectionPanel();
   overlay.appendChild(panel.root);
+  // Task 59: the order row lives in the same overlay, under the selection panel.
+  const orderPanel: OrderPanel = createOrderPanel({ registry });
+  overlay.appendChild(orderPanel.root);
   const delays: OrderDelayHandle[] = [];
   /** Task 47: the last order issued to each unit — the panel's "stance". */
   const lastOrder = new Map<string, OrderKind>();
@@ -558,6 +562,9 @@ export function createCommander(
   offs.push(
     selection.onChanged(() => {
       clearWaypoints();
+      // Task 59: with nothing selected there is nothing to order, so the row
+      // is hidden and its buttons disabled.
+      orderPanel.setEnabled(selection.selected().length > 0);
       updatePanel();
     }),
   );
@@ -578,6 +585,7 @@ export function createCommander(
       for (const d of delays) d.destroy();
       markers.destroy();
       panel.destroy();
+      orderPanel.destroy();
       modeHint.remove();
     },
   };

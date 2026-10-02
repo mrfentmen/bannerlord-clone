@@ -1,0 +1,57 @@
+/* Buffy task 59: the bottom order row.
+   A quiet toolbar on the sheet/ink tokens the rest of the command overlay uses:
+   ink border, paper face, accent fill for hover. No animation, so there is
+   nothing here for reduced-motion to switch off. */
+
+.cmd-orders {
+  position: absolute;
+  left: 50%;
+  bottom: var(--space-3);
+  transform: translateX(-50%);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--ink-700);
+  border-radius: var(--radius-2);
+  background: var(--paper-100);
+}
+
+/* `display: flex` beats the UA `[hidden] { display: none }`, so restate it. */
+.cmd-orders[hidden] {
+  display: none;
+}
+
+.cmd-order {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 32px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--ink-500);
+  border-radius: var(--radius-1);
+  background: var(--paper-0);
+  color: var(--ink-900);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.cmd-order:hover:not(:disabled) {
+  background: var(--paper-200);
+}
+
+.cmd-order:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
+.cmd-order:disabled {
+  color: var(--ink-300);
+  cursor: default;
+  opacity: 0.6;
+}
+
+.cmd-order__label {
+  white-space: nowrap;
+}
