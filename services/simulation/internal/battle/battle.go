@@ -260,8 +260,6 @@ type Battle struct {
 // and a stage that later starts reading another stage's output fails there.
 //
 //  1. intent      advance, engage, withdraw, or rout, from morale and contact
-//  2. command     hand the field to a commander, if there is one, and take
-//     back the movements it ordered over the intent stage's
 //  2. targeting   pick each unit's melee and aimed targets, under the
 //     concentration limit
 //  3. aimed fire  shots, suppression, and ammunition
@@ -269,26 +267,30 @@ type Battle struct {
 //  5. morale      morale, suppression and exhaustion decay, breaks, routs,
 //     and surrenders
 //
-// # WHY "command" IS ONE OF THE NAMES AND NOT A CALL BESIDE THE LOOP
+// # AND WHERE THE COMMAND SEAM RUNS, WHICH IS NOT ONE OF THESE NAMES
 //
-// The seam is the sixth name because tick runs the stages by name and the seam is
-// one of them. It was left out of the list once, when the tick was refactored to
-// iterate this value instead of spelling the stages out, and nothing failed: a
-// stage the engine does not run is not an error, and a battle with no commander
-// is a battle whose result is unchanged by not calling it. What it did instead was
-// make every order in the game a no-op. Formations were built and never walked to,
-// no order was written to the order log, every replay of a commanded battle
-// reproduced an uncommanded one, and a commander that refused a nonsense order
-// returned the error to a caller that was never called. Four different tests said
-// "the commander issued no orders", which is the sentence a dead seam writes.
+// Between the intent stage and the targeting stage: the field is handed to the
+// commander, if there is one, and the movements it ordered are taken back OVER the
+// intent stage's. It is not a sixth name in this list because it is not a stage. A
+// stage reads the snapshot and writes deltas nothing else reads; the seam writes
+// over another stage's deltas, which is the one coupling in a tick, and a list of
+// order-independent stages that carried it would be claiming a freedom it does not
+// have. tick runs it by name at the point the documented order puts it, and checks
+// that it ran.
 //
-// So the seam is named here, and runStage refuses a name it does not know, which
-// means a stage cannot be dropped from the engine without being dropped from this
-// list by the same edit. A name that is here and not run is a bug this file can no
-// longer express.
+// It was left out of this list once, when the tick was refactored to iterate this
+// value rather than spell the stages out, and the seam became reachable only by
+// name through runStage. Nothing failed: the engine does not check that the stages
+// it has a name for are the stages it runs, and a battle with no commander has the
+// same result whether or not one is called. What it did instead was make every
+// order in the game a no-op. Formations were drawn and never walked anywhere, no
+// order reached the order log, every replay of a commanded battle reproduced an
+// uncommanded one, and a commander that refused a nonsense order returned its error
+// to a caller that was never called. Four separate tests reported it in the same
+// words, "the commander issued no orders", which is the sentence a dead seam
+// writes.
 var tickOrder = []string{
 	"intent",
-	"command",
 	"targeting",
 	"aimed fire",
 	"melee",
@@ -707,9 +709,35 @@ func (b *Battle) tick() error {
 	if err := b.beginTick(); err != nil {
 		return err
 	}
+	seam := false
 	for _, name := range tickOrder {
+		// The command seam, which is not a stage and is not in tickOrder: see the
+		// comment on the list. It runs where the documented order puts it, between
+		// the stage that decides what every unit is doing and the stage that picks
+		// what they shoot, because what a commander orders is written over the
+		// intent stage's movements and not alongside them.
+		if name == "targeting" {
+			if err := b.runCommanders(); err != nil {
+				return err
+			}
+			seam = true
+		}
 		if err := b.runStage(name); err != nil {
 			return err
+		}
+	}
+	// The seam is named by position in a list, so a list edited without it is a
+	// tick that runs four stages and a seam that never speaks. That is not a
+	// mistake this package should be able to make quietly: it is the mistake that
+	// made every order in the game a no-op, and nothing caught it but four tests
+	// asking where their orders had gone. So it is an error rather than a silence.
+	if !seam {
+		return &Error{
+			Kind:   ErrInternal,
+			Field:  "tickOrder",
+			UnitID: -1,
+			Detail: "tickOrder has no \"targeting\" stage, so the command seam never ran; no order would " +
+				"reach the field and no formation would move",
 		}
 	}
 	if err := b.commit(); err != nil {
@@ -760,19 +788,23 @@ func (b *Battle) beginTick() error {
 
 // runStage runs one named stage of a tick.
 //
-// The command seam sits between intent and targeting, because a commander reads
-// what the intent stage decided and hands back its own movements over it, so it is
-// named here rather than being spelled out at the call site in tick. It is in
-// tickOrder's documented list under the number 2 with a comment, and a caller
-// naming it out of turn gets the same command a caller naming a stage that does
-// not exist gets.
+// Every name in tickOrder is a name here, and a caller naming a stage that does not
+// exist is refused rather than ignored. That is why tickOrder and this switch have
+// to be edited together: a stage in the list with no case here fails the first tick
+// of every battle, loudly.
+//
+// "command" is deliberately NOT one of them. The seam is not a stage, it is not in
+// tickOrder, and tick runs it at the point the documented order puts it rather than
+// by name. It had a case here for one commit, and having a name it could be run by
+// without being run by the tick is how it came to be reachable by nobody: a stage
+// the engine can name but does not run is the failure this package cannot detect on
+// its own, and a case here invited exactly that. One way to run the seam is the
+// whole point of it not being a name.
 func (b *Battle) runStage(name string) error {
 	switch name {
 	case "intent":
 		b.stageIntent()
 		return nil
-	case "command":
-		return b.runCommanders()
 	case "targeting":
 		b.stageTargeting()
 		return nil

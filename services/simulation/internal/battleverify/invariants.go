@@ -14,16 +14,7 @@ import (
 // the simulation's contract rather than an implementation detail: CONSTITUTION.md
 // section 2.1 requires a fixed documented system order, and a report that quotes
 // an order the engine did not use is a report nobody can trust.
-//
-// The command seam is the second entry, and this copy of the list carried that
-// lesson the hard way. It was written as the five stages that do work, so when a
-// refactor dropped the seam from the engine's tickOrder this check still passed:
-// five stages matched five stages, and the rule that exists to catch exactly that
-// kind of drift could not see it. A hand-written copy of a list can only detect
-// disagreement, never omission, so the copy is kept and the real coverage lives
-// where the behaviour is: TestSessionFormationOrdersReachTheField requires a
-// commander to be called, and fails when the seam is not run.
-var documentedStageOrder = []string{"intent", "command", "targeting", "aimed fire", "melee", "morale"}
+var documentedStageOrder = []string{"intent", "targeting", "aimed fire", "melee", "morale"}
 
 // Input is everything Check needs. It is a value so a run's evidence is the thing
 // itself rather than a set of pointers into a battle that has moved on.
