@@ -116,6 +116,26 @@ export class BattleScene {
         mat.diffuseColor = new Color3(0.4, 0.4, 0.42);
         this.buildCityBlocks();
         break;
+      case "river":
+        mat.diffuseColor = new Color3(0.35, 0.5, 0.25);
+        this.buildRiver();
+        break;
+      case "hills":
+        mat.diffuseColor = new Color3(0.4, 0.5, 0.3);
+        this.buildHills();
+        break;
+      case "swamp":
+        mat.diffuseColor = new Color3(0.25, 0.35, 0.2);
+        this.buildSwamp();
+        break;
+      case "coastal":
+        mat.diffuseColor = new Color3(0.7, 0.65, 0.5);
+        this.buildCoast();
+        break;
+      case "industrial":
+        mat.diffuseColor = new Color3(0.45, 0.45, 0.47);
+        this.buildIndustrial();
+        break;
       default:
         // plains fallback for unimplemented biomes
         mat.diffuseColor = new Color3(0.35, 0.55, 0.25);
@@ -180,6 +200,143 @@ export class BattleScene {
   /** Whether Havok physics is active in this scene. */
   get hasPhysics(): boolean {
     return this.physicsEnabled;
+  }
+
+  /** River crossing: water strip through middle with 2 bridges. */
+  private buildRiver(): void {
+    const scene = this.scene;
+    const size = this.size;
+    const waterMat = new StandardMaterial("waterMat", scene);
+    waterMat.diffuseColor = new Color3(0.2, 0.4, 0.6);
+    waterMat.alpha = 0.8;
+
+    // River strip (20m wide)
+    const river = MeshBuilder.CreateBox("river", {
+      width: 20, height: 0.5, depth: size,
+    }, scene);
+    river.position.set(0, -0.25, 0);
+    river.material = waterMat;
+
+    // 2 bridges
+    const bridgeMat = new StandardMaterial("bridgeMat", scene);
+    bridgeMat.diffuseColor = new Color3(0.5, 0.4, 0.3);
+    for (const z of [-size * 0.25, size * 0.25]) {
+      const bridge = MeshBuilder.CreateBox(`bridge${z}`, {
+        width: 30, height: 0.3, depth: 8,
+      }, scene);
+      bridge.position.set(0, 0.15, z);
+      bridge.material = bridgeMat;
+    }
+  }
+
+  /** Hills: elevated terrain bumps for high ground. */
+  private buildHills(): void {
+    const scene = this.scene;
+    const size = this.size;
+    const hillMat = new StandardMaterial("hillMat", scene);
+    hillMat.diffuseColor = new Color3(0.35, 0.45, 0.25);
+
+    for (let i = 0; i < 8; i++) {
+      const h = 5 + Math.random() * 10;
+      const hill = MeshBuilder.CreateSphere(`hill${i}`, {
+        diameter: 30 + Math.random() * 40,
+      }, scene);
+      hill.position.set(
+        (Math.random() - 0.5) * size * 0.8,
+        -h * 0.3,
+        (Math.random() - 0.5) * size * 0.8
+      );
+      hill.scaling.y = 0.4;
+      hill.material = hillMat;
+    }
+  }
+
+  /** Swamp: water patches that slow movement. */
+  private buildSwamp(): void {
+    const scene = this.scene;
+    const size = this.size;
+    const waterMat = new StandardMaterial("swampWaterMat", scene);
+    waterMat.diffuseColor = new Color3(0.2, 0.3, 0.2);
+    waterMat.alpha = 0.7;
+
+    for (let i = 0; i < 12; i++) {
+      const r = 8 + Math.random() * 15;
+      const patch = MeshBuilder.CreateCylinder(`swamp${i}`, {
+        height: 0.2, diameter: r * 2,
+      }, scene);
+      patch.position.set(
+        (Math.random() - 0.5) * size * 0.8,
+        0.1,
+        (Math.random() - 0.5) * size * 0.8
+      );
+      patch.material = waterMat;
+    }
+    this.scatterTrees(20); // sparse trees
+  }
+
+  /** Coastal: beach + water plane on one edge. */
+  private buildCoast(): void {
+    const scene = this.scene;
+    const size = this.size;
+    const waterMat = new StandardMaterial("coastWaterMat", scene);
+    waterMat.diffuseColor = new Color3(0.15, 0.35, 0.55);
+    waterMat.alpha = 0.85;
+
+    // Water on the +X edge (25% of map)
+    const water = MeshBuilder.CreateBox("coastWater", {
+      width: size * 0.25, height: 0.5, depth: size,
+    }, scene);
+    water.position.set(size * 0.375, -0.25, 0);
+    water.material = waterMat;
+
+    // Sand strip
+    const sandMat = new StandardMaterial("sandMat", scene);
+    sandMat.diffuseColor = new Color3(0.85, 0.78, 0.6);
+    const sand = MeshBuilder.CreateBox("sand", {
+      width: size * 0.15, height: 0.2, depth: size,
+    }, scene);
+    sand.position.set(size * 0.175, 0.1, 0);
+    sand.material = sandMat;
+  }
+
+  /** Industrial: warehouses, fences, containers. */
+  private buildIndustrial(): void {
+    const scene = this.scene;
+    const size = this.size;
+    const wallMat = new StandardMaterial("warehouseMat", scene);
+    wallMat.diffuseColor = new Color3(0.6, 0.6, 0.62);
+    const contMat = new StandardMaterial("containerMat", scene);
+    contMat.diffuseColor = new Color3(0.7, 0.3, 0.2);
+
+    // Warehouses
+    for (let i = 0; i < 4; i++) {
+      const w = 20 + Math.random() * 15;
+      const h = 8 + Math.random() * 6;
+      const d = 15 + Math.random() * 10;
+      const wh = MeshBuilder.CreateBox(`warehouse${i}`, {
+        width: w, height: h, depth: d,
+      }, scene);
+      wh.position.set(
+        (Math.random() - 0.5) * size * 0.7,
+        h / 2,
+        (Math.random() - 0.5) * size * 0.7
+      );
+      wh.material = wallMat;
+    }
+
+    // Shipping containers
+    for (let i = 0; i < 10; i++) {
+      const c = MeshBuilder.CreateBox(`container${i}`, {
+        width: 6, height: 2.5, depth: 2.5,
+      }, scene);
+      c.position.set(
+        (Math.random() - 0.5) * size * 0.8,
+        1.25,
+        (Math.random() - 0.5) * size * 0.8
+      );
+      c.rotation.y = Math.random() * Math.PI;
+      c.material = contMat;
+    }
   }
 
   /**
