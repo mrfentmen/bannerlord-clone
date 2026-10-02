@@ -14,3 +14,4 @@ export { adjustRelation, relationNotifications, relationWith, type RelationNotif
 export { markTerm, signTreaty, treatyCompliance, type Treaty, type TreatyStatus, type TreatyTerm, type TermStatus } from "./treaties.js";
 export { activeWars, declareWarGoal, exhaustedWars, tickWarWeariness, wearinessPerSeason, WAR_GOAL_DESCRIPTIONS, WAR_GOALS, type DeclaredWar, type WarGoal } from "./warGoals.js";
 export { acceptanceOdds, EMPTY_PEACE_TERMS, negotiatePeace, type PeaceNegotiation, type PeaceTerms } from "./peaceConcessions.js";
+export { ATTACK_AXES, plannedOperations, planJointOperation, setOperationStatus, type AttackAxis, type JointOperation, type OperationPlan, type PlanJointOpInput } from "./jointOperations.js";
