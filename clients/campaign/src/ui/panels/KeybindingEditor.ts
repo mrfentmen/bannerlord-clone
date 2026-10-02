@@ -112,6 +112,19 @@ export function keybindingEditor(options: { onClose: () => void; onRebind?: (act
   }
   let capturing: Capture | null = null;
 
+  /**
+   * Offered swap after a rebind created a conflict: the action that was just
+   * rebound keeps the new chord; each conflicting action gets the replaced
+   * chord in exchange (or simply loses the chord if the rebind appended).
+   */
+  interface SwapOffer {
+    actionId: string;
+    chord: KeyBinding;
+    replaced: KeyBinding | null;
+    otherIds: string[];
+  }
+  let swapOffer: SwapOffer | null = null;
+
   const isModifierKey = (key: string): boolean =>
     key === "Control" || key === "Shift" || key === "Alt" || key === "Meta";
 
@@ -124,6 +137,7 @@ export function keybindingEditor(options: { onClose: () => void; onRebind?: (act
   function beginCapture(actionId: string, index: number | null): void {
     if (capturing) return;
     capturing = { actionId, index };
+    swapOffer = null; // a fresh rebind supersedes any pending swap offer
     input.suspend(); // the key being bound must not fire its old action mid-capture
     render();
     const def = input.actions().find((d) => d.id === actionId);
@@ -146,6 +160,7 @@ export function keybindingEditor(options: { onClose: () => void; onRebind?: (act
         ...(ev.altKey ? { alt: true } : {}),
       };
       const current = input.bindingFor(actionId);
+      const replaced = index === null ? null : (current[index] ?? null);
       const next =
         index === null ? [...current, chord] : current.map((c, i) => (i === index ? chord : c));
       const focusIndex = index === null ? next.length - 1 : index;
@@ -157,13 +172,17 @@ export function keybindingEditor(options: { onClose: () => void; onRebind?: (act
         .querySelector<HTMLElement>(`[data-testid="binding-${actionId}-chord-${focusIndex}"]`)
         ?.focus();
       if (conflicts.length > 0) {
+        const otherIds = conflicts[0]!.conflictsWith;
+        swapOffer = { actionId, chord, replaced, otherIds };
         announce(
           live,
-          `${chordLabel(chord)} is also bound to ${conflicts[0]!.conflictsWith
+          `${chordLabel(chord)} is also bound to ${otherIds
             .map((id) => input.actions().find((d) => d.id === id)?.label ?? id)
-            .join(", ")}. Both will fire until you change one.`,
+            .join(", ")}. Both will fire until you change one — or press Swap to exchange keys.`,
         );
+        render();
       } else {
+        swapOffer = null;
         announce(live, `${def?.label ?? actionId} is now ${chordLabel(chord)}.`);
       }
       // setBinding notifies, which re-renders through the subscription below; the
@@ -251,13 +270,48 @@ export function keybindingEditor(options: { onClose: () => void; onRebind?: (act
     rowEl.appendChild(chips);
 
     if (conflictLabels.length > 0) {
-      rowEl.appendChild(
-        h(
-          "p",
-          { class: "caption binding-row__conflict", "data-testid": `binding-${def.id}-conflict` },
-          `Also triggers ${conflictLabels.join(", ")} — both fire until one changes.`,
-        ),
+      const warn = h(
+        "p",
+        { class: "caption binding-row__conflict", "data-testid": `binding-${def.id}-conflict` },
+        `Also triggers ${conflictLabels.join(", ")} — both fire until one changes.`,
       );
+      rowEl.appendChild(warn);
+      if (swapOffer && swapOffer.actionId === def.id) {
+        const swapRow = h("div", { class: "binding-row__swap" });
+        for (const otherId of swapOffer.otherIds) {
+          const otherDef = input.actions().find((d) => d.id === otherId);
+          const swapBtn = h(
+            "button",
+            {
+              type: "button",
+              class: "btn btn--quiet",
+              "data-testid": `binding-${def.id}-swap-${otherId}`,
+            },
+            `Swap with ${otherDef?.label ?? otherId}`,
+          );
+          swapBtn.addEventListener("click", () => {
+            const sig = chordLabel(swapOffer!.chord);
+            const otherChords = input.bindingFor(otherId);
+            const exchanged = otherChords.map((c) =>
+              chordLabel(c) === sig ? (swapOffer!.replaced ?? null) : c,
+            );
+            input.setBinding(
+              otherId,
+              exchanged.filter((c): c is KeyBinding => c !== null),
+            );
+            const keptLabel = chordLabel(swapOffer!.chord);
+            swapOffer = null;
+            options.onRebind?.(otherId, otherDef?.category ?? "interface");
+            announce(
+              live,
+              `${otherDef?.label ?? otherId} takes the old key; ${def.label} keeps ${keptLabel}. Conflict resolved.`,
+            );
+            render();
+          });
+          swapRow.appendChild(swapBtn);
+        }
+        rowEl.appendChild(swapRow);
+      }
     }
 
     const reset = h(
