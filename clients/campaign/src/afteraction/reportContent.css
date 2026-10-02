@@ -261,3 +261,33 @@
 /* A commander who got away is a different notice from one who was taken: the
    border says which, and the heading spells it out in words. */
 .aa-commander[data-kind="escaped"] { border-left-color: var(--status-warning-mark); }
+
+/* Outcome notices (tasks 95-97): bonuses first, the warning last. */
+.aa-outcomes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.aa-outcomes[hidden] { display: none; }
+
+.aa-outcome {
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--status-good-mark);
+  background: var(--paper-0);
+}
+
+.aa-outcome[data-kind="pyrrhic"] { border-left-color: var(--status-warning-mark); }
+
+.aa-outcome__label {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+}
+
+.aa-outcome__line {
+  margin: 0;
+  color: var(--ink-700);
+}

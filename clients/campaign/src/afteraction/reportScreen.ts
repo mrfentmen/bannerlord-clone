@@ -11,6 +11,7 @@ import { killDeathSummary } from "./killDeath.js";
 import { mvpBoard } from "./mvpHighlight.js";
 import { createRematchButton } from "./rematch.js";
 import { battleRating } from "./rating.js";
+import { createOutcomePanel } from "./outcomeNotices.js";
 import "./reportContent.css";
 
 /** What the caller can add to the report without changing its sections. */
@@ -138,6 +139,10 @@ export function createReportScreen(
     );
   }
 
-  root.append(header, kills, cas, mvp, tl, actions);
+  // Tasks 95-97: whatever the battle earned — heroic, flawless, pyrrhic — sits
+  // directly under the title, where the outcome is read before the detail.
+  const outcomes = createOutcomePanel(report).root;
+
+  root.append(header, outcomes, kills, cas, mvp, tl, actions);
   return root;
 }

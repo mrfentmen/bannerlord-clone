@@ -15,6 +15,8 @@ export * from "./achievementToast.js";
 export * from "./commanderEvents.js";
 export * from "./heroicVictory.js";
 export * from "./pyrrhicVictory.js";
+export * from "./flawlessVictory.js";
+export * from "./outcomeNotices.js";
 export * from "./report.js";
 export * from "./endScreens.js";
 export * from "./loot.js";
