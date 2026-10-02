@@ -226,3 +226,139 @@ export class AssetSizeGuard {
     this.warned.clear();
   }
 }
+
+
+// Side-effect imports: each one registers its glTF extension handler with
+// Babylon's loader, which is what makes the extension loadable at all. If the
+// installed package ever dropped one of these, this module would fail to build
+// rather than fail at the first Draco-compressed prop on the field.
+import '@babylonjs/loaders/glTF/2.0/Extensions/KHR_draco_mesh_compression.js';
+import '@babylonjs/loaders/glTF/2.0/Extensions/KHR_texture_basisu.js';
+import '@babylonjs/loaders/glTF/2.0/Extensions/KHR_mesh_quantization.js';
+import '@babylonjs/loaders/glTF/2.0/Extensions/EXT_texture_webp.js';
+import { DracoDecoder } from '@babylonjs/core/Meshes/Compression/dracoDecoder.js';
+
+/** Draco mesh compression, the extension that shrinks geometry. */
+export const DRACO_EXTENSION = 'KHR_draco_mesh_compression';
+
+/**
+ * Task 624: the extensions this build can actually decode.
+ *
+ * Every name here has a handler module imported at the top of this file, so the
+ * list cannot drift from reality without breaking the build. It is deliberately
+ * short: an extension nobody wired up must not be claimed as supported, because
+ * "supported" in this game means "the file will load on the player's machine".
+ */
+export const SUPPORTED_GLTF_EXTENSIONS: readonly string[] = [
+  DRACO_EXTENSION,
+  'KHR_texture_basisu',
+  'KHR_mesh_quantization',
+  // Required by tank-quaternius.glb, so it is not optional: without this
+  // handler the one animated vehicle in the batch does not load at all.
+  'EXT_texture_webp',
+];
+
+/** What a file says about the extensions it uses. */
+export interface ExtensionReport {
+  /** Names in `extensionsUsed`. */
+  used: string[];
+  /** Names in `extensionsRequired`; a missing one makes the file unloadable. */
+  required: string[];
+  /** Required extensions this build has no handler for. */
+  unsupportedRequired: string[];
+}
+
+/** Reads the extension lists out of a validated GLB's JSON chunk. */
+export function readExtensionReport(bytes: Uint8Array): ExtensionReport {
+  const chunk = jsonChunkRange(bytes);
+  if (!chunk) return { used: [], required: [], unsupportedRequired: [] };
+  let json: { extensionsUsed?: unknown; extensionsRequired?: unknown };
+  try {
+    json = JSON.parse(
+      new TextDecoder().decode(bytes.subarray(chunk.start, chunk.start + chunk.length)),
+    ) as { extensionsUsed?: unknown; extensionsRequired?: unknown };
+  } catch {
+    return { used: [], required: [], unsupportedRequired: [] };
+  }
+  const names = (value: unknown): string[] =>
+    Array.isArray(value) ? value.filter((n): n is string => typeof n === 'string') : [];
+  const used = names(json.extensionsUsed);
+  const required = names(json.extensionsRequired);
+  return {
+    used,
+    required,
+    unsupportedRequired: required.filter((n) => !SUPPORTED_GLTF_EXTENSIONS.includes(n)),
+  };
+}
+
+/** Task 624: what a file needs before it can be decoded. */
+export interface DracoReport {
+  /** The file uses Draco on at least one primitive. */
+  usesDraco: boolean;
+  /** Draco is in `extensionsRequired`, so the file cannot load without it. */
+  required: boolean;
+  /** Primitives carrying a Draco extension block. */
+  compressedPrimitives: number;
+  /** This build has the Draco handler and a decoder configuration. */
+  decoderAvailable: boolean;
+  /** The verdict: false means the file will not load here. */
+  loadable: boolean;
+  /** Why it will not load, when it will not. */
+  reason: 'unsupported-required-extension' | 'no-draco-decoder' | null;
+}
+
+/**
+ * Task 624: whether a Draco-compressed file can be decoded here.
+ *
+ * Draco is supported by the installed loader, so the interesting case is a
+ * *required* extension with no handler: that file is not "a bit degraded", it
+ * does not load, and the caller should fall back rather than retry. A file that
+ * merely *uses* Draco without requiring it still loads through the fallback
+ * path, so it is reported as loadable.
+ *
+ * The primitive count comes from the JSON chunk: each compressed primitive
+ * carries an `extensions` block keyed by the Draco extension name.
+ */
+export function dracoReport(bytes: Uint8Array): DracoReport {
+  const report = readExtensionReport(bytes);
+  const chunk = jsonChunkRange(bytes);
+  let compressedPrimitives = 0;
+  if (chunk) {
+    try {
+      const json = JSON.parse(
+        new TextDecoder().decode(bytes.subarray(chunk.start, chunk.start + chunk.length)),
+      ) as { meshes?: Array<{ primitives?: Array<{ extensions?: Record<string, unknown> }> }> };
+      for (const mesh of json.meshes ?? []) {
+        for (const primitive of mesh.primitives ?? []) {
+          if (primitive.extensions && DRACO_EXTENSION in primitive.extensions) compressedPrimitives++;
+        }
+      }
+    } catch {
+      compressedPrimitives = 0;
+    }
+  }
+  const usesDraco = report.used.includes(DRACO_EXTENSION) || compressedPrimitives > 0;
+  const required = report.required.includes(DRACO_EXTENSION);
+  const decoderAvailable = DracoDecoder.DefaultAvailable;
+  if (report.unsupportedRequired.length > 0) {
+    return {
+      usesDraco,
+      required,
+      compressedPrimitives,
+      decoderAvailable,
+      loadable: false,
+      reason: 'unsupported-required-extension',
+    };
+  }
+  if (usesDraco && required && !decoderAvailable) {
+    return {
+      usesDraco,
+      required,
+      compressedPrimitives,
+      decoderAvailable,
+      loadable: false,
+      reason: 'no-draco-decoder',
+    };
+  }
+  return { usesDraco, required, compressedPrimitives, decoderAvailable, loadable: true, reason: null };
+}
