@@ -17,6 +17,9 @@
  *
  * Task 606: beginLoad returns a placeholder to draw while the model streams and
  * disposes it when the model lands.
+ *
+ * Task 607: a load that fails is replaced by a red fallback box, so the field
+ * is never empty and the missing model is visible rather than silent.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -193,20 +196,69 @@ describe("ModelLoader placeholder (task 606)", () => {
     loader.dispose();
   });
 
-  it("leaves the placeholder in place when the model failed", async () => {
+  it("swaps a failed load for the red fallback box, not a stand-in that looks real", async () => {
     const load = async () => {
       throw new Error("down");
     };
+    const boxes: string[] = [];
     const loader = await readyLoader({
       load,
       attempts: 1,
       createPlaceholder: (id) => standIn(id),
+      createErrorBox: (id) => {
+        boxes.push(id);
+        return { name: `${id}__error`, fallback: true };
+      },
     });
 
     const { placeholder, ready } = await loader.beginLoad("humvee");
-    await expect(ready).resolves.toBeNull();
-    expect(placeholder).toMatchObject({ disposed: false });
+    await expect(ready).resolves.toEqual({ name: "humvee__error", fallback: true });
+    expect(boxes).toEqual(["humvee"]);
+    expect(placeholder).toMatchObject({ disposed: true });
     loader.dispose();
+  });
+
+  it("never builds a fallback box when the model arrives", async () => {
+    const flaky = flakyLoader(0, "gunner");
+    const loader = await readyLoader({
+      load: flaky.load,
+      createPlaceholder: (id) => standIn(id),
+      createErrorBox: () => {
+        throw new Error("should not be asked for a fallback");
+      },
+    });
+
+    const { ready } = await loader.beginLoad("troop-gunner");
+    await expect(ready).resolves.toEqual({ name: "gunner" });
+    loader.dispose();
+  });
+
+  it("builds real Babylon meshes through the default placeholder and fallback", async () => {
+    // The defaults are production code — a box for the wait, a red box for the
+    // failure. NullEngine runs Babylon without a canvas, so this proves they
+    // exist and are named and disposed as documented.
+    const { NullEngine } = await import("@babylonjs/core/Engines/nullEngine");
+    const { Scene } = await import("@babylonjs/core/scene");
+    const engine = new NullEngine();
+    const scene = new Scene(engine);
+    const loader = new ModelLoader(scene, {
+      load: async () => {
+        throw new Error("down");
+      },
+      attempts: 1,
+      timeoutMs: 0,
+    });
+    await loader.loadManifest("/models.json");
+
+    const { placeholder, ready } = await loader.beginLoad("humvee");
+    expect((placeholder as { name: string }).name).toBe("humvee__placeholder");
+
+    const fallback = (await ready) as { name: string; material: { diffuseColor: unknown } };
+    expect(fallback.name).toBe("humvee__error");
+    expect((placeholder as { isDisposed?: () => boolean }).isDisposed?.()).toBe(true);
+
+    loader.dispose();
+    engine.dispose();
   });
 
   it("returns no placeholder for a cached model", async () => {

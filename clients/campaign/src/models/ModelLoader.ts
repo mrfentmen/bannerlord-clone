@@ -34,6 +34,12 @@
  * now — a placeholder mesh — while the real model streams; the placeholder is
  * disposed when the model lands. The scene owner decides what the stand-in
  * looks like through `createPlaceholder` (default: a 1 m Babylon box).
+ *
+ * Task 607: when the load finally fails, the placeholder is swapped for a red
+ * fallback box rather than leaving a stand-in that looks like a real model or
+ * a hole where a unit should be. The box is named `<id>__error` so it is never
+ * mistaken for content, and `ready` resolves with it — the caller always has
+ * something drawable.
  */
 
 /** Attempts per model, including the first. Task 601. */
@@ -82,7 +88,9 @@ export type ProgressReporter = (loaded: number, total: number) => void;
 export interface PlaceholderLoad {
   /** Draw this now; null when the model is cached or unknown. */
   placeholder: unknown;
-  /** The real model, or null when the load failed. */
+  /**
+   * The real model, or the red fallback box when the load failed (task 607).
+   */
   ready: Promise<unknown>;
 }
 
@@ -112,6 +120,11 @@ export interface ModelLoaderOptions {
    */
   createPlaceholder?: (id: string) => unknown | Promise<unknown>;
   /**
+   * Builds the mesh shown in place of a model that failed to load (task 607).
+   * Defaults to a red Babylon box named `<id>__error`.
+   */
+  createErrorBox?: (id: string) => unknown | Promise<unknown>;
+  /**
    * Loads one model. Defaults to Babylon's `SceneLoader`; tests inject a fake
    * so retry behaviour is observable without a scene (task 601).
    */
@@ -128,6 +141,7 @@ export class ModelLoader {
   private timeoutMs: number;
   private onProgress: ((progress: LoadProgress) => void) | null;
   private createPlaceholder: (id: string) => unknown | Promise<unknown>;
+  private createErrorBox: (id: string) => unknown | Promise<unknown>;
   private loadImpl: (info: ModelInfo, report: ProgressReporter) => Promise<unknown>;
 
   constructor(scene: any, options: ModelLoaderOptions = {}) {
@@ -138,6 +152,7 @@ export class ModelLoader {
     this.onProgress = options.onProgress ?? null;
     this.createPlaceholder =
       options.createPlaceholder ?? ((id) => this.defaultPlaceholder(id));
+    this.createErrorBox = options.createErrorBox ?? ((id) => this.defaultErrorBox(id));
     this.loadImpl = options.load ?? ((info, report) => this.loadModel(info, report));
   }
 
@@ -266,11 +281,11 @@ export class ModelLoader {
   }
 
   /**
-   * Task 606: start a load and get something to draw right away. `placeholder`
-   * is the stand-in for the field, or null when the model was already cached or
-   * is not in the manifest. `ready` resolves with the real model, or with null
-   * when the load failed — in that case the placeholder is left where it is, so
-   * the caller still has a box on the field.
+   * Task 606/607: start a load and get something to draw right away.
+   * `placeholder` is the stand-in for the field, or null when the model was
+   * already cached or is not in the manifest. `ready` resolves with the real
+   * model; when the load fails it resolves with the red fallback box instead,
+   * never null, so the caller always has something to put down.
    */
   async beginLoad(id: string): Promise<PlaceholderLoad> {
     if (this.cache.has(id) || !this.manifest.has(id)) {
@@ -278,9 +293,9 @@ export class ModelLoader {
     }
 
     const placeholder = await this.createPlaceholder(id);
-    const ready = this.load(id).then((model) => {
-      if (model) disposeMesh(placeholder);
-      return model;
+    const ready = this.load(id).then(async (model) => {
+      disposeMesh(placeholder);
+      return model ?? (await this.createErrorBox(id));
     });
     return { placeholder, ready };
   }
@@ -289,6 +304,23 @@ export class ModelLoader {
   private async defaultPlaceholder(id: string): Promise<unknown> {
     const { MeshBuilder } = await import("@babylonjs/core/Meshes/meshBuilder");
     return MeshBuilder.CreateBox(`${id}__placeholder`, { size: 1 }, this.scene);
+  }
+
+  /**
+   * The last resort for a model that will not load: a red box where the unit
+   * or prop should stand (task 607). Deliberately ugly — a missing model has to
+   * be visible, not hidden. Colour is a plain Babylon Color3: this runs in the
+   * 3D scene, where the CSS tokens do not reach.
+   */
+  private async defaultErrorBox(id: string): Promise<unknown> {
+    const { MeshBuilder } = await import("@babylonjs/core/Meshes/meshBuilder");
+    const { StandardMaterial } = await import("@babylonjs/core/Materials/standardMaterial");
+    const { Color3 } = await import("@babylonjs/core/Maths/math.color");
+    const box = MeshBuilder.CreateBox(`${id}__error`, { size: 1 }, this.scene);
+    const material = new StandardMaterial(`${id}__errorMat`, this.scene);
+    material.diffuseColor = new Color3(0.72, 0.16, 0.12);
+    box.material = material;
+    return box;
   }
 
   /**
