@@ -60,6 +60,31 @@
   padding-left: var(--space-2);
 }
 
+/* -- recent events (task 138) -------------------------------------------- */
+
+.event-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.event {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+}
+
+/* The day sits on the panel ground at the end of the line, so the sentence keeps
+ * the full width and a critical notice is not shortened by its own timestamp. */
+.event__day {
+  flex: 0 0 auto;
+  align-self: center;
+}
+
 .town-banner {
   display: flex;
   flex-direction: column;

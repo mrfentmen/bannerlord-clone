@@ -28,7 +28,7 @@ import { simulateTaxPolicy } from "../../economy/taxSimulator.js";
 import { answerProposal, proposeTradeDeal } from "../../economy/tradeDeals.js";
 import { PLAYABLE_SIDE_IDS, factionPalette, type FactionSwatch } from "../../design/factions.js";
 import { relationBand } from "../../diplomacy/notables.js";
-import type { NotableType } from "../../data/types.js";
+import type { NotableType, Notification } from "../../data/types.js";
 import { BANNER_COLORS } from "../../clan/bannerPalette.js";
 import type { ColorblindMode } from "../../settings/schema.js";
 import "./townPanel.css";
@@ -64,6 +64,14 @@ export interface TownPanelOptions {
   onRecruit?: (unitId: string, quantity: number) => Promise<RecruitResult>;
   /** The player's purse, for the hiring cost labels. */
   purse?: number;
+  /**
+   * The campaign's notification feed, as the caller holds it.
+   *
+   * The town panel does not poll for it and does not filter it beyond `entityId`:
+   * whatever the caller passes is what this town did. Omitted, the section is not
+   * drawn at all rather than drawn empty — see task 138.
+   */
+  notifications?: Notification[];
   /**
    * The faction that holds this town, by display name ("Pacific Compact").
    *
@@ -394,7 +402,73 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
   // -- notables (task 129) ----------------------------------------------------
   body.appendChild(notablesSection(town));
 
+  // -- what happened here (task 138) ------------------------------------------
+  const events = eventsSection(town, options);
+  if (events) body.appendChild(events);
+
   return root;
+}
+
+/**
+ * Recent events in this town. Task 138.
+ *
+ * The entries are the campaign's own `Notification` records, filtered to this town
+ * by `entityId` and newest first. The panel writes nothing of its own — it prints
+ * the simulation's sentence and the day it happened on, and offers a "Why"
+ * affordance for any entry that names a field, which goes to the same
+ * `onWhy` handler the rest of the panel uses. Priority is carried by the status
+ * chip's glyph and word as well as its colour, so a critical notice does not
+ * depend on hue (ART_DIRECTION.md 5.3).
+ *
+ * Without a feed the section is not drawn. An empty list is a different claim — it
+ * says nothing has happened, which is only true when the caller actually looked —
+ * so the panel distinguishes "no feed" from "a feed with nothing in it".
+ */
+function eventsSection(town: TownState, options: TownPanelOptions): HTMLElement | null {
+  if (options.notifications === undefined) return null;
+  const mine = options.notifications
+    .filter((n) => n.entityId === town.id)
+    .sort((a, b) => b.day - a.day)
+    .slice(0, RECENT_EVENT_LIMIT);
+
+  const wrap = h("section", { "data-testid": "town-events" });
+  wrap.appendChild(sectionHeader("Recent events"));
+
+  if (mine.length === 0) {
+    wrap.appendChild(
+      emptyState(
+        "Nothing has changed here.",
+        "No recorded events for this town. Watch the unrest and supply figures above for what is building up.",
+      ),
+    );
+    return wrap;
+  }
+
+  const list = h("ol", { class: "event-list" });
+  for (const notice of mine) {
+    const item = h("li", {
+      class: "event",
+      "data-testid": `town-event-${notice.id}`,
+      "data-priority": notice.priority,
+    });
+    item.appendChild(
+      h(
+        "div",
+        { class: "field-row", style: "gap:var(--space-2);align-items:flex-start" },
+        statusChip(EVENT_PRIORITY_KIND[notice.priority], notice.text, {
+          testId: `town-event-chip-${notice.id}`,
+        }),
+        h("span", { class: "event__day mono caption", "data-testid": `town-event-day-${notice.id}` }, `Day ${notice.day}`),
+      ),
+    );
+    const field = notice.field;
+    if (field) {
+      item.appendChild(whyButton(field, () => options.onWhy(field)));
+    }
+    list.appendChild(item);
+  }
+  wrap.appendChild(list);
+  return wrap;
 }
 
 /**
@@ -812,6 +886,22 @@ const RELATION_BAND_LABEL: Record<ReturnType<typeof relationBand>, string> = {
 function signed(value: number): string {
   return value > 0 ? `+${Math.round(value)}` : String(Math.round(value));
 }
+
+/**
+ * How many events the panel prints.
+ *
+ * A town that has been busy is not more useful past a screenful, and an unbounded
+ * feed would push the sections below it — the notables roster, the actions — off
+ * the bottom of the panel entirely.
+ */
+const RECENT_EVENT_LIMIT = 8;
+
+/** Notification priority mapped onto the client's four status kinds. */
+const EVENT_PRIORITY_KIND: Record<Notification["priority"], StatusKind> = {
+  critical: "critical",
+  important: "warning",
+  informational: "info",
+};
 
 /** The colour-blind mode the app is running in, which `main.ts` records on the root. */
 function activeColorblindMode(): ColorblindMode {
