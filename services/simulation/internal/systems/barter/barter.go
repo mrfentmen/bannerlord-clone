@@ -416,6 +416,53 @@ func touchesCaptives(deal *sim.BarterDeal) bool {
 	return false
 }
 
+// Validate reports whether a deal can be honoured whole, before anything is
+// priced and long before anything moves.
+//
+// It exists because the commit path used to discover its own impossibility after
+// the player had already been told yes. applyOrder checked the participants and
+// returned silently when one was missing, which is the correct behaviour for a
+// system woken by a queued order — it has no way to answer anybody — but it is
+// the wrong behaviour for a handler that is about to write `accepted: true` and
+// re-read the tables. The player pressed a button, the world said yes, and
+// nothing crossed the table: a deal that looks struck on screen and never
+// happened, which is the one failure mode a barter screen cannot afford.
+//
+// Two arrangements reach it, and both are ordinary rather than exotic:
+//
+//   - The player's lord has no party in the field. A landed lord still holds a
+//     purse, so their table is not empty, and gold-only deals are legitimate.
+//     But `st.Parties[-1]` is nil, so every line that needs a carrier found no
+//     party and the whole deal was skipped while being reported as struck.
+//   - The trader's lord has no party either, so a captive has nowhere to go.
+//
+// So the check runs in Appraise, where a failure is a sentence the player reads,
+// rather than in applyOrder, where it can only be a shrug.
+func Validate(st *model.State, req Request) error {
+	if err := checkParticipants(st, req.PlayerID, req.Trader, req.Town); err != nil {
+		return err
+	}
+	trader := st.Leaders[req.Trader]
+
+	needsParty := false
+	movesCaptives := false
+	for _, l := range append(append([]Line{}, req.Offered...), req.Asked...) {
+		switch ItemKind(l.Kind) {
+		case KindGood:
+			needsParty = true
+		case KindPrisoner:
+			needsParty, movesCaptives = true, true
+		}
+	}
+	if needsParty && partyOf(st, req.PlayerID) < 0 {
+		return fmt.Errorf("barter: your lord has no party in the field, so there is nothing to carry this")
+	}
+	if movesCaptives && st.Parties[trader.PartyID] == nil {
+		return fmt.Errorf("barter: %s has no party to hold a captive", trader.Name)
+	}
+	return nil
+}
+
 // lineMove is one line of a deal, resolved against the entities it moves
 // between.
 type lineMove struct {

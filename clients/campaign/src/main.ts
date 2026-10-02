@@ -35,6 +35,7 @@ import {
   loadRemembered,
   saveRemembered,
 } from "./data/fogMemory.js";
+import { sightingsSince } from "./data/fogView.js";
 import {
   DEFAULT_FOG_SETTINGS,
   fogLegend,
@@ -43,7 +44,7 @@ import {
   type FogSettings,
 } from "./data/fogView.js";
 import { TEST_SOURCE_WARNING, TEST_SOURCE_DETAIL } from "./data/labels.js";
-import type { FogIndicator } from "./data/fog.js";
+import type { FogIndicator, FogIndex } from "./data/fog.js";
 import { START_YEAR, eraGradeForYear } from "./design/grade.js";
 import { buildWorld } from "./world/build.js";
 import { publishWorld } from "./world/context.js";
