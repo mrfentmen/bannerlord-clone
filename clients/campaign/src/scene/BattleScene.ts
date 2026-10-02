@@ -19,6 +19,7 @@ import {
   Vector3,
 } from "@babylonjs/core";
 import { initPhysics, createGroundCollider } from "../physics/ragdoll.js";
+import type { DeploymentZone } from "./BattleUI.js";
 
 export type BiomeType =
   | "plains" | "forest" | "urban" | "snow" | "river"
@@ -366,6 +367,35 @@ export class BattleScene {
   getCamera(): ArcRotateCamera | null {
     const cam = this.scene.getCameraByName("battleCam");
     return cam as ArcRotateCamera | null;
+  }
+
+  /**
+   * Deployment zone highlight (Buffy task 1): a translucent box marking
+   * where a side may place troops before the battle starts.
+   * Green for the player's zone, red for the enemy's.
+   */
+  showDeploymentZone(zone: DeploymentZone): void {
+    const name = `deployZone_${zone.faction}`;
+    const existing = this.scene.getMeshByName(name);
+    if (existing) {
+      existing.material?.dispose();
+      existing.dispose();
+    }
+
+    const color = zone.faction === "player"
+      ? new Color3(0.2, 0.85, 0.3)
+      : new Color3(0.9, 0.2, 0.2);
+    const mat = new StandardMaterial(`${name}_mat`, this.scene);
+    mat.diffuseColor = color;
+    mat.alpha = 0.25;
+    mat.backFaceCulling = false;
+
+    const box = MeshBuilder.CreateBox(name, {
+      width: zone.width, height: 1, depth: zone.depth,
+    }, this.scene);
+    box.position.set(zone.x, 0.5, zone.z);
+    box.material = mat;
+    box.isPickable = false;
   }
 
   /**
