@@ -1,7 +1,7 @@
 /**
- * Commander UX batch (MASTER_PLAN tasks 40, 43-48; Buffy tasks 51-52, 54, 57): quick
+ * Commander UX batch (MASTER_PLAN tasks 40, 43-48; Buffy tasks 51-52, 54, 57-58): quick
  * order hotkeys, waypoint queue, ping, rally point, order-delay courier,
- * stance panel, retreat horn, right-click move, attack-move mode, charge, spread out.
+ * stance panel, retreat horn, right-click move, attack-move mode, charge, spread out, form up.
  *
  * @vitest-environment jsdom
  */
@@ -242,6 +242,35 @@ describe("command UX batch (tasks 40, 43-48)", () => {
       expect(surface.orders[0]!.target).toBeUndefined();
       // The panel reads the new order as a stance.
       expect(document.querySelector('[data-testid="cmd-panel"]')!.textContent).toContain("spreading out");
+    } finally {
+      commander.destroy();
+    }
+  });
+
+  it("task 58: Shift+G forms the selection up", () => {
+    const surface = fakeSurface();
+    const commander = createCommander(surface);
+    try {
+      clickAt(surface, 300, 100); // select B only
+      input.handleKeyEvent(new KeyboardEvent("keydown", { key: "G", shiftKey: true }));
+
+      expect(surface.orders).toHaveLength(1);
+      expect(surface.orders[0]).toMatchObject({ kind: "form-up", unitIds: ["b"] });
+      expect(surface.orders[0]!.target).toBeUndefined();
+    } finally {
+      commander.destroy();
+    }
+  });
+
+  it("task 58: form up never steals plain G, which is follow (task 56)", () => {
+    const surface = fakeSurface();
+    const commander = createCommander(surface);
+    try {
+      clickAt(surface, 300, 100);
+      pointer(window, "pointermove", { clientX: 700, clientY: 700 });
+      input.handleKeyEvent(new KeyboardEvent("keydown", { key: "g" }));
+
+      expect(surface.orders.map((o) => o.kind)).toEqual(["follow"]);
     } finally {
       commander.destroy();
     }

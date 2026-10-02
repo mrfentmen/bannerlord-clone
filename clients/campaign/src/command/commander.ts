@@ -17,6 +17,7 @@
  * - A: attack-move — the next click on the field advances the selection there
  * - C: charge — run at the pointer and engage
  * - S: spread out — loosen the selection's front
+ * - Shift+G: form up — close ranks on the spot
  * - T: rally-point mode — next click plants the flag for reinforcements
  * - X: retreat horn — every live unit routs to the map edge
  * - the select-all action grabs every live unit
@@ -67,6 +68,19 @@ const registeredBattleOrders = new WeakSet<InputRegistry>();
 function ensureAttackMoveAction(registry: InputRegistry): void {
   if (registeredBattleOrders.has(registry)) return;
   registeredBattleOrders.add(registry);
+  if (!registry.actions().some((a) => a.id === "battle.orderFormUp")) {
+    registry.registerAction({
+      id: "battle.orderFormUp",
+      label: "Order: form up",
+      description: "Selected units close ranks on the spot they hold.",
+      category: "battle-command",
+      // Shift+G: plain "g" is battle.orderFollow (task 56), and one letter cannot
+      // mean two orders. The order panel (task 59) shows this chord, so the
+      // doubling-up is discoverable rather than a hidden key.
+      defaultKeys: [{ key: "g", shift: true }],
+      preventDefault: true,
+    });
+  }
   if (!registry.actions().some((a) => a.id === "battle.orderSpread")) {
     registry.registerAction({
       id: "battle.orderSpread",
@@ -459,6 +473,7 @@ export function createCommander(
   // Tasks 57-58: spread out and form up are pointerless orders about the shape
   // of the selection, wherever it happens to be standing.
   offs.push(registry.on("battle.orderSpread", () => orderSelection("spread", false)));
+  offs.push(registry.on("battle.orderFormUp", () => orderSelection("form-up", false)));
 
   // -- attack-move (task 52): A arms the mode, the next field click issues it --
   offs.push(
