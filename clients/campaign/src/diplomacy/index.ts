@@ -12,3 +12,4 @@ export * from "./weariness.js";
 export * from "./herald.js";
 export { adjustRelation, relationNotifications, relationWith, type RelationNotification } from "./relationNotifications.js";
 export { markTerm, signTreaty, treatyCompliance, type Treaty, type TreatyStatus, type TreatyTerm, type TermStatus } from "./treaties.js";
+export { activeWars, declareWarGoal, exhaustedWars, tickWarWeariness, wearinessPerSeason, WAR_GOAL_DESCRIPTIONS, WAR_GOALS, type DeclaredWar, type WarGoal } from "./warGoals.js";
