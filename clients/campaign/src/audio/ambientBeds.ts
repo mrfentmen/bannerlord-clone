@@ -41,21 +41,29 @@ export async function playTownAmbient(audio: AudioManager, time: AmbientTimeOfDa
 /** Task 576: the rain bed, the real `sfx-ambience-rain` asset. */
 export const RAIN_BED: SfxId = "sfx-ambience-rain";
 
-/** What the map is doing right now, as far as the ambient bus cares (task 576). */
+/** Task 577: the distant-battle rumble, the real `sfx-ambience-distant-battle`. */
+export const BATTLEFIELD_BED: SfxId = "sfx-ambience-distant-battle";
+
+/** What the map is doing right now, as far as the ambient bus cares. */
 export interface AmbientScene {
   /** The clock's phase, as in {@link townAmbientBed}. */
   time: AmbientTimeOfDay;
-  /** True while rain is falling over the player. */
+  /** True while rain is falling over the player (task 576). */
   raining?: boolean;
+  /** True while a battle is close enough to be heard (task 577). */
+  battle?: boolean;
 }
 
 /**
- * Task 576: the bed for the whole scene. The mixer plays one bed at a time, so
- * the rules are ordered rather than mixed: rain takes the bus from the town bed
- * while it falls, and the town comes back when it stops. Both transitions are
- * crossfades because that is what the mixer does when the bed id changes.
+ * Tasks 576/577: the bed for the whole scene. The mixer plays one bed at a time,
+ * so the rules are ordered rather than mixed — the nearest thing to the player
+ * wins. A battle carries further than rain and far further than the town, so it
+ * takes the bus first; rain takes it from the town bed while it falls; and the
+ * town comes back when neither holds. Every transition is a crossfade because
+ * that is what the mixer does when the bed id changes.
  */
 export function sceneAmbientBed(scene: AmbientScene): SfxId {
+  if (scene.battle) return BATTLEFIELD_BED;
   if (scene.raining) return RAIN_BED;
   return townAmbientBed(scene.time);
 }
