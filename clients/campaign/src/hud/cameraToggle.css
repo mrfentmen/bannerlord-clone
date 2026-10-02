@@ -1,0 +1,41 @@
+/* Task 27: the camera mode toggle. A two-button group: the pressed one is the
+   mode in force. The pressed state is carried by the token ink as well as by the
+   button's own face, so the current mode survives a glance and not only a read.
+
+   Static — switching modes is an attribute swap, not an animation. */
+
+.hud-camera-toggle {
+  display: inline-flex;
+  border: 1px solid var(--ink-700);
+  border-radius: var(--radius-2);
+  overflow: hidden;
+  background: var(--paper-0);
+}
+
+.hud-camera-toggle__btn {
+  padding: 4px var(--space-2);
+  border: 0;
+  background: transparent;
+  color: var(--ink-900);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+}
+
+.hud-camera-toggle__btn + .hud-camera-toggle__btn {
+  border-left: 1px solid var(--ink-700);
+}
+
+.hud-camera-toggle__btn:hover {
+  background: var(--paper-100);
+}
+
+.hud-camera-toggle__btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.hud-camera-toggle__btn[aria-pressed="false"] {
+  color: var(--ink-500);
+}
