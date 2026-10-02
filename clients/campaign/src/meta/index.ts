@@ -21,3 +21,5 @@ export * from "./victory.js";
 export * from "./victoryPanel.js";
 export * from "./defeat.js";
 export * from "./defeatPanel.js";
+export * from "./retire.js";
+export * from "./retirePanel.js";
