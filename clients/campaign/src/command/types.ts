@@ -42,6 +42,11 @@ export interface Order {
    * player chose one.
    */
   formation?: FormationKind;
+  /**
+   * Task 72: the posture the player asked the group to fight in. Absent means no
+   * posture was chosen, which is different from "passive" — passive is a choice.
+   */
+  stance?: StanceKind;
   /** Task 46: the scene's estimate of how long the order takes to arrive, ms. */
   delayMs?: number;
   /** ms since epoch, for delay visualization downstream. */
@@ -57,6 +62,12 @@ export const FORMATION_LABEL: Record<FormationKind, string> = {
   wedge: "Wedge",
   circle: "Circle",
 };
+
+/**
+ * Task 72: how eagerly the group fights. Not to be confused with `STANCE_LABEL`
+ * above, which describes the last order issued — that is history, this is intent.
+ */
+export type StanceKind = "aggressive" | "defensive" | "passive";
 
 export const ORDER_LABEL: Record<OrderKind, string> = {
   attack: "Attack",

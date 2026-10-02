@@ -38,7 +38,8 @@ import { createSelectionRings, type SelectionRings } from "./selectionRings.js";
 import { createGroupIndicators, type GroupIndicators } from "./groupIndicators.js";
 import { createFormationSelector, type FormationSelector } from "./formation.js";
 import { createFormationGhost } from "./formationGhost.js";
-import type { CommandSurface, FormationKind, Order, OrderKind } from "./types.js";
+import { createStanceSelector, type StanceSelector } from "./stance.js";
+import type { CommandSurface, FormationKind, Order, OrderKind, StanceKind } from "./types.js";
 
 export interface Commander {
   selection: SelectionModel;
@@ -189,6 +190,14 @@ export function createCommander(
   });
   // Mounted in the order row's slot so the command widgets stack together.
   orderPanel.slot.appendChild(formationSelector.root);
+  /** Task 72: the posture the player wants the group to fight in, or null. */
+  let stance: StanceKind | null = null;
+  const stanceSelector: StanceSelector = createStanceSelector({
+    onPick: (picked) => {
+      stance = picked;
+    },
+  });
+  orderPanel.slot.appendChild(stanceSelector.root);
   // Task 71: the ghost that previews the shape under the pointer.
   const ghost = createFormationGhost(surface);
   overlay.appendChild(ghost.root);
@@ -259,6 +268,8 @@ export function createCommander(
     // Task 70: a chosen shape rides on the order. Absent means the player asked
     // for no particular formation, so the order says nothing about shape.
     if (formation && order.formation === undefined) order.formation = formation;
+    // Task 72: same rule for the posture — absent means the player never chose.
+    if (stance && order.stance === undefined) order.stance = stance;
     surface.issueOrder(order);
     for (const id of order.unitIds) lastOrder.set(id, order.kind);
     const { byId } = liveUnits();
@@ -676,6 +687,7 @@ export function createCommander(
       rings.destroy();
       groupIndicators.destroy();
       formationSelector.destroy();
+      stanceSelector.destroy();
       ghost.destroy();
       modeHint.remove();
     },

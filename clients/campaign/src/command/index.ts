@@ -18,6 +18,13 @@ export {
 } from "./formation.js";
 export { createFormationGhost, type FormationGhost } from "./formationGhost.js";
 export {
+  createStanceSelector,
+  STANCE_CHOICES,
+  type StanceChoice,
+  type StanceSelector,
+  type StanceSelectorOptions,
+} from "./stance.js";
+export {
   ORDER_LABEL,
   STANCE_LABEL,
   FORMATION_LABEL,
@@ -26,6 +33,7 @@ export {
   type FormationKind,
   type Order,
   type OrderKind,
+  type StanceKind,
 } from "./types.js";
 export { createPingStore, describePing, PING_KINDS, PING_LABELS, PING_TTL_MS, type Ping, type PingKind, type PingStore } from "./pings.js";
 export { FLANK_BONUS, REAR_BONUS, flankArc, flankBonus, flankBadgeText, type FlankArc } from "./flanking.js";
