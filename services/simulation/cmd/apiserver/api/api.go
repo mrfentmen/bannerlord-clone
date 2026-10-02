@@ -99,6 +99,10 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("POST /v1/prisoners/{id}/recruit", s.postPrisonerRecruit)
 	s.mux.HandleFunc("POST /v1/prisoners/{id}/release", s.postPrisonerRelease)
 	s.mux.HandleFunc("POST /v1/prisoners/{id}/execute", s.postPrisonerExecute)
+	s.mux.HandleFunc("GET /v1/bandits", s.listBandits)
+	s.mux.HandleFunc("GET /v1/bandits/camps", s.listBanditCamps)
+	s.mux.HandleFunc("GET /v1/bounties", s.listBounties)
+	s.mux.HandleFunc("POST /v1/bounties/{id}/claim", s.claimBounty)
 	s.mux.HandleFunc("GET /v1/health", s.getHealth)
 	s.mux.HandleFunc("/", s.notFound)
 }
