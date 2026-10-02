@@ -6,6 +6,8 @@
 import { h } from "../ui/dom.js";
 import type { AfterActionReport } from "./report.js";
 import { sharePct } from "./casualties.js";
+import { killDeathSummary } from "./killDeath.js";
+import "./reportContent.css";
 
 export function createReportScreen(report: AfterActionReport, onClose: () => void): HTMLElement {
   const root = h("div", { class: "afteraction", "data-testid": "afteraction" });
@@ -18,7 +20,11 @@ export function createReportScreen(report: AfterActionReport, onClose: () => voi
   killsTitle.textContent = "Kills";
   const killsBody = h("p", {});
   killsBody.textContent = `${report.playerKills} inflicted, ${report.enemyKills} suffered.`;
-  kills.append(killsTitle, killsBody);
+  // Task 78: the two counts alone make the player do the arithmetic that decides
+  // whether the battle was worth fighting.
+  const exchange = h("p", { class: "afteraction-exchange" });
+  exchange.textContent = killDeathSummary(report);
+  kills.append(killsTitle, killsBody, exchange);
 
   const cas = h("section", { class: "afteraction-section" });
   const casTitle = h("h3", {});

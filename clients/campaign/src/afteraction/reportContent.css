@@ -1,0 +1,14 @@
+/**
+ * After-action report content styles (afteraction/reportScreen.ts).
+ *
+ * The report's base classes live in the shared stylesheet, which this lane does
+ * not edit; everything added after task 76 is styled here instead. Values come
+ * from src/design/tokens.css only — no invented colours, fonts, or spacing.
+ */
+
+.afteraction-exchange {
+  margin: 8px 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--ink-700);
+}
