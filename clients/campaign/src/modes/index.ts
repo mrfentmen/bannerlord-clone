@@ -23,3 +23,4 @@ export { createRosterBuilder, ROSTER_BUDGET, unitCost, type RosterBuilder, type 
 export { exportShareCode, importShareCode, skirmishShareCode, type ShareCodeResult } from "./shareCodes.js";
 export { dailyStreak, dayNumber, recordDailyCompletion, resetDailyStreak, streakLabel, type DailyStreak } from "./dailyStreak.js";
 export { canRematch, lastBattle, rematch, rememberBattle } from "./rematch.js";
+export { dailySeedPanel, dailySeedString } from "./dailySeedPanel.js";
