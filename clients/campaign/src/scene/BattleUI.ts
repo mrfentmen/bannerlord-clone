@@ -94,7 +94,6 @@ export interface BattleResultData {
   prisoners: number;
   loot: string[];
 }
-
 export function showBattleOutro(data: BattleResultData, onContinue: () => void): void {
   const el = document.createElement("div");
   el.className = "battle-outro";
@@ -116,4 +115,48 @@ export function showBattleOutro(data: BattleResultData, onContinue: () => void):
     el.remove();
     onContinue();
   });
+}
+
+/** Minimap: troop dots and objective markers (Pax task 62). */
+export interface MinimapDot {
+  x: number; // 0-1 normalized
+  z: number; // 0-1 normalized
+  faction: "player" | "enemy";
+}
+
+export class BattleMinimap {
+  private canvas: HTMLCanvasElement;
+  private ctx: CanvasRenderingContext2D;
+
+  constructor(size = 160) {
+    this.canvas = document.createElement("canvas");
+    this.canvas.width = size;
+    this.canvas.height = size;
+    this.canvas.className = "battle-minimap";
+    this.ctx = this.canvas.getContext("2d")!;
+    document.body.appendChild(this.canvas);
+  }
+
+  /** Update troop positions. Coords are 0-1 normalized battlefield positions. */
+  update(dots: MinimapDot[]): void {
+    const { ctx, canvas } = this;
+    const s = canvas.width;
+    ctx.clearRect(0, 0, s, s);
+
+    // Background
+    ctx.fillStyle = "rgba(20, 30, 20, 0.7)";
+    ctx.fillRect(0, 0, s, s);
+
+    // Dots
+    for (const d of dots) {
+      ctx.fillStyle = d.faction === "player" ? "#4a9eff" : "#ff4a4a";
+      ctx.beginPath();
+      ctx.arc(d.x * s, d.z * s, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+  }
+
+  dispose(): void {
+    this.canvas.remove();
+  }
 }

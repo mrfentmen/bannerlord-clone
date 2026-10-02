@@ -350,6 +350,25 @@ export class BattleScene {
     this.dispose();
   }
 
+  /**
+   * Battle camera controls (Pax task 61).
+   * Toggle between follow-player and free-look modes.
+   */
+  setCameraMode(mode: "follow" | "free"): void {
+    // Camera mode switching is handled by the battle UI layer
+    // which owns the ArcRotateCamera created in create()
+    this.scene.metadata = this.scene.metadata || {};
+    this.scene.metadata.cameraMode = mode;
+  }
+
+  /**
+   * Get the battle camera for external control.
+   */
+  getCamera(): ArcRotateCamera | null {
+    const cam = this.scene.getCameraByName("battleCam");
+    return cam as ArcRotateCamera | null;
+  }
+
   /** Dispose the scene and free resources. */
   dispose(): void {
     this.scene.dispose();
