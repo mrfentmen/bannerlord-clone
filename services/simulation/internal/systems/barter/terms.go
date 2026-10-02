@@ -235,6 +235,14 @@ func Appraise(st *model.State, cfg *config.Config, req Request) (Proposal, error
 		partyName = p.Name
 	}
 
+	// A deal the world cannot carry is refused in words here, rather than
+	// discovered at apply time when the only honest answer would be to change
+	// nothing and say nothing. See Validate for the two arrangements that reach
+	// it; both are things the player can see and fix.
+	if err := Validate(st, req); err != nil {
+		return refused(err.Error(), 0, 0, 0), nil
+	}
+
 	// A table that has gone stale is refused before it is priced. The player
 	// filled this in against a day that is not today, and answering about
 	// today's prices would be agreeing to a deal they did not look at.

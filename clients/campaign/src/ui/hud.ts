@@ -19,7 +19,7 @@ import type {
   SimSnapshot,
 } from "../data/types.js";
 import type { FogIndicator } from "../data/fog.js";
-import type { FogLegendRow } from "../data/fogView.js";
+import { fogLegend, fogViewDetail } from "../data/fogView.js";
 
 export interface HudOptions {
   onSelectPanel: (panel: HudPanel) => void;
@@ -165,26 +165,19 @@ export interface HudState {
    */
   fog: FogIndicator;
   /**
-   * The three states, and what each does to the map and to the panels.
-   *
-   * Two columns because the thing players misread is that a remembered town's *panel* is
-   * showing them old numbers, which a legend that only described the map would leave out.
-   * Passed in rather than imported so the rail has one source of truth and this module
-   * keeps no fog policy of its own.
-   */
-  fogLegend: readonly FogLegendRow[];
-  /**
-   * Whether the player has turned fog off.
+   * Whether the player has turned fog off. Defaults to on.
    *
    * The toggle is in the rail rather than a settings panel because it changes what the map
    * claims to be, and burying that behind a settings screen is how a player ends up with an
    * unfiltered map and no memory of having turned it on.
+   *
+   * Optional so a caller that only wants the counts can leave it out, which is every test
+   * that is not about the toggle. Defaulting to *on* is the safe direction: a missing
+   * setting must never be the reason a map is drawn whole.
    */
-  fogEnabled: boolean;
-  /** The sentence that must accompany an unfiltered map. `null` while fog is on. */
-  fogCaveat: string | null;
+  fogEnabled?: boolean;
   /** Turns the display setting. Never changes what the simulation publishes. */
-  onFogToggle: (enabled: boolean) => void;
+  onFogToggle?: (enabled: boolean) => void;
 }
 
 export function createHud(options: HudOptions): HudHandle {
@@ -474,9 +467,7 @@ export function createHud(options: HudOptions): HudHandle {
     }
     rail.appendChild(warnings);
 
-    rail.appendChild(
-      fogIndicatorCard(state.fog, state.fogLegend, state.fogEnabled, state.fogCaveat, state.onFogToggle),
-    );
+    rail.appendChild(fogIndicatorCard(state.fog, state.fogEnabled ?? true, state.onFogToggle ?? (() => {})));
 
     const dataBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-data-source" }, "Where does this data come from?");
     dataBtn.addEventListener("click", () => options.onOpenDataSource());
@@ -503,11 +494,16 @@ export function createHud(options: HudOptions): HudHandle {
    */
   function fogIndicatorCard(
     fog: FogIndicator,
-    legend: readonly FogLegendRow[],
     fogEnabled: boolean,
-    caveat: string | null,
     onFogToggle: (enabled: boolean) => void,
   ): HTMLElement {
+    // The legend and the caveat are derived here rather than passed in, because both are
+    // pure functions of the states and the toggle. Passing them in would have let a caller
+    // render a legend that disagreed with the counts printed directly above it, and the
+    // caveat is mandatory whenever the map is unfiltered — a caller that forgot to pass it
+    // would be silently drawing the whole survey with no notice.
+    const legend = fogLegend();
+    const caveat = fogViewDetail({ enabled: fogEnabled, caveatShown: !fogEnabled });
     const card = h("div", {
       class: "sheet rail__card",
       "data-testid": "fog-indicator",

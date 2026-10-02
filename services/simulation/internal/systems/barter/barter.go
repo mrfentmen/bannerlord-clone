@@ -437,30 +437,43 @@ func touchesCaptives(deal *sim.BarterDeal) bool {
 //   - The trader's lord has no party either, so a captive has nowhere to go.
 //
 // So the check runs in Appraise, where a failure is a sentence the player reads,
-// rather than in applyOrder, where it can only be a shrug.
+// rather than in applyOrder, where it can only be a shrug. The sentences are in
+// the trader's voice and carry no error prefix, because Appraise hands them
+// straight to the panel as the reason a deal was refused.
 func Validate(st *model.State, req Request) error {
-	if err := checkParticipants(st, req.PlayerID, req.Trader, req.Town); err != nil {
-		return err
-	}
-	trader := st.Leaders[req.Trader]
-
 	needsParty := false
 	movesCaptives := false
-	for _, l := range append(append([]Line{}, req.Offered...), req.Asked...) {
-		switch ItemKind(l.Kind) {
-		case KindGood:
+	for _, l := range req.Offered {
+		if k := ItemKind(l.Kind); k == KindGood || k == KindPrisoner {
 			needsParty = true
-		case KindPrisoner:
-			needsParty, movesCaptives = true, true
+		}
+		if ItemKind(l.Kind) == KindPrisoner {
+			movesCaptives = true
+		}
+	}
+	for _, l := range req.Asked {
+		if ItemKind(l.Kind) == KindPrisoner {
+			movesCaptives = true
 		}
 	}
 	if needsParty && partyOf(st, req.PlayerID) < 0 {
-		return fmt.Errorf("barter: your lord has no party in the field, so there is nothing to carry this")
+		return fmt.Errorf("You have no party in the field, so there is nothing here to carry %s. Coin is the only thing you can put on a table alone.",
+			plural(len(req.Offered)+len(req.Asked), "that", "those things"))
 	}
-	if movesCaptives && st.Parties[trader.PartyID] == nil {
-		return fmt.Errorf("barter: %s has no party to hold a captive", trader.Name)
+	if movesCaptives && st.Parties[st.Leaders[req.Trader].PartyID] == nil {
+		return fmt.Errorf("%s has no party in the field, so there is no cage for a captive to go into. Nothing changes hands.",
+			st.Leaders[req.Trader].Name)
 	}
 	return nil
+}
+
+// plural picks the noun that fits the count, so a refusal that names the number
+// of lines on the table agrees with itself.
+func plural(n int, one, many string) string {
+	if n == 1 {
+		return one
+	}
+	return many
 }
 
 // lineMove is one line of a deal, resolved against the entities it moves
