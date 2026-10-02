@@ -18,6 +18,10 @@
  * Task 602: each attempt is bounded by {@link DEFAULT_TIMEOUT_MS}. A request
  * that never settles would otherwise hold its `loading` entry forever, and
  * every later call for that model would wait on a promise that cannot finish.
+ *
+ * Task 603: the byte counts SceneLoader already reports are forwarded to the
+ * caller's `onProgress`, tagged with the model id, so a loading screen can show
+ * real transfer progress instead of a spinner that means nothing.
  */
 
 /** Attempts per model, including the first. Task 601. */
@@ -38,6 +42,19 @@ function delay(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/** One progress reading for one model (task 603). */
+export interface LoadProgress {
+  /** The model these bytes belong to. */
+  id: string;
+  /** Bytes fetched so far. */
+  loaded: number;
+  /** Total bytes, or 0 when the server does not send a length. */
+  total: number;
+}
+
+/** How a loader reports bytes; `(loaded, total)` (task 603). */
+export type ProgressReporter = (loaded: number, total: number) => void;
+
 export interface ModelLoaderOptions {
   /** Attempts per model, including the first; defaults to 3 (task 601). */
   attempts?: number;
@@ -46,10 +63,15 @@ export interface ModelLoaderOptions {
   /** Time budget per attempt, ms; defaults to 30000 (task 602). 0 disables it. */
   timeoutMs?: number;
   /**
+   * Receives byte counts while a model loads (task 603). Never called for a
+   * model that is already cached.
+   */
+  onProgress?: (progress: LoadProgress) => void;
+  /**
    * Loads one model. Defaults to Babylon's `SceneLoader`; tests inject a fake
    * so retry behaviour is observable without a scene (task 601).
    */
-  load?: (info: ModelInfo) => Promise<unknown>;
+  load?: (info: ModelInfo, report: ProgressReporter) => Promise<unknown>;
 }
 
 export class ModelLoader {
@@ -60,14 +82,16 @@ export class ModelLoader {
   private attempts: number;
   private retryDelayMs: number;
   private timeoutMs: number;
-  private loadImpl: (info: ModelInfo) => Promise<unknown>;
+  private onProgress: ((progress: LoadProgress) => void) | null;
+  private loadImpl: (info: ModelInfo, report: ProgressReporter) => Promise<unknown>;
 
   constructor(scene: any, options: ModelLoaderOptions = {}) {
     this.scene = scene;
     this.attempts = Math.max(1, options.attempts ?? DEFAULT_ATTEMPTS);
     this.retryDelayMs = Math.max(0, options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS);
     this.timeoutMs = Math.max(0, options.timeoutMs ?? DEFAULT_TIMEOUT_MS);
-    this.loadImpl = options.load ?? ((info) => this.loadModel(info));
+    this.onProgress = options.onProgress ?? null;
+    this.loadImpl = options.load ?? ((info, report) => this.loadModel(info, report));
   }
 
   /**
@@ -133,7 +157,7 @@ export class ModelLoader {
     let lastError: unknown;
     for (let attempt = 1; attempt <= this.attempts; attempt++) {
       try {
-        return await this.loadWithTimeout(info);
+        return await this.loadWithTimeout(info, this.reporterFor(info));
       } catch (err) {
         lastError = err;
         if (attempt >= this.attempts) break;
@@ -148,15 +172,15 @@ export class ModelLoader {
    * One attempt, bounded by the time budget (task 602). The timer is always
    * cleared when the attempt settles, so a fast load leaves nothing pending.
    */
-  private loadWithTimeout(info: ModelInfo): Promise<unknown> {
-    if (this.timeoutMs <= 0) return this.loadImpl(info);
+  private loadWithTimeout(info: ModelInfo, report: ProgressReporter): Promise<unknown> {
+    if (this.timeoutMs <= 0) return this.loadImpl(info, report);
     const budget = this.timeoutMs;
     return new Promise<unknown>((resolve, reject) => {
       const timer = setTimeout(
         () => reject(new Error(`ModelLoader: "${info.id}" did not load within ${budget} ms`)),
         budget,
       );
-      this.loadImpl(info).then(
+      this.loadImpl(info, report).then(
         (mesh) => {
           clearTimeout(timer);
           resolve(mesh);
@@ -167,6 +191,11 @@ export class ModelLoader {
         },
       );
     });
+  }
+
+  /** Turns a loader's byte counts into this loader's progress events (task 603). */
+  private reporterFor(info: ModelInfo): ProgressReporter {
+    return (loaded, total) => this.onProgress?.({ id: info.id, loaded, total });
   }
 
   /**
@@ -191,7 +220,7 @@ export class ModelLoader {
   /**
    * Internal: load a GLB file via Babylon.js SceneLoader.
    */
-  private async loadModel(info: ModelInfo): Promise<any> {
+  private async loadModel(info: ModelInfo, report: ProgressReporter): Promise<any> {
     // Dynamic import to avoid hard dependency
     // The client should have @babylonjs/core and @babylonjs/loaders
     const { SceneLoader } = await import('@babylonjs/core/Loading/sceneLoader');
@@ -217,7 +246,7 @@ export class ModelLoader {
           // Return the root mesh (first mesh, or create a parent)
           resolve(meshes[0] || null);
         },
-        undefined, // onProgress
+        (event: { loaded: number; total: number }) => report(event.loaded, event.total), // task 603
         (_scene, message) => {
           reject(new Error(`Failed to load ${info.path}: ${message}`));
         },

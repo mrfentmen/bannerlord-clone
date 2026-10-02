@@ -8,6 +8,9 @@
  *
  * Task 602: each attempt is bounded by a timeout, the timer is cleared when
  * the attempt settles, and a hung load is retried rather than left pending.
+ *
+ * Task 603: the byte counts the loader reports are forwarded with the model id,
+ * on every attempt, and never for a model served from the cache.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -15,6 +18,7 @@ import {
   DEFAULT_ATTEMPTS,
   DEFAULT_TIMEOUT_MS,
   ModelLoader,
+  type LoadProgress,
   type ModelInfo,
 } from "../ModelLoader.js";
 
@@ -146,6 +150,65 @@ describe("ModelLoader retry (task 601)", () => {
 
     await expect(loader.load("absent")).resolves.toBeNull();
     expect(flaky.calls()).toBe(0);
+    loader.dispose();
+  });
+});
+
+describe("ModelLoader progress (task 603)", () => {
+  it("forwards the loader's byte counts, tagged with the model id", async () => {
+    const seen: LoadProgress[] = [];
+    const load = async (_info: ModelInfo, report: (loaded: number, total: number) => void) => {
+      report(4, 10);
+      report(10, 10);
+      return { name: "gunner" };
+    };
+    const loader = await readyLoader({ load, onProgress: (p) => seen.push(p) });
+
+    await loader.load("troop-gunner");
+    expect(seen).toEqual([
+      { id: "troop-gunner", loaded: 4, total: 10 },
+      { id: "troop-gunner", loaded: 10, total: 10 },
+    ]);
+    loader.dispose();
+  });
+
+  it("keeps reporting while an attempt is retried", async () => {
+    const seen: LoadProgress[] = [];
+    let calls = 0;
+    const load = async (_info: ModelInfo, report: (loaded: number, total: number) => void) => {
+      calls++;
+      report(1, 2);
+      if (calls === 1) throw new Error("blip");
+      report(2, 2);
+      return { name: "gunner" };
+    };
+    const loader = await readyLoader({ load, onProgress: (p) => seen.push(p), retryDelayMs: 0 });
+
+    await loader.load("troop-gunner");
+    expect(seen.map((p) => p.loaded)).toEqual([1, 1, 2]);
+    loader.dispose();
+  });
+
+  it("stays silent for a model that comes from the cache", async () => {
+    const seen: LoadProgress[] = [];
+    const flaky = flakyLoader(0, "gunner");
+    const loader = await readyLoader({ load: flaky.load, onProgress: (p) => seen.push(p) });
+
+    await loader.load("troop-gunner");
+    await loader.load("troop-gunner");
+    expect(seen).toEqual([]); // the injected loader never reported, and neither load refetched
+    expect(flaky.calls()).toBe(1);
+    loader.dispose();
+  });
+
+  it("needs no callback: a loader that reports into the void still resolves", async () => {
+    const load = async (_info: ModelInfo, report: (loaded: number, total: number) => void) => {
+      report(3, 3);
+      return { name: "gunner" };
+    };
+    const loader = await readyLoader({ load });
+
+    await expect(loader.load("troop-gunner")).resolves.toEqual({ name: "gunner" });
     loader.dispose();
   });
 });
