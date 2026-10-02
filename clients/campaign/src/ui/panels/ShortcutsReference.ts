@@ -9,6 +9,7 @@
 import type { InputRegistry } from "../../input/registry.js";
 import type { ActionCategory, KeyBinding } from "../../input/actions.js";
 import { h } from "../dom.js";
+import { modalize } from "../focusTrap.js";
 
 const CATEGORY_LABELS: Record<ActionCategory, string> = {
   interface: "Interface",
@@ -59,7 +60,14 @@ export function shortcutsReference(options: ShortcutsReferenceOptions): HTMLElem
     root.appendChild(section);
   }
   const close = h("button", { type: "button", class: "btn", "data-testid": "shortcuts-close" }, "Close");
-  close.addEventListener("click", () => options.onClose());
+  const cleanup = modalize(root, () => {
+    cleanup();
+    options.onClose();
+  });
+  close.addEventListener("click", () => {
+    cleanup();
+    options.onClose();
+  });
   root.appendChild(close);
   return root;
 }

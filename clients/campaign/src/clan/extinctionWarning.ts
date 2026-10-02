@@ -9,6 +9,7 @@
 
 import type { ClanMember } from "./types.js";
 import { h } from "../ui/dom.js";
+import { modalize } from "../ui/focusTrap.js";
 
 /** Living members at or below this count trigger the warning. */
 export const EXTINCTION_WARNING_THRESHOLD = 2;
@@ -103,7 +104,14 @@ export function extinctionWarningPanel(options: ExtinctionWarningPanelOptions): 
     list,
   );
   const dismiss = h("button", { type: "button", class: "btn", "data-testid": "extw-dismiss" }, "Understood");
-  dismiss.addEventListener("click", () => options.onDismiss());
+  const cleanup = modalize(root, () => {
+    cleanup();
+    options.onDismiss();
+  });
+  dismiss.addEventListener("click", () => {
+    cleanup();
+    options.onDismiss();
+  });
   root.appendChild(dismiss);
   return root;
 }

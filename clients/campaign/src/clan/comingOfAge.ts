@@ -10,6 +10,7 @@
 
 import type { ClanMember } from "./types.js";
 import { h } from "../ui/dom.js";
+import { modalize } from "../ui/focusTrap.js";
 
 /** Age at which a clan child becomes an adult. Matches the education cutoff. */
 export const ADULT_AGE = 18;
@@ -94,7 +95,14 @@ export function comingOfAgePanel(options: ComingOfAgePanelOptions): HTMLElement 
     h("p", { class: "caption" }, "New adults can marry, lead parties, and inherit."),
   );
   const dismiss = h("button", { type: "button", class: "btn", "data-testid": "coa-dismiss" }, "Acknowledge");
-  dismiss.addEventListener("click", () => options.onDismiss());
+  const cleanup = modalize(root, () => {
+    cleanup();
+    options.onDismiss();
+  });
+  dismiss.addEventListener("click", () => {
+    cleanup();
+    options.onDismiss();
+  });
   root.appendChild(dismiss);
   return root;
 }
