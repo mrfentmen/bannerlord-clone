@@ -1876,6 +1876,22 @@ html[data-reduce-motion] *::after {
   border-left: 1px solid var(--ink-500);
 }
 
+/* Weather and the clock of day: a glyph the eye reads first, the word beside it
+   that does the actual work. */
+.deploy-weather,
+.deploy-time {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 0.85rem;
+}
+
+.deploy-weather__glyph,
+.deploy-time__glyph {
+  font-size: 1rem;
+  line-height: 1;
+}
+
 .deployment-header h2 {
   margin: 0;
   font-size: 1.1rem;

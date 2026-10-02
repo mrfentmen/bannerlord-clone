@@ -35,9 +35,34 @@ export function formatCountdown(seconds: number): string {
  * What the battle site can tell the deployment header about itself. Every field is
  * optional: the header says what it has been given and nothing more.
  */
+export type DeploymentWeather = "clear" | "rain" | "fog";
+
 export interface DeploymentInfo {
   playerFaction?: string;
   terrainName?: string;
+  weather?: DeploymentWeather;
+}
+
+/**
+ * Weather as a glyph and a word. The glyph is decorative and always sits beside a
+ * typed label, the same rule the speed dial follows: nothing here is carried by a
+ * picture alone.
+ */
+const WEATHER_DISPLAY: Record<DeploymentWeather, { glyph: string; label: string }> = {
+  clear: { glyph: "☀", label: "Clear" },
+  rain: { glyph: "☂", label: "Rain" },
+  fog: { glyph: "☰", label: "Fog" },
+};
+
+/** A weather chip: glyph plus the word, named for a screen reader as one thing. */
+function weatherEl(weather: DeploymentWeather): HTMLElement {
+  const { glyph, label } = WEATHER_DISPLAY[weather];
+  return h(
+    "span",
+    { class: "deploy-weather", role: "img", "aria-label": `Weather: ${label}` },
+    h("span", { class: "deploy-weather__glyph", "aria-hidden": "true" }, glyph),
+    h("span", { class: "deploy-weather__label" }, label),
+  );
 }
 
 /** The playable side a faction name names, if it names one. */
@@ -108,6 +133,7 @@ export class DeploymentUI {
     const strip = h("div", { class: "deploy-info" });
     if (info.playerFaction) strip.appendChild(bannerEl(info.playerFaction));
     if (info.terrainName) strip.appendChild(h("span", { class: "deploy-terrain" }, info.terrainName));
+    if (info.weather) strip.appendChild(weatherEl(info.weather));
 
     // Single player: the enemy is the AI, which is never waiting on the player, so its
     // side of the strip is a state rather than a control. Both sides are rendered as

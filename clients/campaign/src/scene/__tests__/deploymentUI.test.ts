@@ -316,3 +316,65 @@ describe("terrain name (task 13)", () => {
     ui.hide();
   });
 });
+
+describe("weather (task 14)", () => {
+  it("gives each weather a glyph and a word", () => {
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE], () => {}, { weather: "rain" });
+
+    const chip = document.querySelector(".deploy-weather");
+    expect(chip?.querySelector(".deploy-weather__glyph")?.textContent).toBe("☂");
+    expect(chip?.querySelector(".deploy-weather__label")?.textContent).toBe("Rain");
+
+    ui.hide();
+  });
+
+  it("names the whole chip for a screen reader, glyph excluded", () => {
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE], () => {}, { weather: "fog" });
+
+    const chip = document.querySelector(".deploy-weather");
+    expect(chip?.getAttribute("role")).toBe("img");
+    expect(chip?.getAttribute("aria-label")).toBe("Weather: Fog");
+    expect(chip?.querySelector('[aria-hidden="true"]')).not.toBeNull();
+
+    ui.hide();
+  });
+
+  it("covers every kind the info object accepts", () => {
+    const seen = ["clear", "rain", "fog"] as const;
+    for (const kind of seen) {
+      const ui = new DeploymentUI();
+      ui.show([PLAYER_ZONE], () => {}, { weather: kind });
+      const chip = document.querySelector(".deploy-weather");
+      expect(chip?.getAttribute("aria-label")).toMatch(/^Weather: /);
+      expect(chip?.textContent?.replace("Weather: ", "").length).toBeGreaterThan(1);
+      ui.hide();
+    }
+  });
+
+  it("shares the strip with the banner and the terrain", () => {
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE], () => {}, {
+      playerFaction: "Pacific Compact",
+      terrainName: "Dry Fork",
+      weather: "clear",
+    });
+
+    const strip = document.querySelector(".deploy-info");
+    for (const selector of [".deploy-banner", ".deploy-terrain", ".deploy-weather"]) {
+      expect(document.querySelector(selector)?.parentElement).toBe(strip);
+    }
+
+    ui.hide();
+  });
+
+  it("shows no chip when the sky was not reported", () => {
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE], () => {});
+
+    expect(document.querySelector(".deploy-weather")).toBeNull();
+
+    ui.hide();
+  });
+});
