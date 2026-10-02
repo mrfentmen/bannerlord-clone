@@ -89,7 +89,10 @@ export const MAX_LEDGER_WEEKS = 52;
  */
 export const DISTANCE_COST_PER_KM = 0.5;
 
-const STORE_KEY = "campaign.tradeRoutes.v1";
+/** Storage key for the persisted caravan registry. Exported so the
+ * per-campaign reset (meta/campaignReset.ts) can clear it by name. */
+export const TRADE_ROUTES_STORAGE_KEY = "campaign.tradeRoutes.v1";
+const STORE_KEY = TRADE_ROUTES_STORAGE_KEY;
 
 let nextId = 1;
 
@@ -125,6 +128,12 @@ export interface RouteRegistry {
   retire(id: string): boolean;
   /** Settle every full 7-day week up to `day`. Idempotent. */
   advance(day: number, deps: SettleDeps): void;
+  /**
+   * Drop every caravan and its persisted books. Used by the per-campaign
+   * reset (meta/campaignReset.ts): a new campaign starts with no trade
+   * routes, and the old campaign's profit history must not bleed across.
+   */
+  clear(): void;
 }
 
 export function createRouteRegistry(
@@ -278,6 +287,12 @@ export function createRouteRegistry(
         }
       }
       if (changed) persist();
+    },
+
+    clear(): void {
+      if (caravans.length === 0) return;
+      caravans = [];
+      persist();
     },
   };
 }

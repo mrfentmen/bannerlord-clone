@@ -218,3 +218,23 @@ describe("totalProfit", () => {
     expect(c!.weeks).toHaveLength(2);
   });
 });
+
+describe("clear", () => {
+  it("drops every caravan and clears the persisted books", () => {
+    const storage = fakeStorage();
+    const reg = createRouteRegistry(storage);
+    reg.found(input(), 0, foundDeps());
+    reg.found(input({ name: "Spice Run" }), 0, foundDeps());
+    expect(reg.list()).toHaveLength(2);
+    reg.clear();
+    expect(reg.list()).toEqual([]);
+    // A fresh registry over the same storage finds nothing persisted.
+    expect(createRouteRegistry(storage).list()).toEqual([]);
+  });
+
+  it("clear() on an empty registry is a no-op", () => {
+    const reg = createRouteRegistry(fakeStorage());
+    expect(() => reg.clear()).not.toThrow();
+    expect(reg.list()).toEqual([]);
+  });
+});

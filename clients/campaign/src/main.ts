@@ -86,20 +86,29 @@ import {
   buildTrackerViews,
   createQuestTrackerHud,
   localStoragePinStorage,
+  PIN_STORAGE_KEY,
 } from "./questTracker/index.js";
 import type { TrackerPositionSource } from "./questTracker/index.js";
 import { questJournalPanel } from "./ui/panels/QuestJournal.js";
 import { createAchievementStore } from "./achievements/index.js";
 import { achievementsPanel } from "./ui/panels/Achievements.js";
 import { mountBattleUi, type BattleMount } from "./battleflow/mount.js";
+import {
+  campaignFingerprint,
+  clearStorageKeys,
+  readStoredFingerprint,
+  shouldResetCampaignStores,
+  writeStoredFingerprint,
+} from "./meta/campaignReset.js";
 import { createGalleryStore, createPhotoMode, galleryPanel, mountPhotoModeBar, type PhotoModeBarHandle } from "./expression/index.js";
 import { chroniclePanel, seasonForDay } from "./expression/chroniclePanel.js";
-import { createMemorial, memorialPanel } from "./afteraction/index.js";
+import { createMemorial, memorialPanel, MEMORIAL_STORE_KEY } from "./afteraction/index.js";
 import { lawsPanel, DEFAULT_LAWS, type ClanLaws } from "./clan/index.js";
 import type { ChronicleEvent, Oath } from "./expression/chronicle.js";
 import {
   boundsForWorld,
   clearBattleSites,
+  HEATMAP_STORAGE_KEY,
   loadBattleSites,
   recordBattleSite,
   saveBattleSites,
@@ -134,7 +143,7 @@ import {
   type NewGamePlusRecord,
 } from "./meta/newgameplus.js";
 import { legacyPanel } from "./meta/legacyPanel.js";
-import { createRouteRegistry, type FoundInput } from "./economy/routeRegistry.js";
+import { createRouteRegistry, TRADE_ROUTES_STORAGE_KEY, type FoundInput } from "./economy/routeRegistry.js";
 import {
   buildRouteModels,
   routePanel,
@@ -810,8 +819,68 @@ function enterPhotoMode(): void {
   });
 }
 
+/**
+ * Per-campaign store isolation (Rowan).
+ *
+ * localStorage-backed campaign stores — the chronicle of deeds, the
+ * battle-site heatmap, the war memorial, clan laws, pinned quests, and the
+ * caravan trade-route books — belong to ONE campaign. Quit-to-title reloads
+ * the page (clearing module state) but localStorage survives, so without
+ * this a new campaign inherits its predecessor's history.
+ *
+ * The snapshot fingerprint tells a new campaign apart from a resumed one:
+ * same fingerprint as the last mount keeps the stores; a different one
+ * resets them. Lifetime statistics, leaderboards, achievements, settings,
+ * tips, deployment presets, and mode stores are intentionally kept — they
+ * are the player's, not the campaign's. Ironman / New Game+ records are
+ * owned by their own mount logic below.
+ *
+ * The key list is built inside the function (not at module scope) because
+ * the key constants are declared across the module below this point.
+ */
+function resetCampaignStores(snap: SimSnapshot): "reset" | "kept" {
+  const perCampaignKeys: readonly string[] = [
+    CHRONICLE_KEY,
+    HEATMAP_STORAGE_KEY,
+    MEMORIAL_STORE_KEY,
+    CLAN_LAWS_KEY,
+    PIN_STORAGE_KEY,
+    TRADE_ROUTES_STORAGE_KEY,
+  ];
+  const fingerprint = campaignFingerprint({
+    characterName: snap.player.characterName,
+    factionId: snap.player.factionId,
+    ethnicityId: snap.player.ethnicityId,
+    age: snap.player.age,
+    day: snap.day,
+  });
+  if (!shouldResetCampaignStores(readStoredFingerprint(localStorage), fingerprint)) {
+    return "kept";
+  }
+  clearStorageKeys(localStorage, perCampaignKeys);
+  // In-memory mirrors of the cleared keys: without these, the next write
+  // would persist the old campaign's data straight back over the cleared
+  // storage.
+  chronicle.events = [];
+  chronicle.oath = null;
+  persistChronicle();
+  battleSites = [];
+  saveBattleSites(battleSites);
+  memorial.clear();
+  clanLaws = { ...DEFAULT_LAWS };
+  persistClanLaws();
+  questTracker.clear();
+  routeRegistry.clear();
+  writeStoredFingerprint(localStorage, fingerprint);
+  return "reset";
+}
+
 function mountCampaign(): void {
   if (!snapshot) return;
+
+  // A new campaign starts with empty per-campaign stores; a resumed one
+  // keeps them (see resetCampaignStores).
+  resetCampaignStores(snapshot);
 
   // -- Ironman (MASTER_PLAN task 143) --------------------------------------
   // The run starts with the campaign, on the sim's own day. A fresh

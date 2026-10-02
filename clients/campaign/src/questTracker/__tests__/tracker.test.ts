@@ -143,6 +143,23 @@ describe("QuestTracker", () => {
     // Persisted too, so a reload does not resurrect them.
     expect(new QuestTracker(localStoragePinStorage(storage)).pinnedIds()).toEqual(["a"]);
   });
+
+  it("clear() drops every pin and persists the empty list", () => {
+    const storage = fakeStorage();
+    const tracker = new QuestTracker(localStoragePinStorage(storage));
+    tracker.pin("a", "active");
+    tracker.pin("b", "active");
+    tracker.clear();
+    expect(tracker.pinnedIds()).toEqual([]);
+    // A fresh instance reads the cleared storage: nothing comes back.
+    expect(new QuestTracker(localStoragePinStorage(storage)).pinnedIds()).toEqual([]);
+  });
+
+  it("clear() on an empty tracker is a no-op", () => {
+    const tracker = new QuestTracker(localStoragePinStorage(fakeStorage()));
+    expect(() => tracker.clear()).not.toThrow();
+    expect(tracker.pinnedIds()).toEqual([]);
+  });
 });
 
 describe("buildTrackerViews", () => {

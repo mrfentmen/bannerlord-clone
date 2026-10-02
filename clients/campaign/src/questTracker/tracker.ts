@@ -113,6 +113,16 @@ export class QuestTracker {
   private persist(): void {
     this.storage.save(this.pins);
   }
+
+  /**
+   * Drop every pin. Used by the per-campaign reset (meta/campaignReset.ts):
+   * a new campaign's quests are not the old campaign's quests.
+   */
+  clear(): void {
+    if (this.pins.length === 0) return;
+    this.pins = [];
+    this.persist();
+  }
 }
 
 /** Map position in metres, matching the world's projection output. */
