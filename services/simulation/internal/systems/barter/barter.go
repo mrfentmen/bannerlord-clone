@@ -34,6 +34,7 @@ import (
 	"mbclone/simulation/internal/config"
 	"mbclone/simulation/internal/model"
 	"mbclone/simulation/internal/sim"
+	"mbclone/simulation/internal/systems/access"
 )
 
 // SystemName is the name every barter cause row carries. It is also what the
@@ -351,6 +352,11 @@ func applyOrder(v *sim.View, w *sim.WriteSet, o sim.Order) {
 	}
 	player := st.Leaders[deal.Player]
 	if player == nil {
+		return
+	}
+	// Treaty/town-entry: no dealing in a town whose gates are closed to the
+	// player's side.
+	if st, _ := access.TownAccess(st, town.SideID, player.SideID); st == access.Denied {
 		return
 	}
 	// The player's party is optional, and resolving it is not a precondition for

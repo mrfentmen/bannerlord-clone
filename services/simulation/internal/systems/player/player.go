@@ -11,6 +11,7 @@ package player
 import (
 	"mbclone/simulation/internal/model"
 	"mbclone/simulation/internal/sim"
+	"mbclone/simulation/internal/systems/access"
 	"mbclone/simulation/internal/systems/shared"
 )
 
@@ -204,6 +205,11 @@ func applyTrade(v *sim.View, w *sim.WriteSet, o sim.Order) {
 	if t == nil {
 		return
 	}
+	// Treaty/town-entry: cannot run a caravan into a town whose gates are
+	// closed to your side.
+	if st, _ := access.TownAccess(v.State, t.SideID, r.SideID); st == access.Denied {
+		return
+	}
 	// A trade run commits capital and buys a load on arrival. It is modelled
 	// as a caravan the party carries itself, so the same road risk applies that
 	// applies to a merchant's caravan, which is what makes an unsafe road a
@@ -269,15 +275,9 @@ func applyRecruit(v *sim.View, w *sim.WriteSet, o sim.Order) {
 	if distSq > 25 { // 5km squared
 		return
 	}
-	// Hostility check: can't recruit in hostile towns.
-	// Use actual diplomacy: only block if sides are at war.
-	// Different sides aren't necessarily hostile (could be neutral/allied).
-	if v.State.AtWar(t.SideID, r.SideID) {
-		return
-	}
-	// Access check: very negative relations (< -0.5) block recruitment
-	// even without formal war (treaty-like access denial).
-	if rel := v.State.SideRelation(t.SideID, r.SideID); rel < -0.5 {
+	// Treaty/town-entry: the single access rule. Replaces the old inline
+	// war/relation checks.
+	if st, _ := access.TownAccess(v.State, t.SideID, r.SideID); st == access.Denied {
 		return
 	}
 	// Troop cap check: party can't exceed max troops (configurable).

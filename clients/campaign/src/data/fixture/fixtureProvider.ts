@@ -512,6 +512,7 @@ class FixtureState {
         visible: spec.fog === "visible",
         known: spec.fog !== "unseen",
         lastSeenTick: spec.fog === "unseen" ? 0 : 1,
+        access: { allowed: true, reason: "" },
         recruitable: RECRUITABLE_UNITS.map((u) => ({
           ...u,
           available: Math.max(4, Math.round((RECRUIT_BASE_AVAILABLE[u.unitId] ?? 10) * sizeFactorFor(population))),

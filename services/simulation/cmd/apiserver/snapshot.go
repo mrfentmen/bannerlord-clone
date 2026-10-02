@@ -8,6 +8,7 @@ import (
 
 	"mbclone/simulation/internal/cause"
 	"mbclone/simulation/internal/model"
+	"mbclone/simulation/internal/systems/access"
 	"mbclone/simulation/internal/systems/visibility"
 )
 
@@ -59,10 +60,14 @@ func buildSnapshot(s *Server) map[string]any {
 
 	towns := make([]map[string]any, 0, len(st.Towns))
 	for _, t := range st.Towns {
+		// Treaty/town-entry, from the player's side: the client greys out
+		// trade/recruit/barter in towns whose gates are closed.
+		accessStatus, accessReason := access.TownAccess(st, t.SideID, playerSide)
 		towns = append(towns, map[string]any{
 			"id":         fmt.Sprintf("town-%d", t.ID),
 			"name":       t.Name,
 			"factionId":  fmt.Sprintf("side-%d", t.SideID),
+			"access":     map[string]any{"allowed": accessStatus == access.Allowed, "reason": accessReason},
 			"x":          t.X,
 			"y":          t.Y,
 			"population": t.Population,

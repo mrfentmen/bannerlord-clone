@@ -110,6 +110,11 @@ export interface TownState {
   /** Whether the player's side has ever had this town in sight. Never cleared. */
   known: boolean;
   /**
+   * Treaty/town-entry for the player's side. `allowed` is false when the
+   * gates are closed (at war or relations too poor); `reason` says why.
+   */
+  access: { allowed: boolean; reason: string };
+  /**
    * Tick when any side last had this town in view, or 0 or less when nobody ever has.
    *
    * In the same unit as `FogState.tick`, which is the only clock in that unit anywhere on

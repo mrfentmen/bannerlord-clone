@@ -60,6 +60,10 @@ var readOnlyPublishers = map[string]string{
 		"are read-only views of the class counts the template system publishes to the party " +
 		"every tick. Battle, march, attrition, and formation read the published composition " +
 		"rather than re-deriving it, which is the decoupling working rather than failing.",
+	"access": "access.TownAccess is a read-only treaty/town-entry check over committed " +
+		"diplomacy state (AtWar, SideRelation). It holds no WriteSet, stages nothing, " +
+		"and decides nothing for another system; it is the single place that answers " +
+		"whether a party may enter a town, consulted by player orders and barter.",
 }
 
 // violation is one cross-system import that the rule does not permit.

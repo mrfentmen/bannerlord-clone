@@ -90,6 +90,23 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
   const loyaltyDays = town.loyalty < 0.2 ? 12 : null;
 
   // -- population and workers ------------------------------------------------
+  // Treaty/town-entry: when the gates are closed to the player's side, say so
+  // up front — trade, recruit, and barter are all refused by the sim.
+  if (!town.access.allowed) {
+    body.appendChild(
+      h(
+        "div",
+        {
+          class: "sheet",
+          style: "margin-bottom:var(--space-3);border-color:var(--color-danger)",
+          role: "alert",
+          "data-testid": "town-access-denied",
+        },
+        h("p", { style: "margin:0;font-weight:600" }, "Gates closed to your side"),
+        h("p", { class: "caption", style: "margin:var(--space-1) 0 0" }, town.access.reason),
+      ),
+    );
+  }
   body.appendChild(
     h(
       "div",
