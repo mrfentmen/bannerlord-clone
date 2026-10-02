@@ -1,19 +1,19 @@
 /**
  * Deployment placement interaction for the battle scene
- * (Buffy tasks 3-5, 10, 18, 19).
+ * (Buffy tasks 3-5, 10, 18-20).
  *
  * During deployment a semi-transparent soldier ghost follows the cursor over
  * the battlefield, and a click inside the player's deployment zone drops a
  * solid marker where the unit will stand. The placer owns the pointer
- * subscription, the ghost visuals, and the placement list; the remaining
- * deployment task (clear all) builds on the same handle.
+ * subscription, the ghost visuals, and the placement list.
  *
  * The primary button places; the secondary button cancels the preview, which
  * hides the ghost and hands the unit back to the caller (`onCancel`). A click
  * that lands outside the zone flashes the ghost red for a moment instead of
  * dropping a marker. Grid snap (`setGridSnap`) puts the ghost and every marker
- * on a 2 m grid so a deployment comes out in tidy ranks, and Ctrl+Z / Cmd+Z
- * (`undoLastPlacement`) walks placements back one at a time.
+ * on a 2 m grid so a deployment comes out in tidy ranks, Ctrl+Z / Cmd+Z
+ * (`undoLastPlacement`) walks placements back one at a time, and
+ * `clearPlacements` empties the deployment for a fresh start.
  *
  * The ghost starts as a primitive proxy so it is there the moment deployment
  * begins, and upgrades to a translucent clone of the soldier GLB once the
@@ -245,6 +245,27 @@ export class DeploymentPlacer {
     this.placements.pop();
     this.disposeMarkers([group]);
     return true;
+  }
+
+  /**
+   * Clear every placement (Buffy task 20): all marker meshes go and the list
+   * empties, leaving the preview running so the player can place again
+   * straight away. Returns how many placements were removed, 0 when there was
+   * nothing to clear. The clear-all button is `BattleUI`'s — this is the
+   * scene-side action it calls.
+   */
+  clearPlacements(): number {
+    if (this.disposed) return 0;
+    const cleared = this.placements.length;
+    this.clearMarkers();
+    return cleared;
+  }
+
+  /** Drop every marker mesh and the placement list. */
+  private clearMarkers(): void {
+    this.disposeMarkers(this.placementGroups);
+    this.placementGroups.length = 0;
+    this.placements.length = 0;
   }
 
   /**
@@ -502,9 +523,7 @@ export class DeploymentPlacer {
     for (const mesh of this.proxyMeshes) mesh.dispose(false, false);
     this.proxyMeshes.length = 0;
     if (!this.proxyRetired) this.ghostMaterial.dispose();
-    this.disposeMarkers(this.placementGroups);
-    this.placementGroups.length = 0;
-    this.placements.length = 0;
+    this.clearMarkers();
     this.placementMaterial?.dispose();
     this.placementMaterial = null;
     this.ghostRoot.dispose();

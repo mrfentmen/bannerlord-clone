@@ -1,17 +1,17 @@
 /**
  * Deployment ghost preview, placement, and camera framing
- * (Buffy tasks 3-5, 10, 11, 18, 19).
+ * (Buffy tasks 3-5, 10, 11, 18-20).
  *
  * The placer owns the battlefield side of the deployment phase: a translucent
  * soldier ghost that tracks the cursor, solid markers dropped by clicks
  * inside the player's deployment zone, a right-click that cancels the
  * preview, a red flash for clicks that miss the zone, an optional 2 m grid
- * snap, and Ctrl+Z undo. `BattleScene` adds the deployment camera pose. These
- * tests run the real classes on a NullEngine — real meshes and cameras, no
- * GPU — and cover show/hide, position updates, observer hygiene, teardown,
- * placement validation, cancel, the flash, snapping, undo, and the camera
- * framing. The GLB upgrade cannot run headless (no network to /models/),
- * which is exactly the case the proxy fallback has to survive.
+ * snap, Ctrl+Z undo, and clear-all. `BattleScene` adds the deployment camera
+ * pose. These tests run the real classes on a NullEngine — real meshes and
+ * cameras, no GPU — and cover show/hide, position updates, observer hygiene,
+ * teardown, placement validation, cancel, the flash, snapping, undo, clear,
+ * and the camera framing. The GLB upgrade cannot run headless (no network to
+ * /models/), which is exactly the case the proxy fallback has to survive.
  */
 
 import { describe, expect, it, vi } from "vitest";
@@ -676,6 +676,91 @@ describe("DeploymentPlacer undo", () => {
       remove.mockRestore();
       vi.unstubAllGlobals();
     }
+  });
+});
+
+describe("DeploymentPlacer clear all placements", () => {
+  const playerZone: DeploymentZone = { x: 0, z: 0, width: 40, depth: 40, faction: "player" };
+
+  function placeThree(placer: DeploymentPlacer): void {
+    placer.placeAt(new Vector3(1, 0, 1));
+    placer.placeAt(new Vector3(2, 0, 2));
+    placer.placeAt(new Vector3(3, 0, 3));
+  }
+
+  it("removes every marker and empties the list, returning the count", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene, { zones: [playerZone] });
+    placeThree(placer);
+
+    expect(placer.clearPlacements()).toBe(3);
+
+    expect(placer.getPlacements()).toEqual([]);
+    for (const n of [0, 1, 2]) {
+      expect(scene.getMeshByName(`deployPlaced${n}Body`)).toBeNull();
+      expect(scene.getMeshByName(`deployPlaced${n}Head`)).toBeNull();
+    }
+
+    placer.dispose();
+  });
+
+  it("returns 0 when there is nothing to clear, and stays idempotent", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene, { zones: [playerZone] });
+
+    expect(placer.clearPlacements()).toBe(0);
+
+    placeThree(placer);
+    expect(placer.clearPlacements()).toBe(3);
+    expect(placer.clearPlacements()).toBe(0);
+    expect(placer.getPlacements()).toEqual([]);
+
+    placer.dispose();
+  });
+
+  it("keeps the preview running so units can be placed again immediately", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene, { zones: [playerZone] });
+    placeThree(placer);
+    placer.start();
+    placer.moveGhostTo(new Vector3(4, 0, 4));
+
+    placer.clearPlacements();
+
+    const ghost = scene.getTransformNodeByName("deployGhost")!;
+    expect(ghost.isEnabled()).toBe(true);
+    expect(placer.getPreviewPoint()!.x).toBeCloseTo(4);
+    expect(placer.placeAt(new Vector3(5, 0, 5))).toBe(true);
+    expect(placer.getPlacements()).toEqual([{ x: 5, z: 5 }]);
+    // The shared marker material survived the clear.
+    const body = scene.getMeshByName("deployPlaced3Body") as Mesh;
+    expect(body).not.toBeNull();
+    expect((body.material as StandardMaterial).alpha).toBe(1);
+
+    placer.dispose();
+  });
+
+  it("leaves nothing for undo after a clear", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene, { zones: [playerZone] });
+    placeThree(placer);
+
+    placer.clearPlacements();
+
+    expect(placer.undoLastPlacement()).toBe(false);
+    expect(placer.getPlacements()).toEqual([]);
+
+    placer.dispose();
+  });
+
+  it("does nothing after dispose", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene, { zones: [playerZone] });
+    placeThree(placer);
+
+    placer.dispose();
+
+    expect(placer.clearPlacements()).toBe(0);
   });
 });
 
