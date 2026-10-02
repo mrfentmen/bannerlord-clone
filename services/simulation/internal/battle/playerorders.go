@@ -34,7 +34,7 @@ import (
 //
 // # WHAT THIS FILE WILL NOT DO
 //
-// Six of the fourteen names are not here: follow, change-spacing, volley-fire,
+// Five of the fourteen names are not here: change-spacing, volley-fire,
 // fire-at-will, take-cover, and flank. They are not refused because they are bad
 // orders. They are refused because the formation layer has no definition of any of
 // them, and the layer's own rule is that accepting a shape or an order it cannot
@@ -43,11 +43,20 @@ import (
 // tactics commander's business. PlanGroupOrder says so by name rather than
 // pretending the order set is smaller than it is.
 //
-// move IS here, and it is the one of the seven that needed no new number to
+// move and follow ARE here, and they are the two that needed no new number to
 // define. A shape walks to a point at the file's walking pace, which is the same
 // pace an advance uses because it is the same walk, and it stops when its anchor
-// is inside its own spacing of where it was told to go. Every constant it needs is
-// therefore one the layer already had.
+// is inside its own spacing of where it was told to go. A shape that follows
+// another stands immediately behind it, one rank of room back, where the room is
+// the file's own rank_spacing and the depths are the two shapes' own. Every
+// constant either of them needs is therefore one the layer already had.
+//
+// follow was refused here for most of a day on the grounds that following is a
+// question about another formation's anchor and this layer commands only its own
+// groups. That was half right: a commander commands every group of its side, so
+// one of its own groups is exactly what it can see. What it cannot see is a group
+// belonging to the other army, and NewFormationCommander refuses a follow that
+// names one, because the group list it was given is this side's groups.
 //
 // A group with no shape has no movement order either. OrderFormationHold is the
 // zero value of FormationOrder, so a standing order that named only "advance"
@@ -78,6 +87,11 @@ type OrderParams struct {
 	// than a zero that means the middle of the field.
 	X, Y     float64
 	HasPoint bool
+	// FollowGroup is the index of the group to keep station behind, and HasFollow
+	// says whether one was named, for the same reason HasPoint does: group 0 is a
+	// real group and "no group" is not group 0.
+	FollowGroup int
+	HasFollow   bool
 }
 
 // executableOrders is the part of the fourteen this layer can carry out, and
@@ -96,12 +110,12 @@ var executableOrders = map[OrderName]string{
 	OrderChangeFormation: "form into the named shape",
 	OrderFaceDirection:   "face a fixed bearing instead of the enemy",
 	OrderTacticMove:      "walk the shape to a point on the field",
+	OrderFollow:          "keep station behind another group of this side",
 }
 
 // unexecutableOrders says what happened to the names this layer does not carry
 // out, so the refusal can name the road rather than only the wall.
 var unexecutableOrders = map[OrderName]string{
-	OrderFollow:        "following is a question about another formation's anchor, and this layer only commands its own groups",
 	OrderChangeSpacing: "spacing is a parameter of the shape in the balance file, not something a commander changes mid-battle",
 	OrderVolleyFire:    "fire discipline belongs to the aimed-fire stage, which has no seam for it",
 	OrderFireAtWill:    "fire discipline belongs to the aimed-fire stage, which has no seam for it",
@@ -153,6 +167,27 @@ func PlanGroupOrder(name OrderName, p OrderParams) (amendment, error) {
 		return amendment{order: OrderFormationMove, saysOrder: true,
 			at:        &Destination{X: p.X, Y: p.Y},
 			describes: fmt.Sprintf("move: (%+.1f, %+.1f) m", p.X, p.Y)}, nil
+	case OrderFollow:
+		// The group has to exist and has to be one of this side's, and this layer
+		// cannot know either: it is handed a list of groups and told what to do
+		// with them, and the list is checked in NewFormationCommander where the
+		// whole of it exists. A follow naming a group that is not there is refused
+		// there, by name, with the number of groups this commander has.
+		//
+		// What is checked here is the parameter itself, because a caller that sends
+		// a follow with no group named has not asked this layer to do anything.
+		if !p.HasFollow {
+			return amendment{}, newFormationError("PlanGroupOrder", "OrderParams.FollowGroup",
+				"follow needs the group to follow and none was named; a formation following nobody is a "+
+					"formation holding, and that is a different order with a name of its own")
+		}
+		if p.FollowGroup < 0 {
+			return amendment{}, newFormationError("PlanGroupOrder", "OrderParams.FollowGroup",
+				"follow was given group %d, and the groups of a side are numbered from zero", p.FollowGroup)
+		}
+		g := p.FollowGroup
+		return amendment{follow: &g, saysFollow: true,
+			describes: fmt.Sprintf("follow: group %d", g)}, nil
 	case OrderFaceDirection:
 		if !p.HasFacing {
 			return amendment{}, newFormationError("PlanGroupOrder", "OrderParams.Bearing",
@@ -186,12 +221,14 @@ type amendment struct {
 	order  FormationOrder
 	facing Facing
 	at     *Destination
+	follow *int
 	// saysKind, saysOrder, and saysFacing are which fields the order spoke to.
 	// An order that does not speak to a field leaves it alone, and that is the
 	// whole reason "advance" can be sent without naming a shape.
 	saysKind   bool
 	saysOrder  bool
 	saysFacing bool
+	saysFollow bool
 	describes  string
 }
 
@@ -452,6 +489,17 @@ func (a amendment) applyTo(g GroupOrder) GroupOrder {
 	}
 	if a.saysFacing {
 		g.Facing = a.facing
+	}
+	// A follow names one group and nothing else reads the name, so it is set and
+	// cleared by the one order that speaks to it. A standing order left following
+	// a group after the player told it to stop is a group walking off on its own.
+	if a.saysFollow {
+		if a.follow == nil {
+			g.Follow = nil
+		} else {
+			follow := *a.follow
+			g.Follow = &follow
+		}
 	}
 	return g
 }

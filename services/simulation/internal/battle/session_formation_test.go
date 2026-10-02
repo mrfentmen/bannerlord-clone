@@ -739,3 +739,141 @@ func aliveUnits(units []*Unit, ids []int) []int {
 	}
 	return out
 }
+
+// TestAFollowerKeepsUpWithTheGroupItFollows is follow in a battle, which is the
+// only place the order can be wrong in a way the arithmetic cannot show.
+//
+// A follower that stands exactly where the geometry says on the first tick is
+// not a follower; it is a group that was placed once. Following is the group
+// keeping its place as the other one goes somewhere, and the failure that matters
+// is the one a battle produces: the leader advances, the follower does not, and
+// the gap between them is a hundred metres by the end. So the second group here
+// is ordered to HOLD, and every metre it walks is the follow and not the order.
+//
+// It is also the test of the pace. A follower walking at the hold's pace cannot
+// keep up with a group advancing at the walking pace, so if the two ever drift
+// apart the difference is a pace rule and not a geometry rule, which is why the
+// gap is measured at two times and not only at the end.
+func TestAFollowerKeepsUpWithTheGroupItFollows(t *testing.T) {
+	cfg := loadConfig(t)
+	const (
+		seed  = 246813
+		steps = 150
+	)
+	s, a, b, leaders := newTestSession(t, seed)
+	if err := s.Deploy(a, b, leaders); err != nil {
+		t.Fatalf("Deploy: %v", err)
+	}
+	groups := SplitIntoGroups(idsOfSlice(a), 2)
+	o, err := NewOrders(cfg, SideA, []Group{
+		{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationAdvance}, Units: groups[0]},
+		{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold, Follow: intp(0)}, Units: groups[1]},
+	})
+	if err != nil {
+		t.Fatalf("standing orders: %v", err)
+	}
+	if err := o.Attach(s); err != nil {
+		t.Fatalf("Attach: %v", err)
+	}
+	if err := s.BeginFighting(); err != nil {
+		t.Fatalf("BeginFighting: %v", err)
+	}
+	bt := s.battle
+	// The distance the two shapes should end up at, from the geometry rather than
+	// from the layer: the leader's rear rank, one rank of room, and the follower's
+	// own depth in front of its anchor.
+	p := FormationParamsFrom(cfg.Formation)
+	lslots, err := FormationLayout(FormationLine, len(groups[0]), p)
+	if err != nil {
+		t.Fatalf("leader layout: %v", err)
+	}
+	fslots, err := FormationLayout(FormationLine, len(groups[1]), p)
+	if err != nil {
+		t.Fatalf("follower layout: %v", err)
+	}
+	leadMin, _, _, _, err := FormationExtent(lslots)
+	if err != nil {
+		t.Fatalf("leader extent: %v", err)
+	}
+	_, _, _, follMax, err := FormationExtent(fslots)
+	if err != nil {
+		t.Fatalf("follower extent: %v", err)
+	}
+	want := math.Abs(leadMin - p.RankSpacing - follMax)
+
+	// sample is where both groups are, so the gap and the leader's travel over the
+	// same window can be read off one call.
+	sample := func(tick int) (leadX, follX, gap float64) {
+		lx, ly, ok1 := weightedCentre(bt.units, groups[0])
+		fx, fy, ok2 := weightedCentre(bt.units, groups[1])
+		if !ok1 || !ok2 {
+			t.Fatalf("tick %d: one of the two groups has no weight on the field", tick)
+		}
+		return lx, fx, math.Hypot(lx-fx, ly-fy)
+	}
+	// Sixty ticks is long enough for two blobs of fifteen to become two lines and
+	// find their stations, and short enough that the fight has not decided
+	// anything. At twenty they are still on top of each other, which is the roster's
+	// spread rather than the follow, and a test that measured the gap there would
+	// be measuring the deployment.
+	const settle = 60
+	for i := 0; i < settle; i++ {
+		if err := s.Step(); err != nil {
+			t.Fatalf("Step: %v", err)
+		}
+	}
+	leadStartX, follStartX, early := sample(s.Tick())
+	for i := 0; i < steps-settle; i++ {
+		if err := s.Step(); err != nil {
+			t.Fatalf("Step: %v", err)
+		}
+	}
+	leadEndX, follEndX, late := sample(s.Tick())
+
+	// One: the follower walked. It was ordered to hold, so anything it did is the
+	// follow.
+	follWalked := follEndX - follStartX
+	leadWalked := leadEndX - leadStartX
+	if math.Abs(follWalked) < math.Abs(leadWalked)/2 {
+		t.Errorf("the leader's centre walked %+.2f m in x and the follower ordered to hold walked "+
+			"%+.2f m; a follower that does not follow is a group standing still", leadWalked, follWalked)
+	}
+	if follWalked*leadWalked <= 0 {
+		t.Errorf("the leader walked %+.2f m in x and its follower walked %+.2f m, which is the wrong "+
+			"way; a follower goes where the leader goes", leadWalked, follWalked)
+	}
+	// Two: it kept its distance. The tolerance is a frontage, which is the same
+	// yardstick the order test uses: two groups a frontage apart are visibly
+	// together and a group a hundred metres behind is not following anybody.
+	tol := 2 * cfg.Formation.FrontSpacing
+	if math.Abs(early-want) > tol {
+		t.Errorf("%d ticks in, the two groups' centres are %.2f m apart and the geometry says %.2f m",
+			settle, early, want)
+	}
+	if math.Abs(late-want) > tol {
+		t.Errorf("after %d ticks the two groups' centres are %.2f m apart and the geometry says %.2f m; "+
+			"a follower that drifts is not following", s.Tick(), late, want)
+	}
+	// Three: it did not slip away. The bound is a tenth of what the leader walked in
+	// the same window, so it scales with the pace being tested: a follower that kept
+	// up exactly would not grow the gap at all, and one that did not would grow it
+	// in proportion to how far the leader went. Measured against a fixed number of
+	// metres instead, this would pass a follower falling behind at a metre a tick as
+	// long as the leader happened to be walking slowly.
+	traveled := math.Abs(leadEndX - leadStartX)
+	if slip := late - early; slip > 0.1*traveled+cfg.Battle.TickSeconds {
+		t.Errorf("the gap grew %.2f m, from %.2f m to %.2f m, while the leader's own centre walked "+
+			"%.2f m in x over the same %d ticks; a follower at the walking pace keeps up with a group "+
+			"advancing at the walking pace, because they are the same walk", slip, early, late, traveled,
+			steps-settle)
+	}
+	t.Logf("a leader of %d ordered to advance and a follower of %d ordered to hold: the leader's centre "+
+		"walked %+.1f m in x and the follower's %+.1f m, and the two stayed %.2f m and then %.2f m "+
+		"apart against a derived %.2f m, a slip of %.2f m over a leader that walked %.1f m in that "+
+		"window (tick %d)",
+		len(groups[0]), len(groups[1]), leadWalked, follWalked, early, late, want, late-early, traveled,
+		s.Tick())
+}
+
+// intp is a pointer to an int, for the parameters this file builds by hand.
+func intp(i int) *int { return &i }
