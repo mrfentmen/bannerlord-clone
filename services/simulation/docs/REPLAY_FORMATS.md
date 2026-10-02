@@ -432,30 +432,58 @@ because the units finished somewhere else.
 
 ## 7. Limits worth knowing before you rely on any of this
 
-- **No battle the game fights is recorded, and no order a client sends reaches
-  the engine.** This is the largest gap in the system and it is not in the replay
-  code. `internal/battleapi` is the shipped battle transport, and it never calls
-  `Session.Record`, so every battle it fights is unrecorded: no order log, no
-  `Recording`, nothing for `BattleStore.Save`, and nothing for `VerifyEncoded`. It
-  also never calls `Session.Command`; `POST /v1/battle/orders` validates an order
-  name against the fourteen, appends it to the session entry's own slice, returns
-  `accepted: N`, and stops there. `orders_logged` in the state response goes up
-  anyway. A battle fought through that API with five orders accepted is
-  bit-identical to the same battle with none.
+- **A battle the game fights is recorded now; what is still open is how long the
+  server keeps it, and where the files go.** As of 2026-10-02 `internal/battleapi`
+  attaches `Session.Record` before the first tick and writes every resolved battle
+  to `logs/battles/<id>` in the same `BattleStore` format this document describes,
+  so a battle fought in the game is replayable with `simrun replay --battle <id>`
+  and nothing else. `handleResolve` also no longer holds the server's mutex across
+  a whole fast-forward — see `CHANGELOG.md`. Two limits remain:
 
-  So everything in this document is reachable from `simrun battle` and from the
-  tests, and from nothing else in the shipped program. The order-log half of that
-  is a missing call. The orders half additionally needs a wire-format decision —
-  an order on the wire is `{name, params}` with no side and no group, while
-  `Session.Command` needs a commander built for one side's formations — so it is
-  not a one-line fix. Both are in `CHANGELOG.md` under **Unresolved** with
-  reproduction commands, and both are proved by failing tests in
-  `internal/replay/apipath_test.go`.
+  - **A battle the server has finished with is never released.** Nothing deletes
+    from `Server.sessions`, so the process's heap is a function of how many
+    battles it has ever fought. The order log is no longer part of that — a
+    successful save releases it, through `Recorder.Release`, because the file is
+    the log — which took a resolved and recorded battle from **20.63 MB to
+    3.53 MB**. What is left is the field itself, and how many finished battles
+    stay readable is a product decision, not a line. `CHANGELOG.md` under
+    **Unresolved**, proved by a deliberately failing test in
+    `internal/replay/retention_test.go`.
 
-  Worth being explicit about why this does not show up as a replay mismatch: with
-  no order crossing the seam the order log is empty, and an empty log replays
-  cleanly, because an empty log correctly means nobody commanded anything. The
-  failure mode is invisible to every check in this document.
+  - **A battle fought through the HTTP API is still not in `logs/battles` if the
+    process was started with `WithBattleStore(nil)`**, and a save that fails leaves
+    no record at all rather than a partial one. Both are reported in
+    `GET /v1/battle/state` as `record_saved` and `record_error`, so "your orders
+    were accepted" and "your battle is reproducible" are separate facts a client
+    can tell apart.
+
+  Worth remembering why none of this ever showed up as a replay mismatch: with no
+  order crossing the seam the order log is empty, and an empty log replays
+  cleanly, because an empty log correctly means nobody commanded anything. A
+  battle fought with its orders thrown away **verifies**. That is why
+  `internal/replay/apirecord_test.go` asserts on `order_log_rows` as well as on
+  the verdict — the verdict alone cannot tell a recorded battle from a discarded
+  one.
+
+- **Recording is not free, and the cost is measured rather than assumed.** At 500 v
+  500, four variants interleaved and timed on `getrusage(RUSAGE_SELF)`:
+
+  | run | noise floor | control gap | command seam | order log |
+  |---|---|---|---|---|
+  | 1 | 2.7% | +0.6% | +2.7% | **+2.4%** |
+  | 2 | 1.5% | -0.0% | +2.6% | **+2.1%** |
+  | 3 | 2.4% | +1.1% | +3.2% | **+0.8%** |
+
+  Against a 5% target, on three independent runs, with a control (the identical
+  job under a second name) never worse than 1.1%. **The wall clock cannot do this
+  job**: the same runs read a 6.2% to 15.2% noise floor and a control gap of -8.4%
+  to -11.2%, and at 150 v 150 earlier runs had a 119% wall noise floor. The order
+  log's cost is per unit per tick, so it scales with the field while a battle's
+  fixed costs do not; that is why the measurement is at 500 a side and not at the
+  size it is cheapest to run. Reproduce with
+  `go test -run TestTheCostOfRecordingInCpuTimeAtFiveHundred -v ./internal/replay/`,
+  which takes about 15 minutes and reports its own noise floor rather than
+  asserting anything it cannot resolve.
 
 - **Bit-exactness is claimed for one build on one platform, not across
   architectures.** Float64 arithmetic is not portable and no amount of care in
