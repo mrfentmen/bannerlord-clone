@@ -37,8 +37,15 @@ export type SfxId = string;
  */
 export const MUSIC_CROSSFADE_SECONDS = 2;
 
-/** One playing music track: its source and the gain that carries its fade. */
-interface MusicVoice {
+/**
+ * Task 571: how long an ambient bed takes to hand over to the next, in seconds.
+ * The same length as the music crossfade so a biome change and a track change
+ * are heard as the same gesture.
+ */
+export const AMBIENT_CROSSFADE_SECONDS = 2;
+
+/** One playing looping bed — music or ambient: its source and its fade gain. */
+interface Voice {
   id: string;
   source: AudioBufferSourceNode;
   gain: GainNode;
@@ -54,7 +61,8 @@ export class AudioManager {
   private buffers = new Map<string, AudioBuffer>();
   private manifest = new Map<string, AudioAsset>();
 
-  private currentVoice: MusicVoice | null = null;
+  private currentVoice: Voice | null = null;
+  private currentAmbient: Voice | null = null;
 
   private muted = false;
 
@@ -133,28 +141,58 @@ export class AudioManager {
 
     const previous = this.currentVoice;
     if (previous) this.fadeOutVoice(previous, MUSIC_CROSSFADE_SECONDS);
-    this.currentVoice = this.startVoice(track, buffer, MUSIC_CROSSFADE_SECONDS);
+    this.currentVoice = this.startVoice(track, buffer, MUSIC_CROSSFADE_SECONDS, this.musicGain);
   }
 
-  /** Builds a music voice: silent, then up to full over `seconds` (task 554). */
-  private startVoice(track: string, buffer: AudioBuffer, seconds: number): MusicVoice {
+  /**
+   * Task 571: an ambient bed under everything else — a town by day, weather, the
+   * distant battlefield. One bed at a time: the previous bed fades out while the
+   * new one fades in, and a bed that cannot be loaded leaves the playing one
+   * alone, exactly as a track does.
+   */
+  async playAmbient(id: string): Promise<void> {
+    if (!this.ctx) await this.init();
+    if (!this.ctx || !this.ambientGain) return;
+    if (this.currentAmbient?.id === id) return;
+
+    if (!this.buffers.has(id)) {
+      await this.preload([id]);
+    }
+    const buffer = this.buffers.get(id);
+    if (!buffer) return;
+
+    const previous = this.currentAmbient;
+    if (previous) this.fadeOutVoice(previous, AMBIENT_CROSSFADE_SECONDS);
+    this.currentAmbient = this.startVoice(id, buffer, AMBIENT_CROSSFADE_SECONDS, this.ambientGain);
+  }
+
+  /** Stops the ambient bed with its own short fade (task 571). */
+  stopAmbient(): void {
+    if (!this.ctx || !this.ambientGain) return;
+    const voice = this.currentAmbient;
+    this.currentAmbient = null;
+    if (voice) this.fadeOutVoice(voice, 0.5);
+  }
+
+  /** Builds a looping voice on `bus`: silent, then up to full over `seconds`. */
+  private startVoice(id: string, buffer: AudioBuffer, seconds: number, bus: GainNode): Voice {
     const ctx = this.ctx!;
     const gain = ctx.createGain();
     const now = ctx.currentTime;
     gain.gain.setValueAtTime(0, now);
     gain.gain.linearRampToValueAtTime(1, now + seconds);
-    gain.connect(this.musicGain!);
+    gain.connect(bus);
 
     const source = ctx.createBufferSource();
     source.buffer = buffer;
     source.loop = true;
     source.connect(gain);
     source.start();
-    return { id: track, source, gain };
+    return { id, source, gain };
   }
 
-  /** Ramps one voice to silence and stops its source after the fade (task 554). */
-  private fadeOutVoice(voice: MusicVoice, seconds: number): void {
+  /** Ramps one voice to silence and stops its source after the fade. */
+  private fadeOutVoice(voice: Voice, seconds: number): void {
     const ctx = this.ctx!;
     const now = ctx.currentTime;
     try {
