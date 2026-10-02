@@ -26,7 +26,7 @@ import {
   type Scene,
 } from "@babylonjs/core";
 
-export type ModelCategory = "vehicle" | "troop" | "structure" | "nyc";
+export type ModelCategory = "vehicle" | "troop" | "structure" | "nyc" | "prop";
 
 export interface ModelEntry {
   name: string;
