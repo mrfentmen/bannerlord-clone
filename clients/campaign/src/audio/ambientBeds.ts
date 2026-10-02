@@ -37,3 +37,33 @@ export function townAmbientBed(time: AmbientTimeOfDay): SfxId {
 export async function playTownAmbient(audio: AudioManager, time: AmbientTimeOfDay): Promise<void> {
   await audio.playAmbient(townAmbientBed(time));
 }
+
+/** Task 576: the rain bed, the real `sfx-ambience-rain` asset. */
+export const RAIN_BED: SfxId = "sfx-ambience-rain";
+
+/** What the map is doing right now, as far as the ambient bus cares (task 576). */
+export interface AmbientScene {
+  /** The clock's phase, as in {@link townAmbientBed}. */
+  time: AmbientTimeOfDay;
+  /** True while rain is falling over the player. */
+  raining?: boolean;
+}
+
+/**
+ * Task 576: the bed for the whole scene. The mixer plays one bed at a time, so
+ * the rules are ordered rather than mixed: rain takes the bus from the town bed
+ * while it falls, and the town comes back when it stops. Both transitions are
+ * crossfades because that is what the mixer does when the bed id changes.
+ */
+export function sceneAmbientBed(scene: AmbientScene): SfxId {
+  if (scene.raining) return RAIN_BED;
+  return townAmbientBed(scene.time);
+}
+
+/** Puts the scene's bed on the ambient bus (task 576). */
+export async function playSceneAmbient(
+  audio: AudioManager,
+  scene: AmbientScene,
+): Promise<void> {
+  await audio.playAmbient(sceneAmbientBed(scene));
+}
