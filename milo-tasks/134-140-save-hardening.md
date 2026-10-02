@@ -32,3 +32,12 @@ needs a slimmer endpoint.
 ## Task 140
 `go test -race` on internal/model (5 save tests) and internal/cause: all green.
 Wall: ~50s.
+
+## Task 140 (completed 2026-10-02): full save/load -race suite
+`go test -race -count=1` on milo/save-load (baaf93e):
+- internal/model (save_test.go, 5 save tests): ok 1.375s
+- internal/cause: ok 1.184s
+- internal/config: ok 6.339s
+- internal/battle -run 'Save|Load|Marshal|Battlefile': ok 2.135s
+- cmd/apiserver/...: no test files (nothing to run)
+All green, no data races.

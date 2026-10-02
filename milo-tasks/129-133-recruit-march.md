@@ -50,3 +50,20 @@ Live march test: party 191 marched 0,0 -> Wildhill. It did NOT arrive — it sta
 to death en route (0 days of food; the plan warned about this) and the attrition
 system deleted it below MinTroopsToPersist. That is correct game behavior, not a
 coordinate bug. Arrival-coordinate verification with a supplied party is still open.
+
+## Task 133 (completed 2026-10-02): supplied-party march arrival VERIFIED
+
+Live test on milo/save-load (baaf93e), apiserver 127.0.0.1:18081:
+- party-496 (player) at (1754.97, 1035.05), 26 levies, ample food.
+- POST /v1/march/plan {partyId: party-496, destinationSettlementId: town-2}:
+  destination Eaglewoodhillmouth at (101.39, 221.45), 93 days estimated
+  (cross-country warning: arrives later than estimate).
+- POST /v1/march/commit: accepted.
+- Stepped clock via POST /v1/step-days (100+60+80+40 days).
+- Day 295: position (101.39, 221.45) - EXACTLY the planned destination
+  coordinates, distance 0.00. Destination cleared (None). 14/26 troops survived
+  (attrition en route, correct game behavior).
+
+Arrival semantics confirmed: arrive() sets position to DestX/DestY exactly;
+no coordinate reset bug. The earlier "0,0" parties were spawn-at-origin, not
+arrival artifacts.

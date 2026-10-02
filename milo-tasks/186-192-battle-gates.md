@@ -62,3 +62,16 @@ The REAL gap (still open on main):
   decision: it is the same question as task 116 (Pax's chunk-by-chunk
   integration ruling). Flagged to Pax on the bus 2026-10-02; not fixed
   unilaterally.
+
+## Task 187 (completed 2026-10-02): slowest five tests
+Measured on milo/tasks-101-200, 2-vCPU VM, agents paused:
+1. TestBattleSizeIsConfigurable/"a raised limit is accepted unchanged": 48m53s+
+   (8002-unit battle; timed out at 55m — EXCEEDS the 5-minute budget; this is
+   the documented limit from task 110)
+2. TestDeterminism: 270.00s (4m30s)
+3. TestStageOrderSweepHasTeeth: 65.85s
+4. TestStageOrderDoesNotMatter: 45.02s
+5. TestAHundredSeedsEachFightTheSameBattleTwice: 39.32s
+
+Honest verdict: ONE test exceeds the 5-minute budget (the 8002-unit subtest).
+All other tests in internal/battle complete under 5 minutes.

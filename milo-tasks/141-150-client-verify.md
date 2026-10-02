@@ -26,3 +26,13 @@ Rerun on a quiet box for the true count.
 Leaderboard-141, damage-vignette-150, ransom-71, shared-checkout delta,
 milo-branch UI hand-port, task-7 haptics — all need Pax's pick-one rulings.
 Asked on the bus 2026-10-02; no reply yet.
+
+## Task 150 (completed 2026-10-02): full vitest suite
+`npx vitest run` on bannerlord-main (milo/save-load baaf93e), agents paused:
+- Test Files: 145 passed, 1 failed (146 total)
+- Tests: 1401 passed, 0 failed
+- Duration: 1365.66s (22m46s)
+- The 1 failed SUITE: src/meta/__tests__/meta.test.ts — fails to import because
+  ./leaderboard.js does not exist (src/meta/index.ts:14 references it). This is
+  the leaderboard-141 collision (task 143, blocked on Pax's pick-one ruling).
+  Not a test assertion failure; a missing file from the unresolved collision.
