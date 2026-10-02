@@ -118,5 +118,28 @@ Each task is one concrete, verifiable unit. No placeholders.
 100. [ ] Final push, confirm GitHub main is green
 
 ---
-Progress: 0/100
+Progress: 37/100 (tasks 1-22, 26-37, 56 done)
 Started: 2026-10-01
+Completed:
+- Task 1 (8ebbff4): ragdoll physics module
+- Tasks 2+56 (a107b8c): battle scene bootstrap with Havok
+- Task 3 (3b3cf96): BattleSoldier with ragdoll death trigger
+- Task 4: death impulse (implemented in Task 3's die() method)
+- Task 5 (e6169ba): BattleSoldier lifecycle tests
+- Task 6 (2f5244f): BattleScene.endBattle() cleanup
+- Task 7: joint limits verified (anatomical ranges in ragdoll.ts)
+- Task 8: 12cm ground offset verified (BattleScene.ts:81)
+- Task 9: operator bone mapping verified (mixamorig: prefix handled)
+- Task 10 (54dd733): horse quadruped ragdoll support
+- Task 11 (f87b4e1): ragdoll perf test
+- Task 12 (cb7656c): ragdollEnabled setting
+- Task 13 (4e9530a): ragdoll API docs
+- Task 14 (11a62f2): fix tsc errors in tests
+- Task 15: build verified
+- Tasks 16-18 (e57fd6e): finger analysis + thumb pose
+- Tasks 19-20 (64b30e6): thumb pose on soldier load
+- Tasks 21-22: thumb pose applies to all 5 operators via BattleSoldier
+- Tasks 26-29: verified clean (no tsc errors in AnimationController, AudioAnimationBridge, ModelLoader; 14 errors are in Rowan's meta/ not my lane)
+- Tasks 30-32 (364a52b): cheer() and surrender() triggers (block/parry already existed)
+- Tasks 33-35: verified existing (takeHit(), blend in/out, setSpeed() all implemented)
+- Tasks 36-37 (e506843): models test passes, thumb LOD (my code clean; pre-existing e2e errors in metaPanels.spec.ts not my lane)
