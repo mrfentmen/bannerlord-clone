@@ -1,0 +1,23 @@
+/**
+ * Game / pause menu styles (ui/panels/GameMenu.ts).
+ *
+ * Every value comes from src/design/tokens.css — no literal colours, fonts,
+ * or spacing steps (CONSTITUTION.md 3.4, enforced by palette.test.ts).
+ */
+
+.game-menu__note {
+  margin: 0 0 var(--space-3);
+  font-size: 0.85rem;
+  color: var(--ink-500);
+}
+
+.game-menu__list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.game-menu__btn {
+  justify-content: flex-start;
+  text-align: left;
+}

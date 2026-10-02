@@ -59,6 +59,7 @@ import { createHaptics, type Haptics } from "./input/gamepad/haptics.js";
 import { createTouchOverlay, isTouchDevice, type TouchOverlay } from "./input/touch/overlay.js";
 import { marketPanel } from "./ui/panels/MarketPanel.js";
 import { settingsPanel } from "./ui/panels/SettingsPanel.js";
+import { gameMenuPanel } from "./ui/panels/GameMenu.js";
 import { partyPanel } from "./ui/panels/PartyPanel.js";
 import { marchPlanner } from "./ui/panels/MarchPlanner.js";
 import { ledgerPanel } from "./ui/panels/LedgerPanel.js";
@@ -1026,6 +1027,17 @@ function bindInputActions(): void {
   inputBound = true;
 
   input.on("ui.cancel", () => {
+    // The game menu owns Escape while it is open. With nothing open, Escape
+    // opens the game menu instead of being a no-op — except mid-battle, where
+    // the battle overlay owns the key.
+    if (gameMenu?.isOpen()) {
+      gameMenu.close();
+      return;
+    }
+    if (currentPanel === "none" && !contextNode && !battleArcActive()) {
+      openGameMenu();
+      return;
+    }
     currentPanel = "none";
     contextNode = null;
     paint();
@@ -1266,6 +1278,52 @@ function openSettings(): void {
       paint();
     },
   });
+  paint();
+}
+
+// -- Game / pause menu (Rowan) -------------------------------------------------
+// Escape with nothing open lands here. The campaign clock is held at 0 while
+// the menu is up and restored to the player's speed when it closes; paint()
+// repaints the HUD time dial from `timeScale`, so it shows "paused" for free.
+
+/** A battle arc owns Escape while it runs; the campaign menu stays out. */
+function battleArcActive(): boolean {
+  return battleUi !== null && battleUi.flow.phase !== "idle";
+}
+
+let gameMenu: { isOpen(): boolean; close(): void } | null = null;
+
+function openGameMenu(): void {
+  if (gameMenu?.isOpen()) return;
+  currentPanel = "none";
+  const previousScale = timeScale;
+  timeScale = 0;
+  provider.setTimeScale(0);
+  const handle = gameMenuPanel({
+    onResume: () => handle.close(),
+    onSaveLoad: () => {
+      handle.close();
+      openSaveLoad();
+    },
+    onSettings: () => {
+      handle.close();
+      openSettings();
+    },
+    onControls: () => {
+      handle.close();
+      openControls();
+    },
+    onQuitToTitle: () => location.reload(),
+    onClose: () => {
+      gameMenu = null;
+      contextNode = null;
+      timeScale = previousScale;
+      provider.setTimeScale(previousScale);
+      paint();
+    },
+  });
+  gameMenu = handle;
+  contextNode = handle.root;
   paint();
 }
 
