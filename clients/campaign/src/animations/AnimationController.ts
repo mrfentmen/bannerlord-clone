@@ -284,4 +284,22 @@ export class CombatAnimator {
   blockEnd(): void {
     this.controller.play('idle');
   }
+
+  /**
+   * Play cheer/victory animation (Pax task 31).
+   * Called when the player's side wins a battle.
+   */
+  cheer(): void {
+    this.controller.play('cheer');
+  }
+
+  /**
+   * Play surrender/hands-up animation (Pax task 32).
+   * Called when a unit surrenders.
+   */
+  surrender(): void {
+    // 'cheer' with arms up is the closest; models lack a dedicated surrender clip
+    // TODO: add proper surrender clip when available
+    this.controller.play('cheer');
+  }
 }
