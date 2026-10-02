@@ -1514,3 +1514,84 @@ func TestASessionWithNoCommanderHasNoFormationStates(t *testing.T) {
 		t.Errorf("a nil session published %d formation states", len(got))
 	}
 }
+
+// TestAMarchingShapePinsNobody is about one word in the published state, and it is
+// a word a caller would otherwise be misled by.
+//
+// Pinned means the shape is HOLDING a man: he is inside the pin radius, he was
+// written to with a step of zero, and the engine is not allowed to move him. It is
+// not the same claim as "was written to with a step of zero", and the two come
+// apart on a shape that is walking, where a man who happens to be on his slot is
+// carried by the shape rather than held by it.
+//
+// A caller asking "has my line formed?" reads Pinned, and a marching line that
+// reported some of its men as arrived would be reporting men who are going
+// somewhere at the shape's pace.
+//
+// The two come apart inside the pin radius rather than outside it, which is the
+// part worth pinning down: a marching shape's anchor moves every tick by the
+// pace, so a man who was on his slot is a pace's worth of movement from his new
+// one, and at this file's numbers that is inside the pin radius. Measuring it is
+// what the test does - fifteen men, one of them well inside - because a definition
+// that is only true while nothing can observe it is a definition waiting to be
+// wrong.
+func TestAMarchingShapePinsNobody(t *testing.T) {
+	const n = 15
+	cfg := loadConfig(t)
+	v := syntheticField(t, []int{n}, 0)
+	ids := make([]int, 0, n)
+	for i := range v.Units {
+		ids = append(ids, i)
+	}
+	// A move to a point is the order whose anchor is carried every tick whether or
+	// not there is an enemy to close on, which is what makes it the one to test
+	// this on: an advance on a field with nobody on the other side has nothing to
+	// close on and stands still, which is correct and would make this test prove
+	// nothing.
+	at := &Destination{X: 0, Y: 100}
+	cmd, err := NewFormationCommander(cfg, SideA, []Group{
+		{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationMove, At: at}, Units: ids},
+	})
+	if err != nil {
+		t.Fatalf("building the commander: %v", err)
+	}
+	// Two ticks: the first forms the shape where the men are standing, the second
+	// is the tick the shape is carrying it and every man is out of his slot
+	// because the shape left without him.
+	for k := 0; k < 2; k++ {
+		if err := cmd.Command(v); err != nil {
+			t.Fatalf("ordering the field on tick %d: %v", k, err)
+		}
+	}
+	states := cmd.States()
+	if len(states) != n {
+		t.Fatalf("published %d states from %d men", len(states), n)
+	}
+	p := FormationParamsFrom(cfg.Formation)
+	pin := settleRadius(FormationLine, p)
+	tightest, inside := math.Inf(1), 0
+	for _, st := range states {
+		if st.Pinned {
+			t.Errorf("unit %d is published as pinned in a shape walking to a point; the shape is "+
+				"carrying him and he has arrived nowhere", st.Unit)
+		}
+		u := v.Units[st.Unit]
+		d := math.Hypot(u.X-st.SlotX, u.Y-st.SlotY)
+		if d < tightest {
+			tightest = d
+		}
+		if d <= pin {
+			inside++
+		}
+	}
+	// The sharp half. A man inside the pin radius of a shape that is walking is
+	// exactly the case where "in his slot" and "held by the shape" come apart, and
+	// if this run produced no such man then the run proved nothing about it.
+	if inside == 0 {
+		t.Fatalf("not one of the %d men was inside the %.3f m pin radius (tightest %.3f m), so nothing "+
+			"in this run separated being in one from being held by the shape", n, pin, tightest)
+	}
+	t.Logf("a line of %d walking to a point: nobody pinned, and %d of them inside the %.3f m pin "+
+		"radius (tightest %.3f m) - inside the radius and not pinned is the whole distinction",
+		n, inside, pin, tightest)
+}

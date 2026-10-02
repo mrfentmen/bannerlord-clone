@@ -2124,7 +2124,14 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 			Facing: g.facing,
 			SlotX:  sx,
 			SlotY:  sy,
-			Pinned: cmd.DX == 0 && cmd.DY == 0,
+			// Pinned is the in-slot branch above and nothing else. A man in a
+			// shape that is walking is also written to with a step of zero when he
+			// happens to be standing on his slot, and he is not pinned: the shape
+			// is carrying him and he is going with it. Reading Pinned off the step
+			// rather than off the branch would call that man pinned, and a caller
+			// asking "did the shape put him there or is he merely not moving yet"
+			// would be told that a marching man had arrived.
+			Pinned: (!isFinite(dist) || dist <= placed) && !walking,
 		})
 	}
 	return nil

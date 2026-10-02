@@ -52,9 +52,12 @@ type FormationState struct {
 // beside a tick, and it is what lets a caller hold the answer across ticks to
 // compare two of them.
 //
-// The order is the commander's own: groups in the order they were built, and
-// inside a group by ascending unit id. It is stable, which is what makes two
-// states comparable without sorting them.
+// The order is the order the groups were commanded in: the order the caller
+// declared them, except that a follower is commanded after the group it follows
+// because it reads that group's anchor on the same tick. Inside a group, ascending
+// unit id. It is stable across ticks, which is what makes two states comparable
+// without sorting them, and a caller that wants them grouped differently has the
+// group index to sort on.
 //
 // A commander that has not been ordered has no states, and neither does a group
 // whose men are all broken, routed or dead: a man who is not in the field's
