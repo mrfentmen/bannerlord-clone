@@ -21,7 +21,14 @@ async function start(page: Page): Promise<void> {
   for (const id of ["side-mountain-alliance", "step-1", "state-CO", "step-2", "role-ruler-in-waiting", "step-3", "start-next"]) {
     await page.getByTestId(id).click();
   }
-  await expect(page.getByTestId("town-panel")).toBeVisible({ timeout: 30_000 });
+  // Faction select is followed by the character maker, which only requires a name;
+  // every later step can be accepted as-is.
+  await expect(page.getByTestId("char-first-name")).toBeVisible({ timeout: 30_000 });
+  await page.getByTestId("char-first-name").fill("Dax");
+  await page.getByTestId("char-last-name").fill("Rurik");
+  for (let i = 0; i < 7; i += 1) await page.getByTestId("maker-next").click();
+  await page.getByTestId("maker-done").click();
+  await expect(page.getByTestId("town-panel")).toBeVisible({ timeout: 60_000 });
 }
 
 test.beforeAll(async () => {

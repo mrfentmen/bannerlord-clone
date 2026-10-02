@@ -43,6 +43,15 @@ async function openAndStart(page: Page): Promise<void> {
   await page.getByTestId("step-3").click();
   await expect(page.getByTestId("start-next")).toBeVisible();
   await page.getByTestId("start-next").click();
+
+  // Faction select is followed by the character maker, which only requires a name;
+  // every later step can be accepted as-is.
+  await expect(page.getByTestId("char-first-name")).toBeVisible({ timeout: 30_000 });
+  await page.getByTestId("char-first-name").fill("Dax");
+  await page.getByTestId("char-last-name").fill("Rurik");
+  for (let i = 0; i < 7; i += 1) await page.getByTestId("maker-next").click();
+  await page.getByTestId("maker-done").click();
+  await expect(page.getByTestId("open-settings")).toBeVisible({ timeout: 60_000 });
 }
 
 /** The canvas renders real WebGL; if it is blank the map did not draw. */

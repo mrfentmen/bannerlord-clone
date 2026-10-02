@@ -17,7 +17,7 @@
     "check:no-fixtures": "node tools/check-no-fixtures.mjs",
     "fetch:fonts": "node tools/fetch-fonts.mjs",
     "fetch:world": "node tools/fetch-world-data.mjs",
-    "build:e2e": "tsc --noEmit && vite build --mode fixtures",
+    "build:e2e": "tsc --noEmit && VITE_SIMULATION_SOURCE=fixture vite build --mode fixtures",
     "e2e": "playwright test"
   },
   "dependencies": {
