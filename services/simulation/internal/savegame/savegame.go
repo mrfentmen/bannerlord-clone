@@ -86,6 +86,7 @@ type stateJSON struct {
 	NextID        map[int]int                 `json:"nextID"`
 	Relations     map[string]float64          `json:"relations"`
 	SideRelations map[string]float64          `json:"sideRelations"`
+	Oaths         map[int]model.Oath           `json:"oaths"`
 }
 
 func pairKey(p model.Pair) string {
@@ -120,6 +121,7 @@ func marshalState(s *model.State) (json.RawMessage, error) {
 		NextID:        s.NextID,
 		Relations:     make(map[string]float64),
 		SideRelations: make(map[string]float64),
+		Oaths:         s.Oaths,
 	}
 	for p, v := range s.Relations {
 		sj.Relations[pairKey(p)] = v
@@ -154,6 +156,7 @@ func unmarshalState(data json.RawMessage) (*model.State, error) {
 		NextID:        sj.NextID,
 		Relations:     make(map[model.Pair]float64),
 		SideRelations: make(map[model.Pair]float64),
+		Oaths:         sj.Oaths,
 	}
 	// Ensure non-nil maps.
 	if s.Towns == nil {
