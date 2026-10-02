@@ -149,3 +149,80 @@ export function jsonChunkRange(
   if (chunkLength <= 0 || start + chunkLength > bytes.length) return null;
   return { start, length: chunkLength };
 }
+
+/**
+ * Task 613: assets over this size are worth a warning.
+ *
+ * 10 MB is the point where a model stops being a prop and starts being a
+ * download the player waits for. It is a warning, not a refusal: a player
+ * running on a fast connection is better served by the asset than by a
+ * rejection nobody asked for.
+ */
+export const LARGE_ASSET_BYTES = 10 * 1024 * 1024;
+
+/** One asset's size, judged against {@link LARGE_ASSET_BYTES}. */
+export interface AssetSizeVerdict {
+  /** Size that was measured, bytes. */
+  bytes: number;
+  /** The same size in mebibytes, rounded to one decimal for a log line. */
+  mib: number;
+  /** True when the asset is over the limit. */
+  oversized: boolean;
+}
+
+/**
+ * Judges a size given in bytes. Taking a number rather than the buffer is
+ * deliberate: a caller knows `Content-Length` before the body arrives, and a
+ * test does not have to allocate ten megabytes to check the boundary.
+ */
+export function classifyAssetSize(byteLength: number): AssetSizeVerdict {
+  const bytes = Number.isFinite(byteLength) && byteLength > 0 ? byteLength : 0;
+  return {
+    bytes,
+    mib: Math.round((bytes / (1024 * 1024)) * 10) / 10,
+    oversized: bytes > LARGE_ASSET_BYTES,
+  };
+}
+
+/** The warning text for an oversized asset, or null when it is fine. */
+export function describeAssetSize(source: string, byteLength: number): string | null {
+  const { mib, oversized } = classifyAssetSize(byteLength);
+  if (!oversized) return null;
+  return `${source}: ${mib} MiB is over the ${Math.round(
+    LARGE_ASSET_BYTES / (1024 * 1024),
+  )} MiB asset budget`;
+}
+
+/**
+ * Task 613: warns once per asset, not once per frame.
+ *
+ * A retry loop or a preload pass can ask about the same file many times; a
+ * warning that repeats is noise, and noise is how warnings get ignored. The
+ * guard remembers what it has already said, and {@link AssetSizeGuard.reset}
+ * lets a caller re-arm it when the content behind a name has changed.
+ */
+export class AssetSizeGuard {
+  private readonly warned = new Set<string>();
+
+  constructor(private readonly onWarn: (message: string) => void = (m) => console.warn(m)) {}
+
+  /** Warns when `byteLength` is over budget; returns the message, or null. */
+  check(source: string, byteLength: number): string | null {
+    const message = describeAssetSize(source, byteLength);
+    if (message === null) return null;
+    if (this.warned.has(source)) return null;
+    this.warned.add(source);
+    this.onWarn(message);
+    return message;
+  }
+
+  /** True when this guard has already warned about `source`. */
+  hasWarned(source: string): boolean {
+    return this.warned.has(source);
+  }
+
+  /** Forgets every warning, e.g. after a cache clear. */
+  reset(): void {
+    this.warned.clear();
+  }
+}

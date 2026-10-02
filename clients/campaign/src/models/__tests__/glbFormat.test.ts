@@ -17,9 +17,13 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
+  AssetSizeGuard,
   GLB_HEADER_BYTES,
   GLB_MAGIC,
   GLB_VERSION,
+  LARGE_ASSET_BYTES,
+  classifyAssetSize,
+  describeAssetSize,
   describeGlbRejection,
   isGlbContainer,
   jsonChunkRange,
@@ -167,5 +171,75 @@ describe("the staged GLBs (task 612)", () => {
       if (rejection) reasons.add(rejection);
     }
     expect([...reasons]).toEqual([]);
+  });
+});
+describe("asset size budget (task 613)", () => {
+  it("puts the limit at 10 MB", () => {
+    expect(LARGE_ASSET_BYTES).toBe(10 * 1024 * 1024);
+  });
+
+  it("keeps an asset at the limit and warns above it", () => {
+    expect(classifyAssetSize(LARGE_ASSET_BYTES).oversized).toBe(false);
+    expect(classifyAssetSize(LARGE_ASSET_BYTES + 1).oversized).toBe(true);
+  });
+
+  it("reports a readable mebibyte figure", () => {
+    expect(classifyAssetSize(0).mib).toBe(0);
+    expect(classifyAssetSize(3 * 1024 * 1024).mib).toBe(3);
+    expect(classifyAssetSize(11 * 1024 * 1024).mib).toBe(11);
+    expect(classifyAssetSize(1_572_864).mib).toBe(1.5);
+  });
+
+  it("treats a missing or broken length as zero rather than huge", () => {
+    for (const bad of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(classifyAssetSize(bad)).toEqual({ bytes: 0, mib: 0, oversized: false });
+    }
+  });
+
+  it("names the asset and the budget in the warning", () => {
+    const message = describeAssetSize("skyscraper.glb", 12 * 1024 * 1024);
+    expect(message).toBe("skyscraper.glb: 12 MiB is over the 10 MiB asset budget");
+    expect(describeAssetSize("skyscraper.glb", 1024)).toBeNull();
+  });
+
+  it("warns once per asset, not once per check", () => {
+    const seen: string[] = [];
+    const guard = new AssetSizeGuard((m) => seen.push(m));
+    const big = 12 * 1024 * 1024;
+    expect(guard.check("a.glb", big)).not.toBeNull();
+    expect(guard.check("a.glb", big)).toBeNull();
+    expect(guard.check("b.glb", big)).not.toBeNull();
+    expect(seen).toHaveLength(2);
+    expect(guard.hasWarned("a.glb")).toBe(true);
+    guard.reset();
+    expect(guard.hasWarned("a.glb")).toBe(false);
+  });
+
+  it("says nothing about an asset inside the budget", () => {
+    const guard = new AssetSizeGuard(() => {
+      throw new Error('should not warn');
+    });
+    expect(guard.check('small.glb', 1024)).toBeNull();
+    expect(guard.hasWarned('small.glb')).toBe(false);
+  });
+
+  it("does not warn about any of the staged assets", () => {
+    const oversized: string[] = [];
+    for (const rel of stagedGlbs()) {
+      const bytes = readFileSync(join(publicDir, rel)).byteLength;
+      if (classifyAssetSize(bytes).oversized) oversized.push(rel);
+    }
+    expect(oversized).toEqual([]);
+  });
+
+  it("reports the real size of the biggest staged asset", () => {
+    const sizes = stagedGlbs().map((rel) => ({
+      rel,
+      verdict: classifyAssetSize(readFileSync(join(publicDir, rel)).byteLength),
+    }));
+    sizes.sort((a, b) => b.verdict.bytes - a.verdict.bytes);
+    // The batch's ceiling is worth knowing: it is the worst-case preload.
+    expect(sizes[0]?.verdict.mib).toBeGreaterThan(0);
+    expect(sizes[0]?.verdict.oversized).toBe(false);
   });
 });
