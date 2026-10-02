@@ -23,6 +23,7 @@ import {
   lookPresetFor,
   type LookPresetId,
 } from "../design/lookPresets.js";
+import { PARTICLE_DENSITY_DEFAULT, clampParticleDensity } from "../design/particles.js";
 
 export const SETTINGS_VERSION = 3;
 
@@ -81,6 +82,8 @@ export interface Settings {
   lookPreset: LookPresetId;
   /** Grain intensity slider, 0..1. Live: scales the resolved grain; 0 disables. */
   grainIntensity: number;
+  /** Particle density slider, 0..1 (task 148). Live: scales blood/dust/snow emission; 0 disables. */
+  particleDensity: number;
   /** Bloom post-process (task 146). Live: each toggle applies independently. */
   bloomEnabled: boolean;
   /** Pipeline vignette gate (task 146): the look grade's vignette shows only when on. Live. */
@@ -145,6 +148,7 @@ export const DEFAULT_SETTINGS: Settings = {
   viewDistance: "far",
   lookPreset: "standard",
   grainIntensity: DEFAULT_GRAIN_INTENSITY,
+  particleDensity: PARTICLE_DENSITY_DEFAULT,
   bloomEnabled: false,
   vignetteEnabled: true,
   depthOfFieldEnabled: false,
@@ -238,6 +242,7 @@ export function parseSettings(raw: unknown): Settings {
     viewDistance: pickEnum(v.viewDistance, VIEW_DISTANCES, DEFAULT_SETTINGS.viewDistance),
     lookPreset: lookPresetFor(v.lookPreset).id,
     grainIntensity: clampGrainIntensity(v.grainIntensity),
+    particleDensity: clampParticleDensity(v.particleDensity),
     bloomEnabled: v.bloomEnabled === true,
     vignetteEnabled: v.vignetteEnabled !== false,
     depthOfFieldEnabled: v.depthOfFieldEnabled === true,

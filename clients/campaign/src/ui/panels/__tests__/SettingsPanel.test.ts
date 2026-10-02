@@ -25,6 +25,7 @@ const GRAPHICS_KEYS = [
   "vignetteEnabled",
   "depthOfFieldEnabled",
   "motionBlurEnabled",
+  "particleDensity",
 ];
 const AUDIO_KEYS = ["masterVolume", "musicVolume", "sfxVolume"];
 const GAMEPLAY_KEYS = [

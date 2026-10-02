@@ -308,6 +308,7 @@ function applySettingsLive(): void {  const s = settings.get();
       depthOfField: s.depthOfFieldEnabled,
       motionBlur: s.motionBlurEnabled,
     });
+    scene.applyParticleDensity(s.particleDensity);
   }
 }
 applyUiScale(settings.get().uiScale);
@@ -423,6 +424,7 @@ scene = createCampaignScene({
     depthOfField: settings.get().depthOfFieldEnabled,
     motionBlur: settings.get().motionBlurEnabled,
   },
+  particleDensity: settings.get().particleDensity,
 });
 
 // Task 30: real draw-call counts for the perf overlay, from Babylon's own

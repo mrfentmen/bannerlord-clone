@@ -34,6 +34,8 @@ import {
   type ViewDistance,
 } from "../settings/schema.js";
 import { shadowConfigFor } from "../design/shadows.js";
+import { AmbientParticles, ParticleDensityManager } from "./particles.js";
+import { PARTICLE_DENSITY_DEFAULT } from "../design/particles.js";
 import { mapColor, tokens } from "../design/tokens.js";
 import { attachMapGestures } from "../input/touch/gestures.js";
 import { resolveGrade, type QualityLevel } from "../design/grade.js";
@@ -104,6 +106,13 @@ export interface SceneOptions {
    * construction just reads the same path once.
    */
   postFx?: PostFxToggles;
+  /**
+   * Particle density 0..1 (task 148): scales dust/snow/blood emission;
+   * 0 disables. Missing means full density. Applies live through
+   * SceneHandle.applyParticleDensity; construction just reads the same
+   * path once.
+   */
+  particleDensity?: number;
 }
 
 export interface SceneHandle {
@@ -153,6 +162,8 @@ export interface SceneHandle {
    * restart. Motion blur stays off while reduced motion is on (task 20).
    */
   applyPostFx(toggles: PostFxToggles): void;
+  /** Particle density 0..1 (task 148): scales all registered emitters live; 0 stops them. */
+  applyParticleDensity(density: number): void;
   /** One line about what the map is showing, for the data-source panel. */
   summary(): string;
   towns: TownCluster[];
@@ -411,6 +422,16 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
   }
   pushPostFx();
 
+  // -- ambient particles (task 148) ------------------------------------------
+  // Dust + snow, governed by the particle-density setting. Blood and other
+  // battle emitters register with the same manager when the battle scene
+  // creates them, so the slider governs them too.
+  const particleManager = new ParticleDensityManager();
+  const ambient = new AmbientParticles(scene, camera);
+  particleManager.register("dust", ambient.dustEmitter(), ambient.dustBaseRate);
+  particleManager.register("snow", ambient.snowEmitter(), ambient.snowBaseRate);
+  particleManager.setDensity(options.particleDensity ?? PARTICLE_DENSITY_DEFAULT);
+
   // -- picking --------------------------------------------------------------
   scene.onPointerObservable.add((info) => {
     if (info.type !== PointerEventTypes.POINTERPICK) return;
@@ -429,6 +450,7 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       lastFrameAt = now;
     }
     if (grain) grain.tick(engine.getDeltaTime());
+    ambient.update();
     sizePartyPin(pin, camera.radius, engine.getRenderHeight());
     scene.render();
   });
@@ -446,6 +468,7 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       mapGestures.dispose();
       shadowGen?.dispose();
       grain?.dispose();
+      particleManager.dispose();
       if (motionBlur !== null) {
         camera.detachPostProcess(motionBlur);
         motionBlur.dispose();
@@ -555,6 +578,9 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
     applyPostFx(toggles) {
       postFxToggles = { ...toggles };
       pushPostFx();
+    },
+    applyParticleDensity(density) {
+      particleManager.setDensity(density);
     },
   };
 }

@@ -163,6 +163,12 @@ const CONTROLS: ControlDef[] = [
     kind: { type: "slider", min: 0, max: 1, step: 0.05, format: pct },
   },
   {
+    key: "particleDensity", tab: "graphics", label: "Particle density",
+    hint: "How much dust, snow, and battle debris the scene renders. 0% disables all particles. Applies immediately.",
+    keywords: ["particle", "particles", "dust", "snow", "blood", "debris", "fx"],
+    kind: { type: "slider", min: 0, max: 1, step: 0.05, format: pct },
+  },
+  {
     key: "bloomEnabled", tab: "graphics", label: "Bloom",
     hint: "Soft glow around bright lights and the sun. Applies immediately.",
     keywords: ["bloom", "glow", "post", "processing", "fx"],
