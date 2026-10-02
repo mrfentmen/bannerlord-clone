@@ -1174,6 +1174,13 @@ type formationGroup struct {
 	// and kept until the count changes; see slotsFor why that is worth doing.
 	slots      []Slot
 	slotsCount int
+	// ax and ay are the anchor this tick's resolveAnchors worked out for this
+	// group, and hasAnchor says whether it produced one. They are read only
+	// between resolveAnchors and the orderGroup call that follows it in the same
+	// tick, so they are never carried across a tick: a stale anchor is the one
+	// thing this layer documents as the reason the anchor is recomputed.
+	ax, ay    float64
+	hasAnchor bool
 }
 
 // slotsFor returns the layout for n men in this group's shape, computing it only
@@ -1436,12 +1443,229 @@ func (c *FormationCommander) Command(v *View) error {
 	// side's formations face the same enemy, and a per-group pass would be the
 	// same answer computed twice per tick.
 	ex, ey, haveEnemy := enemyCentreOf(v, c.side)
+	// Every group's anchor is fixed before any group is ordered, because the
+	// separation is a statement about the groups against EACH OTHER and a group
+	// ordered before its neighbours were known would be laid out without them.
+	// One pass, then the usual pass.
+	c.resolveAnchors(v)
 	for _, at := range c.sequence {
 		if err := c.orderGroup(v, c.groups[at], ex, ey, haveEnemy); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+// resolveAnchors works out where every group on this side wants its shape drawn,
+// and pushes those anchors apart.
+//
+// # WHY THE ANCHORS AND NOT THE MEN
+//
+// Each group's anchor is its own centre of mass, and two groups whose centres of
+// mass are close are two shapes drawn on top of each other. That is not a
+// theoretical worry. Measured, on a settled 500-a-side hold with every group
+// ordered to hold and no enemy within 700 m:
+//
+//	groups  anchors apart   each line    slot clouds come within
+//	1       -               22.5 m wide  -
+//	2       26.4 m          18.0 m wide  0.47 m
+//	4       12.6, 12.1, 14.4 m  18.0 m wide  0.58, 0.38, 0.39 m
+//
+// The anchor separation is whatever the deployment happened to give, and
+// SplitIntoGroups hands out contiguous blocks of ids, so splitting a side into
+// groups does not spread its men out - it puts several lines through the middle
+// of the same ground. Every man in those groups was on his own slot to within
+// 0.15 m, the pin radius, and two men belonging to DIFFERENT groups still stood
+// 0.28 m apart against a min_separation of 1.20 m. The shapes did not drift into
+// each other; they were drawn overlapping.
+//
+// So the gap has to come from somewhere and the only place it can come from
+// without touching a man is the anchor: the shape is drawn around the anchor, so
+// moving the anchor moves the shape and the men walk to it, which is the one
+// thing this layer already knows how to do. Pushing the men apart directly
+// would fight the slots, and the slots are the formation.
+//
+// # WHY THE GAP IS HALF A SEPARATION, AND WHY IT IS NOT min_separation
+//
+// Two shapes laid end to end are min_separation apart at their nearest slots,
+// because every slot in a shape is at least min_separation from its neighbours and
+// two shapes sharing a boundary have exactly the men nearest that boundary
+// nearest each other. Using the whole of min_separation would make a group that
+// had been moved away be pulled straight back, since the clearance would already
+// be satisfied before the correction had finished; half leaves the group it moved
+// from still clear, which is what stops two groups trading places down the line
+// forever.
+//
+// The gap is a formation question rather than an engine one and is held in the
+// balance file beside the spacings it is derived from. It is NOT min_separation,
+// which is the engine's spacing pass and which this layer does not run: on the
+// path every player order reaches, nothing pushes two commanded men apart except
+// this layer, so a gap derived from the shape's own spacing is what holds here.
+//
+// # WHY IT IS A PURE FUNCTION AND NOT A PASS THAT SETTLES
+//
+// Measured from the same anchors, in group order, with the axis chosen from the
+// group indices, so it is the same on every machine and every run and a recorded
+// battle replays to the same state hash. It is NOT an iterative relaxation, and
+// the reason is worth stating because the obvious implementation is a loop until
+// nothing overlaps: a loop like that does not converge to the same answer from
+// the same starting point when two shapes are exactly touching, and a battle
+// whose layout depends on how many ticks it ran is not a battle that replays.
+//
+// A shape already standing clear is left exactly where it is: the correction is
+// proportional to the overlap, so a group that is not overlapping anything is not
+// moved by a rounding error, and one group of a side is untouched by this pass
+// entirely.
+func (c *FormationCommander) resolveAnchors(v *View) {
+	// Cleared first, so a group this pass cannot give a shape to is its own centre
+	// of mass again rather than last tick's answer.
+	for _, g := range c.groups {
+		g.hasAnchor = false
+	}
+	if len(c.groups) < 2 {
+		return
+	}
+	type live struct {
+		g      *formationGroup
+		n      int
+		ax, ay float64
+		minP   float64
+		maxP   float64
+	}
+	var ls []live
+	for _, g := range c.groups {
+		var members []int
+		for _, id := range g.units {
+			if id < 0 || id >= len(v.Units) || v.Units[id].Status != StatusFighting {
+				continue
+			}
+			members = append(members, id)
+		}
+		if len(members) == 0 {
+			continue
+		}
+		ax, ay, ok := centreOfMass(v, members)
+		if !ok {
+			continue
+		}
+		// The layout itself is not drawn here; drawing it is orderGroup's job a
+		// moment later, and it is the same call on the same count, so the cache in
+		// slotsFor serves both. What this pass needs is only the count and the
+		// centre of mass.
+		if !isFinite(ax) || !isFinite(ay) {
+			continue
+		}
+		ls = append(ls, live{g: g, n: len(members), ax: ax, ay: ay,
+			minP: math.Inf(1), maxP: math.Inf(-1)})
+	}
+	if len(ls) < 2 {
+		return
+	}
+
+	// The axis the side's groups are spread on: whichever of four candidate
+	// directions separates their centres of mass most. Four directions rather than
+	// a principal axis because a principal eigenvector has no agreed sign - the
+	// same field can produce (1,0) and (-1,0) - and an axis whose direction
+	// depends on arithmetic luck is not something a recorded battle can replay.
+	// The order of the candidates is fixed, so a tie picks the same one every
+	// time.
+	cands := [4][2]float64{{1, 0}, {0, 1}, {math.Sqrt2 / 2, math.Sqrt2 / 2}, {math.Sqrt2 / 2, -math.Sqrt2 / 2}}
+	bestSpread := -1.0
+	var ux, uy float64
+	for _, cd := range cands {
+		lo, hi := math.Inf(1), math.Inf(-1)
+		for _, l := range ls {
+			p := cd[0]*l.ax + cd[1]*l.ay
+			if p < lo {
+				lo = p
+			}
+			if p > hi {
+				hi = p
+			}
+		}
+		if hi-lo > bestSpread {
+			bestSpread, ux, uy = hi-lo, cd[0], cd[1]
+		}
+	}
+
+	// Each shape's extent along that axis, in the frame it is drawn around.
+	for i := range ls {
+		l := &ls[i]
+		slots, err := l.g.slotsFor(l.n, FormationParamsFrom(c.cfg.Formation))
+		if err != nil {
+			continue
+		}
+		for _, sl := range slots {
+			x, y := sl.place(l.ax, l.ay, l.g.facing)
+			p := ux*x + uy*y
+			if p < l.minP {
+				l.minP = p
+			}
+			if p > l.maxP {
+				l.maxP = p
+			}
+		}
+	}
+
+	// The sweep. Groups in order along the axis, each one pushed forward until it
+	// begins a whole spacing clear of the shape ahead of it.
+	//
+	// Separating on the projection rather than on the closest pair of men is the
+	// whole of why this works. Pushing two shapes apart by their CLOSEST approach
+	// only ever resolves the one place they touch: two eighteen-metre lines whose
+	// centres are thirteen metres apart are interleaved along their whole length,
+	// and a correction sized to the closest pair leaves them just as overlapped.
+	// Their projections are disjoint once the shapes are side by side, and a
+	// projection difference of at least the gap is a true distance of at least the
+	// gap, so this cannot claim a separation it has not got.
+	order := make([]int, len(ls))
+	for i := range order {
+		order[i] = i
+	}
+	sort.SliceStable(order, func(a, b int) bool {
+		pa := ux*ls[order[a]].ax + uy*ls[order[a]].ay
+		pb := ux*ls[order[b]].ax + uy*ls[order[b]].ay
+		if pa != pb {
+			return pa < pb
+		}
+		return ls[order[a]].g.index < ls[order[b]].g.index
+	})
+	gap := FormationParamsFrom(c.cfg.Formation).scaledBy(ls[0].g.order.spacingScale()).FrontSpacing
+	if !(gap > 0) || !isFinite(gap) {
+		gap = c.cfg.Formation.FrontSpacing
+	}
+	prevMax := math.Inf(-1)
+	for _, oi := range order {
+		l := &ls[oi]
+		if !isFinite(l.minP) {
+			continue
+		}
+		shift := 0.0
+		if isFinite(prevMax) {
+			if need := prevMax + gap - l.minP; need > 0 {
+				shift = need
+			}
+		}
+		l.g.ax, l.g.ay, l.g.hasAnchor = l.ax+ux*shift, l.ay+uy*shift, true
+		prevMax = l.maxP + shift
+	}
+}
+
+// separateAnchors is the anchor a group draws its shape around: the one this tick's
+// resolveAnchors worked out for it, or this group's own centre of mass when the
+// pass did not produce one for it. A side of one group, or a group with no
+// fighting men to draw a shape for, is its own centre of mass exactly as it always
+// was.
+//
+// The lookup is by group identity and not by coordinate, because two groups whose
+// centres of mass coincide is precisely the case this whole pass exists for: a
+// coordinate lookup would match the wrong group or the right one for the wrong
+// reason.
+func (c *FormationCommander) separateAnchors(g *formationGroup, ax, ay float64) (float64, float64) {
+	if g.hasAnchor {
+		return g.ax, g.ay
+	}
+	return ax, ay
 }
 
 // orderGroup gives every living member of one group its slot and its movement
@@ -1497,11 +1721,17 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 	// tick rather than stored: the anchor is a reading of where the men are now,
 	// not a place they were told to be, and a formation that carried a stale
 	// anchor would be marching toward where it used to be.
+	//
+	// It is then pushed clear of the other groups on this side. A centre of mass
+	// is where a group's men happen to be, and two groups whose centres of mass
+	// are close are two shapes drawn on top of each other; see separateAnchors
+	// for what that cost and why the anchor rather than the men is what moves.
 	ax, ay, ok := centreOfMass(v, c.ids)
 	if !ok {
 		return newFormationError("orderGroup", "units",
 			"group %s has %d members standing on the field and not one of them has any bodies left to stand there with", g.order.Kind, len(c.ids))
 	}
+	ax, ay = c.separateAnchors(g, ax, ay)
 	g.facing = g.order.Facing.resolve(ax, ay, ex, ey, haveEnemy, g.facing)
 
 	// The anchor is where the shape is centred, and where each man's slot is

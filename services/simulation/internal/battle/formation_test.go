@@ -1081,3 +1081,209 @@ func TestAScaleOfOneChangesNothingAtAll(t *testing.T) {
 func ftoa(v float64) string {
 	return strings.TrimRight(strings.TrimRight(fmt.Sprintf("%g", v), "0"), ".")
 }
+
+// syntheticField builds a view of n units a side laid out on a grid one metre
+// apart, so a test can ask the formation layer a question about anchors without
+// fighting a battle to ask it.
+//
+// The men are put on a grid rather than in a block on purpose: the bug this file's
+// caller was written for is about two groups whose centres of mass are close, and
+// a grid is the cheapest way to place two blocks of men at a chosen distance from
+// each other and nothing else.
+func syntheticField(t *testing.T, perGroup []int, gapX float64) *View {
+	t.Helper()
+	n := 0
+	for _, g := range perGroup {
+		n += g
+	}
+	v := &View{
+		TickSeconds: 0.1,
+		Units:       make([]UnitView, n),
+		Commands:    make([]UnitCommand, n),
+	}
+	// One column per group, the groups spaced gapX apart in x, the men of a group
+	// stacked in y a metre apart so a group's own extent is its own height.
+	id := 0
+	for gi, g := range perGroup {
+		for k := 0; k < g; k++ {
+			v.Units[id] = UnitView{
+				ID: id, Side: SideA, Status: StatusFighting,
+				X: float64(gi) * gapX, Y: float64(k),
+				Troops: 1, Speed: 4.2,
+			}
+			id++
+		}
+	}
+	return v
+}
+
+// TestTwoGroupsOfOneSideAreNotDrawnOnTopOfEachOther is the invariant that was
+// broken, stated as an invariant so it can be checked without a battle.
+//
+// Each group's anchor used to be its own centre of mass and nothing else. Two
+// groups whose centres of mass are closer than the two shapes are wide are then
+// two shapes drawn through the middle of each other, and since every man is
+// walked onto his own slot, the men end up on top of each other while both are
+// exactly where they were told to stand. Measured on a 500-a-side hold split four
+// ways, every man was within 0.15 m of his own slot and two men of DIFFERENT
+// groups stood 0.28 m apart, against a min_separation of 1.20 m.
+//
+// The check is the shape the bug took, not a threshold nobody reasoned about: the
+// two groups' slots, as drawn, must not come closer than the front spacing, and
+// every man must be at least min_separation from every other man on his side.
+func TestTwoGroupsOfOneSideAreNotDrawnOnTopOfEachOther(t *testing.T) {
+	cfg := loadConfig(t)
+	p := FormationParamsFrom(cfg.Formation)
+	ms := cfg.Formation.MinSeparation
+
+	// Four groups a side, each 125 men, whose centres of mass start twelve metres
+	// apart. A line of 125 men at this file's line_front_width is eighteen metres
+	// wide, so twelve is comfortably inside the overlap and the bug reproduces.
+	perGroup := []int{125, 125, 125, 125}
+	const anchorGap = 12.0
+	v := syntheticField(t, perGroup, anchorGap)
+
+	ids := make([]int, 0, len(v.Units))
+	for i := range v.Units {
+		ids = append(ids, i)
+	}
+	groups := SplitIntoGroups(ids, len(perGroup))
+	cmd, err := NewFormationCommander(cfg, SideA, []Group{
+		{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold}, Units: groups[0]},
+		{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold}, Units: groups[1]},
+		{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold}, Units: groups[2]},
+		{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold}, Units: groups[3]},
+	})
+	if err != nil {
+		t.Fatalf("building the commander: %v", err)
+	}
+	if err := cmd.Command(v); err != nil {
+		t.Fatalf("ordering the field: %v", err)
+	}
+
+	// Where each group was told to draw its shape, and how close the two nearest
+	// shapes came. This is the measurement, in the units the bug appeared in.
+	type drawn struct {
+		x, y float64
+		w, h float64
+	}
+	var ds []drawn
+	for gi, g := range cmd.groups {
+		ax, ay, ok := centreOfMassView(v, g)
+		if !ok {
+			t.Fatalf("group %d has no centre of mass", gi)
+		}
+		// The anchor the commander will draw around, which is the group's
+		// separated anchor rather than its own centre of mass.
+		ax, ay = cmd.separateAnchors(g, ax, ay)
+		slots, err := FormationLayout(g.order.Kind, len(g.units), p)
+		if err != nil {
+			t.Fatalf("group %d: %v", gi, err)
+		}
+		minR, maxR, minF, maxF, err := FormationExtent(slots)
+		if err != nil {
+			t.Fatalf("group %d extent: %v", gi, err)
+		}
+		// The extent along the axis the side's groups are actually spread on, not
+		// the shape's own Right and Forward. They differ by the group's facing: a
+		// line of 125 men is 22.5 m across its front and 14 m deep, and which of
+		// those two numbers points along the line of groups depends on which way
+		// the group faces. Reporting the shape-frame number here made the sweep's
+		// spacing look impossible - fifteen and a half metres between the anchors
+		// of two shapes twenty-two metres wide - when the twenty-two is measured
+		// across a different axis entirely.
+		d := drawn{}
+		d.x, d.y = ax, ay
+		d.w, d.h = maxR-minR, maxF-minF
+		lo, hi := math.Inf(1), math.Inf(-1)
+		for _, sl := range slots {
+			x, _ := sl.place(ax, ay, g.facing)
+			// The spread axis here is x, which is what the synthetic field places
+			// the groups along.
+			if x < lo {
+				lo = x
+			}
+			if x > hi {
+				hi = x
+			}
+		}
+		spread := hi - lo
+		// A non-finite anchor is checked here rather than left to the comparison
+		// below. It is not a hypothetical: the first version of the separation pass
+		// divided by a measured overlap of zero and handed back -Inf and NaN
+		// anchors, and every distance measured from them is +Inf, which is not
+		// less than min_separation, so the test below PASSED on a pass that had
+		// broken the whole field. A test that cannot tell "no overlap" from "no
+		// answer" is not measuring overlap.
+		if !isFinite(ax) || !isFinite(ay) {
+			t.Fatalf("group %d was given the anchor (%v, %v), which is not a place on the field",
+				gi, ax, ay)
+		}
+		ds = append(ds, d)
+		t.Logf("group %d: anchor (%.2f, %.2f), shape %.1f m across its front and %.1f m deep, "+
+			"%.1f m along the line the groups are spread on, %d men",
+			gi, ax, ay, d.w, d.h, spread, len(g.units))
+	}
+	// The nearest approach between any two groups' slots, measured on the slots
+	// themselves rather than on the anchors, because two anchors far apart can
+	// still carry two wide shapes into each other.
+	worst := math.Inf(1)
+	var worstPair string
+	for i := 0; i < len(cmd.groups); i++ {
+		for j := i + 1; j < len(cmd.groups); j++ {
+			gi, gj := cmd.groups[i], cmd.groups[j]
+			ai, aj := ds[i], ds[j]
+			si, err := FormationLayout(gi.order.Kind, len(gi.units), p)
+			if err != nil {
+				t.Fatal(err)
+			}
+			sj, err := FormationLayout(gj.order.Kind, len(gj.units), p)
+			if err != nil {
+				t.Fatal(err)
+			}
+			for _, a := range si {
+				ax, ay := a.place(ai.x, ai.y, gi.facing)
+				for _, b := range sj {
+					bx, by := b.place(aj.x, aj.y, gj.facing)
+					d := math.Hypot(ax-bx, ay-by)
+					if d < worst {
+						worst = d
+						worstPair = fmt.Sprintf("group %d and group %d", i, j)
+					}
+				}
+			}
+		}
+	}
+	t.Logf("the nearest two slots of different groups come within %.2f m (%s); min_separation is %.2f m and the front spacing is %.2f m",
+		worst, worstPair, ms, p.FrontSpacing)
+	if !isFinite(worst) {
+		t.Fatalf("measured no distance between any two groups' slots, so there was nothing to "+
+			"compare against min_separation %g; %d groups drew %v", ms, len(cmd.groups), ds)
+	}
+	if worst < ms {
+		t.Errorf("two groups of one side were told to draw their shapes %.2f m apart, against a "+
+			"min_separation of %.2f m. Their anchors are %v apart and each shape is %.1f m wide, so "+
+			"the shapes are being drawn through each other and the men in them are being walked onto "+
+			"the same ground.",
+			worst, ms, ds, ds[0].w)
+	}
+}
+
+// centreOfMassView is a centre of mass over a group's own members, taken from a
+// view rather than from a Battle, for the tests that place men by hand.
+func centreOfMassView(v *View, g *formationGroup) (float64, float64, bool) {
+	var sx, sy, w float64
+	for _, id := range g.units {
+		if id < 0 || id >= len(v.Units) || v.Units[id].Status != StatusFighting {
+			continue
+		}
+		t := v.Units[id].Troops
+		sx += v.Units[id].X * t
+		sy += v.Units[id].Y * t
+		w += t
+	}
+	if w == 0 {
+		return 0, 0, false
+	}
+	return sx / w, sy / w, true
+}
