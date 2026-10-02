@@ -303,7 +303,7 @@ employment, interested in a policy disagreement.
 The mood is fast and argumentative in a specific way. People here are not
 resigned, they are mid-argument, and the argument is about a number. The
 agricultural year is the local calendar and the local politics both. In the fourth
-week of July the city gets quieter, because that is when everyone finds out what
+week of July the city gets quiet, because that is when everyone finds out what
 they actually have.
 
 A mechanic's garage two blocks off the elevator row will tell you the state of the
@@ -662,8 +662,8 @@ The wealth is underground and the settlement is on the surface, which makes this
 the pattern everywhere in the Mountain West: a company town with a company above
 it. The mine pays well, owns the housing, and is the reason the town exists. When
 the mine cuts back, this town empties in a way no factory closure in the Great
-Lakes Works can match, because there is nothing here to fall back into. There is
-no other industry within a hundred miles a person could walk into and be hired by.
+Lakes Works can match, because there is nothing here to fall back into. No other
+industry within a hundred miles would hire a person who walked into it.
 
 The mood is proud and specific. This is a mining town where the mine is old enough
 to have fathers and grandsons in it, and the pride holds even when the sentiment
