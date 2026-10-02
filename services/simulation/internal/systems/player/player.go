@@ -292,12 +292,21 @@ func applyRecruit(v *sim.View, w *sim.WriteSet, o sim.Order) {
 // system notices the broken oaths, the relation system spreads the damage, and
 // a coalition forms out of it. None of that is applied here; this only records
 // the decision, and the consequences come out of the same systems as everything
-// else.
+// applyPrisoner handles ransom, release, and execution orders.
+// Only the actual captor (the leader whose ID is in the prisoner's captured_by
+// field) may issue these orders. This prevents a third party from freeing or
+// killing someone else's prisoner.
 func applyPrisoner(v *sim.View, w *sim.WriteSet, o sim.Order) {
 	c := v.Cfg
 	prisoner := v.State.Leaders[o.Target]
 	captor := v.State.Leaders[o.LeaderID]
 	if prisoner == nil || captor == nil {
+		return
+	}
+	// Captor ownership check: the orderer must be the one holding the prisoner.
+	// A prisoner with captured_by == -1 is free; anyone attempting to act on
+	// a free prisoner is ignored.
+	if prisoner.CapturedBy != o.LeaderID {
 		return
 	}
 	if o.Kind == sim.OrderRansomPrisoner {
