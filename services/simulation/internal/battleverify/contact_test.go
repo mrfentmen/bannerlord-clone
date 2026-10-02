@@ -423,7 +423,12 @@ func TestProbeContactScanDoesNotChangeTheBattle(t *testing.T) {
 
 // contactRun builds the evidence for one contact verdict: two lines that never
 // touched, and a result whose attack counters the caller sets.
-func contactRun(t *testing.T, mayEndAtRange string, res battle.Result) *Findings {
+//
+// The two lines are 120 m apart, which is forty six times a blow's reach, so
+// every verdict built here is a verdict about a battle that never closed. There is
+// no exemption parameter and there never will be again; see the note on the
+// Scenario type for what used to be in this position.
+func contactRun(t *testing.T, res battle.Result) *Findings {
 	t.Helper()
 	cfg, p := probeFor(t, 1, 1)
 	if err := p.Command(viewOf(11,
@@ -433,141 +438,92 @@ func contactRun(t *testing.T, mayEndAtRange string, res battle.Result) *Findings
 	}
 	res.Ticks = 12
 	f := &Findings{}
-	checkContact(f, Input{Config: cfg, Probe: p, Result: &res, MayEndAtRange: mayEndAtRange})
+	checkContact(f, Input{Config: cfg, Probe: p, Result: &res})
 	return f
 }
 
-// TestContactExemptionNeedsSomethingToHaveLanded is the load-bearing test for the
-// exemption, and it is a table because the bar has three rungs: a shot that hit, a
-// body put down without a hit being scored, and neither.
+// TestShootingAloneDoesNotSatisfyContact: a battle in which the arrows did
+// everything and the clubs did nothing is a FAILURE, whatever the shooting.
 //
-// The third rung is the one that matters. An exemption that let a battle pass
-// because it was DECLARED a firefight would be a hole with a label on it: the
-// skirmishers scenario could then be green while nothing at all happened in it.
-func TestContactExemptionNeedsSomethingToHaveLanded(t *testing.T) {
-	const why = "this scenario is all shooters against all melee"
-	cases := []struct {
-		name  string
-		shots float64
-		hits  float64
-		kills float64
-		want  Status
-	}{
-		{"a shot hit", 900, 110, 0, Pass},
-		{"a body was put down without a hit being scored", 900, 0, 48, Pass},
-		{"nothing landed at all", 900, 0, 0, Fail},
-		{"nothing was fired at all", 0, 0, 0, Fail},
-	}
-	for _, c := range cases {
-		t.Run(c.name, func(t *testing.T) {
-			res := battle.Result{Sides: [2]battle.SideResult{
-				{Shots: c.shots, RangedHits: c.hits, CasualtiesInflicted: c.kills},
-			}}
-			got := contactRun(t, why, res).find(RuleContact)
-			if got == nil {
-				t.Fatal("the contact rule was never reported")
-			}
-			if got.Status != c.want {
-				t.Errorf("verdict was %s, want %s: %s", got.Status, c.want, got.Note)
-			}
-			if c.want == Fail && len(got.Violations) != 1 {
-				t.Fatalf("a failure recorded %d violations, want 1", len(got.Violations))
-			}
-			if c.want == Pass && len(got.Violations) != 0 {
-				t.Errorf("a pass carried %d violations", len(got.Violations))
-			}
-		})
-	}
-}
-
-// TestContactExemptionQuotesItsReason checks that a pass through the exemption is
-// a claim a reader can check rather than a bare tick in a table. The note has to
-// name why the scenario is allowed to end at range and how the shooting carried
-// it, or "pass" is asking to be believed.
-func TestContactExemptionQuotesItsReason(t *testing.T) {
-	const why = "every unit on side A is a shooter and every unit on side B is melee"
+// This used to be one rung of a table about the exemption, and it is the rung that
+// mattered: with an exemption in the harness, a scenario built out of shooters
+// could be declared a firefight and go green on shots alone, which is a hole with
+// a label on it. The exemption is gone, so the same evidence is now the rule
+// itself rather than an exception to it.
+func TestShootingAloneDoesNotSatisfyContact(t *testing.T) {
 	res := battle.Result{Sides: [2]battle.SideResult{
 		{Shots: 974, RangedHits: 110, CasualtiesInflicted: 48},
 	}}
-	c := contactRun(t, why, res).find(RuleContact)
-	if c == nil {
-		t.Fatal("the contact rule was never reported")
-	}
-	if c.Status != Pass {
-		t.Fatalf("verdict was %s, want Pass: %s", c.Status, c.Note)
-	}
-	for _, want := range []string{why, "974 shots", "110 of them hit", "48 bodies", "No swing was thrown"} {
-		if !strings.Contains(c.Note, want) {
-			t.Errorf("the note does not mention %q, so the pass cannot be checked: %s", want, c.Note)
-		}
-	}
-}
-
-// TestContactExemptionIsNotGlobal is the guard on the guard: the same battle, with
-// the same shooting, judged by a scenario that did not ask for the exemption. If
-// the shooting could satisfy the rule on its own then the exemption would be
-// decoration and every scenario would pass whenever anybody took a shot.
-func TestContactExemptionIsNotGlobal(t *testing.T) {
-	res := battle.Result{Sides: [2]battle.SideResult{
-		{Shots: 974, RangedHits: 110, CasualtiesInflicted: 48},
-	}}
-	c := contactRun(t, "", res).find(RuleContact)
+	c := contactRun(t, res).find(RuleContact)
 	if c == nil {
 		t.Fatal("the contact rule was never reported")
 	}
 	if c.Status != Fail {
-		t.Fatalf("a battle with no swings passed for a scenario that requires contact: %s", c.Note)
-	}
-}
-
-// TestContactExemptionFailureNamesTheExemption: when a scenario that may end at
-// range does nothing at all, the finding has to say the exemption was available
-// and not used. Otherwise the same finding reads identically to one from a
-// scenario with no exemption, and the reader cannot tell whether the rule was
-// misapplied or simply not met.
-func TestContactExemptionFailureNamesTheExemption(t *testing.T) {
-	const why = "every unit on side A is a shooter"
-	c := contactRun(t, why, battle.Result{Sides: [2]battle.SideResult{{Shots: 900}}}).
-		find(RuleContact)
-	if c == nil {
-		t.Fatal("the contact rule was never reported")
-	}
-	if c.Status != Fail {
-		t.Fatalf("verdict was %s, want Fail", c.Status)
+		t.Fatalf("a battle with 974 shots, 110 hits and 48 bodies put down, and no swing thrown, was judged "+
+			"%s: the shooting carried it", c.Status)
 	}
 	d := c.Violations[0].Detail
-	if !strings.Contains(d, "exemption was not used") {
-		t.Errorf("the finding does not say the exemption was available and unused: %s", d)
-	}
-	if !strings.Contains(d, why) {
-		t.Errorf("the finding does not quote the reason the exemption exists: %s", d)
-	}
-	for _, want := range []string{"900 shots were fired", "0 hit"} {
+	for _, want := range []string{"974 shots were fired", "110 hit", "never executed once"} {
 		if !strings.Contains(d, want) {
-			t.Errorf("the finding does not quote %q, so the reader is not shown that nothing landed: %s",
-				want, d)
+			t.Errorf("the finding does not mention %q, so a reader is not shown that the shooting was the "+
+				"only thing that happened: %s", want, d)
 		}
 	}
 }
 
-// TestOnlyTheFirefightScenarioClaimsTheExemption pins the exemption to the one
-// scenario built out of shooters, because an exemption is a statement about a
-// matchup and it rots quietly: a scenario that claims it and is later rebuilt as
-// two mixed forces would keep passing on shooting alone, with nobody left
-// checking that the exemption still describes it.
-func TestOnlyTheFirefightScenarioClaimsTheExemption(t *testing.T) {
+// TestEveryScenarioReachesContact is the test that replaced the exemption, and it
+// is stronger than what it replaced.
+//
+// The exemption was a per-scenario declaration that a battle might be decided at
+// range, checked only in the scenario that used it and only for whether the
+// declaration still described the scenario. This one runs every scenario in the
+// suite at the shipped balance file and requires two things of each, with nothing
+// to declare: a blow was thrown, and the two armies were inside a blow's reach of
+// each other at some published tick.
+//
+// Both halves are needed and they fail for different things. "A swing was thrown"
+// is the engine's own counter and is what stops a panic cascade. "They were within
+// melee_range" is the measurement, and it is what stops a scenario passing because
+// one unit of one side stumbled into one unit of the other side while the rest of
+// the battle was fought at 200 m.
+//
+// The skirmishers scenario is the one this test exists for. It was decided at 22 m
+// with nothing thrown, which is eight and a half times the reach of a blow, and
+// that was reported as a failure with a note saying the shooting had carried it.
+// It is now decided at 0.6 m with 42 swings and no note to write.
+func TestEveryScenarioReachesContact(t *testing.T) {
+	cfg := loadConfig(t)
+	path, err := findBalanceFile()
+	if err != nil {
+		t.Fatalf("the balance file could not be found: %v", err)
+	}
 	for _, sc := range Suite {
-		claimed := sc.MayEndAtRange != ""
-		allRanged, allMelee := false, false
-		if setup, err := sc.Build(loadConfig(t), 20260930, 1); err == nil {
-			allRanged = len(setup.A) > 0 && countRanged(setup.A) == len(setup.A)
-			allMelee = len(setup.B) > 0 && countRanged(setup.B) == 0
-		}
-		if claimed && !(allRanged && allMelee) {
-			t.Errorf("scenario %q claims it may end at range, but its setup is not a side of shooters "+
-				"against a side of melee: A is all shooters=%v, B is all melee=%v. Either the "+
-				"exemption or the scenario is wrong, and both are silent if this is not checked",
-				sc.Name, allRanged, allMelee)
-		}
+		sc := sc
+		t.Run(sc.Name, func(t *testing.T) {
+			run := RunScenario(cfg, path, sc, 20260930, 1)
+			if run.Err != nil {
+				t.Fatalf("the scenario did not run: %v", run.Err)
+			}
+			swings := 0.0
+			for _, sr := range run.Report.Result.Sides {
+				swings += sr.Swings
+			}
+			p := run.Report.Probe
+			if p == nil {
+				t.Fatal("the run has no probe, so contact was never measured")
+			}
+			if swings <= 0 {
+				t.Errorf("the battle threw no swings at all: it was decided without the melee stage ever "+
+					"running, which is a panic cascade whatever it looks like (%d ticks, %s by %s)",
+					run.Report.Result.Ticks, run.Report.Winner, run.Report.HowDecided)
+			}
+			if melee := cfg.Battle.MeleeRange; p.minFoe > melee {
+				t.Errorf("the closest two men who could strike each other ever came was %.1f m, against a "+
+					"melee_range of %g m (%.1f times the reach of a blow), and they were inside it on %d of "+
+					"%d published ticks", p.minFoe, melee, p.minFoe/melee, p.contactTicks, p.ticks)
+			}
+			t.Logf("%d ticks, closest %.1f m, inside a blow's reach on %d ticks, %.0f swings thrown",
+				run.Report.Result.Ticks, p.minFoe, p.contactTicks, swings)
+		})
 	}
 }
