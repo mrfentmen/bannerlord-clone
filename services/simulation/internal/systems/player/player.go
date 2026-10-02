@@ -270,11 +270,9 @@ func applyRecruit(v *sim.View, w *sim.WriteSet, o sim.Order) {
 		return
 	}
 	// Hostility check: can't recruit in hostile towns.
-	// If the town's side is at war with the leader's side, no recruits.
-	if t.SideID != r.SideID {
-		// Check if sides are hostile (simplified: different sides = hostile
-		// unless allied; for now, different side blocks recruitment).
-		// TODO: use proper diplomacy state when available.
+	// Use actual diplomacy: only block if sides are at war.
+	// Different sides aren't necessarily hostile (could be neutral/allied).
+	if v.State.AtWar(t.SideID, r.SideID) {
 		return
 	}
 	// Troop cap check: party can't exceed max troops (configurable).
