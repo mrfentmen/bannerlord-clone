@@ -812,7 +812,7 @@ state_tax_default = 0.03       # starting state rate. Range 0-0.5.
 # | grid_cell_size | melee query cell width, in metres | not the field size; it may be coarsened to fit grid_max_cells | 0.1-10000, and at least melee_range | 4-40 |
 # | ranged_grid_cell_size | aimed fire query cell width, in metres | not derived from grid_cell_size; the two queries have opposite shapes | 0.1-100000 | 16-256 |
 # | grid_max_cells | cells one spatial index may hold | not a simulation limit; going over coarsens the cell, which is always correct | 4-4000000 | 1024-262144 |
-# | max_report_events | events a report keeps before counting the rest | not a simulation bound; the tick loop never reads it | 1-1000000 | 16-4096 |
+# | max_report_events | events a report keeps before counting the rest | not a simulation bound; the tick loop never reads it, but a report that drops events cannot be cross-checked against them | 1-1000000 | 16-65536 |
 # | roster_leaders_per_unit | units one commander is worth | not a cap on commanders; every force gets at least one | 1-100000 | 50-500 |
 # | roster_front_aspect | how wide a force of n is laid out, against how deep | not a unit count and not a field size; it is a shape, and it is what makes a bigger force wider rather than deeper | 0.1-50 | 1.5-6 |
 #
@@ -832,31 +832,35 @@ state_tax_default = 0.03       # starting state rate. Range 0-0.5.
 # runs was the reference_units_per_side line in this file. All four PASS, which
 # includes the shipped default at 500 a side.
 #
-# | reference_units_per_side | per side | ticks | wall | units/s | decided | casualties A / B |
-# |---|---|---|---|---|---|---|
-# | 50.0  |  50 v  50 |  485 |  1.3 s | 38054 | A, enemy broke | 14.0% / 12.0% |
-# | 100.0 | 100 v 100 | 1152 |  6.0 s | 25216 | A, enemy broke | 25.0% / 41.0% |
-# | 250.0 | 250 v 250 | 1865 | 41.6 s | 22439 | A, enemy broke | 31.6% / 35.6% |
-# | 500.0 | 500 v 500 |  518 | 48.3 s | 10732 | B, enemy broke | 24.2% / 20.6% |
+# | reference_units_per_side | per side | ticks | wall | units/s | decided | swings | casualties A / B |
+# |---|---|---|---|---|---|---|---|
+# | 50.0  |  50 v  50 | 1868 |   1.8 s | 103519 | A, enemy broke |   220 | 70.0% / 70.0% |
+# | 100.0 | 100 v 100 | 1902 |   6.0 s |  62961 | A, enemy broke |   432 | 68.0% / 75.0% |
+# | 250.0 | 250 v 250 | 1940 |  26.2 s |  37054 | A, enemy broke |  1027 | 70.8% / 72.8% |
+# | 500.0 | 500 v 500 | 1918 |  73.0 s |  26282 | B, enemy broke |  2365 | 73.8% / 70.4% |
 #
 # What each row shows: the force was built at the size the file asked for, the
-# battle ran to a conclusion inside the tick bound, both sides lost men, and a
-# side won. That is what "the size knob works" has to mean, and it is checked
-# from both ends in the test suite as well: the config package refuses a file
-# asking for a size it cannot give, and the engine package proves the size
-# arrives from the file rather than from a constant in the code.
+# battle ran to a conclusion inside the tick bound, both sides lost men, blows
+# were thrown on both sides, and a side won. That is what "the size knob works"
+# has to mean, and it is checked from both ends in the test suite as well: the
+# config package refuses a file asking for a size it cannot give, and the engine
+# package proves the size arrives from the file rather than from a constant in the
+# code.
 #
-# Read the wall column carefully, though, because it is the least comparable
-# number here. These four runs did not have the machine to themselves: the
-# 500 a side row ran while a 5000 unit benchmark was in flight on the same two
-# cores. The figure that is actually comparable is the cost of a tick, and
-# TestHeadlessReference logs it: 25 to 45 microseconds per unit per tick on a
-# quiet box, 93 with three test binaries competing. The 1000 units at 30 fps
-# figure in SPEC.md section 5.1 allows 33, so the engine is inside the target
-# when it has the cores and over it when it does not, and closing that gap is
-# the grid hot path's lane. Cost per tick also grows faster than linearly in
-# force size, which is why the sweep stops at four sizes rather than running to
-# max_units_per_side.
+# The four rows are also the scale-invariance evidence, which is what the share
+# terms in the morale model exist to give: 50 a side and 500 a side fight the same
+# battle for the same length of time and lose the same share of their men. What
+# does not survive the tenfold is the cost of a tick: 9.7 us, 15.9 us, 27.0 us and
+# 38.0 us per unit per tick, so the engine is inside SPEC.md section 5.1's 33 us at
+# 50 and 100 a side and over it at 250 and 500. Closing that is the grid hot
+# path's lane and it is not this file's.
+#
+# Read the wall column carefully, because it is the least comparable number here:
+# these runs did not have the machine to themselves, four agent sessions and
+# several test binaries shared two cores throughout. Every row was run twice, and
+# the wall column moved by 13% between two identical runs of the same binary
+# (500 a side: 82.7 s then 73.0 s) while the tick count did not move at all. The
+# tick count is the reproducible number; the wall time is a note about this box.
 #
 # The first version of this table was RED at every size, and it recorded that
 # plainly rather than blaming the knob. It was right not to: the knob was never
@@ -868,19 +872,20 @@ state_tax_default = 0.03       # starting state rate. Range 0-0.5.
 #
 # WHAT IS NOT CLAIMED, PLAINLY:
 #
-# 1. Casualty rates of 20% to 40% are HIGH for a field battle, and these are
-#    decided as often by routed men as by dead ones: the 500 a side row ended
-#    with 289 of A's 500 units routed and 121 bodies down. Whether those rates
-#    are the ones a designer wants is a balance question for
-#    TESTING_AND_BALANCE.md, and it is answered by a many-seed sweep, not by
-#    four runs at one seed. What is claimed here is only that the engine now
-#    produces casualties at all, that it produces them at every size, and that
-#    no row is decided before the armies have closed.
+# 1. Casualty rates of 68% to 75% are HIGH for a field battle, and they are the
+#    direct price of morale_casualty_hit at 1.0; the reasoning and the sweep are
+#    written beside that key. Whether a battle should cost both sides seven men
+#    in ten is a question for TESTING_AND_BALANCE.md and is NOT settled here.
+#    What is claimed is only that the engine produces blows, that it produces them
+#    at every size from 50 to 500 a side, and that no row is decided before the
+#    armies have closed.
 # 2. The winner flips between the 250 and the 500 row. Two even forces at one
 #    seed are not a measurement of which side is stronger, and a single seed at
 #    a single size should never be read as one.
 # 3. Nothing here is a performance claim about the 1000 unit target. It is a
 #    claim about the tick cost, stated above, with the box's load stated too.
+# 4. These rows are single seed. The size knob is proven by them; nothing about
+#    the shape of the fight is proven by one seed at one size.
 #
 # The ceiling knob was exercised in the same pass, because a size limit nobody
 # has seen refuse a size is a comment. Setting max_units_per_side to 200 with a
@@ -951,12 +956,34 @@ ranged_grid_cell_size = 64.0
 # counts per index; a two thousand a side battle is nowhere near it.
 grid_max_cells = 65536
 # Ceiling on how many events a battle report keeps. HARD range 1-1000000; SANE
-# range 16-4096. Past this the events are counted in the report rather than
+# range 16-65536. Past this the events are counted in the report rather than
 # dropped silently, so a truncated event list is always visible as one. The tick
-# loop never reads it and no fighting changes because of it. 16 is plenty for a
-# battle whose outcome you can read at a glance; raise it when reading the log
-# of a long one. It was a constant in code (4096) and the default is unchanged.
-max_report_events = 4096
+# loop never reads it and no fighting changes because of it.
+#
+# IT WAS 4096, WHICH IS SMALLER THAN ONE SHIPPED-SIZE BATTLE WRITES. Measured on
+# the reference battle at four sizes, all at seed 20260930, with the events the
+# engine actually wrote:
+#
+#   per side   ticks   events written   kept at the old 4096
+#        50     1868             5,526            4,096   1,430 dropped
+#       100     1902            12,230            4,096   8,134 dropped
+#       250     1940            28,856            4,096  24,760 dropped
+#       500     1918            53,726            4,096  49,630 dropped
+#
+# A dropped event is not a wrong number, and nothing in the engine reads the log
+# back, so the battle was decided correctly in all four rows. It is the CHECKING
+# that goes: the verification suite cross-checks a battle's casualty and unit
+# totals against its event log, and at the shipped default it could run neither,
+# so it reported both as "not checkable" and said why. Two of its thirteen rules
+# were gaps at the size the file ships, and they were gaps because of a number in
+# this file that had never been checked against a battle's length.
+#
+# So the default is the size the shipped battle needs, with room over it:
+# 65536 holds the 500 a side reference battle with 22% to spare. It is a memory
+# bound, roughly 200 bytes an event, so a report may hold about 13 MB of log; a
+# campaign keeping many battles at once wants smaller, and a reader of one long
+# battle wants larger. Nothing here trades fighting for it.
+max_report_events = 65536
 # How many units one commander is worth, used to give a generated force a
 # command structure proportional to its size. A side of n units gets
 # 1 + n/roster_leaders_per_unit commanders. HARD range 1-100000; SANE range
@@ -1239,14 +1266,52 @@ routed_exposure = 1.30
 # unbounded in the number of men who happen to be dead around you.
 #
 # As a share the term is bounded by construction: the most it can ever cost is
-# this number times tick_seconds, which is every man the unit can see dead. At
-# 3.4 a man who has lost one in twenty of his neighbourhood loses 0.043 a
-# second, a man who has lost a fifth of it loses 0.34, and only a neighbourhood
-# that is wiped out costs the full 0.85 a tick. It is also free of the two
-# scale couplings a count drags in: a squad of ten dying reads the same as one
-# man of ten dying, and a thousand a side reads the same as fifty, which is
-# what COMBAT.md section 13 asks of a model that has to carry both.
-morale_casualty_hit = 3.4
+# this number times tick_seconds, which is every man the unit can see dead. It is
+# also free of the two scale couplings a count drags in: a squad of ten dying
+# reads the same as one man of ten dying, and a thousand a side reads the same as
+# fifty, which is what COMBAT.md section 13 asks of a model that has to carry
+# both.
+#
+# IT WAS 3.4, AND 3.4 DECIDED SHOOTING MATCHES BY ARITHMETIC
+#
+# Being a share is necessary and it is not sufficient. The share is the fraction,
+# and this number is the price of the whole of it, so the number sets how fast a
+# battle is decided by the men it is losing rather than by the men in front of it.
+# At 3.4 a formation with a ninth of what it can see dead was losing 0.42 morale a
+# second, which is two fifths of a man's entire steadiness every second, and a
+# firing line 240 m from a column of slow troops could break that column before it
+# arrived. That is not a judgement about shooting, it is a fight decided at range
+# by a number nobody had swept.
+#
+# Swept against all four scenarios of the verification suite at one seed, same
+# binary, config only, best of nothing: ticks / closest approach the two armies
+# ever came / swings thrown / side B's casualties.
+#
+#   hit   symmetric 50v50      outnumbered 100v50   skirmishers 40v40   morale 30v30
+#   3.4   485 / 0.4 m / 55     335 / 0.4 m / 65    427 / 22.0 m / 0    1331 / 0.5 / 66
+#   2.0   1329 / 0.1 m / 98    464 / 0.4 m / 88    440 / 20.0 m / 0    1306 / 0.4 / 74
+#   1.5   1853 / 0.1 m / 138   465 / 0.4 m / 91    453 / 18.3 m / 0    1284 / 0.4 / 85
+#   1.0   1246 / 0.1 m / 185   480 / 0.4 m / 106   463 / 0.4 m / 8     1786 / 0.4 / 98
+#   0.7   1562 / 0.1 m / 182   502 / 0.4 m / 126   478 / 0.1 m / 39    1882 / 0.4 / 111
+#   0.5   1841 / 0.1 m / 191   485 / 0.4 m / 124   476 / 0.0 m / 45    1876 / 0.4 / 117
+#
+# The skirmishers column is the one that matters: forty units of light shooters
+# against forty units of slow heavy infantry, decided by the arrows or by the
+# clubs, and at 1.5 the two armies came within 2.3 m of each other once and threw
+# two swings between them. At 1.0 they fight for 29 ticks inside a blow's reach
+# and 42 swings are thrown. Below 1.0 the marginal return flattens (0.7 buys the
+# same 29 contact ticks and fewer swings than 1.0) and the casualty rate keeps
+# climbing, so 1.0 is the smallest change that puts the melee stage in the fight.
+#
+# WHAT IT COSTS, STATED RATHER THAN DISMISSED: casualty rates at this value are
+# high, 68% to 75% of bodies on both sides across the four sizes in the table at
+# the head of this file, and a fight in which both sides lose seven men in ten is
+# a long one. That is the trade being made deliberately. The other side of it is
+# that at 3.4 the same four battles ended with between 12% and 40% casualties and
+# hundreds of units routed, because the men never got the time to kill each other.
+# A casualty rate is a balance question and belongs to whoever owns
+# TESTING_AND_BALANCE.md; what is measured here is that the melee stage now runs.
+morale_casualty_hit = 1.0
 # Reference distance over which a nearby casualty frightens a unit, in metres.
 # Range 5-1000. A formation breaks because of what it can see.
 morale_neighbourhood = 90.0
