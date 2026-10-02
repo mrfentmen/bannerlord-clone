@@ -128,3 +128,65 @@ Every gauge shows its current value, trend arrow, and days until problem. Hover 
 - Desktop browsers are the target.
 - Mobile is out of scope for V1.
 - Minimum window size and performance mode settings (SPEC.md section 10).
+
+---
+
+## Design Principles
+
+### 1. Information, Not Decoration
+Every pixel should tell the player something. If it doesn't, remove it.
+- Numbers over bars (show "47/100" not just a bar)
+- Tooltips on everything (hover for details)
+- No mystery meat (if it's clickable, it looks clickable)
+
+### 2. Speed Matters
+The player makes hundreds of decisions per session. Each one should be fast.
+- Maximum 2 clicks to any common action
+- Keyboard shortcuts for everything
+- No modal dialogs for routine tasks (use inline panels)
+
+### 3. The World Is the UI
+Don't hide the game behind menus. Show it on the map.
+- Troop movements visible as 3D markers
+- Town status visible from zoomed-out view (color, icons)
+- Battle lines visible before you click
+
+### 4. Failure Is Information
+When something goes wrong, tell the player why.
+- "Your troops are starving" not "Morale -10"
+- "The council voted you out because: hunger (3 weeks), high taxes, broken promise"
+- Always show the cause chain (see Why panel)
+
+## Panel Guidelines
+
+### Market Panel
+- Show: good name, price, trend arrow, sparkline, your stock, town stock
+- Buy/sell with 1 click. Shift-click for 10. Ctrl-click for max.
+- Color code: green (good deal), red (bad deal), gray (no stock)
+
+### Party Panel
+- Show: troop type, count, morale, wage, upkeep
+- Drag to reorder. Click to see details.
+- Warning icons for: starving, unpaid, low morale, wounded
+
+### Map
+- Left-click: select
+- Right-click: context menu (move here, attack, etc.)
+- Hover: tooltip with key info
+- Zoom: mouse wheel. Pan: WASD or drag.
+
+## Accessibility
+
+- **Colorblind modes:** Deuteranopia, protanopia, tritanopia. Never rely on color alone.
+- **Font scaling:** UI scales 80%-150%. All text remains readable.
+- **High contrast:** Optional theme for low vision.
+- **Screen reader:** Key panels have ARIA labels (not full support, but improving).
+- **Reduced motion:** Disable camera shake, particle effects.
+
+## Mobile (Touch)
+
+- Tap: select
+- Long-press: context menu
+- Pinch: zoom
+- Two-finger drag: rotate camera
+- All panels are touch-friendly (min 44px targets)

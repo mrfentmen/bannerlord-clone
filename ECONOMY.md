@@ -89,3 +89,64 @@ Examples of how the economy connects to everything else, each of which must emer
 - Hovering any resource shows its net change per day and how many days it lasts.
 - Warnings appear before a resource hits zero, not after.
 - The Why panel (CAUSE_EFFECT.md section 4) can explain any shortage.
+
+## 11. TRADE MECHANICS IN DETAIL
+
+### Price Formation
+Each good in each town has a price computed from:
+- **Local stock** vs. **local demand** (primary driver)
+- **Distance** to nearest surplus (transport cost)
+- **Road safety** (bandits add risk premium)
+- **War status** (blockades, sieges spike prices)
+- **Season** (harvest cycles, winter shortages)
+- **Outbreaks** (medicine demand spikes, food demand drops as workers die)
+
+### Trade Routes
+Profitable routes emerge from price differences. The player can:
+- **Manual trade:** Buy low, haul, sell high. Requires cargo space, guards, and knowledge.
+- **Caravans:** Hire a caravan master, assign a route, collect profits (minus costs and losses).
+- **Information:** Price history charts show trends. Rumors hint at shortages. Spies reveal stockpiles.
+
+### Smuggling
+Blockaded or hostile towns pay premiums for contraband. High risk, high reward.
+- **Risk:** Patrols, informants, rival smugglers
+- **Reward:** 2-5x normal prices for food, medicine, weapons
+- **Consequence:** Caught smuggling damages relations, can trigger war
+
+## 12. WORKSHOPS
+
+Buildings that convert inputs to outputs for profit. Each town can host limited
+workshops based on prosperity and infrastructure.
+
+**Types:**
+- **Smithy:** Metal → Weapons (sells to garrisons, armies)
+- **Mill:** Grain → Flour (sells to towns, bakeries)
+- **Clinic:** Herbs → Medicine (sells to towns, armies)
+- **Workshop:** Scrap → Parts (sells to mechanics, factories)
+
+**Mechanics:**
+- Each workshop has input stock, output stock, workers, and efficiency
+- Profit = (output price × quantity) - (input cost + wages + upkeep)
+- Workshops compete: two smithies in one town split the demand
+- Can be sabotaged, seized in war, or destroyed in sieges
+
+## 13. ECONOMIC WARFARE
+
+Ways to hurt enemies without fighting:
+
+- **Embargo:** Refuse to trade. Works if they depend on your goods.
+- **Dumping:** Flood their market with cheap goods. Destroys their producers.
+- **Cornering:** Buy up all of a critical good. Create artificial shortage.
+- **Counterfeiting:** Flood with fake currency. Destroys trust. (Illegal, dangerous)
+- **Blockade:** Military. Stop all trade. Starve them out.
+
+Each has counters. Economic warfare is a game of moves and countermoves.
+
+## 14. DEBT AND BANKRUPTCY
+
+- **Loans:** Borrow from the Corridor (or player-run banks). Interest accrues daily.
+- **Default:** Fail to pay, and creditors seize assets. Or send mercenaries.
+- **Bankruptcy:** If debts exceed assets, the ruler is ruined. Towns rebel.
+  Troops desert. Game over (unless you flee and start as Wanderer).
+
+The Corridor's power comes from this: everyone owes them money.
