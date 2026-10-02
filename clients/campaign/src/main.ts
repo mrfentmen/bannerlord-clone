@@ -1965,6 +1965,7 @@ function rebuildContext(): void {
       contextNode = ledgerPanel({
         ledger: snap.ledger,
         warnings: snap.warnings,
+        treasuryBalance: snap.player.resources.money,
         onWhy: (entityId, field) => openWhy(entityId, field),
       });
       return;
