@@ -17,8 +17,12 @@ import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import {
   IMPLAUSIBLE_EXTENT,
+  PIVOT_EPSILON_M,
   QUANTIZATION_EXTENSION,
   autoScaleToMeters,
+  baseYOffset,
+  boundsAfterCentring,
+  centredPivotOffset,
   describeUprightness,
   extentsOf,
   longestAxisLength,
@@ -52,16 +56,23 @@ function boundsOf(file: string): AuthoredBounds {
   return readAuthoredBounds(readFileSync(join(modelsDir, file)));
 }
 
-/** Bounds built by hand, for the arithmetic cases. */
-function bounds(x: number, y: number, z: number): AuthoredBounds {
+/** Bounds built by hand from an origin and a far corner. */
+function corners(x0: number, y0: number, z0: number, x1: number, y1: number, z1: number): AuthoredBounds {
+  const min = { x: Math.min(x0, x1), y: Math.min(y0, y1), z: Math.min(z0, z1) };
+  const max = { x: Math.max(x0, x1), y: Math.max(y0, y1), z: Math.max(z0, z1) };
   return {
-    min: { x: 0, y: 0, z: 0 },
-    max: { x, y, z },
-    extents: { x, y, z },
+    min,
+    max,
+    extents: { x: max.x - min.x, y: max.y - min.y, z: max.z - min.z },
     trustworthy: true,
     reason: null,
     accessorCount: 1,
   };
+}
+
+/** Bounds built by hand from an origin at zero, for the arithmetic cases. */
+function bounds(x: number, y: number, z: number): AuthoredBounds {
+  return corners(0, 0, 0, x, y, z);
 }
 
 describe("readAuthoredBounds (task 614)", () => {
@@ -258,5 +269,99 @@ describe("up-axis correction (task 615)", () => {
 
   it("calls a file with no usable bounds upright rather than guessing", () => {
     expect(describeUprightness(readAuthoredBounds(new Uint8Array(4)))).toBe('upright');
+  });
+});
+
+describe("centred pivot (task 626)", () => {
+  it("moves the origin to the middle of the bounds", () => {
+    const built = corners(0, 0, 0, 2, 4, 6);
+    expect(centredPivotOffset(built)).toEqual({
+      offset: { x: -1, y: -2, z: -3 },
+      needed: true,
+      extents: { x: 2, y: 4, z: 6 },
+    });
+  });
+
+  it("applies the task 614 scale to the offset, not just to the extents", () => {
+    const built = corners(0, 0, 0, 1, 1, 1);
+    // A model authored at 1 m per unit, scaled to 1.8 m: the offset is 0.9 m.
+    expect(centredPivotOffset(built, 1.8).offset).toEqual({ x: -0.9, y: -0.9, z: -0.9 });
+    expect(centredPivotOffset(built, 1.8).extents.x).toBeCloseTo(1.8);
+  });
+
+  it("does nothing for a model that is already centred", () => {
+    const centred = corners(-1, -1, -1, 1, 1, 1);
+    const correction = centredPivotOffset(centred);
+    expect(correction.offset).toEqual({ x: 0, y: 0, z: 0 });
+    expect(correction.needed).toBe(false);
+  });
+
+  it("ignores a sub-centimetre offset instead of drifting the model", () => {
+    const nearly = corners(-0.004, -0.004, -0.004, 0.004, 0.004, 0.004);
+    expect(centredPivotOffset(nearly).needed).toBe(false);
+    expect(PIVOT_EPSILON_M).toBe(0.01);
+  });
+
+  it("is idempotent: centring twice does not move it again", () => {
+    const built = corners(0, 0, 0, 2, 4, 6);
+    const once = boundsAfterCentring(built);
+    const twice = boundsAfterCentring(once);
+    expect(twice.min.x).toBeCloseTo(once.min.x);
+    expect(twice.min.y).toBeCloseTo(once.min.y);
+    expect(twice.max.z).toBeCloseTo(once.max.z);
+  });
+
+  it("really does put the centre on the origin", () => {
+    const built = corners(3, 0, -5, 9, 8, 1);
+    const centred = boundsAfterCentring(built);
+    expect((centred.min.x + centred.max.x) / 2).toBeCloseTo(0);
+    expect((centred.min.y + centred.max.y) / 2).toBeCloseTo(0);
+    expect((centred.min.z + centred.max.z) / 2).toBeCloseTo(0);
+  });
+
+  it("re-centres a staged model and keeps its size", () => {
+    const officer = boundsOf('troop-officer.glb');
+    const scale = autoScaleToMeters(officer, 1.8).scale as number;
+    const before = extentsOf(officer);
+    const correction = centredPivotOffset(officer, scale);
+    expect(correction.needed).toBe(true);
+    expect(correction.extents.x).toBeCloseTo(before.x * scale);
+    // Re-centred, the officer's bounds centre is on the origin -- which is the
+    // property that matters, rather than the sign of the vertical offset: this
+    // model is authored 0.0001 m below the ground plane, so its centre lands
+    // fractionally above zero.
+    const centred = boundsAfterCentring(officer, scale);
+    expect((centred.min.y + centred.max.y) / 2).toBeCloseTo(0, 6);
+    expect(correction.offset.y).toBeLessThan(0.01);
+    // The officer is authored lying along Z, so its geometry straddles the
+    // origin and it needs a lift before centring too -- by exactly half its
+    // scaled height. After centring the lift is the same half-height, because
+    // the origin is then the middle and the base is half a model below it.
+    // 4 digits: the officer's bounds are not perfectly symmetric about the
+    // origin (0.0001 m of it), and that asymmetry is the point being measured.
+    expect(baseYOffset(officer, scale)).toBeCloseTo(officer.extents.y * scale * 0.5, 4);
+    expect(baseYOffset(centred, scale)).toBeCloseTo(correction.extents.y * 0.5, 6);
+    expect(baseYOffset(centred, scale)).toBeGreaterThan(0.3);
+  });
+
+  it("puts a ground-standing model's base back at zero", () => {
+    const gunner = boundsOf('troop-gunner.glb');
+    const scale = autoScaleToMeters(gunner, 1.8).scale as number;
+    expect(baseYOffset(gunner, scale)).toBeGreaterThan(0);
+    expect(baseYOffset({ min: { x: 0, y: 0, z: 0 }, max: { x: 1, y: 2, z: 1 } })).toBe(0);
+  });
+
+  it("rejects a broken scale rather than producing NaN metres", () => {
+    const built = corners(0, 0, 0, 2, 2, 2);
+    for (const bad of [0, -1, Number.NaN]) {
+      expect(centredPivotOffset(built, bad).offset.x).toBeCloseTo(-1);
+      expect(Number.isNaN(baseYOffset(built, bad))).toBe(false);
+    }
+  });
+
+  it("handles bounds given in the other order", () => {
+    const inverted = { min: { x: 2, y: 4, z: 6 }, max: { x: 0, y: 0, z: 0 } };
+    expect(centredPivotOffset(inverted).offset).toEqual({ x: -1, y: -2, z: -3 });
+    expect(baseYOffset(inverted)).toBe(-4);
   });
 });

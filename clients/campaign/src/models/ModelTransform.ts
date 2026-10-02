@@ -273,3 +273,101 @@ export function upAxisRotationFor(entry: OrientationEntry, bounds: AuthoredBound
   if (!bounds.trustworthy) return 0;
   return entry.rotateX as number;
 }
+
+/**
+ * Task 626: move a model's pivot to its own centre.
+ *
+ * Models arrive with the origin wherever the pack put it -- a foot, a corner, a
+ * wheel arch. That is fine for a model standing on the ground and wrong for
+ * every model that has to be placed, rotated about itself or attached to
+ * something: the crew of a rotating turret, a spinning wheel, a decal projected
+ * onto a wall. Centring the pivot makes "rotate this" mean what it looks like.
+ *
+ * Two things this returns instead of deciding:
+ *
+ * - The offset is in the model's *own* units, so it must be applied after the
+ *   task 614 scale. `centredPivotOffset` therefore takes the scale and gives
+ *   back a world-space offset the caller can assign to `position`.
+ * - A model that is already centred (its origin within a centimetre of its
+ *   middle) gets a zero offset, so a re-centring pass is idempotent and does
+ *   not drift a model that was fine.
+ */
+
+/** Below this, an offset is treated as no offset at all, metres. */
+export const PIVOT_EPSILON_M = 0.01;
+
+/** A pivot correction for one model. */
+export interface PivotCorrection {
+  /** Offset to add to the model's position, world metres. */
+  offset: { x: number; y: number; z: number };
+  /** False when the offset was under the epsilon and not worth applying. */
+  needed: boolean;
+  /** Half-extents used for the decision, world metres. */
+  extents: Extents;
+}
+
+/**
+ * Task 626: the offset that puts the model's bounds centre on its origin.
+ *
+ * `scale` is the factor task 614 decided on, so authored units become metres
+ * here too. The vertical component is included: a model authored with its origin
+ * at its feet is exactly the case where re-centring matters, and dropping Y
+ * would leave it standing where it was.
+ */
+export function centredPivotOffset(
+  bounds: Bounds,
+  scale = 1,
+  epsilonM = PIVOT_EPSILON_M,
+): PivotCorrection {
+  const factor = Number.isFinite(scale) && scale > 0 ? scale : 1;
+  const centre = {
+    x: (bounds.min.x + bounds.max.x) / 2,
+    y: (bounds.min.y + bounds.max.y) / 2,
+    z: (bounds.min.z + bounds.max.z) / 2,
+  };
+  const raw = { x: -centre.x * factor, y: -centre.y * factor, z: -centre.z * factor };
+  const needed = [raw.x, raw.y, raw.z].some((v) => Math.abs(v) > epsilonM);
+  return {
+    offset: needed ? raw : { x: 0, y: 0, z: 0 },
+    needed,
+    extents: {
+      x: (bounds.max.x - bounds.min.x) * factor,
+      y: (bounds.max.y - bounds.min.y) * factor,
+      z: (bounds.max.z - bounds.min.z) * factor,
+    },
+  };
+}
+
+/**
+ * Bounds after the pivot correction, in world metres.
+ *
+ * A scene uses this to check the correction did what it claimed: the centre of
+ * the corrected bounds has to be on the origin. Kept separate from
+ * {@link centredPivotOffset} because the correction is what a caller applies and
+ * this is what a test -- or a placement check -- verifies.
+ */
+export function boundsAfterCentring(bounds: Bounds, scale = 1): Bounds {
+  const factor = Number.isFinite(scale) && scale > 0 ? scale : 1;
+  const shift = centredPivotOffset(bounds, factor).offset;
+  return {
+    min: { x: bounds.min.x + shift.x / factor, y: bounds.min.y + shift.y / factor, z: bounds.min.z + shift.z / factor },
+    max: { x: bounds.max.x + shift.x / factor, y: bounds.max.y + shift.y / factor, z: bounds.max.z + shift.z / factor },
+  };
+}
+
+/**
+ * Task 626: the lift that puts a model's base back on the ground.
+ *
+ * Take the bounds *after* centring, not before: re-centring moves the geometry
+ * down by half its height, so a model that was standing on the ground is now
+ * half-buried and needs a lift of half its height to be standing again. On the
+ * original bounds this returns roughly zero, which is the correct answer for a
+ * model authored with its origin at its feet.
+ */
+export function baseYOffset(bounds: Bounds, scale = 1): number {
+  const factor = Number.isFinite(scale) && scale > 0 ? scale : 1;
+  if (!Number.isFinite(bounds.min.y)) return 0;
+  // `+ 0` keeps a model whose base is already at the origin from reporting -0,
+  // which reads as a different number in a log and in a snapshot diff.
+  return -bounds.min.y * factor + 0;
+}
