@@ -47,6 +47,7 @@ import { h, sectionHeader } from "../dom.js";
 import { emptyState, errorState, gauge, panel, stamp, statusChip, type StatusKind } from "../kit.js";
 import { asBottomSheet } from "./narrow.js";
 import { questSkeletonBody } from "./panel-skeletons.js";
+import { gameAudio } from "../../audio/audio.js";
 import type {
   Issue,
   IssueAction,
@@ -831,6 +832,9 @@ export interface QuestNotificationOptions {
 }
 
 export function questNotification(options: QuestNotificationOptions): HTMLElement {
+  // Sound the arrival: a completed quest gets the fanfare, everything else
+  // gets the soft ping. The audio manager ignores this before unlock.
+  gameAudio().playSfx(options.tone === "good" ? "quest-complete" : "notify");
   const el = document.createElement("div");
   el.className = `quest-notification quest-notification--${options.tone}`;
   el.setAttribute("role", "alert");

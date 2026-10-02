@@ -66,6 +66,7 @@ import { rumourFeedPanel } from "./ui/panels/RumourFeed.js";
 import { ledgerPanel } from "./ui/panels/LedgerPanel.js";
 import { rulerCard, rulerRoster } from "./ui/panels/RulerPanel.js";
 import { startScreen } from "./ui/panels/StartScreen.js";
+import { gameAudio } from "./audio/audio.js";
 import { townPanel } from "./ui/panels/TownPanel.js";
 import { whyPanel } from "./ui/panels/WhyPanel.js";
 import type {
@@ -141,6 +142,18 @@ const setBootNote = (text: string): void => {
   if (bootNote) bootNote.textContent = text;
 };
 
+// -- audio: created before the first frame so the loading theme can start
+// as soon as the browser allows it. Nothing plays until unlock(), which
+// fires on the first user gesture (autoplay policy).
+const audio = gameAudio();
+const unlockAudio = (): void => {
+  audio.unlock();
+  window.removeEventListener("pointerdown", unlockAudio);
+  window.removeEventListener("keydown", unlockAudio);
+};
+window.addEventListener("pointerdown", unlockAudio);
+window.addEventListener("keydown", unlockAudio);
+
 // -- 1. skeleton first, then the world ---------------------------------------
 
 const bootScreen = startScreen({
@@ -154,6 +167,7 @@ const bootScreen = startScreen({
   },
 });
 app.appendChild(bootScreen);
+audio.setScene("loading");
 
 const banner = document.getElementById("fixture-banner");
 if (banner) {
@@ -227,6 +241,7 @@ const selectionScreen = startScreen({
   },
 });
 bootScreen.replaceWith(selectionScreen);
+audio.setScene("menu");
 
 // -- 3. the campaign map ------------------------------------------------------
 
@@ -245,6 +260,7 @@ const hud = createHud({
 
 function mountCampaign(): void {
   if (!snapshot) return;
+  audio.setScene("campaign-day");
   app.appendChild(hud.root);
   paint();
 

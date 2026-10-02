@@ -1,0 +1,510 @@
+{
+  "version": 1,
+  "generated": "2026-10-02",
+  "license": "All audio synthesized in-house with numpy DSP; no samples or licensed material.",
+  "tools": [
+    "~/workspace/game-music/compose.py",
+    "~/workspace/game-music/compose5.py",
+    "~/workspace/game-music/sfx.py",
+    "~/workspace/game-music/sfx2.py"
+  ],
+  "entries": [
+    {
+      "path": "audio/barks2/ambient_00_briggs.mp3",
+      "kind": "sfx",
+      "sha256": "2a4b1de9e0daf169b78dede2610c9f5d608d2ed134242032c39d7e03c541dbe9",
+      "duration_s": 2.45,
+      "bytes": 19621
+    },
+    {
+      "path": "audio/barks2/ambient_01_briggs.mp3",
+      "kind": "sfx",
+      "sha256": "81d05f594280ac6ac594b54de415806013499a1412d722849d092a6d6932c942",
+      "duration_s": 2.76,
+      "bytes": 22117
+    },
+    {
+      "path": "audio/barks2/ambient_02_briggs.mp3",
+      "kind": "sfx",
+      "sha256": "11fa624ceb0e3768cef03181629256915ef6e7bba7f0019483bd9b6fa0d75769",
+      "duration_s": 2.16,
+      "bytes": 17317
+    },
+    {
+      "path": "audio/barks2/ambient_03_briggs.mp3",
+      "kind": "sfx",
+      "sha256": "6e4259ad04fb0b0239b9ef665988be9a00f6a9a9838596e3d5f2d55248150335",
+      "duration_s": 3.31,
+      "bytes": 26533
+    },
+    {
+      "path": "audio/barks2/ambient_04_briggs.mp3",
+      "kind": "sfx",
+      "sha256": "6e7d64bd72ccbe256d981cbf6c10c95475f5f875b51e9eec94bb3c6d54bb2788",
+      "duration_s": 2.52,
+      "bytes": 20197
+    },
+    {
+      "path": "audio/barks2/ambient_05_briggs.mp3",
+      "kind": "sfx",
+      "sha256": "2bae189db2417e0f7d6e53c780a4479460e99ebae9ef967cda71f7a63d943040",
+      "duration_s": 2.57,
+      "bytes": 20581
+    },
+    {
+      "path": "audio/barks2/ambient_06_briggs.mp3",
+      "kind": "sfx",
+      "sha256": "33d01b5f1ddd9c0d83ee8814b2e12cfac8b837ef2cd5dc9cb7f928ecf28d3c0e",
+      "duration_s": 2.28,
+      "bytes": 18277
+    },
+    {
+      "path": "audio/barks2/ambient_07_briggs.mp3",
+      "kind": "sfx",
+      "sha256": "9558d22c1a137887a2e9fceedd1a18ff256bbef645de838a0117b454ee94847f",
+      "duration_s": 3.17,
+      "bytes": 25381
+    },
+    {
+      "path": "audio/barks2/combat_00_briggs.mp3",
+      "kind": "sfx",
+      "sha256": "cb11f2998701b2b5bd6d714e22ba3e34e2e8a2ee6fb6b20c992c122db8490993",
+      "duration_s": 2.33,
+      "bytes": 18661
+    },
+    {
+      "path": "audio/barks2/combat_01_briggs.mp3",
+      "kind": "sfx",
+      "sha256": "cc5112df93e1579fcf8b1f0f103a8ecfdb43f0e7d9917c7076f5524d2ddb2170",
+      "duration_s": 2.16,
+      "bytes": 17317
+    },
+    {
+      "path": "audio/barks2/combat_02_briggs.mp3",
+      "kind": "sfx",
+      "sha256": "01dbc3f9a6ecaa83a170ffcdb26731d898271366cf4d8880e0f74a015616cc2c",
+      "duration_s": 1.85,
+      "bytes": 14821
+    },
+    {
+      "path": "audio/barks2/combat_03_briggs.mp3",
+      "kind": "sfx",
+      "sha256": "4c4e845185f500ee5c78fe0fb930ffebecdd67943e3e9c7ba3ef368c533a994c",
+      "duration_s": 1.8,
+      "bytes": 14437
+    },
+    {
+      "path": "audio/barks2/combat_04_briggs.mp3",
+      "kind": "sfx",
+      "sha256": "8baf40c84c009e805bb125f4c468e7220d97e0323b002e7863cb2d3aeba32737",
+      "duration_s": 1.97,
+      "bytes": 15781
+    },
+    {
+      "path": "audio/barks2/combat_05_briggs.mp3",
+      "kind": "sfx",
+      "sha256": "8186239ec02982076358fdc4a9d0651198a3fe137c1d35774dbe95e931419758",
+      "duration_s": 1.49,
+      "bytes": 11941
+    },
+    {
+      "path": "audio/barks2/combat_06_briggs.mp3",
+      "kind": "sfx",
+      "sha256": "ed7d91429f69f9a3dc0c6020484dc2a2f376c55375d865716743c66358a90ac0",
+      "duration_s": 2.21,
+      "bytes": 17701
+    },
+    {
+      "path": "audio/barks2/combat_07_briggs.mp3",
+      "kind": "sfx",
+      "sha256": "ccc663a54fc8fca9cd377d45f9569635511b47956ae794433d57afdeb1f1365a",
+      "duration_s": 1.73,
+      "bytes": 13861
+    },
+    {
+      "path": "audio/barks2/quest_00_briggs.mp3",
+      "kind": "sfx",
+      "sha256": "37dcda9c58a4549fc20b7eb0811e0bde17982e2421d3ab6a757aad985e6d9140",
+      "duration_s": 2.04,
+      "bytes": 16357
+    },
+    {
+      "path": "audio/barks2/quest_01_briggs.mp3",
+      "kind": "sfx",
+      "sha256": "748a0c0e02dfd2c2f8da601bc84cb250dc62d865de491b7b25041952307ad233",
+      "duration_s": 3.17,
+      "bytes": 25381
+    },
+    {
+      "path": "audio/barks2/quest_02_briggs.mp3",
+      "kind": "sfx",
+      "sha256": "6f04823d8f8fe3b53e192ab4b1a1c39a6e03218b607ada55ca4e17d5a21253f8",
+      "duration_s": 2.69,
+      "bytes": 21541
+    },
+    {
+      "path": "audio/barks2/quest_03_briggs.mp3",
+      "kind": "sfx",
+      "sha256": "29849fab2c827acc0ed877b0548fd1164bd480d1f8788f2c859c58137af3bf42",
+      "duration_s": 2.57,
+      "bytes": 20581
+    },
+    {
+      "path": "audio/barks2/quest_04_briggs.mp3",
+      "kind": "sfx",
+      "sha256": "9bf482e1b9ceda6d5f9cdc5b033711b41138ce160c5bbe3cd203b6310fde0c3e",
+      "duration_s": 2.52,
+      "bytes": 20197
+    },
+    {
+      "path": "audio/barks2/quest_05_briggs.mp3",
+      "kind": "sfx",
+      "sha256": "20e3167cf99b29003f6e02324fca28c7294cac3269c9cc6427331391fdf4d65e",
+      "duration_s": 2.57,
+      "bytes": 20581
+    },
+    {
+      "path": "audio/barks2/quest_06_briggs.mp3",
+      "kind": "sfx",
+      "sha256": "8f9a1a75491a5c17a92380b4fd0ef4a135ee31b47fe149bc2abdfa869df8df4b",
+      "duration_s": 1.44,
+      "bytes": 11557
+    },
+    {
+      "path": "audio/barks2/quest_07_briggs.mp3",
+      "kind": "sfx",
+      "sha256": "ebb891ae2fb33d5e35bfd3c6c16e11a1b20af4a7956f1754a2608d28094e553e",
+      "duration_s": 3.17,
+      "bytes": 25381
+    },
+    {
+      "path": "audio/music/ambient-exploration-mix.mp3",
+      "kind": "music",
+      "sha256": "43356b5337c6de7091b8f1dd32b397b873fc4d98cf2c653e186476e04de1c57f",
+      "duration_s": 64.0,
+      "bytes": 1442834
+    },
+    {
+      "path": "audio/music/battle-theme-mix.mp3",
+      "kind": "music",
+      "sha256": "95f3c09b5cd2936c21b4e52b6137493bb565d388f185fa11ab44a4207f37f49b",
+      "duration_s": 41.14,
+      "bytes": 878075
+    },
+    {
+      "path": "audio/music/defeat-mix.mp3",
+      "kind": "music",
+      "sha256": "ac2ff8822968dbb003c79761d59f1ea22da857fbddfafaae4af28acba22d4851",
+      "duration_s": 64.0,
+      "bytes": 1492807
+    },
+    {
+      "path": "audio/music/loading-theme-mix.mp3",
+      "kind": "music",
+      "sha256": "7849486d11241eb8f339e99922da0987176340d6f5243b50bd1b326a67cb11c3",
+      "duration_s": 52.17,
+      "bytes": 1094705
+    },
+    {
+      "path": "audio/music/menu-theme-mix.mp3",
+      "kind": "music",
+      "sha256": "27f3e37d5e74eb4ae5b102658ab2cc7b8ccb844c85968ef6d42af9f18065ad7a",
+      "duration_s": 48.0,
+      "bytes": 1079603
+    },
+    {
+      "path": "audio/music/night-patrol-mix.mp3",
+      "kind": "music",
+      "sha256": "12fe57e6f8dd57c41c1b337f3ee5b4386bb7a5e0f71b8d6415ad6c5b00f902bc",
+      "duration_s": 53.33,
+      "bytes": 1281506
+    },
+    {
+      "path": "audio/music/pursuit-mix.mp3",
+      "kind": "music",
+      "sha256": "d8c1e1da669c787c6361bbef58388f8c3d08b001e9cefeb2992a7f126376fe6f",
+      "duration_s": 41.14,
+      "bytes": 988726
+    },
+    {
+      "path": "audio/music/siege-assault-mix.mp3",
+      "kind": "music",
+      "sha256": "6e0f786ae7b1a1cd87efda15abbb9c6eb9751201048de75a54cf9f3fa075b0d7",
+      "duration_s": 48.0,
+      "bytes": 1153611
+    },
+    {
+      "path": "audio/music/tavern-rest-mix.mp3",
+      "kind": "music",
+      "sha256": "eb9fddc68ca9535039cd158c6763c776863385b3ee6501f291bf43afc9940416",
+      "duration_s": 51.43,
+      "bytes": 1235740
+    },
+    {
+      "path": "audio/music/victory-fanfare-mix.mp3",
+      "kind": "music",
+      "sha256": "07215c113b54b5654d429d3da0dc1a2e570e53ef4448df41bd11ec7258ec32ce",
+      "duration_s": 16.0,
+      "bytes": 369287
+    },
+    {
+      "path": "audio/sfx/weapon/dry-fire.mp3",
+      "kind": "sfx",
+      "sha256": "459a521c13087733a8417f1111daefa658208708f9ec7f4e892bb766e152e5f9",
+      "duration_s": 0.07,
+      "bytes": 1609
+    },
+    {
+      "path": "audio/sfx/weapon/explosion-small.mp3",
+      "kind": "sfx",
+      "sha256": "bbf645e13cdfa594f6bbd12167a6dbe019b5d36e4ad4b88b2304aa589c5213b5",
+      "duration_s": 1.4,
+      "bytes": 10821
+    },
+    {
+      "path": "audio/sfx/weapon/explosion.mp3",
+      "kind": "sfx",
+      "sha256": "5f5cbf95a886b34c8581846c0c46461816e2ac95f160aee086b124ea6d40ba94",
+      "duration_s": 2.8,
+      "bytes": 16385
+    },
+    {
+      "path": "audio/sfx/weapon/pistol.mp3",
+      "kind": "sfx",
+      "sha256": "292d2bf75b07db26327e2de0532e53c00ebe5fc96a9324b574ed6ea45b54c43e",
+      "duration_s": 0.35,
+      "bytes": 3222
+    },
+    {
+      "path": "audio/sfx/weapon/reload.mp3",
+      "kind": "sfx",
+      "sha256": "af67800020601df304a4577b40d27ee72bc07a7f010a107df3c0ccf00e05eae8",
+      "duration_s": 1.0,
+      "bytes": 6659
+    },
+    {
+      "path": "audio/sfx/weapon/rifle.mp3",
+      "kind": "sfx",
+      "sha256": "1177eafbebbda50c99245a4944b1848538e72c72b11debe9212de1ee8e9e4d82",
+      "duration_s": 0.55,
+      "bytes": 4654
+    },
+    {
+      "path": "audio/sfx/weapon/shotgun.mp3",
+      "kind": "sfx",
+      "sha256": "e7ac2578917798e9f5325c4a5c00b4b5886ddcda992912f1ce9909c3e3dd9855",
+      "duration_s": 0.7,
+      "bytes": 5956
+    },
+    {
+      "path": "audio/sfx/weapon/smg-burst.mp3",
+      "kind": "sfx",
+      "sha256": "607151c99d038f75a3848876f678ad39a0ea03f4ca4c1c8ddc982a009afedc9c",
+      "duration_s": 0.57,
+      "bytes": 5541
+    },
+    {
+      "path": "audio/sfx/weapon/thunder.mp3",
+      "kind": "sfx",
+      "sha256": "97785d690beaa5690478ca88ca4eab81e963e3846bdc68f4a0e6826fc5ad840c",
+      "duration_s": 4.5,
+      "bytes": 73186
+    },
+    {
+      "path": "audio/sfx/vehicle/engine-cruise.mp3",
+      "kind": "sfx",
+      "sha256": "06536995ab23be299206fc656946b2110bb21085f9dd386c2f974284731fc53d",
+      "duration_s": 2.0,
+      "bytes": 21416
+    },
+    {
+      "path": "audio/sfx/vehicle/engine-idle.mp3",
+      "kind": "sfx",
+      "sha256": "e154de1ef018f559f200ad3f22b539439a88c0ae415b943e36eb755012332389",
+      "duration_s": 2.0,
+      "bytes": 19195
+    },
+    {
+      "path": "audio/sfx/vehicle/engine-load.mp3",
+      "kind": "sfx",
+      "sha256": "fee8417d4ea1955f5ad13f13ed22eea03f6620d90657436650fcd39260ebd775",
+      "duration_s": 2.0,
+      "bytes": 21154
+    },
+    {
+      "path": "audio/sfx/vehicle/helicopter.mp3",
+      "kind": "sfx",
+      "sha256": "e3611143615ec45029cd5755058651a1d944b71f164b5fd06995097e81e4c53a",
+      "duration_s": 3.75,
+      "bytes": 61066
+    },
+    {
+      "path": "audio/sfx/ui/click.mp3",
+      "kind": "sfx",
+      "sha256": "88428d4b10faaaccfa1b79c91c2a727355f92f80affcb63573369b0eb661535c",
+      "duration_s": 0.06,
+      "bytes": 1609
+    },
+    {
+      "path": "audio/sfx/ui/coin.mp3",
+      "kind": "sfx",
+      "sha256": "677b1e626389208b20c0ad0bb0c35520aec5f0573d397a007a98d65f6002d2be",
+      "duration_s": 1.1,
+      "bytes": 18852
+    },
+    {
+      "path": "audio/sfx/ui/confirm.mp3",
+      "kind": "sfx",
+      "sha256": "50d5563d82f4e22473248748f6b981fd5df181e4017b3802675f176b1b7d1985",
+      "duration_s": 0.25,
+      "bytes": 2728
+    },
+    {
+      "path": "audio/sfx/ui/error.mp3",
+      "kind": "sfx",
+      "sha256": "2633ac1c5d541b663f94b57723210bbeb30ae774dd128995b883e5f407d1a89a",
+      "duration_s": 0.22,
+      "bytes": 3119
+    },
+    {
+      "path": "audio/sfx/ui/hover.mp3",
+      "kind": "sfx",
+      "sha256": "c23d63c38e090ea4f9b1b4be9db3bb00699d8871fb9fc2b564b3659c8db64c49",
+      "duration_s": 0.04,
+      "bytes": 1244
+    },
+    {
+      "path": "audio/sfx/ui/level-up.mp3",
+      "kind": "sfx",
+      "sha256": "1b40d43a8020c1bf5c11009929777965f19aa65ccee6a1dffde1e2d2b275f55f",
+      "duration_s": 1.4,
+      "bytes": 23449
+    },
+    {
+      "path": "audio/sfx/ui/notify.mp3",
+      "kind": "sfx",
+      "sha256": "ac2c064f1f79883a17ff042d25e4ef243d8f4c8bf54aa4096853858a155e9d88",
+      "duration_s": 0.8,
+      "bytes": 13836
+    },
+    {
+      "path": "audio/sfx/ui/quest-complete.mp3",
+      "kind": "sfx",
+      "sha256": "a6007eea7608e33e9e983d12ba74282022165ee204fc98e058e8a8bf60d57adb",
+      "duration_s": 1.6,
+      "bytes": 26793
+    },
+    {
+      "path": "audio/sfx/ui/toggle.mp3",
+      "kind": "sfx",
+      "sha256": "19b20861b5a912f87e714b21483315bb45d4be5d82e5dff43ddab23875840334",
+      "duration_s": 0.12,
+      "bytes": 1921
+    },
+    {
+      "path": "audio/sfx/foley/car-door.mp3",
+      "kind": "sfx",
+      "sha256": "55068210550e1d8580e415c5095d291a1659ec4e21b7bd2bd8ab719bb54ff88a",
+      "duration_s": 0.5,
+      "bytes": 9239
+    },
+    {
+      "path": "audio/sfx/foley/footstep-concrete.mp3",
+      "kind": "sfx",
+      "sha256": "0e012572f0c1587e4252019b92ad9160464fa2aed5a6990a25922c35afb07edf",
+      "duration_s": 0.11,
+      "bytes": 1973
+    },
+    {
+      "path": "audio/sfx/foley/footstep-dirt.mp3",
+      "kind": "sfx",
+      "sha256": "1558d472215347698d8cf916c1cb2506bcaf932bef15399659130567be495ce3",
+      "duration_s": 0.11,
+      "bytes": 2052
+    },
+    {
+      "path": "audio/sfx/foley/footstep-grass.mp3",
+      "kind": "sfx",
+      "sha256": "0e2e69c007386a3bd65112cca5aa196805e07b065b979edeed75930f75f32e57",
+      "duration_s": 0.11,
+      "bytes": 1999
+    },
+    {
+      "path": "audio/sfx/ambience/distant-battle.mp3",
+      "kind": "sfx",
+      "sha256": "bf9e01aa94d024a96227e4b8e0b40f4d9975d249825c2eab3fd3b8bba13eb614",
+      "duration_s": 10.0,
+      "bytes": 80589
+    },
+    {
+      "path": "audio/sfx/ambience/rain.mp3",
+      "kind": "sfx",
+      "sha256": "cf6149484dd2d8a67bd4fe7fab78f838bf55a60e9a14755de9887e5c3239e5d4",
+      "duration_s": 10.0,
+      "bytes": 138729
+    },
+    {
+      "path": "audio/sfx/ambience/town-day.mp3",
+      "kind": "sfx",
+      "sha256": "bf126cc18f880fbcfe5eab42c60c322030b3046f3ae1a6a8eeacbad0e19c1891",
+      "duration_s": 10.0,
+      "bytes": 100190
+    },
+    {
+      "path": "audio/sfx/ambience/town-night.mp3",
+      "kind": "sfx",
+      "sha256": "4bc00a9d57a8a61950b768ab777414b885f7d73b2ac8b46383fdc4758cc7467e",
+      "duration_s": 10.0,
+      "bytes": 145553
+    },
+    {
+      "path": "audio/sfx/ambience/wind.mp3",
+      "kind": "sfx",
+      "sha256": "66bc1e1cc48f5bbad191fd6cb42432335de0e3a4aed31ccc943c7cc987806ee2",
+      "duration_s": 10.0,
+      "bytes": 90861
+    },
+    {
+      "path": "audio/sfx/radio/blip.mp3",
+      "kind": "sfx",
+      "sha256": "c7e334e7409c7ee285e30a0ae4b56291563ed9ae0c0de9acff0574638e65884d",
+      "duration_s": 0.12,
+      "bytes": 1660
+    },
+    {
+      "path": "audio/sfx/radio/squelch.mp3",
+      "kind": "sfx",
+      "sha256": "c045aa8e2f209cbd860a9a7212d5186fe25a725f740673e133498e520a602f84",
+      "duration_s": 0.25,
+      "bytes": 5051
+    },
+    {
+      "path": "audio/sfx/radio/static.mp3",
+      "kind": "sfx",
+      "sha256": "bf356ab284f89e4d0205d17877e85f8e0c670c9c594011d79a05d925cafc0d2c",
+      "duration_s": 0.5,
+      "bytes": 9562
+    },
+    {
+      "path": "audio/sfx/battle/crowd-cheer.mp3",
+      "kind": "sfx",
+      "sha256": "ae66946ee48653e70dbbfbafd272ccb42f0de07f4365a17c45a8f7fcd810ee94",
+      "duration_s": 3.0,
+      "bytes": 48945
+    },
+    {
+      "path": "audio/sfx/battle/horn.mp3",
+      "kind": "sfx",
+      "sha256": "df86af97ab1a2b1df64c92a63dc925764378b9d547cd8abec763ff3e1efedc9f",
+      "duration_s": 2.2,
+      "bytes": 36406
+    },
+    {
+      "path": "audio/sfx/battle/melee-hit.mp3",
+      "kind": "sfx",
+      "sha256": "a44b7db1d01f344bc4a7aae723b9fbf80a8e9ff269dacd5b705dff435ba262c4",
+      "duration_s": 0.6,
+      "bytes": 10493
+    }
+  ]
+}
