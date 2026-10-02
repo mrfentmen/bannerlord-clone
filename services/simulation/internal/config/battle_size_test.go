@@ -10,6 +10,7 @@ package config
 // checked from both ends instead of asserted.
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 )
@@ -201,6 +202,195 @@ func TestBattleSizeKnobsAreSettable(t *testing.T) {
 		}
 	}
 	t.Log("50, 100, 500, and 2000 units a side all load from the same file with one line changed")
+}
+
+// TestLayoutAndCombatKnobsLoad is the load half of the second sweep: every
+// number that used to be a literal in the engine comes back from the file, at a
+// non-zero value, and can be set to a value no shipped file would hold.
+//
+// A zero here is a number the engine would have to invent, which is the failure
+// CONSTITUTION.md section 1.2 exists to prevent: the battle would still run, on
+// constants nobody chose and nobody could find.
+func TestLayoutAndCombatKnobsLoad(t *testing.T) {
+	c, err := Load(shippedBalance)
+	if err != nil {
+		t.Fatalf("the shipped balance file does not load: %v", err)
+	}
+	got := map[string]float64{
+		"roster_front_aspect":               c.Battle.RosterFrontAspect,
+		"roster_leader_depth_fraction":       c.Battle.RosterLeaderDepthFraction,
+		"roster_leader_jitter_fraction":      c.Battle.RosterLeaderJitterFraction,
+		"roster_leader_influence_floor":      c.Battle.RosterLeaderInfluenceFloor,
+		"roster_leader_influence_spread":     c.Battle.RosterLeaderInfluenceSpread,
+		"roster_morale_bias_scale":           c.Battle.RosterMoraleBiasScale,
+		"melee_ranged_skill_scale":           c.Battle.MeleeRangedSkillScale,
+		"ranged_hit_chance_base":             c.Battle.RangedHitChanceBase,
+		"ranged_hit_chance_skill_weight":     c.Battle.RangedHitChanceSkillWeight,
+		"ranged_hit_effectiveness_floor":     c.Battle.RangedHitEffectivenessFloor,
+		"morale_recovery_suppression_band":   c.Battle.MoraleRecoverySuppressionBand,
+	}
+	for key, v := range got {
+		if v == 0 {
+			t.Errorf("battle.%s came back as zero, so the engine would be reading nothing", key)
+		}
+	}
+	// Each one is settable, and a settable knob is a knob. The values are
+	// deliberately not the shipped ones.
+	for key, v := range map[string]string{
+		"roster_front_aspect":             "8",
+		"roster_leader_depth_fraction":     "0.75",
+		"roster_leader_jitter_fraction":    "0",
+		"roster_leader_influence_floor":    "1",
+		"roster_leader_influence_spread":   "0",
+		"roster_morale_bias_scale":         "1",
+		"melee_ranged_skill_scale":         "1",
+// 0.55 is the most this one can be while the shipped 0.45 skill weight still
+		// leaves a perfect shooter short of a certain hit; the sum rule below has
+		// its own test.
+		"ranged_hit_chance_base":           "0.55",
+		"ranged_hit_chance_skill_weight":   "0.05",
+		"ranged_hit_effectiveness_floor":   "0",
+		"morale_recovery_suppression_band": "0.99",
+	} {
+		text := setKey(t, shippedText(t), "battle", key, v)
+		edited, err := Load(writeFile(t, text))
+		if err != nil {
+			t.Errorf("battle.%s = %s did not load: %v", key, v, err)
+			continue
+		}
+		if !strings.Contains(fmt.Sprintf("%g", fieldOf(edited.Battle, key)), v) {
+			t.Errorf("battle.%s was set to %s and the file came back as %g", key, v,
+				fieldOf(edited.Battle, key))
+		}
+	}
+	t.Logf("%d formerly literal engine numbers load from the file and are all settable", len(got))
+}
+
+// TestLoadRefusesAnImpossibleLayout: the layout shape of a force is a size
+// number like any other, and the two ends of its range are both nonsense. Zero
+// lays a force out as a column one unit deep, which is a shape the rest of the
+// engine has no opinion about and no test would notice; the hard ceiling is
+// memory-shaped, a hundred to one.
+func TestLoadRefusesAnImpossibleLayout(t *testing.T) {
+	for _, bad := range []string{"0", "0.05", "-3", "51", "1000"} {
+		text := setKey(t, shippedText(t), "battle", "roster_front_aspect", bad)
+		_, err := Load(writeFile(t, text))
+		if err == nil {
+			t.Fatalf("battle.roster_front_aspect = %s loaded", bad)
+		}
+		if !strings.Contains(err.Error(), "battle.roster_front_aspect") {
+			t.Fatalf("the error does not name the key: %v", err)
+		}
+	}
+	t.Log("zero, a sliver, a negative, and two absurd layout aspects all refused by name")
+}
+
+// TestLoadRefusesAnImpossibleHitChance: each of the three numbers of the
+// shooting skill term is a share of a chance, so each is bounded as one. A base
+// of 1.4 is not a hard shooter, it is a field of men who cannot miss, and a
+// floor of 1 means routing a shooter costs a formation nothing.
+func TestLoadRefusesAnImpossibleHitChance(t *testing.T) {
+	for _, key := range []string{
+		"ranged_hit_chance_base", "ranged_hit_chance_skill_weight", "ranged_hit_effectiveness_floor",
+	} {
+		for _, bad := range []string{"1.5", "-0.2", "2"} {
+			text := setKey(t, shippedText(t), "battle", key, bad)
+			if _, err := Load(writeFile(t, text)); err == nil {
+				t.Errorf("battle.%s = %s loaded", key, bad)
+			}
+		}
+	}
+	t.Log("three hit-chance shares each refused above 1 and below 0")
+}
+
+// TestLoadRefusesAPerfectShooter: the two halves of the shooting skill term are
+// individually legal and jointly absurd, which is exactly the case a range check
+// cannot catch. A base of 0.9 and a weight of 0.9 passes both bound checks and
+// makes a perfect shooter hit every shot, so skill stops being a difficulty
+// setting and becomes the only thing that matters.
+func TestLoadRefusesAPerfectShooter(t *testing.T) {
+	text := setKey(t, shippedText(t), "battle", "ranged_hit_chance_base", "0.9")
+	text = setKey(t, text, "battle", "ranged_hit_chance_skill_weight", "0.9")
+	_, err := Load(writeFile(t, text))
+	if err == nil {
+		t.Fatal("a base of 0.9 plus a skill weight of 0.9 loaded, so a perfect shooter cannot miss")
+	}
+	if !strings.Contains(err.Error(), "ranged_hit_chance_base") ||
+		!strings.Contains(err.Error(), "ranged_hit_chance_skill_weight") {
+		t.Fatalf("the error does not name both halves of the sum: %v", err)
+	}
+	t.Logf("both halves legal, sum over 1: %v", err)
+}
+
+// TestLoadRefusesAMoraleBandThatPinsNobody: the recovery band is a share of full
+// suppression, and a band of 1 says a unit at maximum suppression has its head
+// up, which makes the whole suppression term unable to hold anyone's morale
+// down. The range bound accepts 1 because a share can be a whole one; this is
+// the reason it must not be.
+func TestLoadRefusesAMoraleBandThatPinsNobody(t *testing.T) {
+	text := setKey(t, shippedText(t), "battle", "morale_recovery_suppression_band", "1.0")
+	_, err := Load(writeFile(t, text))
+	if err == nil {
+		t.Fatal("a recovery band of 1 loaded, so a pinned unit counts as out of contact")
+	}
+	if !strings.Contains(err.Error(), "morale_recovery_suppression_band") {
+		t.Fatalf("the error does not name the key: %v", err)
+	}
+	t.Logf("recovery band of 1: %v", err)
+}
+
+// TestLoadNamesAMissingLayoutKey: a knob nobody reads because the file stopped
+// saying it is the same failure as a knob nobody wrote.
+func TestLoadNamesAMissingLayoutKey(t *testing.T) {
+	for _, key := range []string{
+		"roster_front_aspect", "roster_leader_depth_fraction", "roster_leader_jitter_fraction",
+		"roster_leader_influence_floor", "roster_leader_influence_spread",
+		"roster_morale_bias_scale", "melee_ranged_skill_scale",
+		"ranged_hit_chance_base", "ranged_hit_chance_skill_weight", "ranged_hit_effectiveness_floor",
+		"morale_recovery_suppression_band",
+	} {
+		text := deleteKey(t, shippedText(t), "battle", key)
+		_, err := Load(writeFile(t, text))
+		if err == nil {
+			t.Errorf("[battle] missing %s loaded anyway, so the engine would read a silent zero", key)
+			continue
+		}
+		if !strings.Contains(err.Error(), "battle."+key) {
+			t.Errorf("the error for the missing %s does not name it: %v", key, err)
+		}
+	}
+	t.Log("all eleven new keys named when missing")
+}
+
+// fieldOf reads one [battle] value out of a loaded Config by its file name, so
+// this file can assert about a knob without a field per knob.
+func fieldOf(b Battle, key string) float64 {
+	switch key {
+	case "roster_front_aspect":
+		return b.RosterFrontAspect
+	case "roster_leader_depth_fraction":
+		return b.RosterLeaderDepthFraction
+	case "roster_leader_jitter_fraction":
+		return b.RosterLeaderJitterFraction
+	case "roster_leader_influence_floor":
+		return b.RosterLeaderInfluenceFloor
+	case "roster_leader_influence_spread":
+		return b.RosterLeaderInfluenceSpread
+	case "roster_morale_bias_scale":
+		return b.RosterMoraleBiasScale
+	case "melee_ranged_skill_scale":
+		return b.MeleeRangedSkillScale
+	case "ranged_hit_chance_base":
+		return b.RangedHitChanceBase
+	case "ranged_hit_chance_skill_weight":
+		return b.RangedHitChanceSkillWeight
+	case "ranged_hit_effectiveness_floor":
+		return b.RangedHitEffectivenessFloor
+	case "morale_recovery_suppression_band":
+		return b.MoraleRecoverySuppressionBand
+	default:
+		return -1
+	}
 }
 
 // atoiOrFail parses a decimal integer written in a test, failing the test rather

@@ -18,6 +18,7 @@ package battle
 //    it is size-free.
 
 import (
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
@@ -264,6 +265,437 @@ func TestSizeKnobsComeFromConfig(t *testing.T) {
 		}
 		t.Log("command structure follows battle.roster_leaders_per_unit in both directions")
 	})
+}
+
+// TestFormerLiteralsComeFromConfig covers the second sweep: eleven numbers that
+// were literals in this package and are now read from the balance file.
+//
+// Each case does the same thing: set the key to a value the shipped file does
+// not use, run something small, and assert an observable the engine produced
+// moved. A constant left behind would not move, so the test fails. The
+// observables are chosen to be the output rather than the input, because an
+// assertion on the loaded value only proves the loader read the file, which
+// internal/config's tests already cover from the other end.
+func TestFormerLiteralsComeFromConfig(t *testing.T) {
+	t.Run("front aspect", func(t *testing.T) {
+		// The shape of a starting block: n units are laid out about
+		// sqrt(n*aspect) wide. A hundred units at aspect 3 is 17 columns, and at
+		// aspect 12 it is 34, so the block's width roughly doubles in the
+		// positions the engine actually put units at.
+		//
+		// The positions are read from a built battle, because layout is the
+		// battle's job: a generated force carries no positions until newBattle
+		// places it, so a test reading them off the roster would be reading
+		// zeroes.
+		span := func(aspect string) float64 {
+			cfg := withBattleConfig(t, "roster_front_aspect", aspect)
+			b, err := newBattle(cfg, 20260930, smallSetup(t, cfg, 100))
+			if err != nil {
+				t.Fatalf("building the battle failed: %v", err)
+			}
+			lo, hi := b.units[0].Y, b.units[0].Y
+			for _, u := range b.units[:100] {
+				if u.Y < lo {
+					lo = u.Y
+				}
+				if u.Y > hi {
+					hi = u.Y
+				}
+			}
+			return hi - lo
+		}
+		narrow, wide := span("3"), span("12")
+		if !(wide > narrow*1.5) {
+			t.Errorf("a force of 100 spans %.1f m across at aspect 3 and %.1f m at aspect 12; "+
+				"the layout is not reading the key", narrow, wide)
+		}
+		t.Logf("100 units span %.1f m across at aspect 3, %.1f m at aspect 12", narrow, wide)
+	})
+
+	t.Run("leader depth", func(t *testing.T) {
+		// Commanders stand behind the front line by the fraction of the
+		// formation's depth. The front line of side B is at +start/2, so a
+		// leader at the shipped third is nearer the origin than one standing at
+		// a depth of zero.
+		xOf := func(fraction string) float64 {
+			cfg := withBattleConfig(t, "roster_leader_depth_fraction", fraction)
+			return GenerateLeaders(cfg, 3, SideB, 1, 100)[0].X
+		}
+		near, back := xOf("0"), xOf("1")
+		if !(near > back) {
+			t.Errorf("a commander at depth fraction 0 stands at x %.1f and one at 1 at x %.1f; "+
+				"the deeper commander is not further back", near, back)
+		}
+		t.Logf("side B's single commander: x %.1f at depth fraction 0, x %.1f at 1", near, back)
+	})
+
+	t.Run("leader jitter", func(t *testing.T) {
+		// The scatter along a command line, in frontages. The spacing between
+		// commanders is roster_leader_spread frontages, and the jitter is a
+		// deliberate departure from that exact lattice, so the observable is how
+		// far each commander sits off the lattice rather than the spacing itself.
+		//
+		// A deviation is measured against the neighbours' midpoint, which is the
+		// lattice point for a commander with an equal share on either side, so it
+		// is unaffected by the spread and reads the jitter alone.
+		deviation := func(jitter string) float64 {
+			cfg := withBattleConfig(t, "roster_leader_jitter_fraction", jitter)
+			leaders := GenerateLeaders(cfg, 3, SideA, 21, 100)
+			worst := 0.0
+			for i := 1; i < len(leaders)-1; i++ {
+				mid := (leaders[i-1].Y + leaders[i+1].Y) / 2
+				if d := math.Abs(leaders[i].Y - mid); d > worst {
+					worst = d
+				}
+			}
+			return worst
+		}
+		off, none := deviation("1"), deviation("0")
+		if off <= 0 {
+			t.Errorf("a jitter of one frontage left every commander exactly on the lattice, "+
+				"off by %.6f m at worst", off)
+		}
+		// Zero has to mean an exact line of officers, and the comparison is
+		// against a nanometre rather than against nothing: the lattice is
+		// computed from each commander's neighbours' midpoint, and floating point
+		// subtraction of two nearby values is not exact. The tolerance is three
+		// orders of magnitude below the frontage the jitter is measured in, so
+		// any real departure would still be caught.
+		if none > 1e-9 {
+			t.Errorf("a jitter of zero left a commander %.9f m off the lattice; zero has to mean "+
+				"an exact line of officers", none)
+		}
+		// The jitter is bounded by half a frontage either side of the lattice, so
+		// no commander can be more than one frontage off it.
+		if max := shippedFrontage(t); off > max {
+			t.Errorf("the worst commander is %.4f m off its lattice point, more than the %v m frontage "+
+				"the jitter is expressed in", off, max)
+		}
+		t.Logf("21 commanders: worst departure from the lattice %.4f m at jitter 1, %.9f m at 0",
+			off, none)
+	})
+
+	t.Run("leader influence", func(t *testing.T) {
+		// A command's standings run from the floor to the floor plus the spread,
+		// as shares of what the caller asked for. At a floor of 0.5 and a spread
+		// of 0.5 every commander is inside half to one of the request; at a floor
+		// and spread of 1 every commander is between one and two.
+		rangeOf := func(floor, spread string) (float64, float64) {
+			cfg := withBattleConfig(t, "roster_leader_influence_floor", floor,
+				"roster_leader_influence_spread", spread)
+			var lo, hi float64
+			for i, l := range GenerateLeaders(cfg, 3, SideA, 40, 100) {
+				if i == 0 || l.Influence < lo {
+					lo = l.Influence
+				}
+				if l.Influence > hi {
+					hi = l.Influence
+				}
+			}
+			return lo, hi
+		}
+		lo, hi := rangeOf("0.5", "0.5")
+		if lo < 45 || hi > 100.0001 {
+			t.Errorf("a command asked for 100 standing came back between %.2f and %.2f, want 50 to 100",
+				lo, hi)
+		}
+		lo2, hi2 := rangeOf("1", "1")
+		if lo2 < 99.9999 || hi2 > 200.0001 {
+			t.Errorf("a floor of 1 and a spread of 1 gave %.2f to %.2f, want 100 to 200", lo2, hi2)
+		}
+		t.Logf("40 commanders asked for 100: %.2f-%.2f at floor .5 spread .5, %.2f-%.2f at 1 and 1",
+			lo, hi, lo2, hi2)
+	})
+
+	t.Run("melee of a shooter", func(t *testing.T) {
+		// A unit out of ammunition swings with the butt of the weapon, at a
+		// share of its own skill. Drive one unit a side into a brawl and read
+		// the damage: a shooter at scale 1 must hit for what a trooper hits for
+		// at scale 0.
+		damage := func(scale string) float64 {
+			cfg := withBattleConfig(t, "melee_ranged_skill_scale", scale)
+			return swingDamage(t, cfg, RoleRanged, 0.8)
+		}
+		none, full := damage("0"), damage("1")
+		if !(full > none*1.2) {
+			t.Errorf("a shooter's swing deals %.2f at scale 0 and %.2f at scale 1; the key is inert",
+				none, full)
+		}
+		t.Logf("one shooter's swing at skill 0.8: %.2f damage at scale 0, %.2f at scale 1", none, full)
+	})
+
+	t.Run("hit chance", func(t *testing.T) {
+		// The chance a shot connects, which was two literals in aimedfire.go. The
+		// observable is the hits-over-shots ratio of an all-shooter force with
+		// nothing else going on, which is the hit chance and nothing else.
+		//
+		// The base is checked at zero as well as at the shipped pair, because a
+		// base of zero is where the term it feeds is unambiguous: skill is the
+		// whole of what is left, so a shooter with none should barely connect at
+		// all. Comparing two positive bases cannot tell a term that is read from
+		// one that is scaled.
+		rate := func(key, value string, more ...string) float64 {
+			cfg := withBattleConfig(t, key, value, more...)
+			return hitRate(t, cfg, false)
+		}
+		base := rate("ranged_hit_chance_base", "0.25")
+		high, none := rate("ranged_hit_chance_base", "0.55"), rate("ranged_hit_chance_base", "0")
+		if !(high > base*1.4 && base > none*1.5) {
+			t.Errorf("hit rates of %.3f at a base of 0, %.3f at the shipped 0.25 and %.3f at 0.55; "+
+				"the base is not reaching the shooting model", none, base, high)
+		}
+		// The skill weight is walked with the base held at the shipped 0.25.
+		// Raising the weight alone would sum past one, which validation refuses
+		// for a good reason, and lowering the base to make room would move two
+		// terms at once and prove nothing about either. 0.25 + 0.75 is exactly 1,
+		// so a perfect shooter can just reach certain and nothing exceeds it.
+		skill, noSkill := rate("ranged_hit_chance_skill_weight", "0.75"),
+			rate("ranged_hit_chance_skill_weight", "0")
+		if !(skill > base && base > noSkill) {
+			t.Errorf("hit rates of %.3f at a skill weight of 0, %.3f at the shipped weight and "+
+				"%.3f at 0.75; skill is not reaching the shooting model",
+				noSkill, base, skill)
+		}
+		t.Logf("hit rate: base 0/0.25/0.55 -> %.3f/%.3f/%.3f; skill weight 0/0.75 -> %.3f/%.3f",
+			none, base, high, noSkill, skill)
+	})
+
+	t.Run("hit chance of a shaken shooter", func(t *testing.T) {
+		// The floor is the share of the hit chance a shooter keeps with no
+		// effectiveness at all. At 1 a broken line shoots exactly as well as a
+		// steady one and breaking a formation costs it nothing; at 0 a broken
+		// shooter cannot hit at all, which is not a shaken man but a discarded
+		// one. The whole range between is walked, because a term that is read but
+		// only over part of its range still passes an endpoint test.
+		steady := hitRate(t, loadConfig(t), false)
+		rate := func(floor string) float64 {
+			cfg := withBattleConfig(t, "ranged_hit_effectiveness_floor", floor)
+			return hitRate(t, cfg, true)
+		}
+		none, half, whole := rate("0"), rate("0.5"), rate("1")
+		if !(whole > half && half > none) {
+			t.Errorf("a broken force hits %.3f of shots at a floor of 0, %.3f at 0.5 and %.3f at 1; "+
+				"the floor is not scaling the hit chance", none, half, whole)
+		}
+		if !(none < steady && whole < steady) {
+			t.Errorf("a broken force hits %.3f to %.3f across the floor's range, against %.3f steady; "+
+				"a shooter with no effectiveness should never shoot as well as a steady one",
+				none, whole, steady)
+		}
+		t.Logf("broken shooters hit %.3f of shots at a floor of 0, %.3f at 0.5 and %.3f at 1, "+
+			"against %.3f steady", none, half, whole, steady)
+	})
+
+	t.Run("morale recovery band", func(t *testing.T) {
+		// A unit below the band, with no enemy in sight, recovers. Above it, it
+		// does not. The observable is the morale of an unopposed, healthy unit
+		// partway through a battle, which moves only if the gate moves.
+		recovered := func(band string) float64 {
+			cfg := withBattleConfig(t, "morale_recovery_suppression_band", band)
+			return unopposedMorale(t, cfg)
+		}
+		open, shut := recovered("0.05"), recovered("0")
+		if !(open > shut) {
+			t.Errorf("an unopposed unit ends at morale %.4f with an open band and %.4f with it shut; "+
+				"the gate is not being read", open, shut)
+		}
+		t.Logf("unopposed, unpressed unit: morale %.4f with the band open, %.4f shut", open, shut)
+	})
+
+	t.Run("morale bias scale", func(t *testing.T) {
+		// Roster.MoraleBias is a relative shift and this is the scale that turns
+		// it into morale points. A bias of -1 at a scale of 0.5 must land a
+		// generated force half a point below the same force with no bias at all,
+		// and at a scale of 0 it must land nowhere.
+		//
+		// The comparison is against the same seed with no bias, rather than
+		// against roster_morale_start, because a sample of 200 units has a mean
+		// that is the configured mean plus the error of its own spread: at
+		// 0.07 that error is a few thousandths, which is larger than the
+		// difference between two scales that differ by 0.01.
+		mean := func(bias float64, scale string) float64 {
+			cfg := withBattleConfig(t, "roster_morale_bias_scale", scale)
+			force, err := GenerateForce(cfg, 3, SideA, Roster{Units: 400, MoraleBias: bias})
+			if err != nil {
+				t.Fatalf("generating the force failed: %v", err)
+			}
+			sum := 0.0
+			for _, u := range force {
+				sum += u.Morale
+			}
+			return sum / float64(len(force))
+		}
+		plain := mean(0, "1")
+		half, none := mean(-1, "0.5"), mean(-1, "0")
+		if math.Abs(plain-half-0.5) > 0.01 {
+			t.Errorf("a bias of -1 at scale 0.5 gives a mean of %.4f against %.4f unbiased, want 0.5 lower",
+				half, plain)
+		}
+		if math.Abs(plain-none) > 0.01 {
+			t.Errorf("a bias of -1 at scale 0 gives a mean of %.4f against %.4f unbiased; the bias "+
+				"should land nowhere", none, plain)
+		}
+		t.Logf("400 units, mean morale: %.4f unbiased, %.4f at a bias of -1 with scale 0.5, "+
+			"%.4f with scale 0", plain, half, none)
+	})
+}
+
+// shippedFrontage is the roster frontage from the file that ships, which the
+// leader jitter is measured in. It reads the shipped file rather than an edited
+// copy, because a frontage edit would rescale the tolerance along with the
+// quantity under test and quietly stop the assertion from meaning anything.
+func shippedFrontage(t *testing.T) float64 {
+	t.Helper()
+	return loadConfig(t).Battle.RosterFrontage
+}
+
+// swingDamage puts one unit of the given role in reach of one of the other and
+// returns the damage its single swing does.
+//
+// Two things are done to make the number comparable across calls. Variance is
+// set to zero and the closing-speed term to zero, so the damage is a function of
+// the attacker's skill and nothing else, and it is read from the live state
+// after one tick rather than from the report: the report counts bodies removed,
+// and one blow against a thousand hit point target removes none, so the report
+// would read zero for every value of the knob.
+func swingDamage(t *testing.T, cfg *config.Config, role Role, skill float64) float64 {
+	t.Helper()
+	me := Unit{Role: role, HP: 100, MaxHP: 100, Morale: 0.7, MeleeSkill: skill, RangedSkill: 0,
+		Speed: 0, Troops: 1, Status: StatusFighting}
+	them := Unit{Role: RoleMelee, HP: 1000, MaxHP: 1000, Morale: 0.7, MeleeSkill: 0, Speed: 0,
+		Troops: 1, Status: StatusFighting}
+	b, err := newBattle(cfg, 3, Setup{A: []Unit{me}, B: []Unit{them}, Terrain: TerrainOpen})
+	if err != nil {
+		t.Fatalf("building the battle failed: %v", err)
+	}
+	// The positions are set after construction, because newBattle lays the forces
+	// out and would otherwise overwrite them: a battle's opening positions are
+	// the layout's business, not the caller's, and a test that fought to put its
+	// units in contact before construction was testing nothing.
+	b.units[0].X, b.units[1].X = -cfg.Battle.MeleeRange/2, cfg.Battle.MeleeRange/2
+	b.units[0].Y, b.units[1].Y = 0, 0
+	if err := b.tick(); err != nil {
+		t.Fatalf("one tick failed: %v", err)
+	}
+	return b.units[1].MaxHP - b.units[1].HP
+}
+
+// hitRateTicks is how long a hit-rate measurement runs for.
+//
+// At battle.tick_seconds 0.25 and battle.ranged_fire_interval 1.4, one shooter
+// gets off a shot every 5.6 ticks, so 40 shooters over 600 ticks fire about
+// 3,400: far more than enough to put a rate on a chance, and short enough that
+// the four cases using it cost about a second each.
+const hitRateTicks = 600
+
+// hitRateShooters is the size of the shooting force, chosen so a whole run's
+// shots are a five-figure-free sample with time to spare.
+const hitRateShooters = 40
+
+// hitRate is the share of a force's shots that connect, which is the hit chance
+// and nothing else: every unit on the shooting side is a shooter, and the
+// targets cannot shoot back.
+//
+// It measures this in the engine rather than through Run, for a reason worth
+// stating. A generated 40 v 40 melee force is DECIDED at about tick 260, long
+// before its shooters have fired a thousand rounds, so the run ends with a
+// sample of about 95 shots and a rate noisy enough to be useless for comparing
+// two values of a knob. Growing the target force does not help: it breaks at
+// roughly the same tick, because what ends these fights is morale collapsing
+// under suppression rather than casualties. So the measurement puts the two
+// sides in contact at once, on targets with enough hit points to stay on the
+// field for the whole run, and reads the engine's own counters.
+//
+// The rate is not the configured chance, and the tests that use it compare
+// rates against rates rather than against the file. Suppression on both sides
+// and the moment before contact both move it, and they move it identically for
+// every value of the knob being tested, which is the property that makes the
+// comparison meaningful.
+func hitRate(t *testing.T, cfg *config.Config, broken bool) float64 {
+	t.Helper()
+	a, err := GenerateForce(cfg, 7, SideA, Roster{Units: hitRateShooters, AllRanged: true})
+	if err != nil {
+		t.Fatalf("side A: %v", err)
+	}
+	// Targets that cannot shoot back, cannot be killed, and cannot break: a
+	// million hit points each against a shot that does seventeen damage is a
+	// target that is on the field, hurting, for the whole measurement.
+	b := make([]Unit, 0, hitRateShooters)
+	for i := 0; i < hitRateShooters; i++ {
+		b = append(b, Unit{
+			Side: SideB, Role: RoleMelee, ID: i,
+			HP: 1e7, MaxHP: 1e7, Morale: 0.95, Speed: 0, Troops: 1,
+			Status: StatusFighting,
+		})
+	}
+	bt, err := newBattle(cfg, 7, Setup{A: a, B: b, Terrain: TerrainOpen, Label: "hit rate"})
+	if err != nil {
+		t.Fatalf("building the hit rate battle failed: %v", err)
+	}
+	// Contact at the first tick, so every tick of the run measures shooting
+	// rather than approach. Positions are set after construction because
+	// newBattle lays the forces out and would overwrite them.
+	for i := range bt.units {
+		row := float64(i%hitRateShooters-hitRateShooters/2) * cfg.Battle.RosterFrontage
+		if bt.units[i].Side == SideA {
+			bt.units[i].X, bt.units[i].Y = -50, row
+		} else {
+			bt.units[i].X, bt.units[i].Y = 50, row
+		}
+	}
+	// A broken shooter is a shooter whose effectiveness term is at its floor,
+	// which is the state battle.ranged_hit_effectiveness_floor describes. It is
+	// re-asserted every tick rather than set once, because the engine resolves
+	// status from morale at commit: a shooter set broken and then left alone
+	// recovers over the first few ticks and is fighting again long before the
+	// run ends, which measures nothing.
+	for i := 0; i < hitRateTicks; i++ {
+		if broken {
+			for j := range bt.units {
+				if bt.units[j].Side == SideA {
+					bt.units[j].Morale = 0.20 // below battle.morale_break_threshold
+					bt.units[j].Status = StatusBroken
+				}
+			}
+		}
+		if err := bt.tick(); err != nil {
+			t.Fatalf("tick %d failed: %v", i, err)
+		}
+	}
+	shots := bt.stats.Shots[0]
+	if shots < 1000 {
+		t.Fatalf("only %.0f shots in %d ticks; too few to measure a rate from", shots, hitRateTicks)
+	}
+	return bt.stats.RangedHits[0] / shots
+}
+
+// unopposedMorale is the morale an unopposed, healthy unit holds after a
+// bounded run, which is what battle.morale_recovery raises and what the
+// suppression gate in front of it can stop.
+func unopposedMorale(t *testing.T, cfg *config.Config) float64 {
+	t.Helper()
+	a, err := GenerateForce(cfg, 5, SideA, Roster{Units: 20, NoRanged: true})
+	if err != nil {
+		t.Fatalf("side A: %v", err)
+	}
+	b, err := GenerateForce(cfg, 5, SideB, Roster{Units: 20, NoRanged: true})
+	if err != nil {
+		t.Fatalf("side B: %v", err)
+	}
+	// Hold them a long way apart, so nothing is in the other's neighbourhood and
+	// the recovery term is the only thing moving either side's morale. The
+	// formation is laid out from roster_start_distance, so moving side B to one
+	// end of the field and side A to the other is a matter of x alone.
+	for i := range b {
+		b[i].X += 4000
+	}
+	// And they must not run at each other for the whole of the run, which a short
+	// bound over a 4 km gap more than covers.
+	res, err := RunTicks(cfg, 5, Setup{A: a, B: b, Terrain: TerrainOpen, Label: "unopposed"}, 40)
+	if err != nil {
+		t.Fatalf("the unopposed battle did not run: %v", err)
+	}
+	return res.Sides[0].MoraleEnd
 }
 
 // TestTheEngineCarriesNoFixedSize walks the claims this file is about. It is a
