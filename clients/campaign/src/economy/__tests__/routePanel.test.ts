@@ -132,4 +132,31 @@ describe("routePanel", () => {
     handle.dispose();
     expect(host.querySelector("canvas")).toBeNull();
   });
+
+  it("ranks caravans by profit per day, best first (integration)", () => {
+    const { handle, registry } = open();
+    const mkInput = (name: string): FoundInput => ({
+      name,
+      stops: [
+        { settlementId: "a", name: "Alpha" },
+        { settlementId: "b", name: "Beta" },
+      ],
+      goodId: "textiles" as GoodId,
+      goodName: "Textiles",
+      units: 10,
+      guards: 2,
+    });
+    const slow = registry.found(mkInput("Slow Haul"), 0, { distanceKm: () => 80, kmPerDay: 40 });
+    const fast = registry.found(mkInput("Fast Haul"), 0, { distanceKm: () => 80, kmPerDay: 40 });
+    // Two settled weeks each; Fast earns more per day.
+    slow.weeks.push({ weekStart: 0, profit: 70 }, { weekStart: 7, profit: 70 });
+    fast.weeks.push({ weekStart: 0, profit: 700 }, { weekStart: 7, profit: 700 });
+    handle.refresh();
+
+    const ranking = handle.root.querySelector('[data-testid="routes-ranking"]')!;
+    const items = [...ranking.querySelectorAll("li")].map((li) => li.textContent ?? "");
+    expect(items[0]).toContain("Fast Haul");
+    expect(items[1]).toContain("Slow Haul");
+    expect(items[0]).toContain("#1");
+  });
 });
