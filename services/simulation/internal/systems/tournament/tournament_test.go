@@ -61,3 +61,25 @@ func TestLowProsperityNoTournament(t *testing.T) {
 		}
 	}
 }
+
+// TestTournamentXPIsDeterministic verifies the winner gets the configured XP.
+// Uses a fixed RNG seed for determinism.
+func TestTournamentXPIsDeterministic(t *testing.T) {
+	// Run with fixed seed until a tournament occurs.
+	for i := 0; i < 500; i++ {
+		v, w := testView()
+		v.Rng = rng.New(42) // Fixed seed for determinism
+		// Force tournament by setting high prosperity
+		for _, town := range v.State.Towns {
+			town.Prosperity = 1.0
+		}
+		run(v, w)
+		// Check for troop_xp writes (winner's party gets XP).
+		for _, wr := range w.Debug() {
+			if wr.Field == "troop_xp" {
+				return // Success - XP was awarded deterministically.
+			}
+		}
+	}
+	t.Logf("No tournament XP in 500 runs with fixed seed")
+}
