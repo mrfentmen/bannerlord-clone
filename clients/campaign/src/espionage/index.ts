@@ -17,3 +17,4 @@ export { exposureRisk, missedPayments, payInformant, totalPaid, type PaymentReco
 export { schemeTimeline, type SchemeStage, type SchemeTimeline } from "./schemeTimeline.js";
 export { addLeverage, leverage, leverageBoard, LEVERAGE_DECAY, spendLeverage, type LeverageRecord } from "./leverage.js";
 export { APPROACH_PROFILES, ASSASSINATION_APPROACHES, attemptAssassination, type AssassinationApproach, type AssassinationOutcome, type ApproachProfile } from "./assassination.js";
+export { planExtraction, runExtraction, type ExtractionOutcome, type ExtractionPlan } from "./extraction.js";
