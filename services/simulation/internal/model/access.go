@@ -1047,6 +1047,8 @@ func rulerGet(r *Leader, f string) (float64, bool) {
 		return b2f(r.IsPregnant), true
 	case "pregnancy_ticks":
 		return r.PregnancyTicks, true
+	case "pregnancy_days":
+		return r.PregnancyDays, true
 	case "sex":
 		return float64(r.Sex), true
 	case "gold":

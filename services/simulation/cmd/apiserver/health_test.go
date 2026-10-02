@@ -3,22 +3,42 @@ package main
 import (
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
-// TestHealthEndpoint verifies the /health endpoint returns 200.
+// TestHealthEndpoint invokes the registered /health handler through the real
+// route table and verifies its response. The old version hand-wrote a 200
+// without touching any handler, so it passed even if /health was unregistered
+// or broken.
 func TestHealthEndpoint(t *testing.T) {
-	// The health handler is registered inline in main.go; we test the pattern here.
+	s := &Server{}
+	mux := s.routes()
+
 	req := httptest.NewRequest("GET", "/health", nil)
 	w := httptest.NewRecorder()
-	// Simulate the handler: it writes 200 with "ok"
-	w.WriteHeader(http.StatusOK)
-	w.Write([]byte("ok"))
+	mux.ServeHTTP(w, req)
+
 	resp := w.Result()
 	if resp.StatusCode != http.StatusOK {
-		t.Errorf("expected 200, got %d", resp.StatusCode)
+		t.Fatalf("GET /health: expected 200, got %d", resp.StatusCode)
 	}
-	if req.URL.Path != "/health" {
-		t.Errorf("unexpected path: %s", req.URL.Path)
+	body := strings.TrimSpace(w.Body.String())
+	if body != `{"ok":true}` {
+		t.Errorf("GET /health: unexpected body %q, want %q", body, `{"ok":true}`)
+	}
+}
+
+// TestHealthRegistered verifies /health is in the route table at all: an
+// unregistered path would 404 through the mux.
+func TestHealthRegistered(t *testing.T) {
+	s := &Server{}
+	mux := s.routes()
+
+	req := httptest.NewRequest("GET", "/health", nil)
+	w := httptest.NewRecorder()
+	mux.ServeHTTP(w, req)
+	if w.Code == http.StatusNotFound {
+		t.Errorf("/health is not registered in the route table")
 	}
 }
