@@ -31,6 +31,22 @@ export type MusicTrack =
 export type SfxId = string;
 
 /**
+ * Audio lane prerequisite for tasks 501–600: the manifest's `path` values are
+ * repository paths (`clients/campaign/public/audio/...`) because the file doubles
+ * as the attribution ledger in `ART_AND_AUDIO.md`. The browser serves that same
+ * directory as the web root, so fetching the stored path 404s and the whole game
+ * runs silent. Normalising in one place keeps the ledger readable and the fetches
+ * correct: the public dir's contents live at `/`.
+ */
+export function webAudioPath(path: string): string {
+  const publicPrefix = "clients/campaign/public/";
+  let webPath = path.trim();
+  if (webPath.startsWith("./")) webPath = webPath.slice(2);
+  if (webPath.startsWith(publicPrefix)) webPath = webPath.slice(publicPrefix.length);
+  return webPath.startsWith("/") ? webPath : `/${webPath}`;
+}
+
+/**
  * Task 554: how long one music track takes to hand over to the next, in seconds.
  * Long enough that the two are heard as one move rather than a cut, short enough
  * that the battle theme is in place before the first volley.
@@ -111,7 +127,7 @@ export class AudioManager {
         const asset = this.manifest.get(id);
         if (!asset) return;
         try {
-          const resp = await fetch(asset.path);
+          const resp = await fetch(webAudioPath(asset.path));
           const arrayBuffer = await resp.arrayBuffer();
           const audioBuffer = await this.ctx!.decodeAudioData(arrayBuffer);
           this.buffers.set(id, audioBuffer);
