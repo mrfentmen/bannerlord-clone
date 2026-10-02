@@ -63,6 +63,7 @@ import { partyPanel } from "./ui/panels/PartyPanel.js";
 import { marchPlanner } from "./ui/panels/MarchPlanner.js";
 import { questPanel } from "./ui/panels/QuestPanel.js";
 import { rumourFeedPanel } from "./ui/panels/RumourFeed.js";
+import { radioPanel } from "./ui/panels/RadioPanel.js";
 import { ledgerPanel } from "./ui/panels/LedgerPanel.js";
 import { rulerCard, rulerRoster } from "./ui/panels/RulerPanel.js";
 import { startScreen } from "./ui/panels/StartScreen.js";
@@ -1006,6 +1007,11 @@ function rebuildContext(): void {
       // the feed is a read of every market in the world rather than of the selection.
       contextNode = rumourNode();
       return;
+    case "radio":
+      // The bulletins are generated from the live snapshot, so the news is
+      // always about the world as it is right now.
+      contextNode = radioNode();
+      return;
     case "march":
       contextNode = marchPlanner({
         party: snap.party,
@@ -1275,6 +1281,14 @@ function rumourNode(): Node {
     day: snapshot.day,
     onError: (m) => console.error(m),
   }).root;
+}
+
+function radioNode(): Node {
+  if (!snapshot) return noSimulationRecordNode("No radio without a world to report on");
+  return radioPanel({
+    towns: snapshot.towns,
+    onClose: () => openPanel("none"),
+  });
 }
 
 /** Re-read after a trade so the table shows the post-trade price, not the one before. */

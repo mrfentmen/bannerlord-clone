@@ -8,7 +8,8 @@
     "~/workspace/game-music/compose6.py",
     "~/workspace/game-music/sfx.py",
     "~/workspace/game-music/sfx2.py",
-    "~/workspace/game-music/sfx3.py"
+    "~/workspace/game-music/sfx3.py",
+    "~/workspace/game-music/radio.py"
   ],
   "entries": [
     {
@@ -584,6 +585,34 @@
       "sha256": "a44b7db1d01f344bc4a7aae723b9fbf80a8e9ff269dacd5b705dff435ba262c4",
       "duration_s": 0.6,
       "bytes": 10493
+    },
+    {
+      "path": "audio/radio/bed-country-lope.mp3",
+      "kind": "radio",
+      "sha256": "c342bb8d2f13e1dc6868b0ff2f4c495df43368394a0f81db49f1ae56b3b936d4",
+      "duration_s": 20.0,
+      "bytes": 201297
+    },
+    {
+      "path": "audio/radio/bed-heartland-rock.mp3",
+      "kind": "radio",
+      "sha256": "e5f9dc17977603ecd5a013a6a34bab2543eec520c96a3b928d027cb4062a5afb",
+      "duration_s": 15.24,
+      "bytes": 182165
+    },
+    {
+      "path": "audio/radio/bed-night-synth.mp3",
+      "kind": "radio",
+      "sha256": "e87c7c42aa8af497770974251b8b435749b213b267541ea66fb764219cc024ff",
+      "duration_s": 19.2,
+      "bytes": 220793
+    },
+    {
+      "path": "audio/radio/ident.mp3",
+      "kind": "radio",
+      "sha256": "95e7d40e3b90d4598d4a701c63958344f98ac5c7306909318e1af4995308e8d7",
+      "duration_s": 2.0,
+      "bytes": 28028
     }
   ]
 }

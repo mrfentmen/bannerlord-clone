@@ -1733,3 +1733,12 @@
 }
 .audio-mute-btn:hover { filter: brightness(1.25); }
 .audio-mute-btn:focus-visible { outline: 2px solid var(--accent-info); }
+
+/* Radio tuner panel (src/ui/panels/RadioPanel.ts). */
+.radio__stations { display: flex; gap: var(--space-2); flex-wrap: wrap; margin-bottom: var(--space-2); }
+.radio__station--active { border-color: var(--accent-info); }
+.radio__stop { margin-bottom: var(--space-3); }
+.radio__intro, .radio__outro { font-style: italic; color: var(--ink-500); }
+.radio__bulletins { list-style: decimal; padding-left: var(--space-4); display: grid; gap: var(--space-2); }
+.radio__headline { font-weight: bold; color: var(--ink-900); }
+.radio__text { color: var(--ink-700); }

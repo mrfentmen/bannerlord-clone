@@ -63,6 +63,7 @@ export type HudPanel =
   | "rumours"
   | "ledger"
   | "roster"
+  | "radio"
   | "why"
   | "none";
 
@@ -444,6 +445,7 @@ export function createHud(options: HudOptions): HudHandle {
       ["march", "March", "open-march"],
       ["quests", "Quests", "open-quests"],
       ["rumours", "Rumours", "open-rumours"],
+      ["radio", "Radio", "open-radio"],
       ["barter", "Barter", "open-barter"],
       ["ledger", "Ledger", "open-ledger"],
       ["roster", "Rulers", "open-roster"],
