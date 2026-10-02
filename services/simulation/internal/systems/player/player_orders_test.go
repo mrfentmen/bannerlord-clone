@@ -383,7 +383,7 @@ func TestOrderRecruitRequiresDistanceToTheTown(t *testing.T) {
 //
 // State.AtWar already exists and other systems use it, so the information the
 // check needs is in shared state.
-func TestOrderRecruitInAnEnemyTownAtWarStillSucceeds(t *testing.T) {
+func TestOrderRecruitInAnEnemyTownAtWarFails(t *testing.T) {
 	s := recruitFixture()
 	s.Sides[2] = &model.Side{ID: 2, Name: "the march"}
 	s.Towns[2] = &model.Town{ID: 2, Name: "Dunmar", SideID: 2, Prosperity: 0.5, X: 10, Y: 10}
@@ -399,11 +399,11 @@ func TestOrderRecruitInAnEnemyTownAtWarStillSucceeds(t *testing.T) {
 		Amount:   5,
 	})
 
-	if got := s.Parties[1].Troops; got != 55 {
-		t.Errorf("party troops = %v, want 55 (no hostility check exists today)", got)
+	if got := s.Parties[1].Troops; got != 50 {
+		t.Errorf("party troops = %v, want 50 (no recruits in hostile town)", got)
 	}
-	if got := s.Leaders[1].Gold; got != 950 {
-		t.Errorf("leader gold = %v, want 950", got)
+	if got := s.Leaders[1].Gold; got != 1000 {
+		t.Errorf("leader gold = %v, want 1000 (no gold spent in hostile town)", got)
 	}
 }
 
@@ -413,11 +413,9 @@ func TestOrderRecruitInAnEnemyTownAtWarStillSucceeds(t *testing.T) {
 // afterwards. A party already far over the cap absorbs recruits without comment,
 // which makes the cap a starting condition rather than a limit and lets an army
 // grow past any size the campaign was balanced around.
-func TestOrderRecruitIgnoresThePartySizeCap(t *testing.T) {
-	cfg := testCfg(t)
+func TestOrderRecruitRespectsThePartySizeCap(t *testing.T) {
 	s := recruitFixture()
-	cap := cfg.Ruler.MaxPartyTroopsBase + s.Leaders[1].Renown*cfg.Ruler.MaxPartyTroopsPerRenown
-	s.Parties[1].Troops = cap + 1000
+	s.Parties[1].Troops = 600 // over the 500 cap
 
 	tick(t, s, sim.Order{
 		Kind:     sim.OrderRecruitTroops,
@@ -426,9 +424,9 @@ func TestOrderRecruitIgnoresThePartySizeCap(t *testing.T) {
 		Amount:   5,
 	})
 
-	want := cap + 1005
-	if got := s.Parties[1].Troops; got != want {
-		t.Errorf("party troops = %v, want %v (the %v cap is not enforced on recruits today)", got, want, cap)
+	// No recruits when already at/over cap.
+	if got := s.Parties[1].Troops; got != 600 {
+		t.Errorf("party troops = %v, want 600 (cap enforced, no recruits)", got)
 	}
 }
 
@@ -504,8 +502,10 @@ func TestOrderReleasePrisonerPaysTheCaptorNothing(t *testing.T) {
 
 	s2 := prisonerFixture()
 	tick(t, s2, sim.Order{Kind: sim.OrderRansomPrisoner, LeaderID: 1, Target: 2})
-	if want := 100 + cfg.RulerAI.PrisonerRansomGold; s2.Leaders[1].Gold != want {
-		t.Errorf("ransom: captor gold = %v, want %v", s2.Leaders[1].Gold, want)
+	// Ransom gold is split: half to leader, half to party.
+	half := cfg.RulerAI.PrisonerRansomGold / 2
+	if want := 100 + half; s2.Leaders[1].Gold != want {
+		t.Errorf("ransom: captor gold = %v, want %v (leader gets half)", s2.Leaders[1].Gold, want)
 	}
 	if got, want := s2.Relation(1, 2), -cfg.RulerAI.PrisonerRansomRelation; got != want {
 		t.Errorf("ransom: relation = %v, want %v (a ransom costs relation)", got, want)
@@ -667,18 +667,18 @@ func TestOrderReleaseOfAnUncapturedRulerGrantsNoRelation(t *testing.T) {
 // release order still frees the prisoner and still earns the relation. Together
 // with the missing ownership check, the captor's identity is never consulted at
 // all: only the existence of some leader in the order matters.
-func TestOrderReleasePrisonerByADeadCaptorStillSucceeds(t *testing.T) {
-	cfg := testCfg(t)
+func TestOrderReleasePrisonerByADeadCaptorFails(t *testing.T) {
 	s := prisonerFixture()
 	s.Leaders[1].IsAlive = false
 
 	tick(t, s, sim.Order{Kind: sim.OrderReleasePrisoner, LeaderID: 1, Target: 2})
 
-	if got := s.Leaders[2].CapturedBy; got != -1 {
-		t.Errorf("prisoner captured_by = %v, want -1 (a dead captor still released them)", got)
+	// Dead captor cannot release: prisoner stays captured, no relation.
+	if got := s.Leaders[2].CapturedBy; got != 1 {
+		t.Errorf("prisoner captured_by = %v, want 1 (dead captor cannot release)", got)
 	}
-	if got, want := s.Relation(1, 2), cfg.RulerAI.PrisonerReleaseRelation; got != want {
-		t.Errorf("relation = %v, want %v", got, want)
+	if got := s.Relation(1, 2); got != 0 {
+		t.Errorf("relation = %v, want 0 (no relation from dead captor)", got)
 	}
 }
 

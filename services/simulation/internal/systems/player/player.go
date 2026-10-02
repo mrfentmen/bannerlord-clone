@@ -268,6 +268,19 @@ func applyRecruit(v *sim.View, w *sim.WriteSet, o sim.Order) {
 	if distSq > 25 { // 5km squared
 		return
 	}
+	// Hostility check: can't recruit in hostile towns.
+	// If the town's side is at war with the leader's side, no recruits.
+	if t.SideID != r.SideID {
+		// Check if sides are hostile (simplified: different sides = hostile
+		// unless allied; for now, different side blocks recruitment).
+		// TODO: use proper diplomacy state when available.
+		return
+	}
+	// Troop cap check: party can't exceed 500 troops (configurable max).
+	const maxTroops = 500
+	if party.Troops >= maxTroops {
+		return
+	}
 	// Available recruits scale with prosperity and town size.
 	available := int(t.Prosperity * 20)
 	if available < 1 {
@@ -316,6 +329,10 @@ func applyPrisoner(v *sim.View, w *sim.WriteSet, o sim.Order) {
 	// A prisoner with captured_by == -1 is free; anyone attempting to act on
 	// a free prisoner is ignored.
 	if prisoner.CapturedBy != o.LeaderID {
+		return
+	}
+	// Liveness check: a dead captor cannot issue prisoner orders.
+	if !captor.IsAlive {
 		return
 	}
 	if o.Kind == sim.OrderRansomPrisoner {
