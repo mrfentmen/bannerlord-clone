@@ -101,7 +101,7 @@ func issueAttack(v *sim.View, w *sim.WriteSet, pid int, p *model.Party) {
 	c := v.Cfg
 	target := bestEnemyTown(v, p)
 	if target < 0 {
-		w.Set(model.KindParty, pid, "intended_action", float64(model.IntentNone), "no target", nil, "")
+		// No target: leave intention for AI to reconsider.
 		return
 	}
 	// A ruler does not set out without food for the journey. This is the
@@ -151,7 +151,7 @@ func issueRaid(v *sim.View, w *sim.WriteSet, pid int, p *model.Party) {
 		}
 	}
 	if best < 0 {
-		w.Set(model.KindParty, pid, "intended_action", float64(model.IntentNone), "no raid target", nil, "")
+		// No raid target: leave intention for AI to reconsider.
 		return
 	}
 	vl := v.State.Villages[best]
@@ -182,7 +182,9 @@ func issueAid(v *sim.View, w *sim.WriteSet, pid int, p *model.Party) {
 		}
 	}
 	if best < 0 {
-		w.Set(model.KindParty, pid, "intended_action", float64(model.IntentNone), "no one to aid", nil, "")
+		// No one to aid: leave the intention in place. The ruler AI will
+		// reconsider next tick. Clearing it here would conflict with the
+		// intention just set by the decision system in the same tick.
 		return
 	}
 	// The load is taken from the party's own larder, so aid costs the sender
@@ -220,7 +222,7 @@ func issueTrade(v *sim.View, w *sim.WriteSet, pid int, p *model.Party) {
 		}
 	}
 	if best < 0 {
-		w.Set(model.KindParty, pid, "intended_action", float64(model.IntentNone), "no trade", nil, "")
+		// No trade: leave intention for AI to reconsider.
 		return
 	}
 	t := v.State.Towns[best]
@@ -254,7 +256,7 @@ func issueBlockade(v *sim.View, w *sim.WriteSet, pid int, p *model.Party) {
 		}
 	}
 	if best < 0 {
-		w.Set(model.KindParty, pid, "intended_action", float64(model.IntentNone), "no port to blockade", nil, "")
+		// No port: leave intention for AI to reconsider.
 		return
 	}
 	t := v.State.Towns[best]
@@ -268,7 +270,7 @@ func issueBlockade(v *sim.View, w *sim.WriteSet, pid int, p *model.Party) {
 func issueDefend(v *sim.View, w *sim.WriteSet, pid int, p *model.Party) {
 	home := v.State.Towns[p.HomeTown]
 	if home == nil {
-		w.Set(model.KindParty, pid, "intended_action", float64(model.IntentNone), "no home", nil, "")
+		// No home: leave intention for AI to reconsider.
 		return
 	}
 	w.Set(model.KindParty, pid, "activity", float64(model.ActReturning), "defending", nil, "returns to defend")

@@ -203,16 +203,12 @@ func arrive(v *sim.View, w *sim.WriteSet, pid int, p *model.Party, c *config.Con
 		// A besieger that has arrived at its target begins the siege, which
 		// the siege system reads from activity and position.
 		w.Set(model.KindParty, pid, "is_sieging", 1, read, causes, "besieging")
-		w.Set(model.KindParty, pid, "intended_action", float64(model.IntentNone), read, causes, "")
 	case model.ActResupplying:
 		w.Set(model.KindParty, pid, "activity", float64(model.ActIdle), read, causes, "resupplied")
-		w.Set(model.KindParty, pid, "intended_action", float64(model.IntentNone), read, causes, "")
 	case model.ActRaiding:
 		w.Set(model.KindParty, pid, "activity", float64(model.ActIdle), read, causes, "raid complete")
-		w.Set(model.KindParty, pid, "intended_action", float64(model.IntentNone), read, causes, "")
 	default:
 		w.Set(model.KindParty, pid, "activity", float64(model.ActIdle), read, causes, "arrived")
-		w.Set(model.KindParty, pid, "intended_action", float64(model.IntentNone), read, causes, "")
 	}
 }
 
