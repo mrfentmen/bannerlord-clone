@@ -14,6 +14,7 @@ import {
 } from "@babylonjs/core";
 import "@babylonjs/loaders";
 import { createRagdoll, type RagdollHandle } from "../physics/ragdoll.js";
+import { applyThumbPose } from "../animations/thumbPose.js";
 
 export interface SoldierOptions {
   /** Which operator model to use. */
@@ -68,6 +69,8 @@ export class BattleSoldier {
     // Find the skeleton
     if (result.skeletons.length > 0) {
       soldier.skeleton = result.skeletons[0] ?? null;
+      // Apply natural thumb pose (models have thumbs but no fingers)
+      if (soldier.skeleton) applyThumbPose(soldier.skeleton, 0.7);
     }
 
     return soldier;
