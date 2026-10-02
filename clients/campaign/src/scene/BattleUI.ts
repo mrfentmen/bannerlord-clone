@@ -32,6 +32,9 @@ export class DeploymentUI {
   private container: HTMLElement | null = null;
   private timerEl: HTMLElement | null = null;
   private timerId: ReturnType<typeof setInterval> | null = null;
+  /** Kept so the countdown can end the phase on the same path the button uses. */
+  private onExpire: (() => void) | null = null;
+  private completed = false;
 
   show(_zones: DeploymentZone[], onComplete: () => void): void {
     // show() may be called again on a still-visible overlay; the old interval has to
@@ -91,18 +94,25 @@ export class DeploymentUI {
 
     this.container = container;
     this.timerEl = timerEl;
+    this.completed = false;
+    this.onExpire = onComplete;
     this.startCountdown();
   }
 
   /** The one way the deployment phase ends: the overlay goes, the battle begins. */
   private complete(onComplete: () => void): void {
+    // Running out of time and pressing Ready are the same act, so they share one
+    // guard: whichever gets there first ends the phase exactly once.
+    if (this.completed) return;
+    this.completed = true;
     this.hide();
     onComplete();
   }
 
   /**
    * Run the countdown in the header. The value only ever moves down, and the interval
-   * is cleared in hide(), so a hidden overlay leaves nothing running.
+   * is cleared in hide(), so a hidden overlay leaves nothing running. Reaching zero
+   * ends the deployment phase, which is why the interval is also stopped there.
    */
   startCountdown(seconds: number = DEPLOY_SECONDS): void {
     this.stopCountdown();
@@ -111,6 +121,9 @@ export class DeploymentUI {
     this.timerId = setInterval(() => {
       remaining -= 1;
       if (this.timerEl) this.timerEl.textContent = formatCountdown(remaining);
+      if (remaining > 0) return;
+      this.stopCountdown();
+      if (this.onExpire) this.complete(this.onExpire);
     }, 1000);
   }
 
@@ -125,6 +138,7 @@ export class DeploymentUI {
     this.container?.remove();
     this.container = null;
     this.timerEl = null;
+    this.onExpire = null;
   }
 }
 

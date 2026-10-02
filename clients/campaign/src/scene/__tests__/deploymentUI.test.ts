@@ -51,8 +51,9 @@ describe("deployment countdown (task 6)", () => {
     expect(timerText()).toBe("1:00");
     vi.advanceTimersByTime(1000);
     expect(timerText()).toBe("0:59");
-    vi.advanceTimersByTime(59_000);
-    expect(timerText()).toBe("0:00");
+    // The last tick is where the phase ends (task 8), so the visible run stops at 0:01.
+    vi.advanceTimersByTime(58_000);
+    expect(timerText()).toBe("0:01");
 
     ui.hide();
   });
@@ -76,8 +77,8 @@ describe("deployment countdown (task 6)", () => {
     ui.startCountdown(30);
 
     expect(timerText()).toBe("0:30");
-    vi.advanceTimersByTime(30_000);
-    expect(timerText()).toBe("0:00");
+    vi.advanceTimersByTime(29_000);
+    expect(timerText()).toBe("0:01");
 
     ui.hide();
   });
@@ -125,6 +126,66 @@ describe("ready control per side (task 7)", () => {
     ui.show([PLAYER_ZONE, ENEMY_ZONE], () => {});
 
     expect(document.querySelectorAll("button")).toHaveLength(1);
+
+    ui.hide();
+  });
+});
+
+describe("auto-start when time runs out (task 8)", () => {
+  it("ends the phase when the countdown reaches zero", () => {
+    vi.useFakeTimers();
+    const onComplete = vi.fn();
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE, ENEMY_ZONE], onComplete);
+
+    vi.advanceTimersByTime(60_000);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(document.querySelector(".battle-deployment")).toBeNull();
+    // Nothing is left running: the interval went with the overlay.
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("fires once, not once per tick at zero", () => {
+    vi.useFakeTimers();
+    const onComplete = vi.fn();
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE], onComplete);
+
+    vi.advanceTimersByTime(500_000);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+
+    ui.hide();
+  });
+
+  it("does not start the battle twice if the player pressed Ready first", () => {
+    vi.useFakeTimers();
+    const onComplete = vi.fn();
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE], onComplete);
+
+    vi.advanceTimersByTime(30_000);
+    document.querySelector<HTMLButtonElement>(".deploy-ready")?.click();
+    expect(onComplete).toHaveBeenCalledTimes(1);
+
+    // A second Ready press, and the rest of the countdown, must not add another.
+    document.querySelector<HTMLButtonElement>(".deploy-ready")?.click();
+    vi.advanceTimersByTime(60_000);
+    expect(onComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it("starts fresh when shown again", () => {
+    vi.useFakeTimers();
+    const first = vi.fn();
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE], first);
+    vi.advanceTimersByTime(60_000);
+    expect(first).toHaveBeenCalledTimes(1);
+
+    const second = vi.fn();
+    ui.show([PLAYER_ZONE], second);
+    expect(timerText()).toBe("1:00");
+    vi.advanceTimersByTime(60_000);
+    expect(second).toHaveBeenCalledTimes(1);
 
     ui.hide();
   });
