@@ -14,11 +14,16 @@ import {
   SNOW_COVER_FULL_M,
   SNOW_COVER_START_M,
   SNOW_HORIZONTAL_FLOOR,
+  WET_DARKENING,
+  WET_GLOSS,
   snowCoverOn,
   snowLayer,
   skyFacing,
   weatherWriteFor,
+  wetDiffuseScale,
+  wetLayer,
   type Normal,
+  type WeatherState,
 } from "../WeatherTints.js";
 
 const UP: Normal = { x: 0, y: 1, z: 0 };
@@ -119,5 +124,46 @@ describe("weatherWriteFor under snow (task 619)", () => {
       emissiveAdd: { r: 0, g: 0, b: 0 },
       coverage: 0,
     });
+  });
+});
+describe("wet look (task 620)", () => {
+  const dry: WeatherState = { snowM: 0, raining: false, biome: 'plains' };
+  const rain: WeatherState = { ...dry, raining: true };
+
+  it("is a no-op when it is not raining", () => {
+    expect(wetLayer(false)).toEqual({ strength: 0, gloss: 1, tint: { r: 0, g: 0, b: 0 } });
+    expect(wetDiffuseScale(false)).toBe(1);
+    expect(weatherWriteFor(UP, dry)).toEqual(weatherWriteFor(SIDE, dry));
+  });
+
+  it("darkens and glosses every surface, whatever its normal", () => {
+    for (const normal of [UP, SIDE, DOWN]) {
+      const write = weatherWriteFor(normal, rain);
+      expect(write.diffuseScale).toBeLessThan(1);
+      expect(write.specularScale).toBeCloseTo(WET_GLOSS);
+    }
+  });
+
+  it("darkens by a fifth, which is what water does to albedo", () => {
+    expect(WET_DARKENING).toBeCloseTo(0.2);
+    expect(wetDiffuseScale(true)).toBeCloseTo(0.8);
+  });
+
+  it("composes with snow rather than replacing it", () => {
+    const snowyRain: WeatherState = { snowM: SNOW_COVER_FULL_M, raining: true, biome: 'plains' };
+    const write = weatherWriteFor(UP, snowyRain);
+    // Coverage is still the snow that fell; the rain darkens on top of it.
+    expect(write.coverage).toBeCloseTo(1);
+    expect(write.coverage).toBeGreaterThan(0.7);
+    expect(write.specularScale).toBeCloseTo(WET_GLOSS);
+    // Clear snow is brighter than wet snow.
+    expect(write.diffuseScale).toBeLessThan(weatherWriteFor(UP, { ...snowyRain, raining: false }).diffuseScale);
+  });
+
+  it("never darkens past black or glosses past the wet value", () => {
+    const write = weatherWriteFor(UP, { snowM: 10, raining: true, biome: 'desert' });
+    expect(write.diffuseScale).toBeGreaterThan(0);
+    expect(write.specularScale).toBeLessThanOrEqual(WET_GLOSS);
+    expect(write.coverage).toBeLessThanOrEqual(1);
   });
 });

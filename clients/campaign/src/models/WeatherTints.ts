@@ -7,6 +7,8 @@
  *
  * - Task 619: snow settles on up-facing surfaces -- a model's roofs, hoods and
  *   shoulders go white, its flanks barely change.
+ * - Task 620: rain darkens everything and makes it glossier, because a wet
+ *   surface reflects more of a grey sky than a dry one.
  *
  * The up-facing test is a dot product against the surface normal, so it needs a
  * normal per surface -- which means it is a shader-level change, not a material
@@ -28,7 +30,7 @@ export interface WeatherState {
   snowM: number;
   /** True while it is raining. */
   raining: boolean;
-  /** Biome the model stands in; only `desert` accumulates dust. */
+  /** Biome the model stands in. */
   biome: string;
 }
 
@@ -96,6 +98,36 @@ export function snowLayer(normal: Normal, snowM: number): WeatherLayer {
   return { strength, gloss: 1 + strength * 0.3, tint: SNOW_TINT };
 }
 
+/**
+ * Task 620: how glossy a wet surface is, as a multiplier on specular power.
+ * 1 is dry. Water fills the micro-roughness that scatters light, so a wet road
+ * reflects the sky instead of scattering it.
+ */
+export const WET_GLOSS = 2.2;
+
+/** Task 620: rain layer. Everything is wet, so there is no normal term. */
+export function wetLayer(raining: boolean): WeatherLayer {
+  return {
+    strength: raining ? 1 : 0,
+    gloss: raining ? WET_GLOSS : 1,
+    tint: { r: 0, g: 0, b: 0 },
+  };
+}
+
+/**
+ * Task 620: how much rain darkens a diffuse colour, 0..1.
+ *
+ * A wet surface loses about a fifth of its albedo -- the water fills the pores
+ * that would otherwise scatter light back at the viewer. `wetDarkening` is that
+ * factor, so a caller multiplies its diffuse colour by `1 - wetDarkening`.
+ */
+export const WET_DARKENING = 0.2;
+
+/** The multiplier a rain-soaked diffuse colour needs. */
+export function wetDiffuseScale(raining: boolean): number {
+  return raining ? 1 - WET_DARKENING : 1;
+}
+
 /** What a scene owner has to set on a material for the weather to show. */
 export interface WeatherMaterialWrite {
   /** Multiply the material's diffuse colour by this. */
@@ -119,14 +151,20 @@ export interface WeatherMaterialWrite {
  */
 export function weatherWriteFor(normal: Normal, weather: WeatherState): WeatherMaterialWrite {
   const snow = snowLayer(normal, weather.snowM);
+  const wet = wetLayer(weather.raining);
+  // Coverage stays what the snow measured; the wet darkening multiplies on top
+  // of it. Folding the wetness into the coverage instead would make wet snow
+  // *brighter* than dry snow, which is the opposite of what rain does.
+  const cover = snow.strength;
   return {
-    diffuseScale: 1 - snow.strength * 0.85,
-    specularScale: snow.gloss,
+    diffuseScale: (1 - cover * 0.85) * wetDiffuseScale(weather.raining),
+    // Wet wins the gloss: ice is glossier, but nothing is glossier than wet.
+    specularScale: wet.strength > 0 ? wet.gloss : snow.gloss,
     emissiveAdd: {
-      r: snow.tint.r * snow.strength,
-      g: snow.tint.g * snow.strength,
-      b: snow.tint.b * snow.strength,
+      r: snow.tint.r * cover,
+      g: snow.tint.g * cover,
+      b: snow.tint.b * cover,
     },
-    coverage: snow.strength,
+    coverage: cover,
   };
 }
