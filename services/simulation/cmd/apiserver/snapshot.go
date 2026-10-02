@@ -167,6 +167,7 @@ func buildSnapshot(s *Server) map[string]any {
 		},
 		"party":         playerParty,
 		"towns":         towns,
+		"workshops":     buildWorkshops(st),
 		"fog":           buildFog(s, playerSide, visibleSet, knownSet),
 		"markets":       map[string]any{},
 		"sides":         sides,
@@ -450,6 +451,30 @@ func causeRefs(ids []int) []any {
 	out := make([]any, 0, len(ids))
 	for _, id := range ids {
 		out = append(out, fmt.Sprintf("cause-%d", id))
+	}
+	return out
+}
+
+// buildWorkshops renders workshop data for the snapshot.
+func buildWorkshops(st *model.State) []map[string]any {
+	out := make([]map[string]any, 0, len(st.Workshops))
+	for _, w := range st.Workshops {
+		if w == nil {
+			continue
+		}
+		townName := ""
+		if t := st.Towns[w.TownID]; t != nil {
+			townName = t.Name
+		}
+		out = append(out, map[string]any{
+			"id":       w.ID,
+			"townId":   w.TownID,
+			"townName": townName,
+			"type":     int(w.Type),
+			"level":    w.Level,
+			"output":   w.OutputStock,
+			"workers":  w.Workers,
+		})
 	}
 	return out
 }
