@@ -1,18 +1,19 @@
 /**
  * Deployment placement interaction for the battle scene
- * (Buffy tasks 3-5, 10, 18).
+ * (Buffy tasks 3-5, 10, 18, 19).
  *
  * During deployment a semi-transparent soldier ghost follows the cursor over
  * the battlefield, and a click inside the player's deployment zone drops a
  * solid marker where the unit will stand. The placer owns the pointer
- * subscription, the ghost visuals, and the placement list; later deployment
- * tasks (undo, clear) build on the same handle.
+ * subscription, the ghost visuals, and the placement list; the remaining
+ * deployment task (clear all) builds on the same handle.
  *
  * The primary button places; the secondary button cancels the preview, which
  * hides the ghost and hands the unit back to the caller (`onCancel`). A click
  * that lands outside the zone flashes the ghost red for a moment instead of
  * dropping a marker. Grid snap (`setGridSnap`) puts the ghost and every marker
- * on a 2 m grid so a deployment comes out in tidy ranks.
+ * on a 2 m grid so a deployment comes out in tidy ranks, and Ctrl+Z / Cmd+Z
+ * (`undoLastPlacement`) walks placements back one at a time.
  *
  * The ghost starts as a primitive proxy so it is there the moment deployment
  * begins, and upgrades to a translucent clone of the soldier GLB once the
@@ -133,10 +134,12 @@ export class DeploymentPlacer {
   private readonly ghostMaterial: StandardMaterial;
   private readonly proxyMeshes: Mesh[] = [];
   private readonly placements: DeploymentPlacement[] = [];
-  private readonly placementMeshes: Mesh[] = [];
+  /** Marker meshes per placement, so the newest one can be undone alone. */
+  private readonly placementGroups: Mesh[][] = [];
   private placementMaterial: StandardMaterial | null = null;
   private placementCounter = 0;
   private observer: Observer<PointerInfo> | null = null;
+  private keyHandler: ((event: KeyboardEvent) => void) | null = null;
   private lastPoint: Vector3 | null = null;
   private proxyRetired = false;
   private flashTimer: ReturnType<typeof setTimeout> | null = null;
@@ -199,6 +202,7 @@ export class DeploymentPlacer {
         this.handleSecondaryTap(info);
       }
     });
+    this.listenForUndo();
     this.ghostRoot.setEnabled(true);
     this.moveGhostTo(initialPoint ?? this.lastPoint ?? Vector3.Zero());
   }
@@ -206,6 +210,7 @@ export class DeploymentPlacer {
   /** Stop following the cursor and hide the ghost. Idempotent. */
   stop(): void {
     this.endFlash();
+    this.stopListeningForUndo();
     if (this.observer) {
       this.scene.onPointerObservable.remove(this.observer);
       this.observer = null;
@@ -225,6 +230,50 @@ export class DeploymentPlacer {
     this.stop();
     this.onCancel?.();
     return true;
+  }
+
+  /**
+   * Undo the newest placement (Buffy task 19): its marker meshes are disposed
+   * and the placement is popped. Returns false when there is nothing to undo.
+   * Callers that keep their own roster can diff `getPlacements()` to see which
+   * unit went back.
+   */
+  undoLastPlacement(): boolean {
+    if (this.disposed) return false;
+    const group = this.placementGroups.pop();
+    if (!group) return false;
+    this.placements.pop();
+    this.disposeMarkers([group]);
+    return true;
+  }
+
+  /**
+   * Take the undo shortcut while deployment is live. The window is the target
+   * because the canvas only holds focus sometimes; a headless engine has no
+   * window, and there the shortcut is simply absent.
+   */
+  private listenForUndo(): void {
+    if (this.keyHandler || typeof window === "undefined") return;
+    this.keyHandler = (event: KeyboardEvent) => this.handleKey(event);
+    window.addEventListener("keydown", this.keyHandler);
+  }
+
+  private stopListeningForUndo(): void {
+    if (!this.keyHandler) return;
+    window.removeEventListener("keydown", this.keyHandler);
+    this.keyHandler = null;
+  }
+
+  /**
+   * Ctrl+Z / Cmd+Z undoes the last placement (Buffy task 19). Shift is left
+   * alone — Ctrl+Shift+Z is redo elsewhere and must not silently undo here.
+   */
+  private handleKey(event: KeyboardEvent): void {
+    if (event.shiftKey) return;
+    if (!event.ctrlKey && !event.metaKey) return;
+    if (event.key.toLowerCase() !== "z") return;
+    event.preventDefault();
+    this.undoLastPlacement();
   }
 
   /** Stand the ghost at a battlefield point (y is always ground level). */
@@ -387,7 +436,14 @@ export class DeploymentPlacer {
     head.position.set(placement.x, 1.72, placement.z);
     head.material = material;
     head.isPickable = false;
-    this.placementMeshes.push(body, head);
+    this.placementGroups.push([body, head]);
+  }
+
+  /** Free marker meshes, leaving the shared placement material in place. */
+  private disposeMarkers(groups: Mesh[][]): void {
+    for (const group of groups) {
+      for (const mesh of group) mesh.dispose(false, false);
+    }
   }
 
   private ensurePlacementMaterial(): StandardMaterial {
@@ -446,8 +502,8 @@ export class DeploymentPlacer {
     for (const mesh of this.proxyMeshes) mesh.dispose(false, false);
     this.proxyMeshes.length = 0;
     if (!this.proxyRetired) this.ghostMaterial.dispose();
-    for (const mesh of this.placementMeshes) mesh.dispose(false, false);
-    this.placementMeshes.length = 0;
+    this.disposeMarkers(this.placementGroups);
+    this.placementGroups.length = 0;
     this.placements.length = 0;
     this.placementMaterial?.dispose();
     this.placementMaterial = null;

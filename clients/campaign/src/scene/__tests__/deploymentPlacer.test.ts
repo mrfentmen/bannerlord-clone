@@ -1,17 +1,17 @@
 /**
  * Deployment ghost preview, placement, and camera framing
- * (Buffy tasks 3-5, 10, 11, 18).
+ * (Buffy tasks 3-5, 10, 11, 18, 19).
  *
  * The placer owns the battlefield side of the deployment phase: a translucent
  * soldier ghost that tracks the cursor, solid markers dropped by clicks
  * inside the player's deployment zone, a right-click that cancels the
- * preview, a red flash for clicks that miss the zone, and an optional 2 m
- * grid snap. `BattleScene` adds the deployment camera pose. These tests run
- * the real classes on a NullEngine — real meshes and cameras, no GPU — and
- * cover show/hide, position updates, observer hygiene, teardown, placement
- * validation, cancel, the flash, snapping, and the camera framing. The GLB
- * upgrade cannot run headless (no network to /models/), which is exactly the
- * case the proxy fallback has to survive.
+ * preview, a red flash for clicks that miss the zone, an optional 2 m grid
+ * snap, and Ctrl+Z undo. `BattleScene` adds the deployment camera pose. These
+ * tests run the real classes on a NullEngine — real meshes and cameras, no
+ * GPU — and cover show/hide, position updates, observer hygiene, teardown,
+ * placement validation, cancel, the flash, snapping, undo, and the camera
+ * framing. The GLB upgrade cannot run headless (no network to /models/),
+ * which is exactly the case the proxy fallback has to survive.
  */
 
 import { describe, expect, it, vi } from "vitest";
@@ -496,6 +496,185 @@ describe("DeploymentPlacer invalid-placement flash", () => {
       clear.mockRestore();
     } finally {
       vi.useRealTimers();
+    }
+  });
+});
+
+describe("DeploymentPlacer undo", () => {
+  const playerZone: DeploymentZone = { x: 0, z: 0, width: 40, depth: 40, faction: "player" };
+
+  /** Stand in for the browser window so the shortcut can be driven headless. */
+  function stubWindow(): EventTarget {
+    const target = new EventTarget();
+    vi.stubGlobal("window", target);
+    return target;
+  }
+
+  /** A keydown carrying the fields the undo shortcut reads. */
+  function keyDown(init: { key: string; ctrl?: boolean; meta?: boolean; shift?: boolean }): KeyboardEvent {
+    return Object.assign(new Event("keydown"), {
+      key: init.key,
+      ctrlKey: init.ctrl ?? false,
+      metaKey: init.meta ?? false,
+      shiftKey: init.shift ?? false,
+    }) as unknown as KeyboardEvent;
+  }
+
+  it("removes the newest placement and its markers", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene, { zones: [playerZone] });
+    placer.placeAt(new Vector3(1, 0, 1));
+    placer.placeAt(new Vector3(2, 0, 2));
+    placer.placeAt(new Vector3(3, 0, 3));
+
+    expect(placer.undoLastPlacement()).toBe(true);
+
+    expect(placer.getPlacements()).toEqual([{ x: 1, z: 1 }, { x: 2, z: 2 }]);
+    expect(scene.getMeshByName("deployPlaced2Body")).toBeNull();
+    expect(scene.getMeshByName("deployPlaced2Head")).toBeNull();
+    // The earlier markers are untouched.
+    expect(scene.getMeshByName("deployPlaced1Body")).not.toBeNull();
+
+    placer.dispose();
+  });
+
+  it("walks back one placement per call, then reports nothing left", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene, { zones: [playerZone] });
+    placer.placeAt(new Vector3(1, 0, 1));
+    placer.placeAt(new Vector3(2, 0, 2));
+
+    expect(placer.undoLastPlacement()).toBe(true);
+    expect(placer.undoLastPlacement()).toBe(true);
+    expect(placer.undoLastPlacement()).toBe(false);
+    expect(placer.getPlacements()).toEqual([]);
+    expect(scene.getMeshByName("deployPlaced0Body")).toBeNull();
+
+    placer.dispose();
+  });
+
+  it("reports nothing to undo before the first placement", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene, { zones: [playerZone] });
+
+    expect(placer.undoLastPlacement()).toBe(false);
+
+    placer.dispose();
+  });
+
+  it("keeps the shared placement material alive across an undo", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene, { zones: [playerZone] });
+    placer.placeAt(new Vector3(1, 0, 1));
+    placer.undoLastPlacement();
+
+    // A new placement after an undo still gets its shared material.
+    expect(placer.placeAt(new Vector3(5, 0, 5))).toBe(true);
+    const body = scene.getMeshByName("deployPlaced1Body") as Mesh;
+    expect(body).not.toBeNull();
+    expect((body.material as StandardMaterial).alpha).toBe(1);
+
+    placer.dispose();
+  });
+
+  it("undoes on Ctrl+Z and Cmd+Z while started", () => {
+    const win = stubWindow();
+    try {
+      const scene = newScene();
+      const placer = new DeploymentPlacer(scene, { zones: [playerZone] });
+      placer.placeAt(new Vector3(1, 0, 1));
+      placer.placeAt(new Vector3(2, 0, 2));
+      placer.start();
+
+      win.dispatchEvent(keyDown({ key: "z", ctrl: true }));
+      expect(placer.getPlacements()).toEqual([{ x: 1, z: 1 }]);
+
+      win.dispatchEvent(keyDown({ key: "Z", meta: true }));
+      expect(placer.getPlacements()).toEqual([]);
+
+      placer.dispose();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("ignores keys that are not the undo shortcut", () => {
+    const win = stubWindow();
+    try {
+      const scene = newScene();
+      const placer = new DeploymentPlacer(scene, { zones: [playerZone] });
+      placer.placeAt(new Vector3(1, 0, 1));
+      placer.start();
+
+      win.dispatchEvent(keyDown({ key: "z" })); // no modifier
+      win.dispatchEvent(keyDown({ key: "y", ctrl: true }));
+      win.dispatchEvent(keyDown({ key: "z", ctrl: true, shift: true })); // redo elsewhere
+      expect(placer.getPlacements()).toEqual([{ x: 1, z: 1 }]);
+
+      placer.dispose();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("stops listening once deployment stops", () => {
+    const win = stubWindow();
+    try {
+      const scene = newScene();
+      const placer = new DeploymentPlacer(scene, { zones: [playerZone] });
+      placer.placeAt(new Vector3(1, 0, 1));
+      placer.start();
+
+      placer.stop();
+      win.dispatchEvent(keyDown({ key: "z", ctrl: true }));
+
+      expect(placer.getPlacements()).toEqual([{ x: 1, z: 1 }]);
+
+      placer.dispose();
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("does not undo after dispose", () => {
+    const win = stubWindow();
+    try {
+      const scene = newScene();
+      const placer = new DeploymentPlacer(scene, { zones: [playerZone] });
+      placer.placeAt(new Vector3(1, 0, 1));
+      placer.start();
+
+      placer.dispose();
+      expect(placer.undoLastPlacement()).toBe(false);
+      win.dispatchEvent(keyDown({ key: "z", ctrl: true }));
+
+      placer.dispose(); // idempotent
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
+  it("registers one listener per start, not one per call", () => {
+    const win = stubWindow();
+    const add = vi.spyOn(win, "addEventListener");
+    const remove = vi.spyOn(win, "removeEventListener");
+    try {
+      const scene = newScene();
+      const placer = new DeploymentPlacer(scene, { zones: [playerZone] });
+
+      placer.start();
+      placer.start();
+      expect(add.mock.calls.filter(([type]) => type === "keydown")).toHaveLength(1);
+
+      placer.stop();
+      placer.stop();
+      expect(remove.mock.calls.filter(([type]) => type === "keydown")).toHaveLength(1);
+
+      placer.dispose();
+    } finally {
+      add.mockRestore();
+      remove.mockRestore();
+      vi.unstubAllGlobals();
     }
   });
 });
