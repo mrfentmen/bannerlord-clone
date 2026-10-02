@@ -41,6 +41,7 @@ import {
   type WarGoal,
 } from "../../diplomacy/warGoals.js";
 import { EMPTY_PEACE_TERMS, negotiatePeace } from "../../diplomacy/peaceConcessions.js";
+import { suggestTribute } from "../../diplomacy/tributeCalculator.js";
 import { markHintShown, shouldShowHint } from "../../onboarding/hintCooldown.js";
 
 export interface DiplomacyPanelOptions {
@@ -180,6 +181,74 @@ function buildDiplomacyPanel(options: DiplomacyPanelOptions, notice: string | nu
     ];
     body.appendChild(dataTable("Treaties", columns, treaties, "diplomacy-treaties"));
   }
+
+  // -- tribute (task 214) -----------------------------------------------------
+  // `suggestTribute` reads the power differential and says who should pay and how
+  // much; it was written for this and wired to nothing. The panel supplies the
+  // three numbers it needs — the two power scores and the income the coin scales
+  // against — and prints its line. The panel does not decide who pays and does not
+  // do the arithmetic a second time.
+  body.appendChild(sectionHeader("Tribute"));
+  const { field: yourPowerField, input: yourPowerInput } = numberField("tribute-your-power", "Your power", 1000, { min: 0 });
+  const { field: theirPowerField, input: theirPowerInput } = numberField("tribute-their-power", "Their power", 1000, { min: 0 });
+  const { field: incomeField, input: incomeInput } = numberField("tribute-income", "Your income a season", 1000, { min: 1 });
+  const tributeLine = h("p", {
+    class: "caption",
+    "data-testid": "tribute-suggestion",
+    role: "status",
+  }, "Read the odds: the calculator says who pays and how much.");
+  const tributeAmount = numberField("tribute-amount", "Amount to send", 0, { min: 0 });
+  const tributePay = h(
+    "p",
+    { class: "caption", "data-testid": "tribute-payable", role: "status" },
+    "Nothing is payable until the calculator names an amount.",
+  );
+  body.appendChild(
+    h("div", { class: "form-row" }, yourPowerField, theirPowerField, incomeField),
+  );
+  body.appendChild(
+    button("Read the tribute", () => {
+      const yourPower = Number(yourPowerInput.value);
+      const theirPower = Number(theirPowerInput.value);
+      const income = Number(incomeInput.value);
+      if (!Number.isFinite(yourPower) || !Number.isFinite(theirPower) || yourPower < 0 || theirPower < 0) {
+        tributeLine.textContent = "Power scores cannot be negative.";
+        tributePay.textContent = "Nothing is payable until the calculator names an amount.";
+        return;
+      }
+      if (!Number.isFinite(income) || income <= 0) {
+        tributeLine.textContent = "Income has to be positive for the coin to scale against.";
+        tributePay.textContent = "Nothing is payable until the calculator names an amount.";
+        return;
+      }
+      try {
+        const suggestion = suggestTribute(yourPower, theirPower, income);
+        tributeLine.textContent = suggestion.line;
+        // The slider (task 215) opens on the suggested figure and stays editable:
+        // the calculator prices the demand, the player decides what to send.
+        tributeAmount.input.value = String(suggestion.amount);
+        tributePay.textContent =
+          suggestion.amount === 0
+            ? suggestion.payer === "you"
+              ? "Nothing is owed to them."
+              : "They owe nothing you can collect."
+            : `You would send $${suggestion.amount.toLocaleString("en-US")} a season, and they would be expected to refuse.`;
+      } catch (e) {
+        tributeLine.textContent = e instanceof Error ? e.message : "The tribute could not be priced.";
+        tributePay.textContent = "Nothing is payable until the calculator names an amount.";
+      }
+    }, { testId: "tribute-read" }),
+  );
+  body.appendChild(tributeLine);
+  body.appendChild(h("div", { class: "form-row" }, tributeAmount.field));
+  body.appendChild(tributePay);
+  body.appendChild(
+    h(
+      "p",
+      { class: "annotation", style: "font-size:var(--type-caption-size)" },
+      "The panel prices the demand; the answer is theirs. Nothing here records a payment.",
+    ),
+  );
 
   body.appendChild(sectionHeader("Relation changes"));
   const feed = relationNotifications().slice(0, 20);
