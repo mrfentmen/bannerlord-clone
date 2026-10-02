@@ -26,6 +26,10 @@ import type { BuildingInfo, ConstructionResult, RecruitableUnit, RecruitResult, 
 import { SimulationUnavailableError } from "../../data/provider.js";
 import { simulateTaxPolicy } from "../../economy/taxSimulator.js";
 import { answerProposal, proposeTradeDeal } from "../../economy/tradeDeals.js";
+import { PLAYABLE_SIDE_IDS, factionPalette, type FactionSwatch } from "../../design/factions.js";
+import { BANNER_COLORS } from "../../clan/bannerPalette.js";
+import type { ColorblindMode } from "../../settings/schema.js";
+import "./townPanel.css";
 
 export interface TownPanelOptions {
   /**
@@ -58,6 +62,14 @@ export interface TownPanelOptions {
   onRecruit?: (unitId: string, quantity: number) => Promise<RecruitResult>;
   /** The player's purse, for the hiring cost labels. */
   purse?: number;
+  /**
+   * The faction that holds this town, by display name ("Pacific Compact").
+   *
+   * The simulation does not put a faction on `TownState`, so the header banner is
+   * drawn only when the caller supplies this. Omitted, the header shows the town
+   * name and the holder and nothing else — see task 101.
+   */
+  holderFaction?: string;
   /** The day the player is looking at, sent with the hire order. */
   day?: number;
   /**
@@ -102,11 +114,17 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
   const daysToEmpty = foodBalance < 0 ? daysOfFood / ((-foodBalance) / demand) : null;
   const loyaltyDays = town.loyalty < 0.2 ? 12 : null;
 
-  // -- population and workers ------------------------------------------------
+  // -- the town header: name, then who holds it and under whose banner -------
+  // Task 101. `TownState` carries `holderName` (a person) but no faction field, so
+  // the banner can only be drawn when the caller supplies the holding faction by
+  // name. Without one the header says who holds the town and stops, rather than
+  // guessing a side from the holder's name or the state's code — a banner is a
+  // claim about who controls a place, and an invented one is a lie about the map.
   body.appendChild(
     h(
       "div",
       { class: "field-row", style: "margin-bottom:var(--space-3)" },
+      holderBanner(options.holderFaction),
       h(
         "div",
         { style: "flex:1 1 auto;min-width:0" },
@@ -655,6 +673,60 @@ function townPanelEmpty(options: TownPanelOptions): HTMLElement {
     h("div", { style: "margin-top:var(--space-2)" }, emptyState(NO_TOWN_HEADLINE, NO_TOWN_DETAIL, roster)),
   );
   return root;
+}
+
+/**
+ * The holding faction's banner, or nothing at all (task 101).
+ *
+ * The cloth comes from the locked faction palette in whichever colour-blind mode
+ * the app is running, and the ink from the same swatch, so the pairing is one the
+ * palette has already checked rather than one chosen here. A name that is not a
+ * playable side — a local clan holding one town — takes a stable pick from the
+ * locked clan-banner palette, so the same name is always the same cloth.
+ *
+ * The banner carries the identity and the name carries the information: the name
+ * sits on the panel's own ground, not on the cloth, because no contrast test has
+ * verified an arbitrary ink-over-arbitrary-cloth pairing. When no faction name is
+ * supplied at all, nothing is returned and the header keeps its two caption lines.
+ */
+function holderBanner(factionName: string | undefined): HTMLElement | null {
+  const name = factionName?.trim();
+  if (!name) return null;
+  const swatch = bannerSwatch(name);
+  return h(
+    "div",
+    { class: "town-banner", "data-testid": "town-banner", role: "img", "aria-label": `Held by ${name}` },
+    h("span", {
+      class: "town-banner__field",
+      "aria-hidden": "true",
+      "data-faction": name,
+      style: `background:${swatch.color}`,
+    }),
+    h("span", { class: "town-banner__name" }, name),
+  );
+}
+
+/** The cloth and ink a faction name wears. Both come from a locked palette. */
+function bannerSwatch(name: string): FactionSwatch {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const side = PLAYABLE_SIDE_IDS.find((id) => id === slug);
+  if (side) return factionPalette(activeColorblindMode())[side];
+  // Not a playable side: the same stable pick the battle deployment banner makes,
+  // so a clan's cloth is the same cloth wherever it is shown.
+  let hash = 0;
+  for (const char of name) hash = (hash * 31 + (char.codePointAt(0) ?? 0)) % BANNER_COLORS.length;
+  const color = BANNER_COLORS[hash] ?? BANNER_COLORS[0];
+  return { color, ink: color };
+}
+
+/** The colour-blind mode the app is running in, which `main.ts` records on the root. */
+function activeColorblindMode(): ColorblindMode {
+  const mode = document.documentElement.getAttribute("data-colorblind-mode");
+  return mode === "deuteranopia" || mode === "protanopia" || mode === "tritanopia" ? mode : "off";
 }
 
 /** A "why" affordance on a section header, so the panel is traceable at every level. */

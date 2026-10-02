@@ -1,0 +1,39 @@
+/**
+ * Town panel banner styles (ui/panels/TownPanel.ts, task 101).
+ *
+ * Every value comes from src/design/tokens.css — no invented colours, fonts,
+ * or spacing steps (CONSTITUTION.md 3.4). The banner's own cloth colour is set
+ * inline from the locked faction palette, because it is data (which faction holds
+ * this town) rather than a value this file owns.
+ */
+
+.town-banner {
+  display: flex;
+  flex-direction: column;
+  flex: 0 0 auto;
+  align-items: stretch;
+  min-width: 6.5rem;
+  border: 1px solid var(--paper-300);
+  border-radius: var(--radius-2);
+  overflow: hidden;
+  box-shadow: var(--sheet-0);
+}
+
+.town-banner__field {
+  display: block;
+  height: var(--space-4);
+  /* The cloth is the identity; the name below carries the information, so the
+   * label sits on the panel ground rather than on the cloth. */
+}
+
+.town-banner__name {
+  display: block;
+  padding: var(--space-1) var(--space-2);
+  background: var(--paper-100);
+  color: var(--ink-900);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
