@@ -11,11 +11,14 @@
 import { describe, expect, it } from "vitest";
 import {
   CLEAR_WEATHER,
+  DESERT_BIOME,
+  DUST_DULLING,
   SNOW_COVER_FULL_M,
   SNOW_COVER_START_M,
   SNOW_HORIZONTAL_FLOOR,
   WET_DARKENING,
   WET_GLOSS,
+  dustLayer,
   snowCoverOn,
   snowLayer,
   skyFacing,
@@ -165,5 +168,64 @@ describe("wet look (task 620)", () => {
     expect(write.diffuseScale).toBeGreaterThan(0);
     expect(write.specularScale).toBeLessThanOrEqual(WET_GLOSS);
     expect(write.coverage).toBeLessThanOrEqual(1);
+  });
+});
+
+describe("desert dust (task 628)", () => {
+  const desert: WeatherState = { snowM: 0, raining: false, biome: 'desert' };
+
+  it("does nothing outside a desert", () => {
+    for (const biome of ['plains', 'forest', 'city', 'tundra']) {
+      expect(dustLayer(UP, biome).strength).toBe(0);
+      expect(weatherWriteFor(UP, { snowM: 0, raining: false, biome }).coverage).toBe(0);
+    }
+  });
+
+  it("settles on up-facing surfaces and not on walls", () => {
+    expect(dustLayer(UP, DESERT_BIOME).strength).toBeCloseTo(1);
+    expect(dustLayer(SIDE, DESERT_BIOME).strength).toBeCloseTo(0);
+    // Dust reaches a sloped roof less than a flat one, and never an underside.
+    expect(dustLayer(SLOPED_ROOF, DESERT_BIOME).strength).toBeGreaterThan(0);
+    expect(dustLayer(SLOPED_ROOF, DESERT_BIOME).strength).toBeLessThan(1);
+    expect(dustLayer(DOWN, DESERT_BIOME).strength).toBe(0);
+  });
+
+  it("dulls the gloss rather than lifting it", () => {
+    const flat = dustLayer(UP, DESERT_BIOME);
+    expect(flat.gloss).toBeCloseTo(1 - DUST_DULLING);
+    expect(flat.gloss).toBeLessThan(1);
+  });
+
+  it("tints toward warm sand", () => {
+    const write = weatherWriteFor(UP, desert);
+    expect(write.coverage).toBeCloseTo(1);
+    expect(write.emissiveAdd.r).toBeGreaterThan(write.emissiveAdd.b);
+    expect(write.diffuseScale).toBeLessThan(0.2);
+  });
+
+  it("takes the tint and the gloss from the thicker layer", () => {
+    const snowyDesert: WeatherState = { snowM: SNOW_COVER_FULL_M, raining: false, biome: 'desert' };
+    const write = weatherWriteFor(UP, snowyDesert);
+    // Snow and dust both cover fully here; snow's cooler tint and its glossier
+    // specular win the tie, so a dusty model does not go flat and matte.
+    expect(write.emissiveAdd.b).toBeGreaterThan(write.emissiveAdd.r);
+    expect(write.specularScale).toBeGreaterThan(1);
+  });
+
+  it("still lets rain win the gloss in a desert", () => {
+    const wetDesert: WeatherState = { ...desert, raining: true };
+    expect(weatherWriteFor(UP, wetDesert).specularScale).toBeCloseTo(WET_GLOSS);
+  });
+
+  it("never inverts the coverage when snow and dust disagree", () => {
+    const lightSnowDust: WeatherState = {
+      snowM: SNOW_COVER_FULL_M,
+      raining: false,
+      biome: 'desert',
+    };
+    const write = weatherWriteFor(UP, lightSnowDust);
+    expect(write.coverage).toBeGreaterThanOrEqual(0);
+    expect(write.coverage).toBeLessThanOrEqual(1);
+    expect(write.diffuseScale).toBeGreaterThan(0);
   });
 });

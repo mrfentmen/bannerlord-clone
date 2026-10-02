@@ -9,6 +9,8 @@
  *   shoulders go white, its flanks barely change.
  * - Task 620: rain darkens everything and makes it glossier, because a wet
  *   surface reflects more of a grey sky than a dry one.
+ * - Task 628: desert dust dulls colour toward sand, thickest up-facing and
+ *   killing the gloss that rain would add.
  *
  * The up-facing test is a dot product against the surface normal, so it needs a
  * normal per surface -- which means it is a shader-level change, not a material
@@ -128,6 +130,29 @@ export function wetDiffuseScale(raining: boolean): number {
   return raining ? 1 - WET_DARKENING : 1;
 }
 
+/** Desert sand. Warm, so a dusty model reads as dry even in flat light. */
+const DUST_TINT = { r: 0.74, g: 0.64, b: 0.45 } as const;
+
+/** How much gloss dust takes away from an up-facing surface at full dust. */
+export const DUST_DULLING = 0.5;
+
+/**
+ * Task 628: dust layer for a surface.
+ *
+ * Dust behaves like snow, not like rain: it settles, so it needs sky to settle
+ * in, and it kills the specular rather than lifting it -- sand scatters light
+ * where wet tarmac reflects it. Outside a desert biome the layer is empty, so
+ * a scene can hand every biome's weather to the same call.
+ */
+export function dustLayer(normal: Normal, biome: string): WeatherLayer {
+  if (biome !== DESERT_BIOME) return { strength: 0, gloss: 1, tint: DUST_TINT };
+  const facing = Math.max(0, skyFacing(normal));
+  return { strength: facing, gloss: 1 - facing * DUST_DULLING, tint: DUST_TINT };
+}
+
+/** The one biome that accumulates dust. */
+export const DESERT_BIOME = 'desert';
+
 /** What a scene owner has to set on a material for the weather to show. */
 export interface WeatherMaterialWrite {
   /** Multiply the material's diffuse colour by this. */
@@ -152,18 +177,23 @@ export interface WeatherMaterialWrite {
 export function weatherWriteFor(normal: Normal, weather: WeatherState): WeatherMaterialWrite {
   const snow = snowLayer(normal, weather.snowM);
   const wet = wetLayer(weather.raining);
-  // Coverage stays what the snow measured; the wet darkening multiplies on top
-  // of it. Folding the wetness into the coverage instead would make wet snow
+  const dust = dustLayer(normal, weather.biome);
+  // Coverage stays what each layer measured; the wet darkening multiplies on
+  // top. Folding the wetness into the coverage instead would make wet snow
   // *brighter* than dry snow, which is the opposite of what rain does.
-  const cover = snow.strength;
+  const cover = Math.max(snow.strength, dust.strength);
+  // The tint follows whichever layer is thicker, and the gloss follows it too:
+  // ice is glossier than sand, so a dusty surface must not inherit snow's
+  // specular. Rain wins both, because nothing is glossier than wet.
+  const tint = snow.strength >= dust.strength ? snow.tint : dust.tint;
+  const gloss = snow.strength >= dust.strength ? snow.gloss : dust.gloss;
   return {
     diffuseScale: (1 - cover * 0.85) * wetDiffuseScale(weather.raining),
-    // Wet wins the gloss: ice is glossier, but nothing is glossier than wet.
-    specularScale: wet.strength > 0 ? wet.gloss : snow.gloss,
+    specularScale: wet.strength > 0 ? wet.gloss : gloss,
     emissiveAdd: {
-      r: snow.tint.r * cover,
-      g: snow.tint.g * cover,
-      b: snow.tint.b * cover,
+      r: tint.r * cover,
+      g: tint.g * cover,
+      b: tint.b * cover,
     },
     coverage: cover,
   };
