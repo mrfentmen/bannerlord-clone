@@ -19,3 +19,4 @@ export { createModesMenu, type ModesMenuOptions } from "./menu.js";
 export { tournamentBracket, type TournamentBracketOptions } from "./tournamentBracket.js";
 export { dealMapCandidates, pickMap, tallyVotes, type MapCandidate, type MapVote } from "./mapVoting.js";
 export { historicalProgress, isHistoricalUnlocked, recordHistoricalWin, resetHistoricalProgress, type HistoricalProgress } from "./historicalProgress.js";
+export { createRosterBuilder, ROSTER_BUDGET, unitCost, type RosterBuilder, type RosterEntry, type UnitKind, type UnitTier } from "./rosterBuilder.js";
