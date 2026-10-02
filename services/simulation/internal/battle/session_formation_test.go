@@ -472,3 +472,270 @@ func TestSessionRecordingSurvivesAChangeOfCommander(t *testing.T) {
 	t.Logf("%d orders across %d shapes, through two commanders; resolved %s (%s) at tick %d",
 		log.Len(), len(shapes), s.Outcome().Kind, s.Outcome().Reason, s.Tick())
 }
+
+// TestAMoveOrderedOverTheWireWalksTheShapeAndReplays is the whole path of the
+// move order, end to end, and the last thing it checks is the one that would have
+// caught it going wrong quietly.
+//
+// A move is the only order in this layer that carries a parameter the men act on
+// but the order log does not record. The log holds per-unit movements, a shape and
+// a facing, not the point a commander was told to walk to, because a point is not
+// what happened: the men walking towards it is. That is a defensible design and it
+// is also the kind of design that is wrong in one specific way, which is a log that
+// reproduces the battle when it should not, or does not and nobody can say which.
+// So the last thing here is a replay compared to the original by state hash.
+//
+// The point is placed off the line to the enemy rather than along it, because a
+// walk that happens to point at the enemy is a walk this test cannot tell from a
+// march, and the two are different orders.
+func TestAMoveOrderedOverTheWireWalksTheShapeAndReplays(t *testing.T) {
+	cfg := loadConfig(t)
+	const (
+		seed   = 97531
+		walk   = 150.0
+		settle = 30
+		steps  = 120
+	)
+	s, a, b, leaders := newTestSession(t, seed)
+	if err := s.Deploy(a, b, leaders); err != nil {
+		t.Fatalf("Deploy: %v", err)
+	}
+	// Record before the fight starts, so the move is inside the log rather than
+	// bolted on to it afterwards.
+	log, err := s.Record(0, "move-replay")
+	if err != nil {
+		t.Fatalf("Record: %v", err)
+	}
+	ids := idsOfSlice(a)
+	groups := SplitIntoGroups(ids, 2)
+	o, err := NewOrders(cfg, SideA, []Group{
+		{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold}, Units: groups[0]},
+		{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold}, Units: groups[1]},
+	})
+	if err != nil {
+		t.Fatalf("standing orders: %v", err)
+	}
+	if err := o.Attach(s); err != nil {
+		t.Fatalf("Attach: %v", err)
+	}
+	if err := s.BeginFighting(); err != nil {
+		t.Fatalf("BeginFighting: %v", err)
+	}
+
+	// Where the fight is, and a point 150 m off the line from the group's centre
+	// to the enemy's, measured rather than hardcoded so the test does not depend
+	// on which way the roster happened to face.
+	bt := s.battle
+	ex, ey, ok := weightedCentre(bt.units, idsOfSlice(b))
+	if !ok {
+		t.Fatal("side B has no weight on the field, so there is no line to the enemy to walk off")
+	}
+	ax, ay, ok := weightedCentre(bt.units, groups[0])
+	if !ok {
+		t.Fatal("the group being ordered to move has no weight on the field")
+	}
+	toEnemy := Bearing(ax, ay, ex, ey)
+	destX := ax + math.Cos(toEnemy+math.Pi/2)*walk
+	destY := ay + math.Sin(toEnemy+math.Pi/2)*walk
+
+	// The wire order, with no mention of a shape and no mention of which men: one
+	// order, naming a point, applied to a group.
+	if err := o.Apply(OrderTacticMove, OrderParams{X: destX, Y: destY, HasPoint: true}, groups[0]); err != nil {
+		t.Fatalf("ordering the move: %v", err)
+	}
+	// And it has to have become the standing order, with the place in it. An order
+	// that is accepted and then dropped on the floor is the same bug as one that is
+	// refused, and it is quieter.
+	moved, others := 0, 0
+	for _, g := range o.Groups() {
+		if sameUnits(g.Units, groups[0]) {
+			moved++
+			if g.Order.Order != OrderFormationMove {
+				t.Errorf("the group ordered a move stands under %s", g.Order.Order)
+			}
+			if g.Order.At == nil {
+				t.Fatal("the group is ordered to move and the standing order carries no place to move to")
+			}
+			if d := math.Hypot(g.Order.At.X-destX, g.Order.At.Y-destY); d > 1e-9 {
+				t.Errorf("the standing order moves to (%+.3f, %+.3f) and the point given was (%+.3f, %+.3f)",
+					g.Order.At.X, g.Order.At.Y, destX, destY)
+			}
+		} else {
+			others++
+			if g.Order.At != nil {
+				t.Errorf("a group nobody told to move carries a destination (%+.1f, %+.1f)",
+					g.Order.At.X, g.Order.At.Y)
+			}
+		}
+	}
+	if moved != 1 || others != 1 {
+		t.Fatalf("%d groups were told to move and %d were not; the test ordered one of two", moved, others)
+	}
+	// The session is still commanding the order as it stood before the change,
+	// which is the caller's job to redo. Skipping it is what the previous session
+	// tests teach, so this one does it and says why.
+	if err := o.Attach(s); err != nil {
+		t.Fatalf("Attach after the change of orders: %v", err)
+	}
+
+	for i := 0; i < settle; i++ {
+		if err := s.Step(); err != nil {
+			t.Fatalf("Step: %v", err)
+		}
+	}
+	fromX, fromY, ok := weightedCentre(bt.units, groups[0])
+	if !ok {
+		t.Fatal("the group has no weight left after settling")
+	}
+	fromBearing := Bearing(fromX, fromY, destX, destY)
+	enemyFrom := Bearing(fromX, fromY, ex, ey)
+	for i := 0; i < steps; i++ {
+		if err := s.Step(); err != nil {
+			t.Fatalf("Step: %v", err)
+		}
+	}
+	toX, toY, ok := weightedCentre(bt.units, groups[0])
+	if !ok {
+		t.Fatal("the group has no weight left after walking")
+	}
+	travelled := Bearing(fromX, fromY, toX, toY)
+	walked := math.Hypot(toX-fromX, toY-fromY)
+	if walked < 10 {
+		t.Errorf("a group ordered to walk %.0f m moved %.2f m in %d ticks; the order did not reach the field",
+			walk, walked, steps)
+	}
+	if off := math.Abs(wrapAngle(travelled - fromBearing)); off > 0.35 {
+		t.Errorf("the group travelled on a bearing of %.1f degrees towards a point on one of %.1f, "+
+			"%.1f degrees off, having started %.0f m from it", travelled*180/math.Pi, fromBearing*180/math.Pi,
+			off*180/math.Pi, math.Hypot(destX-fromX, destY-fromY))
+	}
+	if off := math.Abs(wrapAngle(travelled - enemyFrom)); off < 0.2 {
+		t.Errorf("the group travelled on a bearing of %.1f degrees, within %.1f degrees of the bearing to "+
+			"the enemy at %.1f degrees; it marched at the enemy rather than walking to its point",
+			travelled*180/math.Pi, off*180/math.Pi, enemyFrom*180/math.Pi)
+	}
+	// And it is still a line while it walks, which is the whole claim of a formation
+	// that is somewhere else rather than fighting.
+	p := FormationParamsFrom(cfg.Formation)
+	members := aliveUnits(bt.units, groups[0])
+	if len(members) < 2 {
+		t.Fatalf("%d of %d men left after %d ticks; nothing left to measure a shape", len(members),
+			len(groups[0]), steps+settle)
+	}
+	slots, err := FormationLayout(FormationLine, len(members), p)
+	if err != nil {
+		t.Fatalf("layout: %v", err)
+	}
+	cx, cy, ok := weightedCentre(bt.units, members)
+	if !ok {
+		t.Fatal("no weight in the survivors")
+	}
+	var sum, worst float64
+	for i, id := range members {
+		x, y := slots[i].place(cx, cy, Bearing(cx, cy, ex, ey))
+		d := math.Hypot(x-bt.units[id].X, y-bt.units[id].Y)
+		sum += d
+		if d > worst {
+			worst = d
+		}
+	}
+	mean := sum / float64(len(members))
+	if mean > math.Max(p.FrontSpacing, p.LooseSpacing)*2 {
+		t.Errorf("a line that walked %.0f m finished a mean of %.2f m from its slots (worst %.2f m); it "+
+			"walked as a crowd", walked, mean, worst)
+	}
+
+	// The log has to carry the walk. A move whose rows are all holds is a move that
+	// replays as a battle where nobody went anywhere.
+	mine := make(map[int]bool, len(groups[0]))
+	for _, id := range groups[0] {
+		mine[id] = true
+	}
+	var moves, holds, shapes int
+	for _, row := range log.Rows() {
+		if !mine[row.Unit] {
+			continue
+		}
+		switch row.Kind {
+		case OrderMove:
+			if math.Hypot(row.DX, row.DY) > 0 {
+				moves++
+			}
+		case OrderHold:
+			holds++
+		}
+		if row.Formation.Valid() {
+			shapes++
+		}
+	}
+	if moves == 0 {
+		t.Errorf("the order log of a battle where a shape walked %.0f m carries %d movement rows for the "+
+			"%d men who walked, %d holds and %d shaped rows; the replay below would be a battle nobody "+
+			"marched", walk, moves, len(groups[0]), holds, shapes)
+	}
+	if shapes == 0 {
+		t.Errorf("the order log carries no shape for the %d men who walked, so the replay has nothing to "+
+			"re-form them into", len(groups[0]))
+	}
+
+	for s.Phase() != PhaseResolved {
+		if err := s.Advance(200); err != nil {
+			t.Fatalf("Advance: %v", err)
+		}
+		if s.Tick() > int(cfg.Battle.MaxTicks) {
+			t.Fatal("the battle ran past the tick bound without resolving")
+		}
+	}
+	original := s.Result()
+	if original == nil {
+		t.Fatal("a resolved session with no result")
+	}
+	if s.Recorder().Refused() != 0 {
+		t.Errorf("the order log refused %d rows of a battle that logged %d", s.Recorder().Refused(), log.Len())
+	}
+	setup := Setup{A: a, B: b, Leaders: leaders, Terrain: TerrainOpen, Label: "move replay"}
+	data, err := log.Encode(seed, cfg.Version)
+	if err != nil {
+		t.Fatalf("encoding the order log: %v", err)
+	}
+	decoded, _, _, err := DecodeOrderLog(data)
+	if err != nil {
+		t.Fatalf("decoding the order log: %v", err)
+	}
+	replayer, err := NewReplayer(decoded)
+	if err != nil {
+		t.Fatalf("building the replayer: %v", err)
+	}
+	second, err := RunCommanded(cfg, seed, setup, replayer)
+	if err != nil {
+		t.Fatalf("the replay did not run: %v", err)
+	}
+	if second.StateHash != original.StateHash {
+		t.Errorf("the replay of a battle where a shape walked to a point did not reproduce it: state hash "+
+			"%016x against the original's %016x", second.StateHash, original.StateHash)
+	}
+	if second.Ticks != original.Ticks {
+		t.Errorf("the replay ran %d ticks against the original's %d", second.Ticks, original.Ticks)
+	}
+	if diff := compareResults(original, second); diff != "" {
+		t.Errorf("the replay differs from the original: %s", diff)
+	}
+	t.Logf("a wire move ordered %d men %.0f m to (%+.1f, %+.1f): they walked %.1f m on a bearing of %.1f "+
+		"degrees where the point was on %.1f and the enemy on %.1f, kept a line to a mean of %.2f m, and "+
+		"logged %d movement rows; resolved %s (%s) at tick %d and replayed to %016x",
+		len(groups[0]), walk, destX, destY, walked, travelled*180/math.Pi, fromBearing*180/math.Pi,
+		enemyFrom*180/math.Pi, mean, moves, original.Outcome.Kind, original.Outcome.Reason, original.Ticks,
+		original.StateHash)
+}
+
+// aliveUnits is the ids of the units in a list that are still on the field, in the
+// order they were given, which is the order their slots were laid out in.
+func aliveUnits(units []*Unit, ids []int) []int {
+	out := make([]int, 0, len(ids))
+	for _, id := range ids {
+		if id >= 0 && id < len(units) && units[id].alive() {
+			out = append(out, id)
+		}
+	}
+	return out
+}
