@@ -35,6 +35,13 @@ const MAJOR_BONES = [
   'LeftUpLeg','LeftLeg','LeftFoot','RightUpLeg','RightLeg','RightFoot',
 ];
 
+/** Quadruped bones (horse). */
+const HORSE_BONES = [
+  'Body','Torso','Torso2','Torso3','Neck1','Neck2','Neck3','Head',
+  'FrontUpperLeg.L','FrontLowerLeg.L','FrontUpperLeg.R','FrontLowerLeg.R',
+  'BackUpperLeg.L','BackLowerLeg.L','BackUpperLeg.R','BackLowerLeg.R',
+];
+
 /** Bone name prefixes that may vary by model (mixamorig:, etc.) */
 function findBone(skeleton: Skeleton, name: string) {
   let idx = skeleton.getBoneIndexByName(name);
@@ -60,6 +67,21 @@ interface BoxDims { w: number; h: number; d: number; mass: number; }
 function boxDims(bone: any, root: TransformNode): BoxDims {
   const n = bone.name.toLowerCase();
   const len = boneLength(bone, root);
+  // Horse (quadruped) bones
+  if (/torso|body|back/i.test(n) && !/leg/i.test(n)) {
+    return { w: 0.6, h: Math.max(0.5, len * 0.9), d: 0.5, mass: 80 };
+  }
+  if (/neck/i.test(n)) return { w: 0.3, h: Math.max(0.4, len * 0.8), d: 0.3, mass: 20 };
+  if (/head/i.test(n) && !/socket/i.test(n)) return { w: 0.35, h: 0.5, d: 0.3, mass: 15 };
+  if (/upperleg/i.test(n)) {
+    const s = 0.25;
+    return { w: s, h: Math.max(s, len * 0.7), d: s, mass: 25 };
+  }
+  if (/lowerleg/i.test(n)) {
+    const s = 0.18;
+    return { w: s, h: Math.max(s, len * 0.7), d: s, mass: 15 };
+  }
+  // Humanoid bones
   if (/spine|hips/i.test(n)) return { w: 0.36, h: Math.max(0.3, len * 0.9), d: 0.28, mass: 14 };
   if (/head/i.test(n)) return { w: 0.26, h: 0.3, d: 0.28, mass: 5 };
   if (/neck/i.test(n)) return { w: 0.16, h: 0.2, d: 0.16, mass: 3 };
@@ -129,7 +151,10 @@ export function createRagdoll(scene: Scene, skeleton: Skeleton, modelRoot: Trans
   skeleton.computeAbsoluteMatrices(true);
   skeleton.prepare(true);
 
-  const majorBones = MAJOR_BONES.map(n => findBone(skeleton, n)).filter(Boolean) as any[];
+  // Detect quadruped (horse) vs humanoid by bone names
+  const isHorse = HORSE_BONES.some(n => findBone(skeleton, n));
+  const boneList = isHorse ? HORSE_BONES : MAJOR_BONES;
+  const majorBones = boneList.map(n => findBone(skeleton, n)).filter(Boolean) as any[];
   if (majorBones.length === 0) {
     throw new Error('createRagdoll: no major bones found in skeleton');
   }
