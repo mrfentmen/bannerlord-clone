@@ -103,6 +103,8 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
   let party: PartyState = copyParty(options.party);
   let purse = options.money;
   let busy = false;
+  /** The day the prices on screen belong to. Updated by reload(). */
+  let currentDay = options.day;
   // A panel asked for a market it does not have is, by definition, about to go and
   // get one, so the first frame is the skeleton rather than a complaint about data
   // that was never on its way.
@@ -138,6 +140,7 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
       market = copyMarket(snapshot.markets[options.townId] ?? null);
       party = copyParty(snapshot.party);
       purse = snapshot.player.resources.money;
+      currentDay = snapshot.day;
       if (!market) {
         failure = `The market at ${options.townName} did not load. The snapshot carries no market record for this town.`;
         failureDetail = `getSnapshot returned no entry for ${options.townId}.`;
@@ -168,7 +171,7 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
         goodId: good.goodId,
         side,
         quantity,
-        expectedDay: options.day,
+        expectedDay: currentDay,
       });
       if (result.accepted) {
         applyTrade(good, side, result);
@@ -190,6 +193,16 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
       const message =
         err instanceof SimulationUnavailableError ? err.playerMessage : "The trade could not be completed.";
       const detail = err instanceof SimulationUnavailableError ? err.developerDetail : String(err);
+      if (err instanceof SimulationUnavailableError && !err.retryable) {
+        // A 409: the world moved on while the panel was open. The refused order
+        // is not re-sent, but the prices on screen are stale, so re-read them.
+        lastMessage = { tone: "critical", text: `${message} The market was read again.` };
+        options.onError?.(`${message} :: ${detail}`);
+        busy = false;
+        render();
+        await reload();
+        return;
+      }
       lastMessage = { tone: "critical", text: message };
       options.onError?.(`${message} :: ${detail}`);
     } finally {
@@ -212,7 +225,7 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
       row.previousPrice = result.unitPrice;
       row.price = result.marketPriceAfter;
       row.stock = side === "buy" ? row.stock - result.quantity : row.stock + result.quantity;
-      row.history = [...row.history, { day: options.day, price: result.marketPriceAfter }].slice(-HISTORY_POINTS);
+      row.history = [...row.history, { day: currentDay, price: result.marketPriceAfter }].slice(-HISTORY_POINTS);
     }
     const held = party.goods.find((g) => g.goodId === good.goodId);
     if (held) held.quantity = result.partyQuantity;
@@ -251,6 +264,23 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
         ),
       );
     }
+
+    // -- freshness: which day the prices belong to ---------------------------
+    // The clock runs while the panel is open. Prices are read on a day, and a
+    // trade priced against a day the world has left is refused, so the panel
+    // names the day its prices belong to and offers a re-read.
+    body.appendChild(
+      h(
+        "div",
+        { class: "field-row", style: "margin-bottom:var(--space-3);align-items:center" },
+        h(
+          "p",
+          { class: "caption", "data-testid": "market-freshness", style: "margin:0;flex:1" },
+          `Prices from day ${currentDay}.`,
+        ),
+        button("Refresh prices", () => void reload(), { testId: "market-refresh" }),
+      ),
+    );
 
     if (!market) {
       // Nothing to show and nothing to complain about: the request is still in flight.
@@ -309,6 +339,14 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
       },
       { header: "History", numeric: true, render: (g) => sparkline(g) },
       { header: "Stock", numeric: true, testId: "market-stock", render: (g) => String(g.stock) },
+      {
+        header: "Demand",
+        numeric: true,
+        testId: "market-demand",
+        // Demand moves the price; showing it beside stock is what makes "prices
+        // respond to real supply and demand" visible instead of asserted.
+        render: (g) => String(g.demand),
+      },
       { header: "Held", numeric: true, testId: "market-held", render: (g) => String(heldOf(g.goodId)) },
       { header: "Trade", numeric: true, render: (g) => actionsFor(g) },
     ];
