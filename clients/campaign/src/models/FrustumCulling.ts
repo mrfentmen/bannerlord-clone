@@ -13,6 +13,10 @@
  * are culled, and a model whose distance to the camera cannot be trusted (an
  * untransformed node, a zero-length forward vector) is left visible.
  *
+ * Task 610: a model further than the far-field limit -- 500 m by default -- is
+ * culled too, and it gets a hysteresis band so a model sitting exactly on the
+ * limit does not blink on and off as the camera breathes.
+ *
  * {@link CameraCuller} owns the write discipline: it only calls back when an
  * object's visibility actually changed, so a scene never pays a `setEnabled`
  * for the hundreds of objects that did not move.
@@ -103,6 +107,11 @@ export interface Cullable {
    * (a building straddling the plane) can ask for a wider band.
    */
   backMarginM?: number;
+  /**
+   * Per-object override of {@link DEFAULT_FAR_CULL_M}; a landmark the player
+   * can see from across the map (a city wall) can ask for a longer reach.
+   */
+  farCullM?: number;
 }
 
 /** A cull decision for one object this frame. */
@@ -110,11 +119,52 @@ export interface CullResult {
   id: string;
   visible: boolean;
   /** Why it was culled; null when it is drawn. */
-  reason: 'behind-camera' | null;
+  reason: 'behind-camera' | 'too-far' | null;
 }
 
 /**
- * Per-frame behind-camera culler.
+ * Task 610: the far-field view distance, in metres. Past this a model is not
+ * drawn at all: at 500 m a soldier is under two pixels tall, so the triangles
+ * are spent on nothing. Matches the campaign map's draw distance.
+ */
+export const DEFAULT_FAR_CULL_M = 500;
+
+/**
+ * Task 610: hysteresis band, metres. A model has to move this far past the far
+ * limit before it is dropped, and this far inside it before it comes back. A
+ * camera orbiting a distant model would otherwise toggle it every frame at the
+ * boundary.
+ */
+export const DEFAULT_FAR_CULL_HYSTERESIS_M = 15;
+
+/** Metres between `a` and `b`, or `NaN` when either point is unusable. */
+export function distanceBetween(a: Vec3, b: Vec3): number {
+  if (!isUsable(a) || !isUsable(b)) return Number.NaN;
+  return Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
+}
+
+/**
+ * Task 610: true when `distanceM` is past the far-field limit.
+ *
+ * `inside` is the object's current visibility: an already-drawn model has to
+ * cross the limit by the hysteresis band before it is dropped, while a hidden
+ * one stays hidden until it comes back inside the band. A distance that cannot
+ * be trusted returns false (draw it) for the same reason task 609 does.
+ */
+export function isBeyondFarCull(
+  distanceM: number,
+  limitM: number = DEFAULT_FAR_CULL_M,
+  hysteresisM: number = DEFAULT_FAR_CULL_HYSTERESIS_M,
+  inside = true,
+): boolean {
+  if (!Number.isFinite(distanceM)) return false;
+  const limit = Number.isFinite(limitM) && limitM > 0 ? limitM : DEFAULT_FAR_CULL_M;
+  const hysteresis = Number.isFinite(hysteresisM) && hysteresisM > 0 ? hysteresisM : 0;
+  return inside ? distanceM > limit + hysteresis : distanceM > limit - hysteresis;
+}
+
+/**
+ * Per-frame camera culling: behind-camera (task 609) and far-field (task 610).
  *
  * Holds the last written value per object so `onVisibleChange` fires on the
  * edge and never on a steady frame — the difference between one call for the
@@ -126,7 +176,19 @@ export class CameraCuller {
   constructor(
     private readonly camera: CameraPose,
     private readonly marginM: number = DEFAULT_BACK_MARGIN_M,
+    private farCullM: number = DEFAULT_FAR_CULL_M,
+    private readonly hysteresisM: number = DEFAULT_FAR_CULL_HYSTERESIS_M,
   ) {}
+
+  /** Task 610: move the far-field limit, e.g. from the draw-distance slider. */
+  setFarCullM(limitM: number): void {
+    if (Number.isFinite(limitM) && limitM > 0) this.farCullM = limitM;
+  }
+
+  /** The far-field limit in metres. */
+  getFarCullM(): number {
+    return this.farCullM;
+  }
 
   /** Decide one object and write the change if there was one. */
   update(target: Cullable): CullResult {
@@ -135,12 +197,19 @@ export class CameraCuller {
       target.position,
       target.backMarginM ?? this.marginM,
     );
-    const visible = !behind;
+    // A model only gets the wide "already drawn" band once the culler has
+    // actually written it visible; a fresh spawn has to come inside the band
+    // immediately instead of popping in at the limit.
+    const inside = this.written.get(target.id) === true;
+    const distance = distanceBetween(this.camera.position, target.position);
+    const tooFar =
+      !behind && isBeyondFarCull(distance, target.farCullM ?? this.farCullM, this.hysteresisM, inside);
+    const visible = !behind && !tooFar;
     if (this.written.get(target.id) !== visible) {
       this.written.set(target.id, visible);
       target.onVisibleChange?.(visible);
     }
-    return { id: target.id, visible, reason: behind ? 'behind-camera' : null };
+    return { id: target.id, visible, reason: behind ? 'behind-camera' : tooFar ? 'too-far' : null };
   }
 
   /**
