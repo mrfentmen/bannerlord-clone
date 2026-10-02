@@ -227,9 +227,10 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.RLock()
 	state := s.state
+	log := s.log
 	s.mu.RUnlock()
 
-	if err := savegame.Save(state, req.Path); err != nil {
+	if err := savegame.Save(state, log, req.Path); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -251,13 +252,16 @@ func (s *Server) handleLoad(w http.ResponseWriter, r *http.Request) {
 	if req.Path == "" {
 		req.Path = "savegame.json"
 	}
-	loaded, err := savegame.Load(req.Path)
+	loaded, loadedLog, err := savegame.Load(req.Path)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	s.mu.Lock()
 	s.state = loaded
+	if loadedLog != nil {
+		s.log = loadedLog
+	}
 	s.mu.Unlock()
 	writeJSON(w, map[string]any{"loaded": true, "path": req.Path, "tick": loaded.Tick})
 }

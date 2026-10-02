@@ -9,6 +9,7 @@
 package cause
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -286,4 +287,28 @@ func FormatValue(kind model.Kind, field string, v float64) string {
 		return fmt.Sprintf("%.4f", v)
 	}
 	return f.Format(v)
+}
+
+// MarshalJSON serializes the log's rows for savegames.
+func (l *Log) MarshalJSON() ([]byte, error) {
+	return json.Marshal(l.Rows())
+}
+
+// UnmarshalJSON restores the log's rows from a savegame.
+func (l *Log) UnmarshalJSON(data []byte) error {
+	var rows []Row
+	if err := json.Unmarshal(data, &rows); err != nil {
+		return err
+	}
+	l.rows = rows
+	l.base = 0
+	// nextID must be greater than any existing ID
+	maxID := 0
+	for _, r := range rows {
+		if r.ID > maxID {
+			maxID = r.ID
+		}
+	}
+	l.nextID = maxID + 1
+	return nil
 }
