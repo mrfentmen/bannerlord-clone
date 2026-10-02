@@ -12,3 +12,4 @@ export {
   type Order,
   type OrderKind,
 } from "./types.js";
+export { createPingStore, describePing, PING_KINDS, PING_LABELS, PING_TTL_MS, type Ping, type PingKind, type PingStore } from "./pings.js";
