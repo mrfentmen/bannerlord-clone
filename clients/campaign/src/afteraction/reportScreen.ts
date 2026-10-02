@@ -12,6 +12,7 @@ import { mvpBoard } from "./mvpHighlight.js";
 import { createRematchButton } from "./rematch.js";
 import { battleRating } from "./rating.js";
 import { createOutcomePanel } from "./outcomeNotices.js";
+import { siteLine, type SiteContext } from "./siteContext.js";
 import "./reportContent.css";
 
 /** What the caller can add to the report without changing its sections. */
@@ -32,6 +33,11 @@ export interface ReportScreenOptions {
   onRematch?: () => void;
   /** Who is waiting on the field, named beside the rematch control. */
   rematchOpponent?: string;
+  /**
+   * Where on the map the battle was fought. Task 99: the header names the place
+   * and its biome, from whatever the flow knows.
+   */
+  site?: SiteContext;
 }
 
 export function createReportScreen(
@@ -53,7 +59,18 @@ export function createReportScreen(
     h("span", { class: "afteraction-rating__basis" }, rating.basis),
   );
 
-  const header = h("div", { class: "afteraction-header" }, title, ratingStamp);
+  // Task 99: where the field was, under the title and the grade.
+  const site = siteLine(options.site ?? {});
+  const subhead = h("p", { class: "afteraction-site", "data-testid": "afteraction-site" });
+  subhead.textContent = site;
+  subhead.hidden = site.length === 0;
+
+  const header = h(
+    "div",
+    { class: "afteraction-header" },
+    h("div", { class: "afteraction-heading" }, title, subhead),
+    ratingStamp,
+  );
 
   const kills = h("section", { class: "afteraction-section" });
   const killsTitle = h("h3", {});

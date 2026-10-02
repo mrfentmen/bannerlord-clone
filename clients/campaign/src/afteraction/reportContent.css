@@ -291,3 +291,12 @@
   margin: 0;
   color: var(--ink-700);
 }
+
+/* The place the field was (task 99). */
+.afteraction-site {
+  margin: var(--space-1) 0 0;
+  color: var(--ink-500);
+  font-size: 0.85rem;
+}
+
+.afteraction-site[hidden] { display: none; }
