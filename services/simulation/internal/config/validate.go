@@ -3,6 +3,7 @@ package config
 import (
 	"fmt"
 	"math"
+	"strings"
 )
 
 // validate rejects constants that are individually present but nonsensical.
@@ -92,11 +93,25 @@ func (c *Config) validate(path string) error {
 		{"battle.max_ticks", c.Battle.MaxTicks, 1, 10000000},
 		{"battle.grid_cell_size", c.Battle.GridCellSize, 0.1, 10000},
 		{"battle.ranged_grid_cell_size", c.Battle.RangedGridCellSize, 0.1, 100000},
+		// The cell budget's floor is 4, not 1, and the reason is in grid.go: the
+		// index adds a one cell margin on each axis, so the smallest grid it can
+		// build is 2x2, and a budget it can never satisfy leaves the coarsening
+		// loop with nowhere to stop. Its ceiling is memory: 4000000 cells is
+		// 16 MiB of counts per index, there are two of them, and they are cleared
+		// every tick.
+		{"battle.grid_max_cells", c.Battle.GridMaxCells, 4, 4000000},
+		// A report that keeps no events reports a battle that did nothing, and a
+		// battle can produce tens of thousands of events in a long one, so the
+		// ceiling is high; the real bound is memory.
+		{"battle.max_report_events", c.Battle.MaxReportEvents, 1, 1000000},
+		{"battle.reference_units_per_side", c.Battle.ReferenceUnitsPerSide, 1, 1000000},
 		{"battle.roster_hp_base", c.Battle.RosterHPBase, 0.001, 100000},
 		{"battle.roster_speed_base", c.Battle.RosterSpeedBase, 0.001, 1000},
 		{"battle.roster_ranged_share", c.Battle.RosterRangedShare, 0, 1},
 		{"battle.roster_morale_start", c.Battle.RosterMoraleStart, 0, 1},
 		{"battle.roster_troops_per_unit", c.Battle.RosterTroopsPerUnit, 0.001, 100000},
+		{"battle.roster_leaders_per_unit", c.Battle.RosterLeadersPerUnit, 1, 100000},
+		{"battle.roster_leader_spread", c.Battle.RosterLeaderSpread, 0.01, 10000},
 		{"battle.melee_range", c.Battle.MeleeRange, 0.01, 1000},
 		{"battle.melee_swing_seconds", c.Battle.MeleeSwingSeconds, 0.001, 1000},
 		{"battle.ranged_range", c.Battle.RangedRange, 0, 100000},
@@ -145,6 +160,23 @@ func (c *Config) validate(path string) error {
 		{"formation.flank_standoff", c.Formation.FlankStandoff, 0, 2000},
 		{"formation.flank_sweep_deg", c.Formation.FlankSweepDeg, 1, 180},
 		{"formation.flank_sweep_rate_deg", c.Formation.FlankSweepRateDeg, 0.1, 90},
+		// --- command ---
+		// The bounds are the ones the [command] section's own comments in
+		// balance.toml state, copied rather than re-derived, for the same reason
+		// the [formation] bounds above are: the file and this table must not be
+		// able to disagree about what a designer may type.
+		{"command.formations_per_side", c.Command.FormationsPerSide, 2, 12},
+		{"command.reserve_share", c.Command.ReserveShare, 0, 0.5},
+		{"command.advance_trigger_range", c.Command.AdvanceTriggerRange, 1, 5000},
+		{"command.charge_range", c.Command.ChargeRange, 0, 2000},
+		{"command.charge_strength_ratio", c.Command.ChargeStrengthRatio, 1, 20},
+		{"command.flank_trigger_range", c.Command.FlankTriggerRange, 0, 5000},
+		{"command.flank_min_strength_fraction", c.Command.FlankMinStrengthFraction, 0, 1},
+		{"command.reserve_commit_strength_fraction", c.Command.ReserveCommitStrengthFraction, 0, 1},
+		{"command.withdraw_morale", c.Command.WithdrawMorale, 0, 1},
+		{"command.withdraw_broken_share", c.Command.WithdrawBrokenShare, 0, 1},
+		{"command.decision_interval_ticks", c.Command.DecisionIntervalTicks, 1, 1000},
+		{"command.order_min_ticks", c.Command.OrderMinTicks, 1, 10000},
 	}
 
 	for _, b := range bounds {
@@ -182,6 +214,9 @@ func (c *Config) validate(path string) error {
 	if err := validateFormationRelations(path, &c.Formation); err != nil {
 		return err
 	}
+	if err := validateCommandRelations(path, &c.Command, &c.Battle); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -214,6 +249,47 @@ func validateBattleRelations(path string, b *Battle) error {
 	if b.MaxTicks < 1 {
 		return fmt.Errorf("config: %s: battle.max_ticks must be at least 1", path)
 	}
+	// The next four are whole-number checks rather than range checks, and they
+	// exist because each of these values is converted to an int somewhere and a
+	// fractional one becomes a silent truncation: 999.9 cells becomes 999, and
+	// 250.5 men per commander becomes 250, and the file that asked for the
+	// fraction would report having asked for it.
+	for _, n := range []struct {
+		name  string
+		value float64
+	}{
+		{"battle.max_units_per_side", b.MaxUnitsPerSide},
+		{"battle.grid_max_cells", b.GridMaxCells},
+		{"battle.max_report_events", b.MaxReportEvents},
+		{"battle.reference_units_per_side", b.ReferenceUnitsPerSide},
+		{"battle.roster_leaders_per_unit", b.RosterLeadersPerUnit},
+	} {
+		if n.value != math.Trunc(n.value) {
+			return fmt.Errorf("config: %s: %s (%g) is not a whole number; it counts units, cells, "+
+				"or events and a fraction of one is truncated to a different number than the one written",
+				path, n.name, n.value)
+		}
+	}
+	// A reference run larger than the limit it is meant to exercise would be
+	// refused by the engine, so the size knob would be provable only in the
+	// direction that always fails.
+	if b.ReferenceUnitsPerSide > b.MaxUnitsPerSide {
+		return fmt.Errorf("config: %s: battle.reference_units_per_side (%g) is above "+
+			"battle.max_units_per_side (%g); the reference run would be refused by the limit it exists to "+
+			"test. Lower the reference size or raise the limit",
+			path, b.ReferenceUnitsPerSide, b.MaxUnitsPerSide)
+	}
+	// The tick bound and the tick length multiply into the longest battle the
+	// engine will simulate. There is no value of that product past a few weeks
+	// of simulated fighting that is a design, only a typo of one factor, and
+	// 2592000 seconds is thirty days: longer than that and the field is not
+	// fighting, it is waiting, and a run that reaches it costs real wall clock
+	// to discover that.
+	if sim := b.TickSeconds * b.MaxTicks; sim > 30*24*3600 {
+		return fmt.Errorf("config: %s: battle.tick_seconds (%g) times battle.max_ticks (%g) is %g seconds "+
+			"of simulated battle, over the 30 day ceiling; one of the two is a typo",
+			path, b.TickSeconds, b.MaxTicks, sim)
+	}
 	return nil
 }
 
@@ -241,6 +317,63 @@ func validateFormationRelations(path string, f *Formation) error {
 	}
 	if math.IsNaN(f.LooseSeed) || math.IsInf(f.LooseSeed, 0) {
 		return fmt.Errorf("config: %s: formation.loose_seed is %v, which is not a finite number", path, f.LooseSeed)
+	}
+	return nil
+}
+
+// validateCommandRelations checks the tactics thresholds that are only wrong in
+// combination with each other, or with another section.
+//
+// Three of them. First, a charge is decided against the enemy inside
+// charge_range, so charge_range below advance_trigger_range means the enemy is
+// not yet within reach of a charge at the range where the line stops closing, and
+// the charge rule is a dead constant. Second, a flank is a move the front has
+// already fixed, and the front fixes the enemy by halting on
+// advance_trigger_range, so flank_trigger_range below that would send the wing
+// round the side while the line is still walking toward a battle. Third, a
+// commander who is holding reserves is not one who is sending every formation
+// round the enemy's side at once, so flank_min_strength_fraction must not be
+// above reserve_commit_strength_fraction. Fourth, a withdrawal ordered after the
+// men have already broken is not a withdrawal: it is the engine's own rule
+// arriving late, and the constant that sets it would be unreachable as tactics,
+// so withdraw_morale must not be above the engine's battle.morale_break_threshold.
+//
+// The three shapes are checked for emptiness here and resolved by name in
+// internal/command, through formation.ParseFormation, which is the only place
+// that knows which shapes exist. Checking a spelling here would be a second list
+// to keep in step with the first, and a second list is how a file ends up legal
+// in one place and refused in the other.
+func validateCommandRelations(path string, c *Command, b *Battle) error {
+	if c.ChargeRange < c.AdvanceTriggerRange {
+		return fmt.Errorf("config: %s: command.charge_range (%g) is below command.advance_trigger_range (%g); "+
+			"the enemy is not within reach of a charge where the line stops closing, so the charge is a dead rule",
+			path, c.ChargeRange, c.AdvanceTriggerRange)
+	}
+	if c.FlankTriggerRange < c.AdvanceTriggerRange {
+		return fmt.Errorf("config: %s: command.flank_trigger_range (%g) is below command.advance_trigger_range (%g); "+
+			"a flank is a move the front has already fixed, and the front fixes the enemy by halting on it",
+			path, c.FlankTriggerRange, c.AdvanceTriggerRange)
+	}
+	if c.FlankMinStrengthFraction > c.ReserveCommitStrengthFraction {
+		return fmt.Errorf("config: %s: command.flank_min_strength_fraction (%g) is above "+
+			"command.reserve_commit_strength_fraction (%g); a commander cannot be told to send a flank before "+
+			"he is willing to spend the reserves",
+			path, c.FlankMinStrengthFraction, c.ReserveCommitStrengthFraction)
+	}
+	if c.WithdrawMorale > b.MoraleBreakThreshold {
+		return fmt.Errorf("config: %s: command.withdraw_morale (%g) is above battle.morale_break_threshold (%g); "+
+			"the formation would have broken on its own before the commander ever ordered it back",
+			path, c.WithdrawMorale, b.MoraleBreakThreshold)
+	}
+	for _, s := range []struct{ key, value string }{
+		{"command.front_shape", c.FrontShape},
+		{"command.flank_shape", c.FlankShape},
+		{"command.reserve_shape", c.ReserveShape},
+	} {
+		if strings.TrimSpace(s.value) == "" {
+			return fmt.Errorf("config: %s: %s is empty; it must name a shape internal/formation implements "+
+				"(line, column, wedge, loose)", path, s.key)
+		}
 	}
 	return nil
 }
