@@ -580,6 +580,14 @@ func Validate(st *model.State, req Request) error {
 		return fmt.Errorf("You have no party in the field, so there is nothing here to carry %s. Coin is the only thing you can put on a table alone.",
 			plural(len(req.Offered)+len(req.Asked), "that", "those things"))
 	}
+	// A dead trader cannot barter. The leader must be alive.
+	if trader, ok := st.Leaders[req.Trader]; ok {
+		if !trader.IsAlive {
+			return fmt.Errorf("%s is dead and cannot trade. The deal is refused.", trader.Name)
+		}
+	} else {
+		return fmt.Errorf("Unknown trader %d.", req.Trader)
+	}
 	if movesCaptives && st.Parties[st.Leaders[req.Trader].PartyID] == nil {
 		return fmt.Errorf("%s has no party in the field, so there is no cage for a captive to go into. Nothing changes hands.",
 			st.Leaders[req.Trader].Name)

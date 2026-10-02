@@ -734,3 +734,26 @@ func findOrFail(t *testing.T, items []Item, kind ItemKind, itemID string) Item {
 	}
 	return it
 }
+
+func TestValidateRejectsDeadTrader(t *testing.T) {
+	s := world()
+	// Kill the trader.
+	trader := s.Leaders[1]
+	trader.IsAlive = false
+	s.Leaders[1] = trader
+
+	req := Request{
+		PlayerID: 0,
+		Trader:   1,
+		Town:     0,
+		Offered:  []Line{{Kind: string(KindGold), ItemID: GoldItemID, Quantity: 100}},
+		Asked:    []Line{{Kind: string(KindGold), ItemID: GoldItemID, Quantity: 90}},
+	}
+	err := Validate(s, req)
+	if err == nil {
+		t.Fatal("a deal with a dead trader was accepted")
+	}
+	if !strings.Contains(err.Error(), "dead") {
+		t.Fatalf("error should mention death, got: %v", err)
+	}
+}
