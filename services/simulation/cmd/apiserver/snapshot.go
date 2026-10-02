@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strconv"
 	"strings"
@@ -449,7 +450,7 @@ func (s *Server) planMarchTo(destTown int) map[string]any {
 		return map[string]any{"ok": false, "reason": "unknown town"}
 	}
 	dx, dy := t.X-px, t.Y-py
-	dist := (dx*dx + dy*dy)
+	dist := math.Sqrt(dx*dx + dy*dy)
 	// Rough: 1 unit = 1 km, march speed ~30 km/day.
 	days := dist / 30.0
 	if days < 0.5 {
