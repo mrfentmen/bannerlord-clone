@@ -30,6 +30,7 @@ export const PANEL_HELP_MAP: Record<string, string> = {
   SpymasterPanel: "espionage",
   StartScreen: "map",
   TownPanel: "economy",
+  WarPaintPanel: "clan",
   WhyPanel: "map",
 };
 
