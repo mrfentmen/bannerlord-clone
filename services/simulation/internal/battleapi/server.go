@@ -18,8 +18,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math"
 	"net/http"
+	"path/filepath"
 	"strconv"
 	"sync"
 	"time"
@@ -50,6 +52,9 @@ type Server struct {
 	store *battle.BattleStore
 	// recordBound is the order log's row limit. See defaultOrderLogBound.
 	recordBound int
+	// warnedSave says the process has already complained about a record it could
+	// not write. See saveRecord.
+	warnedSave bool
 
 	mu       sync.Mutex
 	sessions map[string]*entry
@@ -322,6 +327,33 @@ func (s *Server) saveRecord(id string, e *entry) {
 	}
 	if err := s.store.Save(id, roster, roster, res, rec); err != nil {
 		e.recordErr = err.Error()
+		// Said once, to the process's stderr, and then never again.
+		//
+		// record_error is in the state response, so a CLIENT can see that a battle
+		// was not recorded. An OPERATOR cannot: nobody is polling /v1/battle/state
+		// for a field, and the failure modes are the boring ones — a working
+		// directory that is not writable, a full disk, a read-only mount. Without
+		// this the game runs for days with recording silently off and the first
+		// sign of it is a battle somebody wanted to look at again.
+		//
+		// Once per server rather than once per battle, because a full disk would
+		// otherwise print one line per battle fought, which is its own way of
+		// filling the disk with the news that the disk is full.
+		if !s.warnedSave {
+			s.warnedSave = true
+			where := fmt.Sprintf("the store is %q", s.store.Root())
+			if !filepath.IsAbs(s.store.Root()) {
+				// The default is relative, and a relative store that cannot be written
+				// is almost always a working directory that is not what whoever
+				// started the process assumed. Saying so is the difference between a
+				// diagnosis and a shrug.
+				where += ", relative to the process's working directory"
+			}
+			log.Printf("battleapi: battle %s could not be recorded and later ones will not be "+
+				"either until this is fixed: %v\n  %s. The battles themselves are unaffected; this "+
+				"only means they cannot be replayed later. The first such battle's "+
+				"GET /v1/battle/state carries record_error.", id, err, where)
+		}
 		return
 	}
 	// The file is the log now. Keeping the in-memory copy as well is what makes a
