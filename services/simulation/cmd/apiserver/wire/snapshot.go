@@ -244,8 +244,25 @@ type TickUpdate struct {
 	CauseRows     []CauseRow                 `json:"causeRows,omitempty"`
 }
 
+// SnapshotSchemaVersion is the shape version of wire.SimSnapshot, and the only
+// one this server writes. The client reads a range of 1 and refuses anything
+// else, so this stays 1 until the snapshot's shape actually changes.
+const SnapshotSchemaVersion = 1
+
 // SimSnapshot is the whole world as the client reads it.
 type SimSnapshot struct {
+	// SchemaVersion is the shape version of this payload. The client refuses a
+	// snapshot with no version rather than guessing at an unknown one, so this
+	// field is what makes the two ends agree at all: without it every read of
+	// /v1/snapshot fails validation and nothing in the client draws.
+	//
+	// It is a constant on the wire type rather than a per-campaign value because
+	// it versions the JSON shape, not the world in it. Bump it when a field is
+	// added or removed; a client reads a range and refuses a version outside it
+	// with "this world is newer than this version of the game" rather than a
+	// field-by-field list of complaints about a payload that is fine.
+	SchemaVersion int `json:"schemaVersion"`
+
 	Day   int `json:"day"`
 	Year  int `json:"year"`
 	// EraTier is 1 to 4, from ERA.md section 3 against the campaign's start

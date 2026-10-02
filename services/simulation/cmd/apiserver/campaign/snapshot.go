@@ -48,9 +48,10 @@ func (c *Campaign) Snapshot(ctx context.Context) (wire.SimSnapshot, error) {
 
 func (c *Campaign) snapshotLocked() wire.SimSnapshot {
 	snap := wire.SimSnapshot{
-		Day:     c.state.Tick,
-		Year:    int(c.state.Year),
-		EraTier: c.eraTier(),
+		SchemaVersion: wire.SnapshotSchemaVersion,
+		Day:           c.state.Tick,
+		Year:          int(c.state.Year),
+		EraTier:       c.eraTier(),
 
 		Party:         c.partyStateLocked(),
 		Player:        c.playerStateLocked(),
