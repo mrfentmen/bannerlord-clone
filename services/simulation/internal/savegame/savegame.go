@@ -12,6 +12,7 @@ import (
 
 	"mbclone/simulation/internal/cause"
 	"mbclone/simulation/internal/model"
+	"mbclone/simulation/internal/sim"
 )
 
 const SaveVersion = 2
@@ -23,10 +24,11 @@ type SaveFile struct {
 	Year    float64         `json:"year"`
 	State   json.RawMessage `json:"state"`
 	Log     json.RawMessage `json:"log,omitempty"`
+	Orders  json.RawMessage `json:"orders,omitempty"`
 }
 
-// Save writes the state and cause log to a file.
-func Save(s *model.State, log *cause.Log, path string) error {
+// Save writes the state, cause log, and pending orders to a file.
+func Save(s *model.State, log *cause.Log, orders []sim.Order, path string) error {
 	stateJSON, err := marshalState(s)
 	if err != nil {
 		return fmt.Errorf("marshal state: %w", err)
@@ -38,12 +40,20 @@ func Save(s *model.State, log *cause.Log, path string) error {
 			return fmt.Errorf("marshal log: %w", err)
 		}
 	}
+	var ordersJSON json.RawMessage
+	if len(orders) > 0 {
+		ordersJSON, err = json.Marshal(orders)
+		if err != nil {
+			return fmt.Errorf("marshal orders: %w", err)
+		}
+	}
 	sf := SaveFile{
 		Version: SaveVersion,
 		Tick:    s.Tick,
 		Year:    s.Year,
 		State:   stateJSON,
 		Log:     logJSON,
+		Orders:  ordersJSON,
 	}
 	data, err := json.MarshalIndent(sf, "", "  ")
 	if err != nil {
@@ -55,32 +65,38 @@ func Save(s *model.State, log *cause.Log, path string) error {
 	return nil
 }
 
-// Load reads a save file and returns the state and cause log.
-// Supports both v1 (state only) and v2 (state + log) save files.
-func Load(path string) (*model.State, *cause.Log, error) {
+// Load reads a save file and returns the state, cause log, and pending orders.
+// Supports both v1 (state only) and v2 (state + log + orders) save files.
+func Load(path string) (*model.State, *cause.Log, []sim.Order, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, nil, fmt.Errorf("read save file: %w", err)
+		return nil, nil, nil, fmt.Errorf("read save file: %w", err)
 	}
 	var sf SaveFile
 	if err := json.Unmarshal(data, &sf); err != nil {
-		return nil, nil, fmt.Errorf("unmarshal save file: %w", err)
+		return nil, nil, nil, fmt.Errorf("unmarshal save file: %w", err)
 	}
 	if sf.Version != 1 && sf.Version != SaveVersion {
-		return nil, nil, fmt.Errorf("unsupported save version %d (want %d)", sf.Version, SaveVersion)
+		return nil, nil, nil, fmt.Errorf("unsupported save version %d (want %d)", sf.Version, SaveVersion)
 	}
 	s, err := unmarshalState(sf.State)
 	if err != nil {
-		return nil, nil, fmt.Errorf("unmarshal state: %w", err)
+		return nil, nil, nil, fmt.Errorf("unmarshal state: %w", err)
 	}
 	var log *cause.Log
 	if len(sf.Log) > 0 {
 		log = &cause.Log{}
 		if err := json.Unmarshal(sf.Log, log); err != nil {
-			return nil, nil, fmt.Errorf("unmarshal log: %w", err)
+			return nil, nil, nil, fmt.Errorf("unmarshal log: %w", err)
 		}
 	}
-	return s, log, nil
+	var orders []sim.Order
+	if len(sf.Orders) > 0 {
+		if err := json.Unmarshal(sf.Orders, &orders); err != nil {
+			return nil, nil, nil, fmt.Errorf("unmarshal orders: %w", err)
+		}
+	}
+	return s, log, orders, nil
 }
 
 // stateJSON is the serializable form of model.State.
