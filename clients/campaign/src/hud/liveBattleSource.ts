@@ -1,7 +1,7 @@
 /**
  * Battle HUD's live readouts, fed from `BattleFlow.liveView()`.
  *
- * Task 22: the player's troop count.
+ * Tasks 22-23: the two live troop counts, then the two morale figures.
  *
  * `BattleFlow` exposes its live state through a getter rather than an event, so
  * the source polls that getter and re-notifies a listener only when the figure
@@ -13,8 +13,8 @@
  * a view, so a HUD built after the first tick still shows the truth rather than
  * waiting for the next poll.
  *
- * Tasks 23-25 add the enemy's count and the two morale figures to the same
- * source; each is pushed here, not invented at the call site.
+ * Tasks 23-25: the enemy's troop count, then the two morale figures. Each is
+ * pushed here, not invented at the call site.
  */
 
 import type { LiveBattleView } from "../battleflow/flow.js";
@@ -40,11 +40,43 @@ export interface LiveBattleSourceOptions {
 export interface LiveBattleSource {
   /** The player's living troop count. Replays the current value on subscribe. */
   onPlayerTroops(fn: (troops: number) => void): Unsubscribe;
+  /** The enemy's living troop count. Replays the current value on subscribe. */
+  onEnemyTroops(fn: (troops: number) => void): Unsubscribe;
   /** Stops polling. The caller owns this; listeners only unsubscribe. */
   destroy(): void;
 }
 
 const DEFAULT_POLL_MS = 250;
+
+/**
+ * One live figure: a set of listeners, the last value pushed, and the rule that
+ * an unchanged poll is not a change. Each figure gets its own, so a casualty on
+ * one side never wakes the readout for the other.
+ */
+function liveFigure<T>() {
+  const listeners = new Set<(value: T) => void>();
+  let last: T | null = null;
+  return {
+    push(value: T): void {
+      if (last === value) return;
+      last = value;
+      for (const fn of listeners) fn(value);
+    },
+    subscribe(fn: (value: T) => void): Unsubscribe {
+      listeners.add(fn);
+      // Replay what is already true, so a HUD mounted after the first poll is
+      // not blank until the next one.
+      if (last !== null) fn(last);
+      return () => {
+        listeners.delete(fn);
+      };
+    },
+    clear(): void {
+      listeners.clear();
+      last = null;
+    },
+  };
+}
 
 export function createLiveBattleSource(
   read: LiveBattleReader,
@@ -54,39 +86,27 @@ export function createLiveBattleSource(
   const set = opts.setInterval ?? ((fn, ms) => window.setInterval(fn, ms));
   const clear = opts.clearInterval ?? ((handle) => window.clearInterval(handle));
 
-  const listeners = new Set<(troops: number) => void>();
-  /** Last value pushed, so an unchanged poll notifies nobody. */
-  let last: number | null = null;
+  const playerTroops = liveFigure<number>();
+  const enemyTroops = liveFigure<number>();
   let handle = 0;
 
   function publish(): void {
     const view = read();
     if (!view) return;
-    const troops = view.playerSide.troops;
-    if (last === troops) return;
-    last = troops;
-    for (const fn of listeners) fn(troops);
-  }
-
-  function subscribe(fn: (troops: number) => void): Unsubscribe {
-    listeners.add(fn);
-    // Replay what is already true, so a HUD mounted after the first tick is not
-    // blank until the next poll.
-    if (last !== null) fn(last);
-    return () => {
-      listeners.delete(fn);
-    };
+    playerTroops.push(view.playerSide.troops);
+    enemyTroops.push(view.enemySide.troops);
   }
 
   handle = set(publish, pollMs);
 
   return {
-    onPlayerTroops: subscribe,
+    onPlayerTroops: playerTroops.subscribe,
+    onEnemyTroops: enemyTroops.subscribe,
     destroy() {
       clear(handle);
       handle = 0;
-      listeners.clear();
-      last = null;
+      playerTroops.clear();
+      enemyTroops.clear();
     },
   };
 }
