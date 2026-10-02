@@ -41,7 +41,25 @@ interface CityFile {
   streets: { id: number; coords: [number, number][]; name: string; kind: string }[];
 }
 
+/** Crowd-density knob for the city demo (`?crowd=<n>`). */
+export const CROWD_DEFAULT = 24;
+export const CROWD_MIN = 0;
+export const CROWD_MAX = 150;
+
+/**
+ * Parse the `crowd` query param into a clamped pedestrian count.
+ * Non-numeric / missing values fall back to {@link CROWD_DEFAULT};
+ * the result is always an integer in [CROWD_MIN, CROWD_MAX].
+ */
+export function parseCrowdParam(value: string | null, fallback = CROWD_DEFAULT): number {
+  if (value === null || value.trim() === "") return fallback;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return fallback;
+  return Math.min(CROWD_MAX, Math.max(CROWD_MIN, Math.floor(n)));
+}
+
 export async function runCityDemo(canvas: HTMLCanvasElement, slug: string): Promise<void> {
+  const crowd = parseCrowdParam(new URLSearchParams(window.location.search).get("crowd"));
   const res = await fetch(`world/cities/${slug}.json`);
   if (!res.ok) throw new Error(`No city data for "${slug}" (HTTP ${res.status})`);
   const city = (await res.json()) as CityFile;
@@ -144,13 +162,21 @@ export async function runCityDemo(canvas: HTMLCanvasElement, slug: string): Prom
     .map(([s, name]) =>
       s === slug
         ? `<strong>${escapeHtml(name)}</strong>`
-        : `<a href="?city=${s}" style="color:${paper[0]}">${escapeHtml(name)}</a>`,
+        : `<a href="?city=${s}&crowd=${crowd}" style="color:${paper[0]}">${escapeHtml(name)}</a>`,
+    )
+    .join(" · ");
+  const crowdLinks = ([0, 24, 75, 150] as const)
+    .map((n) =>
+      n === crowd
+        ? `<strong>${n === 0 ? "Empty" : n === 150 ? "Packed" : n}</strong>`
+        : `<a href="?city=${slug}&crowd=${n}" style="color:${paper[0]}">${n === 0 ? "Empty" : n === 150 ? "Packed" : n}</a>`,
     )
     .join(" · ");
   label.innerHTML =
     `<strong>CITY DEMO — ${escapeHtml(city.city)}</strong><br>` +
     `${buildingCount.toLocaleString()} buildings · ${city.street_count.toLocaleString()} streets<br>` +
     `Tallest: ${Math.round(peakHeight)} m · Data: OpenStreetMap (ODbL)<br>` +
+    `Crowd: ${crowdLinks}<br>` +
     `<span style="opacity:.65">Drag to orbit · wheel to zoom · right-drag to pan</span><br>` +
     `<a href="./" style="color:${paper[0]};font-weight:bold">← Back to Campaign Map</a> · ` +
     `<span style="opacity:.85">${links}</span>`;
@@ -158,7 +184,8 @@ export async function runCityDemo(canvas: HTMLCanvasElement, slug: string): Prom
 
   // Animated pedestrians on the street network (KayKit Rogue, CC0).
   // Fire-and-forget: the demo works fine if the GLB fails to load.
-  void spawnPedestrians(scene, city.streets, projection.toWorld, 24);
+  // Density is adjustable via `?crowd=<n>` (0–150, default 24).
+  void spawnPedestrians(scene, city.streets, projection.toWorld, crowd);
 
   engine.runRenderLoop(() => scene.render());
   window.addEventListener("resize", () => engine.resize());
