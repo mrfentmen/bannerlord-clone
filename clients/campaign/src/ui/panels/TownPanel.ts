@@ -27,6 +27,8 @@ import { SimulationUnavailableError } from "../../data/provider.js";
 import { simulateTaxPolicy } from "../../economy/taxSimulator.js";
 import { answerProposal, proposeTradeDeal } from "../../economy/tradeDeals.js";
 import { PLAYABLE_SIDE_IDS, factionPalette, type FactionSwatch } from "../../design/factions.js";
+import { relationBand } from "../../diplomacy/notables.js";
+import type { NotableType } from "../../data/types.js";
 import { BANNER_COLORS } from "../../clan/bannerPalette.js";
 import type { ColorblindMode } from "../../settings/schema.js";
 import "./townPanel.css";
@@ -262,21 +264,7 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
         thresholds: { criticalBelow: 0.2, warningBelow: 0.35, goodAbove: 0.6 },
         testId: "town-loyalty-gauge",
       }),
-      // Task 103: prosperity as a gauge, not a bare number — the same 0-1 scale the
-      // thresholds and `taxSimulator` use, and the same trend/verdict treatment every
-      // other town stat gets, so a shrinking town reads at a glance.
-      gauge({
-        label: "Prosperity",
-        value: town.prosperity,
-        format: (v) => v.toFixed(2),
-        trend: previous ? trendOf(town.prosperity, previous.prosperity) : "flat",
-        note:
-          town.prosperity < 0.35
-            ? "Trade is thin. Tax income scales with prosperity, so a poor town also pays for less."
-            : "Trade is holding. Tax income scales with prosperity.",
-        thresholds: { criticalBelow: 0.3, warningBelow: 0.5, goodAbove: 0.7 },
-        testId: "town-prosperity",
-      }),
+      row("Prosperity", town.prosperity.toFixed(2), { mono: true, testId: "town-prosperity" }),
     ),
   );
 
@@ -403,7 +391,81 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
     body.appendChild(recruitSection(town, options));
   }
 
+  // -- notables (task 129) ----------------------------------------------------
+  body.appendChild(notablesSection(town));
+
   return root;
+}
+
+/**
+ * Who is worth knowing in this town. Task 129.
+ *
+ * `town.notables` is in the simulation contract and this is the first thing that
+ * draws it: a per-settlement roster with the two numbers that gate anything — the
+ * notable's power, which unlocks recruits, and their standing with you, which
+ * unlocks prices and work. Both come from the simulation; the panel prints them and
+ * nothing else. The band a relation falls into is `relationBand` from
+ * `src/diplomacy/notables.ts`, shared with the rest of the client rather than
+ * re-decided here, so a notable reads the same in this panel and anywhere else.
+ *
+ * A town with no notables gets the empty state, not a fabricated list.
+ */
+function notablesSection(town: TownState): HTMLElement {
+  const wrap = h("section", { "data-testid": "town-notables" });
+  wrap.appendChild(sectionHeader("Notable residents"));
+
+  if (town.notables.length === 0) {
+    wrap.appendChild(
+      emptyState(
+        "Nobody here is worth knowing yet.",
+        "No notable residents are recorded in this town. Work and prices stay locked until one is.",
+      ),
+    );
+    return wrap;
+  }
+
+  const list = h("ul", { class: "notable-list" });
+  for (const notable of town.notables) {
+    const band = relationBand(notable.relation);
+    const item = h("li", {
+      class: "notable",
+      "data-testid": `town-notable-${notable.id}`,
+      "data-band": band,
+    });
+    item.append(
+      h(
+        "div",
+        { class: "field-row", style: "justify-content:space-between;align-items:baseline;gap:var(--space-2)" },
+        h("strong", { class: "label" }, notable.name),
+        h("span", { class: "notable__type caption" }, NOTABLE_TYPE_LABEL[notable.type]),
+      ),
+      h("p", { class: "caption", style: "margin:var(--space-1) 0 0" }, notable.blurb),
+      h(
+        "div",
+        { class: "field-row", style: "gap:var(--space-3);margin-top:var(--space-2)" },
+        h(
+          "span",
+          { class: "row__value data", "data-testid": `town-notable-power-${notable.id}` },
+          `Power ${Math.round(notable.power)}`,
+        ),
+        h(
+          "span",
+          { class: "row__value data", "data-testid": `town-notable-relation-${notable.id}` },
+          `${RELATION_BAND_LABEL[band]} (${signed(notable.relation)})`,
+        ),
+      ),
+    );
+    list.appendChild(item);
+  }
+  wrap.appendChild(list);
+  wrap.appendChild(
+    h(
+      "p",
+      { class: "caption", style: "margin:var(--space-2) 0 0" },
+      "Power decides who will sign on for you. Standing decides what they will tell you.",
+    ),
+  );
+  return wrap;
 }
 
 /**
@@ -721,6 +783,34 @@ function bannerSwatch(name: string): FactionSwatch {
   for (const char of name) hash = (hash * 31 + (char.codePointAt(0) ?? 0)) % BANNER_COLORS.length;
   const color = BANNER_COLORS[hash] ?? BANNER_COLORS[0];
   return { color, ink: color };
+}
+
+/** The four notable roles, in the product's words rather than the type ids. */
+const NOTABLE_TYPE_LABEL: Record<NotableType, string> = {
+  merchant: "Merchant",
+  "gang-leader": "Organised crime",
+  veteran: "Veteran",
+  "community-leader": "Community organiser",
+};
+
+/**
+ * The band a relation falls into, printed as a word.
+ *
+ * The bands themselves come from `relationBand`, which is the client's shared
+ * definition; this is only the wording, so a relation reads as a judgement the
+ * player can act on rather than a bare -40.
+ */
+const RELATION_BAND_LABEL: Record<ReturnType<typeof relationBand>, string> = {
+  hostile: "Hostile",
+  cold: "Cold",
+  neutral: "Neutral",
+  warm: "Warm",
+  allied: "Allied",
+};
+
+/** A signed number, with the sign explicit so +5 never reads as 5. */
+function signed(value: number): string {
+  return value > 0 ? `+${Math.round(value)}` : String(Math.round(value));
 }
 
 /** The colour-blind mode the app is running in, which `main.ts` records on the root. */

@@ -7,6 +7,59 @@
  * this town) rather than a value this file owns.
  */
 
+/* -- notable residents (task 129) ---------------------------------------- */
+
+.notable-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.notable {
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--paper-300);
+}
+
+.notable:last-child {
+  border-bottom: none;
+}
+
+.notable__type {
+  text-align: right;
+  flex: 0 0 auto;
+}
+
+/* The band is carried by a rule down the side of the card, in addition to the
+ * word printed in the row itself — ART_DIRECTION.md 5.3, colour never alone. The
+ * band words are the client's own (src/diplomacy/notables.ts); these rules only
+ * tint them, and they tint with tokens rather than with faction colours. */
+.notable[data-band="hostile"] {
+  border-left: 3px solid var(--status-critical);
+  padding-left: var(--space-2);
+}
+
+.notable[data-band="cold"] {
+  border-left: 3px solid var(--status-warning);
+  padding-left: var(--space-2);
+}
+
+.notable[data-band="neutral"] {
+  border-left: 3px solid var(--paper-400);
+  padding-left: var(--space-2);
+}
+
+.notable[data-band="warm"] {
+  border-left: 3px solid var(--accent-info);
+  padding-left: var(--space-2);
+}
+
+.notable[data-band="allied"] {
+  border-left: 3px solid var(--status-good);
+  padding-left: var(--space-2);
+}
+
 .town-banner {
   display: flex;
   flex-direction: column;
