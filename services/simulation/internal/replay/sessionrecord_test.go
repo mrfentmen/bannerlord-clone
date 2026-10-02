@@ -143,6 +143,91 @@ func TestReplayingASessionLogOntoAnotherForceIsNotRefused(t *testing.T) {
 	}
 }
 
+// TestASessionsFingerprintDoesNotMoveWithTheBattle is the half of the fix that a
+// "is it non-zero" test cannot reach.
+//
+// Session.Record fingerprints from the session's FROZEN rosters rather than from
+// the units currently on the field, and the reason is that only the frozen numbers
+// can match what a replay regenerates from the seed. A fingerprint taken from the
+// live field would fold a mid-battle Troops and Morale, so it would differ between
+// a session recorded before it fought and the same session recorded after, and it
+// would differ from the Setup regenerated from the seed — which is the only thing
+// the check in Replay is comparing against.
+//
+// So the property to pin is that the fingerprint is a function of the ROSTER and of
+// nothing else: same force, same number, whether recording starts on tick 0 or
+// after two hundred ticks of a fight that has already cost both sides men.
+//
+// This is the guard against the tidier-looking fix. Reading the live units is one
+// line in the same place and needs no frozen copy, and every test above still
+// passes with it — the log is non-zero and it is refused against a different force.
+// Only this one fails.
+func TestASessionsFingerprintDoesNotMoveWithTheBattle(t *testing.T) {
+	cfg := loadConfig(t)
+	const seed = 424242
+
+	early := fingerprintAtTick(t, cfg, seed, 0)
+	late := fingerprintAtTick(t, cfg, seed, 200)
+
+	t.Logf("recorded on tick 0:   roster_hash %016x", early)
+	t.Logf("recorded on tick 200: roster_hash %016x", late)
+
+	if early == 0 || late == 0 {
+		t.Fatalf("one of these came out unfingerprinted: tick 0 %016x, tick 200 %016x", early, late)
+	}
+	if early != late {
+		t.Errorf("the same force fingerprinted two ways: %016x when recorded on tick 0, %016x when "+
+			"recorded on tick 200 of the same battle.\n"+
+			"  The roster was frozen at Deploy and cannot have changed, so the only thing that moved "+
+			"is what was folded: a fingerprint read off the live field carries the tick's Troops and "+
+			"Morale. That value cannot match the Setup a replay regenerates from the seed, which is "+
+			"the only value Replay's roster check compares it against — so it would be refused as a "+
+			"mismatch against the very battle it was recorded from.",
+			early, late)
+	}
+}
+
+// fingerprintAtTick runs one session battle to the given tick with the recorder
+// attached there, and returns the roster fingerprint its log carries.
+func fingerprintAtTick(t *testing.T, cfg *config.Config, seed uint64, atTick int) uint64 {
+	t.Helper()
+	s, a, b, leaders := newPlayerSession(t, cfg, seed, 12)
+	if err := s.Deploy(a, b, leaders); err != nil {
+		t.Fatalf("Deploy: %v", err)
+	}
+	if err := s.BeginFighting(); err != nil {
+		t.Fatalf("BeginFighting: %v", err)
+	}
+	orders, err := battle.NewOrders(cfg, battle.SideA, []battle.Group{{
+		Order: battle.GroupOrder{Kind: battle.FormationLine, Order: battle.OrderFormationHold},
+		Units: idsOf(a),
+	}})
+	if err != nil {
+		t.Fatalf("standing orders: %v", err)
+	}
+	cmder, err := orders.Commander()
+	if err != nil {
+		t.Fatalf("building the commander: %v", err)
+	}
+	if err := s.Command(cmder); err != nil {
+		t.Fatalf("Command: %v", err)
+	}
+	if atTick > 0 {
+		if err := s.Advance(atTick); err != nil {
+			t.Fatalf("advancing to tick %d: %v", atTick, err)
+		}
+	}
+	log, err := s.Record(1<<20, "fingerprint-at-tick")
+	if err != nil {
+		t.Fatalf("Record at tick %d: %v", atTick, err)
+	}
+	encoded, err := log.Encode(s.Seed(), cfg.Version)
+	if err != nil {
+		t.Fatalf("encoding: %v", err)
+	}
+	return decodeRosterHash(t, encoded)
+}
+
 // decodeRosterHash reads roster_hash out of an encoded log's header.
 func decodeRosterHash(t *testing.T, encoded []byte) uint64 {
 	t.Helper()

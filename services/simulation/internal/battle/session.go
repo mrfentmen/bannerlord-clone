@@ -329,6 +329,25 @@ func (s *Session) Record(bound int, source string) (*OrderLog, error) {
 			Detail: fmt.Sprintf("an order log bound of %d rows cannot be satisfied; zero means unbounded", bound)}
 	}
 	rec, log := NewRecorder(nil, bound, source)
+	// Fingerprinted here, from the FROZEN rosters, for the reason Record fingerprints
+	// from the Setup: unit ids are positional, so an id range check cannot tell one
+	// battle's orders from another's. See OrderLog.rosterHash for the failure this
+	// prevents - a log replayed onto a different force silently produces a different
+	// battle that looks like a replay.
+	//
+	// The frozen rosters are the right source and not merely a convenient one. They
+	// are the deep copy Deploy took, and newBattle copies each unit again by value
+	// before giving it an id, so nothing this battle has done since deployment can
+	// have moved the numbers being folded. A fingerprint read off the live field
+	// would fold a mid-battle Troops and Morale and would not match the Setup a
+	// replay regenerates from the seed.
+	//
+	// Recorded BEFORE the first tick of recording, so a session whose commander
+	// issues nothing at all still comes out fingerprinted.
+	log.SetRoster(rosterFingerprint(Setup{
+		A: s.rosters[SideA.index()].Units,
+		B: s.rosters[SideB.index()].Units,
+	}))
 	s.rec = rec
 	// A commander already attached is recorded from this tick on. It was attached
 	// before there was a recorder, so those ticks are not in this log, and the log
