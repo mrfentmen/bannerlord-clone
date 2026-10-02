@@ -24,3 +24,4 @@ export { FAIR_TAX_RATE, predictedTaxIncome, predictedTaxUnrest, simulateTaxPolic
 export { analyzeSmugglingRun, type SmugglingRiskAnalysis } from "./smuggling.js";
 export { answerProposal, proposeTradeDeal, type TradeAgreement, type TradeProposal, type TownDecision } from "./tradeDeals.js";
 export { shortageWarnings, type ShortageWarning, type SupplyNeed } from "./shortages.js";
+export { forecastTreasury, type ForecastLine, type TreasuryForecast } from "./treasuryForecast.js";
