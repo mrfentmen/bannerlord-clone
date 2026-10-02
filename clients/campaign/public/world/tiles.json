@@ -1,0 +1,20 @@
+{
+  "bbox": [
+    -84.8,
+    38.4,
+    -80.5,
+    41.9
+  ],
+  "zooms": [
+    6,
+    7,
+    8
+  ],
+  "tiles": 29,
+  "tile_size": 256,
+  "style": "tactical-v1",
+  "sources": [
+    "settlements.jsonl.gz",
+    "routes.jsonl.gz"
+  ]
+}
