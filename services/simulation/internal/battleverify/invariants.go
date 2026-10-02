@@ -86,10 +86,12 @@ func checkPerTick(f *Findings, log *violationLog, p *Probe) {
 		note string
 	}{
 		{RuleFinite, "every published x, y, hp, morale, suppression, troops, speed and ammo was finite over " + ticks},
-		{RuleHitPoints, "no unit's hit points fell below zero or rose above its maximum over " + ticks},
+		{RuleHitPoints, "no unit's hit points fell below zero, rose above its maximum, or rose at all " +
+			"between two published ticks, over " + ticks},
 		{RuleFieldBounds, "no unit was outside the movement-reach envelope over " + ticks},
 		{RuleNoTeleport, "no unit moved further in one tick than battle.max_step_per_tick over " + ticks},
-		{RuleRosterStable, "ids stayed dense and ascending, sides stayed put, and the field held the same units over " + ticks},
+		{RuleRosterStable, "ids stayed dense and ascending, sides stayed put, the field held the same units, " +
+			"and no unit that was destroyed or surrendered came back, over " + ticks},
 	} {
 		if n := log.count(c.rule); n > 0 {
 			f.fail(c.rule, c.note, log.taken(c.rule))

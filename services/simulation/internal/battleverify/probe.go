@@ -56,6 +56,22 @@ type Probe struct {
 	// displacement can be measured rather than assumed.
 	prevX, prevY []float64
 
+	// prevHP holds the previous tick's published hit point fraction, so the
+	// DIRECTION of the change can be measured. The bounds of hp are checked every
+	// tick and always have been, but a hit point fraction that goes up is inside
+	// those bounds and is still a battle healing its own wounded: there is no
+	// medicine in COMBAT.md's battle layer and no mechanic that raises a unit's
+	// hit points, so an increase is either a resurrection or a bookkeeping fault
+	// and both are invisible to a range check.
+	prevHP []float64
+	// prevStatus holds the previous tick's published status, so a terminal one
+	// being left can be measured. Status.Actable is the engine's own predicate for
+	// "can still fight", and a destroyed or surrendered unit is off the field for
+	// good: the spatial hash keeps its body where it fell precisely so that the
+	// rest of the battle can read it as a corpse, and a unit that came back would
+	// be in that hash twice.
+	prevStatus []battle.Status
+
 	// meleeRange is battle.melee_range, the reach of a blow, and it is the number
 	// the contact measurement is judged against.
 	meleeRange float64
@@ -112,6 +128,8 @@ func NewProbe(cfg *config.Config, unitsA, unitsB int) *Probe {
 		seen:           make([]bool, unitsA+unitsB),
 		prevX:          make([]float64, unitsA+unitsB),
 		prevY:          make([]float64, unitsA+unitsB),
+		prevHP:         make([]float64, unitsA+unitsB),
+		prevStatus:     make([]battle.Status, unitsA+unitsB),
 	}
 }
 
@@ -149,6 +167,8 @@ func (p *Probe) Command(v *battle.View) error {
 		p.seen = resizeBools(p.seen, p.units)
 		p.prevX = resizeFloats(p.prevX, p.units)
 		p.prevY = resizeFloats(p.prevY, p.units)
+		p.prevHP = resizeFloats(p.prevHP, p.units)
+		p.prevStatus = resizeStatuses(p.prevStatus, p.units)
 	}
 
 	// The envelope grows with the ticks elapsed, because the engine bounds how far
@@ -206,6 +226,33 @@ func (p *Probe) Command(v *battle.View) error {
 			p.log.add(RuleHitPoints, side, v.Tick,
 				"unit %d has %g of its hit points, which is above its maximum", u.ID, u.HPFrac)
 		}
+
+		// The other direction of the same number. Hit points only fall in this
+		// engine: a battle has no healing, no medicine, and no mechanic that puts a
+		// wounded man back on his feet, so a fraction that rose between two
+		// published ticks is a resurrection or an arithmetic fault and both are
+		// inside the 0-1 bounds the check above holds. It is checked from the
+		// second tick on, because the first tick has no previous value to compare
+		// against.
+		if p.startedAt && u.HPFrac > p.prevHP[i]+stepEpsilon {
+			p.log.add(RuleHitPoints, side, v.Tick,
+				"unit %d went from %g to %g of its hit points in one tick; nothing in this engine raises a "+
+					"unit's hit points", u.ID, p.prevHP[i], u.HPFrac)
+		}
+		p.prevHP[i] = u.HPFrac
+
+		// And a man who is dead or surrendered stays that way. This is the other
+		// half of "no resurrected units" and it is not implied by any of the rules
+		// above: the roster rule counts units and checks their sides, and a
+		// destroyed unit that came back would keep its id, its side and its place
+		// in the count. It would also be in the spatial hash twice, once as the
+		// corpse the rest of the battle is reading and once as a soldier.
+		if p.startedAt && isTerminal(p.prevStatus[i]) && u.Status.Actable() {
+			p.log.add(RuleRosterStable, side, v.Tick,
+				"unit %d was %s a tick ago and is %s now; a unit leaves the field for good once it has been "+
+					"destroyed or has surrendered", u.ID, p.prevStatus[i], u.Status)
+		}
+		p.prevStatus[i] = u.Status
 
 		// The other clamped quantities, checked for the same reason: a clamp that
 		// is never exercised is a clamp nobody has tested.
@@ -405,6 +452,27 @@ func resizeSides(s []battle.Side, n int) []battle.Side {
 		s = append(s, battle.SideA)
 	}
 	return s[:n]
+}
+
+// resizeStatuses grows a status slice to n entries.
+//
+// The zero status is battle.StatusFighting, which is what an unreported unit is
+// treated as holding: the first tick writes every unit's status before any of
+// these comparisons runs, and a manufactured zero would be read as a dead man
+// coming back on the second tick.
+func resizeStatuses(s []battle.Status, n int) []battle.Status {
+	for len(s) < n {
+		s = append(s, battle.StatusFighting)
+	}
+	return s[:n]
+}
+
+// isTerminal is a status a unit cannot come back from, which is destroyed and
+// surrendered. Status.Actable is the engine's own answer to "can this man still
+// fight" and routed is excluded from the two because a routed man comes back
+// often; the statuses that never come back are the ones left.
+func isTerminal(st battle.Status) bool {
+	return !st.Actable() && st != battle.StatusRouted
 }
 
 // resizeBools grows a bool slice to n entries.
