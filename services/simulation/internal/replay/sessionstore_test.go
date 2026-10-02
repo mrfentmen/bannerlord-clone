@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"mbclone/simulation/internal/battle"
+	"mbclone/simulation/internal/battleapi"
 	"mbclone/simulation/internal/config"
 )
 
@@ -69,7 +70,7 @@ func TestASessionBattleSavesAndVerifiesThroughTheBattleStore(t *testing.T) {
 	const seed = 5150
 	store := battle.OpenBattleStore(t.TempDir())
 
-	s, res, log := foughtSession(t, cfg, seed, 12, oneSeedBothSides)
+	s, res, log := foughtSession(t, cfg, seed, 12)
 
 	rec := &battle.Recording{
 		Seed:          s.Seed(),
@@ -96,15 +97,32 @@ func TestASessionBattleSavesAndVerifiesThroughTheBattleStore(t *testing.T) {
 }
 
 // TestASessionBuiltTheWayTheShippedAPIDoesItCannotBeVerified is the same battle,
-// built the way `internal/battleapi/handleStart` builds one.
+// TestASessionBattleBuiltTheWayTheShippedAPIBuildsOneVerifies is the good path
+// again, but through the SHIPPED path rather than a description of it.
 //
-// This is the failure the next person to wire recording into the server will hit.
-func TestASessionBuiltTheWayTheShippedAPIDoesItCannotBeVerified(t *testing.T) {
+// The previous version of this test asserted that a session battle built the way
+// internal/battleapi builds one could not be verified, and it was right: handleStart
+// generated side B from seed^0x9E3779B97F4A7C15 and the leader sets from
+// seed^0x12345 and seed^0x67890, while the record format stores one seed and
+// regenerates both sides from it. Three derivations, one recorded seed, 650 ticks
+// against 869.
+//
+// handleStart now calls battleapi.SessionForces, which derives everything from the
+// one seed. So this test builds its forces by CALLING that function rather than by
+// reproducing what the function used to do, which is the only arrangement that
+// cannot go stale: the old test hand-copied the derivations into this file with a
+// comment saying it mirrored handleStart, and the copy is exactly why fixing the
+// handler left the test unchanged and passing for the wrong reason.
+//
+// TestThreeSeedDerivationsDoNotVerify below is the other half and keeps the
+// finding from being thrown away with the fixture: the one-seed rule is pinned by
+// showing what breaks it, not merely asserted in a comment.
+func TestASessionBattleBuiltTheWayTheShippedAPIBuildsOneVerifies(t *testing.T) {
 	cfg := loadConfig(t)
 	const seed = 5150
 	store := battle.OpenBattleStore(t.TempDir())
 
-	s, res, log := foughtSession(t, cfg, seed, 12, theWayTheAPIDoesIt)
+	s, res, log := foughtSession(t, cfg, seed, 12)
 
 	rec := &battle.Recording{
 		Seed:          s.Seed(),
@@ -116,30 +134,84 @@ func TestASessionBuiltTheWayTheShippedAPIDoesItCannotBeVerified(t *testing.T) {
 	if err := store.Save(sessionBattleID, roster, roster, res, rec); err != nil {
 		t.Fatalf("saving the session's battle into the store: %v", err)
 	}
-
 	check, err := store.Verify(cfg, sessionBattleID)
 	if err != nil {
-		t.Logf("verifying was refused outright rather than mismatched: %v", err)
+		t.Fatalf("verifying was refused outright rather than mismatched: %v", err)
+	}
+	if !check.Match {
+		t.Errorf("a session battle built the way internal/battleapi builds one STILL cannot be "+
+			"verified from the battle store it was saved to, with the seed convention now fixed.\n"+
+			"  %v\n"+
+			"  battleapi.SessionForces derives both sides and both leader sets from the one seed, "+
+			"which is what Script.Setup regenerates from, so the tick count should agree. If it does "+
+			"not, the remaining difference is not the seed: look at Label, which Result.Hash() folds "+
+			"in, and at the leaders, whose count and influence now come from the balance file.",
+			check)
+	}
+}
+
+// TestThreeSeedDerivationsDoNotVerify is the finding that fix was made for, kept so
+// the rule cannot be quietly undone.
+//
+// The record format stores ONE seed and regenerates both sides from it through
+// battle.Script.Setup, which leans on GenerateForce's own
+// Derive("roster-SideA")/Derive("roster-SideB") substreams to separate them.
+// handleStart used to add its own separation on top — side B from
+// seed^0x9E3779B97F4A7C15, the leader sets from seed^0x12345 and seed^0x67890 — and
+// the result was a battle that could be recorded and never replayed.
+//
+// This asserts the MISMATCH rather than the match, because a rule that is only ever
+// tested in the passing direction is a rule nothing is checking. It fails if the
+// format ever grows room for the three derivations, at which point this test and
+// the fix it justifies both need revisiting — loudly, which is the point.
+func TestThreeSeedDerivationsDoNotVerify(t *testing.T) {
+	cfg := loadConfig(t)
+	const seed = 5150
+	store := battle.OpenBattleStore(t.TempDir())
+
+	s, res, log := foughtSessionWithForces(t, cfg, seed, 12, func() ([]battle.Unit, []battle.Unit, []battle.Leader) {
+		roster := battle.Roster{Units: 12}
+		a, err := battle.GenerateForce(cfg, seed, battle.SideA, roster)
+		if err != nil {
+			t.Fatalf("side A: %v", err)
+		}
+		b, err := battle.GenerateForce(cfg, seed^0x9E3779B97F4A7C15, battle.SideB, roster)
+		if err != nil {
+			t.Fatalf("side B: %v", err)
+		}
+		return a, b, append(
+			battle.GenerateLeaders(cfg, seed^0x12345, battle.SideA, 1, 0.7),
+			battle.GenerateLeaders(cfg, seed^0x67890, battle.SideB, 1, 0.7)...)
+	})
+
+	rec := &battle.Recording{
+		Seed:          s.Seed(),
+		ConfigVersion: cfg.Version,
+		Setup:         setupFromSession(s),
+		Log:           log,
+	}
+	roster := battle.Roster{Units: 12}
+	if err := store.Save(sessionBattleID, roster, roster, res, rec); err != nil {
+		t.Fatalf("saving: %v", err)
+	}
+	check, err := store.Verify(cfg, sessionBattleID)
+	if err != nil {
+		t.Logf("verifying was REFUSED rather than mismatched, which also means the battle could not "+
+			"be verified: %v", err)
 		return
 	}
 	if check.Match {
-		t.Logf("it MATCHED. The record format's single-seed regeneration reproduced a battle whose " +
-			"forces were generated from three different derivations of one seed, which means " +
-			"GenerateForce's per-side substreams absorb the difference and this is not the " +
-			"obstacle I thought it was.")
-		return
+		t.Errorf("a battle whose two sides came from three different derivations of one seed now " +
+			"VERIFIES against a record holding that one seed.\n" +
+			"  Either the format grew room for the extra derivations, in which case " +
+			"battleapi.SessionForces no longer needs to collapse them onto one seed and its comment " +
+			"is wrong, or something else has stopped depending on the derivation, in which case the " +
+			"reason SessionForces exists is gone. Either way this test and that function have to be " +
+			"revisited together.")
 	}
-	t.Errorf("a session battle built the way internal/battleapi builds one cannot be verified from "+
-		"the battle store it was saved to.\n"+
-		"  %v\n"+
-		"  The store regenerates both sides from the ONE seed it recorded, through Script.Setup, "+
-		"using GenerateForce's per-side substreams. handleStart generates side A from seed, side B "+
-		"from seed^0x9E3779B97F4A7C15 and the two leader sets from seed^0x12345 and seed^0x67890. "+
-		"Three derivations, one recorded seed.\n"+
-		"  It fails loudly, which is the mercy: the store prints the tick count that moved. The "+
-		"obstacle is that whoever wires Session.Record and BattleStore.Save into the server has to "+
-		"change the seed convention or the record format, and nothing says so until they do.",
-		check)
+	t.Logf("three seed derivations against one recorded seed: %v. This is the obstacle "+
+		"battleapi.SessionForces removes by generating both sides and both leader sets from the "+
+		"one seed.", check)
 }
 
 // TestASessionBattleWithTheWrongLabelFailsToVerify is the label hazard, made real.
@@ -149,7 +221,7 @@ func TestASessionBuiltTheWayTheShippedAPIDoesItCannotBeVerified(t *testing.T) {
 // and a caller assembling a Setup from a session has exactly those two strings.
 func TestASessionBattleWithTheWrongLabelFailsToVerify(t *testing.T) {
 	cfg := loadConfig(t)
-	s, res, log := foughtSession(t, cfg, 5150, 12, oneSeedBothSides)
+	s, res, log := foughtSession(t, cfg, 5150, 12)
 
 	right := setupFromSession(s)
 	if want := fmt.Sprintf("%s vs %s", s.Attacker().Name, s.Defender().Name); right.Label != want {
@@ -193,18 +265,6 @@ func TestASessionBattleWithTheWrongLabelFailsToVerify(t *testing.T) {
 		"number agrees and the hash does not. That is the whole hazard.")
 }
 
-// howSidesAreSeeded is how one session's two forces were generated.
-type howSidesAreSeeded int
-
-const (
-	// oneSeedBothSides is the record format's convention: one seed for both sides,
-	// distinguished by GenerateForce's per-side substreams.
-	oneSeedBothSides howSidesAreSeeded = iota
-	// theWayTheAPIDoesIt is internal/battleapi/handleStart: three derivations of
-	// one seed, one per side and one per leader set.
-	theWayTheAPIDoesIt
-)
-
 // setupFromSession rebuilds the Setup a session fought with, from exported
 // accessors only. Everything except Label comes from the frozen rosters and is
 // exact; Label is Deploy's private format string.
@@ -224,23 +284,37 @@ func setupFromSession(s *battle.Session) battle.Setup {
 //
 // Side A is told to hold, so the log is not empty: an empty log would prove nothing
 // about any of this, and these tests are about orders once there are some.
-func foughtSession(t *testing.T, cfg *config.Config, seed uint64, n int, how howSidesAreSeeded) (*battle.Session, *battle.Result, *battle.OrderLog) {
+func foughtSession(t *testing.T, cfg *config.Config, seed uint64, n int) (*battle.Session, *battle.Result, *battle.OrderLog) {
 	t.Helper()
-	seedA, seedB := seed, seed
-	if how == theWayTheAPIDoesIt {
-		seedB = seed ^ 0x9E3779B97F4A7C15
+	return foughtSessionWithForces(t, cfg, seed, n, nil)
+}
+
+// foughtSessionWithForces is foughtSession with the force generation injectable, so
+// a test can ask what a DIFFERENT derivation does without this file growing a second
+// copy of handleStart's body.
+//
+// The default path is battleapi.SessionForces, WHICH IS THE FUNCTION handleStart
+// calls, so the default cannot drift away from the thing it is a test of. This
+// function used to hand-copy handleStart's three derivations inline with a comment
+// saying it mirrored handleStart, and the copy is exactly why fixing the handler
+// left the test unchanged and then passing for the wrong reason: the test agreed
+// with a stale description of the handler rather than with the handler. Same failure
+// shape as the token grep that reported "never calls Session.Command" against code
+// that did, and the reason this is a parameter now.
+func foughtSessionWithForces(t *testing.T, cfg *config.Config, seed uint64, n int,
+	make func() ([]battle.Unit, []battle.Unit, []battle.Leader)) (*battle.Session, *battle.Result, *battle.OrderLog) {
+	t.Helper()
+	var a, b []battle.Unit
+	var leaders []battle.Leader
+	var err error
+	if make == nil {
+		a, b, leaders, err = battleapi.SessionForces(cfg, seed, n)
+	} else {
+		a, b, leaders = make()
 	}
-	a, err := battle.GenerateForce(cfg, seedA, battle.SideA, battle.Roster{Units: n})
 	if err != nil {
-		t.Fatalf("building side A: %v", err)
+		t.Fatalf("building the forces: %v", err)
 	}
-	b, err := battle.GenerateForce(cfg, seedB, battle.SideB, battle.Roster{Units: n})
-	if err != nil {
-		t.Fatalf("building side B: %v", err)
-	}
-	leaders := append(
-		battle.GenerateLeaders(cfg, seed^0x12345, battle.SideA, 1, 0.7),
-		battle.GenerateLeaders(cfg, seed^0x67890, battle.SideB, 1, 0.7)...)
 
 	s, err := battle.NewSession(cfg, "session-save",
 		battle.PartyRef{ID: "party-a", Name: "Warlord's Column"},

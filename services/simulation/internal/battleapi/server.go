@@ -248,20 +248,11 @@ func (s *Server) handleStart(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, &apiError{http.StatusInternalServerError, "session", err.Error()})
 		return
 	}
-	aUnits, err := battle.GenerateForce(s.cfg, seed, battle.SideA, battle.Roster{Units: units})
+	aUnits, dUnits, leaders, err := SessionForces(s.cfg, seed, units)
 	if err != nil {
 		writeAPIError(w, &apiError{http.StatusInternalServerError, "roster", err.Error()})
 		return
 	}
-	dUnits, err := battle.GenerateForce(s.cfg, seed^0x9E3779B97F4A7C15, battle.SideB, battle.Roster{Units: units})
-	if err != nil {
-		writeAPIError(w, &apiError{http.StatusInternalServerError, "roster", err.Error()})
-		return
-	}
-	leaders := append(
-		battle.GenerateLeaders(s.cfg, seed^0x12345, battle.SideA, 1, 0.7),
-		battle.GenerateLeaders(s.cfg, seed^0x67890, battle.SideB, 1, 0.7)...,
-	)
 	if err := sess.Deploy(aUnits, dUnits, leaders); err != nil {
 		writeAPIError(w, &apiError{http.StatusInternalServerError, "deploy", err.Error()})
 		return
@@ -357,6 +348,46 @@ func (s *Server) handleState(w http.ResponseWriter, r *http.Request) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	writeJSON(w, http.StatusOK, s.stateOf(e))
+}
+
+// SessionForces generates both sides and their leaders for a battle from ONE seed.
+//
+// It is exported and it is the only implementation, because the previous shape
+// was three seed derivations written inline in handleStart and hand-copied into a
+// test in another package, and the copy is what made the defect invisible: fixing
+// the handler did nothing to the test that claimed to be testing the handler.
+//
+// ONE seed is what makes a battle recordable. A recording stores one seed and
+// reproduces the force from it, because GenerateForce separates the two sides
+// itself through its own Derive("roster-SideA")/Derive("roster-SideB") substreams.
+// handleStart used to pass side B `seed^0x9E3779B97F4A7C15` and the two leader
+// sets `seed^0x12345` and `seed^0x67890`, so three derivations existed where the
+// format has room for one, and a battle fought here could be recorded but never
+// replayed: 650 ticks recorded against 869 replayed, first difference at the tick
+// count. Nothing in that mismatch said "wrong seed", so a battle nobody had
+// written down properly read as a corrupt battle.
+//
+// The leader count and the influence come from the balance file the way
+// battle.Script.Setup reads them, rather than as the literals 1 and 0.7 that were
+// here, because CONSTITUTION.md 1.2 makes the balance file the only source of a
+// constant and a 0.7 written into this function would quietly disagree with the
+// file the day somebody tuned it.
+func SessionForces(cfg *config.Config, seed uint64, unitsPerSide int) ([]battle.Unit, []battle.Unit, []battle.Leader, error) {
+	roster := battle.Roster{Units: unitsPerSide}
+	a, err := battle.GenerateForce(cfg, seed, battle.SideA, roster)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	b, err := battle.GenerateForce(cfg, seed, battle.SideB, roster)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	influence := cfg.Battle.MoraleLeaderInfluenceReference
+	leaders := append(
+		battle.GenerateLeaders(cfg, seed, battle.SideA, battle.LeaderCount(cfg, unitsPerSide), influence),
+		battle.GenerateLeaders(cfg, seed, battle.SideB, battle.LeaderCount(cfg, unitsPerSide), influence)...,
+	)
+	return a, b, leaders, nil
 }
 
 // --- /v1/battle/orders ---
