@@ -309,7 +309,7 @@ they actually have.
 A mechanic's garage two blocks off the elevator row will tell you the state of the
 crop better than any office will, and the elevator offices will tell you what the
 crop is worth. Two different questions, and this is the only place on the map
-where both get asked in one conversation.
+where both get asked at once.
 
 ### First impressions
 
@@ -669,8 +669,8 @@ The mood is proud and specific. This is a mining town where the mine is old enou
 to have fathers and grandsons in it, and the pride holds even when the sentiment
 does not. The diner at the bottom of the hill is the place to be at shift change,
 and it is where the section's credibility is decided. If somebody from Denver has
-come to visit, the crew will say whether it mattered long before any official in
-the capital hears about it.
+come to visit, the crew will say whether it mattered long before the capital hears
+about it.
 
 ### First impressions
 
