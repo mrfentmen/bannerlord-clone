@@ -11,7 +11,15 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DeploymentUI, DEPLOYMENT_TRACK, DEPLOY_SECONDS, factionColor, formatCountdown } from "../BattleUI.js";
+import {
+  DeploymentUI,
+  DEPLOY_HELP,
+  DEPLOYMENT_TRACK,
+  DEPLOY_SECONDS,
+  HELP_ID,
+  factionColor,
+  formatCountdown,
+} from "../BattleUI.js";
 import type { DeploymentZone } from "../BattleUI.js";
 import { factionPalette } from "../../design/factions.js";
 import { BANNER_COLORS } from "../../clan/bannerPalette.js";
@@ -474,5 +482,54 @@ describe("music on show (task 16)", () => {
 
     playMusic.mockRestore();
     ui.hide();
+  });
+});
+
+describe("help hint (task 17)", () => {
+  it("shows the click hint as visible text, not as a hover title", () => {
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE], () => {});
+
+    const help = document.querySelector(".deploy-help");
+    expect(help?.textContent).toBe(DEPLOY_HELP);
+    expect(help?.textContent).toContain("Click to place units");
+    // Visible means in the document and not hidden from anyone.
+    expect(help?.hasAttribute("hidden")).toBe(false);
+    expect(document.querySelector(".deployment-header")?.contains(help ?? null)).toBe(true);
+
+    ui.hide();
+  });
+
+  it("points the header region at the hint for a screen reader", () => {
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE], () => {});
+
+    const region = document.querySelector(".battle-deployment");
+    const describedBy = region?.getAttribute("aria-describedby");
+    expect(describedBy).toBe(HELP_ID);
+    // The reference has to resolve to the note, not to nothing.
+    const target = document.getElementById(describedBy ?? "");
+    expect(target?.textContent).toBe(DEPLOY_HELP);
+    expect(region?.getAttribute("aria-label")).toBe("Deployment");
+
+    ui.hide();
+  });
+
+  it("gives the note exactly one id, so two overlays cannot collide", () => {
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE], () => {});
+    ui.show([PLAYER_ZONE], () => {});
+
+    expect(document.querySelectorAll(`#${HELP_ID}`)).toHaveLength(1);
+    expect(document.querySelectorAll(".battle-deployment")).toHaveLength(1);
+
+    ui.hide();
+  });
+
+  it("describes only the clicks the placer actually handles", () => {
+    expect(DEPLOY_HELP).toMatch(/click/i);
+    // No invented bindings: the overlay has no keyboard placement of its own to offer.
+    expect(DEPLOY_HELP).not.toMatch(/press [a-z]/i);
+    expect(DEPLOY_HELP).not.toMatch(/keyboard/i);
   });
 });

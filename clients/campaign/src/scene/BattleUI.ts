@@ -31,6 +31,15 @@ export const DEPLOY_SECONDS = 60;
  */
 export const DEPLOYMENT_TRACK = "battle-theme";
 
+/** Id of the help note, so the header region can point a screen reader at it. */
+export const HELP_ID = "deployment-help";
+
+/**
+ * What the two clicks do, in the words of the placer that implements them: a primary
+ * click places, a secondary click cancels the placement being previewed.
+ */
+export const DEPLOY_HELP = "Click to place units. Right-click cancels the placement in progress.";
+
 /** `90` -> `1:30`, `5` -> `0:05`. The header shows minutes:seconds. */
 export function formatCountdown(seconds: number): string {
   const whole = Math.max(0, Math.ceil(seconds));
@@ -162,6 +171,12 @@ export class DeploymentUI {
     const btn = h("button", { type: "button", class: "deploy-ready" }, "Ready");
     const countEl = h("p", { class: "deploy-count", role: "status", "aria-live": "polite" });
 
+    // The help note is visible, not a hover title: the player needs to know what the
+    // click does before they click, and a title attribute is not reachable by keyboard
+    // at all. Its id is what the region below points at, so a screen reader that lands
+    // on the header is told the same thing a mouse user can read.
+    const helpEl = h("p", { class: "deploy-help", id: HELP_ID, role: "note" }, DEPLOY_HELP);
+
     // The strip above the header: what the site is, before the clock and the sides.
     const strip = h("div", { class: "deploy-info" });
     if (info.playerFaction) strip.appendChild(bannerEl(info.playerFaction));
@@ -197,7 +212,12 @@ export class DeploymentUI {
 
     const container = h(
       "div",
-      { class: "battle-deployment" },
+      {
+        class: "battle-deployment",
+        role: "region",
+        "aria-label": "Deployment",
+        "aria-describedby": HELP_ID,
+      },
       h(
         "div",
         { class: "deployment-header" },
@@ -208,6 +228,7 @@ export class DeploymentUI {
           h("h2", {}, "Deploy Your Troops"),
           h("p", {}, "Place your units in the highlighted zone"),
           countEl,
+          helpEl,
         ),
         timerEl,
         sides,

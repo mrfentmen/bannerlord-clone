@@ -1892,6 +1892,16 @@ html[data-reduce-motion] *::after {
   line-height: 1;
 }
 
+/* The help note. Always visible rather than a hover title: a title attribute is
+   unreachable by keyboard, and the player needs to know what the click does before
+   they click. Italic marks it as an aside to the instruction above it. */
+.deploy-help {
+  margin-top: var(--space-1);
+  font-size: 0.8rem;
+  font-style: italic;
+  opacity: 0.75;
+}
+
 .deployment-header h2 {
   margin: 0;
   font-size: 1.1rem;
