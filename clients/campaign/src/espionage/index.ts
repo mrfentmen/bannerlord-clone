@@ -13,3 +13,4 @@ export * from "./infiltration.js";
 export * from "./blackmail.js";
 export { assignMission, cancelMission, MISSION_ICONS, spyMapMarkers, spyMission, SPY_MISSIONS, type PlacedSpy, type SpyMapMarker, type SpyMission, type SpyMissionKind } from "./spyMissions.js";
 export { canCraft, craftKit, KIT_QUALITIES, KIT_RECIPES, type CraftResult, type DisguiseKit, type KitQuality, type KitRecipe } from "./disguiseKits.js";
+export { exposureRisk, missedPayments, payInformant, totalPaid, type PaymentRecord } from "./paymentLedger.js";
