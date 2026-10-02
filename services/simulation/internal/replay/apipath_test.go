@@ -118,46 +118,32 @@ func TestOrdersSentThroughTheGameAPIReachTheBattle(t *testing.T) {
 	}
 }
 
-// TestTheBattleAPIDoesNotDealTheSameBattleTwice is the other half of the same
-// walk-through, and it is a restart story.
+// TestTheBattleAPIDoesNotDealTheSameBattleTwice USED TO LIVE HERE, FAILING ON
+// PURPOSE, and it has been retired rather than repaired.
 //
-// battle.DeriveBattleSeed is an HMAC over the campaign seed, a battle counter and
-// the two party ids, which is a good design: given a campaign and a counter it is
-// unforgeable and reproducible. The counter, though, is a field on the Server and
-// the Server is a process. Start the server again and the counter is 0 again, the
-// first battle is btl-1 again, and the same two parties are dealt the identical
-// seed — and because the shipped server gives the session no commander, a battle
-// is a pure function of the config and the seed, so it is the identical battle.
-// Same tick count, same casualties, same result hash, the second time the player
-// fights that border.
+// It stood two servers on campaign seed 909, each starting its FIRST battle for
+// the same two parties, and required their seeds to differ. It was written when
+// this server recorded nothing, so "the same seed" cost a player nothing but a
+// strangely repeated fight. Two things have changed underneath it.
 //
-// It is a one-line fix and it is NOT MINE to make, because the fix is a storage
-// decision and CONSTITUTION.md 4.1 records storage as unresolved: persisting the
-// counter needs somewhere to persist it, and deriving it from a clock breaks the
-// property that a campaign's battles are a function of its seed. CONSTITUTION.md
-// 2.3 says a gap of that kind goes in CHANGELOG under Unresolved with the reason,
-// which is where it went.
-func TestTheBattleAPIDoesNotDealTheSameBattleTwice(t *testing.T) {
-	cfg := loadConfig(t)
-	a := startBattleOverAPI(t, cfg, 909, 12)
-	b := startBattleOverAPI(t, cfg, 909, 12)
-
-	if a.seed == b.seed {
-		t.Errorf("two servers built from campaign seed 909, each starting its first battle for the "+
-			"same two parties, were dealt the same battle seed %d and the same battle id %q.\n"+
-			"  battle.DeriveBattleSeed(campaignSeed, battleCounter, attacker, defender) is keyed on a "+
-			"counter that is a field on Server, so a restart returns it to 0 and the first battle of "+
-			"the new process is the first battle of the old one.\n"+
-			"  With no commander attached to the session, a battle is a pure function of the config and "+
-			"the seed, so this is not a shared roster or a shared id space: it is the same fight, "+
-			"tick for tick.\n"+
-			"  The fix is one line and it is a storage decision, so it belongs to whoever owns "+
-			"CONSTITUTION.md 4.1. Logged in CHANGELOG.md under Unresolved.",
-			a.seed, a.id)
-		return
-	}
-	t.Logf("campaign seed 909: first battle on one server got seed %d, on another %d", a.seed, b.seed)
-}
+// The first is that the server writes a record for every battle it resolves, into
+// logs/battles/<id> — the same directory for the whole life of a deployment. Two
+// servers that share nothing may both deal btl-1; that is two independent
+// campaigns and it is correct. Two servers that share a record directory may not,
+// and that is the restart case the old test was reaching for without saying so.
+//
+// The second is that the fix is no longer a storage decision. CONSTITUTION.md 4.1
+// records where campaign state lives as unresolved, and this did not have to
+// settle it: the record directory is the only durable thing this server has ever
+// written, and reading it once at startup is not a database, a dependency or a
+// hosted service. See battleapi.Server.dealLocked for what that does and does not
+// survive.
+//
+// The test that replaced it is
+// TestARestartedServerDoesNotDealTheSameBattleTwiceNorOverwriteItsRecord in
+// restart_test.go, which is the same defect with the shared record directory made
+// explicit and a second property added: the first battle's report has to still be
+// the first battle's after the second lifetime has run.
 
 // TestTheShippedBattleAPIReachesTheCommandSeam is the source check for the two
 // calls the API has to make and does not.
@@ -289,16 +275,6 @@ func fightOverAPI(t *testing.T, cfg *config.Config, campaignSeed uint64, units i
 	out.state = resolve(t, srv.URL, start.id)
 	out.ordersLogged = intOf(out.state["orders_logged"])
 	return out
-}
-
-// startBattleOverAPI starts one battle on a server of its own and returns its id
-// and seed without fighting it.
-func startBattleOverAPI(t *testing.T, cfg *config.Config, campaignSeed uint64, units int) apiFight {
-	t.Helper()
-	srv := httptest.NewServer(newServerOverAPI(t, cfg, campaignSeed).Handler())
-	defer srv.Close()
-	start := startBattle(t, srv.URL, campaignSeed, units)
-	return apiFight{id: start.id, seed: start.seed}
 }
 
 type apiStart struct {

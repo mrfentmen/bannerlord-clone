@@ -1,6 +1,7 @@
 package battle
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -353,6 +354,29 @@ func (b *BattleRecord) Setup(cfg *config.Config) (Setup, error) {
 // checks both, and battle.json is not JSON at all if it stops halfway. A
 // half-written record is refused rather than half-read, which is the property
 // that matters.
+//
+// # AN ID IS A PROMISE THAT IT MEANS ONE BATTLE, AND IT IS NOW ENFORCED
+//
+// Saving the same battle twice over the same directory is an update, and always
+// was: re-recording is idempotent, and the record on disk is unchanged. Saving a
+// DIFFERENT battle over an id that already holds a record is refused, and was not
+// until this. Both halves are decided by comparing the bytes that are already
+// there, so the rule is "this id already describes that battle" rather than a
+// guess about which battle anybody meant.
+//
+// What it was instead was os.MkdirAll on a directory that exists followed by two
+// os.WriteFile calls, which is a silent replacement of both files. Two servers
+// sharing one record directory reach it with no bug at all, and the concrete case
+// is the shipped one: battleapi.Server numbers its battles from a field on the
+// struct, so a restarted server deals btl-1 again — and the second battle's save
+// destroys the first battle's after-action report.
+//
+// Nothing detects that from the outside. The replacement record is internally
+// consistent and describes exactly the battle it was written from, so
+// `simrun replay --battle btl-1` prints MATCHED. The id a client was told, the
+// report a player kept, and the numbers in the file all agree with each other and
+// all describe the wrong fight. Refusing is the only honest answer, and the
+// refusal names both seeds so an operator can tell the two battles apart.
 func SaveBattle(dir, id string, a, b Roster, res *Result, rec *Recording) error {
 	if err := validBattleID(id); err != nil {
 		return err
@@ -401,6 +425,19 @@ func SaveBattle(dir, id string, a, b Roster, res *Result, rec *Recording) error 
 		return fmt.Errorf("battle: encoding the battle record failed: %w", err)
 	}
 	blob = append(blob, '\n')
+
+	// What is already there decides this, if anything is.
+	//
+	// An index file that cannot be read is not a record: it is either nothing or a
+	// write that stopped halfway, and in both cases there is no battle here to
+	// protect, so the write goes ahead. A readable one is a record, and both its
+	// files are compared — the index alone carries the log's row count and order
+	// hash, which is enough to tell two order logs apart, and reading the log too
+	// means the comparison does not depend on that being true.
+	if err := checkNotADifferentBattle(dir, id, blob, logBytes, rec.Seed, res.Label); err != nil {
+		return err
+	}
+
 	if err := os.MkdirAll(dir, 0o755); err != nil {
 		return fmt.Errorf("battle: making the record directory failed: %w", err)
 	}
@@ -411,6 +448,44 @@ func SaveBattle(dir, id string, a, b Roster, res *Result, rec *Recording) error 
 		return fmt.Errorf("battle: writing the battle record failed: %w", err)
 	}
 	return nil
+}
+
+// checkNotADifferentBattle refuses to let one battle id hold two battles' records,
+// and says nothing when it already holds exactly this one.
+//
+// It is a separate function because it is the only part of SaveBattle that READS,
+// and a save that reads first is worth being able to reason about on its own. The
+// seed and label arrive as arguments rather than being decoded back out of blob,
+// because this package deliberately keeps no decoded record around to compare
+// against, and a refusal that names both battles is worth one unmarshal on the
+// failure path.
+func checkNotADifferentBattle(dir, id string, blob, logBytes []byte, seed uint64, label string) error {
+	prev, err := os.ReadFile(filepath.Join(dir, recordIndexFile))
+	if err != nil {
+		// Nothing there, or something that is not a readable index. Both cases mean
+		// there is no record to destroy, and neither is a reason to refuse a save.
+		return nil
+	}
+	prevLog, err := os.ReadFile(filepath.Join(dir, recordLogFile))
+	if err != nil {
+		prevLog = nil
+	}
+	if bytes.Equal(prev, blob) && bytes.Equal(prevLog, logBytes) {
+		// The same battle, recorded again. Leaving the files alone is what makes a
+		// re-record idempotent, and it is also why calling this twice is safe.
+		return nil
+	}
+
+	var held recordFile
+	if err := json.Unmarshal(prev, &held); err != nil {
+		return fmt.Errorf("battle: %s already holds a record that cannot be read back, so the record of "+
+			"the battle at seed %d has not been written over it; move the old one aside or choose "+
+			"another id", id, seed)
+	}
+	return fmt.Errorf("battle: %s already holds a different battle — the one already there is seed %d "+
+		"labelled %q, this one is seed %d labelled %q — and a record is a promise that an id means "+
+		"one battle, so the record already there is kept; move it aside or choose another id",
+		id, held.Seed, held.Original.Label, seed, label)
 }
 
 // ReadBattle reads a recorded battle back out of dir.

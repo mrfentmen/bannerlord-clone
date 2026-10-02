@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -61,6 +62,10 @@ type Server struct {
 	nextID   uint64
 	// battleCounter feeds DeriveBattleSeed so no two battles share a seed.
 	battleCounter uint64
+	// resumed says the record directory has been read once, and recordedIDs holds
+	// the ids it held. See resumeNumberingLocked.
+	resumed     bool
+	recordedIDs map[string]bool
 }
 
 // DefaultBattleDir is where this server writes battle records when nothing else
@@ -294,6 +299,107 @@ func (s *Server) pump() {
 	}
 }
 
+// dealLocked hands out the next battle id and the seed that goes with it. The
+// caller holds s.mu; nothing here touches a session.
+//
+// # WHY THIS READS THE RECORD DIRECTORY BEFORE DEALING
+//
+// nextID and battleCounter were fields on the struct starting at 0, so they
+// counted battles in THIS PROCESS. A restart put both back to 0, and the first
+// battle of the new process came out as btl-1 at the seed DeriveBattleSeed
+// derives from counter 1 — the id and the seed of the first battle of the old
+// process. With no commander attached a battle is a pure function of its config
+// and its seed, so the same two parties were handed the same fight, tick for
+// tick, every time the server came back.
+//
+// That was survivable while nothing was written down. It stopped being
+// survivable when this server started recording: the second lifetime's save for
+// btl-1 went over the first lifetime's battle.json and order.log, so the
+// after-action report of a battle a player had already fought was replaced by a
+// later one under the same id, and `simrun replay --battle btl-1` reported
+// MATCHED both times. battle.SaveBattle now refuses to overwrite a record that
+// holds a different battle, so the destruction is stopped at the file layer even
+// if everything here fails; what this adds is that the campaign's battles do not
+// restart either.
+//
+// So the counter is recovered from the records the server itself wrote, which is
+// the only durable thing it has ever had. There is no new storage: no database,
+// no dependency, no hosted service, and nothing to decide about CONSTITUTION.md
+// 4.1. What this does NOT survive is the record directory being emptied. Delete
+// the records and the next process starts again at btl-1, because a pruned record
+// directory is the only history this has. That limit is real and is logged under
+// Unresolved rather than papered over: a campaign's battle counter that outlives
+// its after-action reports needs somewhere to keep a number, and that is the
+// decision 4.1 defers.
+//
+// The directory is read once, on the first battle, rather than in New, because
+// New opens the default store and WithBattleStore may replace it — a caller that
+// recovers numbering in New would recover it from the wrong directory for every
+// caller that configures one, which is every test in this repo and every
+// deployment that points the store somewhere writable.
+func (s *Server) dealLocked(attacker, defender string) (string, uint64) {
+	s.resumeNumberingLocked()
+
+	// An id already on disk is skipped rather than reused, and the counter moves
+	// with it. The listing gives the highest btl-N, so the skip loop is normally
+	// never entered; it is here for a store that holds ids this process did not
+	// number — a directory written by hand, or a record renamed into place.
+	for {
+		s.nextID++
+		s.battleCounter++
+		id := fmt.Sprintf("btl-%d", s.nextID)
+		if !s.recordedIDs[id] {
+			return id, battle.DeriveBattleSeed(s.campaignSeed, s.battleCounter, attacker, defender)
+		}
+	}
+}
+
+// resumeNumberingLocked reads the record directory once and moves the counters
+// past whatever it finds. The caller holds s.mu.
+func (s *Server) resumeNumberingLocked() {
+	if s.resumed {
+		return
+	}
+	s.resumed = true
+	s.recordedIDs = map[string]bool{}
+	if s.store == nil {
+		return
+	}
+	ids, err := s.store.IDs()
+	if err != nil {
+		// A store that cannot be listed is not a store this process can trust to
+		// number itself from, so it does not. Nothing is lost by that: the counters
+		// stay at 0 and battle.SaveBattle refuses to overwrite a record that holds a
+		// different battle, so the worst case is a record_error naming the battle
+		// that was not written rather than a lost report.
+		log.Printf("battleserver: could not read the battle records in %s, so battles will be numbered "+
+			"from 1 again: %v", s.store.Root(), err)
+		return
+	}
+	for _, id := range ids {
+		s.recordedIDs[id] = true
+		if n, ok := battleIDIndex(id); ok && n > s.nextID {
+			s.nextID = n
+		}
+	}
+	s.battleCounter = s.nextID
+}
+
+// battleIDIndex is the number in a battle id this server dealt, and whether the id
+// is one at all. Only the shape handleStart produces counts: a record named by
+// hand is never evidence about how many battles a campaign has fought.
+func battleIDIndex(id string) (uint64, bool) {
+	rest, ok := strings.CutPrefix(id, "btl-")
+	if !ok || rest == "" {
+		return 0, false
+	}
+	n, err := strconv.ParseUint(rest, 10, 64)
+	if err != nil {
+		return 0, false
+	}
+	return n, true
+}
+
 // saveRecord writes a resolved battle's order log, setup, seed and result into the
 // store, once.
 //
@@ -472,10 +578,7 @@ func (s *Server) handleStart(w http.ResponseWriter, r *http.Request) {
 	// sim work below does not sit inside it. Everything after this point is about
 	// ONE battle and belongs to that battle's own lock.
 	s.mu.Lock()
-	s.nextID++
-	s.battleCounter++
-	id := fmt.Sprintf("btl-%d", s.nextID)
-	seed := battle.DeriveBattleSeed(s.campaignSeed, s.battleCounter, req.AttackerPartyID, req.DefenderPartyID)
+	id, seed := s.dealLocked(req.AttackerPartyID, req.DefenderPartyID)
 	s.mu.Unlock()
 
 	attacker := battle.PartyRef{ID: req.AttackerPartyID, Name: req.AttackerPartyName}

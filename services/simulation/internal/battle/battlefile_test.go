@@ -1,6 +1,7 @@
 package battle
 
 import (
+	"bytes"
 	"encoding/json"
 	"os"
 	"path/filepath"
@@ -246,6 +247,98 @@ func TestSaveBattleOverTheSameDirectoryIsAnUpdate(t *testing.T) {
 	if len(entries) != 1 {
 		t.Errorf("the store holds %d entries after two saves of one battle, want 1", len(entries))
 	}
+}
+
+// TestSaveBattleRefusesToOverwriteARecordOfADifferentBattle is the other half of
+// that same sentence, and the half that was missing.
+//
+// Saving the SAME battle twice over the same directory leaves one record, and that
+// is right. Saving a DIFFERENT battle over an id that already holds a record used
+// to replace both files silently, which is how the shipped battle server destroyed
+// a player's after-action report every time it restarted: it numbers battles from
+// a field on the struct, so the first battle of the second process came out as the
+// first battle of the first, and its save went over that battle's files. Nothing
+// reported it — the replacement record describes exactly the battle it was written
+// from, so replaying it prints MATCHED.
+//
+// Both halves of the rule are asserted here, because a refusal that also broke the
+// idempotent re-record would be a different bug: the same battle must still be
+// savable twice, and the refusal must name both seeds so an operator can tell the
+// two battles apart.
+func TestSaveBattleRefusesToOverwriteARecordOfADifferentBattle(t *testing.T) {
+	cfg := loadConfig(t)
+	dir := t.TempDir()
+	id := "btl-1"
+
+	first := saveScriptAt(t, cfg, dir, id, recordTestSeed)
+	if first == 0 {
+		t.Fatalf("the first save of the record test battle was refused under the id %s", id)
+	}
+
+	// The same battle again, which is the update TestSaveBattleOverTheSameDirectoryIsAnUpdate
+	// covers and which must keep working.
+	before, err := os.ReadFile(filepath.Join(dir, id, recordIndexFile))
+	if err != nil {
+		t.Fatalf("reading the record failed: %v", err)
+	}
+	if again := saveScriptAt(t, cfg, dir, id, recordTestSeed); again == 0 {
+		t.Fatalf("re-saving the same battle under the id %s was refused; this used to be an update and "+
+			"making it an error would break re-recording", id)
+	}
+	after, err := os.ReadFile(filepath.Join(dir, id, recordIndexFile))
+	if err != nil {
+		t.Fatalf("reading the record back after re-saving it failed: %v", err)
+	}
+	if !bytes.Equal(before, after) {
+		t.Error("re-saving the same battle over its own record changed the record")
+	}
+
+	// A different battle under the same id.
+	second := saveScriptAt(t, cfg, dir, id, recordTestSeed+1)
+	if second != 0 {
+		t.Errorf("saving a different battle over %s was accepted, and the record on disk now describes "+
+			"seed %d where it described seed %d.\n"+
+			"  A record is a promise that an id means one battle. The id is what a client is told and "+
+			"  what `simrun replay --battle %s` is given, and the replacement replays to a MATCH because "+
+			"  it is internally consistent and describes exactly the battle it was written from. Nothing "+
+			"  downstream of this can tell the two apart.",
+			id, second, first, id)
+		return
+	}
+	t.Logf("refused, as it should be: the second battle at seed %d was not written over the first",
+		recordTestSeed+1)
+
+	onDisk, err := OpenBattleStore(dir).Load(id)
+	if err != nil {
+		t.Fatalf("reading %s back after a refused save: %v", id, err)
+	}
+	if onDisk.Seed != first {
+		t.Errorf("%s describes seed %d after a refused save; it was saved describing seed %d", id, onDisk.Seed, first)
+	}
+	check, err := OpenBattleStore(dir).Verify(cfg, id)
+	if err != nil {
+		t.Fatalf("verifying %s after a refused save: %v", id, err)
+	}
+	if !check.Match {
+		t.Errorf("the record that survived a refused save no longer replays to its own battle: %s", check.Diff)
+	}
+}
+
+// saveScriptAt fights the record test battle at one seed and saves it into dir
+// under id, and returns the seed it saved, or 0 if the save was refused.
+func saveScriptAt(t *testing.T, cfg *config.Config, dir, id string, seed uint64) uint64 {
+	t.Helper()
+	script := NewScript("record test", seed, Roster{Units: recordTestUnits}, Roster{Units: recordTestUnits})
+	res, rec, err := RunScript(cfg, script, 0)
+	if err != nil {
+		t.Fatalf("fighting the test battle at seed %d failed: %v", seed, err)
+	}
+	a, b := script.Rosters()
+	if err := SaveBattle(filepath.Join(dir, id), id, a, b, res, rec); err != nil {
+		t.Logf("save of seed %d under %s was refused: %v", seed, id, err)
+		return 0
+	}
+	return seed
 }
 
 // TestBattleRecordSurvivesTheReload is the round-trip claim on the record's

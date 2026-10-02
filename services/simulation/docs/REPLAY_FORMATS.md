@@ -457,6 +457,21 @@ because the units finished somewhere else.
     were accepted" and "your battle is reproducible" are separate facts a client
     can tell apart.
 
+  - **A record is never overwritten by a different battle.** `SaveBattle` compares
+    the bytes already in the directory: the same battle saved twice is the
+    idempotent update it has always been, and a different battle under an id that
+    already holds a record is refused with both seeds named. This is absolute and
+    needs nothing of the caller, which matters because two processes sharing one
+    record directory reached the old behaviour — `os.MkdirAll` succeeds on a
+    directory that exists — with no bug at all. It exists because the shipped
+    server used to reach it on every restart: `battleapi.Server` numbered battles
+    from a field on the struct, so a new process dealt `btl-1` again and its save
+    destroyed the first battle's report. The server now also recovers its counter
+    from the records it wrote (`battleapi.Server.dealLocked`), so a restart
+    continues the campaign; what that does not survive is an emptied record
+    directory, because the records are the only history it has. `CHANGELOG.md`
+    under **Unresolved**.
+
   Worth remembering why none of this ever showed up as a replay mismatch: with no
   order crossing the seam the order log is empty, and an empty log replays
   cleanly, because an empty log correctly means nobody commanded anything. A
