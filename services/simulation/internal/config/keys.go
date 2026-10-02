@@ -451,6 +451,7 @@ func (l *loader) load(c *Config) {
 
 	// --- ruler ai ---
 	c.RulerAI.MaxTroops = l.f64("ruler_ai.max_troops")
+	c.RulerAI.TournamentWinnerXP = l.f64("ruler_ai.tournament_winner_xp")
 	c.RulerAI.AttackWeight = l.f64("ruler_ai.attack_weight")
 	c.RulerAI.TargetWeaknessWeight = l.f64("ruler_ai.target_weakness_weight")
 	c.RulerAI.DefendWeight = l.f64("ruler_ai.defend_weight")

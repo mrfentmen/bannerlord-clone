@@ -46,6 +46,11 @@ func System() sim.System {
 }
 
 func run(v *sim.View, w *sim.WriteSet) {
+	c := v.Cfg
+	xpPrize := 25.0
+	if c != nil {
+		xpPrize = c.RulerAI.TournamentWinnerXP
+	}
 	rng := v.Rng.Derive("tournament")
 	for _, tid := range v.State.TownIDs() {
 		t := v.State.Towns[tid]
@@ -89,7 +94,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 		for _, pid := range v.State.PartyIDs() {
 			p := v.State.Parties[pid]
 			if p != nil && p.LeaderID == winnerID {
-				w.Add(model.KindParty, pid, "troop_xp", 25,
+				w.Add(model.KindParty, pid, "troop_xp", xpPrize,
 					read, causes, "tournament combat experience")
 				break
 			}
