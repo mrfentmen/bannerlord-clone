@@ -1,0 +1,51 @@
+/* Buffy task 69: control group chips, bottom left of the command overlay.
+   Small quiet keys, in the same sheet/ink family as the order row. No animation,
+   so nothing here for reduced-motion to switch off. */
+
+.cmd-groups {
+  position: absolute;
+  left: var(--space-3);
+  bottom: var(--space-3);
+  display: flex;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  border: 1px solid var(--ink-700);
+  border-radius: var(--radius-2);
+  background: var(--paper-100);
+}
+
+.cmd-groups:empty {
+  display: none;
+}
+
+.cmd-group {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0 var(--space-1);
+  border: 1px solid var(--ink-500);
+  border-radius: var(--radius-1);
+  background: var(--paper-0);
+  color: var(--ink-900);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.cmd-group:hover {
+  background: var(--paper-200);
+}
+
+.cmd-group:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
+.cmd-group__count {
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-1);
+  background: var(--paper-300);
+  color: var(--ink-700);
+  font-size: 11px;
+}

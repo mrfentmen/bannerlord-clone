@@ -35,6 +35,7 @@ import { showOrderDelay, type OrderDelayHandle } from "./orderDelay.js";
 import { createSelectionPanel, type SelectionPanel } from "./selectionPanel.js";
 import { createOrderPanel, type OrderPanel } from "./orderPanel.js";
 import { createSelectionRings, type SelectionRings } from "./selectionRings.js";
+import { createGroupIndicators, type GroupIndicators } from "./groupIndicators.js";
 import type { CommandSurface, Order, OrderKind } from "./types.js";
 
 export interface Commander {
@@ -169,6 +170,13 @@ export function createCommander(
   // same live-unit lookup the panel reads, so both agree on who is selected.
   const rings: SelectionRings = createSelectionRings(surface);
   overlay.appendChild(rings.root);
+  // Task 69: the control group chips, bottom left. Membership is read from the
+  // selection model on every repaint, never cached here.
+  const groupIndicators: GroupIndicators = createGroupIndicators({
+    registry,
+    members: (group) => selection.group(group),
+  });
+  overlay.appendChild(groupIndicators.root);
   const delays: OrderDelayHandle[] = [];
   /** Task 47: the last order issued to each unit — the panel's "stance". */
   const lastOrder = new Map<string, OrderKind>();
@@ -209,6 +217,8 @@ export function createCommander(
         return u ? [u] : [];
       }),
     );
+    // Task 69: the chips follow assign and recall.
+    groupIndicators.update();
   }
 
   /** Every order goes through here: sim gets it, the panel learns the stance,
@@ -493,6 +503,8 @@ export function createCommander(
           events.onSelect?.();
           maybeFocusGroup(n);
         }
+        // Task 69: assigning or recalling changes what the chips should say.
+        groupIndicators.update();
       }),
     );
   }
@@ -627,6 +639,7 @@ export function createCommander(
       panel.destroy();
       orderPanel.destroy();
       rings.destroy();
+      groupIndicators.destroy();
       modeHint.remove();
     },
   };
