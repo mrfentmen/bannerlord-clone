@@ -131,7 +131,7 @@ export class ModelLoader {
           resolve(meshes[0] || null);
         },
         undefined, // onProgress
-        (scene, message) => {
+        (_scene, message) => {
           reject(new Error(`Failed to load ${info.path}: ${message}`));
         },
       );
@@ -142,7 +142,7 @@ export class ModelLoader {
    * Clear the cache and dispose loaded models.
    */
   dispose(): void {
-    for (const [id, model] of this.cache) {
+    for (const model of this.cache.values()) {
       if (model && model.dispose) {
         model.dispose();
       }

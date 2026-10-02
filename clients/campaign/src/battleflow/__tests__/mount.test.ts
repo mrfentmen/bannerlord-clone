@@ -12,6 +12,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   BattleApiError,
+  type AfterActionView,
   type BattleApi,
   type BattleOrders,
   type Encounter,
@@ -178,6 +179,35 @@ describe("battle mount", () => {
     const after = mount.flow.liveView()?.battle.tick ?? -1;
     expect(after).toBe(before + 1);
     expect(events).toContain("order");
+  });
+
+  it("hands the finished after-action view to onBattleEvent", async () => {
+    // MASTER_PLAN 138/141: the consumer derives lifetime kills/gold and the
+    // quick-battle score from this view. Without it those stats stay zero, so
+    // the payload is asserted here rather than assumed.
+    const seen: { event: string; view: AfterActionView | undefined }[] = [];
+    const mount = mountBattleUi({
+      apiBaseUrl: "http://127.0.0.1:9",
+      playerPartyId: 1,
+      local: localSource(),
+      api: unreachableApi(),
+      mountInto: document.createElement("div"),
+      onBattleEvent: (event, view) => seen.push({ event, view }),
+    });
+    mounts.push(mount);
+
+    await mount.attack(1, 2);
+    await flush();
+    click(mount, "battle-autoresolve");
+    await flush();
+
+    const result = seen.find((s) => s.event === "victory" || s.event === "defeat");
+    expect(result, "a victory/defeat event fires").toBeDefined();
+    expect(result?.view, "the event carries the after-action view").toBeDefined();
+    expect(typeof result?.view?.playerWon).toBe("boolean");
+    expect(Number.isFinite(result?.view?.attackerLosses)).toBe(true);
+    expect(Number.isFinite(result?.view?.defenderLosses)).toBe(true);
+    expect(Number.isFinite(result?.view?.loot)).toBe(true);
   });
 
   it("auto-resolve reaches after-action and dismiss returns to the campaign", async () => {

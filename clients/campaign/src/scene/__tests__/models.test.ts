@@ -27,6 +27,22 @@ function readManifest(): ModelsManifest {
   return JSON.parse(readFileSync(join(modelsDir, "models.manifest.json"), "utf8"));
 }
 
+/**
+ * Every staged model file, as manifest-relative POSIX paths, recursing into
+ * subdirectories (the weapon set lives under `weapons/`). `readdirSync` on
+ * its own is non-recursive, which previously made those ten entries look like
+ * missing files.
+ */
+function listModelFiles(dir = modelsDir, prefix = ""): string[] {
+  const out: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+    if (entry.isDirectory()) out.push(...listModelFiles(join(dir, entry.name), rel));
+    else out.push(rel);
+  }
+  return out;
+}
+
 describe("longestAxisScale", () => {
   it("scales the longest axis to the target length", () => {
     expect(longestAxisScale({ x: 2, y: 4, z: 10 }, 10)).toBe(1);
@@ -73,9 +89,14 @@ describe("validateModelsManifest", () => {
 describe("staged models manifest", () => {
   it("is consistent with the GLB files on disk", () => {
     const manifest = readManifest();
-    const files = readdirSync(modelsDir);
-    expect(manifest.models).toHaveLength(30);
+    const files = listModelFiles();
+    // Manifest entries and on-disk GLBs must correspond exactly, in both
+    // directions. `validateModelsManifest` checks each mapping, so the count
+    // is asserted from disk rather than hardcoded — adding an asset updates
+    // the manifest and this test follows it instead of failing on a literal.
     expect(validateModelsManifest(manifest, files)).toEqual([]);
+    const glbOnDisk = files.filter((f) => f.endsWith(".glb"));
+    expect(manifest.models).toHaveLength(glbOnDisk.length);
   });
 
   it("keeps the troop-officer upright fix and the sandbags estimate documented", () => {

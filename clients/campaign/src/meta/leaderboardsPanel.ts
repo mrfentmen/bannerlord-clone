@@ -44,7 +44,7 @@ export function leaderboardsPanel(options: { onClose?: () => void } = {}): Leade
   const note = h(
     "p",
     { class: "boards__note", "data-testid": "boards-note" },
-    "Best results on this machine — top 10 per mode. Arena bouts land here when recorded and tournament champions when a bracket completes; quick-battle results follow once those bouts report back.",
+    "Best results on this machine — top 10 per mode. Campaign-map bouts land on Quick battles when they finish, arena bouts when recorded, and tournament champions when a bracket completes.",
   );
   const tabs = h("div", { class: "boards__tabs", role: "tablist", "aria-label": "Leaderboard mode" });
   const tableWrap = h("div", { class: "boards__table-wrap", "data-testid": "boards-table" });

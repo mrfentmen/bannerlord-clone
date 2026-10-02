@@ -23,7 +23,8 @@ export class AudioAnimationBridge {
 
   // Footstep timing: track animation progress to trigger steps
   private stepTimer = 0;
-  private stepInterval = 0.35; // seconds between steps (adjust per speed)
+  /** Fallback seconds between steps when the state has no specific rate. */
+  static readonly DEFAULT_STEP_INTERVAL = 0.35;
 
   // Track state changes to trigger one-shot sounds
   private lastState: AnimationStateName | null = null;
@@ -68,7 +69,7 @@ export class AudioAnimationBridge {
   /**
    * Called when animation state changes. Triggers one-shot sounds.
    */
-  private onStateChange(from: AnimationStateName | null, to: AnimationStateName | null): void {
+  private onStateChange(_from: AnimationStateName | null, to: AnimationStateName | null): void {
     if (!to) return;
 
     switch (to) {

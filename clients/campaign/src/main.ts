@@ -110,9 +110,12 @@ import { lifetimeStatsPanel } from "./meta/lifetimeStatsPanel.js";
 import { leaderboardsPanel } from "./meta/leaderboardsPanel.js";
 import {
   addPlaySeconds,
+  battleReportFromAfterAction,
   recordCampaignStart,
   recordLifetimeBattle,
+  type AfterActionLike,
 } from "./meta/lifetimeStats.js";
+import { battleScore, submitScore } from "./meta/leaderboards.js";
 import { makeWorldProjector } from "./meta/heatmapProjector.js";
 import {
   clearIronmanRun,
@@ -858,13 +861,13 @@ function mountCampaign(): void {
         }),
       },
       pollEncounters: battlePartyId >= 0,
-      onBattleEvent: (event) => {
+      onBattleEvent: (event, view) => {
         if (event === "victory") {
           haptics?.play("confirm");
           achievements.record("battle-won");
           recordDeed("battle", "Won a battle.");
           recordHeatSite(true);
-          recordLifetimeBattle({ won: true });
+          recordBattleOutcome(true, view, party.name);
           lifetimeStatsRefresh?.();
           sessionBattlesWon += 1;
         } else if (event === "defeat") {
@@ -872,7 +875,7 @@ function mountCampaign(): void {
           achievements.record("battle-lost");
           recordDeed("battle", "Lost a battle.");
           recordHeatSite(false);
-          recordLifetimeBattle({ won: false });
+          recordBattleOutcome(false, view, party.name);
           lifetimeStatsRefresh?.();
         } else {
           haptics?.play("order");
@@ -1344,6 +1347,33 @@ function openLeaderboards(): void {
   });
   contextNode = root;
   paint();
+}
+
+/**
+ * Fold a finished campaign-map battle into both meta stores.
+ *
+ * MASTER_PLAN 138: the after-action view reports both sides' losses and the
+ * loot taken, so kills and gold are measured rather than left at zero. The
+ * battle still counts as fought even if the view is absent (a defeat with no
+ * view, or a future battle layer that omits it) — only the unmeasured parts
+ * are dropped.
+ *
+ * MASTER_PLAN 141: every campaign-map bout is a quick battle, so it lands on
+ * the quick-battle board, which otherwise had no producer at all.
+ */
+function recordBattleOutcome(
+  won: boolean,
+  view: AfterActionLike | undefined,
+  playerName: string,
+): void {
+  const report = view ? battleReportFromAfterAction(view) : null;
+  recordLifetimeBattle(report ?? { won });
+  if (!report) return;
+  submitScore("quick-battle", {
+    name: playerName || "Commander",
+    score: battleScore(report.kills ?? 0, report.losses ?? 0, won),
+    detail: `${report.kills ?? 0} kills · ${won ? "victory" : "defeat"}`,
+  });
 }
 
 let playTimerStarted = false;

@@ -70,8 +70,15 @@ export interface BattleMountOptions {
   mountInto?: HTMLElement;
   /** Called when the arc ends and the overlay closes. */
   onDone?: () => void;
-  /** Battle events, for haptics/achievements wiring in main.ts. */
-  onBattleEvent?: (event: "order" | "victory" | "defeat") => void;
+  /**
+   * Battle events, for haptics/achievements wiring in main.ts. `order`
+   * carries no view; `victory`/`defeat` carry the finished after-action view
+   * so consumers can record real kills and loot instead of guessing.
+   */
+  onBattleEvent?: (
+    event: "order" | "victory" | "defeat",
+    view?: AfterActionView,
+  ) => void;
 }
 
 export interface BattleMount {
@@ -200,7 +207,7 @@ export function mountBattleUi(options: BattleMountOptions): BattleMount {
     busy = false;
     const done = flow.afterActionView();
     if (done && flow.phase === "afteraction") {
-      options.onBattleEvent?.(done.playerWon ? "victory" : "defeat");
+      options.onBattleEvent?.(done.playerWon ? "victory" : "defeat", done);
     }
     render();
   }

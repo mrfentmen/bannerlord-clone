@@ -110,6 +110,53 @@ export interface BattleReport {
   kills?: number;
   /** Gold looted/earned, when the battle layer reports it. */
   goldEarned?: number;
+  /** Own troops lost, when the battle layer reports it. Feeds bout scoring. */
+  losses?: number;
+}
+
+/**
+ * The subset of the battle layer's after-action view that the lifetime
+ * accumulator needs. Declared structurally so `meta` does not depend on
+ * `battleflow`: anything exposing these fields can feed the stats.
+ */
+export interface AfterActionLike {
+  playerWon: boolean;
+  playerIsAttacker: boolean;
+  attackerLosses: number;
+  defenderLosses: number;
+  loot: number;
+}
+
+/**
+ * Translate a finished battle's after-action view into a lifetime report.
+ *
+ * The battle layer already reports both sides' losses and the loot taken, so
+ * kills and gold are real measurements, not guesses:
+ *   - kills  = the losses suffered by the side the player was *not* on,
+ *   - losses = the losses suffered by the player's own side,
+ *   - gold   = loot, counted only on a win (a defeat yields no spoils).
+ *
+ * Returns null for a view missing the fields, so a caller that has no
+ * after-action data simply skips the record rather than writing zeros.
+ */
+export function battleReportFromAfterAction(view: AfterActionLike): BattleReport | null {
+  if (
+    typeof view?.playerWon !== "boolean" ||
+    typeof view?.playerIsAttacker !== "boolean" ||
+    !Number.isFinite(view?.attackerLosses) ||
+    !Number.isFinite(view?.defenderLosses) ||
+    !Number.isFinite(view?.loot)
+  ) {
+    return null;
+  }
+  const enemyLosses = view.playerIsAttacker ? view.defenderLosses : view.attackerLosses;
+  const ownLosses = view.playerIsAttacker ? view.attackerLosses : view.defenderLosses;
+  return {
+    won: view.playerWon,
+    kills: Math.max(0, Math.floor(enemyLosses)),
+    losses: Math.max(0, Math.floor(ownLosses)),
+    goldEarned: view.playerWon ? Math.max(0, Math.floor(view.loot)) : 0,
+  };
 }
 
 /**

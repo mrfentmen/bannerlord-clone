@@ -4,9 +4,9 @@
  * Renders the cross-campaign accumulator from meta/lifetimeStats.ts as a
  * stat grid: kills, gold earned, battles (won/lost + win rate), hours
  * played, campaigns, seasons, treaties, schemes. Pure DOM over the store —
- * the panel re-reads on refresh. Rows whose source isn't reporting yet
- * (kills, gold) carry a muted "awaiting battle reports" note rather than
- * pretending the zeros are measured.
+ * the panel re-reads on refresh. Kills and gold come from the battle layer's
+ * after-action view (both sides' losses plus loot), so they are measured;
+ * the panel still supports marking a row whose reporter is not wired.
  */
 
 import { h } from "../ui/dom.js";
@@ -44,16 +44,12 @@ const STATS: StatDef[] = [
     glyph: "⚔️",
     label: "Kills",
     value: (s) => formatCount(s.kills),
-    sub: () => "awaiting battle reports",
-    pendingSource: true,
   },
   {
     id: "gold",
     glyph: "🪙",
     label: "Gold earned",
     value: (s) => formatCount(s.goldEarned),
-    sub: () => "awaiting battle reports",
-    pendingSource: true,
   },
   {
     id: "battles",

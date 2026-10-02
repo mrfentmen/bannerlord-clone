@@ -61,8 +61,13 @@ export class AnimationController {
 
   constructor(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    private mesh: any,
+    _mesh: any,
   ) {}
+
+  /** The state played before the current one, or null at the start. */
+  get previousState(): AnimationStateName | null {
+    return this.previous;
+  }
 
   /**
    * Register an animation state.
@@ -151,8 +156,8 @@ export class AnimationController {
 
       const blendTime =
         state.targetWeight > state.weight
-          ? state.config.blendIn
-          : state.config.blendOut;
+          ? (state.config.blendIn ?? DEFAULT_CONFIG.blendIn)
+          : (state.config.blendOut ?? DEFAULT_CONFIG.blendOut);
 
       if (blendTime <= 0) {
         state.weight = state.targetWeight;
@@ -226,6 +231,9 @@ export class AnimationController {
  * Combat animation helper — sequences attack → hit → recovery.
  */
 export class CombatAnimator {
+  /** State to fall back to once a hit reaction finishes. */
+  private returnState: AnimationStateName | null = null;
+
   constructor(private controller: AnimationController) {}
 
   /**
@@ -243,10 +251,17 @@ export class CombatAnimator {
   }
 
   /**
+   * The state a hit reaction will fall back to, or null if none was recorded.
+   */
+  getHitReturnState(): AnimationStateName | null {
+    return this.returnState;
+  }
+
+  /**
    * Play a hit reaction, then return to previous state.
    */
   takeHit(): void {
-    const prev = this.controller.getCurrentState();
+    this.returnState = this.controller.getCurrentState();
     this.controller.play('hit', true);
     // Return to previous state after hit animation
     // (assumes hit is non-looping with onComplete configured)
