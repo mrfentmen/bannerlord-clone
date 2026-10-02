@@ -297,6 +297,14 @@ func newTown(cfg *config.Config, r *rng.Rng, s Settlement) *model.Town {
 	if farmland <= 0 {
 		farmland = r.Range(cfg.Food.FarmlandMin, cfg.Food.FarmlandMax)
 	}
+	// Guard against zero population from misconfigured worldgen.
+	pop := s.Population
+	if pop <= 0 {
+		pop = cfg.World.SmallTownPopulation
+		if pop <= 0 {
+			pop = 1200 // fallback if config is also zero
+		}
+	}
 	t := &model.Town{
 		Name:   s.Name,
 		SideID: s.SideID,
@@ -310,7 +318,7 @@ func newTown(cfg *config.Config, r *rng.Rng, s Settlement) *model.Town {
 		IsPort:          s.IsPort,
 		X:               s.X,
 		Y:               s.Y,
-		Population:      s.Population,
+		Population:      pop,
 		Sanitation:      cfg.World.StartSanitation * r.Range(0.85, 1.1),
 		Prosperity:      shared.Clamp01(cfg.World.StartSanitation + r.Range(-0.1, 0.15)),
 		TaxRate:         cfg.Currency.TaxDefaultRate,
