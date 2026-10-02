@@ -10,6 +10,7 @@ import type { FeedbackProjection, FeedbackSource } from "./types.js";
 import { createKillFeed, type KillFeed } from "./killFeed.js";
 import { createKillConfirm, type KillConfirm } from "./killConfirm.js";
 import { createComboCounter, type ComboCounter } from "./comboCounter.js";
+import { createHitMarker, type HitMarker } from "./hitMarker.js";
 import { createBattleLog, type BattleLog } from "./battleLog.js";
 import { createDamageNumbers, type DamageNumbers } from "./damageNumbers.js";
 import { createDirectionIndicator, type DirectionIndicator } from "./directionIndicator.js";
@@ -63,6 +64,8 @@ export interface BattleFeedback {
   killConfirm: KillConfirm;
   /** Kill streak badge (task 48). */
   combo: ComboCounter;
+  /** Hit marker (task 46). */
+  hitMarker: HitMarker;
   battleLog: BattleLog;
   damageNumbers: DamageNumbers;
   direction: DirectionIndicator;
@@ -87,6 +90,7 @@ export function createBattleFeedback(
   const killFeed = createKillFeed(source);
   const killConfirm = createKillConfirm(source);
   const combo = createComboCounter(source);
+  const hitMarker = createHitMarker(source, projection);
   const battleLog = createBattleLog(source);
   // Task 75: the memorial records every hero kill alongside the feed, so a
   // battle death is a stone even when nobody opens the memorial panel.
@@ -109,6 +113,7 @@ export function createBattleFeedback(
     killFeed.root,
     killConfirm.root,
     combo.root,
+    hitMarker.root,
     battleLog.root,
     damageNumbers.root,
     direction.root,
@@ -135,6 +140,7 @@ export function createBattleFeedback(
     killFeed,
     killConfirm,
     combo,
+    hitMarker,
     battleLog,
     damageNumbers,
     direction,
@@ -152,6 +158,7 @@ export function createBattleFeedback(
       killFeed.destroy();
       killConfirm.destroy();
       combo.destroy();
+      hitMarker.destroy();
       battleLog.destroy();
       damageNumbers.destroy();
       direction.destroy();
