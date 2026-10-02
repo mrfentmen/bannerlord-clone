@@ -9,3 +9,4 @@ export * from "./rally";
 export * from "./rallyButton";
 export * from "./rearguard";
 export * from "./autoresolvePreview";
+export * from "./weather";

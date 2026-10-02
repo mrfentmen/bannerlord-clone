@@ -40,6 +40,7 @@ import { encounterBanner, type EncounterBannerHandle } from "./encounterBanner";
 import { createBattleAnnouncer, type BattleAnnouncer } from "./announcer";
 import { scoutEnemy } from "./scouting";
 import { previewAutoResolve } from "./autoresolvePreview";
+import { weatherFor } from "./weather";
 import {
   BattleFlow,
   type AfterActionView,
@@ -333,6 +334,22 @@ export function mountBattleUi(options: BattleMountOptions): BattleMount {
         h("p", { class: "caption" }, report.note),
       ),
     );
+    // Weather (solo task 30): active modifiers listed pre-battle.
+    const weather = weatherFor(view.encounter.id);
+    const weatherSection = h(
+      "section",
+      { "data-testid": "weather-panel", "aria-label": "Weather" },
+      h("h3", {}, `Weather: ${weather.label}`),
+      h("p", { class: "caption" }, weather.description),
+    );
+    if (weather.modifiers.length > 0) {
+      const modList = h("ul", { class: "weather__list" });
+      for (const mod of weather.modifiers) {
+        modList.appendChild(h("li", { "data-testid": `weather-mod-${mod.target}` }, mod.effect));
+      }
+      weatherSection.appendChild(modList);
+    }
+    body.appendChild(weatherSection);
     const actions = h("div", { class: "battle__actions" });
     // Auto-resolve preview (solo task 28): estimated losses before choosing.
     const preview = previewAutoResolve(view.encounter, view.playerIsAttacker);
