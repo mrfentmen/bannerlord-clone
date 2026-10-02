@@ -98,19 +98,15 @@ Data sources for state profiles: census population, agricultural cropland data, 
 - Optional LLM-generated flavor text (town descriptions, character bios, event blurbs), grounded in real simulation state and real data.
 - Generate once, cache, and regenerate only when a state crosses a defined band, not on every tick change.
 - Batch at world creation, log token spend per run in CHANGELOG.md.
-- Prompts include specific real data (place names, populations, neighbors, current state) so output differs by place without asking the model to be more creative.
-
-## 9. HOSTING DECISION (decided 2026-09-30 — boss: Cloudflare)
-
-**Decision: Cloudflare.** del (Rowan) deployed a Cloudflare worker; the hosting call is Cloudflare. Implementation details (which option below the worker realizes) to be verified against del's branch when it lands for review.
-
-Go does not run natively on Cloudflare Pages or Workers. Options considered:
+- Prompts include specific real data (place names, populations, neighbors, current state) so output differs by place without asking the model to be more creative.## 9. HOSTING (decided 2026-10-02 — Cloudflare only)
+**Decision: everything runs on Cloudflare.** Pages serves the client; one Worker routes a single domain (page + `/api/*` + WebSocket); the Go simulation runs in **Cloudflare Containers**; world persistence is **Durable Objects**. **Postgres is dropped** — the simulation never contained database code, and the Go + Postgres stack lived only in design docs. World saves live in the player's browser (IndexedDB): named slots, autosave, export/import; there is no server-side world storage. Logged in `CHANGELOG.md` under **Decisions**, 2026-10-02.
+Kept for the record — why no single Cloudflare product fit the stack as written:
 
 1. **Simulation runs in the browser** (a Web Worker in TypeScript, or the Go simulation compiled to WASM), saves to IndexedDB, no server cost. Best fit for a near-zero budget and single-player. Postgres would only be used for optional cloud saves.
 2. **Go server on a small VPS or container** with Postgres, fronted by Cloudflare. Needed if the world should keep running when the player is offline or if multiplayer is planned later.
 3. **Hybrid:** browser sim for V1, same Go code reused server-side later.
 
-The constitution locks Go and Postgres, so option 2 or 3 fits as written. Option 1 in TypeScript would need a constitution update first.
+**Resolution:** the Go simulation ships as a real binary in Cloudflare Containers (option 2's shape, hosted on Cloudflare rather than a VPS); Durable Objects replace Postgres, so no database is hosted at all. `CONSTITUTION.md` section 4 was amended 2026-10-02 in the same change.
 
 ## 10. PERFORMANCE BUDGETS
 

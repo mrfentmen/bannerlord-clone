@@ -21,13 +21,28 @@ No chain is scripted. Each one emerges from independent systems reading and writ
 10. `SPEC.md`: architecture, data model, rendering, backend.
 11. `ASSETS.md`: how free 3D models are sourced, licensed, and processed.
 12. `PHASES.md`: build order with exit criteria.
-13. `TASKS.md`: granular checklist matching the phases.
-14. `CHANGELOG.md`: created on first task, logs everything built and everything unresolved.
+13. `TASKS.md`: granular checklist matching the phases (frozen — `docs/MASTER_PLAN.md` is the live task plan).
+14. `CHANGELOG.md`: logs everything built, decided, and unresolved.
+Then, as needed:
+15. `AI.md`: how non-player rulers, armies, parties, and battle units decide.
+16. `CHARACTER.md`: the player character and how every character is built.
+17. `COMBAT.md`: how the battle layer fights (depends on the era decision).
+18. `ERA.md`: the 1950s to 2000s setting as a game system.
+19. `VEHICLES_AND_FUEL.md`: vehicles and fuel as a fifth resource.
+20. `QUESTS_AND_NOTABLES.md`: notables and quests generated from world state.
+21. `INFRASTRUCTURE_AND_MEDIA.md`: power, water, roads, comms; news and public opinion.
+22. `UI_UX.md`: screens, flows, and interface rules.
+23. `ART_AND_AUDIO.md`: visual and audio direction.
+24. `GLOSSARY.md`: shared vocabulary across all docs.
+25. `RISKS.md`: known risks and how to handle them.
+26. `TESTING_AND_BALANCE.md`: how the project proves it works and how balance is tuned.
+27. `docs/MASTER_PLAN.md`: the live crew task plan (boss orders, tiers, task counts).
+Agent and ops notes live in `agents/README.md`, `.agent-specs/`, `BUFFY.md`, and `FREEBUFF_API_GUIDE.md`.
 ## Tech stack (locked, see CONSTITUTION.md)
 - Rendering: Babylon.js
 - Backend: Go
-- Database: Postgres
-- Deployment: built locally, deployed via Cloudflare. Hosting decided 2026-10-02: Cloudflare only.
+- Database: none — world saves live in the player's browser (IndexedDB); Postgres was dropped 2026-10-02
+- Deployment: built locally, deployed via Cloudflare — Pages (client), one Worker (single domain), Containers (Go sim), Durable Objects (persistence)
 - 3D assets: free models from Sketchfab, CGTrader, and Free3D, tracked per ASSETS.md
 - World data: real geography and population data, never hand-typed
 ## Current status (as of 2026-10-02)

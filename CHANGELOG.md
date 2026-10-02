@@ -25,27 +25,25 @@ Pending decisions (fill in when made):
 | Era | 1950 to 2009 campaign with tech by year, one fixed era, or today with era tech tiers | Open (ERA.md) |
 | Fuel as a fifth resource | Yes or no | Open (VEHICLES_AND_FUEL.md) |
 | Combat model | Era firearms and vehicles as standard, or ammo-scarce mixed model | Open (COMBAT.md) |
-| Hosting | Browser-side sim, Go server plus Postgres, or hybrid | Decided 2026-09-30 — del deployed a Cloudflare worker; SPEC.md section 9 records the decision, implementation option TBD |
+| Hosting | Browser-side sim, Go server plus Postgres, or hybrid | Decided 2026-10-02 — Cloudflare only: Pages + one Worker; Go sim in Containers; Durable Objects persistence; Postgres dropped; saves local (IndexedDB). See the Made decisions row and `SPEC.md` section 9. |
 | Art style | Stylized low-poly, gritty semi-realistic, or period filter | Open (ART_AND_AUDIO.md) |
 | Historical roads | Current network everywhere, or gated by opening year | Open (ERA.md section 5) |
 | First playable slice | Which states and sides | Open (PHASES.md Phase 0) |
 | Era tiers in V1 | One, two, or all four | Open |
-| Mid-range test hardware definition | CPU, GPU, and RAM class | Open (TESTING_AND_BALANCE.md section 8) |
-
-### Made decisions
-
+| Mid-range test hardware definition | CPU, GPU, and RAM class | Open (TESTING_AND_BALANCE.md section 8) |### Made decisions
 | Date | Decision | Reason | Files affected |
 |---|---|---|---|
+| 2026-10-02 | Hosting: Cloudflare only — client on Pages, one Worker for the single domain, Go sim in Cloudflare Containers, world persistence in Durable Objects; Postgres dropped; world saves live in the browser (IndexedDB) | Boss order recorded in `MASTER_PLAN.md` under locked decisions. Postgres was dropped because the simulation never contained database code; the Go + Postgres stack lived only in design docs. Resolves the open conflict recorded below. | `README.md`, `SPEC.md` section 9, `CONSTITUTION.md` section 4, `CHANGELOG.md` |
 | 2026-09-30 | Reconstructed `CONSTITUTION.md` | The file did not exist although 18 docs reference it by section number, including README's "wins any conflict" priority claim. Sections 1, 2, 3, 5, 6, and 7 were rebuilt from their own cross-references. Section 4 (tech stack) was never cited by number and is flagged in-file as an inference needing owner review. | `CONSTITUTION.md` |
 | 2026-09-30 | Reconstructed `ASSETS.md` | The file did not exist although 8 docs reference it by section number, and it gates Phase 3. Section 3 and the numeric budgets are starting values sized to the crowd targets in `SPEC.md` section 5.1, to be tuned against real measurements in Phase 3. | `ASSETS.md` |
 | 2026-09-30 | Git repository initialised, docs committed as baseline | Four parallel coding agents were about to work in this folder. Without version control they cannot branch, diff, or merge, and will overwrite each other's work. | `.gitignore`, all 24 docs |
 | 2026-09-30 | Folder renamed to drop trailing space in name | The directory name ended with a space, which breaks shell scripts, build paths, and agent working directories. | folder name |
 
-### Open conflict recorded, not resolved
+### Conflict recorded, resolved 2026-10-02
 
 | Date | Conflict | Detail | Status |
 |---|---|---|---|
-| 2026-09-30 | Go + Postgres vs Cloudflare | `CONSTITUTION.md` section 4 and `README.md` state the stack as locked, but Cloudflare does not host Postgres and does not run Go natively on Workers or Pages. Go runs only as WebAssembly, and Go compiled to `js/wasm` cannot open TCP sockets, so it cannot reach Postgres directly. Real options are Workers+WASM+D1, Cloudflare Containers with external Postgres, or a Go server on a VPS. See `SPEC.md` section 9 and `CONSTITUTION.md` section 4.1. | **Open - blocks Phase 2.** Needs an explicit amendment decision. |
+| 2026-09-30 | Go + Postgres vs Cloudflare | `CONSTITUTION.md` section 4 and `README.md` state the stack as locked, but Cloudflare does not host Postgres and does not run Go natively on Workers or Pages. Go runs only as WebAssembly, and Go compiled to `js/wasm` cannot open TCP sockets, so it cannot reach Postgres directly. Real options are Workers+WASM+D1, Cloudflare Containers with external Postgres, or a Go server on a VPS. See `SPEC.md` section 9 and `CONSTITUTION.md` section 4.1. | **Resolved 2026-10-02** — Cloudflare only; amendment logged under Made decisions. |
 
 ---
 
