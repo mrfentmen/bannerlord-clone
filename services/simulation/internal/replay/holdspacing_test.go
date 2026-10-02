@@ -313,6 +313,111 @@ func TestThePartitionTapCanTellTwoGroupsApart(t *testing.T) {
 	}
 }
 
+// TestHowBigAnArmyBeforeTheGroupsCollide is the blast radius, and it decides
+// whether the defect above blocks the game or only large battles.
+//
+// The first hypothesis going in was that the across-group gap is a roughly fixed
+// anchor separation minus each group's own width, which would make it fall
+// monotonically as the group widens. THE MEASUREMENT REFUTES IT. From 12 to 192 a
+// side the across column is healthy everywhere and bounces without a pattern —
+// 24 a side in 4 groups gives 1.748 m, the tightest of the small cases, while
+// 96 a side in 2 groups gives 7.622 m, the widest — and only at 500 does it collapse
+// to 0.444 m. So the gap is not a clean function of the group's width, nor of the
+// group count as a count. Healthy at every size the shipped game actually fights,
+// broken at the size COMBAT.md section 13 cares about.
+//
+// That is the useful part and it is worth stating plainly: **this is a large-battle
+// correctness defect, not a playability blocker.** Nothing here says the anchor
+// placement is right. It says it holds up to the largest force measured short of the
+// failure, which is a much narrower claim and the only one this measurement
+// supports. The mechanism has to come from reading the layer's own anchor
+// placement, not from fitting these numbers, and this file does not claim to have
+// done that.
+func TestHowBigAnArmyBeforeTheGroupsCollapse(t *testing.T) {
+	cfg := loadConfig(t)
+	const seed = 20260930
+
+	sizes := []int{12, 24, 48, 96, 192}
+	if !testing.Short() {
+		sizes = append(sizes, 250, 288, 384)
+	}
+
+	type row struct {
+		n, groups, perGroup int
+		within, across      float64
+	}
+	var rows []row
+
+	for _, n := range sizes {
+		for _, groups := range []int{2, 4} {
+			tap := newPartitionedTap(holdTicks-100, holdTicks)
+			if _, err := holdBothSidesPartitioned(cfg, seed, evenForce(t, cfg, seed, n), groups, tap); err != nil {
+				t.Fatalf("%d a side in %d groups: %v", n, groups, err)
+			}
+			if tap.measured == 0 {
+				t.Fatalf("%d a side in %d groups: the tap saw no ticks in ticks %d-%d",
+					n, groups, tap.from, tap.to)
+			}
+			tap.check(t)
+			rows = append(rows, row{n, groups, n / groups, tap.within, tap.across})
+			t.Logf("%4d a side in %d group(s) of %-4d within %.3f m   across %s",
+				n, groups, n/groups, tap.within, infOr(tap.across))
+		}
+	}
+
+	// The threshold, stated as the largest size that still clears the minimum in
+	// BOTH columns, because a size that only clears intra-group is broken.
+	healthy, firstBroken := 0, 0
+	for _, n := range sizes {
+		ok := true
+		for _, r := range rows {
+			if r.n == n && minf(r.within, r.across) < cfg.Formation.MinSeparation {
+				ok = false
+			}
+		}
+		if ok {
+			healthy = n
+			continue
+		}
+		if firstBroken == 0 {
+			firstBroken = n
+		}
+	}
+	t.Logf("minimum allowed %.2f m. Largest size clearing it in both columns: %d a side. "+
+		"First size measured that does not: %s.", cfg.Formation.MinSeparation, healthy,
+		orNone(firstBroken))
+
+	// What this asserts, and what it does not. It asserts that the forces below the
+	// threshold keep their men apart, which is the playability claim and a real guard
+	// against a change that breaks a small battle. It does NOT assert that any size
+	// above the threshold is fine: at 500 a side the inter-group pair is 0.444 m, and
+	// TestWhereTheGroupsCollapse above is the regression for that, left failing on
+	// purpose. A green test here must never be read as the guarantee holding.
+	for _, r := range rows {
+		if r.n >= 500 {
+			continue
+		}
+		worst := minf(r.within, r.across)
+		if worst >= cfg.Formation.MinSeparation {
+			continue
+		}
+		t.Errorf("%d a side in %d group(s) of %d: the tightest pair came to %.3f m, an %s-group "+
+			"pair, below the %.2f m minimum. The blast-radius measurement expects every size "+
+			"under 500 to clear it, so this is either a threshold lower than measured or a new "+
+			"regression. within %.3f m, across %s.",
+			r.n, r.groups, r.perGroup, worst, doesName(r.within, r.across),
+			cfg.Formation.MinSeparation, r.within, infOr(r.across))
+	}
+}
+
+// orNone spells an absent measurement without inventing a number for it.
+func orNone(v int) string {
+	if v == 0 {
+		return "none of the sizes measured"
+	}
+	return fmt.Sprintf("%d a side", v)
+}
+
 func newPartitionedTap(from, to int) *partitionedTap {
 	return &partitionedTap{from: from, to: to, seen: map[int]int{}}
 }
