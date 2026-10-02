@@ -362,3 +362,76 @@ export function dracoReport(bytes: Uint8Array): DracoReport {
   }
   return { usesDraco, required, compressedPrimitives, decoderAvailable, loadable: true, reason: null };
 }
+
+/** KTX2 / Basis Universal texture compression. */
+export const KTX2_EXTENSION = 'KHR_texture_basisu';
+
+/** Task 625: what a file needs before its textures can be decoded. */
+export interface Ktx2Report {
+  /** At least one texture uses Basis Universal. */
+  usesKtx2: boolean;
+  /** The extension is in `extensionsRequired`. */
+  required: boolean;
+  /** Images referenced through a KHR_texture_basisu source. */
+  ktx2Textures: number;
+  /** A texture the file declares, whether compressed or not. */
+  totalTextures: number;
+  /** This build has the KTX2 handler imported. */
+  handlerAvailable: boolean;
+  /** The verdict: false means the textures will not decode here. */
+  loadable: boolean;
+  /** Why it will not, when it will not. */
+  reason: 'unsupported-required-extension' | 'no-ktx2-handler' | null;
+}
+
+/**
+ * Task 625: whether a file's textures can be decoded here.
+ *
+ * KTX2 is the texture counterpart of Draco: a Basis Universal image is
+ * transcoded to whatever GPU format the device wants, which is why the loader
+ * needs a transcoder at runtime rather than just a handler module. The handler
+ * is imported at the top of this file, so `handlerAvailable` is a fact about
+ * this build rather than an intention.
+ *
+ * `EXT_texture_webp` is counted separately: it is a *required* extension on
+ * tank-quaternius.glb, and a browser without WebP cannot decode it, which is a
+ * capability question this module reports rather than answers.
+ */
+export function ktx2Report(bytes: Uint8Array): Ktx2Report {
+  const extensions = readExtensionReport(bytes);
+  const chunk = jsonChunkRange(bytes);
+  let ktx2Textures = 0;
+  let totalTextures = 0;
+  if (chunk) {
+    try {
+      const json = JSON.parse(
+        new TextDecoder().decode(bytes.subarray(chunk.start, chunk.start + chunk.length)),
+      ) as {
+        textures?: Array<{ extensions?: Record<string, unknown> }>;
+        images?: unknown[];
+      };
+      totalTextures = json.textures?.length ?? 0;
+      for (const texture of json.textures ?? []) {
+        if (texture.extensions && KTX2_EXTENSION in texture.extensions) ktx2Textures++;
+      }
+    } catch {
+      ktx2Textures = 0;
+      totalTextures = 0;
+    }
+  }
+  const usesKtx2 = extensions.used.includes(KTX2_EXTENSION) || ktx2Textures > 0;
+  const required = extensions.required.includes(KTX2_EXTENSION);
+  const handlerAvailable = SUPPORTED_GLTF_EXTENSIONS.includes(KTX2_EXTENSION);
+  const sharedReason = extensions.unsupportedRequired.length > 0 ? 'unsupported-required-extension' : null;
+  const reason =
+    sharedReason ?? (usesKtx2 && required && !handlerAvailable ? 'no-ktx2-handler' : null);
+  return {
+    usesKtx2,
+    required,
+    ktx2Textures,
+    totalTextures,
+    handlerAvailable,
+    loadable: reason === null,
+    reason,
+  };
+}
