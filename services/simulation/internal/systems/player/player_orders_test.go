@@ -699,3 +699,25 @@ func TestOrderReleasePrisonerOfThemselves(t *testing.T) {
 		t.Errorf("relation with self = %v, want %v", got, want)
 	}
 }
+
+// A party at max capacity cannot recruit more troops. The order is a no-op:
+// no troops added, no gold spent.
+func TestOrderRecruitAtMaxCapacityIsANoOp(t *testing.T) {
+	s := recruitFixture()
+	// Set party to max troops (500 from config).
+	s.Parties[1].Troops = 500
+
+	tick(t, s, sim.Order{
+		Kind:     sim.OrderRecruitTroops,
+		TownID:   1,
+		LeaderID: 1,
+		Amount:   5,
+	})
+
+	if got := s.Parties[1].Troops; got != 500 {
+		t.Errorf("party troops = %v, want 500 (at capacity, no recruits)", got)
+	}
+	if got := s.Leaders[1].Gold; got != 1000 {
+		t.Errorf("leader gold = %v, want 1000 (at capacity, no gold spent)", got)
+	}
+}
