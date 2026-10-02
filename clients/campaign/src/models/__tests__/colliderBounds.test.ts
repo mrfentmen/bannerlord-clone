@@ -14,6 +14,10 @@ import {
   DEGENERATE_COLLIDER_M,
   buildBoxCollider,
   buildTroopCollider,
+  pickTagFor,
+  readPickTag,
+  roleForCategory,
+  tagModelForPicking,
   type BoundsLike,
 } from "../ColliderBounds.js";
 
@@ -128,5 +132,79 @@ describe("buildTroopCollider (task 616)", () => {
   it("takes an explicit radius when one is given", () => {
     const built = buildTroopCollider(bounds(-0.4, 0, 0, 0.4, 1.8, 0.3), 0.25);
     expect(built.box?.width).toBeCloseTo(0.5);
+  });
+});
+describe("pick tags (task 617)", () => {
+  it("maps every manifest category to a role", () => {
+    expect(roleForCategory('troop')).toBe('target');
+    expect(roleForCategory('vehicle')).toBe('target');
+    expect(roleForCategory('structure')).toBe('scenery');
+    expect(roleForCategory('nyc')).toBe('scenery');
+    expect(roleForCategory('prop')).toBe('pickup');
+  });
+
+  it("treats an unknown category as scenery rather than a target", () => {
+    expect(pickTagFor('mystery', 'siege-engine').role).toBe('scenery');
+    expect(pickTagFor('mystery', 'siege-engine')).toEqual({
+      id: 'mystery',
+      category: 'siege-engine',
+      role: 'scenery',
+    });
+  });
+
+  it("makes a troop pickable and a building not", () => {
+    const soldier = { name: 'soldier_0', isPickable: false };
+    const tower = { name: 'tower_0', isPickable: true };
+    const report = tagModelForPicking('troop-gunner', 'troop', [soldier]);
+    tagModelForPicking('watchtower', 'structure', [tower]);
+    expect(report).toEqual({
+      tagged: 1,
+      skipped: 0,
+      tag: { id: 'troop-gunner', category: 'troop', role: 'target' },
+    });
+    expect(soldier.isPickable).toBe(true);
+    expect(tower.isPickable).toBe(false);
+  });
+
+  it("writes the tag on every mesh of a hierarchy and reads it back", () => {
+    const meshes = [
+      { name: 'humvee_root', isPickable: false },
+      { name: 'humvee_body', isPickable: false },
+      { name: 'humvee_wheel_fl', isPickable: false },
+    ];
+    const report = tagModelForPicking('humvee', 'vehicle', meshes);
+    expect(report.tagged).toBe(3);
+    for (const mesh of meshes) {
+      expect(readPickTag(mesh)).toEqual({ id: 'humvee', category: 'vehicle', role: 'target' });
+    }
+  });
+
+  it("skips a disabled mesh so a template cannot become a phantom target", () => {
+    const template = { name: 'template', isPickable: false, isEnabled: () => false };
+    const live = { name: 'live', isPickable: false, isEnabled: () => true };
+    const report = tagModelForPicking('crate', 'prop', [template, live]);
+    expect(report).toMatchObject({ tagged: 1, skipped: 1 });
+    expect(readPickTag(template)).toBeNull();
+    expect(readPickTag(live)).not.toBeNull();
+  });
+
+  it("keeps other metadata that was already on the mesh", () => {
+    const mesh = { name: 'm', isPickable: false, metadata: { faction: 'Vaylen' } };
+    tagModelForPicking('officer', 'troop', [mesh]);
+    expect(mesh.metadata?.faction).toBe('Vaylen');
+    expect(readPickTag(mesh)?.id).toBe('officer');
+  });
+
+  it("returns null for a mesh that was never tagged", () => {
+    expect(readPickTag({ name: 'terrain', isPickable: true })).toBeNull();
+    expect(readPickTag({ name: 'broken', isPickable: true, metadata: { pick: 7 } })).toBeNull();
+    expect(
+      readPickTag({ name: 'partial', isPickable: true, metadata: { pick: { id: 'x' } } }),
+    ).toBeNull();
+  });
+
+  it("recovers from a tag written without a category", () => {
+    const mesh = { name: 'm', isPickable: true, metadata: { pick: { id: 'x', role: 'target' } } };
+    expect(readPickTag(mesh)).toEqual({ id: 'x', category: '', role: 'target' });
   });
 });

@@ -129,3 +129,112 @@ export function buildTroopCollider(bounds: BoundsLike, radiusM?: number): Collid
     fromBounds: true,
   };
 }
+
+/** Metadata a pick writes onto a mesh so the hit can be identified. */
+export interface PickTag {
+  /** Manifest id, e.g. `humvee`. */
+  id: string;
+  /** The category the manifest lists it under. */
+  category: string;
+  /** What the scene owner should do with a hit on this mesh. */
+  role: 'target' | 'scenery' | 'pickup';
+}
+
+/**
+ * Task 617: category to pick role, for the staged manifest's five categories.
+ *
+ * Troop and vehicle are things a shot can be aimed at. Structure and New York
+ * City mass are scenery: they block a ray and nothing else. A prop is a pickup,
+ * which is what the loot and placement code wants to find under a click.
+ */
+const ROLE_BY_CATEGORY: Readonly<Record<string, PickTag['role']>> = {
+  troop: 'target',
+  vehicle: 'target',
+  structure: 'scenery',
+  nyc: 'scenery',
+  prop: 'pickup',
+};
+
+/** The role a hit in `category` means. */
+export function roleForCategory(category: string): PickTag['role'] {
+  return ROLE_BY_CATEGORY[category] ?? 'scenery';
+}
+
+/**
+ * Task 617: the pick tag for a model.
+ *
+ * An unknown category is scenery rather than a target. A mesh that nothing
+ * classified must not become something a shot can lock onto, which is the
+ * failure mode that turns a typo in a manifest into an invisible soldier.
+ */
+export function pickTagFor(id: string, category: string): PickTag {
+  return { id, category, role: roleForCategory(category) };
+}
+
+/** The part of a mesh this module writes to; a Babylon Mesh satisfies it. */
+export interface TaggableMesh {
+  name: string;
+  isPickable: boolean;
+  metadata?: Record<string, unknown>;
+  /** Whether the mesh is in the scene; a disabled mesh is not pickable. */
+  isEnabled?: () => boolean;
+}
+
+/** What {@link tagModelForPicking} wrote. */
+export interface TaggingReport {
+  /** Meshes that were given metadata. */
+  tagged: number;
+  /** Meshes skipped because they are disabled (a template, a hidden LOD). */
+  skipped: number;
+  /** The tag every tagged mesh now carries. */
+  tag: PickTag;
+}
+
+/**
+ * Task 617: make a model hittable and say what it is.
+ *
+ * `isPickable` is set from the role rather than left on by default, so a hit on
+ * a building is never usable as a target. The tag goes on every mesh handed in,
+ * because a GLB is a hierarchy and only the leaves sit in a picking ray's path.
+ *
+ * A disabled mesh is skipped rather than tagged: that is an undrawn template or
+ * a swapped-out LOD level, and tagging it would leave a phantom target standing
+ * behind the copy that is actually on screen.
+ */
+export function tagModelForPicking(
+  id: string,
+  category: string,
+  meshes: readonly TaggableMesh[],
+): TaggingReport {
+  const tag = pickTagFor(id, category);
+  let tagged = 0;
+  let skipped = 0;
+  for (const mesh of meshes) {
+    if (mesh.isEnabled && !mesh.isEnabled()) {
+      skipped++;
+      continue;
+    }
+    mesh.metadata = { ...(mesh.metadata ?? {}), pick: tag };
+    mesh.isPickable = tag.role !== 'scenery';
+    tagged++;
+  }
+  return { tagged, skipped, tag };
+}
+
+/**
+ * Task 617: read the tag back off a picked mesh.
+ *
+ * Null for a mesh that was never tagged, so a caller can tell scenery it hit on
+ * purpose from a hit on something outside the model system entirely.
+ */
+export function readPickTag(mesh: TaggableMesh): PickTag | null {
+  const tag = mesh.metadata?.pick;
+  if (typeof tag !== 'object' || tag === null) return null;
+  const candidate = tag as Partial<PickTag>;
+  if (typeof candidate.id !== 'string' || typeof candidate.role !== 'string') return null;
+  return {
+    id: candidate.id,
+    category: typeof candidate.category === 'string' ? candidate.category : '',
+    role: candidate.role as PickTag['role'],
+  };
+}
