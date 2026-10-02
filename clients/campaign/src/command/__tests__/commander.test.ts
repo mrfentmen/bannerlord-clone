@@ -1,11 +1,12 @@
 /**
- * Commander integration: gestures and keys against a fake battlefield surface.
+ * Commander integration: gestures and keys against a fake battlefield surface,
+ * including the double-click select-all-of-kind gesture (task 66).
  * Uses the real input registry, so bindings are reset around every test.
  *
  * @vitest-environment jsdom
  */
 
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createCommander } from "../commander.js";
 import { input } from "../../input/index.js";
 import { settings } from "../../settings/index.js";
@@ -39,6 +40,12 @@ function fakeSurface(): FakeSurface {
 
 function pointer(el: EventTarget, type: string, init: PointerEventInit): void {
   el.dispatchEvent(new PointerEvent(type, { bubbles: true, ...init }));
+}
+
+/** A full press-and-release on the overlay: one click, no drag. */
+function clickAt(surface: FakeSurface, x: number, y: number, extra: PointerEventInit = {}): void {
+  pointer(surface.overlay(), "pointerdown", { button: 0, clientX: x, clientY: y, ...extra });
+  pointer(window, "pointerup", { button: 0, clientX: x, clientY: y, ...extra });
 }
 
 beforeEach(() => {
@@ -130,6 +137,55 @@ describe("commander", () => {
     expect(last.waypoints).toBeUndefined();
     expect(document.querySelector('[data-testid="cmd-waypoints"]')).toBeNull();
     commander.destroy();
+  });
+
+  it("double-clicking a unit selects every unit of that kind (task 66)", () => {
+    const surface = fakeSurface();
+    const commander = createCommander(surface);
+    // Two infantry, one archer, one cavalry in the fixture.
+    surface.unitsList.push({
+      id: "d", label: "D", kind: "infantry", count: 5, x: 150, z: 100,
+    });
+
+    clickAt(surface, 100, 100);
+    expect(commander.selection.selected()).toEqual(["a"]);
+
+    clickAt(surface, 100, 100); // the second click lands on the same unit
+    expect(commander.selection.selected()).toEqual(["a", "d"]);
+
+    commander.destroy();
+  });
+
+  it("two clicks on different units, or too slowly, are not a double-click (task 66)", () => {
+    vi.useFakeTimers();
+    const surface = fakeSurface();
+    const commander = createCommander(surface);
+    try {
+      clickAt(surface, 100, 100); // A
+      clickAt(surface, 300, 100); // B — a different unit, so a plain select
+      expect(commander.selection.selected()).toEqual(["b"]);
+
+      clickAt(surface, 300, 100); // B again...
+      vi.advanceTimersByTime(500); // ...but too late to count as a double
+      expect(commander.selection.selected()).toEqual(["b"]);
+    } finally {
+      vi.useRealTimers();
+      commander.destroy();
+    }
+  });
+
+  it("a click on empty ground between two clicks cancels the double (task 66)", () => {
+    const surface = fakeSurface();
+    const commander = createCommander(surface);
+    try {
+      clickAt(surface, 100, 100);
+      clickAt(surface, 700, 700); // ground: clears the selection and the pending double
+      clickAt(surface, 100, 100);
+
+      expect(commander.selection.selected()).toEqual(["a"]);
+    } finally {
+      commander.destroy();
+    }
   });
 
   it("select-all grabs every live unit", () => {

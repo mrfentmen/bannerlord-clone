@@ -4,6 +4,7 @@
  *
  * Gesture summary:
  * - click a unit: select it (Shift+click toggles into the selection)
+ * - double-click a unit: select every unit of that kind (task 66)
  * - drag a box: select every live unit inside
  * - right-click the field: move the selected units there (task 51)
  * - Shift+click empty ground: queue a waypoint for the selected units
@@ -58,6 +59,9 @@ export interface CommanderEvents {
 const RADIAL_ORDERS: OrderKind[] = ["attack", "follow", "hold", "retreat"];
 const DRAG_THRESHOLD_PX = 6;
 const CLICK_RADIUS_PX = 24;
+/** Task 66: two clicks on a unit this close together, this fast, are a double-click. */
+const DOUBLE_CLICK_MS = 400;
+const DOUBLE_CLICK_SLOP_PX = 24;
 
 const registeredControlGroups = new WeakSet<InputRegistry>();
 const registeredBattleOrders = new WeakSet<InputRegistry>();
@@ -151,6 +155,8 @@ export function createCommander(
   let lastPointer = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
   let marquee: HTMLElement | null = null;
   let dragStart: { x: number; y: number } | null = null;
+  /** Task 66: the last unit clicked, so the next click on it can be a double. */
+  let lastClick: { id: string; x: number; y: number; at: number } | null = null;
 
   const overlay = surface.overlay();
   const markers: Markers = createMarkers(overlay);
@@ -384,7 +390,22 @@ export function createCommander(
         }
         return;
       }
+      lastClick = null; // ground has no kind to spread out to
       selection.clear();
+      return;
+    }
+    // Task 66: a second click on the same unit takes every unit of that kind.
+    const now = Date.now();
+    const doubleClick =
+      lastClick !== null &&
+      lastClick.id === best &&
+      now - lastClick.at <= DOUBLE_CLICK_MS &&
+      Math.hypot(lastClick.x - ev.clientX, lastClick.y - ev.clientY) <= DOUBLE_CLICK_SLOP_PX;
+    lastClick = doubleClick ? null : { id: best, x: ev.clientX, y: ev.clientY, at: now };
+    if (doubleClick) {
+      const unit = surface.units().find((u) => u.id === best);
+      if (unit) selection.selectAllOfKind(surface.units(), unit.kind);
+      events.onSelect?.();
       return;
     }
     if (ev.shiftKey) selection.toggle(best);

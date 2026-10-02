@@ -1,6 +1,6 @@
 /**
  * Selection model contract: click select, shift-toggle, drag box-select,
- * select-all, control groups.
+ * select-all-of-kind, control groups.
  *
  * @vitest-environment jsdom
  */
@@ -46,6 +46,31 @@ describe("selection model", () => {
     const s = createSelection();
     // "dead" sits at (2,2) inside the box but has count 0.
     expect(s.boxSelect(units, 0, 0, 10, 10)).toEqual(["a", "b"]);
+  });
+
+  it("select-all-of-kind takes every live unit of one kind (task 66)", () => {
+    const s = createSelection();
+    // units: a infantry, b archers, c cavalry, dead infantry (count 0).
+    expect(s.selectAllOfKind(units, "infantry")).toEqual(["a"]);
+    expect(s.selected()).toEqual(["a"]);
+
+    expect(s.selectAllOfKind(units, "archers")).toEqual(["b"]);
+    expect(s.selectAllOfKind(units, "cavalry")).toEqual(["c"]);
+
+    // Nothing of that kind: the selection empties rather than going stale.
+    expect(s.selectAllOfKind(units, "siege")).toEqual([]);
+    expect(s.selected()).toEqual([]);
+  });
+
+  it("select-all-of-kind covers several units of the same kind", () => {
+    const mixed: CommandableUnit[] = [
+      { id: "x", label: "X", kind: "infantry", count: 4, x: 0, z: 0 },
+      { id: "y", label: "Y", kind: "infantry", count: 3, x: 1, z: 1 },
+      { id: "z", label: "Z", kind: "archers", count: 2, x: 2, z: 2 },
+    ];
+    const s = createSelection();
+    expect(s.selectAllOfKind(mixed, "infantry")).toEqual(["x", "y"]);
+    expect(s.selected()).toEqual(["x", "y"]);
   });
 
   it("control groups assign the current selection and recall it", () => {
