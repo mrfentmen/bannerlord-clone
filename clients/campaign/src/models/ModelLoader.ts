@@ -8,7 +8,18 @@
  *   const loader = new ModelLoader(scene);
  *   await loader.preload(['troop-gunner', 'humvee']);
  *   const mesh = await loader.get('troop-gunner');
+ *
+ * Task 601: a failed load is retried, up to {@link DEFAULT_ATTEMPTS} times. The
+ * retry lives around the loader call, not inside the Babylon callback, so a
+ * network blip and a parse error take the same path. `attempts` and the delay
+ * are constructor options so tests (and a caller on a slow link) can override
+ * them; the injected `load` is the seam the tests use instead of Babylon.
  */
+
+/** Attempts per model, including the first. Task 601. */
+export const DEFAULT_ATTEMPTS = 3;
+/** Wait between attempts, ms. Task 601. */
+export const DEFAULT_RETRY_DELAY_MS = 250;
 
 export interface ModelInfo {
   id: string;
@@ -17,14 +28,36 @@ export interface ModelInfo {
   scale?: number;
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+export interface ModelLoaderOptions {
+  /** Attempts per model, including the first; defaults to 3 (task 601). */
+  attempts?: number;
+  /** Wait between attempts, ms; defaults to 250 (task 601). */
+  retryDelayMs?: number;
+  /**
+   * Loads one model. Defaults to Babylon's `SceneLoader`; tests inject a fake
+   * so retry behaviour is observable without a scene (task 601).
+   */
+  load?: (info: ModelInfo) => Promise<unknown>;
+}
+
 export class ModelLoader {
   private scene: any; // Babylon.js Scene
   private cache = new Map<string, any>(); // id -> loaded container
   private loading = new Map<string, Promise<any>>();
   private manifest = new Map<string, ModelInfo>();
+  private attempts: number;
+  private retryDelayMs: number;
+  private loadImpl: (info: ModelInfo) => Promise<unknown>;
 
-  constructor(scene: any) {
+  constructor(scene: any, options: ModelLoaderOptions = {}) {
     this.scene = scene;
+    this.attempts = Math.max(1, options.attempts ?? DEFAULT_ATTEMPTS);
+    this.retryDelayMs = Math.max(0, options.retryDelayMs ?? DEFAULT_RETRY_DELAY_MS);
+    this.loadImpl = options.load ?? ((info) => this.loadModel(info));
   }
 
   /**
@@ -67,7 +100,7 @@ export class ModelLoader {
       return null;
     }
 
-    const promise = this.loadModel(info);
+    const promise = this.loadWithRetry(info);
     this.loading.set(id, promise);
 
     try {
@@ -80,6 +113,25 @@ export class ModelLoader {
       console.error(`ModelLoader: failed to load "${id}":`, err);
       return null;
     }
+  }
+
+  /**
+   * Attempt the loader until it succeeds or the attempts run out (task 601).
+   * The error from the last attempt is what the caller reports.
+   */
+  private async loadWithRetry(info: ModelInfo): Promise<any> {
+    let lastError: unknown;
+    for (let attempt = 1; attempt <= this.attempts; attempt++) {
+      try {
+        return await this.loadImpl(info);
+      } catch (err) {
+        lastError = err;
+        if (attempt >= this.attempts) break;
+        console.warn(`ModelLoader: "${info.id}" attempt ${attempt}/${this.attempts} failed, retrying`);
+        if (this.retryDelayMs > 0) await delay(this.retryDelayMs);
+      }
+    }
+    throw lastError;
   }
 
   /**
