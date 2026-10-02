@@ -232,8 +232,9 @@ func (c *Campaign) finishTrade(s *model.State, staged any) any {
 }
 
 // partyForOrder resolves the party an order names, defaulting to the player's own
-// party when the client sends nothing. The client always sends one; defaulting
-// keeps a bare order working rather than failing on a technicality.
+// party when the client sends nothing. A non-empty ref that resolves to nothing
+// returns nil so the caller fails loudly; silently substituting the player's
+// party would apply the order to the wrong army.
 func (c *Campaign) partyForOrder(ref string) *model.Party {
 	if ref == "" {
 		return c.state.Parties[c.party]
@@ -241,7 +242,7 @@ func (c *Campaign) partyForOrder(ref string) *model.Party {
 	if p, ok := c.partyByRef(ref); ok {
 		return p
 	}
-	return c.state.Parties[c.party]
+	return nil
 }
 
 func trimNum(v float64) string { return fmt.Sprintf("%.0f", v) }

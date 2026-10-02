@@ -441,7 +441,7 @@ func (c *Campaign) attachParty(r *model.Ruler) error {
 		SideID:        r.SideID,
 		RulerID:       r.ID,
 		X:             c.townPos(c.homeTown),
-		Y:             c.townPos(c.homeTown),
+		Y:             c.townPosY(c.homeTown),
 		Troops:        c.cfg.World.PartyTroopsBase,
 		Food:          c.cfg.World.PartyTroopsBase * c.cfg.March.FoodPerTroop * c.cfg.World.StartPartyFoodDays,
 		Money:         r.Money * c.cfg.Ruler.PartyMoneyShare,

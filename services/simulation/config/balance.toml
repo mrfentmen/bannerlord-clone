@@ -44,6 +44,7 @@ start_gold_per_ruler = 140.0     # starting hard reserve per ruler. Range 0-2000
 start_sanitation = 0.62          # baseline water/waste/shelter quality. Range 0.2-0.95.
 medicine_per_capita = 0.02       # clinic doses per resident. Range 0-0.2. A city of 100k holds 2000 doses.
 garrison_per_capita = 0.0016     # peacetime troops per resident. Range 0.0002-0.01. ~160 troops in a 100k city.
+militia_per_capita = 0.0005      # volunteer militia per resident at world start. Range 0-0.005. ~50 in a 100k city; the Watch building adds more per day.
 route_density = 2.4              # average connections per town. Range 1-6. Builds a sparse graph of real places, not a full mesh.
 port_fraction = 0.28             # share of towns that are ports. Range 0-0.6. Ports are what a blockade can starve (chain 8).
 terrain_speed = 0.72             # base travel-speed multiplier on an average road. Range 0.3-1.0.
