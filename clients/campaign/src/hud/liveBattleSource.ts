@@ -1,7 +1,7 @@
 /**
  * Battle HUD's live readouts, fed from `BattleFlow.liveView()`.
  *
- * Tasks 22-23: the two live troop counts, then the two morale figures.
+ * Tasks 22-25: the two live troop counts, then the two morale figures.
  *
  * `BattleFlow` exposes its live state through a getter rather than an event, so
  * the source polls that getter and re-notifies a listener only when the figure
@@ -42,6 +42,8 @@ export interface LiveBattleSource {
   onPlayerTroops(fn: (troops: number) => void): Unsubscribe;
   /** The enemy's living troop count. Replays the current value on subscribe. */
   onEnemyTroops(fn: (troops: number) => void): Unsubscribe;
+  /** The player's morale as a fraction of a full force, 0..1. */
+  onPlayerMorale(fn: (fraction: number) => void): Unsubscribe;
   /** Stops polling. The caller owns this; listeners only unsubscribe. */
   destroy(): void;
 }
@@ -88,6 +90,7 @@ export function createLiveBattleSource(
 
   const playerTroops = liveFigure<number>();
   const enemyTroops = liveFigure<number>();
+  const playerMorale = liveFigure<number>();
   let handle = 0;
 
   function publish(): void {
@@ -95,6 +98,7 @@ export function createLiveBattleSource(
     if (!view) return;
     playerTroops.push(view.playerSide.troops);
     enemyTroops.push(view.enemySide.troops);
+    playerMorale.push(view.playerSide.morale);
   }
 
   handle = set(publish, pollMs);
@@ -102,11 +106,13 @@ export function createLiveBattleSource(
   return {
     onPlayerTroops: playerTroops.subscribe,
     onEnemyTroops: enemyTroops.subscribe,
+    onPlayerMorale: playerMorale.subscribe,
     destroy() {
       clear(handle);
       handle = 0;
       playerTroops.clear();
       enemyTroops.clear();
+      playerMorale.clear();
     },
   };
 }
