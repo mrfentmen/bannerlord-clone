@@ -1184,6 +1184,8 @@ type Relation struct {
 
 // RulerAI is the utility scoring for an individual ruler's daily choice.
 type RulerAI struct {
+	// MaxTroops is the maximum troops per party.
+	MaxTroops float64
 	// AttackWeight is the attraction of attacking a weak neighbour.
 	AttackWeight float64
 	// TargetWeaknessWeight is how much a starved, unhappy target attracts.

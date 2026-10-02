@@ -243,6 +243,7 @@ func applyMercenaries(v *sim.View, w *sim.WriteSet, o sim.Order) {
 // have more willing recruits) and the leader's available gold.
 // The party must be physically at the town (within 5km) to recruit.
 func applyRecruit(v *sim.View, w *sim.WriteSet, o sim.Order) {
+	c := v.Cfg
 	r := v.State.Leaders[o.LeaderID]
 	t := v.State.Towns[o.TownID]
 	if r == nil || t == nil {
@@ -276,8 +277,11 @@ func applyRecruit(v *sim.View, w *sim.WriteSet, o sim.Order) {
 		// TODO: use proper diplomacy state when available.
 		return
 	}
-	// Troop cap check: party can't exceed 500 troops (configurable max).
-	const maxTroops = 500
+	// Troop cap check: party can't exceed max troops (configurable).
+	maxTroops := 500.0
+	if c != nil {
+		maxTroops = c.RulerAI.MaxTroops
+	}
 	if party.Troops >= maxTroops {
 		return
 	}

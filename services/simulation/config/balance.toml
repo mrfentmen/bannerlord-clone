@@ -559,6 +559,7 @@ start_ally_relation_max = 0.70    # highest. Range 0-1.0.
 allied_relation_bonus = 0.25      # how much forming an alliance improves relations. Range 0-1.0.
 
 [ruler_ai]
+max_troops = 500.0            # maximum troops per party. Range 100-2000.
 attack_weight = 1.00            # attraction of attacking a weak neighbour. Range 0.2-3.0.
 target_weakness_weight = 1.35   # how much a starved, unhappy target attracts. Range 0.2-4.0.
 defend_weight = 0.85            # attraction of returning to defend home. Range 0.1-2.0.
