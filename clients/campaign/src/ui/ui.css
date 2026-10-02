@@ -1837,6 +1837,16 @@ html[data-reduce-motion] *::after {
   opacity: 0.8;
 }
 
+/* The count is data, and it is the one line in the header that changes while the
+   player works, so it is mono like the clock and given its own row. */
+.deploy-count {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  opacity: 1;
+}
+
+.deploy-count:empty { display: none; }
+
 /* The countdown is data, so it is mono and tabular: the digits do not reflow the
    header as they change, which a proportional face would do once a second. */
 .deploy-timer {

@@ -190,3 +190,35 @@ describe("auto-start when time runs out (task 8)", () => {
     ui.hide();
   });
 });
+
+describe("unit count (task 9)", () => {
+  it("states how many of the army are placed", () => {
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE, ENEMY_ZONE], () => {});
+
+    ui.updateCount(12, 20);
+    expect(document.querySelector(".deploy-count")?.textContent).toBe("12/20 placed");
+
+    ui.updateCount(20, 20);
+    expect(document.querySelector(".deploy-count")?.textContent).toBe("20/20 placed");
+
+    ui.hide();
+  });
+
+  it("says nothing until the scene reports a count", () => {
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE], () => {});
+
+    expect(document.querySelector(".deploy-count")?.textContent).toBe("");
+
+    ui.hide();
+  });
+
+  it("does not throw once the overlay is gone", () => {
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE], () => {});
+    ui.hide();
+
+    expect(() => ui.updateCount(3, 10)).not.toThrow();
+  });
+});

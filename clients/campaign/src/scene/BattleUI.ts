@@ -35,6 +35,7 @@ export class DeploymentUI {
   /** Kept so the countdown can end the phase on the same path the button uses. */
   private onExpire: (() => void) | null = null;
   private completed = false;
+  private countEl: HTMLElement | null = null;
 
   show(_zones: DeploymentZone[], onComplete: () => void): void {
     // show() may be called again on a still-visible overlay; the old interval has to
@@ -43,6 +44,7 @@ export class DeploymentUI {
 
     const timerEl = h("span", { class: "deploy-timer", role: "timer" }, formatCountdown(DEPLOY_SECONDS));
     const btn = h("button", { type: "button", class: "deploy-ready" }, "Ready");
+    const countEl = h("p", { class: "deploy-count", role: "status", "aria-live": "polite" });
 
     // Single player: the enemy is the AI, which is never waiting on the player, so its
     // side of the strip is a state rather than a control. Both sides are rendered as
@@ -81,6 +83,7 @@ export class DeploymentUI {
           { class: "deployment-title" },
           h("h2", {}, "Deploy Your Troops"),
           h("p", {}, "Place your units in the highlighted zone"),
+          countEl,
         ),
         timerEl,
         sides,
@@ -94,9 +97,19 @@ export class DeploymentUI {
 
     this.container = container;
     this.timerEl = timerEl;
+    this.countEl = countEl;
     this.completed = false;
     this.onExpire = onComplete;
     this.startCountdown();
+  }
+
+  /**
+   * How much of the army is on the field: `12/20 placed`. The scene owns the
+   * placements, so it reports the numbers here and the header states them.
+   */
+  updateCount(placed: number, total: number): void {
+    if (!this.countEl) return;
+    this.countEl.textContent = `${placed}/${total} placed`;
   }
 
   /** The one way the deployment phase ends: the overlay goes, the battle begins. */
@@ -138,6 +151,7 @@ export class DeploymentUI {
     this.container?.remove();
     this.container = null;
     this.timerEl = null;
+    this.countEl = null;
     this.onExpire = null;
   }
 }
