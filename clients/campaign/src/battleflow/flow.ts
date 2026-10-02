@@ -29,6 +29,7 @@ import type {
   EncounterSide,
 } from "./types";
 import { BattleApiError, type BattleApi } from "./api";
+import { getAudioManager } from "../audio/AudioManager.js";
 import { appraiseLoot, appraisalSummary } from "./loot.js";
 import {
   compareBattles,
@@ -309,6 +310,8 @@ export class BattleFlow {
       this.#battle = this.#localStartBattle(encounter);
     }
     this.#phase = "live";
+    // Battle music: driving theme for the live battle phase.
+    void getAudioManager().playMusic("battle-theme").catch(() => {});
   }
 
   /** Re-read the live battle state (server mode only; local is instant). */
@@ -361,6 +364,12 @@ export class BattleFlow {
     }
     this.#phase = "afteraction";
     this.#aftermath = this.#recordAftermath();
+    // Victory/defeat stinger, then back to ambient exploration music.
+    const won = reason === "victory";
+    void getAudioManager().playSfx(won ? "victory-fanfare" : "defeat").catch(() => {});
+    setTimeout(() => {
+      void getAudioManager().playMusic("ambient-exploration").catch(() => {});
+    }, 3000);
   }
 
   /** Reset the flow back to idle (e.g. after dismissing after-action). */

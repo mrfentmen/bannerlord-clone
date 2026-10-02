@@ -27,6 +27,7 @@ import { installInstallPrompt } from "./ui/installPrompt.js";
 import { installUpdateNotifier } from "./ui/updateNotifier.js";
 import { installPerfOverlay, setPerfStatsProvider } from "./ui/perfOverlay.js";
 import { BUILD_HASH } from "./buildHash.js";
+import { getAudioManager } from "./audio/AudioManager.js";
 
 // Task 25/26: the error boundary, console tail, and bug reporter are imported
 // here but installed after the canvas handles exist (see below).
@@ -182,6 +183,23 @@ installOfflineIndicator();
 
 // Task 29: polls /build.json and offers a reload when a newer deployment lands.
 installUpdateNotifier();
+
+// Audio: initialize the AudioManager and load the manifest. Music starts on
+// first user interaction (browser autoplay policy); the boot screen's Start
+// button triggers menu-theme.
+{
+  const audio = getAudioManager();
+  void audio.init().then(() => audio.loadManifest("/audio-manifest.json")).catch(() => {
+    // Audio is enhancement, not requirement; the game boots fine silent.
+  });
+  // Global UI click sounds: delegate on the app root for any button press.
+  app.addEventListener("click", (e) => {
+    const target = e.target as HTMLElement;
+    if (target.closest("button")) {
+      getAudioManager().playUiSound("click");
+    }
+  });
+}
 
 // Task 30: FPS / frame-time / draw-call overlay; `?perf=1` shows it at boot.
 installPerfOverlay();
@@ -374,6 +392,8 @@ const bootScreen = startScreen({
   onStart: () => {
     bootScreen.remove();
     recordCampaignStart();
+    // First user gesture: safe to start audio. Menu theme for faction select.
+    void getAudioManager().playMusic("menu-theme").catch(() => {});
     mountCampaign();
   },
 });
@@ -829,6 +849,9 @@ function enterPhotoMode(): void {
 
 function mountCampaign(): void {
   if (!snapshot) return;
+
+  // Campaign map music: ambient exploration bed, loops seamlessly.
+  void getAudioManager().playMusic("ambient-exploration").catch(() => {});
 
   // -- Ironman (MASTER_PLAN task 143) --------------------------------------
   // The run starts with the campaign, on the sim's own day. A fresh
