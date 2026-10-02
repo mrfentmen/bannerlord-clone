@@ -84,3 +84,39 @@ func TestNaturalDeathRateIsSane(t *testing.T) {
 		t.Errorf("60-year-old death rate too high: %d/100 died in a year", deaths)
 	}
 }
+
+// TestNaturalDeathRatesByAge verifies mortality at 50, 60, 70, 80, 90.
+// Expected annual rates: ~0% at 50, ~1% at 60, ~3% at 70, ~9% at 80, ~30% at 90.
+func TestNaturalDeathRatesByAge(t *testing.T) {
+	ages := []int{50, 60, 70, 80, 90}
+	// Max acceptable deaths per 100 trials (generous bounds).
+	maxDeaths := []int{2, 5, 10, 20, 45}
+
+	for i, age := range ages {
+		deaths := 0
+		for trial := 0; trial < 100; trial++ {
+			v, w := testView()
+			v.State.Leaders[1].Age = float64(age)
+			v.Rng = rng.New(uint64(trial * 1000 + age))
+			for day := 0; day < 365; day++ {
+				run(v, w)
+				for _, wr := range w.Debug() {
+					if wr.Field == "is_alive" {
+						deaths++
+						break
+					}
+				}
+				w = sim.NewWriteSet()
+				// Stop if dead
+				if !v.State.Leaders[1].IsAlive {
+					break
+				}
+			}
+			// Reset for next trial
+			v.State.Leaders[1].IsAlive = true
+		}
+		if deaths > maxDeaths[i] {
+			t.Errorf("age %d: %d/100 died, want <= %d", age, deaths, maxDeaths[i])
+		}
+	}
+}
