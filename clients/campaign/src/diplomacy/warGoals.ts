@@ -100,6 +100,15 @@ export function activeWars(): DeclaredWar[] {
   return load();
 }
 
+/** End a war. Returns true when one was removed. */
+export function endWar(id: string): boolean {
+  const wars = load();
+  const next = wars.filter((w) => w.id !== id);
+  if (next.length === wars.length) return false;
+  save(next);
+  return true;
+}
+
 /** Wars at or past exhaustion (weariness 100). */
 export function exhaustedWars(): DeclaredWar[] {
   return load().filter((w) => w.weariness >= 100);

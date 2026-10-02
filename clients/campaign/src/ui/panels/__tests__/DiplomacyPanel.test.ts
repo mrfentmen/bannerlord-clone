@@ -55,3 +55,29 @@ describe("diplomacy panel (integration)", () => {
     expect(root.textContent).toContain("No treaties");
   });
 });
+
+describe("diplomacy panel war goals (integration)", () => {
+  it("declares a war goal and ticks weariness", () => {
+    document.body.innerHTML = "";
+    document.body.appendChild(diplomacyPanel({ currentSeason: 12 }));
+    expect(document.body.textContent).toContain("No declared wars");
+
+    (document.body.querySelector('[data-testid="war-enemy-input"]') as HTMLInputElement).value = "The Ironborn";
+    (document.body.querySelector('[data-testid="war-goal-select"]') as HTMLSelectElement).value = "conquest";
+    (document.body.querySelector('[data-testid="war-declare"]') as HTMLButtonElement).click();
+
+    expect(document.body.textContent).toContain("The Ironborn");
+    expect(document.body.textContent).toContain("conquest");
+
+    (document.body.querySelector('[data-testid="war-tick"]') as HTMLButtonElement).click();
+    const table = document.body.querySelector('[data-testid="diplomacy-wars"]')!;
+    expect(table.textContent).toContain("8"); // conquest gains 8/season
+
+    const end = [...document.body.querySelectorAll("button")].find((b) =>
+      b.getAttribute("data-testid")?.startsWith("war-end-"),
+    )!;
+    end.click();
+    expect(document.body.textContent).toContain("No declared wars");
+    document.body.innerHTML = "";
+  });
+});

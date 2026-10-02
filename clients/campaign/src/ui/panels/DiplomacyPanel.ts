@@ -31,6 +31,15 @@ import {
   type BorderIncident,
   type IncidentResponse,
 } from "../../diplomacy/borderIncidents.js";
+import {
+  activeWars,
+  declareWarGoal,
+  endWar,
+  tickWarWeariness,
+  WAR_GOALS,
+  WAR_GOAL_DESCRIPTIONS,
+  type WarGoal,
+} from "../../diplomacy/warGoals.js";
 import { markHintShown, shouldShowHint } from "../../onboarding/hintCooldown.js";
 
 export interface DiplomacyPanelOptions {
@@ -75,6 +84,46 @@ function buildDiplomacyPanel(options: DiplomacyPanelOptions, notice: string | nu
   body.appendChild(row("Reputation", `${rep} — ${reputationTitle(rep)}`, { mono: true }));
   body.appendChild(
     h("p", { class: "caption", "data-testid": "diplomacy-reputation" }, reputationMeterLine()),
+  );
+
+  body.appendChild(sectionHeader("War goals"));
+  const wars = activeWars();
+  if (wars.length === 0) {
+    body.appendChild(emptyState("No declared wars", "Declare a war goal against an enemy faction to fight with purpose."));
+  } else {
+    const columns: Column<(typeof wars)[number]>[] = [
+      { header: "Enemy", render: (w) => w.enemyName },
+      { header: "Goal", render: (w) => w.goal ? `${w.goal} — ${WAR_GOAL_DESCRIPTIONS[w.goal]}` : "None declared" },
+      { header: "Weariness", numeric: true, render: (w) => `${Math.round(w.weariness)}` },
+      {
+        header: "Orders",
+        render: (w) =>
+          button("End war", () => { endWar(w.id); rerender(); }, { variant: "quiet", testId: `war-end-${w.id}` }),
+      },
+    ];
+    body.appendChild(dataTable("War goals", columns, wars, "diplomacy-wars"));
+  }
+  const enemyInput = h("input", {
+    type: "text",
+    placeholder: "Enemy faction",
+    "aria-label": "Enemy faction",
+    "data-testid": "war-enemy-input",
+  }) as HTMLInputElement;
+  const goalSelect = h(
+    "select",
+    { "aria-label": "War goal", "data-testid": "war-goal-select" },
+    ...WAR_GOALS.map((g) => h("option", { value: g }, g)),
+  ) as HTMLSelectElement;
+  body.appendChild(
+    h("div", { class: "form-row" }, enemyInput, goalSelect,
+      button("Declare goal", () => {
+        const enemy = enemyInput.value.trim();
+        if (!enemy) return;
+        declareWarGoal(enemy.toLowerCase().replace(/\s+/g, "-"), enemy, goalSelect.value as WarGoal, options.currentSeason);
+        rerender();
+      }, { testId: "war-declare" }),
+      button("Season passes", () => { tickWarWeariness(); rerender(); }, { variant: "quiet", testId: "war-tick" }),
+    ),
   );
 
   body.appendChild(sectionHeader("Border incidents"));
