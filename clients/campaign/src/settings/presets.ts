@@ -41,7 +41,7 @@ export const GRAPHICS_PRESETS: Record<GraphicsQuality, GraphicsBundle> = {
     maxFps: 30,
     powerPreference: "low-power",
     shadowQuality: "off",
-    viewDistance: "near",
+    viewDistance: 120_000,
   },
   medium: {
     renderScale: 1.25,
@@ -50,7 +50,7 @@ export const GRAPHICS_PRESETS: Record<GraphicsQuality, GraphicsBundle> = {
     maxFps: 60,
     powerPreference: "default",
     shadowQuality: "low",
-    viewDistance: "far",
+    viewDistance: 260_000,
   },
   high: {
     renderScale: 1,
@@ -59,7 +59,7 @@ export const GRAPHICS_PRESETS: Record<GraphicsQuality, GraphicsBundle> = {
     maxFps: 0,
     powerPreference: "default",
     shadowQuality: "medium",
-    viewDistance: "far",
+    viewDistance: 260_000,
   },
   ultra: {
     renderScale: 0.85,
@@ -68,7 +68,7 @@ export const GRAPHICS_PRESETS: Record<GraphicsQuality, GraphicsBundle> = {
     maxFps: 0,
     powerPreference: "high-performance",
     shadowQuality: "high",
-    viewDistance: "ultra",
+    viewDistance: 400_000,
   },
 };
 
@@ -97,7 +97,7 @@ export function describePreset(quality: GraphicsQuality): string {
     `terrain ${b.terrainDetail}`,
     b.maxFps === 0 ? "uncapped" : `${b.maxFps} fps`,
     `shadows ${b.shadowQuality}`,
-    `view ${b.viewDistance}`,
+    `view ${Math.round(b.viewDistance / 1000)} km`,
     `GPU ${b.powerPreference}`,
   ].join(" · ");
 }

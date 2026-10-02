@@ -28,11 +28,13 @@ import {
   StandardMaterial,
   Vector3,
 } from "@babylonjs/core";
+import { type ShadowQuality } from "../settings/schema.js";
 import {
-  VIEW_DISTANCE_CONFIG,
-  type ShadowQuality,
-  type ViewDistance,
-} from "../settings/schema.js";
+  VIEW_DISTANCE_DEFAULT,
+  clampViewDistance,
+  fogDensityFor,
+} from "../design/viewDistance.js";
+import { TownLodController } from "./townLod.js";
 import { shadowConfigFor } from "../design/shadows.js";
 import { AmbientParticles, ParticleDensityManager } from "./particles.js";
 import { PARTICLE_DENSITY_DEFAULT } from "../design/particles.js";
@@ -113,6 +115,13 @@ export interface SceneOptions {
    * path once.
    */
   particleDensity?: number;
+  /**
+   * View distance in metres (task 149): camera far plane + fog density +
+   * town LOD pop range. Missing means the 260 km default. Applies live
+   * through SceneHandle.applyViewDistance; construction just reads the
+   * same path once.
+   */
+  viewDistance?: number;
 }
 
 export interface SceneHandle {
@@ -142,7 +151,7 @@ export interface SceneHandle {
    */
   applyShadowQuality(q: ShadowQuality): void;
   /** Draw distance: camera far plane + fog density (task 12). Applies live. */
-  applyViewDistance(v: ViewDistance): void;
+  applyViewDistance(maxZ: number): void;
   /**
    * Reduced motion (task 20): freezes animated film grain. No shake, hit-stop,
    * or camera sway systems exist in the scene, so there is nothing else to
@@ -321,6 +330,16 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
 
   const towns: TownCluster[] = buildTowns(scene, world.settlements, projection, VERTICAL_SCALE, LIFT);
 
+  // -- town LOD (task 149): 3D clusters pop in/out at the view-distance range.
+  const townLod = new TownLodController(towns, VIEW_DISTANCE_DEFAULT);
+  function pushViewDistance(maxZ: number): void {
+    const z = clampViewDistance(maxZ);
+    camera.maxZ = z;
+    scene.fogDensity = fogDensityFor(z);
+    townLod.setRange(z);
+  }
+  pushViewDistance(options.viewDistance ?? VIEW_DISTANCE_DEFAULT);
+
   const graph: RouteGraph = buildRouteGraph(world.roads, world.settlements, projection);
 
   // -- party marker ---------------------------------------------------------
@@ -451,6 +470,7 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
     }
     if (grain) grain.tick(engine.getDeltaTime());
     ambient.update();
+    townLod.update(camera.target);
     sizePartyPin(pin, camera.radius, engine.getRenderHeight());
     scene.render();
   });
@@ -547,10 +567,8 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
     applyShadowQuality(q) {
       setShadowQuality(q);
     },
-    applyViewDistance(v) {
-      const cfg = VIEW_DISTANCE_CONFIG[v];
-      camera.maxZ = cfg.maxZ;
-      scene.fogDensity = cfg.fogDensity;
+    applyViewDistance(maxZ) {
+      pushViewDistance(maxZ);
     },
     setReduceMotion(on) {
       reduceMotionOn = on;

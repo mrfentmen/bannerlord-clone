@@ -136,15 +136,14 @@ const CONTROLS: ControlDef[] = [
   },
   {
     key: "viewDistance", tab: "graphics", label: "View distance",
-    hint: "How far the camera sees, with matching haze. Applies immediately.",
-    keywords: ["view", "distance", "fog", "far", "draw"],
+    hint: "How far the camera sees, with matching haze. Distant towns pop in/out at the set range. Applies immediately.",
+    keywords: ["view", "distance", "fog", "far", "draw", "lod", "towns"],
     kind: {
-      type: "select",
-      options: [
-        { value: "near", label: "Near" },
-        { value: "far", label: "Far" },
-        { value: "ultra", label: "Ultra" },
-      ],
+      type: "slider",
+      min: 80_000,
+      max: 400_000,
+      step: 10_000,
+      format: (v) => `${Math.round(v / 1000)} km`,
     },
   },
   {

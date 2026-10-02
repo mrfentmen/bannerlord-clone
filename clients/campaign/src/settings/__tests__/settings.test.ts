@@ -122,7 +122,7 @@ describe("settings schema", () => {
     expect(s.invertMouseX).toBe(true);
     expect(s.invertMouseY).toBe(false);
     expect(s.shadowQuality).toBe("high");
-    expect(s.viewDistance).toBe("ultra");
+    expect(s.viewDistance).toBe(400_000); // legacy select migrates to the slider
     expect(s.autoQualityDone).toBe(false);
   });
 

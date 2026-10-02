@@ -425,6 +425,7 @@ scene = createCampaignScene({
     motionBlur: settings.get().motionBlurEnabled,
   },
   particleDensity: settings.get().particleDensity,
+  viewDistance: settings.get().viewDistance,
 });
 
 // Task 30: real draw-call counts for the perf overlay, from Babylon's own

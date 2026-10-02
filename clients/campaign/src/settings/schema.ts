@@ -24,6 +24,7 @@ import {
   type LookPresetId,
 } from "../design/lookPresets.js";
 import { PARTICLE_DENSITY_DEFAULT, clampParticleDensity } from "../design/particles.js";
+import { VIEW_DISTANCE_DEFAULT, clampViewDistance } from "../design/viewDistance.js";
 
 export const SETTINGS_VERSION = 3;
 
@@ -41,8 +42,10 @@ export type TerrainDetail = "low" | "high";
 export type PowerPreference = "default" | "low-power" | "high-performance";
 /** Real-time shadow maps on the key light. Default off: today's rendering, unchanged. */
 export type ShadowQuality = "off" | "low" | "medium" | "high";
-/** Draw distance. "far" is today's tuned fog/maxZ; the others trade reach for speed. */
-export type ViewDistance = "near" | "far" | "ultra";
+/** View distance in metres (task 149): the settings slider runs 80-400 km.
+ * The old near/far/ultra select migrates through clampViewDistance; the old
+ * per-tier fog/maxZ tuning lives on as interpolation in design/viewDistance.ts. */
+export type ViewDistance = number;
 
 /** Shadow map resolution per quality level (task 147). "off" creates no generator.
  * Kept for compatibility; new code should use SHADOW_LEVEL_CONFIG from
@@ -53,12 +56,13 @@ export const SHADOW_MAP_SIZE: Record<Exclude<ShadowQuality, "off">, number> = {
   high: 2048,
 };
 
-/** Camera far plane and fog density per view distance. "far" = the tuned look. */
-export const VIEW_DISTANCE_CONFIG: Record<ViewDistance, { maxZ: number; fogDensity: number }> = {
-  near: { maxZ: 120_000, fogDensity: 0.000016 },
-  far: { maxZ: 260_000, fogDensity: 0.0000085 },
-  ultra: { maxZ: 400_000, fogDensity: 0.000004 },
-};
+/** Camera far plane and fog density used to live here per tier.
+ * Task 149 replaced the select with a continuous slider; the tuning now
+ * interpolates in design/viewDistance.ts (fogDensityFor). Kept as a
+ * comment so the old numbers stay greppable. */
+// near: { maxZ: 120_000, fogDensity: 0.000016 },
+// far:  { maxZ: 260_000, fogDensity: 0.0000085 },
+// ultra:{ maxZ: 400_000, fogDensity: 0.000004 },
 
 export interface Settings {
   version: typeof SETTINGS_VERSION;
@@ -76,8 +80,9 @@ export interface Settings {
   powerPreference: PowerPreference;
   /** Real-time shadows from the key light. Applied live (generator rebuild). */
   shadowQuality: ShadowQuality;
-  /** Draw distance: camera far plane + fog density. Applied live. */
-  viewDistance: ViewDistance;
+  /** View distance in metres (slider 80-400 km): camera far plane + fog
+   * density + town LOD pop range. Applied live. */
+  viewDistance: number;
   /** Film grain + color grading preset (task 145). Live: the scene re-grades. */
   lookPreset: LookPresetId;
   /** Grain intensity slider, 0..1. Live: scales the resolved grain; 0 disables. */
@@ -145,7 +150,7 @@ export const DEFAULT_SETTINGS: Settings = {
   maxFps: 0,
   powerPreference: "default",
   shadowQuality: "off",
-  viewDistance: "far",
+  viewDistance: VIEW_DISTANCE_DEFAULT,
   lookPreset: "standard",
   grainIntensity: DEFAULT_GRAIN_INTENSITY,
   particleDensity: PARTICLE_DENSITY_DEFAULT,
@@ -186,7 +191,6 @@ const COLORBLIND_MODES: readonly ColorblindMode[] = ["off", "deuteranopia", "pro
 const SUBTITLE_SIZES: readonly SubtitleSize[] = ["small", "medium", "large"];
 const SUBTITLE_BACKGROUNDS: readonly SubtitleBackground[] = ["off", "translucent", "solid"];
 const SHADOW_QUALITIES: readonly ShadowQuality[] = ["off", "low", "medium", "high"];
-const VIEW_DISTANCES: readonly ViewDistance[] = ["near", "far", "ultra"];
 
 function isRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null && !Array.isArray(v);
@@ -239,7 +243,7 @@ export function parseSettings(raw: unknown): Settings {
     maxFps: pickOneOf(v.maxFps, MAX_FPS_VALUES, DEFAULT_SETTINGS.maxFps),
     powerPreference: pickEnum(v.powerPreference, POWER_PREFERENCES, DEFAULT_SETTINGS.powerPreference),
     shadowQuality: pickEnum(v.shadowQuality, SHADOW_QUALITIES, DEFAULT_SETTINGS.shadowQuality),
-    viewDistance: pickEnum(v.viewDistance, VIEW_DISTANCES, DEFAULT_SETTINGS.viewDistance),
+    viewDistance: clampViewDistance(v.viewDistance), // legacy near/far/ultra strings migrate
     lookPreset: lookPresetFor(v.lookPreset).id,
     grainIntensity: clampGrainIntensity(v.grainIntensity),
     particleDensity: clampParticleDensity(v.particleDensity),

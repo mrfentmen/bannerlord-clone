@@ -29,7 +29,7 @@ describe("graphics presets", () => {
       expect([0, 30, 60, 120]).toContain(patch.maxFps);
       expect(["default", "low-power", "high-performance"]).toContain(patch.powerPreference);
       expect(["off", "low", "medium", "high"]).toContain(patch.shadowQuality);
-      expect(["near", "far", "ultra"]).toContain(patch.viewDistance);
+      expect([120_000, 260_000, 400_000]).toContain(patch.viewDistance);
       // 8 fields in the patch; the documented engine-value count holds.
       expect(Object.keys(patch)).toHaveLength(8);
     }
@@ -50,19 +50,19 @@ describe("graphics presets", () => {
     expect(GRAPHICS_PRESETS.ultra.antialias).toBe(true);
     // Shadows and view distance climb with the preset.
     const shadowRank = { off: 0, low: 1, medium: 2, high: 3 } as const;
-    const viewRank = { near: 0, far: 1, ultra: 2 } as const;
+    // View distance climbs with the preset (metres).
     for (let i = 1; i < ORDER.length; i++) {
       expect(shadowRank[GRAPHICS_PRESETS[ORDER[i]!].shadowQuality]).toBeGreaterThanOrEqual(
         shadowRank[GRAPHICS_PRESETS[ORDER[i - 1]!].shadowQuality],
       );
-      expect(viewRank[GRAPHICS_PRESETS[ORDER[i]!].viewDistance]).toBeGreaterThanOrEqual(
-        viewRank[GRAPHICS_PRESETS[ORDER[i - 1]!].viewDistance],
+      expect(GRAPHICS_PRESETS[ORDER[i]!].viewDistance).toBeGreaterThanOrEqual(
+        GRAPHICS_PRESETS[ORDER[i - 1]!].viewDistance,
       );
     }
     expect(GRAPHICS_PRESETS.low.shadowQuality).toBe("off");
     expect(GRAPHICS_PRESETS.ultra.shadowQuality).toBe("high");
-    expect(GRAPHICS_PRESETS.low.viewDistance).toBe("near");
-    expect(GRAPHICS_PRESETS.ultra.viewDistance).toBe("ultra");
+    expect(GRAPHICS_PRESETS.low.viewDistance).toBe(120_000);
+    expect(GRAPHICS_PRESETS.ultra.viewDistance).toBe(400_000);
   });
 
   it("describes each preset with its seven bundle values", () => {
@@ -73,6 +73,6 @@ describe("graphics presets", () => {
     expect(describePreset("low")).toContain("AA off");
     expect(describePreset("low")).toContain("shadows off");
     expect(describePreset("ultra")).toContain("high-performance");
-    expect(describePreset("ultra")).toContain("view ultra");
+    expect(describePreset("ultra")).toContain("view 400 km");
   });
 });
