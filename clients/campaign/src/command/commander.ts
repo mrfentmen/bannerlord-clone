@@ -15,6 +15,7 @@
  * - 1-9: recall control group; Ctrl+1-9: assign the current selection
  * - F1-F4 (or f/g/h/r): attack/follow/hold/retreat the selected units at the pointer
  * - A: attack-move — the next click on the field advances the selection there
+ * - C: charge — run at the pointer and engage
  * - T: rally-point mode — next click plants the flag for reinforcements
  * - X: retreat horn — every live unit routs to the map edge
  * - the select-all action grabs every live unit
@@ -58,12 +59,23 @@ const registeredBattleOrders = new WeakSet<InputRegistry>();
 
 /**
  * Task 52: attack-move is a mode, not an instant order — press A, then click
- * the field. The action is registered here (as the control groups are) rather
- * than in the catalog, because the catalog owns what exists at boot.
+ * the field. Task 54: charge is an instant order aimed at the pointer. Both
+ * actions are registered here (as the control groups are) rather than in the
+ * catalog, because the catalog owns what exists at boot.
  */
 function ensureAttackMoveAction(registry: InputRegistry): void {
   if (registeredBattleOrders.has(registry)) return;
   registeredBattleOrders.add(registry);
+  if (!registry.actions().some((a) => a.id === "battle.orderCharge")) {
+    registry.registerAction({
+      id: "battle.orderCharge",
+      label: "Order: charge",
+      description: "Selected units run at the target and engage at a charge.",
+      category: "battle-command",
+      defaultKeys: [{ key: "c" }],
+      preventDefault: true,
+    });
+  }
   if (registry.actions().some((a) => a.id === "battle.orderAttackMove")) return;
   registry.registerAction({
     id: "battle.orderAttackMove",
@@ -428,6 +440,9 @@ export function createCommander(
   offs.push(registry.on("battle.orderFollow", () => orderSelection("follow", true)));
   offs.push(registry.on("battle.orderHold", () => orderSelection("hold", false)));
   offs.push(registry.on("battle.orderRetreat", () => orderSelection("retreat", false)));
+  // Task 54: charge aims at the pointer, like attack — a charge with no enemy in
+  // front of it is still a charge, so no extra mode and no click.
+  offs.push(registry.on("battle.orderCharge", () => orderSelection("charge", true)));
 
   // -- attack-move (task 52): A arms the mode, the next field click issues it --
   offs.push(

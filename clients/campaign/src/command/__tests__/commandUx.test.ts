@@ -1,7 +1,7 @@
 /**
- * Commander UX batch (MASTER_PLAN tasks 40, 43-48; Buffy tasks 51-52): quick
+ * Commander UX batch (MASTER_PLAN tasks 40, 43-48; Buffy tasks 51-52, 54): quick
  * order hotkeys, waypoint queue, ping, rally point, order-delay courier,
- * stance panel, retreat horn, right-click move, attack-move mode.
+ * stance panel, retreat horn, right-click move, attack-move mode, charge.
  *
  * @vitest-environment jsdom
  */
@@ -192,6 +192,36 @@ describe("command UX batch (tasks 40, 43-48)", () => {
       input.dispatch("battle.orderAttackMove", "keyboard");
       input.dispatch("battle.orderAttackMove", "keyboard");
       clickAt(surface, 300, 300);
+      expect(surface.orders).toHaveLength(0);
+    } finally {
+      commander.destroy();
+    }
+  });
+
+  it("task 54: C charges at the pointer", () => {
+    const surface = fakeSurface();
+    const commander = createCommander(surface);
+    try {
+      input.dispatch("battle.selectAll", "keyboard");
+      pointer(window, "pointermove", { clientX: 540, clientY: 260 });
+      input.handleKeyEvent(new KeyboardEvent("keydown", { key: "c" }));
+
+      expect(surface.orders).toHaveLength(1);
+      expect(surface.orders[0]).toMatchObject({
+        kind: "charge",
+        unitIds: ["a", "b", "c"],
+        target: { x: 540, z: 260 },
+      });
+    } finally {
+      commander.destroy();
+    }
+  });
+
+  it("task 54: charge with nothing selected orders nobody", () => {
+    const surface = fakeSurface();
+    const commander = createCommander(surface);
+    try {
+      input.handleKeyEvent(new KeyboardEvent("keydown", { key: "c" }));
       expect(surface.orders).toHaveLength(0);
     } finally {
       commander.destroy();
