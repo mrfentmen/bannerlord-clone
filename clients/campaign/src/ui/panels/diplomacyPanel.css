@@ -1,0 +1,52 @@
+/**
+ * Diplomacy panel styles (ui/panels/DiplomacyPanel.ts).
+ *
+ * Every value comes from src/design/tokens.css — no invented colours, fonts, or
+ * spacing steps (CONSTITUTION.md 3.4).
+ */
+
+/* -- diplomacy: reputation legend (task 225) ----------------------------- */
+
+.reputation-legend {
+  margin: var(--space-2) 0 0;
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.reputation-legend > summary {
+  cursor: pointer;
+  color: var(--ink-500);
+}
+
+.reputation-legend__list {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.reputation-legend__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  border-bottom: 1px solid var(--paper-200);
+}
+
+.reputation-legend__row:last-child {
+  border-bottom: none;
+}
+
+/* The direction is in the word ("gains" / "costs") and in this rule, so it
+ * survives with no colour vision at all. */
+.reputation-legend__row[data-direction="down"] {
+  border-left: 3px solid var(--status-critical);
+  padding-left: var(--space-2);
+}
+
+.reputation-legend__row[data-direction="up"] {
+  border-left: 3px solid var(--status-good);
+  padding-left: var(--space-2);
+}

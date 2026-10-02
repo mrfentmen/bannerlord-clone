@@ -19,6 +19,10 @@ import {
   diplomaticReputation,
   reputationMeterLine,
   reputationTitle,
+  REPUTATION_ACTIONS,
+  REPUTATION_DRIFT,
+  REPUTATION_EFFECTS,
+  type ReputationAction,
 } from "../../diplomacy/reputation.js";
 import {
   treatyCompliance,
@@ -44,6 +48,23 @@ import { EMPTY_PEACE_TERMS, negotiatePeace } from "../../diplomacy/peaceConcessi
 import { suggestTribute } from "../../diplomacy/tributeCalculator.js";
 import { rankGreatPowers, type ClanPower, type PowerRank } from "../../diplomacy/greatPowers.js";
 import { markHintShown, shouldShowHint } from "../../onboarding/hintCooldown.js";
+import "./diplomacyPanel.css";
+
+/**
+ * Each reputation action, in a sentence rather than a slug. The ids in
+ * `REPUTATION_EFFECTS` are for the code; a player reading "broke-treaty" learns
+ * nothing about what they just did.
+ */
+const REPUTATION_ACTION_LABEL: Record<ReputationAction, string> = {
+  "kept-treaty": "Kept a treaty",
+  "honored-deal": "Honoured a deal",
+  "paid-tribute": "Paid tribute on time",
+  "freed-prisoners": "Freed prisoners",
+  "broke-treaty": "Broke a treaty",
+  "betrayed-ally": "Betrayed an ally",
+  "sacked-town": "Sacked a town",
+  "executed-envoy": "Executed an envoy",
+};
 
 export interface DiplomacyPanelOptions {
   /** Campaign season; relation changes are stamped with it. */
@@ -96,6 +117,7 @@ function buildDiplomacyPanel(options: DiplomacyPanelOptions, notice: string | nu
   body.appendChild(
     h("p", { class: "caption", "data-testid": "diplomacy-reputation" }, reputationMeterLine()),
   );
+  body.appendChild(reputationEffectsLegend());
 
   const powers = powerBoard(options.powers);
   if (powers) body.appendChild(powers);
@@ -322,6 +344,60 @@ function powerBoard(powers: ClanPower[] | undefined): HTMLElement | null {
     ),
   );
   return wrap;
+}
+
+/**
+ * What moves the reputation meter. Task 225.
+ *
+ * A meter with no explanation is a number the player can only watch, so the list
+ * of actions and their weights is printed under it. The weights are
+ * `REPUTATION_EFFECTS` from `src/diplomacy/reputation.ts`, which owns them — the
+ * panel prints that table and does not restate a figure of its own, because a
+ * reputation action worth -12 in one place and -10 in another is how a player stops
+ * believing the meter.
+ *
+ * Built as a real `<details>` disclosure rather than a `title` attribute: a tooltip
+ * is unreachable by keyboard and by touch, and this is the difference between
+ * honouring an oath and being branded an oathbreaker.
+ *
+ * The sign carries in the word as well as the number — "costs 12", "gains 4" —
+ * because the effect is a direction, not just a magnitude.
+ */
+function reputationEffectsLegend(): HTMLElement {
+  const details = h("details", {
+    class: "reputation-legend",
+    "data-testid": "reputation-effects",
+  });
+  details.appendChild(
+    h("summary", { class: "label" }, "What moves your reputation"),
+  );
+  const list = h("ul", { class: "reputation-legend__list" });
+  for (const action of REPUTATION_ACTIONS) {
+    const effect = REPUTATION_EFFECTS[action];
+    const item = h("li", {
+      class: "reputation-legend__row",
+      "data-testid": `reputation-effect-${action}`,
+      "data-direction": effect >= 0 ? "up" : "down",
+    });
+    item.append(
+      h("span", { class: "label" }, REPUTATION_ACTION_LABEL[action]),
+      h(
+        "span",
+        { class: "row__value data" },
+        effect >= 0 ? `gains ${effect}` : `costs ${Math.abs(effect)}`,
+      ),
+    );
+    list.appendChild(item);
+  }
+  details.appendChild(list);
+  details.appendChild(
+    h(
+      "p",
+      { class: "annotation", style: "font-size:var(--type-caption-size);margin:var(--space-2) 0 0" },
+      `Standing drifts ${REPUTATION_DRIFT} a season toward neutral when nothing happens.`,
+    ),
+  );
+  return details;
 }
 
 function incidentCard(
