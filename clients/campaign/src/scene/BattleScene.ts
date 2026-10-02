@@ -182,6 +182,17 @@ export class BattleScene {
     return this.physicsEnabled;
   }
 
+  /**
+   * End the battle: dispose all soldiers (and their ragdolls),
+   * then dispose the scene itself.
+   */
+  endBattle(soldiers: { dispose(): void }[]): void {
+    for (const s of soldiers) {
+      try { s.dispose(); } catch { /* best-effort cleanup */ }
+    }
+    this.dispose();
+  }
+
   /** Dispose the scene and free resources. */
   dispose(): void {
     this.scene.dispose();
