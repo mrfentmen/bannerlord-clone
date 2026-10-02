@@ -47,6 +47,7 @@ type Config struct {
 	Taxation  Taxation
 	Battle    Battle
 	Formation Formation
+	Command   Command
 }
 
 // World controls world generation.
@@ -1511,6 +1512,20 @@ type Battle struct {
 	// RangedGridCellSize is the cell width of the second, coarser hash used
 	// for aimed fire, because the two queries have opposite shapes.
 	RangedGridCellSize float64
+	// GridMaxCells is the ceiling on how many cells one spatial index may hold,
+	// for both hashes. It is an allocation budget rather than a simulation
+	// limit: a field too spread out to fit it at GridCellSize gets a coarser
+	// index cell, which is always correct and only costs distance tests.
+	GridMaxCells float64
+	// MaxReportEvents is the ceiling on how many events a battle report keeps.
+	// Events past it are counted in the report, not dropped silently, and no
+	// fighting changes because of it.
+	MaxReportEvents float64
+	// ReferenceUnitsPerSide is the force size the headless verification battle
+	// and the throughput harness field. It is the knob that makes battle size a
+	// knob: the same code runs any size with only this value changed. It is not
+	// MaxUnitsPerSide, which is the limit a force is validated against.
+	ReferenceUnitsPerSide float64
 
 	// --- unit generation ---
 	// RosterHPBase is the mean hit points of a generated unit before skill.
@@ -1555,6 +1570,15 @@ type Battle struct {
 	// which sets how deep the crowd is and how many units a volley passes
 	// through.
 	RosterFormationDepth float64
+	// RosterLeadersPerUnit is how many units one commander is worth when a
+	// generated force is given a command structure: a side of n units gets
+	// 1 + n/RosterLeadersPerUnit commanders.
+	RosterLeadersPerUnit float64
+	// RosterLeaderSpread is how far apart commanders are spread along their
+	// front line, in multiples of RosterFrontage. It exists because the morale
+	// term takes the strongest leader in range, not the sum, so commanders must
+	// be spread rather than stacked.
+	RosterLeaderSpread float64
 
 	// --- melee ---
 	// MeleeRange is the reach of a swing in metres, and the smallest
@@ -1911,6 +1935,72 @@ type Formation struct {
 	// formation walks the arc around the enemy and arrives at the flank having
 	// gone round, which is what a flanking march looks like from above.
 	FlankSweepRateDeg float64
+}
+
+// Command holds every threshold the tactics layer uses to decide what a
+// formation does next: when the line closes and when it stops, when a flank is
+// committed, when the reserves go in, and when a formation is pulled out of the
+// line. All of them come from the [command] section of config/balance.toml, per
+// CONSTITUTION.md section 1.2.
+//
+// It sits next to Formation because the two are read together and disagree
+// easily: this section says WHEN, internal/formation says how fast and in what
+// shape. Nothing here moves a man. The distances are distances a commander
+// measured before giving an order, and every pace that turns them into movement
+// belongs to [formation].
+//
+// The three shapes are strings rather than numbers because they name a choice
+// rather than a magnitude. internal/command resolves them through
+// formation.ParseFormation, which refuses a name no shape implements, so a typo
+// fails at the load of the config rather than turning every formation into the
+// same line.
+type Command struct {
+	// FormationsPerSide is how many formations a side's force is divided into.
+	// The first is the fighting line, the last is the reserve, and the ones
+	// between are flanking forces held back until they are committed.
+	FormationsPerSide float64
+	// ReserveShare is the share of a side's units kept in the reserve formation
+	// at the start, rather than in the line or the flank.
+	ReserveShare float64
+
+	// FrontShape, FlankShape, and ReserveShape name the shape each of those
+	// three kinds of formation holds.
+	FrontShape, FlankShape, ReserveShape string
+
+	// AdvanceTriggerRange is the distance from the enemy at which the fighting
+	// line stops closing and holds to shoot.
+	AdvanceTriggerRange float64
+	// ChargeRange is the distance at which a formation with clear local
+	// superiority is sent in at the run rather than the walk.
+	ChargeRange float64
+	// ChargeStrengthRatio is how much strength a formation needs against the
+	// enemy in front of it before it is charged. Local, not overall.
+	ChargeStrengthRatio float64
+	// FlankTriggerRange is the distance the fighting line must have closed
+	// before a flanking formation is committed.
+	FlankTriggerRange float64
+	// FlankMinStrengthFraction is the share of its own opening strength a side
+	// must still hold to be allowed to commit a flank.
+	FlankMinStrengthFraction float64
+	// ReserveCommitStrengthFraction is the share of its own opening strength at
+	// or below which the reserve is committed to the attack.
+	ReserveCommitStrengthFraction float64
+
+	// WithdrawMorale is the mean morale at or below which a formation is
+	// ordered back.
+	WithdrawMorale float64
+	// WithdrawBrokenShare is the share of a formation's units broken at or
+	// above which it is ordered back.
+	WithdrawBrokenShare float64
+
+	// DecisionIntervalTicks is how many ticks pass between full
+	// re-assessments of the battle. The withdrawal rule is the exception: it
+	// is checked every tick, because a commander who learns of a broken
+	// formation once every ten ticks has already lost it.
+	DecisionIntervalTicks float64
+	// OrderMinTicks is how long an order stands before it may be changed, so a
+	// formation on a threshold does not reverse itself every assessment.
+	OrderMinTicks float64
 }
 
 // Cause configures the cause log itself.
