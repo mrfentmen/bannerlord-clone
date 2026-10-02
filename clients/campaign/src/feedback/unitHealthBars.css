@@ -1,0 +1,36 @@
+/* Task 36: HUD unit health bars. A thin track above each unit; the inner fill
+   is the health fraction. Ally green / enemy red come from the side classes,
+   the same tokens the edge arrows use. Static — nothing to disable under
+   reduced motion. */
+.fb-health-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.fb-health {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 44px;
+  height: 5px;
+  background: var(--ink-900);
+  border: 1px solid var(--ink-700);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.fb-health__fill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--status-good-mark);
+}
+
+.fb-health.is-enemy .fb-health__fill {
+  background: var(--status-critical-mark);
+}
+
+.fb-health.is-hurt .fb-health__fill {
+  background: var(--status-warning-mark);
+}

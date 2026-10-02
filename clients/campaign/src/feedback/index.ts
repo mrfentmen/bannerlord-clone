@@ -11,6 +11,7 @@ import { createKillFeed, type KillFeed } from "./killFeed.js";
 import { createKillConfirm, type KillConfirm } from "./killConfirm.js";
 import { createComboCounter, type ComboCounter } from "./comboCounter.js";
 import { createHitMarker, type HitMarker } from "./hitMarker.js";
+import { createUnitHealthBars, type UnitHealthBars } from "./unitHealthBars.js";
 import { createBattleLog, type BattleLog } from "./battleLog.js";
 import { createDamageNumbers, type DamageNumbers } from "./damageNumbers.js";
 import { createDirectionIndicator, type DirectionIndicator } from "./directionIndicator.js";
@@ -55,6 +56,8 @@ export interface BattleFeedbackOptions {
    * the `damageVignetteEnabled` setting; defaults to true.
    */
   damageVignette?: boolean;
+  /** Unit health bars (task 36); defaults to on. */
+  unitHealthBars?: boolean;
 }
 
 export interface BattleFeedback {
@@ -66,6 +69,8 @@ export interface BattleFeedback {
   combo: ComboCounter;
   /** Hit marker (task 46). */
   hitMarker: HitMarker;
+  /** Unit health bars (task 36). */
+  unitHealth: UnitHealthBars;
   battleLog: BattleLog;
   damageNumbers: DamageNumbers;
   direction: DirectionIndicator;
@@ -91,6 +96,9 @@ export function createBattleFeedback(
   const killConfirm = createKillConfirm(source);
   const combo = createComboCounter(source);
   const hitMarker = createHitMarker(source, projection);
+  const unitHealth = createUnitHealthBars(source, projection, {
+    enabled: opts.unitHealthBars !== false,
+  });
   const battleLog = createBattleLog(source);
   // Task 75: the memorial records every hero kill alongside the feed, so a
   // battle death is a stone even when nobody opens the memorial panel.
@@ -114,6 +122,7 @@ export function createBattleFeedback(
     killConfirm.root,
     combo.root,
     hitMarker.root,
+    unitHealth.root,
     battleLog.root,
     damageNumbers.root,
     direction.root,
@@ -131,6 +140,7 @@ export function createBattleFeedback(
     if (!alive) return;
     objectives.refresh();
     edges.refresh();
+    unitHealth.refresh();
     raf = requestAnimationFrame(loop);
   };
   raf = requestAnimationFrame(loop);
@@ -141,6 +151,7 @@ export function createBattleFeedback(
     killConfirm,
     combo,
     hitMarker,
+    unitHealth,
     battleLog,
     damageNumbers,
     direction,
@@ -159,6 +170,7 @@ export function createBattleFeedback(
       killConfirm.destroy();
       combo.destroy();
       hitMarker.destroy();
+      unitHealth.destroy();
       battleLog.destroy();
       damageNumbers.destroy();
       direction.destroy();
