@@ -1,14 +1,17 @@
 /**
- * Deployment ghost preview and placement (Buffy tasks 3-5, 10).
+ * Deployment ghost preview, placement, and camera framing
+ * (Buffy tasks 3-5, 10, 11).
  *
  * The placer owns the battlefield side of the deployment phase: a translucent
  * soldier ghost that tracks the cursor, solid markers dropped by clicks
  * inside the player's deployment zone, a right-click that cancels the
- * preview, and a red flash for clicks that miss the zone. These tests run the
- * real class on a NullEngine — real meshes, no GPU — and cover show/hide,
+ * preview, and a red flash for clicks that miss the zone. `BattleScene` adds
+ * the deployment camera pose. These tests run the real classes on a
+ * NullEngine — real meshes and cameras, no GPU — and cover show/hide,
  * position updates, observer hygiene, teardown, placement validation, cancel,
- * and the flash. The GLB upgrade cannot run headless (no network to
- * /models/), which is exactly the case the proxy fallback has to survive.
+ * the flash, and the camera framing. The GLB upgrade cannot run headless (no
+ * network to /models/), which is exactly the case the proxy fallback has to
+ * survive.
  */
 
 import { describe, expect, it, vi } from "vitest";
@@ -25,6 +28,7 @@ import {
   type StandardMaterial,
 } from "@babylonjs/core";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
+import { BattleScene, deploymentCameraPose } from "../BattleScene.js";
 import type { DeploymentZone } from "../BattleUI.js";
 import {
   DeploymentPlacer,
@@ -32,15 +36,18 @@ import {
   type DeploymentPlacement,
 } from "../DeploymentPlacer.js";
 
-function newScene(): Scene {
-  const engine = new NullEngine({
+function newEngine(): NullEngine {
+  return new NullEngine({
     renderWidth: 64,
     renderHeight: 64,
     deterministicLockstep: false,
     textureSize: 64,
     lockstepMaxSteps: 4,
   });
-  return new Scene(engine);
+}
+
+function newScene(): Scene {
+  return new Scene(newEngine());
 }
 
 /** Deliver a pointer event to the scene observable — a NullEngine has no DOM to click. */
@@ -489,6 +496,75 @@ describe("DeploymentPlacer invalid-placement flash", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("deployment camera preset", () => {
+  /** A 200 m battlefield, no Havok — enough to inspect the camera headless. */
+  async function newBattle(size = 200): Promise<BattleScene> {
+    return BattleScene.create(newEngine(), { biome: "plains", size, physics: false });
+  }
+
+  it("frames the field from a steep angle, scaled to the battlefield", () => {
+    const pose = deploymentCameraPose(200);
+
+    // Well above the horizon: Babylon measures beta from straight up, so the
+    // deployment view sits well under the PI/2 (flat) default.
+    expect(pose.beta).toBeLessThan(Math.PI / 2);
+    expect(pose.beta).toBeLessThan(Math.PI / 3);
+    expect(pose.radius).toBeCloseTo(160);
+    expect(pose.target.x).toBeCloseTo(0);
+    expect(pose.target.y).toBeCloseTo(0);
+    expect(pose.target.z).toBeCloseTo(0);
+  });
+
+  it("keeps the radius inside the camera's limit for any battlefield size", () => {
+    for (const size of [60, 200, 400, 1000]) {
+      const pose = deploymentCameraPose(size);
+      // create() caps the radius at the field size; the preset has to fit.
+      expect(pose.radius).toBeLessThanOrEqual(size);
+      expect(pose.radius).toBeGreaterThan(size / 2); // far enough back to see it
+    }
+  });
+
+  it("is pure: each call returns its own pose", () => {
+    const first = deploymentCameraPose(200);
+    const second = deploymentCameraPose(400);
+    first.radius = 1;
+
+    expect(second.radius).toBeCloseTo(320);
+    expect(second.target).not.toBe(first.target);
+  });
+
+  it("moves the battle camera onto the deployment pose", async () => {
+    const battle = await newBattle(200);
+    const cam = battle.getCamera()!;
+    expect(cam).not.toBeNull();
+
+    battle.setDeploymentCamera();
+
+    const pose = deploymentCameraPose(200);
+    expect(cam.alpha).toBeCloseTo(pose.alpha);
+    expect(cam.beta).toBeCloseTo(pose.beta);
+    expect(cam.radius).toBeCloseTo(pose.radius);
+    expect(cam.target.x).toBeCloseTo(0);
+    expect(cam.target.y).toBeCloseTo(0);
+    expect(cam.target.z).toBeCloseTo(0);
+    // The preset survives the camera's own radius limits.
+    const limit = cam.upperRadiusLimit ?? Infinity;
+    expect(cam.radius).toBeLessThanOrEqual(limit);
+
+    battle.dispose();
+  });
+
+  it("is a no-op when the scene has no battle camera", async () => {
+    const battle = await newBattle();
+    battle.getCamera()!.dispose();
+    expect(battle.getCamera()).toBeNull();
+
+    battle.setDeploymentCamera(); // must not throw
+
+    battle.dispose();
   });
 });
 

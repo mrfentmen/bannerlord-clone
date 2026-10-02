@@ -33,6 +33,41 @@ export interface BattleSceneOptions {
   physics?: boolean;
 }
 
+/** Deployment camera framing (Buffy task 11). */
+const DEPLOYMENT_CAMERA_ALPHA = Math.PI / 4;
+/** Measured from straight up: 36° off vertical, well above the horizon. */
+const DEPLOYMENT_CAMERA_BETA = Math.PI / 5;
+/** Radius as a fraction of the battlefield size. */
+const DEPLOYMENT_CAMERA_RADIUS = 0.8;
+
+/** A camera pose: the fields an ArcRotateCamera reads, plus its look-at point. */
+export interface DeploymentCameraPose {
+  alpha: number;
+  beta: number;
+  radius: number;
+  target: Vector3;
+}
+
+/**
+ * The deployment overview pose (Buffy task 11) for a battlefield of `size`
+ * metres: steep and angled, far enough back to hold the whole field, looking
+ * at the centre. Pure, so the framing can be checked without a camera.
+ *
+ * `beta` is measured from straight up, so PI/5 is well above the horizon
+ * (the scene's default camera uses PI/3) while keeping enough of an angle that
+ * placed units still read as figures rather than discs. The radius scales
+ * with the field and stays under the `size` limit `create()` sets, so a 400 m
+ * battlefield still fits in frame.
+ */
+export function deploymentCameraPose(size: number): DeploymentCameraPose {
+  return {
+    alpha: DEPLOYMENT_CAMERA_ALPHA,
+    beta: DEPLOYMENT_CAMERA_BETA,
+    radius: size * DEPLOYMENT_CAMERA_RADIUS,
+    target: new Vector3(0, 0, 0),
+  };
+}
+
 export class BattleScene {
   readonly scene: Scene;
   readonly biome: BiomeType;
@@ -367,6 +402,24 @@ export class BattleScene {
   getCamera(): ArcRotateCamera | null {
     const cam = this.scene.getCameraByName("battleCam");
     return cam as ArcRotateCamera | null;
+  }
+
+  /**
+   * Deployment camera preset (Buffy task 11): swing the battle camera to a
+   * steep angled overview of the whole field, so the player can read both
+   * deployment zones and the units already placed while positioning troops.
+   * A no-op when the scene has no battle camera.
+   */
+  setDeploymentCamera(): void {
+    const cam = this.getCamera();
+    if (!cam) return;
+    const pose = deploymentCameraPose(this.size);
+    // setTarget rebuilds alpha/beta/radius around the new target, so the pose
+    // is applied after it rather than before.
+    cam.setTarget(pose.target);
+    cam.alpha = pose.alpha;
+    cam.beta = pose.beta;
+    cam.radius = pose.radius;
   }
 
   /**
