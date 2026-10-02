@@ -62,12 +62,15 @@ func TestOrdersSentThroughTheGameAPIReachTheBattle(t *testing.T) {
 	const units = 12
 
 	quiet := fightOverAPI(t, cfg, 5150, units, nil)
-	// The wire spells the fourteen with hyphens, which is what ValidOrders returns
-	// and what a client is told to send; the spaced form is a 400.
+	// change-formation FIRST, and with the keys the campaign client actually sends:
+	// `shape`, not the sim's `formation`; `angle_deg`, not the sim's `bearing`. A
+	// force this package generates has no formations, so the first order to reach
+	// a side has to be the one that gives its men a shape, and an order sent before
+	// that is refused with a code saying so rather than silently applied to nothing.
 	loud := fightOverAPI(t, cfg, 5150, units, []string{
+		`{"name":"change-formation","params":{"shape":"wedge"}}`,
 		`{"name":"hold-position"}`,
-		`{"name":"change-formation","params":{"formation":"wedge"}}`,
-		`{"name":"face-direction","params":{"bearing":-0.6}}`,
+		`{"name":"face-direction","params":{"angle_deg":-34}}`,
 		`{"name":"move","params":{"x":-260,"y":140}}`,
 		`{"name":"advance"}`,
 	})
@@ -182,7 +185,10 @@ func TestTheShippedBattleAPIReachesTheCommandSeam(t *testing.T) {
 		switch sel.Sel.Name {
 		case "Command":
 			// Session.Command. A call on anything else with the same name is not
-			// this, so the receiver is checked rather than trusted.
+			// this, so the receiver is checked rather than trusted. The result is
+			// reported below as INFORMATION only: reaching the seam through
+			// battle.Orders.Attach is equally real and a grep cannot tell them
+			// apart, which is why the seam is asserted behaviourally instead.
 			if id, ok := sel.X.(*ast.Ident); ok && (id.Name == "sess" || id.Name == "e") {
 				called["Command"] = true
 			}
@@ -194,12 +200,21 @@ func TestTheShippedBattleAPIReachesTheCommandSeam(t *testing.T) {
 		return true
 	})
 
-	if !called["Command"] {
-		t.Errorf("%s never calls Session.Command. That is the call that hands a commander to the "+
-			"battle, and without it no order from a client reaches the command seam, so View.Commands "+
-			"is never written and every order the API accepts is inert. orders_logged in the state "+
-			"response goes up anyway, so the client cannot tell", path)
-	}
+	// A token grep is the wrong instrument and this test is the reason to say so.
+	// It looked for the literal `Session.Command` on a receiver, which is how the
+	// seam is written when the handler builds a commander itself. The handler now
+	// reaches the same seam through battle.Orders.Attach, which is Command with the
+	// group building already done — and the grep kept reporting "never calls
+	// Session.Command" against code that does, loudly, on every accepted order. A
+	// check that reports a result without examining what the result means is worse
+	// than no check, and it is the same mistake as the retention check that reported
+	// "inserts at 0 places" against a file with an insert in it.
+	//
+	// So the seam is asserted BEHAVIOURALLY by TestOrdersSentThroughTheGameAPIReach
+	// TheBattle above, which sends real orders over HTTP and requires the battle to
+	// come out different from an un-ordered one. What is left here is only the part
+	// that has no behavioural witness yet: Session.Record. That one is still absent,
+	// still a real defect, and still worth failing on.
 	if !called["Record"] {
 		t.Errorf("%s never calls Session.Record. Every battle the shipped server fights is therefore "+
 			"unrecorded: no order log, no Recording, nothing for battle.BattleStore.Save, and nothing "+

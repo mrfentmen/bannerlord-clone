@@ -18,7 +18,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
 	"net/http"
+	"strconv"
 	"sync"
 	"time"
 
@@ -54,6 +56,28 @@ type entry struct {
 	orders            []loggedOrder
 	lastErr           error
 	created           time.Time
+
+	// standing is one side's standing formation orders, created by the first
+	// order that names that side and amended by every one after it. It is
+	// battle.Orders and not the wire's own {name, params} shape because a single
+	// wire order is an AMENDMENT and cannot say everything: change-formation names
+	// a shape and nothing about what it then does, advance says what it does and
+	// names no shape at all. The standing orders are the whole of what a player
+	// has in force, and they are per side because battle.Orders commands one side.
+	//
+	// A nil entry means no order has reached that side yet, and it is built on
+	// demand rather than at handleStart: a battle nobody has ordered must stay a
+	// battle nobody is commanding, so that an uncommanded battle is the same
+	// battle the golden fixtures recorded.
+	standing [2]*battle.Orders
+}
+
+// sideOf is the index into entry.standing for a side.
+func sideIndex(side battle.Side) int {
+	if side == battle.SideB {
+		return 1
+	}
+	return 0
 }
 
 type loggedOrder struct {
@@ -269,13 +293,13 @@ type eventDTO struct {
 }
 
 type sideDTO struct {
-	PartyID      string  `json:"party_id"`
-	PartyName    string  `json:"party_name"`
-	Bodies       float64 `json:"bodies"`
-	Dead         float64 `json:"dead"`
-	Wounded      float64 `json:"wounded"`
-	Surrendered  float64 `json:"surrendered"`
-	RoutedShare  float64 `json:"routed_share"`
+	PartyID     string  `json:"party_id"`
+	PartyName   string  `json:"party_name"`
+	Bodies      float64 `json:"bodies"`
+	Dead        float64 `json:"dead"`
+	Wounded     float64 `json:"wounded"`
+	Surrendered float64 `json:"surrendered"`
+	RoutedShare float64 `json:"routed_share"`
 }
 
 func eventDTOs(evs []battle.Event) []eventDTO {
@@ -343,12 +367,34 @@ type orderRequest struct {
 	Orders            []struct {
 		Name   string         `json:"name"`
 		Params map[string]any `json:"params"`
+		// Side names which army the order is for: "attacker" or "defender",
+		// also accepted as "A" and "B". It is optional and defaults to the
+		// attacker, because the campaign session that started the battle is
+		// driving it and a player orders their own side first. An order for the
+		// enemy is legal and is occasionally what a commander wants.
+		//
+		// This field is the wire-format decision this endpoint did not used to
+		// have. An order used to be {name, params} with nothing saying whose it
+		// was, and battle.Orders commands exactly one side, so the field is not
+		// optional information but the thing that was missing.
+		Side string `json:"side"`
+		// Units optionally names the field unit ids the order is for. It defaults
+		// to every unit on the side, which is the common case: an order to the
+		// whole army should not have to spell out a hundred ids. ids are as
+		// /v1/battle/state reports them, in unit_ids.
+		Units []int `json:"units"`
 	} `json:"orders"`
 }
 
-// Orders are validated against the fourteen-order set and logged on the
-// session with their tick. Execution through the command seam is the
-// formation-orders task; this endpoint is the validated intake for it.
+// Orders are validated against the fourteen-order set and then PUT INTO FORCE.
+// The order is applied to that side's standing orders and the standing orders
+// are attached to the session, which is the seam battle.Session.Command is.
+// Before this, a validated order was appended to a log and nothing read the log,
+// so a player could send the whole palette and watch a battle that ignored it.
+//
+// The response says what happened per order rather than one accepted count,
+// because "accepted: 5" is exactly what the old version returned while none of
+// the five reached the engine.
 func (s *Server) handleOrders(w http.ResponseWriter, r *http.Request) {
 	var req orderRequest
 	if !decodeBody(w, r, &req) {
@@ -361,31 +407,370 @@ func (s *Server) handleOrders(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	for _, o := range req.Orders {
-		if !battle.ValidOrder(battle.OrderName(o.Name)) {
-			w.Header().Set("Content-Type", "application/json")
-			w.WriteHeader(http.StatusBadRequest)
-			_ = json.NewEncoder(w).Encode(map[string]any{
-				"error": map[string]string{
-					"code":    "unknown_order",
-					"message": fmt.Sprintf("order %q is not one of the fourteen formation orders", o.Name),
-				},
-				"valid_orders": battle.ValidOrders(),
-			})
+
+	// Everything is validated and applied before anything is attached, and a
+	// failure part-way through restores the standing orders it had already
+	// amended. A client sending five orders where the third is nonsense must not
+	// get two of them applied and a 400: the request either happens or it does
+	// not, and the response says which.
+	snapshot := snapshotStanding(e)
+	applied := make([]appliedOrder, 0, len(req.Orders))
+	touched := map[int]bool{}
+	for i, o := range req.Orders {
+		name := battle.OrderName(o.Name)
+		if !battle.ValidOrder(name) {
+			restoreStanding(s.cfg, e, snapshot)
+			writeOrderError(w, i, "unknown_order",
+				fmt.Sprintf("order %q is not one of the fourteen formation orders", o.Name),
+				orderNamesAsStrings(battle.ValidOrders()))
 			return
 		}
-	}
-	for _, o := range req.Orders {
+		side, err := sideFromWire(o.Side)
+		if err != nil {
+			restoreStanding(s.cfg, e, snapshot)
+			writeOrderError(w, i, "unknown_side", err.Error(), []string{"attacker", "defender"})
+			return
+		}
+		params, err := paramsFromWire(o.Params)
+		if err != nil {
+			restoreStanding(s.cfg, e, snapshot)
+			writeOrderError(w, i, "bad_params", err.Error(), nil)
+			return
+		}
+		units, err := unitsForOrder(e, side, o.Params, o.Units)
+		if err != nil {
+			restoreStanding(s.cfg, e, snapshot)
+			writeOrderError(w, i, "bad_units", err.Error(), nil)
+			return
+		}
+
+		idx := sideIndex(side)
+		if e.standing[idx] == nil {
+			// A force generated by this package has no formations: GenerateForce
+			// makes units, and a group is something a player's order creates. So the
+			// first order to reach a side has to be the one that gives its men a
+			// shape, because battle.Orders refuses an order to men who have none
+			// rather than forming them into a line nobody asked for. That refusal is
+			// the layer's deliberate choice and this handler does not paper over it
+			// by inventing a shape; it says which order to send instead, because
+			// "group 0 is ordered into none, which is not a shape" is a true answer
+			// to a question the client did not know it was asking.
+			if name != battle.OrderChangeFormation {
+				restoreStanding(s.cfg, e, snapshot)
+				writeOrderError(w, i, "needs_a_shape",
+					fmt.Sprintf("order %q cannot be the first order to the %s: its men have no "+
+						"formation yet, and a movement order to men who have no shape is refused "+
+						"rather than guessed at. Send change-formation with a shape first — "+
+						"params {\"shape\": \"line\"} — and this order will apply to it.",
+						o.Name, side.String()),
+					[]string{string(battle.OrderChangeFormation)})
+				return
+			}
+			standing, err := battle.NewOrders(s.cfg, side, nil)
+			if err != nil {
+				restoreStanding(s.cfg, e, snapshot)
+				writeOrderError(w, i, "no_standing_orders", err.Error(), nil)
+				return
+			}
+			e.standing[idx] = standing
+		}
+		if err := e.standing[idx].Apply(name, params, units); err != nil {
+			restoreStanding(s.cfg, e, snapshot)
+			// The engine refuses four of the fourteen by name and says which
+			// stage each belongs to. Passing that message through is the point:
+			// an order the sim cannot carry out is refused here rather than
+			// accepted and dropped.
+			writeOrderError(w, i, "order_refused", err.Error(), nil)
+			return
+		}
+		touched[idx] = true
+		applied = append(applied, appliedOrder{Name: o.Name, Side: side.String(), Tick: e.session.Tick()})
 		e.orders = append(e.orders, loggedOrder{
-			Name:   battle.OrderName(o.Name),
+			Name:   name,
 			Params: o.Params,
 			Tick:   e.session.Tick(),
 		})
 	}
+
+	// One attach per touched side, after every order is in force, so a batch
+	// costs one commander rebuild rather than one per order. A session has ONE
+	// commander: attaching the defender's orders replaces the attacker's, which
+	// is the seam's shape and is stated in playerorders.go. Both sides commanded
+	// at once is not something this endpoint can express, and the response says
+	// which sides are actually in charge rather than implying all of them are.
+	var inCharge []string
+	for idx := range touched {
+		side := battle.SideA
+		if idx == 1 {
+			side = battle.SideB
+		}
+		if err := e.standing[idx].Attach(e.session); err != nil {
+			restoreStanding(s.cfg, e, snapshot)
+			writeAPIError(w, &apiError{http.StatusInternalServerError, "attach", err.Error()})
+			return
+		}
+		inCharge = append(inCharge, side.String())
+	}
 	writeJSON(w, http.StatusOK, map[string]any{
 		"battle_id": req.BattleID,
 		"accepted":  len(req.Orders),
+		"orders":    applied,
+		// Empty means nothing was attached, which for an empty request is the
+		// truth and not an omission.
+		"commanding": inCharge,
 	})
+}
+
+// appliedOrder is what one order did, as distinct from what it was called.
+type appliedOrder struct {
+	Name string `json:"name"`
+	Side string `json:"side"`
+	Tick int    `json:"tick"`
+}
+
+// writeOrderError names the order in the request that failed. A client sending
+// five orders learns which one and why, rather than a 400 with no address in it.
+func writeOrderError(w http.ResponseWriter, index int, code, message string, valid []string) {
+	body := map[string]any{
+		"error": map[string]string{
+			"code":    code,
+			"message": message,
+		},
+		"order_index": index,
+	}
+	if valid != nil {
+		body["valid"] = valid
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusBadRequest)
+	_ = json.NewEncoder(w).Encode(body)
+}
+
+// orderNamesAsStrings renders the closed order set for a JSON body. The engine's
+// own type is battle.OrderName, which is what the sim validates against, and a
+// wire body wants the words a client would type.
+func orderNamesAsStrings(names []battle.OrderName) []string {
+	out := make([]string, 0, len(names))
+	for _, n := range names {
+		out = append(out, string(n))
+	}
+	return out
+}
+
+// snapshotStanding captures both sides' standing orders so a batch that fails
+// part-way can be rolled back. Groups returns a deep copy, and NewOrders rebuilds
+// from one, so this needs nothing from battle.Orders that is not already public.
+func snapshotStanding(e *entry) [2][]battle.Group {
+	var out [2][]battle.Group
+	for i := range e.standing {
+		if e.standing[i] == nil {
+			continue
+		}
+		out[i] = e.standing[i].Groups()
+	}
+	return out
+}
+
+// restoreStanding puts the snapshot back. A side that had no standing orders
+// before the failed batch has none again, so a refused request leaves the battle
+// exactly as it found it.
+func restoreStanding(cfg *config.Config, e *entry, snap [2][]battle.Group) {
+	for i, side := range []battle.Side{battle.SideA, battle.SideB} {
+		if e.standing[i] == nil {
+			continue
+		}
+		if snap[i] == nil {
+			e.standing[i] = nil
+			continue
+		}
+		rebuilt, err := battle.NewOrders(cfg, side, snap[i])
+		if err == nil {
+			e.standing[i] = rebuilt
+		}
+	}
+}
+
+// sideFromWire reads the side an order is for, defaulting to the attacker.
+func sideFromWire(s string) (battle.Side, error) {
+	switch s {
+	case "", "attacker", "A", "a":
+		return battle.SideA, nil
+	case "defender", "B", "b":
+		return battle.SideB, nil
+	}
+	return battle.SideA, fmt.Errorf("side %q is not one of attacker, defender", s)
+}
+
+// paramsFromWire reads the engine's typed parameters out of the wire's map.
+//
+// This handler owns the wire format, which is what battle.OrderParams' own
+// comment says it is for: the sim does not decode JSON and a map[string]any
+// reaching the tick loop would put a string comparison between a player's order
+// and the geometry it produces. The keys are the ones the campaign client
+// already sends — shape, angle_deg, target_formation_id — plus the sim's own
+// names, because both spellings are in the wild and neither is wrong.
+//
+// angle_deg is degrees because that is what the client's drag arrow produces, and
+// the engine wants radians counter-clockwise from +X, so the conversion is here
+// where the wire format lives rather than being asked of the engine.
+func paramsFromWire(m map[string]any) (battle.OrderParams, error) {
+	var p battle.OrderParams
+	str := func(key string) (string, bool, error) {
+		v, ok := m[key]
+		if !ok || v == nil {
+			return "", false, nil
+		}
+		s, ok := v.(string)
+		if !ok {
+			return "", true, fmt.Errorf("%s is %T, which is not a string", key, v)
+		}
+		return s, true, nil
+	}
+	num := func(key string) (float64, bool, error) {
+		v, ok := m[key]
+		if !ok || v == nil {
+			return 0, false, nil
+		}
+		f, ok := v.(float64)
+		if !ok {
+			return 0, true, fmt.Errorf("%s is %T, which is not a number", key, v)
+		}
+		return f, true, nil
+	}
+
+	// The shape, under either the client's key or the sim's.
+	for _, key := range []string{"shape", "formation"} {
+		if s, present, err := str(key); err != nil {
+			return p, err
+		} else if present {
+			p.Formation = s
+		}
+	}
+
+	// The bearing, in degrees under the client's key and radians under the sim's.
+	// The two are told apart by the key rather than guessed from the magnitude,
+	// because 180 is a plausible number of radians and 0 is a plausible number
+	// of degrees and neither is nonsense.
+	if deg, present, err := num("angle_deg"); err != nil {
+		return p, err
+	} else if present {
+		p.Bearing, p.HasFacing = deg*math.Pi/180, true
+	}
+	if rad, present, err := num("bearing"); err != nil {
+		return p, err
+	} else if present {
+		p.Bearing, p.HasFacing = rad, true
+	}
+
+	// The point, in metres.
+	gotPoint := false
+	for _, key := range []string{"x", "target_x"} {
+		if v, present, err := num(key); err != nil {
+			return p, err
+		} else if present {
+			p.X, gotPoint = v, true
+		}
+	}
+	for _, key := range []string{"y", "target_y"} {
+		if v, present, err := num(key); err != nil {
+			return p, err
+		} else if present {
+			p.Y, gotPoint = v, true
+		}
+	}
+	p.HasPoint = gotPoint
+
+	// The spacing, as a fraction of the balance file's own.
+	for _, key := range []string{"spacing", "scale"} {
+		if v, present, err := num(key); err != nil {
+			return p, err
+		} else if present {
+			p.Spacing, p.HasSpacing = v, true
+		}
+	}
+
+	// The group to follow, as the client's formation id or a plain index.
+	for _, key := range []string{"target_formation_id", "follow_group"} {
+		s, present, err := str(key)
+		if err != nil {
+			return p, err
+		}
+		if !present {
+			continue
+		}
+		n, convErr := strconv.Atoi(s)
+		if convErr != nil {
+			if v, isNum, numErr := num(key); numErr == nil && isNum {
+				n, convErr = int(v), nil
+			}
+		}
+		if convErr != nil {
+			return p, fmt.Errorf("%s is %q, which is not a formation index", key, s)
+		}
+		p.FollowGroup, p.HasFollow = n, true
+	}
+	return p, nil
+}
+
+// unitsForOrder resolves which men an order is for.
+//
+// Three ways to say it, in the order they are preferred: the wire's own units
+// list, then the params' formation_id naming a group index, then the whole side.
+// The whole side is also what battle.Orders means by an empty list, but the FIRST
+// order for a side has no groups yet and an empty list there is a refusal, so
+// the default is spelled out as every id on the side rather than left empty.
+func unitsForOrder(e *entry, side battle.Side, params map[string]any, units []int) ([]int, error) {
+	if len(units) > 0 {
+		return units, nil
+	}
+	all := unitIDsFor(e.session, side)
+	if raw, ok := params["formation_id"]; ok && raw != nil {
+		s, isStr := raw.(string)
+		if !isStr {
+			return nil, fmt.Errorf("formation_id is %T, which is not a string", raw)
+		}
+		idx, err := strconv.Atoi(s)
+		if err != nil {
+			return nil, fmt.Errorf("formation_id is %q, which is not a formation index", s)
+		}
+		groups := e.standing[sideIndex(side)]
+		if groups == nil {
+			return nil, fmt.Errorf("formation_id %d names a formation of a side nobody has ordered "+
+				"yet, so there are none to name; send units or omit formation_id for the whole side", idx)
+		}
+		g := groups.Groups()
+		if idx < 0 || idx >= len(g) {
+			return nil, fmt.Errorf("formation_id %d is not one of the %d formations this side has", idx, len(g))
+		}
+		return g[idx].Units, nil
+	}
+	return all, nil
+}
+
+// unitIDsFor is every field unit id on a side.
+//
+// A session numbers both sides into ONE dense id space, so the field ids are not
+// the roster's own: side A keeps 0..len(A)-1 and side B is renumbered to
+// len(A)..len(A)+len(B)-1. That is a fact about newBattle, not about this
+// package, and getting it wrong would order the wrong men. It is safe to be
+// wrong about here in a way it would not otherwise be, because battle.Orders
+// refuses an order naming units of the other side BY NAME — so a wrong offset
+// produces a loud refusal rather than a battle where the enemy obeys the player's
+// order. TestOrdersReachTheSideTheyName pins it rather than trusting the comment.
+func unitIDsFor(sess *battle.Session, side battle.Side) []int {
+	a := len(sess.Roster(battle.SideA).Units)
+	b := len(sess.Roster(battle.SideB).Units)
+	var n, base int
+	if side == battle.SideA {
+		n, base = a, 0
+	} else {
+		n, base = b, a
+	}
+	ids := make([]int, 0, n)
+	for i := 0; i < n; i++ {
+		ids = append(ids, base+i)
+	}
+	return ids
 }
 
 // --- /v1/battle/resolve ---
