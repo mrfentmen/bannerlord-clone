@@ -47,6 +47,37 @@ export function webAudioPath(path: string): string {
 }
 
 /**
+ * The weapon cues the mixer knows (tasks 501–505). `shot` is the generic fire
+ * cue an animation bridge can send without knowing the weapon; the named kinds
+ * are for callers that do. `dry-fire` is the empty-trigger click and `reload`
+ * the magazine sequence.
+ */
+export type WeaponSound =
+  | "shot"
+  | "rifle"
+  | "pistol"
+  | "shotgun"
+  | "smg"
+  | "dry-fire"
+  | "reload";
+
+/**
+ * Real manifest ids. The map used to point `shot` at `sfx-weapon-gunshot`, which
+ * is not in the manifest, so every trigger pull was silent while reload and
+ * dry-fire worked (task 501). The generic fire cue is the assault rifle, which
+ * is what the battle animation bridge is holding.
+ */
+export const WEAPON_SFX: Record<WeaponSound, SfxId> = {
+  shot: "sfx-weapon-rifle",
+  rifle: "sfx-weapon-rifle",
+  pistol: "sfx-weapon-pistol",
+  shotgun: "sfx-weapon-shotgun",
+  smg: "sfx-weapon-smg-burst",
+  "dry-fire": "sfx-weapon-dry-fire",
+  reload: "sfx-weapon-reload",
+};
+
+/**
  * Task 554: how long one music track takes to hand over to the next, in seconds.
  * Long enough that the two are heard as one move rather than a cut, short enough
  * that the battle theme is in place before the first volley.
@@ -252,13 +283,8 @@ export class AudioManager {
     this.playSfx(id, { volume: 0.6, rate });
   }
 
-  playWeaponSound(type: 'shot' | 'dry-fire' | 'reload' = 'shot'): void {
-    const map = {
-      'shot': 'sfx-weapon-gunshot',
-      'dry-fire': 'sfx-weapon-dry-fire',
-      'reload': 'sfx-weapon-reload',
-    };
-    this.playSfx(map[type], { volume: 0.8 });
+  playWeaponSound(type: WeaponSound = 'shot'): void {
+    this.playSfx(WEAPON_SFX[type], { volume: 0.8 });
   }
 
   playUiSound(type: 'click' | 'confirm' | 'error' | 'hover' | 'toggle' = 'click'): void {
