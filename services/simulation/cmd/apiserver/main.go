@@ -74,6 +74,8 @@ func main() {
 	mux.HandleFunc("/v1/barter/terms", srv.handleBarterTerms)
 	mux.HandleFunc("/v1/barter/propose", srv.handleBarterPropose)
 	mux.HandleFunc("/v1/barter/commit", srv.handleBarterCommit)
+	mux.HandleFunc("/v1/save", srv.handleSave)
+	mux.HandleFunc("/v1/load", srv.handleLoad)
 	mux.HandleFunc("/v1/why", srv.handleWhy)
 	mux.HandleFunc("/ws", srv.handleWS)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {

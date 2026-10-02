@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"mbclone/simulation/internal/savegame"
 	"mbclone/simulation/internal/sim"
 )
 
@@ -207,4 +208,56 @@ func (s *Server) handleWhy(w http.ResponseWriter, r *http.Request) {
 	field := r.URL.Query().Get("field")
 	chain := s.whyChain(entity, field)
 	writeJSON(w, chain)
+}
+
+func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		Path string `json:"path"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	if req.Path == "" {
+		req.Path = "savegame.json"
+	}
+	s.mu.RLock()
+	state := s.state
+	s.mu.RUnlock()
+
+	if err := savegame.Save(state, req.Path); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, map[string]any{"saved": true, "path": req.Path})
+}
+
+func (s *Server) handleLoad(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	var req struct {
+		Path string `json:"path"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "bad request", http.StatusBadRequest)
+		return
+	}
+	if req.Path == "" {
+		req.Path = "savegame.json"
+	}
+	loaded, err := savegame.Load(req.Path)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.mu.Lock()
+	s.state = loaded
+	s.mu.Unlock()
+	writeJSON(w, map[string]any{"loaded": true, "path": req.Path, "tick": loaded.Tick})
 }
