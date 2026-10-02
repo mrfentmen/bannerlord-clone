@@ -197,6 +197,38 @@ describe("battle mount", () => {
     expect(onDone).toHaveBeenCalledTimes(1);
   });
 
+  it("battle tutorial guides orders in the live battle", async () => {
+    localStorage.clear();
+    const { mount } = makeMount(unreachableApi());
+    await mount.attack(1, 2);
+    await flush();
+
+    // Start the tutorial from the pre-battle screen.
+    expect(query(mount, "battle-tutorial-start")).not.toBeNull();
+    click(mount, "battle-tutorial-start");
+    await flush();
+
+    click(mount, "battle-fight");
+    await flush();
+    expect(query(mount, "battle-live")).not.toBeNull();
+    expect(query(mount, "battle-tutorial")).not.toBeNull();
+    expect(query(mount, "battle-tutorial-step")!.textContent).toContain("Select a unit");
+
+    // Skip to the move-order step, then issue it via Advance.
+    click(mount, "battle-tutorial-skip");
+    await flush();
+    expect(query(mount, "battle-tutorial-step")!.textContent).toContain("move order");
+    click(mount, "battle-order-advance");
+    await flush();
+    expect(query(mount, "battle-tutorial-step")!.textContent).toContain("attack order");
+
+    // Focus fire completes the attack-order step.
+    click(mount, "battle-order-focusfire");
+    await flush();
+    expect(query(mount, "battle-tutorial-step")!.textContent).toContain("Pan the camera");
+    localStorage.clear();
+  });
+
   it("after-action shows the recorded aftermath (rival, appraisal)", async () => {
     const { mount } = makeMount(unreachableApi());
     await mount.attack(1, 2);

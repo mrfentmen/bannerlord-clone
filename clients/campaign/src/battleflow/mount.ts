@@ -40,6 +40,17 @@ import { encounterBanner, type EncounterBannerHandle } from "./encounterBanner";
 import { createBattleAnnouncer, type BattleAnnouncer } from "./announcer";
 import { scoutEnemy } from "./scouting";
 import { previewAutoResolve } from "./autoresolvePreview";
+import {
+  clearBattleTutorial,
+  completeStep,
+  currentStep,
+  loadBattleTutorial,
+  saveBattleTutorial,
+  skipStep,
+  startBattleTutorial,
+  tutorialProgress,
+  type TutorialAction,
+} from "../onboarding/battleTutorial.js";
 import { weatherFor } from "./weather";
 import {
   BattleFlow,
@@ -351,6 +362,20 @@ export function mountBattleUi(options: BattleMountOptions): BattleMount {
     }
     body.appendChild(weatherSection);
     const actions = h("div", { class: "battle__actions" });
+    const ongoing = loadBattleTutorial();
+    if (!ongoing || ongoing.done) {
+      actions.append(
+        button(
+          ongoing && ongoing.done ? "Replay battle tutorial" : "Battle tutorial",
+          () => {
+            clearBattleTutorial();
+            saveBattleTutorial(startBattleTutorial());
+            render();
+          },
+          { variant: "quiet", testId: "battle-tutorial-start" },
+        ),
+      );
+    }
     // Auto-resolve preview (solo task 28): estimated losses before choosing.
     const preview = previewAutoResolve(view.encounter, view.playerIsAttacker);
     actions.append(
@@ -379,6 +404,53 @@ export function mountBattleUi(options: BattleMountOptions): BattleMount {
     return root;
   }
 
+  /**
+   * Battle-command tutorial integration (solo task 91).
+   *
+   * The tutorial was written for unit-level orders in the 3D scene; this UI
+   * issues formation-level orders, so the two order steps complete on their
+   * closest analogues (Advance ~= move order, Focus fire ~= attack order).
+   * Camera steps belong to the 3D scene and are skipped from here.
+   */
+  const TUTORIAL_ORDER_MAP: Record<string, TutorialAction> = {
+    advance: "issue-move-order",
+    focusfire: "issue-attack-order",
+  };
+
+  function reportTutorialOrder(orderId: string): void {
+    const action = TUTORIAL_ORDER_MAP[orderId];
+    if (!action) return;
+    const tutorial = loadBattleTutorial();
+    if (!tutorial || tutorial.done) return;
+    const next = completeStep(tutorial, action);
+    if (next !== tutorial) saveBattleTutorial(next);
+  }
+
+  function tutorialBanner(): HTMLElement | null {
+    const tutorial = loadBattleTutorial();
+    if (!tutorial || tutorial.done) return null;
+    const step = currentStep(tutorial);
+    if (!step) return null;
+    const pct = Math.round(tutorialProgress(tutorial) * 100);
+    const banner = h(
+      "div",
+      { class: "tutorial-banner", "data-testid": "battle-tutorial" },
+      h("p", { class: "label", "data-testid": "battle-tutorial-step" },
+        `Tutorial ${pct}% — ${step.title}`),
+      h("p", { class: "caption" }, step.instruction),
+    );
+    const skip = button("Skip step", () => {
+      saveBattleTutorial(skipStep(loadBattleTutorial() ?? tutorial));
+      render();
+    }, { variant: "quiet", testId: "battle-tutorial-skip" });
+    const end = button("End tutorial", () => {
+      clearBattleTutorial();
+      render();
+    }, { variant: "quiet", testId: "battle-tutorial-end" });
+    banner.append(h("div", { class: "row-actions" }, skip, end));
+    return banner;
+  }
+
   function liveScreen(view: LiveBattleView): HTMLElement {
     const { root, body } = panel({
       title: `Battle — tick ${view.battle.tick}`,
@@ -386,6 +458,8 @@ export function mountBattleUi(options: BattleMountOptions): BattleMount {
     });
     body.appendChild(modeChip(view.mode));
     if (view.mode === "local") body.appendChild(localNote());
+    const tut = tutorialBanner();
+    if (tut) body.appendChild(tut);
     body.appendChild(
       dataTable(
         "Forces",
@@ -413,6 +487,7 @@ export function mountBattleUi(options: BattleMountOptions): BattleMount {
         () =>
           void run(async () => {
             await flow.orders(def.orders);
+            reportTutorialOrder(def.id);
             options.onBattleEvent?.("order");
           }),
         {

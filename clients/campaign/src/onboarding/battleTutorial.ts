@@ -116,3 +116,42 @@ export function tutorialProgress(tutorial: BattleTutorial): number {
   const finished = tutorial.steps.filter((s) => s.completed || s.skipped).length;
   return tutorial.steps.length === 0 ? 1 : finished / tutorial.steps.length;
 }
+
+// --- Persistence (integration): tutorial progress survives reloads. ---
+
+const STORE_KEY = "campaign.battle-tutorial.v1";
+
+function blank(): BattleTutorial | null {
+  return null;
+}
+
+/** Load the in-progress tutorial, or null when none was started. */
+export function loadBattleTutorial(): BattleTutorial | null {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (!raw) return blank();
+    const parsed = JSON.parse(raw) as Partial<BattleTutorial>;
+    if (!Array.isArray(parsed.steps) || typeof parsed.current !== "number") return blank();
+    return parsed as BattleTutorial;
+  } catch {
+    return blank();
+  }
+}
+
+/** Save tutorial progress. */
+export function saveBattleTutorial(tutorial: BattleTutorial): void {
+  try {
+    localStorage.setItem(STORE_KEY, JSON.stringify(tutorial));
+  } catch {
+    // Session-only tutorial.
+  }
+}
+
+/** Clear tutorial progress (fresh start / reset). */
+export function clearBattleTutorial(): void {
+  try {
+    localStorage.removeItem(STORE_KEY);
+  } catch {
+    // Nothing to clear.
+  }
+}
