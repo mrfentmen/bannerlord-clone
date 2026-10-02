@@ -91,6 +91,7 @@ import type { TrackerPositionSource } from "./questTracker/index.js";
 import { questJournalPanel } from "./ui/panels/QuestJournal.js";
 import { spymasterPanel } from "./ui/panels/SpymasterPanel.js";
 import { diplomacyPanel } from "./ui/panels/DiplomacyPanel.js";
+import { loansPanel } from "./ui/panels/LoansPanel.js";
 import { createAchievementStore } from "./achievements/index.js";
 import { achievementsPanel } from "./ui/panels/Achievements.js";
 import { mountBattleUi, type BattleMount } from "./battleflow/mount.js";
@@ -559,6 +560,7 @@ const hud = createHud({
   onOpenClanLaws: () => openClanLaws(),
   onOpenSpymaster: () => openSpymaster(),
   onOpenDiplomacy: () => openDiplomacy(),
+  onOpenLoans: () => openLoans(),
   onOpenLegacy: () => openLegacyPanel(),
   onOpenQuestTracker: () => openQuestTracker(),
   onOpenTradeRoutes: () => toggleTradeRoutes(),
@@ -1529,6 +1531,18 @@ function openSpymaster(): void {
   contextNode = spymasterPanel({
     currentDay: snapshot?.day ?? 0,
     postNames,
+    onClose: () => {
+      currentPanel = "none";
+      contextNode = null;
+      paint();
+    },
+  });
+  paint();
+}
+
+function openLoans(): void {
+  currentPanel = "none";
+  contextNode = loansPanel({
     onClose: () => {
       currentPanel = "none";
       contextNode = null;

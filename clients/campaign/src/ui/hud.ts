@@ -61,6 +61,7 @@ export interface HudOptions {
   onOpenClanLaws?: () => void;
   onOpenSpymaster?: () => void;
   onOpenDiplomacy?: () => void;
+  onOpenLoans?: () => void;
   /** Opens the legacy (New Game+) panel. Optional: the button hides without it. */
   onOpenLegacy?: () => void;
   /** Expands the quest tracker card (MASTER_PLAN task 115). Optional: the button hides without it. */
@@ -602,6 +603,12 @@ export function createHud(options: HudOptions): HudHandle {
       const dipBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-diplomacy" }, "Diplomacy");
       dipBtn.addEventListener("click", () => options.onOpenDiplomacy?.());
       rail.appendChild(dipBtn);
+    }
+
+    if (options.onOpenLoans) {
+      const loanBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-loans" }, "Loans");
+      loanBtn.addEventListener("click", () => options.onOpenLoans?.());
+      rail.appendChild(loanBtn);
     }
 
     if (options.onOpenLegacy) {
