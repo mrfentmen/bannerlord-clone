@@ -16,3 +16,4 @@ export * from "./wardrobe.js";
 export * from "./chronicle.js";
 export * from "./music.js";
 export * from "./identity.js";
+export { applyPhotoFilter, photoFilterCss, PHOTO_FILTERS, PHOTO_FILTER_LABELS, type FilteredCapture, type PhotoFilter } from "./photoFilters.js";
