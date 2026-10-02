@@ -147,6 +147,12 @@ func (c *Campaign) partyByRef(ref string) (*model.Party, bool) {
 		p, exists := c.state.Parties[id]
 		return p, exists && p != nil
 	}
+	// A bare integer is a simulation party id. Clients that only know the
+	// number should not have to guess the "party-" prefix.
+	if id, err := strconv.Atoi(ref); err == nil {
+		p, exists := c.state.Parties[id]
+		return p, exists && p != nil
+	}
 	slug := Slug(ref)
 	for _, id := range c.state.PartyIDs() {
 		p := c.state.Parties[id]
