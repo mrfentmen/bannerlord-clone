@@ -189,3 +189,42 @@
   color: var(--ink-500);
   font-size: 0.85rem;
 }
+
+/* Battle rating (task 90). */
+.afteraction-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.afteraction-rating {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--paper-300);
+  border-radius: 4px;
+  background: var(--paper-0);
+}
+
+.afteraction-rating__grade {
+  font-family: var(--font-mono);
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.afteraction-rating__basis {
+  color: var(--ink-500);
+  font-size: 0.85rem;
+}
+
+/* The grade is a shape and a word as well as a colour: a stamp that only tinted
+   the border would be invisible to a player who cannot see the tint. */
+.afteraction-rating[data-grade="S"],
+.afteraction-rating[data-grade="A"] { border-left: 3px solid var(--status-good-mark); }
+.afteraction-rating[data-grade="B"],
+.afteraction-rating[data-grade="C"] { border-left: 3px solid var(--status-warning-mark); }
+.afteraction-rating[data-grade="D"] { border-left: 3px solid var(--status-critical-mark); }

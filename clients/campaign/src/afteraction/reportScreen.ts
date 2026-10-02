@@ -10,6 +10,7 @@ import { sharePct } from "./casualties.js";
 import { killDeathSummary } from "./killDeath.js";
 import { mvpBoard } from "./mvpHighlight.js";
 import { createRematchButton } from "./rematch.js";
+import { battleRating } from "./rating.js";
 import "./reportContent.css";
 
 /** What the caller can add to the report without changing its sections. */
@@ -41,6 +42,17 @@ export function createReportScreen(
 
   const title = h("h2", { class: "afteraction-title" });
   title.textContent = `${report.playerWon ? "Victory" : "Defeat"} — ${report.battleLabel}`;
+
+  // Task 90: the grade sits beside the title, and always states its grounds —
+  // a letter the player cannot check is a letter they have to take on trust.
+  const rating = battleRating(report);
+  const ratingStamp = h("div", { class: "afteraction-rating", "data-grade": rating.grade, "data-testid": "afteraction-rating" });
+  ratingStamp.append(
+    h("span", { class: "afteraction-rating__grade" }, rating.grade),
+    h("span", { class: "afteraction-rating__basis" }, rating.basis),
+  );
+
+  const header = h("div", { class: "afteraction-header" }, title, ratingStamp);
 
   const kills = h("section", { class: "afteraction-section" });
   const killsTitle = h("h3", {});
@@ -126,6 +138,6 @@ export function createReportScreen(
     );
   }
 
-  root.append(title, kills, cas, mvp, tl, actions);
+  root.append(header, kills, cas, mvp, tl, actions);
   return root;
 }
