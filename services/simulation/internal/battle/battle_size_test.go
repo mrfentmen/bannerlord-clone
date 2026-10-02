@@ -603,6 +603,16 @@ const hitRateTicks = 600
 // shots are a five-figure-free sample with time to spare.
 const hitRateShooters = 40
 
+// maxShooterDrift is how far a pinned shooter may be found from where it was
+// pinned, over the whole of a hit-rate run.
+//
+// It is a metre, which is nothing: the measurement is not asking whether the
+// shooters walked a little, it is asking whether they were walking at all. At
+// roster_speed_base and approach_speed_scale an unpinned shooter covers about two
+// metres a second, so over hitRateTicks it would be three hundred metres away and
+// every shot it took would be a shot taken on the move.
+const maxShooterDrift = 1.0
+
 // hitRate is the share of a force's shots that connect, which is the hit chance
 // and nothing else: every unit on the shooting side is a shooter, and the
 // targets cannot shoot back.
@@ -678,6 +688,21 @@ func hitRate(t *testing.T, cfg *config.Config, broken bool) float64 {
 	// commit: a shooter set broken and then left alone recovers within about
 	// five ticks and is fighting again long before the run ends, which measures
 	// nothing.
+	//
+	// And the pin is MEASURED, not asserted, because everything this function
+	// returns is worthless if a shooter walked. The four cases that call it compare
+	// a rate against a rate, so a shooter that had started walking would move every
+	// one of those rates by the same factor and all four would still pass: the
+	// measurement would be measuring the gait rather than the aim, and reporting
+	// that it was measuring the aim. This is the failure the comment above names,
+	// and the only thing standing between it and a green test run is the assertion
+	// at the bottom of this loop.
+	homeX := make([]float64, len(bt.units))
+	homeY := make([]float64, len(bt.units))
+	for i := range bt.units {
+		homeX[i], homeY[i] = bt.units[i].X, bt.units[i].Y
+	}
+	furthest := 0.0
 	for i := 0; i < hitRateTicks; i++ {
 		for j := range bt.units {
 			if bt.units[j].Side != SideA {
@@ -693,10 +718,40 @@ func hitRate(t *testing.T, cfg *config.Config, broken bool) float64 {
 		if err := bt.tick(); err != nil {
 			t.Fatalf("tick %d failed: %v", i, err)
 		}
+		// And the position is put back, not just the speed. Zeroing Speed and
+		// holding is not enough to stand a man still: stageSeparate eases every
+		// unit away from the mass of its own side, and at the shipped
+		// battle.lateral_drift and battle.standoff_distance that slid the shooting
+		// block 18.3 m over this run before it reached its equilibrium spacing. The
+		// drift is small enough not to have mattered much, and "small enough not to
+		// have mattered much" is not a measurement anybody should be relying on:
+		// spread is scored as a lateral error against a target radius, so a shooter
+		// moving sideways is a shooter being scored on its gait, however little of
+		// one. So the position is re-asserted every tick and the assertion at the
+		// bottom of this loop holds it there.
+		for j := range bt.units {
+			if bt.units[j].Side != SideA {
+				continue
+			}
+			bt.units[j].X, bt.units[j].Y = homeX[j], homeY[j]
+			if d := math.Hypot(bt.units[j].X-homeX[j], bt.units[j].Y-homeY[j]); d > furthest {
+				furthest = d
+			}
+		}
 	}
 	shots := bt.stats.Shots[0]
 	if shots < 1000 {
 		t.Fatalf("only %.0f shots in %d ticks; too few to measure a rate from", shots, hitRateTicks)
+	}
+	// The bound is a metre over six hundred ticks, which is four hundred times the
+	// largest step battle.max_step_per_tick would allow in a single tick of that
+	// time, so it is loose enough that nobody has to think about it and tight
+	// enough that a shooter which walked cannot pass. A unit released from the pin
+	// closes its gap at about 2 m/s and is 300 m away by the end of the run.
+	if furthest > maxShooterDrift {
+		t.Errorf("a shooter drifted %.1f m from where it was pinned, over %d ticks, against a bound of "+
+			"%.1f m; this measurement is meant to be shooting and not walking, and a walking shooter's "+
+			"spread is nearly three times a standing one's", furthest, hitRateTicks, maxShooterDrift)
 	}
 	return bt.stats.RangedHits[0] / shots
 }
