@@ -24,6 +24,7 @@ import { townSkeleton } from "./skeletons.js";
 import { asBottomSheet } from "./narrow.js";
 import type { BuildingInfo, ConstructionResult, RecruitableUnit, RecruitResult, TownState } from "../../data/types.js";
 import { SimulationUnavailableError } from "../../data/provider.js";
+import { simulateTaxPolicy } from "../../economy/taxSimulator.js";
 
 export interface TownPanelOptions {
   /**
@@ -352,11 +353,22 @@ function taxSection(town: TownState, options: TownPanelOptions): HTMLElement {
     taxStepper(statePct, 0, 15, 1, (next) => options.onSetStateTaxRate?.(next / 100), "state-tax"),
   );
 
+  // What-if preview from the tax simulator (solo task 77): the simulator's
+  // estimate at the current rate and one step up, before anything is applied.
+  const pop = town.population ?? 0;
+  const here = simulateTaxPolicy(town.taxRate, town.taxRate, town.prosperity, pop);
+  const lines = [h("p", { class: "caption", "data-testid": "tax-sim-current" }, `Simulator estimate at ${townPct}%: ${here.line}`)];
+  if (townPct + 5 <= 50) {
+    const up = simulateTaxPolicy(town.taxRate, town.taxRate + 0.05, town.prosperity, pop);
+    lines.push(h("p", { class: "caption", "data-testid": "tax-sim-up" }, `One step up (${townPct + 5}%): ${up.line}`));
+  }
+
   wrap.append(
     townRow,
     stateRow,
     h("p", { class: "caption", style: "margin:var(--space-1) 0 0" },
       "High town taxes feed unrest and cost loyalty. The state cut goes to the controlling faction's treasury."),
+    ...lines,
   );
   return wrap;
 }
