@@ -8,7 +8,7 @@
 
 import { describe, expect, it, afterEach } from "vitest";
 import { routePanel, type RoutePanelOptions } from "../routePanel.js";
-import { createRouteRegistry, type FoundInput } from "../routeRegistry.js";
+import { createRouteRegistry, type FoundInput, type WeekLedger } from "../routeRegistry.js";
 import type { GoodId } from "../../data/types.js";
 
 function fakeStorage(): Pick<Storage, "getItem" | "setItem" | "removeItem"> {
@@ -149,8 +149,20 @@ describe("routePanel", () => {
     const slow = registry.found(mkInput("Slow Haul"), 0, { distanceKm: () => 80, kmPerDay: 40 });
     const fast = registry.found(mkInput("Fast Haul"), 0, { distanceKm: () => 80, kmPerDay: 40 });
     // Two settled weeks each; Fast earns more per day.
-    slow.weeks.push({ weekStart: 0, profit: 70 }, { weekStart: 7, profit: 70 });
-    fast.weeks.push({ weekStart: 0, profit: 700 }, { weekStart: 7, profit: 700 });
+    const wk = (weekStartDay: number, profit: number): WeekLedger => ({
+      weekStartDay,
+      weekEndDay: weekStartDay + 7,
+      legsCompleted: 1,
+      revenue: profit,
+      costOfGoods: 0,
+      guardWages: 0,
+      distanceCost: 0,
+      profit,
+      dataMissing: false,
+      notes: [],
+    });
+    slow.weeks.push(wk(0, 70), wk(7, 70));
+    fast.weeks.push(wk(0, 700), wk(7, 700));
     handle.refresh();
 
     const ranking = handle.root.querySelector('[data-testid="routes-ranking"]')!;
