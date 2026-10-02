@@ -10,6 +10,7 @@
 import type { ClanBanner } from "./types.js";
 import { bannerSvg } from "./banner.js";
 import { h } from "../ui/dom.js";
+import { ink } from "../design/tokens.js";
 
 /**
  * The banner design rendered inside a heater-shield outline. The scene
@@ -23,7 +24,7 @@ export function bannerShieldSvg(banner: ClanBanner): string {
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 120">` +
     `<defs><clipPath id="shieldclip"><path d="M10 10 H90 V60 Q90 95 50 112 Q10 95 10 60 Z"/></clipPath></defs>` +
     `<g clip-path="url(#shieldclip)"><g transform="translate(0,-4) scale(1,1.28)">${inner}</g></g>` +
-    `<path d="M10 10 H90 V60 Q90 95 50 112 Q10 95 10 60 Z" fill="none" stroke="#2a2a2a" stroke-width="4"/>` +
+    `<path d="M10 10 H90 V60 Q90 95 50 112 Q10 95 10 60 Z" fill="none" stroke="${ink[900]}" stroke-width="4"/>` +
     `</svg>`
   );
 }
