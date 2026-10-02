@@ -1067,3 +1067,13 @@ func (w *WriteSet) Debug() []struct {
 	}
 	return out
 }
+
+// RngState returns the current RNG state for savegames.
+func (e *Engine) RngState() uint64 {
+	return e.rng.State()
+}
+
+// SetRngState restores the RNG state from a savegame.
+func (e *Engine) SetRngState(s uint64) {
+	e.rng.SetState(s)
+}

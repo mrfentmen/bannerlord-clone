@@ -109,3 +109,13 @@ func (r *Rng) Chance(p float64) bool {
 	}
 	return r.Float64() < p
 }
+
+// State returns the current RNG state for savegames.
+func (r *Rng) State() uint64 {
+	return r.state
+}
+
+// SetState restores the RNG state from a savegame.
+func (r *Rng) SetState(s uint64) {
+	r.state = s
+}
