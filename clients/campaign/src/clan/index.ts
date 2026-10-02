@@ -17,3 +17,4 @@ export { lawsPanel, type LawsRoster, type LawsPanelOptions, type LawsPanelHandle
 export * from "./comingOfAge.js";
 export * from "./extinctionWarning.js";
 export { createClanRoles, CLAN_ROLES, type ClanRole, type OfficeCandidate, type ClanRoleAssignment, type ClanRoles } from "./roles.js";
+export { ceremonyLine, NAME_CULTURES, suggestNames, validateName, type CeremonyName, type NameCulture, type NameValidation } from "./namingCeremony.js";
