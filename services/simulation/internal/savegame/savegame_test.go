@@ -77,3 +77,29 @@ func TestLoadMissingFile(t *testing.T) {
 		t.Error("expected error for missing file, got nil")
 	}
 }
+
+func TestSaveLoadPreservesRngState(t *testing.T) {
+	s := testState()
+	path := filepath.Join(t.TempDir(), "save.json")
+	rngState := uint64(12345)
+	dps := 1.5
+	pid := 7
+
+	if err := Save(s, nil, nil, &rngState, &dps, &pid, path); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	_, _, _, loadedRng, loadedDps, loadedPid, err := Load(path)
+	if err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+	if loadedRng == nil || *loadedRng != rngState {
+		t.Errorf("RNG state not preserved: got %v, want %d", loadedRng, rngState)
+	}
+	if loadedDps == nil || *loadedDps != dps {
+		t.Errorf("DaysPerSecond not preserved: got %v, want %f", loadedDps, dps)
+	}
+	if loadedPid == nil || *loadedPid != pid {
+		t.Errorf("PlayerID not preserved: got %v, want %d", loadedPid, pid)
+	}
+}
