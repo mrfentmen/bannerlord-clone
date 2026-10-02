@@ -10,3 +10,5 @@ export * from "./guides.js";
 export * from "./loadingTips.js";
 export * from "./guidedStart.js";
 export * from "./progress.js";
+export * from "./introStory.js";
+export * from "./introStoryPanel.js";
