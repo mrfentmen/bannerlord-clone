@@ -6,6 +6,7 @@
  */
 
 import { battleSide } from "../design/tokens.js";
+import { h } from "../ui/dom.js";
 
 /** Deployment phase: player places troops before battle starts. */
 export interface DeploymentZone {
@@ -16,31 +17,79 @@ export interface DeploymentZone {
   faction: "player" | "enemy";
 }
 
+/** Seconds the player gets to deploy before the battle starts itself. */
+export const DEPLOY_SECONDS = 60;
+
+/** `90` -> `1:30`, `5` -> `0:05`. The header shows minutes:seconds. */
+export function formatCountdown(seconds: number): string {
+  const whole = Math.max(0, Math.ceil(seconds));
+  const min = Math.floor(whole / 60);
+  const sec = whole % 60;
+  return `${min}:${String(sec).padStart(2, "0")}`;
+}
+
 export class DeploymentUI {
   private container: HTMLElement | null = null;
+  private timerEl: HTMLElement | null = null;
+  private timerId: ReturnType<typeof setInterval> | null = null;
 
   show(_zones: DeploymentZone[], onComplete: () => void): void {
-    this.container = document.createElement("div");
-    this.container.className = "battle-deployment";
-    this.container.innerHTML = `
-      <div class="deployment-header">
-        <h2>Deploy Your Troops</h2>
-        <p>Place your units in the highlighted zone</p>
-        <button class="deploy-done">Start Battle</button>
-      </div>
-    `;
-    document.body.appendChild(this.container);
+    // show() may be called again on a still-visible overlay; the old interval has to
+    // go before a new one starts or the two tick against the same header.
+    this.hide();
 
-    const btn = this.container.querySelector(".deploy-done");
-    btn?.addEventListener("click", () => {
+    const timerEl = h("span", { class: "deploy-timer", role: "timer" }, formatCountdown(DEPLOY_SECONDS));
+    const btn = h("button", { type: "button", class: "deploy-done" }, "Start Battle");
+
+    const container = h(
+      "div",
+      { class: "battle-deployment" },
+      h(
+        "div",
+        { class: "deployment-header" },
+        h("h2", {}, "Deploy Your Troops"),
+        h("p", {}, "Place your units in the highlighted zone"),
+        timerEl,
+        btn,
+      ),
+    );
+    document.body.appendChild(container);
+
+    btn.addEventListener("click", () => {
       this.hide();
       onComplete();
     });
+
+    this.container = container;
+    this.timerEl = timerEl;
+    this.startCountdown();
+  }
+
+  /**
+   * Run the countdown in the header. The value only ever moves down, and the interval
+   * is cleared in hide(), so a hidden overlay leaves nothing running.
+   */
+  startCountdown(seconds: number = DEPLOY_SECONDS): void {
+    this.stopCountdown();
+    let remaining = seconds;
+    if (this.timerEl) this.timerEl.textContent = formatCountdown(remaining);
+    this.timerId = setInterval(() => {
+      remaining -= 1;
+      if (this.timerEl) this.timerEl.textContent = formatCountdown(remaining);
+    }, 1000);
+  }
+
+  private stopCountdown(): void {
+    if (this.timerId === null) return;
+    clearInterval(this.timerId);
+    this.timerId = null;
   }
 
   hide(): void {
+    this.stopCountdown();
     this.container?.remove();
     this.container = null;
+    this.timerEl = null;
   }
 }
 
