@@ -19,9 +19,13 @@ import {
   IMPLAUSIBLE_EXTENT,
   QUANTIZATION_EXTENSION,
   autoScaleToMeters,
+  describeUprightness,
   extentsOf,
   longestAxisLength,
+  longestAxisOf,
   readAuthoredBounds,
+  rotatedExtentsAroundX,
+  upAxisRotationFor,
   type AuthoredBounds,
 } from "../ModelTransform.js";
 
@@ -33,6 +37,8 @@ interface ManifestEntry {
   file: string;
   category: string;
   targetLengthM: number;
+  rotateX?: number;
+  estimated?: boolean;
 }
 
 function manifest(): ManifestEntry[] {
@@ -184,5 +190,73 @@ describe("the staged batch against its manifest (task 614)", () => {
       expect(entry.targetLengthM).toBeGreaterThan(0.15);
       expect(entry.targetLengthM).toBeLessThan(1.3);
     }
+  });
+});
+describe("up-axis correction (task 615)", () => {
+  it("rotates extents about X, swapping Y and Z on a quarter turn", () => {
+    const flat = { x: 0.63, y: 0.44, z: 1 };
+    const stood = rotatedExtentsAroundX(flat, -Math.PI / 2);
+    expect(stood.x).toBeCloseTo(0.63);
+    expect(stood.y).toBeCloseTo(1);
+    expect(stood.z).toBeCloseTo(0.44);
+    // A zero rotation changes nothing, and a bad angle is passed through.
+    expect(rotatedExtentsAroundX(flat, 0)).toEqual(flat);
+    expect(rotatedExtentsAroundX(flat, Number.NaN)).toEqual(flat);
+  });
+
+  it("names the longest axis, ties resolving in order", () => {
+    const b = bounds(2, 2, 1);
+    expect(longestAxisOf(b)).toBe('x');
+    expect(longestAxisOf(bounds(1, 2, 2))).toBe('y');
+    expect(longestAxisOf(bounds(1, 3, 2))).toBe('y');
+    expect(longestAxisOf(bounds(1, 1, 3))).toBe('z');
+  });
+
+  it("uses the staging note for the rotation, not the geometry", () => {
+    const officer = boundsOf('troop-officer.glb');
+    expect(upAxisRotationFor({ name: 'troop-officer', rotateX: -Math.PI / 2 }, officer)).toBeCloseTo(
+      -Math.PI / 2,
+    );
+    expect(upAxisRotationFor({ name: 'humvee' }, officer)).toBe(0);
+  });
+
+  it("refuses to guess an orientation for a quantised file", () => {
+    const tank = boundsOf('tank-quaternius.glb');
+    expect(tank.trustworthy).toBe(false);
+    expect(upAxisRotationFor({ name: 'tank-quaternius', rotateX: -Math.PI / 2 }, tank)).toBe(0);
+  });
+
+  it("ignores a non-finite rotation from a bad manifest entry", () => {
+    expect(upAxisRotationFor({ name: 'x', rotateX: Number.NaN }, bounds(1, 2, 3))).toBe(0);
+  });
+
+  it("reads the real staging note: one rotation, and it fixes the model", () => {
+    const entries = manifest();
+    const rotated = entries.filter((e) => e.rotateX !== undefined);
+    expect(rotated.map((e) => e.name)).toEqual(['troop-officer']);
+
+    const officer = boundsOf('troop-officer.glb');
+    expect(describeUprightness(officer)).toBe('lying-down');
+    const stood = rotatedExtentsAroundX(officer.extents, -Math.PI / 2);
+    expect(longestAxisOf({ min: { x: 0, y: 0, z: 0 }, max: stood })).toBe('y');
+    expect(stood.y).toBeCloseTo(1.0, 2);
+  });
+
+  it("would misfire a geometry-only rule, so the staging note stays authoritative", () => {
+    // These are all long in X or Z and all correct as authored: a vehicle's
+    // length runs along the ground, and sniper.glb is a prone figure.
+    const vehicles = ['humvee', 'apc', 'tank', 'helicopter', 'patrol-boat'];
+    for (const name of vehicles) {
+      expect(describeUprightness(boundsOf(`${name}.glb`)), name).toBe('lying-down');
+      expect(upAxisRotationFor({ name }, boundsOf(`${name}.glb`)), name).toBe(0);
+    }
+    // sniper.glb is authored lying down on purpose: 1.00 long, 0.04 tall.
+    const sniper = boundsOf('sniper.glb');
+    expect(sniper.extents.y).toBeLessThan(0.1);
+    expect(upAxisRotationFor({ name: 'sniper' }, sniper)).toBe(0);
+  });
+
+  it("calls a file with no usable bounds upright rather than guessing", () => {
+    expect(describeUprightness(readAuthoredBounds(new Uint8Array(4)))).toBe('upright');
   });
 });

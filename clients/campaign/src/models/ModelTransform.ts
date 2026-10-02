@@ -208,3 +208,68 @@ export function autoScaleToMeters(
   const scale = targetLengthM / authoredLength;
   return { scale, authoredLength, scaledLengthM: authoredLength * scale, reason: null };
 }
+/**
+ * Extents after a rotation about the X axis, radians.
+ *
+ * A quarter turn about X swaps the Y and Z extents; a smaller angle mixes them.
+ * Only a rotation about X is modelled, because that is the only orientation fix
+ * any staged model needs (one rotation, on one manifest entry).
+ */
+export function rotatedExtentsAroundX(extents: Extents, radians: number): Extents {
+  if (!Number.isFinite(radians)) return extents;
+  const c = Math.abs(Math.cos(radians));
+  const s = Math.abs(Math.sin(radians));
+  return {
+    x: extents.x,
+    y: extents.y * c + extents.z * s,
+    z: extents.y * s + extents.z * c,
+  };
+}
+
+/** Which axis of a model is its longest. */
+export type LongestAxis = 'x' | 'y' | 'z';
+
+/** The axis with the greatest extent; ties resolve to x, then y, then z. */
+export function longestAxisOf(b: Bounds): LongestAxis {
+  const e = extentsOf(b);
+  if (e.x >= e.y && e.x >= e.z) return 'x';
+  return e.y >= e.z ? 'y' : 'z';
+}
+
+/**
+ * Task 615: what the authored geometry says about a model's orientation.
+ *
+ * 'upright' means its longest axis is Y, i.e. it stands on the ground plane as
+ * authored. 'lying-down' means it does not, which is a *lead*, not a decision:
+ * a helicopter, an APC and a prone sniper are all long in another axis and all
+ * correct as authored. Only {@link upAxisRotationFor} decides, because that is
+ * where the staging note recorded what was actually checked.
+ */
+export function describeUprightness(b: AuthoredBounds): 'upright' | 'lying-down' {
+  if (!b.trustworthy || b.accessorCount === 0) return 'upright';
+  return longestAxisOf(b) === 'y' ? 'upright' : 'lying-down';
+}
+
+/** A manifest-shaped entry, as far as orientation is concerned. */
+export interface OrientationEntry {
+  name: string;
+  /** Radians of X rotation the staging note recorded, when one was needed. */
+  rotateX?: number;
+  /** True when the staging note estimated the rest of the entry. */
+  estimated?: boolean;
+}
+
+/**
+ * Task 615: the X rotation to apply to a model, radians.
+ *
+ * The staging note is the source of truth: `troop-officer.glb` is authored flat
+ * along Z and the note records -90 degrees about X to stand it up, which the
+ * accessor bounds confirm (0.63 x 0.44 x 1.00 becomes 0.63 x 1.00 x 0.44).
+ * Everything else is 0. An untrustworthy entry gets 0 as well -- an orientation
+ * guess for a quantised file is worse than no rotation at all.
+ */
+export function upAxisRotationFor(entry: OrientationEntry, bounds: AuthoredBounds): number {
+  if (!Number.isFinite(entry.rotateX as number)) return 0;
+  if (!bounds.trustworthy) return 0;
+  return entry.rotateX as number;
+}
