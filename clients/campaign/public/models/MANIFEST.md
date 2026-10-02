@@ -1,7 +1,7 @@
 # GLB manifest for Rowan — Milo's 3D model staging
 
 Per Pax's lane ruling: Milo's agents are out of clients/campaign scene wiring.
-The 42 GLB files below are staged as files only. Wire them however fits the client.
+The 48 GLB files below are staged as files only. Wire them however fits the client.
 
 All files are valid glTF 2.0. Target lengths are longest-axis metres for auto-scale.
 Orientation note: troop-officer.glb geometry lies flat along Z; apply rotationX = -PI/2 to stand it up.
@@ -58,10 +58,22 @@ Orientation note: troop-officer.glb geometry lies flat along Z; apply rotationX 
 - food-cart.glb — target 3m (cart with striped umbrella)
 - skyscraper.glb — target 120m (marginal detail; fine at map scale)
 
+## Batch 8: image-to-3D (6) — 2026-10-02
+Concept art generated locally (Pollinations, free), then turned into 3D via
+three.ws Forge image-to-3D (POST /api/forge, image_urls, tier=draft). All
+byte-verified (glTF magic, declared length == actual).
+- brownstone-v2.glb — target 18m (Brooklyn townhouse facade, stoop, railings) — score 65
+- bodega-v2.glb — target 8m (corner storefront, glass windows, awning)
+- nyc-tenement.glb — target 25m (five-story red-brick facade, fire escape) — score 65
+- office-tower.glb — target 60m (modern glass tower) — score 85
+- city-bus.glb — target 12m (transit bus, side view) — score 85
+- subway-car.glb — target 18m (stainless-steel subway car) — score 85
+Concept images: _concepts/batch8/ (source material for the image-to-3D runs).
+
 ## Still generating (not yet staged)
-Batches 6/7 complete 2026-10-02 (12 models, all staged above). Batch 8 queued:
-brownstone-v2, bodega-v2, nyc-tenement, office-tower, city-bus, subway-car.
-Manifest will be updated as they land.
+Batches 6/7 complete 2026-10-02 (12 models, staged above). Batch 8 complete
+2026-10-02 (6 models, image-to-3D, staged above). Manifest will be updated as
+further batches land.
 
 ## Licence clearance (2026-10-01, Milo lane 5)
 
