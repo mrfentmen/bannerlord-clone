@@ -817,3 +817,55 @@ function copyBoard(board: IssueBoard | null): IssueBoard | null {
 function escapeAttribute(value: string): string {
   return value.replace(/["\\]/g, "\\$&");
 }
+
+/**
+ * Quest notification: displays a toast notification for quest events.
+ * Used for "New quest available", "Quest completed", "Quest failed", etc.
+ */
+export interface QuestNotificationOptions {
+  title: string;
+  message: string;
+  tone: "info" | "good" | "critical";
+  durationMs?: number;
+  onDismiss?: () => void;
+}
+
+export function questNotification(options: QuestNotificationOptions): HTMLElement {
+  const el = document.createElement("div");
+  el.className = `quest-notification quest-notification--${options.tone}`;
+  el.setAttribute("role", "alert");
+  el.setAttribute("data-testid", "quest-notification");
+
+  const title = document.createElement("div");
+  title.className = "quest-notification__title";
+  title.textContent = options.title;
+  el.appendChild(title);
+
+  const message = document.createElement("div");
+  message.className = "quest-notification__message";
+  message.textContent = options.message;
+  el.appendChild(message);
+
+  const dismiss = document.createElement("button");
+  dismiss.className = "quest-notification__dismiss";
+  dismiss.textContent = "×";
+  dismiss.setAttribute("aria-label", "Dismiss notification");
+  dismiss.addEventListener("click", () => {
+    el.remove();
+    options.onDismiss?.();
+  });
+  el.appendChild(dismiss);
+
+  // Auto-dismiss after duration (default 5 seconds).
+  const duration = options.durationMs ?? 5000;
+  if (duration > 0) {
+    setTimeout(() => {
+      if (el.isConnected) {
+        el.remove();
+        options.onDismiss?.();
+      }
+    }, duration);
+  }
+
+  return el;
+}
