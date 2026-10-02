@@ -14,6 +14,7 @@
  *   confirm — no holding required)
  * - 1-9: recall control group; Ctrl+1-9: assign the current selection
  * - F1-F4 (or f/g/h/r): attack/follow/hold/retreat the selected units at the pointer
+ * - A: attack-move — the next click on the field advances the selection there
  * - T: rally-point mode — next click plants the flag for reinforcements
  * - X: retreat horn — every live unit routs to the map edge
  * - the select-all action grabs every live unit
@@ -53,6 +54,27 @@ const DRAG_THRESHOLD_PX = 6;
 const CLICK_RADIUS_PX = 24;
 
 const registeredControlGroups = new WeakSet<InputRegistry>();
+const registeredBattleOrders = new WeakSet<InputRegistry>();
+
+/**
+ * Task 52: attack-move is a mode, not an instant order — press A, then click
+ * the field. The action is registered here (as the control groups are) rather
+ * than in the catalog, because the catalog owns what exists at boot.
+ */
+function ensureAttackMoveAction(registry: InputRegistry): void {
+  if (registeredBattleOrders.has(registry)) return;
+  registeredBattleOrders.add(registry);
+  if (registry.actions().some((a) => a.id === "battle.orderAttackMove")) return;
+  registry.registerAction({
+    id: "battle.orderAttackMove",
+    label: "Order: attack-move",
+    description: "Advance to the clicked spot, engaging anything on the way.",
+    category: "battle-command",
+    // Plain "a"; select-all keeps Ctrl+A, so the two never meet.
+    defaultKeys: [{ key: "a" }],
+    preventDefault: true,
+  });
+}
 
 function ensureControlGroupActions(registry: InputRegistry): void {
   if (registeredControlGroups.has(registry)) return;
@@ -80,6 +102,7 @@ export function createCommander(
   events: CommanderEvents = {},
 ): Commander {
   ensureControlGroupActions(registry);
+  ensureAttackMoveAction(registry);
   const selection = createSelection();
   const offs: Array<() => void> = [];
   let radial: RadialMenu | null = null;
@@ -98,6 +121,8 @@ export function createCommander(
   let waypointQueue: { x: number; z: number }[] = [];
   /** Task 45: the next field click plants the rally flag. */
   let placingRally = false;
+  /** Task 52: the next field click issues an attack-move to that spot. */
+  let placingAttackMove = false;
   const modeHint = h("div", { class: "cmd-modehint", "data-testid": "cmd-modehint" });
   modeHint.hidden = true;
   overlay.appendChild(modeHint);
@@ -159,8 +184,14 @@ export function createCommander(
     markers.clearWaypoints();
   }
 
-  function cancelRallyMode(): void {
+  /**
+   * Leave whichever click-to-place mode is armed (rally, attack-move). One
+   * function for both, so Esc, a second press of the mode key, and a
+   * right-click all end the mode the same way.
+   */
+  function cancelOrderMode(): void {
     placingRally = false;
+    placingAttackMove = false;
     setModeHint(null);
   }
 
@@ -222,6 +253,7 @@ export function createCommander(
     const unitIds = selection.selected();
     if (unitIds.length === 0) return;
     const field = surface.screenToField(ev.clientX, ev.clientY);
+    cancelOrderMode(); // a right-click is an order, so it ends any pending mode
     clearWaypoints();
     issue({ kind: "move", unitIds, target: field, at: Date.now() });
   };
@@ -238,7 +270,7 @@ export function createCommander(
       const field = surface.screenToField(ev.clientX, ev.clientY);
       markers.setRallyPoint(ev.clientX, ev.clientY);
       const unitIds = selection.selected();
-      cancelRallyMode();
+      cancelOrderMode();
       if (unitIds.length > 0) issue({ kind: "rally", unitIds, target: field, at: Date.now() });
       return;
     }
@@ -246,6 +278,18 @@ export function createCommander(
     // Task 44: Alt+click pings without touching the selection.
     if (ev.altKey) {
       markers.ping(ev.clientX, ev.clientY);
+      return;
+    }
+
+    // Task 52: attack-move mode — the next click on the field engages towards it.
+    if (placingAttackMove) {
+      const field = surface.screenToField(ev.clientX, ev.clientY);
+      const unitIds = selection.selected();
+      cancelOrderMode();
+      if (unitIds.length > 0) {
+        clearWaypoints();
+        issue({ kind: "attack-move", unitIds, target: field, at: Date.now() });
+      }
       return;
     }
 
@@ -385,6 +429,19 @@ export function createCommander(
   offs.push(registry.on("battle.orderHold", () => orderSelection("hold", false)));
   offs.push(registry.on("battle.orderRetreat", () => orderSelection("retreat", false)));
 
+  // -- attack-move (task 52): A arms the mode, the next field click issues it --
+  offs.push(
+    registry.on("battle.orderAttackMove", () => {
+      if (placingAttackMove) {
+        cancelOrderMode();
+        return;
+      }
+      if (selection.selected().length === 0) return;
+      placingAttackMove = true;
+      setModeHint("Attack-move: click the field to advance and engage. Esc cancels.");
+    }),
+  );
+
   // -- ping (task 44): the Alt+q chord drops one at the pointer ------------------
   offs.push(
     registry.on("battle.ping", () => {
@@ -396,7 +453,7 @@ export function createCommander(
   offs.push(
     registry.on("battle.setRallyPoint", () => {
       if (placingRally) {
-        cancelRallyMode();
+        cancelOrderMode();
         return;
       }
       if (selection.selected().length === 0) return;
@@ -424,8 +481,8 @@ export function createCommander(
   // Esc cancels rally mode and drops queued waypoints.
   const onKeyDown = (ev: KeyboardEvent): void => {
     if (ev.key !== "Escape") return;
-    if (placingRally) {
-      cancelRallyMode();
+    if (placingRally || placingAttackMove) {
+      cancelOrderMode();
       ev.stopPropagation();
     } else if (waypointQueue.length > 0) {
       clearWaypoints();

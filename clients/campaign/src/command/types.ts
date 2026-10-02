@@ -17,7 +17,17 @@ export interface CommandableUnit {
   z: number;
 }
 
-export type OrderKind = "attack" | "follow" | "hold" | "retreat" | "rally" | "move";
+export type OrderKind =
+  | "attack"
+  | "attack-move"
+  | "charge"
+  | "spread"
+  | "form-up"
+  | "follow"
+  | "hold"
+  | "retreat"
+  | "rally"
+  | "move";
 
 export interface Order {
   kind: OrderKind;
@@ -34,6 +44,10 @@ export interface Order {
 
 export const ORDER_LABEL: Record<OrderKind, string> = {
   attack: "Attack",
+  "attack-move": "Attack-move",
+  charge: "Charge",
+  spread: "Spread out",
+  "form-up": "Form up",
   follow: "Follow",
   hold: "Hold",
   retreat: "Retreat",
@@ -48,6 +62,10 @@ export const ORDER_LABEL: Record<OrderKind, string> = {
  */
 export const STANCE_LABEL: Record<OrderKind, string> = {
   attack: "advancing",
+  "attack-move": "advancing, engaging",
+  charge: "charging",
+  spread: "spreading out",
+  "form-up": "forming up",
   follow: "following",
   hold: "holding",
   retreat: "routing",
