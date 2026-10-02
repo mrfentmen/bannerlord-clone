@@ -307,6 +307,23 @@ type GroupOrder struct {
 	// not walk anywhere is refused rather than ignored: an order carrying a place
 	// that nothing will walk to is an order nobody read.
 	At *Destination
+	// Follow is the index, in the group list the commander was built with, of the
+	// group whose anchor this one keeps station behind. Nil means this group finds
+	// its own place, which is every order in the game except the one that names a
+	// group to follow.
+	//
+	// It is a pointer so that "following nobody" is its own value. An int whose
+	// zero meant "no follow" would make the zero GroupOrder follow group 0, which
+	// is the shape of bug this layer refuses everywhere else: a parameter read by
+	// nobody that looks like one that is read.
+	//
+	// An index and not a unit id because it is a reference into a list the caller
+	// supplied and the caller keeps: Orders.Groups() hands that list back, so a
+	// client can say "follow group 1" and mean what it said. It is checked when
+	// the commander is built, for range, for pointing at itself, and for a cycle,
+	// so a dangling or circular follow is a refusal rather than a shape that
+	// quietly stands still.
+	Follow *int
 }
 
 // Group is a GroupOrder and the units ordered to carry it out.
@@ -953,18 +970,43 @@ type FormationCommander struct {
 	side Side
 	// groups are the standing orders, in the order the caller gave them.
 	groups []*formationGroup
+	// sequence is the order the groups are commanded in: every group before the
+	// groups that follow it, and among groups that follow nobody, the order the
+	// caller declared them. It exists because a follower reads the anchor of the
+	// group it follows, so a follower commanded first would be ordered against
+	// last tick's anchor. The declaration order is kept wherever the choice does
+	// not matter, so a battle with no followers produces exactly the orders it
+	// produced before following existed.
+	sequence []int
 	// ids is a scratch buffer, reused every tick so a commanded tick allocates
 	// nothing. One buffer serves every group because each group writes its
 	// orders into the View before the next group is read.
 	ids []int
 }
 
-// formationGroup is one group's standing order and its membership.
+// formationGroup is one group's standing order and the state the tick keeps for it.
 type formationGroup struct {
 	order GroupOrder
+	// index is where this group sits in the caller's list, which is what a Follow
+	// names and what an error message about this group has to say.
+	index int
 	// units are the group's unit ids, ascending, with duplicates already
 	// refused at construction.
 	units []int
+	// lead is the group this one follows, resolved once at construction from the
+	// order's Follow index. Nil for a group that follows nobody.
+	lead *formationGroup
+	// anchorX and anchorY are where this group's shape was centred this tick, and
+	// anchored says whether they mean anything yet. They are read by a group that
+	// follows this one, which is why they are kept rather than passed along: a
+	// follower is ordered after the group it follows, and the only thing it needs
+	// from it is where it ended up.
+	//
+	// anchored is false for a group with nobody standing: orderGroup returns
+	// before it has an anchor, and a follower must be able to tell that from a
+	// group whose anchor happens to be the origin.
+	anchorX, anchorY float64
+	anchored         bool
 	// facing is the bearing the group last looked, kept so a group with no
 	// enemy in front of it holds its bearing instead of snapping to +X.
 	facing float64
@@ -1082,26 +1124,100 @@ func NewFormationCommander(cfg *config.Config, side Side, groups []Group) (*Form
 		// Ascending, so the layout assigns slots by id and the shape does not
 		// depend on the order the caller happened to list its units in.
 		sort.Ints(units)
-		// The destination is copied rather than shared. The caller built this
-		// commander before the battle and keeps the slice it built it from, and a
-		// commander whose instructions change because somebody edited a struct
-		// afterwards is a battle that is fought under different orders from the
-		// ones it was given without anybody changing them.
+		// The destination and the follow index are copied rather than shared. The
+		// caller built this commander before the battle and keeps the slice it built
+		// it from, and a commander whose instructions change because somebody edited
+		// a struct afterwards is a battle that is fought under different orders from
+		// the ones it was given without anybody changing them.
 		order := g.Order
 		if g.Order.At != nil {
 			at := *g.Order.At
 			order.At = &at
 		}
-		c.groups = append(c.groups, &formationGroup{order: order, units: units})
+		if g.Order.Follow != nil {
+			follow := *g.Order.Follow
+			order.Follow = &follow
+		}
+		c.groups = append(c.groups, &formationGroup{order: order, units: units, index: i})
+	}
+	if err := c.resolveFollows(); err != nil {
+		return nil, err
 	}
 	return c, nil
 }
 
+// resolveFollows checks every Follow and turns each one into the group it names,
+// then works out the order the groups are commanded in.
+//
+// Three things are checked here and nowhere else, because this is the only place
+// the whole list of groups exists: that the index is one this commander was built
+// with, that a group is not told to follow itself, and that following does not
+// make a circle. A circle has no anchor at all, so every group in it would be
+// ordered against a group that was never commanded, and the two of them would take
+// turns reading each other's anchor from the tick before.
+func (c *FormationCommander) resolveFollows() error {
+	for _, g := range c.groups {
+		if g.order.Follow == nil {
+			continue
+		}
+		lead := *g.order.Follow
+		if lead < 0 || lead >= len(c.groups) {
+			return newFormationError("NewFormationCommander", "Group.Order.Follow",
+				"group %d is ordered to follow group %d, and this commander was built with %d groups, "+
+					"numbered 0 to %d", g.index, lead, len(c.groups), len(c.groups)-1)
+		}
+		if lead == g.index {
+			return newFormationError("NewFormationCommander", "Group.Order.Follow",
+				"group %d is ordered to follow itself; a group has nothing to follow if it is the "+
+					"only group", g.index)
+		}
+		if g.order.At != nil {
+			return newFormationError("NewFormationCommander", "Group.Order.Follow",
+				"group %d is ordered to move to (%g, %g) and to follow group %d; those are two "+
+					"destinations, and only one of them would be read", g.index, g.order.At.X, g.order.At.Y, lead)
+		}
+		g.lead = c.groups[lead]
+	}
+	// The walk is over groups, not over links: every group is visited once, and a
+	// group that has been visited and is met again is in a circle. A group that has
+	// been visited and is met again on a path that came from nowhere else is simply
+	// two groups following the same leader, which is a column and is allowed.
+	done := make([]bool, len(c.groups))
+	var visit func(g *formationGroup, chain []int) error
+	visit = func(g *formationGroup, chain []int) error {
+		if done[g.index] {
+			return nil
+		}
+		for _, at := range chain {
+			if at == g.index {
+				return newFormationError("NewFormationCommander", "Group.Order.Follow",
+					"the follow chain of group %d is a circle: %v; a group in a circle has nothing to "+
+						"follow, because the group it would follow is waiting on it", chain[0], chain)
+			}
+		}
+		if g.lead != nil {
+			if err := visit(g.lead, append(chain, g.index)); err != nil {
+				return err
+			}
+		}
+		done[g.index] = true
+		c.sequence = append(c.sequence, g.index)
+		return nil
+	}
+	for _, g := range c.groups {
+		if err := visit(g, nil); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // Command implements Commander.
 //
-// Every group is ordered in the order the caller declared them, and within a
-// group by ascending unit id, so the orders a battle produces depend on the
-// forces and the orders and not on how they were stored.
+// Groups are ordered in the order the caller declared them, or in the order
+// resolveFollows worked out where a group follows another, and within a group by
+// ascending unit id, so the orders a battle produces depend on the forces and the
+// orders and not on how they were stored.
 func (c *FormationCommander) Command(v *View) error {
 	if v == nil {
 		return newFormationError("Command", "View", "there is no field to order from")
@@ -1129,8 +1245,8 @@ func (c *FormationCommander) Command(v *View) error {
 	// side's formations face the same enemy, and a per-group pass would be the
 	// same answer computed twice per tick.
 	ex, ey, haveEnemy := enemyCentreOf(v, c.side)
-	for _, g := range c.groups {
-		if err := c.orderGroup(v, g, ex, ey, haveEnemy); err != nil {
+	for _, at := range c.sequence {
+		if err := c.orderGroup(v, c.groups[at], ex, ey, haveEnemy); err != nil {
 			return err
 		}
 	}
@@ -1178,6 +1294,10 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 	if len(c.ids) == 0 {
 		// Every man in this group is broken, routed, or dead. The group is left
 		// silent, and silence means each of them follows the engine's own rules.
+		//
+		// anchored goes false rather than being left alone, because it is how a group
+		// that follows this one learns that there is nobody here to follow.
+		g.anchored = false
 		return nil
 	}
 
@@ -1214,114 +1334,155 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 	// in it: the shape's own spacing, once. It is read by the move order below and
 	// by the slot loop after, so it is worked out here rather than in both places.
 	tolerance := cohesionTolerance(g.order.Kind, p)
+	// The layout, before anything that needs it. A follower measures its own depth
+	// to know where its front rank goes, and this is the layout it measures.
+	slots, err := g.slotsFor(len(c.ids), p)
+	if err != nil {
+		return err
+	}
 	// stepPace is how fast a man walks toward his slot, and it is the whole
 	// difference between the orders: an advance walks the shape forward, a
 	// charge walks it faster, a hold walks nobody anywhere but a man who has
 	// been shoved, and a fall-back walks the shape away from the enemy.
 	stepPace := fc.HoldSpeed
-	switch g.order.Order {
-	case OrderFormationAdvance, OrderFormationCharge:
-		standoff, closing := fc.AdvanceStandoff, fc.AdvanceSpeed
-		if g.order.Order == OrderFormationCharge {
-			standoff, closing = fc.ChargeStandoff, fc.ChargeSpeed
+	// A group that follows another is not standing where it is, whatever else it
+	// was told, and that is settled before its own order is read: the order says
+	// what the shape does about the enemy, and following says where the shape is.
+	// A follower of a hold that holds its place is still walking, because the group
+	// it follows is walking away from it.
+	following := false
+	if g.lead != nil {
+		if g.lead.anchored {
+			following = true
+			anchorX, anchorY = followAnchor(g, p, slots)
+			stepPace = fc.AdvanceSpeed
+			// The same arrival rule as a move: a follower inside its own spacing of
+			// the place behind the group it follows has arrived, and from there it
+			// cements itself at the hold's pace like any other shape that has
+			// stopped moving.
+			if math.Hypot(ax-anchorX, ay-anchorY) > tolerance {
+				walking = true
+			} else {
+				stepPace = fc.HoldSpeed
+			}
 		}
-		if gap := math.Hypot(ex-ax, ey-ay); haveEnemy && isFinite(gap) && gap > standoff && gap > 0 {
-			stepPace = closing
-			// The shape walks forward by the distance it covers in one tick at
-			// its own closing pace. One tick's worth is the whole bound, and it
-			// needs no separate constant: the pace and the tick length are
-			// already numbers in the balance file, and a formation cannot outrun
-			// its own pace however long the battle runs. The per-unit step is
-			// clamped to the distance to the slot as well, so this cannot carry a
-			// man past his own place even if the two disagree.
-			//
-			// WHY THE ANCHOR HAS TO MOVE AT ALL. The anchor is the group's centre
-			// of mass, which is where the men are, so slots laid out around it
-			// are exactly where the men already are: a formation whose anchor is
-			// left alone satisfies the in-slot test on the tick after it forms and
-			// is given no orders ever again. It only appeared to advance because
-			// the enemy's approach kept shoving men out of their slots and every
-			// man who was shoved returned to it at the faster pace, which is an
-			// advance that depends on being attacked to happen at all. A charge
-			// had the same shape of problem one pace higher.
-			if push := closing * v.TickSeconds; push > 0 && isFinite(push) {
-				anchorX, anchorY = ax+(ex-ax)/gap*push, ay+(ey-ay)/gap*push
+		// A group with nobody left to follow has no anchor to keep station behind,
+		// so this tick it is ordered as if it had never been told to follow: it
+		// keeps its own order's anchor and its own pace. That is the least
+		// surprising reading of "follow group 2" on a battle where group 2 was
+		// destroyed, and it is better than the alternative of freezing the follower
+		// where it stood forever, or of refusing to fight the tick because the group
+		// it was following is gone.
+	}
+	// The group's own order is read only when it is not following. A follower has
+	// already been told where it stands, and reading the order as well would give
+	// it two destinations: the place behind the group it follows and the enemy.
+	if !following {
+		switch g.order.Order {
+		case OrderFormationAdvance, OrderFormationCharge:
+			standoff, closing := fc.AdvanceStandoff, fc.AdvanceSpeed
+			if g.order.Order == OrderFormationCharge {
+				standoff, closing = fc.ChargeStandoff, fc.ChargeSpeed
+			}
+			if gap := math.Hypot(ex-ax, ey-ay); haveEnemy && isFinite(gap) && gap > standoff && gap > 0 {
+				stepPace = closing
+				// The shape walks forward by the distance it covers in one tick at
+				// its own closing pace. One tick's worth is the whole bound, and it
+				// needs no separate constant: the pace and the tick length are
+				// already numbers in the balance file, and a formation cannot outrun
+				// its own pace however long the battle runs. The per-unit step is
+				// clamped to the distance to the slot as well, so this cannot carry a
+				// man past his own place even if the two disagree.
+				//
+				// WHY THE ANCHOR HAS TO MOVE AT ALL. The anchor is the group's centre
+				// of mass, which is where the men are, so slots laid out around it
+				// are exactly where the men already are: a formation whose anchor is
+				// left alone satisfies the in-slot test on the tick after it forms and
+				// is given no orders ever again. It only appeared to advance because
+				// the enemy's approach kept shoving men out of their slots and every
+				// man who was shoved returned to it at the faster pace, which is an
+				// advance that depends on being attacked to happen at all. A charge
+				// had the same shape of problem one pace higher.
+				if push := closing * v.TickSeconds; push > 0 && isFinite(push) {
+					anchorX, anchorY = ax+(ex-ax)/gap*push, ay+(ey-ay)/gap*push
+					walking = true
+				}
+			} else {
+				// In contact, or nothing to close on: the shape stops closing and
+				// stands where it is. It does not stop tidying itself, so a line
+				// that arrived as a crowd reforms in place and shoots from there.
+				stepPace = fc.HoldSpeed
+			}
+		case OrderFormationMove:
+			// A move is a walk towards a place, and the pace of a walk is the file's
+			// walking pace: advance_speed. It is the same number an advance uses, and
+			// deliberately so. A formation marching to a hill and a formation closing
+			// on the enemy are the same walk by the same men, and two constants for one
+			// pace are two numbers that can disagree about how fast men walk.
+			stepPace = fc.AdvanceSpeed
+			// The destination is checked here rather than only at construction: this is
+			// the order that reads it, and an order that reads a nil destination is a
+			// formation with nowhere to go.
+			if g.order.At == nil {
+				return newFormationError("orderGroup", "Group.Order.At",
+					"group %s is ordered to move and was given no place to move to", g.order.Kind)
+			}
+			d := math.Hypot(ax-g.order.At.X, ay-g.order.At.Y)
+			switch {
+			case !isFinite(d):
+				// A distance that is not a number is not a place to walk to. The shape
+				// holds rather than marching off the field on it, which is the same
+				// answer the advance gives when there is no enemy to close on.
+				stepPace = fc.HoldSpeed
+			case d > tolerance:
+				// The same one tick's worth of pace the advance and the withdrawal use,
+				// bounded by the distance that is left, so a formation that is nearly
+				// there spends its last tick arriving rather than arriving repeatedly.
+				push := math.Min(d, fc.AdvanceSpeed*v.TickSeconds)
+				anchorX, anchorY = ax+(g.order.At.X-ax)/d*push, ay+(g.order.At.Y-ay)/d*push
+				walking = true
+			default:
+				// Arrived. The tolerance is the rule for "this man is in his place", and
+				// a shape whose anchor is inside its own spacing of where it was told to
+				// go is a shape that is there; past it the tolerance is not consulted,
+				// for the reason the withdrawal overrides it, because the distance to a
+				// slot that is one push beyond them is inside the tolerance every tick.
+				//
+				// The pace comes down to the hold's, which is the half of this that is
+				// easy to leave out. A shape that has stopped walking and then tidies
+				// itself at a marching pace is a formation that never quite stands
+				// still, and a player who marched a line to a hill and watched a
+				// knocked-about squad jog back into place has been told the wrong thing
+				// about what arrived.
+				stepPace = fc.HoldSpeed
+			}
+		case OrderFormationRetreat:
+			stepPace = fc.RetreatSpeed
+			if d := math.Hypot(ax-ex, ay-ey); haveEnemy && isFinite(d) && d > 0 {
+				// Pulled away from the enemy by the distance a fall-back covers in one
+				// tick, which is the pace the men are walking, so the shape withdraws
+				// at the speed it can actually be walked back at.
+				//
+				// The pull is bounded by retreat_distance as well as by the pace: a
+				// long tick, or a fast withdrawal, must not throw a formation bodily
+				// across the field, and the bound is what says how far one tick is
+				// allowed to carry a shape.
+				pull := math.Min(fc.RetreatDistance, fc.RetreatSpeed*v.TickSeconds)
+				anchorX, anchorY = ax+(ax-ex)/d*pull, ay+(ay-ey)/d*pull
 				walking = true
 			}
-		} else {
-			// In contact, or nothing to close on: the shape stops closing and
-			// stands where it is. It does not stop tidying itself, so a line
-			// that arrived as a crowd reforms in place and shoots from there.
-			stepPace = fc.HoldSpeed
-		}
-	case OrderFormationMove:
-		// A move is a walk towards a place, and the pace of a walk is the file's
-		// walking pace: advance_speed. It is the same number an advance uses, and
-		// deliberately so. A formation marching to a hill and a formation closing
-		// on the enemy are the same walk by the same men, and two constants for one
-		// pace are two numbers that can disagree about how fast men walk.
-		stepPace = fc.AdvanceSpeed
-		// The destination is checked here rather than only at construction: this is
-		// the order that reads it, and an order that reads a nil destination is a
-		// formation with nowhere to go.
-		if g.order.At == nil {
-			return newFormationError("orderGroup", "Group.Order.At",
-				"group %s is ordered to move and was given no place to move to", g.order.Kind)
-		}
-		d := math.Hypot(ax-g.order.At.X, ay-g.order.At.Y)
-		switch {
-		case !isFinite(d):
-			// A distance that is not a number is not a place to walk to. The shape
-			// holds rather than marching off the field on it, which is the same
-			// answer the advance gives when there is no enemy to close on.
-			stepPace = fc.HoldSpeed
-		case d > tolerance:
-			// The same one tick's worth of pace the advance and the withdrawal use,
-			// bounded by the distance that is left, so a formation that is nearly
-			// there spends its last tick arriving rather than arriving repeatedly.
-			push := math.Min(d, fc.AdvanceSpeed*v.TickSeconds)
-			anchorX, anchorY = ax+(g.order.At.X-ax)/d*push, ay+(g.order.At.Y-ay)/d*push
-			walking = true
-		default:
-			// Arrived. The tolerance is the rule for "this man is in his place", and
-			// a shape whose anchor is inside its own spacing of where it was told to
-			// go is a shape that is there; past it the tolerance is not consulted,
-			// for the reason the withdrawal overrides it, because the distance to a
-			// slot that is one push beyond them is inside the tolerance every tick.
-			//
-			// The pace comes down to the hold's, which is the half of this that is
-			// easy to leave out. A shape that has stopped walking and then tidies
-			// itself at a marching pace is a formation that never quite stands
-			// still, and a player who marched a line to a hill and watched a
-			// knocked-about squad jog back into place has been told the wrong thing
-			// about what arrived.
-			stepPace = fc.HoldSpeed
-		}
-	case OrderFormationRetreat:
-		stepPace = fc.RetreatSpeed
-		if d := math.Hypot(ax-ex, ay-ey); haveEnemy && isFinite(d) && d > 0 {
-			// Pulled away from the enemy by the distance a fall-back covers in one
-			// tick, which is the pace the men are walking, so the shape withdraws
-			// at the speed it can actually be walked back at.
-			//
-			// The pull is bounded by retreat_distance as well as by the pace: a
-			// long tick, or a fast withdrawal, must not throw a formation bodily
-			// across the field, and the bound is what says how far one tick is
-			// allowed to carry a shape.
-			pull := math.Min(fc.RetreatDistance, fc.RetreatSpeed*v.TickSeconds)
-			anchorX, anchorY = ax+(ax-ex)/d*pull, ay+(ay-ey)/d*pull
-			walking = true
 		}
 	}
-	// A square is the only shape that cannot keep up with the pace it is given.
+	// The square is the only shape that cannot keep up with the pace it is given.
 	// The pace is a speed; the unit's own speed scales it, which is what makes a
 	// fast unit in a slow formation walk faster.
 	stepPace *= c.paceScale(g.order.Kind)
 
-	slots, err := g.slotsFor(len(c.ids), p)
-	if err != nil {
-		return err
-	}
+	// Published for whoever follows this group, and set before the slots are laid
+	// out because a follower's anchor is read from here on the same tick. A group
+	// that is being ordered is a group that exists this tick; anchored is how that
+	// is said without a second field for it.
+	g.anchorX, g.anchorY, g.anchored = anchorX, anchorY, true
 
 	dt := v.TickSeconds
 	for i, id := range c.ids {
@@ -1377,6 +1538,51 @@ func (c *FormationCommander) orderGroup(v *View, g *formationGroup, ex, ey float
 		v.Commands[id] = cmd
 	}
 	return nil
+}
+
+// followAnchor is where a group that follows another one stands: immediately
+// behind the group it follows, in that group's own frame.
+//
+// # WHY THE DISTANCE IS DERIVED AND NOT CONFIGURED
+//
+// It is the depth of the two shapes plus one rank of room, and every part of that
+// is already a number the balance file holds: the shapes' own spacings decide how
+// deep they are, and the gap is rank_spacing, which is the file's own statement of
+// the room a rank of men needs to form up and move. A follow distance of its own
+// would be a third number saying the same thing, and it would be free to disagree
+// with the two shapes it is supposed to fit behind.
+//
+// The arithmetic is in the leader's frame, where forward is the way the leader
+// looks. The leader's rear rank is at its own minForward, so the follower's front
+// rank goes one rank of room behind that, and the follower's anchor is however far
+// back of its own front rank its shape reaches.
+//
+// Two shapes that are mirror images about their own axis, which is all five of
+// them are apart from the seeded scatter of a skirmish, land exactly touching. A
+// skirmish can overlap its leader slightly, by the amplitude of its own scatter,
+// which is a shape that is loose about where its men stand and not a shape that is
+// standing in the wrong place.
+func followAnchor(g *formationGroup, p FormationParams, follower []Slot) (float64, float64) {
+	lead := g.lead
+	leadMin, _, _, _, err := FormationExtent(lead.slots)
+	if err != nil {
+		// A leader with no slots is a leader with no shape to stand behind. The
+		// caller has already established that it was commanded this tick and
+		// published an anchor, so this cannot be reached from a battle; standing on
+		// the leader's anchor is the honest answer if it ever is.
+		leadMin = 0
+	}
+	_, _, _, followerMax, err := FormationExtent(follower)
+	if err != nil {
+		followerMax = 0
+	}
+	back := leadMin - p.RankSpacing - followerMax
+	// A signed distance along the leader's facing: negative is behind it, which
+	// is where a follower goes. It is added rather than subtracted because that is
+	// what a forward offset means, and getting that backwards would put every
+	// follower in front of the group it is following, where it could see the fight
+	// and would not be behind anybody.
+	return lead.anchorX + math.Cos(lead.facing)*back, lead.anchorY + math.Sin(lead.facing)*back
 }
 
 // paceScale turns a formation pace in metres per second into the multiplier of a

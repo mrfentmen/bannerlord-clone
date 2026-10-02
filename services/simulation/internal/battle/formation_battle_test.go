@@ -1443,3 +1443,222 @@ func countSpoken(cmds []UnitCommand) int {
 	}
 	return n
 }
+
+// TestAFollowerStandsBehindTheGroupItFollows is the follow order as arithmetic,
+// with the numbers written out rather than measured off a battle.
+//
+// Three things have to be true at once and none of them implies the others. The
+// follower stands BEHIND, which is the leader's back and not the world's -Y: a
+// commander whose groups face north has its followers to the south, and a test
+// that only ever faces one way cannot tell a follower from a group that happens
+// to be south of the other one. It stands one rank of room behind the leader's
+// last rank, which is the room the balance file says a rank needs and not a
+// distance written here. And it stands there exactly, so the men land on their
+// slots around that point on the first tick rather than converging on it over the
+// next minute.
+func TestAFollowerStandsBehindTheGroupItFollows(t *testing.T) {
+	cfg := loadConfig(t)
+	p := FormationParamsFrom(cfg.Formation)
+	// Facing EAST, so the leader's back is -X and the world has no opinion about
+	// it. An implementation that put the follower to the south whatever the facing
+	// would pass a test whose leader faces north and fail this one, and the
+	// follower is dropped due south of the leader so that walking to the right
+	// place is unambiguously northward and westward at the same time.
+	const (
+		leaderFacing = 0.0
+		leaderX      = 30.0
+		leaderY      = 12.0
+		perGroup     = 4
+	)
+	v := &View{
+		Elapsed:     0,
+		TickSeconds: cfg.Battle.TickSeconds,
+		Units:       make([]UnitView, 2*perGroup+1),
+		Commands:    make([]UnitCommand, 2*perGroup+1),
+	}
+	leader := make([]int, perGroup)
+	follower := make([]int, perGroup)
+	for i := 0; i < perGroup; i++ {
+		leader[i] = i
+		follower[i] = perGroup + i
+	}
+	// The leader is stood on its slots so its anchor is exactly where it is put,
+	// and the follower is dropped well away from where it belongs so that any
+	// movement it is ordered is a move towards the right place rather than a
+	// settling.
+	lslots, err := FormationLayout(FormationLine, perGroup, p)
+	if err != nil {
+		t.Fatalf("laying out the leader: %v", err)
+	}
+	for i, id := range leader {
+		x, y := lslots[i].place(leaderX, leaderY, leaderFacing)
+		v.Units[id] = UnitView{ID: id, Side: SideA, Status: StatusFighting, Troops: 10, Speed: 4, X: x, Y: y}
+	}
+	for _, id := range follower {
+		v.Units[id] = UnitView{ID: id, Side: SideA, Status: StatusFighting, Troops: 10, Speed: 4,
+			X: leaderX, Y: leaderY + 200}
+	}
+	v.Units[2*perGroup] = UnitView{ID: 2 * perGroup, Side: SideB, Status: StatusFighting, Troops: 200,
+		Speed: 4, X: 400, Y: 0}
+	zero := 0
+	cmd, err := NewFormationCommander(cfg, SideA, []Group{
+		{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold,
+			Facing: Facing{Bearing: leaderFacing, Fixed: true}}, Units: leader},
+		{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold, Follow: &zero}, Units: follower},
+	})
+	if err != nil {
+		t.Fatalf("building the commander: %v", err)
+	}
+	if err := cmd.Command(v); err != nil {
+		t.Fatalf("Command: %v", err)
+	}
+
+	// What the geometry says, worked out here rather than read back out of the
+	// layer: the leader's rear rank is at its own minForward, the follower's front
+	// rank goes one rank of room behind that, and a single-rank line has every rank
+	// on its anchor, so both minForward and the follower's maxForward are zero.
+	leadMin, _, _, _, err := FormationExtent(lslots)
+	if err != nil {
+		t.Fatalf("leader extent: %v", err)
+	}
+	fslots, err := FormationLayout(FormationLine, perGroup, p)
+	if err != nil {
+		t.Fatalf("laying out the follower: %v", err)
+	}
+	_, _, _, followerMax, err := FormationExtent(fslots)
+	if err != nil {
+		t.Fatalf("follower extent: %v", err)
+	}
+	fwd := leadMin - p.RankSpacing - followerMax
+	wantX := leaderX + math.Cos(leaderFacing)*fwd
+	wantY := leaderY + math.Sin(leaderFacing)*fwd
+
+	// The follower's men are ordered towards their slots around that point, so the
+	// direction each is walking is the direction from him to the place he should be.
+	summed := 0.0
+	for _, id := range follower {
+		c := v.Commands[id]
+		if !c.Set {
+			t.Fatalf("follower unit %d was given no order; it is 200 m from where it should be", id)
+		}
+		summed += math.Hypot(c.DX, c.DY)
+	}
+	// One tick's walk towards the slots is all a follower gets, however far away it
+	// is, and that is the cap that keeps it from teleporting into place.
+	want := cfg.Formation.AdvanceSpeed * cfg.Battle.TickSeconds
+	for _, id := range follower {
+		c := v.Commands[id]
+		step := math.Hypot(c.DX, c.DY)
+		if step > want+1e-9 {
+			t.Errorf("follower unit %d was told to walk %.3f m in a tick, more than the %.3f m a "+
+				"formation walks in one tick; a follower that could cover any distance could also "+
+				"cover a distance nobody walked", id, step, want)
+		}
+	}
+	// The commanded anchor itself, read back off the group the layer built. This is
+	// the exact statement of the geometry: not that the men are heading the right
+	// way, which a large enough step would satisfy from anywhere, but that the
+	// shape was centred on this point and not a neighbouring one.
+	g := cmd.groups[1]
+	if !g.anchored {
+		t.Fatal("the follower was ordered and published no anchor, so nothing can follow it either")
+	}
+	if d := math.Hypot(g.anchorX-wantX, g.anchorY-wantY); d > 1e-9 {
+		t.Errorf("the follower's anchor is at (%+.6f, %+.6f) and the geometry says (%+.6f, %+.6f), "+
+			"%.6f m apart", g.anchorX, g.anchorY, wantX, wantY, d)
+	}
+
+	// And it is walking south and west: south because this follower was dropped due
+	// south of its leader and has to come back up to it, west because behind a
+	// leader facing east is west. Every follower is ordered, so this is the
+	// direction of every step the group was given.
+	southWest, other := 0, 0
+	for _, id := range follower {
+		c := v.Commands[id]
+		if c.DY < 0 && c.DX < 0 {
+			southWest++
+			continue
+		}
+		other++
+		t.Errorf("follower unit %d was told to walk (%+.4f, %+.4f); it is due south of its leader and "+
+			"behind a leader facing east is west, so it should be walking south-west", id, c.DX, c.DY)
+	}
+	if southWest != perGroup {
+		t.Errorf("%d of %d men in a group following a leader that faces east walked south-west, and "+
+			"%d walked somewhere else", southWest, perGroup, other)
+	}
+	t.Logf("a leader of %d men facing east at (%+.1f, %+.1f), rear rank at forward %+.2f, and a "+
+		"follower of %d whose front rank goes one rank of room (%.2f m) behind it: the follower's "+
+		"anchor is at (%+.6f, %+.6f) exactly, its men walk %d steps totalling %.3f m this tick "+
+		"under the %.3f m one-tick cap, and all %d of them walk south-west",
+		perGroup, leaderX, leaderY, leadMin, perGroup, p.RankSpacing, g.anchorX, g.anchorY, perGroup,
+		summed, want, southWest)
+}
+
+// TestAFollowIsRefusedWhenItNamesNothingThere is the refusal half of follow: a
+// follow that cannot be carried out is an error and not a group that quietly
+// stands still.
+func TestAFollowIsRefusedWhenItNamesNothingThere(t *testing.T) {
+	cfg := loadConfig(t)
+	ids := []int{0, 1, 2, 3}
+	line := GroupOrder{Kind: FormationLine, Order: OrderFormationHold}
+	idx := func(i int) *int { return &i }
+	cases := []struct {
+		name   string
+		groups []Group
+		want   string
+	}{
+		{
+			name: "itself",
+			groups: []Group{
+				{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold, Follow: idx(0)}, Units: ids},
+			},
+			want: "follow itself",
+		},
+		{
+			name: "a group this commander does not have",
+			groups: []Group{
+				{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold, Follow: idx(4)}, Units: ids},
+			},
+			want: "built with 1 groups",
+		},
+		{
+			name: "two groups following each other",
+			groups: []Group{
+				{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold, Follow: idx(1)}, Units: ids[:2]},
+				{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold, Follow: idx(0)}, Units: ids[2:]},
+			},
+			want: "a circle",
+		},
+		{
+			name: "three groups in a circle",
+			groups: []Group{
+				{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold, Follow: idx(1)}, Units: ids[:1]},
+				{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold, Follow: idx(2)}, Units: ids[1:2]},
+				{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold, Follow: idx(0)}, Units: ids[2:]},
+			},
+			want: "a circle",
+		},
+		{
+			name: "a place to go and a group to follow",
+			groups: []Group{
+				{Order: line, Units: ids[:2]},
+				{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationMove,
+					At: &Destination{X: 10, Y: 10}, Follow: idx(0)}, Units: ids[2:]},
+			},
+			want: "two destinations",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := NewFormationCommander(cfg, SideA, tc.groups)
+			if err == nil {
+				t.Fatalf("a commander was built for a follow that %s", tc.name)
+			}
+			if !strings.Contains(err.Error(), tc.want) {
+				t.Errorf("refused with %q, which does not say %q", err, tc.want)
+			}
+			t.Logf("%s -> %v", tc.name, err)
+		})
+	}
+}

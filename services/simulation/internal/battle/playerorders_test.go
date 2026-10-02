@@ -25,7 +25,7 @@ func TestEveryWireOrderIsEitherCarriedOutOrRefusedByName(t *testing.T) {
 	carried := map[OrderName]bool{
 		OrderHoldPosition: true, OrderAdvance: true, OrderCharge: true,
 		OrderFallBack: true, OrderRetreat: true, OrderChangeFormation: true,
-		OrderFaceDirection: true, OrderTacticMove: true,
+		OrderFaceDirection: true, OrderTacticMove: true, OrderFollow: true,
 	}
 	seen := map[OrderName]bool{}
 	for _, name := range ValidOrders() {
@@ -36,7 +36,8 @@ func TestEveryWireOrderIsEitherCarriedOutOrRefusedByName(t *testing.T) {
 
 		// Parameters that satisfy every order that takes one, so the test is about
 		// which orders exist rather than about which parameters were supplied.
-		p := OrderParams{Formation: "wedge", Bearing: 1.5, HasFacing: true, X: -120, Y: 40, HasPoint: true}
+		p := OrderParams{Formation: "wedge", Bearing: 1.5, HasFacing: true, X: -120, Y: 40, HasPoint: true,
+			FollowGroup: 0, HasFollow: true}
 		am, err := PlanGroupOrder(name, p)
 		switch {
 		case carried[name]:
@@ -46,7 +47,10 @@ func TestEveryWireOrderIsEitherCarriedOutOrRefusedByName(t *testing.T) {
 			}
 			// An amendment that changes nothing is a silent stub: the order would
 			// be accepted and the standing order would be exactly as it was.
-			if !am.saysKind && !am.saysOrder && !am.saysFacing {
+			// saysFollow is in the list because follow speaks to a field of its own,
+			// and an order that amended only that field would be caught by leaving
+			// it out of this list.
+			if !am.saysKind && !am.saysOrder && !am.saysFacing && !am.saysFollow {
 				t.Errorf("order %q is carried out but amends nothing", name)
 			}
 			t.Logf("carried out: %-18s -> %s", name, am.describes)
@@ -88,15 +92,15 @@ func TestTheOrdersThisLayerDoesNotCarryOutAreAllAccountedFor(t *testing.T) {
 			t.Errorf("order %q has a reason recorded and was still accepted", name)
 		}
 	}
-	// The counts, because "eight carried out and six refused" is how the file
+	// The counts, because "nine carried out and five refused" is how the file
 	// describes itself, and a count in a comment that has drifted is a comment a
 	// reader stops trusting.
-	if len(unexecutableOrders) != 6 {
-		t.Errorf("%d orders are accounted for as somebody else's, and the file says six",
+	if len(unexecutableOrders) != 5 {
+		t.Errorf("%d orders are accounted for as somebody else's, and the file says five",
 			len(unexecutableOrders))
 	}
-	if len(executableOrders) != 8 {
-		t.Errorf("%d orders are carried out, and the file says eight", len(executableOrders))
+	if len(executableOrders) != 9 {
+		t.Errorf("%d orders are carried out, and the file says nine", len(executableOrders))
 	}
 }
 
@@ -434,6 +438,8 @@ func TestOrdersRefuseWhatTheyCannotCarryOut(t *testing.T) {
 		{name: "a face-direction with no bearing", order: OrderFaceDirection, params: OrderParams{}, units: []int{0}, field: "OrderParams.Bearing"},
 		{name: "a move with nowhere to go", order: OrderTacticMove, params: OrderParams{}, units: []int{0}, field: "OrderParams.X"},
 		{name: "a move to a point that is not a place", order: OrderTacticMove, params: OrderParams{X: math.NaN(), Y: 0, HasPoint: true}, units: []int{0}, field: "OrderParams.X"},
+		{name: "a follow of nobody", order: OrderFollow, params: OrderParams{}, units: []int{0}, field: "OrderParams.FollowGroup"},
+		{name: "a follow of a negative group", order: OrderFollow, params: OrderParams{FollowGroup: -1, HasFollow: true}, units: []int{0}, field: "OrderParams.FollowGroup"},
 		{name: "a face-direction with a bearing that is not a direction", order: OrderFaceDirection, params: OrderParams{Bearing: math.NaN(), HasFacing: true}, units: []int{0}, field: "OrderParams.Bearing"},
 	}
 	for _, tc := range cases {
