@@ -40,6 +40,7 @@ import { AmbientParticles, ParticleDensityManager } from "./particles.js";
 import { PARTICLE_DENSITY_DEFAULT } from "../design/particles.js";
 import { mapColor, tokens } from "../design/tokens.js";
 import { attachMapGestures } from "../input/touch/gestures.js";
+import { applyMouseCameraBindings, loadMouseCameraBindings } from "../input/mouseBindings.js";
 import { resolveGrade, type QualityLevel } from "../design/grade.js";
 import {
   DEFAULT_GRAIN_INTENSITY,
@@ -230,6 +231,9 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
   camera.minZ = 20;
   camera.maxZ = 260_000;
   camera.attachControl(canvas, true);
+
+  // Mouse-button remapping (Rowan solo task 13): which button pans vs orbits.
+  applyMouseCameraBindings(camera, loadMouseCameraBindings());
 
   // Touch gestures (MASTER_PLAN task 4): one-finger drag pans the map,
   // two-finger pinch zooms and twists to rotate. Babylon's own one-finger

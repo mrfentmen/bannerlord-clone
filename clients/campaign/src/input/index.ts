@@ -12,3 +12,4 @@ export const input = createInputRegistry();
 
 export * from "./actions.js";
 export * from "./registry.js";
+export * from "./mouseBindings.js";
