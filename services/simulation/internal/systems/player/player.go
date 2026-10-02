@@ -386,10 +386,9 @@ func applyPrisoner(v *sim.View, w *sim.WriteSet, o sim.Order) {
 						w.Add(model.KindTown, tid, "morale", -0.1,
 							"execution nearby", nil, "dread from execution")
 					}
-					break
+					break // found captor's party, check next town
 				}
 			}
-			break // only check once
 		}
 	}
 	// Every oath the prisoner had made is broken by their death, and the
