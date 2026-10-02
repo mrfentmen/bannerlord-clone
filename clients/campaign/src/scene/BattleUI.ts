@@ -9,6 +9,7 @@ import { battleSide, status } from "../design/tokens.js";
 import { h } from "../ui/dom.js";
 import { PLAYABLE_SIDE_IDS, factionPalette, type PlayableSideId } from "../design/factions.js";
 import { BANNER_COLORS } from "../clan/bannerPalette.js";
+import { getAudioManager } from "../audio/AudioManager.js";
 import type { ColorblindMode } from "../settings/schema.js";
 
 /** Deployment phase: player places troops before battle starts. */
@@ -22,6 +23,13 @@ export interface DeploymentZone {
 
 /** Seconds the player gets to deploy before the battle starts itself. */
 export const DEPLOY_SECONDS = 60;
+
+/**
+ * The track the deployment phase plays. Deployment is already the battle: the sky
+ * the player deploys under is the sky the battle is fought in, so the track is the
+ * battle track rather than a menu cue.
+ */
+export const DEPLOYMENT_TRACK = "battle-theme";
 
 /** `90` -> `1:30`, `5` -> `0:05`. The header shows minutes:seconds. */
 export function formatCountdown(seconds: number): string {
@@ -217,6 +225,20 @@ export class DeploymentUI {
     this.completed = false;
     this.onExpire = onComplete;
     this.startCountdown();
+    this.startMusic();
+  }
+
+  /**
+   * Put the battle track on when the phase opens. Audio is optional here: there may
+   * be no AudioContext at all, and the track has to be fetched, so a failure is
+   * swallowed rather than allowed to stop a battle the player is ready to fight.
+   */
+  private startMusic(): void {
+    try {
+      void getAudioManager().playMusic(DEPLOYMENT_TRACK).catch(() => {});
+    } catch {
+      // No audio stack: the overlay and the countdown are unaffected.
+    }
   }
 
   /**

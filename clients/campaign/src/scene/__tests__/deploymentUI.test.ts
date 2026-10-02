@@ -11,10 +11,11 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DeploymentUI, DEPLOY_SECONDS, factionColor, formatCountdown } from "../BattleUI.js";
+import { DeploymentUI, DEPLOYMENT_TRACK, DEPLOY_SECONDS, factionColor, formatCountdown } from "../BattleUI.js";
 import type { DeploymentZone } from "../BattleUI.js";
 import { factionPalette } from "../../design/factions.js";
 import { BANNER_COLORS } from "../../clan/bannerPalette.js";
+import { getAudioManager } from "../../audio/AudioManager.js";
 
 const PLAYER_ZONE: DeploymentZone = { x: -20, z: 30, width: 24, depth: 12, faction: "player" };
 const ENEMY_ZONE: DeploymentZone = { x: -20, z: -40, width: 24, depth: 12, faction: "enemy" };
@@ -428,6 +429,50 @@ describe("time of day (task 15)", () => {
 
     expect(document.querySelector(".deploy-time")).toBeNull();
 
+    ui.hide();
+  });
+});
+
+describe("music on show (task 16)", () => {
+  it("asks the audio manager for the deployment track", () => {
+    const playMusic = vi.spyOn(getAudioManager(), "playMusic").mockResolvedValue(undefined);
+
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE], () => {});
+
+    expect(playMusic).toHaveBeenCalledWith(DEPLOYMENT_TRACK);
+    expect(DEPLOYMENT_TRACK).toBe("battle-theme");
+
+    playMusic.mockRestore();
+    ui.hide();
+  });
+
+  it("still opens the phase when the audio stack refuses", async () => {
+    const playMusic = vi.spyOn(getAudioManager(), "playMusic").mockRejectedValue(new Error("no AudioContext"));
+
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE], () => {});
+    // Let the rejection settle; an unhandled one would fail the run.
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(document.querySelector(".battle-deployment")).not.toBeNull();
+    expect(document.querySelector(".deploy-ready")).not.toBeNull();
+
+    playMusic.mockRestore();
+    ui.hide();
+  });
+
+  it("still opens the phase when the audio manager throws outright", () => {
+    const playMusic = vi.spyOn(getAudioManager(), "playMusic").mockImplementation(() => {
+      throw new Error("audio unavailable");
+    });
+
+    const ui = new DeploymentUI();
+    expect(() => ui.show([PLAYER_ZONE], () => {})).not.toThrow();
+    expect(document.querySelector(".battle-deployment")).not.toBeNull();
+
+    playMusic.mockRestore();
     ui.hide();
   });
 });
