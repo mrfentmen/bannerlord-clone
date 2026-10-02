@@ -629,9 +629,34 @@ func (s *orderSpy) Command(v *View) error {
 //
 // Two things have to hold at once. The man who is out of his place is told to
 // walk toward his slot, with the order pointing at the slot rather than merely
-// being non-zero. And a man standing inside the cohesion tolerance is left
-// alone, because a formation that orders a man in his slot to walk in his slot
-// is a formation layer arguing with itself every tick.
+// being non-zero. And a man standing inside the radius is left where he is: not
+// walked, and not left to the engine either.
+//
+// # WHY "LEFT ALONE" MEANS A PIN AND NOT SILENCE
+//
+// Silence and a pin are the same movement and not the same order. A commander that
+// says nothing leaves the unit to the engine's own rules, and the engine's own
+// rules for a man who is not in contact are to close on the enemy. So a hold that
+// answered with silence was a hold that advanced: measured on the thirty-a-side
+// session, thirty-five metres towards the enemy over two hundred ticks, steady,
+// never stopping. The layer believed it had told the line to stand still and the
+// only party still speaking to those men was telling them to advance.
+//
+// UnitCommand's contract has always said which of the two a stand-still order is:
+// "a zero-length order on a commander that means 'stand still' must therefore set
+// Set, and a commander that says nothing leaves it clear." So the pin is what a
+// hold writes, and what this test now checks is the difference that matters: a man
+// in his place is written to with a step of zero metres, and never with a step that
+// walks him inside his own slot.
+//
+// The radius is settleRadius rather than the whole spacing, and that is the second
+// half of the same fix. A whole spacing of in-place tolerance lets two neighbours
+// meet in the middle: they are one spacing apart and each may be a whole spacing
+// out from his own slot, so a settled line can put two men 0.20 m apart against a
+// balance file that names 1.2 m as the smallest gap the spacing pass will allow.
+// The pass does not rescue a commanded man either, because the seam writes the
+// commander's movement over the intent stage's wholesale, so a formation's own
+// slots are the only thing keeping its men out of each other.
 func TestADisplacedManWalksBackToHisSlot(t *testing.T) {
 	cfg := loadConfig(t)
 	const n = 6
@@ -644,6 +669,14 @@ func TestADisplacedManWalksBackToHisSlot(t *testing.T) {
 	// cohesion order asks for.
 	paceStep := cfg.Formation.HoldSpeed * cfg.Battle.TickSeconds
 	tolerance := cohesionTolerance(FormationLine, p)
+	// How far a man may be from his slot and still be pinned rather than walked:
+	// half of what the shape's neighbour gap can give up before two of its men
+	// could stand closer than the spacing pass's minimum.
+	inPlace := settleRadius(FormationLine, p)
+	if inPlace <= 0 || inPlace >= tolerance {
+		t.Fatalf("the in-place radius of a line is %.3f m against a %.3f m spacing; a radius that is "+
+			"not inside the shape's own spacing is not a radius", inPlace, tolerance)
+	}
 
 	// Two men are displaced, one north and one south by the same distance, so
 	// the group's centre of mass does not move and the anchor is where the men
@@ -655,12 +688,12 @@ func TestADisplacedManWalksBackToHisSlot(t *testing.T) {
 	for _, c := range []struct {
 		name string
 		// off is how far north of his slot the northern man is standing, and how
-		// far south of his the southern one is.
+		// far south of his his the southern one is.
 		off float64
 	}{
 		{"two men a long way out of their places", 12},
-		{"two men just out of their places", tolerance * 1.5},
-		{"two men inside the tolerance", tolerance * 0.5},
+		{"two men just out of their places", inPlace * 2},
+		{"two men inside the in-place radius", inPlace * 0.5},
 	} {
 		v := &View{
 			Elapsed:     0,
@@ -723,18 +756,25 @@ func TestADisplacedManWalksBackToHisSlot(t *testing.T) {
 		if err := cmd.Command(v); err != nil {
 			t.Fatalf("%s: ordering the field failed: %v", c.name, err)
 		}
-		inside := wants[0].dist <= tolerance
+		inside := wants[0].dist <= inPlace
 		for _, w := range wants {
 			got := v.Commands[w.id]
 			gotDist := math.Hypot(got.DX, got.DY)
 			if inside {
-				// Inside the tolerance: he is standing in his slot and must be
-				// left to the engine's own rules.
-				if got.Set {
-					t.Errorf("%s: unit %d is %.3f m from his slot, inside the %.3f m tolerance, and was "+
-						"told to walk %g, %g; a formation that orders a man in his slot to walk in his "+
-						"slot is arguing with itself every tick", c.name, w.id, w.dist, tolerance,
-						got.DX, got.DY)
+				// Inside the radius: he is standing in his place, and the order
+				// that says so is the pin. Silence would hand him back to the
+				// engine, and the engine closes on the enemy.
+				if !got.Set {
+					t.Errorf("%s: unit %d is %.3f m from his slot, inside the %.3f m in-place radius, "+
+						"and was given no order at all; a hold that says nothing hands him to the "+
+						"engine's own rules, which are to advance", c.name, w.id, w.dist, inPlace)
+					continue
+				}
+				if gotDist != 0 {
+					t.Errorf("%s: unit %d is %.3f m from his slot, inside the %.3f m in-place radius, "+
+						"and was told to walk %g, %g; a formation that orders a man in his slot to "+
+						"walk in his slot is arguing with itself every tick", c.name, w.id, w.dist,
+						inPlace, got.DX, got.DY)
 				}
 				continue
 			}
@@ -771,18 +811,30 @@ func TestADisplacedManWalksBackToHisSlot(t *testing.T) {
 				c.name, w.id, w.dist, gotDist)
 		}
 		if inside {
-			t.Logf("%-38s: both men inside the %.3f m tolerance, so neither was given a movement order",
-				c.name, tolerance)
+			t.Logf("%-38s: both men inside the %.3f m in-place radius, so both were pinned where "+
+				"they stood", c.name, inPlace)
 		}
-		// Everyone else is standing exactly on his slot and must be left alone.
+		// Everyone else is standing exactly on his slot. Under a hold that is the
+		// pin and nothing else: he is written to, with a step of zero metres, so
+		// the engine does not take him for a man nobody ordered.
+		pinned := 0
 		for i := range slots {
-			if i == north || i == south || !v.Commands[i].Set {
+			if i == north || i == south {
 				continue
 			}
-			t.Errorf("%s: unit %d is standing on his slot and was told to walk %g, %g; a man in his "+
-				"place who is told to keep walking is a formation arguing with itself", c.name, i,
-				v.Commands[i].DX, v.Commands[i].DY)
+			pin := v.Commands[i]
+			if !pin.Set {
+				continue
+			}
+			if pin.DX != 0 || pin.DY != 0 {
+				t.Errorf("%s: unit %d is standing on his slot and was told to walk %g, %g; a man in "+
+					"his place who is told to keep walking is a formation arguing with itself", c.name, i,
+					pin.DX, pin.DY)
+				continue
+			}
+			pinned++
 		}
+		t.Logf("%-38s: %d men on their slots were pinned with a zero step", c.name, pinned)
 	}
 
 	// The cap at the slot distance is what stops a man reversing every tick, and
@@ -929,7 +981,7 @@ func TestAnAdvanceOrAChargeCarriesTheShapeForward(t *testing.T) {
 		case OrderFormationRetreat:
 			pace = cfg.Formation.RetreatSpeed
 		}
-		ordered, formed := 0, 0
+		ordered, formed, pinned := 0, 0, 0
 		for i := 0; i < n; i++ {
 			got := v.Commands[i]
 			if got.FormationSet && got.Formation == FormationLine {
@@ -939,13 +991,23 @@ func TestAnAdvanceOrAChargeCarriesTheShapeForward(t *testing.T) {
 				continue
 			}
 			ordered++
+			// A zero step is a pin and not a movement: the man is written to and
+			// told to stay where he is, which is how a hold keeps the engine from
+			// advancing a man it has already placed. The two are counted apart
+			// because they are different orders, and a test that counted only "was
+			// he spoken to" would call a settled formation a moving one.
+			if got.DX == 0 && got.DY == 0 {
+				pinned++
+			}
 			if got.Intent == IntentHold && c.order != OrderFormationHold {
 				t.Errorf("%s: unit %d was ordered to move and told it was holding", c.order, i)
 			}
 			if c.want == 0 {
-				t.Errorf("%s: unit %d was told to move %g, %g m, and a hold is a hold; every man in this "+
-					"view is already on his slot, so a hold has nothing to do but leave him there",
-					c.order, i, got.DX, got.DY)
+				if got.DX != 0 || got.DY != 0 {
+					t.Errorf("%s: unit %d was told to move %g, %g m, and a hold is a hold; every man in "+
+						"this view is already on his slot, so a hold has nothing to do but pin him where "+
+						"he stands", c.order, i, got.DX, got.DY)
+				}
 				continue
 			}
 			if got.DX*c.want <= 0 {
@@ -962,10 +1024,20 @@ func TestAnAdvanceOrAChargeCarriesTheShapeForward(t *testing.T) {
 					c.order, i, step, c.order, pace, wantStep(pace))
 			}
 		}
-		t.Logf("%-8s %d of %d men in a line already on their slots were ordered to move, at %.3f m a tick",
-			c.order, ordered, n, wantStep(pace))
-		if c.want == 0 && ordered != 0 {
-			t.Errorf("%s: %d men were ordered to move out of a shape they are already standing in", c.order, ordered)
+		t.Logf("%-8s %d of %d men in a line already on their slots were spoken to: %d walked and %d "+
+			"were pinned, at %.3f m a tick",
+			c.order, ordered, n, ordered-pinned, pinned, wantStep(pace))
+		if c.want == 0 && ordered-pinned != 0 {
+			t.Errorf("%s: %d men were ordered to move out of a shape they are already standing in",
+				c.order, ordered-pinned)
+		}
+		if c.want == 0 && ordered != n {
+			t.Errorf("%s: %d of %d men were left to the engine's own rules, and the engine's own rules "+
+				"for a man out of contact are to close on the enemy; a hold pins all of them",
+				c.order, n-ordered, n)
+		}
+		if c.want == 0 && formed != n {
+			t.Errorf("%s: %d of %d men were put in the formation, want all of them", c.order, formed, n)
 		}
 		if c.want != 0 && ordered != n {
 			t.Errorf("%s: %d of %d men were ordered to move and the rest were left where they stood; an "+
@@ -990,16 +1062,15 @@ func TestAnAdvanceOrAChargeCarriesTheShapeForward(t *testing.T) {
 // shape instead. The end of a battle is no better an observable: it is decided
 // by who won and by what a routed side does with its legs.
 //
-// A hold is the reference and is allowed to drift, because the engine's own
-// intent stage moves an uncommanded man and a formation that is only tidying
-// itself is not holding a position to the metre. What is not allowed is for the
-// four orders to come out in the same order as each other, which is exactly what
-// happened twice: when the in-slot exemption applied to a retreating formation
-// the anchor moved back by less than the cohesion tolerance, so every man was
-// "already in his slot", nobody was ordered, and a withdrawal withdrew nothing;
-// and when the anchor was left still for an advancing formation the same
-// exemption meant an advance only ever moved by however fast the enemy's approach
-// displaced its men.
+// A hold is the reference and does not move: it pins its men where they are, and
+// the engine's own intent stage never gets to advance a man the formation layer
+// has already placed. What is not allowed is for the four orders to come out in
+// the same order as each other, which is exactly what happened twice: when the
+// in-slot exemption applied to a retreating formation the anchor moved back by
+// less than the cohesion tolerance, so every man was "already in his slot", nobody
+// was ordered, and a withdrawal withdrew nothing; and when the anchor was left
+// still for an advancing formation the same exemption meant an advance only ever
+// moved by however fast the enemy's approach displaced its men.
 func TestEachOrderMovesTheFormationTheWayItSays(t *testing.T) {
 	cfg := loadConfig(t)
 	const seed = 20260930
@@ -1061,17 +1132,27 @@ func TestEachOrderMovesTheFormationTheWayItSays(t *testing.T) {
 				faster, walked[faster], slower, walked[slower], walked[faster]-walked[slower], gapNeeded)
 		}
 	}
-	// A hold is a tidying pass and is allowed to drift, because a man already in
-	// his slot is given no order and follows the engine's own rules. It is not
-	// allowed to become a march, though: the whole of the drift has to be less
-	// than the distance a formation covers tidying itself at its own configured
-	// pace, which is what makes it a shuffle rather than a march.
+	// A hold pins its men, so the bound is much tighter than it was, and the
+	// reason is worth writing down rather than leaving the number looking
+	// arbitrary.
+	//
+	// Silence used to be a hold's answer, and silence in this engine means the
+	// engine's own rules, which for a man out of contact are to close on the
+	// enemy. A hold that said nothing was therefore a hold that advanced, and it
+	// was measured doing it: 35 m towards the enemy over 200 ticks on the
+	// thirty-a-side session, steady and never stopping. A hold now writes the
+	// zero step, which is what UnitCommand's own contract says a stand-still order
+	// is, and the same fight walks 0.4 m over 160.
+	//
+	// The bound is one frontage, and it is the same yardstick the comparison above
+	// uses: a formation that has drifted less than a man is out of his place has
+	// not visibly moved, and one that has drifted more has. It comes from the
+	// balance file because that is where a number like it lives.
 	drift := math.Abs(walked[OrderFormationHold])
-	tidy := cfg.Formation.HoldSpeed * cfg.Battle.TickSeconds * float64(probe-settle)
-	if drift > tidy {
-		t.Errorf("a hold walked %+.2f m in %d ticks, which is more than the %.2f m a formation "+
-			"tidies itself at hold_speed (%.2f m/s) in that time; a hold is a shuffle, not a march",
-			walked[OrderFormationHold], probe-settle, tidy, cfg.Formation.HoldSpeed)
+	if drift > cfg.Formation.FrontSpacing {
+		t.Errorf("a hold walked %+.2f m in %d ticks, which is more than the %.2f m frontage of the "+
+			"shape it is holding; a pinned formation does not walk", walked[OrderFormationHold],
+			probe-settle, cfg.Formation.FrontSpacing)
 	}
 }
 
@@ -1661,4 +1742,369 @@ func TestAFollowIsRefusedWhenItNamesNothingThere(t *testing.T) {
 			t.Logf("%s -> %v", tc.name, err)
 		})
 	}
+}
+
+// driveFormationTick hands one tick of a hand-built field to a commander, applies
+// what it wrote, and returns the orders it wrote.
+//
+// It is here because a field built by hand has no engine to advance it, and
+// applying the orders is the whole of what a battle does with them: an order is a
+// movement in metres and the man is somewhere else afterwards. It writes the moved
+// positions back into the slice it was given, because the view it builds is reused
+// and a caller holding the positions has to be holding the current ones.
+func driveFormationTick(t *testing.T, c Commander, tickSeconds float64, units []UnitView) []UnitCommand {
+	t.Helper()
+	v := &View{
+		Tick:        1,
+		Elapsed:     tickSeconds,
+		TickSeconds: tickSeconds,
+		Units:       make([]UnitView, len(units)),
+		Commands:    make([]UnitCommand, len(units)),
+	}
+	copy(v.Units, units)
+	if err := c.Command(v); err != nil {
+		t.Fatalf("the commander refused a field of %d units: %v", len(units), err)
+	}
+	out := make([]UnitCommand, len(v.Commands))
+	copy(out, v.Commands)
+	for i := range v.Units {
+		if !out[i].Set {
+			continue
+		}
+		v.Units[i].X += out[i].DX
+		v.Units[i].Y += out[i].DY
+	}
+	copy(units, v.Units)
+	return out
+}
+
+// centreOfMassOf is the anchor orderGroup lays slots around: the group's centre of
+// mass, bodies-weighted, over the ids given. It is centreOfMass for a plain list
+// of view rows, which is what a hand-built field is made of.
+func centreOfMassOf(units []UnitView, ids []int) (float64, float64, bool) {
+	var x, y, w float64
+	for _, id := range ids {
+		if id < 0 || id >= len(units) {
+			continue
+		}
+		troops := units[id].Troops
+		if troops <= 0 {
+			troops = 1
+		}
+		x += units[id].X * troops
+		y += units[id].Y * troops
+		w += troops
+	}
+	if w == 0 {
+		return 0, 0, false
+	}
+	return x / w, y / w, true
+}
+
+// spreadFromSlots measures how far a subset of a group is from the slots the
+// group's own layout gives them, and returns the mean and the worst.
+//
+// measure is a subset of members, and it is looked up in members rather than
+// walked in step with it, because the subset is not a prefix: a company of fifteen
+// that loses its middle five has a hole in the middle, and the eight men on either
+// side of the hole hold slots 0-4 and 10-14 of the fifteen, not 0-9 of a shorter
+// line. Measuring a subset against the first k slots of a shorter layout is a test
+// that passes on a shape nobody is standing in.
+//
+// The measurement is against the group's own centre of mass, so it is a statement
+// about the shape and not about where the shape happens to be on the field: a
+// formation that walks is still a formation, and this says so.
+func spreadFromSlots(t *testing.T, units []UnitView, members, measure []int, slots []Slot,
+	ax, ay, facing float64) (mean, worst float64) {
+	t.Helper()
+	if len(slots) != len(members) {
+		t.Fatalf("measuring %d men against a layout of %d for a group of %d",
+			len(measure), len(slots), len(members))
+	}
+	at := make(map[int]int, len(members))
+	for i, id := range members {
+		at[id] = i
+	}
+	var sum float64
+	for _, id := range measure {
+		i, ok := at[id]
+		if !ok {
+			t.Fatalf("unit %d is being measured and is not in the group of %d", id, len(members))
+		}
+		x, y := slots[i].place(ax, ay, facing)
+		d := math.Hypot(x-units[id].X, y-units[id].Y)
+		sum += d
+		if d > worst {
+			worst = d
+		}
+	}
+	return sum / float64(len(measure)), worst
+}
+
+// A formation that has been routed is a shape with a hole in it, and the hole is
+// the ordinary case in a battle rather than the exception: a third of a company
+// running is a Tuesday. What the shape owes the men still in it is that it closes
+// up around them and stays a shape. What it owes the men who come back is that it
+// takes them in again rather than leaving them standing where they stopped.
+//
+// Neither is free. A group whose members are re-slotted for a smaller number gets
+// a different layout every time the count moves, so a rout hands every man who
+// stayed a new slot and a rally hands them all another, and a shape rebuilt
+// carelessly is a shape that comes apart twice in one battle. And a man who rallied
+// is, in the real case, tens of metres from the group he was in, so the order that
+// takes him back has to be an order he can obey: a pace that walks him home, not
+// one that teleports him and not silence.
+//
+// # WHY THE FIELD IS BUILT BY HAND
+//
+// The rally itself belongs to the morale stage, which owns the chance and the
+// officer's reach, and that stage's own tests own that. What is under test here is
+// the formation layer's half of the bargain: a man whose status has come back to
+// fighting is put back in the shape, and a man whose status has not is left alone.
+// Both are statements about a View, so the View is written out and the commander's
+// answers are read off it. The men who run are moved by hand for the same reason: a
+// rout is this test's input, not the thing being measured.
+func TestAFormationSurvivesARoutAndReformsOnRally(t *testing.T) {
+	cfg := loadConfig(t)
+	p := FormationParamsFrom(cfg.Formation)
+	// How far a man may be from his slot and still count as standing in it: the
+	// shape's own spacing, once. Every bound below is this number, because it is
+	// the file's own statement of what "in his place" means and a test that
+	// invents a tighter one is testing a stricter game than the balance file plays.
+	spacing := cohesionTolerance(FormationLine, p)
+	// A company of fifteen, one rank at the file's own frontage, and one man of the
+	// other army far enough east to be worth facing. Facing matters: the slots are
+	// laid out in the commander's frame, and a line with no enemy in it would be a
+	// line facing a bearing nothing chose.
+	const (
+		men    = 15
+		broken = 5
+	)
+	ids := make([]int, men)
+	for i := range ids {
+		ids[i] = i
+	}
+	full, err := FormationLayout(FormationLine, men, p)
+	if err != nil {
+		t.Fatalf("a line of %d: %v", men, err)
+	}
+	units := make([]UnitView, men+1)
+	for i := 0; i < men; i++ {
+		x, y := full[i].place(-400, 0, 0)
+		units[i] = UnitView{ID: i, Side: SideA, Status: StatusFighting, X: x, Y: y,
+			Troops: 1, Speed: 4, HPFrac: 1, Morale: 1}
+	}
+	units[men] = UnitView{ID: men, Side: SideB, Status: StatusFighting, X: 400, Y: 0,
+		Troops: 1, Speed: 4, HPFrac: 1, Morale: 1}
+
+	cmd, err := NewFormationCommander(cfg, SideA, []Group{
+		{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold}, Units: ids},
+	})
+	if err != nil {
+		t.Fatalf("building the commander: %v", err)
+	}
+	// The facing the commander settled on, read back rather than assumed: the
+	// measurement is only meaningful in the frame the slots were laid out in.
+	driveFormationTick(t, cmd, cfg.Battle.TickSeconds, units)
+	facing := cmd.groups[0].facing
+	if math.Abs(wrapAngle(facing)) > 1e-9 {
+		t.Fatalf("the line faces %.4f rad with the enemy due east; the test's own geometry is "+
+			"wrong, so a failure below would be the test's and not the commander's", facing)
+	}
+
+	// The five who break are the middle of the rank, which is the case that
+	// hurts: the hole is in the middle of the shape, so the men on either side of
+	// it are the ones whose slots move.
+	runners := make([]int, 0, broken)
+	for i := (men - broken) / 2; i < (men-broken)/2+broken; i++ {
+		runners = append(runners, i)
+	}
+	brokenSet := make(map[int]bool, len(runners))
+	for _, id := range runners {
+		brokenSet[id] = true
+	}
+	held := make([]int, 0, men-broken)
+	for _, id := range ids {
+		if !brokenSet[id] {
+			held = append(held, id)
+		}
+	}
+
+	// --- the rout ----------------------------------------------------------
+	// The status is what the morale stage would have written, and the run is what
+	// the intent stage does with it: a man who is running goes away from the fight
+	// at a run, which at these numbers is about a metre a tick. Forty ticks is ten
+	// seconds of it, enough to put him well outside the shape's own spacing and
+	// short enough that he has not left the field.
+	const (
+		routTicks   = 40
+		runPerTick  = 1.0
+		routedMetre = routTicks * runPerTick
+	)
+	for _, id := range runners {
+		units[id].Status = StatusRouted
+		units[id].Morale = 0
+	}
+	for k := 0; k < routTicks; k++ {
+		driveFormationTick(t, cmd, cfg.Battle.TickSeconds, units)
+		for _, id := range runners {
+			units[id].X -= runPerTick
+		}
+	}
+	// The men who stayed are a line of ten now, and it is a line around them.
+	ten, err := FormationLayout(FormationLine, len(held), p)
+	if err != nil {
+		t.Fatalf("a line of %d: %v", len(held), err)
+	}
+	ax, ay, ok := centreOfMassOf(units, held)
+	if !ok {
+		t.Fatal("no weight left in the group after the rout")
+	}
+	mean, worst := spreadFromSlots(t, units, held, held, ten, ax, ay, facing)
+	// Kept because the rally moves the anchor and the test wants to say by how
+	// much: a shape that re-centres on the men who came back is doing arithmetic
+	// the reader should be able to check.
+	holdAnchorX, holdAnchorY := ax, ay
+	if mean > spacing {
+		t.Errorf("after %d ticks with %d of %d men running, the %d who stayed finished a mean of "+
+			"%.2f m from the slots of a line of %d (worst %.2f m), against a shape whose own "+
+			"tolerance is %.2f m; a hole in a formation is not a reason for the rest of it to come apart",
+			routTicks, broken, men, len(held), mean, len(held), worst, spacing)
+	}
+	// And the five who are running are not in it. The formation layer does not get
+	// to decide that a routed man rejoins his slot: a broken man is withdrawing and
+	// a routed one is out of the fight, and a shape is not a reason to put either
+	// of them back.
+	cmds := driveFormationTick(t, cmd, cfg.Battle.TickSeconds, units)
+	for id, c := range cmds {
+		if !brokenSet[id] {
+			continue
+		}
+		if c.Set || c.FormationSet {
+			t.Errorf("unit %d is routed and was spoken to anyway (Set=%v FormationSet=%v %+.3f, "+
+				"%+.3f): a man who is running is left to the engine's own rules, which are the ones "+
+				"that get him off the field", id, c.Set, c.FormationSet, c.DX, c.DY)
+		}
+	}
+
+	// --- the rally ---------------------------------------------------------
+	// A rally is a status and nothing else at this layer: the man is fighting
+	// again. He is where the rout left him, which is the whole difficulty.
+	for _, id := range runners {
+		units[id].Status = StatusFighting
+		units[id].Morale = 1
+	}
+	cmds = driveFormationTick(t, cmd, cfg.Battle.TickSeconds, units)
+	ax, ay, ok = centreOfMassOf(units, ids)
+	if !ok {
+		t.Fatal("no weight left in the group after the rally")
+	}
+	// A formation's step is its own pace times the tick, whatever the man's speed,
+	// because the speed only scales it: the base is the speed a nominal man walks
+	// at and a faster man walks the same walk faster. That is the ceiling, and an
+	// order past it is not a man returning to his unit, it is a man being moved.
+	ceiling := cfg.Formation.HoldSpeed * cfg.Battle.TickSeconds
+	inGroup := make(map[int]bool, len(ids))
+	for _, id := range ids {
+		inGroup[id] = true
+	}
+	for id, c := range cmds {
+		// The other army is on this field too. Nothing was ordered to it, and a
+		// channel it was not spoken to says nothing about whether the order
+		// reached the men it was for.
+		if !inGroup[id] {
+			continue
+		}
+		if !c.FormationSet || c.Formation != FormationLine {
+			t.Errorf("unit %d rallied and was not put back in the line (FormationSet=%v, %v)", id,
+				c.FormationSet, c.Formation)
+			continue
+		}
+		sx, sy := full[id].place(ax, ay, facing)
+		if !c.Set {
+			t.Errorf("unit %d rallied %.1f m from his slot and was given no order at all; the "+
+				"order that walks a man back is the whole of what the rally is worth to him",
+				id, math.Hypot(sx-units[id].X, sy-units[id].Y))
+			continue
+		}
+		// The step has to point at the slot, not away from it, and it has to be a
+		// pace he can walk. Both are checked against the slot rather than against
+		// the group's middle, because a line's slots are all in one rank and a man
+		// who has run off the end of it has further to go sideways than forwards.
+		home := math.Hypot(sx-units[id].X, sy-units[id].Y)
+		if home < 1e-9 {
+			continue
+		}
+		if toward := (c.DX*(sx-units[id].X) + c.DY*(sy-units[id].Y)) / home; toward <= 0 {
+			t.Errorf("unit %d rallied %.1f m from his slot and was told to step %+.3f, %+.3f, which "+
+				"points away from it", id, home, c.DX, c.DY)
+		}
+		if got := math.Hypot(c.DX, c.DY); got > ceiling*(1+1e-9) {
+			t.Errorf("unit %d was told to step %.3f m in one tick to get back to his slot, which is "+
+				"more than the %.3f m a formation walks in a tick at the hold's pace", id, got, ceiling)
+		}
+	}
+	// The men who held the shape are walked, not dragged, and the shape says why
+	// it moved them at all.
+	//
+	// A rally re-centres the shape, and that is worth being explicit about rather
+	// than asserting a tidier story. The anchor is the centre of mass of the men
+	// the commander has, so five men who come back from forty metres behind it
+	// pull it back by their share of the difference, and the rank the other ten
+	// were standing in is laid out around the new middle. Here that is about
+	// thirteen metres: the line steps back to take the five in and they walk
+	// forward to their slots, and both halves of that are the same order at the
+	// same pace. The alternative, pinning the rank where it was and sending the
+	// five forward to it, was not chosen here: the shape is the shape of the men
+	// the commander has, and a line that claims ground its own men are not standing
+	// on is a line whose slots are a place rather than a formation.
+	//
+	// So the claim under test is the narrow one that is actually true: nobody is
+	// moved further in a tick than a formation walks in a tick, and a man who is
+	// given no order at all is a man already in his place.
+	movedHeld, silentHeld := 0, 0
+	for _, id := range held {
+		sx, sy := full[id].place(ax, ay, facing)
+		off := math.Hypot(sx-units[id].X, sy-units[id].Y)
+		c := cmds[id]
+		if !c.Set {
+			silentHeld++
+			if off > spacing {
+				t.Errorf("unit %d held the shape and is %.2f m from his slot, and was given no "+
+					"order; silence means a man already in his place", id, off)
+			}
+			continue
+		}
+		movedHeld++
+		if got := math.Hypot(c.DX, c.DY); got > ceiling*(1+1e-9) {
+			t.Errorf("unit %d held the shape and was told to step %.3f m in one tick when the shape "+
+				"re-centred on the rally, which is more than the %.3f m a formation walks in a tick; "+
+				"the men who held were dragged", id, got, ceiling)
+		}
+	}
+	recentred := math.Hypot(ax-holdAnchorX, ay-holdAnchorY)
+
+	// --- and the shape closes again ----------------------------------------
+	// Long enough for the slowest man to walk home at the hold's own pace, which is
+	// the pace a man rejoining a formation is given: he is not charging, he is
+	// catching up. Routed metres plus a margin, over the pace, rounded up, so the
+	// number comes from the balance file rather than from a hope.
+	const margin = 1.5
+	back := (routedMetre*margin)/ceiling + 1
+	for k := 0; k < int(back); k++ {
+		driveFormationTick(t, cmd, cfg.Battle.TickSeconds, units)
+	}
+	ax, ay, _ = centreOfMassOf(units, ids)
+	mean, worst = spreadFromSlots(t, units, ids, ids, full, ax, ay, facing)
+	if mean > spacing {
+		t.Errorf("%d ticks after the rally the %d men finished a mean of %.2f m from their slots "+
+			"(worst %.2f m), against a shape whose own tolerance is %.2f m; the men came back and "+
+			"the shape did not", int(back), men, mean, worst, spacing)
+	}
+	t.Logf("%d men: %d ran %.0f m over %d ticks, rallied, and the line was whole again %d ticks "+
+		"later at a mean of %.3f m from the slots (worst %.3f m, tolerance %.2f m); the shape "+
+		"re-centred %.1f m to take the %d back, walking the %d who held rather than dragging "+
+		"them (%d of them asked to step, %d already in place)",
+		men, broken, routedMetre, routTicks, int(back), mean, worst, spacing,
+		recentred, broken, len(held), movedHeld, silentHeld)
 }
