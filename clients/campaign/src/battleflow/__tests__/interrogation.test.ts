@@ -28,14 +28,12 @@ describe("prisoner interrogation (solo task 44)", () => {
   });
 
   it("false intel is flagged", () => {
-    for (let s = 0; s < 60; s++) {
-      const o = interrogate(captain, 0, s);
-      if (o.result === "false-intel") {
-        expect(o.intel).toContain("suspicion");
-        return;
-      }
+    // Seed 5 deterministically produces false intel from the captain.
+    const o = interrogate(captain, 0, 5);
+    expect(o.result).toBe("false-intel");
+    if (o.result === "false-intel") {
+      expect(o.intel).toContain("suspicion");
     }
-    // False intel is probabilistic; the loop above usually finds one.
   });
 
   it("is deterministic per seed", () => {

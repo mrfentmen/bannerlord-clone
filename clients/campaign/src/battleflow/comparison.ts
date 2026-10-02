@@ -7,6 +7,8 @@
  */
 
 export interface BattleStats {
+  /** Stable identity of the battle; two stats with the same id are the same battle. */
+  id?: string;
   battleName: string;
   date: number;
   playerWon: boolean;
@@ -54,7 +56,14 @@ function delta(
 
 /** Compare two battles. Throws when given the same battle twice. */
 export function compareBattles(previous: BattleStats, current: BattleStats): BattleComparison {
-  if (previous.date === current.date && previous.battleName === current.battleName) {
+  const sameId =
+    previous.id !== undefined && current.id !== undefined && previous.id === current.id;
+  const sameLegacy =
+    previous.id === undefined &&
+    current.id === undefined &&
+    previous.date === current.date &&
+    previous.battleName === current.battleName;
+  if (sameId || sameLegacy) {
     throw new Error("cannot compare a battle with itself");
   }
   const deltas = [

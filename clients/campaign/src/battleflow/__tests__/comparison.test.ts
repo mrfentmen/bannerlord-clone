@@ -43,6 +43,17 @@ describe("battle comparison (solo task 50)", () => {
     expect(() => compareBattles(prev, { ...prev })).toThrow("itself");
   });
 
+  it("distinguishes two battles that share a timestamp", () => {
+    const a = { ...prev, id: "battle-1" };
+    const b = { ...curr, id: "battle-2", date: prev.date, battleName: prev.battleName };
+    expect(() => compareBattles(a, b)).not.toThrow();
+  });
+
+  it("refuses two stats with the same id", () => {
+    const a = { ...prev, id: "battle-1" };
+    expect(() => compareBattles(a, { ...curr, id: "battle-1" })).toThrow("itself");
+  });
+
   it("formats lines", () => {
     const c = compareBattles(prev, curr);
     expect(c.deltas[0]!.line).toContain("60 → 80");
