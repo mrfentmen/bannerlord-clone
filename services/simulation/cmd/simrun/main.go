@@ -8,6 +8,9 @@
 //	simrun why     -seed 1 -log logs/run-seed-1.cause.csv
 //	simrun order
 //	simrun chains  -seed 1
+//
+// A run builds its map from the shipped settlement feed by default; pass
+// -settlements PATH for another feed, or -settlements - for the synthesised map.
 package main
 
 import (
@@ -27,7 +30,9 @@ import (
 	"mbclone/simulation/internal/profile"
 	"mbclone/simulation/internal/runner"
 	"mbclone/simulation/internal/sim"
+	"mbclone/simulation/internal/simfeed"
 	"mbclone/simulation/internal/simrun"
+	"mbclone/simulation/internal/worldgen"
 )
 
 func main() {
@@ -50,6 +55,10 @@ func main() {
 		fmt.Print(simrun.OrderReport())
 	case "balance":
 		cmdBalance(args)
+	case "battle":
+		os.Exit(simrun.BattleRecordCmd(args, os.Stdout, os.Stderr, loadConfigFor))
+	case "replay":
+		os.Exit(simrun.ReplayCmd(args, os.Stdout, os.Stderr, loadConfigFor))
 	default:
 		usage()
 		os.Exit(2)
@@ -65,8 +74,22 @@ func usage() {
   chains   -seed N                                 chain check for one run
   order                                          print the documented system order
   balance  -log FILE                               field distribution of a run
+  battle   -seed N [-a-units N] [-b-units N]      fight a battle and record it
+  replay   -battle ID                             re-run a recorded battle and diff it
 
-profiles: `+profileList()+`
+  -settlements PATH   settlement feed for run/sweep/chains
+                      (default `+simfeed.DefaultPath+`; "-" for the synthesised map)
+
+  battles are recorded under `+simrun.DefaultBattleDir+` unless -dir says otherwise:
+
+  battle   -seed 7 -a-units 40 -b-units 40        records battle-7
+  replay   -battle battle-7                       replays it and reports MATCHED or MISMATCH
+  replay   -list                                  what is recorded
+
+  replay exits 0 on a match, 1 on a mismatch, 2 on a bad command line, and 3 when
+  the record could not be replayed at all.
+
+  profiles: `+profileList()+`
 `)
 }
 
@@ -79,15 +102,65 @@ func profileList() string {
 }
 
 func loadConfig(path string) *config.Config {
+	cfg, err := loadConfigFor(path)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n", err)
+		os.Exit(1)
+	}
+	return cfg
+}
+
+// loadConfigFor is loadConfig as an error rather than an exit, for the two
+// commands that live in internal/simrun and are called from a test.
+//
+// The exit stays in loadConfig because the campaign commands want it and have
+// always had it. The battle commands report a config that will not load the same
+// way they report a record that will not replay, because a person who mistyped
+// -config needs to be told which of the two they did.
+func loadConfigFor(path string) (*config.Config, error) {
 	if path == "" {
 		path = filepath.Join("config", "balance.toml")
 	}
 	cfg, err := config.Load(path)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "config: %v\n", err)
+		return nil, fmt.Errorf("config %s: %w", path, err)
+	}
+	return cfg, nil
+}
+
+// loadFeed reads the settlement feed a run should build its map from, and the
+// notes describing what was loaded.
+//
+// The feed is on by default: the shipped snapshot is the real data this service
+// exists to simulate, so a run that quietly used the synthesised map instead
+// would report numbers for a map nobody is looking at. "-" is the way to ask for
+// the synthesised one deliberately, because the synthesised path is what the
+// tests and the order-independence checks need, and it must stay reachable.
+//
+// A feed that is present but broken stops the run. The fallback in
+// worldgen.Generate is for a service with no data at all, not for one whose
+// data failed to parse, and CONSTITUTION.md section 1.3 is explicit that a
+// failure is shown with a way to recover rather than swallowed.
+func loadFeed(path string) ([]worldgen.Settlement, []string) {
+	if path == "-" {
+		return nil, []string{"settlement feed: skipped (-), map synthesised"}
+	}
+	resolved := simfeed.ResolvePath(path)
+	if !simfeed.Exists(resolved) {
+		// Only a default that finds nothing falls back, and it says so. An
+		// explicit path that does not exist is an error.
+		if path != "" {
+			fmt.Fprintf(os.Stderr, "settlements: no such feed: %s\n", path)
+			os.Exit(1)
+		}
+		return nil, []string{"settlement feed: none found at " + resolved + ", map synthesised"}
+	}
+	feed, err := simfeed.Load(resolved)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "settlements: %v\n", err)
 		os.Exit(1)
 	}
-	return cfg
+	return feed.Settlements, []string{feed.Summary(resolved)}
 }
 
 func cmdRun(args []string) {
@@ -98,6 +171,7 @@ func cmdRun(args []string) {
 	out := fs.String("out", "logs", "output directory")
 	cfgPath := fs.String("config", "", "balance config path")
 	stateEvery := fs.Int("state-every", 30, "days between state log samples (0 disables)")
+	feedPath := fs.String("settlements", "", "settlement feed JSON (default "+simfeed.DefaultPath+"; \"-\" forces the synthesised map)")
 	_ = fs.Parse(args)
 
 	cfg := loadConfig(*cfgPath)
@@ -106,12 +180,14 @@ func cmdRun(args []string) {
 		fmt.Fprintf(os.Stderr, "unknown profile %q; valid: %s\n", *prof, profileList())
 		os.Exit(2)
 	}
-	opts := runner.Options{Seed: *seed, Years: *years, Profile: kind}
+	settlements, notes := loadFeed(*feedPath)
+	opts := runner.Options{Seed: *seed, Years: *years, Profile: kind, Settlements: settlements}
 	outcome, err := runner.Run(cfg, opts)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "run: %v\n", err)
 		os.Exit(1)
 	}
+	outcome.Notes = append(notes, outcome.Notes...)
 	if err := writeRun(cfg, outcome, *out, *stateEvery); err != nil {
 		fmt.Fprintf(os.Stderr, "write: %v\n", err)
 		os.Exit(1)
@@ -128,6 +204,7 @@ func cmdSweep(args []string) {
 	cfgPath := fs.String("config", "", "balance config path")
 	out := fs.String("out", "", "write the table to this file as well as stdout")
 	chainsOut := fs.String("chains-out", "", "write the chain frequency table here")
+	feedPath := fs.String("settlements", "", "settlement feed JSON (default "+simfeed.DefaultPath+"; \"-\" forces the synthesised map)")
 	_ = fs.Parse(args)
 
 	cfg := loadConfig(*cfgPath)
@@ -141,6 +218,10 @@ func cmdSweep(args []string) {
 		yearsVal = cfg.World.Years
 	}
 
+	// One feed read for the whole sweep, so every seed in the table is measured
+	// on the same map and a difference between seeds is a difference in the seed.
+	settlements, feedNotes := loadFeed(*feedPath)
+
 	var runs []*runner.Outcome
 	names := map[int]string{}
 	// Chain frequency is counted across every seed, which is the measurement
@@ -151,12 +232,13 @@ func cmdSweep(args []string) {
 
 	for i := 0; i < *seeds; i++ {
 		seed := *startSeed + uint64(i)
-		opts := runner.Options{Seed: seed, Years: yearsVal, Profile: kind}
+		opts := runner.Options{Seed: seed, Years: yearsVal, Profile: kind, Settlements: settlements}
 		outcome, err := runner.Run(cfg, opts)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "seed %d: %v\n", seed, err)
 			os.Exit(1)
 		}
+		outcome.Notes = append(feedNotes, outcome.Notes...)
 		runs = append(runs, outcome)
 		for _, ss := range outcome.Metrics.Sides {
 			names[ss.ID] = ss.Name
@@ -251,15 +333,18 @@ func cmdChains(args []string) {
 	years := fs.Float64("years", 0, "in-game years")
 	prof := fs.String("profile", string(profile.None), "scripted player profile")
 	cfgPath := fs.String("config", "", "balance config path")
+	feedPath := fs.String("settlements", "", "settlement feed JSON (default "+simfeed.DefaultPath+"; \"-\" forces the synthesised map)")
 	_ = fs.Parse(args)
 	cfg := loadConfig(*cfgPath)
+	settlements, notes := loadFeed(*feedPath)
 	outcome, err := runner.Run(cfg, runner.Options{
-		Seed: *seed, Years: *years, Profile: profile.Kind(*prof),
+		Seed: *seed, Years: *years, Profile: profile.Kind(*prof), Settlements: settlements,
 	})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "chains: %v\n", err)
 		os.Exit(1)
 	}
+	outcome.Notes = append(notes, outcome.Notes...)
 	fmt.Print(chains.Report(outcome.Chains, chains.All()))
 	fmt.Println()
 	// For each chain that emerged, print the log rows that demonstrate it, so

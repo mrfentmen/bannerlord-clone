@@ -193,11 +193,16 @@ type Campaign struct {
 
 	// roster, history, and notifications are this package's own read models,
 	// described in the package comment.
-	ro         *roster
+	ro       *roster
 	history  map[marketKey]*priceSeries
 	notifs   []wire.Notification
 	seenRow  map[int]bool
 	notifSeq int
+
+	// prisoners and companions are the campaign's own read models for the
+	// prisoner and companion systems, parallel to roster above.
+	prisoners  *prisonerState
+	companions *companionState
 
 	// jobs is the pending order queue. The API writes to pending; only the
 	// tick goroutine reads it, and only while holding mu.
@@ -267,7 +272,7 @@ func New(cfg *config.Config, opts Options) (*Campaign, error) {
 		state:   gen.State,
 		bus:     events.NewBus(),
 		scale:   opts.DaysPerRealSecond,
-		ro:       newRoster(),
+		ro:      newRoster(),
 		history: map[marketKey]*priceSeries{},
 		seenRow: map[int]bool{},
 		pending: make(chan *job, 256),
@@ -389,26 +394,26 @@ func (c *Campaign) attachParty(r *model.Ruler) error {
 	}
 	id := c.state.NewID(model.IDParty)
 	c.state.Parties[id] = &model.Party{
-		ID:               id,
-		Name:             r.Name + "'s company",
-		SideID:           r.SideID,
-		RulerID:          r.ID,
-		X:                c.townPos(c.homeTown),
-		Y:                c.townPos(c.homeTown),
-		Troops:           c.cfg.World.PartyTroopsBase,
-		Food:             c.cfg.World.PartyTroopsBase * c.cfg.March.FoodPerTroop * c.cfg.World.StartPartyFoodDays,
-		Money:            r.Money * c.cfg.Ruler.PartyMoneyShare,
-		Gold:             r.Gold * c.cfg.Ruler.PartyGoldShare,
-		Metal:            c.cfg.World.PartyTroopsBase * c.cfg.World.PartyMetalPerTroop,
-		Medicine:         c.cfg.World.PartyTroopsBase * c.cfg.World.PartyMedicinePerTroop,
-		Morale:           c.cfg.Upkeep.MoraleCap * 0.8,
-		Activity:         model.ActIdle,
-		Intention:        model.IntentNone,
-		HomeTown:         c.homeTown,
-		DestTown:         c.homeTown,
-		DestRuler:        -1,
-		DestTownParty:    -1,
-		IsMercenary:      r.IsMercenary,
+		ID:            id,
+		Name:          r.Name + "'s company",
+		SideID:        r.SideID,
+		RulerID:       r.ID,
+		X:             c.townPos(c.homeTown),
+		Y:             c.townPos(c.homeTown),
+		Troops:        c.cfg.World.PartyTroopsBase,
+		Food:          c.cfg.World.PartyTroopsBase * c.cfg.March.FoodPerTroop * c.cfg.World.StartPartyFoodDays,
+		Money:         r.Money * c.cfg.Ruler.PartyMoneyShare,
+		Gold:          r.Gold * c.cfg.Ruler.PartyGoldShare,
+		Metal:         c.cfg.World.PartyTroopsBase * c.cfg.World.PartyMetalPerTroop,
+		Medicine:      c.cfg.World.PartyTroopsBase * c.cfg.World.PartyMedicinePerTroop,
+		Morale:        c.cfg.Upkeep.MoraleCap * 0.8,
+		Activity:      model.ActIdle,
+		Intention:     model.IntentNone,
+		HomeTown:      c.homeTown,
+		DestTown:      c.homeTown,
+		DestRuler:     -1,
+		DestTownParty: -1,
+		IsMercenary:   r.IsMercenary,
 	}
 	r.PartyID = id
 	c.state.SetIDCounter(model.IDParty, id)
@@ -810,18 +815,18 @@ func (c *Campaign) flushSnapshot(payload []byte) {
 // change than this server's remit. See the contract's section 12.
 func (c *Campaign) renderSnapshotLocked() []byte {
 	type diskSnapshot struct {
-		Tick     int             `json:"tick"`
-		Year     float64         `json:"year"`
-		Seed     uint64          `json:"seed"`
-		StartYear int             `json:"startYear"`
-		PlayerRuler string       `json:"playerRuler"`
-		HomeTown    string       `json:"homeTown"`
-		Party       string       `json:"party"`
-		Clock     wire.ClockState `json:"clock"`
-		Roster    wire.TroopStack  `json:"-"`
-		Stacks    []wire.TroopStack `json:"roster"`
-		Towns     []wire.TownState  `json:"towns"`
-		CauseRows []wire.CauseRow   `json:"causeRows"`
+		Tick        int               `json:"tick"`
+		Year        float64           `json:"year"`
+		Seed        uint64            `json:"seed"`
+		StartYear   int               `json:"startYear"`
+		PlayerRuler string            `json:"playerRuler"`
+		HomeTown    string            `json:"homeTown"`
+		Party       string            `json:"party"`
+		Clock       wire.ClockState   `json:"clock"`
+		Roster      wire.TroopStack   `json:"-"`
+		Stacks      []wire.TroopStack `json:"roster"`
+		Towns       []wire.TownState  `json:"towns"`
+		CauseRows   []wire.CauseRow   `json:"causeRows"`
 	}
 	snap := diskSnapshot{
 		Tick:        c.state.Tick,
