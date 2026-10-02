@@ -230,9 +230,11 @@ func (s *Server) handleSave(w http.ResponseWriter, r *http.Request) {
 	log := s.log
 	orders := s.pendingOrders
 	rngState := s.engine.RngState()
+	dps := s.daysPerSecond
+	pid := s.player
 	s.mu.RUnlock()
 
-	if err := savegame.Save(state, log, orders, &rngState, req.Path); err != nil {
+	if err := savegame.Save(state, log, orders, &rngState, &dps, &pid, req.Path); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -254,7 +256,7 @@ func (s *Server) handleLoad(w http.ResponseWriter, r *http.Request) {
 	if req.Path == "" {
 		req.Path = "savegame.json"
 	}
-	loaded, loadedLog, loadedOrders, loadedRng, err := savegame.Load(req.Path)
+	loaded, loadedLog, loadedOrders, loadedRng, loadedDps, _, err := savegame.Load(req.Path)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -270,6 +272,12 @@ func (s *Server) handleLoad(w http.ResponseWriter, r *http.Request) {
 	if loadedRng != nil {
 		s.engine.SetRngState(*loadedRng)
 	}
+	if loadedDps != nil {
+		s.daysPerSecond = *loadedDps
+	}
+	// Note: player ID is not restored; it is fixed at session startup
+	// for security (see Server.player comment). The saved value is
+	// informational.
 	s.mu.Unlock()
 	writeJSON(w, map[string]any{"loaded": true, "path": req.Path, "tick": loaded.Tick})
 }

@@ -23,11 +23,11 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 	s := testState()
 	path := filepath.Join(t.TempDir(), "save.json")
 
-	if err := Save(s, nil, nil, nil, path); err != nil {
+	if err := Save(s, nil, nil, nil, nil, nil, path); err != nil {
 		t.Fatalf("Save failed: %v", err)
 	}
 
-	loaded, _, _, _, err := Load(path)
+	loaded, _, _, _, _, _, err := Load(path)
 	if err != nil {
 		t.Fatalf("Load failed: %v", err)
 	}
@@ -67,13 +67,13 @@ func TestSaveLoadRoundTrip(t *testing.T) {
 func TestLoadBadVersion(t *testing.T) {
 	path := filepath.Join(t.TempDir(), "save.json")
 	os.WriteFile(path, []byte(`{"version": 999, "tick": 0, "year": 0, "state": {}}`), 0644)
-	if _, _, _, _, err := Load(path); err == nil {
+	if _, _, _, _, _, _, err := Load(path); err == nil {
 		t.Error("expected error for bad version, got nil")
 	}
 }
 
 func TestLoadMissingFile(t *testing.T) {
-	if _, _, _, _, err := Load("/nonexistent/save.json"); err == nil {
+	if _, _, _, _, _, _, err := Load("/nonexistent/save.json"); err == nil {
 		t.Error("expected error for missing file, got nil")
 	}
 }
