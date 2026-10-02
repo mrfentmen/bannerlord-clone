@@ -1,0 +1,151 @@
+/**
+ * GLB container header validation.
+ *
+ * Task 612: a model file is validated before it reaches the engine. A `.glb`
+ * that is actually an HTML 404 page, a truncated upload, or a file whose
+ * declared length disagrees with what arrived otherwise fails deep inside
+ * Babylon's loader with a message about buffers, which is useless when the
+ * real problem is the network.
+ *
+ * The check is the 12-byte GLB header, which is cheap and total:
+ *
+ * ```text
+ * 0..3   magic   'glTF' as a little-endian uint32 (0x46546C67)
+ * 4..7   version 2
+ * 8..11  length  total byte length of the file, header included
+ * ```
+ *
+ * This module reads bytes; it never fetches. A caller that wants to validate a
+ * download validates the ArrayBuffer it received, so the same function covers
+ * a `fetch` body, a Node `readFile` and a Blob.
+ */
+
+/** Header length of a GLB container, in bytes. */
+export const GLB_HEADER_BYTES = 12;
+
+/** `'glTF'` read as a little-endian uint32. */
+export const GLB_MAGIC = 0x46546c67;
+
+/** The only GLB container version this client speaks. */
+export const GLB_VERSION = 2;
+
+/** A parsed, self-consistent GLB header. */
+export interface GlbHeader {
+  version: number;
+  /** Byte length the file declares, header included. */
+  declaredLength: number;
+}
+
+/** Why a byte buffer is not a loadable GLB. */
+export type GlbRejection =
+  /** Fewer than 12 bytes: an empty or truncated download. */
+  | 'too-short'
+  /** Wrong magic: usually an error page or a renamed file. */
+  | 'bad-magic'
+  /** `glTF` header but a version this client does not support. */
+  | 'unsupported-version'
+  /** The declared length does not match the bytes actually present. */
+  | 'length-mismatch';
+
+export interface GlbHeaderResult {
+  /** Present only when the bytes are a loadable GLB. */
+  header: GlbHeader | null;
+  /** Present only when they are not. */
+  rejection: GlbRejection | null;
+}
+
+/** The four bytes a GLB starts with, as ASCII, for an error message. */
+export function readMagicAscii(bytes: Uint8Array): string {
+  let out = '';
+  for (let i = 0; i < Math.min(4, bytes.length); i++) {
+    out += String.fromCharCode(bytes[i] as number);
+  }
+  return out;
+}
+
+/**
+ * Parses and checks a GLB header.
+ *
+ * The length check is the one that earns its keep: a server that cuts a
+ * transfer short still sends the original header, so `declaredLength` is
+ * larger than the buffer. Loading that gives a mesh with missing buffers,
+ * which is far worse to diagnose than a rejected file.
+ */
+export function parseGlbHeader(bytes: Uint8Array): GlbHeaderResult {
+  if (bytes.length < GLB_HEADER_BYTES) {
+    return { header: null, rejection: 'too-short' };
+  }
+  const view = new DataView(bytes.buffer, bytes.byteOffset, GLB_HEADER_BYTES);
+  const magic = view.getUint32(0, true);
+  if (magic !== GLB_MAGIC) {
+    return { header: null, rejection: 'bad-magic' };
+  }
+  const version = view.getUint32(4, true);
+  if (version !== GLB_VERSION) {
+    return { header: null, rejection: 'unsupported-version' };
+  }
+  const declaredLength = view.getUint32(8, true);
+  if (declaredLength !== bytes.length) {
+    return { header: null, rejection: 'length-mismatch' };
+  }
+  return { header: { version, declaredLength }, rejection: null };
+}
+
+/** True when the bytes are a GLB this client can load. */
+export function isGlbContainer(bytes: Uint8Array): boolean {
+  return parseGlbHeader(bytes).header !== null;
+}
+
+/**
+ * Validates a download and explains the failure, or returns null when the file
+ * is fine. The message is what a caller logs; it names the problem rather than
+ * leaving it to be discovered inside the glTF parser.
+ */
+export function describeGlbRejection(bytes: Uint8Array, source = 'model'): string | null {
+  const { header, rejection } = parseGlbHeader(bytes);
+  if (header) return null;
+  switch (rejection) {
+    case 'too-short':
+      return `${source}: only ${bytes.length} byte(s), a GLB needs at least ${GLB_HEADER_BYTES}`;
+    case 'bad-magic':
+      return `${source}: not a GLB (starts with "${readMagicAscii(bytes)}", expected "glTF")`;
+    case 'unsupported-version':
+      return `${source}: GLB version ${readVersion(bytes)} is not supported (expected ${GLB_VERSION})`;
+    case 'length-mismatch':
+      return `${source}: truncated or padded GLB (declares ${readDeclaredLength(bytes)} bytes, has ${bytes.length})`;
+    default:
+      return `${source}: not a loadable GLB`;
+  }
+}
+
+/** Version field of a header that passed the magic check, else 0. */
+function readVersion(bytes: Uint8Array): number {
+  if (bytes.length < 8) return 0;
+  return new DataView(bytes.buffer, bytes.byteOffset, 8).getUint32(4, true);
+}
+
+/** Declared length field of a header that passed the magic check, else 0. */
+function readDeclaredLength(bytes: Uint8Array): number {
+  if (bytes.length < GLB_HEADER_BYTES) return 0;
+  return new DataView(bytes.buffer, bytes.byteOffset, GLB_HEADER_BYTES).getUint32(8, true);
+}
+
+/**
+ * Range of the JSON chunk inside a GLB, from the 12-byte header. The chunk
+ * starts at `CHUNK_HEADER_BYTES` after the container header: a uint32 length,
+ * a four-character type, then the payload. Returns null when the file is not a
+ * GLB or is too short to hold a chunk header.
+ */
+export function jsonChunkRange(
+  bytes: Uint8Array,
+): { start: number; length: number } | null {
+  if (!isGlbContainer(bytes)) return null;
+  const start = GLB_HEADER_BYTES + 8; // chunk header: uint32 length + 'JSON'
+  if (bytes.length < start) return null;
+  const chunkLength = new DataView(bytes.buffer, bytes.byteOffset, start).getUint32(
+    GLB_HEADER_BYTES,
+    true,
+  );
+  if (chunkLength <= 0 || start + chunkLength > bytes.length) return null;
+  return { start, length: chunkLength };
+}
