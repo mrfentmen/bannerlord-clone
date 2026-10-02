@@ -6,7 +6,6 @@
 package bandit
 
 import (
-	"fmt"
 	"math"
 
 	"mbclone/simulation/internal/model"

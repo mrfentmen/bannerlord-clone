@@ -193,11 +193,18 @@ type Campaign struct {
 
 	// roster, history, and notifications are this package's own read models,
 	// described in the package comment.
-	ro         *roster
+	ro       *roster
 	history  map[marketKey]*priceSeries
 	notifs   []wire.Notification
 	seenRow  map[int]bool
 	notifSeq int
+
+	// prisoners is the captured-enemy read model and companions is the tavern
+	// roster and hired company. Both are built on first use, so a campaign that
+	// never fights and never drinks never pays for them. prisoners.go and
+	// companions.go reach them through ensurePrisoners and ensureCompanions.
+	prisoners  *prisonerState
+	companions *companionState
 
 	// jobs is the pending order queue. The API writes to pending; only the
 	// tick goroutine reads it, and only while holding mu.
