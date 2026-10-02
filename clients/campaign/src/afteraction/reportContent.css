@@ -228,3 +228,32 @@
 .afteraction-rating[data-grade="B"],
 .afteraction-rating[data-grade="C"] { border-left: 3px solid var(--status-warning-mark); }
 .afteraction-rating[data-grade="D"] { border-left: 3px solid var(--status-critical-mark); }
+
+/* Enemy commander notice (tasks 93-94). */
+.aa-commander {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--paper-300);
+  border-left: 3px solid var(--accent-primary);
+  background: var(--paper-0);
+}
+
+.aa-commander[hidden] { display: none; }
+
+.aa-commander__title {
+  margin: 0 0 var(--space-1);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+
+.aa-commander__name {
+  margin: 0;
+  font-weight: 700;
+}
+
+.aa-commander__line {
+  margin: 0;
+  color: var(--ink-700);
+  font-size: 0.85rem;
+}

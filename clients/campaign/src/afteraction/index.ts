@@ -12,6 +12,7 @@ export * from "./equipment.js";
 export * from "./rematch.js";
 export * from "./rating.js";
 export * from "./achievementToast.js";
+export * from "./commanderEvents.js";
 export * from "./report.js";
 export * from "./endScreens.js";
 export * from "./loot.js";
