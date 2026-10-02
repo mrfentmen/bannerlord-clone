@@ -96,6 +96,7 @@ import { createAchievementStore } from "./achievements/index.js";
 import { achievementsPanel } from "./ui/panels/Achievements.js";
 import { mountBattleUi, type BattleMount } from "./battleflow/mount.js";
 import { createGalleryStore, createPhotoMode, galleryPanel, mountPhotoModeBar, type PhotoModeBarHandle } from "./expression/index.js";
+import { warPaintPanel } from "./ui/panels/WarPaintPanel.js";
 import { chroniclePanel, seasonForDay } from "./expression/chroniclePanel.js";
 import { createMemorial, memorialPanel } from "./afteraction/index.js";
 import { lawsPanel, DEFAULT_LAWS, clearClanStore, loadClanStore, setRuler, upsertMember, type ClanLaws } from "./clan/index.js";
@@ -551,6 +552,7 @@ const hud = createHud({
   onOpenAchievements: () => openAchievements(),
   onOpenPhotoMode: () => enterPhotoMode(),
   onOpenGallery: () => openGallery(),
+  onOpenWarPaint: () => openWarPaint(),
   onOpenChronicle: () => openChronicle(),
   onOpenTimeline: () => openTimeline(),
   onOpenLifetimeStats: () => openLifetimeStats(),
@@ -1673,6 +1675,18 @@ function openQuestTracker(): void {
 // In-session capture list. Photo mode feeds it through the bar's onCapture
 // hook; the HUD rail "Gallery" button opens the browser panel.
 const gallery = createGalleryStore();
+
+function openWarPaint(): void {
+  currentPanel = "none";
+  contextNode = warPaintPanel({
+    onClose: () => {
+      currentPanel = "none";
+      contextNode = null;
+      paint();
+    },
+  });
+  paint();
+}
 
 function openGallery(): void {
   currentPanel = "none";

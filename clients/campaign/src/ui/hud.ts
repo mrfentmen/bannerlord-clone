@@ -45,6 +45,7 @@ export interface HudOptions {
   onOpenPhotoMode?: () => void;
   /** Opens the screenshot gallery (MASTER_PLAN task 130). Optional: the button hides without it. */
   onOpenGallery?: () => void;
+  onOpenWarPaint?: () => void;
   /** Opens the clan chronicle. Optional: the button hides without it. */
   onOpenChronicle?: () => void;
   /** Opens the campaign timeline (MASTER_PLAN task 139). Optional: the button hides without it. */
@@ -567,6 +568,12 @@ export function createHud(options: HudOptions): HudHandle {
       const galleryBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-gallery" }, "Gallery");
       galleryBtn.addEventListener("click", () => options.onOpenGallery?.());
       rail.appendChild(galleryBtn);
+    }
+
+    if (options.onOpenWarPaint) {
+      const paintBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-warpaint" }, "War paint");
+      paintBtn.addEventListener("click", () => options.onOpenWarPaint?.());
+      rail.appendChild(paintBtn);
     }
 
     if (options.onOpenHeatmap) {
