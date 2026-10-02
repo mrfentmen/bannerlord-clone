@@ -324,8 +324,15 @@
       "category": "troop",
       "targetLengthM": 1.75,
       "notes": "Quaternius CC0, locksmith - violet/black"
+    },
+    {
+      "name": "horse",
+      "file": "horse.glb",
+      "category": "vehicle",
+      "targetLengthM": 2.4,
+      "notes": "Quaternius CC0 animated horse, Idle/Walk/Gallop/Death/Attack via poly.pizza"
     }
   ],
   "source": "milo lane staging (worker/milo/simulation @ 20a7275), MANIFEST.md; see notes. Asset licensing cleared for build use per muse-bus 2026-10-01.",
-  "version": 3
+  "version": 4
 }
