@@ -15,3 +15,4 @@ export { assignMission, cancelMission, MISSION_ICONS, spyMapMarkers, spyMission,
 export { canCraft, craftKit, KIT_QUALITIES, KIT_RECIPES, type CraftResult, type DisguiseKit, type KitQuality, type KitRecipe } from "./disguiseKits.js";
 export { exposureRisk, missedPayments, payInformant, totalPaid, type PaymentRecord } from "./paymentLedger.js";
 export { schemeTimeline, type SchemeStage, type SchemeTimeline } from "./schemeTimeline.js";
+export { addLeverage, leverage, leverageBoard, LEVERAGE_DECAY, spendLeverage, type LeverageRecord } from "./leverage.js";
