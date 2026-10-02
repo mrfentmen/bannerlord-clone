@@ -36,11 +36,13 @@ export function formatCountdown(seconds: number): string {
  * optional: the header says what it has been given and nothing more.
  */
 export type DeploymentWeather = "clear" | "rain" | "fog";
+export type DeploymentTimeOfDay = "dawn" | "day" | "dusk" | "night";
 
 export interface DeploymentInfo {
   playerFaction?: string;
   terrainName?: string;
   weather?: DeploymentWeather;
+  timeOfDay?: DeploymentTimeOfDay;
 }
 
 /**
@@ -62,6 +64,29 @@ function weatherEl(weather: DeploymentWeather): HTMLElement {
     { class: "deploy-weather", role: "img", "aria-label": `Weather: ${label}` },
     h("span", { class: "deploy-weather__glyph", "aria-hidden": "true" }, glyph),
     h("span", { class: "deploy-weather__label" }, label),
+  );
+}
+
+/**
+ * Time of day as a glyph. The scene already lights itself from this value, so the
+ * chip is the only place the header can say when the fight is happening. The four
+ * glyphs are deliberately distinct shapes: the chip carries no visible word, so the
+ * shape is all a sighted player has, and dawn and dusk must not collapse into one.
+ */
+const TIME_DISPLAY: Record<DeploymentTimeOfDay, { glyph: string; label: string }> = {
+  dawn: { glyph: "◐", label: "Dawn" },
+  day: { glyph: "☀", label: "Daylight" },
+  dusk: { glyph: "◓", label: "Dusk" },
+  night: { glyph: "★", label: "Night" },
+};
+
+/** A time-of-day chip, named for a screen reader as one thing. */
+function timeEl(time: DeploymentTimeOfDay): HTMLElement {
+  const { glyph, label } = TIME_DISPLAY[time];
+  return h(
+    "span",
+    { class: "deploy-time", role: "img", "aria-label": `Time of day: ${label}` },
+    h("span", { class: "deploy-time__glyph", "aria-hidden": "true" }, glyph),
   );
 }
 
@@ -134,6 +159,7 @@ export class DeploymentUI {
     if (info.playerFaction) strip.appendChild(bannerEl(info.playerFaction));
     if (info.terrainName) strip.appendChild(h("span", { class: "deploy-terrain" }, info.terrainName));
     if (info.weather) strip.appendChild(weatherEl(info.weather));
+    if (info.timeOfDay) strip.appendChild(timeEl(info.timeOfDay));
 
     // Single player: the enemy is the AI, which is never waiting on the player, so its
     // side of the strip is a state rather than a control. Both sides are rendered as

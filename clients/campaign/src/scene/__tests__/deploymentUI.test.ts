@@ -378,3 +378,56 @@ describe("weather (task 14)", () => {
     ui.hide();
   });
 });
+
+describe("time of day (task 15)", () => {
+  it("shows the time of day in the same strip", () => {
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE], () => {}, {
+      playerFaction: "Pacific Compact",
+      terrainName: "Dry Fork",
+      weather: "clear",
+      timeOfDay: "dusk",
+    });
+
+    const strip = document.querySelector(".deploy-info");
+    const chip = document.querySelector(".deploy-time");
+    expect(chip?.parentElement).toBe(strip);
+    expect(chip?.getAttribute("aria-label")).toBe("Time of day: Dusk");
+    expect(chip?.querySelector('[aria-hidden="true"]')?.textContent).toBe("◓");
+
+    ui.hide();
+  });
+
+  it("gives every time of day its own shape, because the chip carries no word", () => {
+    const glyphs: string[] = [];
+    for (const time of ["dawn", "day", "dusk", "night"] as const) {
+      const ui = new DeploymentUI();
+      ui.show([PLAYER_ZONE], () => {}, { timeOfDay: time });
+      glyphs.push(document.querySelector(".deploy-time__glyph")?.textContent ?? "");
+      ui.hide();
+    }
+    expect(glyphs.every((glyph) => glyph.length > 0)).toBe(true);
+    expect(new Set(glyphs).size).toBe(glyphs.length);
+  });
+
+  it("names each time of day differently for a screen reader", () => {
+    const labels: string[] = [];
+    for (const time of ["dawn", "day", "dusk", "night"] as const) {
+      const ui = new DeploymentUI();
+      ui.show([PLAYER_ZONE], () => {}, { timeOfDay: time });
+      labels.push(document.querySelector(".deploy-time")?.getAttribute("aria-label") ?? "");
+      ui.hide();
+    }
+    expect(new Set(labels).size).toBe(labels.length);
+    for (const label of labels) expect(label.startsWith("Time of day: ")).toBe(true);
+  });
+
+  it("shows no chip when the light was not reported", () => {
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE], () => {});
+
+    expect(document.querySelector(".deploy-time")).toBeNull();
+
+    ui.hide();
+  });
+});
