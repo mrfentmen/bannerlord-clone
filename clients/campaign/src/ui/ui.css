@@ -1864,6 +1864,18 @@ html[data-reduce-motion] *::after {
   font-weight: 600;
 }
 
+/* The ground the fight is on. Same strip as the banner, quieter: the terrain is
+   context, not the thing the player is here to act on. */
+.deploy-terrain {
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+.deploy-banner + .deploy-terrain {
+  padding-left: var(--space-2);
+  border-left: 1px solid var(--ink-500);
+}
+
 .deployment-header h2 {
   margin: 0;
   font-size: 1.1rem;

@@ -37,6 +37,7 @@ export function formatCountdown(seconds: number): string {
  */
 export interface DeploymentInfo {
   playerFaction?: string;
+  terrainName?: string;
 }
 
 /** The playable side a faction name names, if it names one. */
@@ -106,6 +107,7 @@ export class DeploymentUI {
     // The strip above the header: what the site is, before the clock and the sides.
     const strip = h("div", { class: "deploy-info" });
     if (info.playerFaction) strip.appendChild(bannerEl(info.playerFaction));
+    if (info.terrainName) strip.appendChild(h("span", { class: "deploy-terrain" }, info.terrainName));
 
     // Single player: the enemy is the AI, which is never waiting on the player, so its
     // side of the strip is a state rather than a control. Both sides are rendered as

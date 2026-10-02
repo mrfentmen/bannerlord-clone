@@ -282,3 +282,37 @@ describe("faction banner (task 12)", () => {
     for (const color of colors) expect(palette.has(color)).toBe(true);
   });
 });
+
+describe("terrain name (task 13)", () => {
+  it("names the ground in the same strip as the banner", () => {
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE], () => {}, { playerFaction: "Pacific Compact", terrainName: "Dry Fork" });
+
+    const strip = document.querySelector(".deploy-info");
+    const terrain = document.querySelector(".deploy-terrain");
+    expect(terrain?.textContent).toBe("Dry Fork");
+    expect(terrain?.parentElement).toBe(strip);
+    expect(document.querySelector(".deploy-banner")?.parentElement).toBe(strip);
+
+    ui.hide();
+  });
+
+  it("shows the terrain on its own when there is no banner", () => {
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE], () => {}, { terrainName: "Dry Fork" });
+
+    expect(document.querySelector(".deploy-banner")).toBeNull();
+    expect(document.querySelector(".deploy-terrain")?.textContent).toBe("Dry Fork");
+
+    ui.hide();
+  });
+
+  it("shows neither when neither was given", () => {
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE], () => {});
+
+    expect(document.querySelector(".deploy-terrain")).toBeNull();
+
+    ui.hide();
+  });
+});
