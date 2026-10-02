@@ -422,20 +422,53 @@ func Record(cfg *config.Config, seed uint64, setup Setup, cmd Commander, bound i
 // runCommanders apply loop. The only difference is that the orders come from a log
 // instead of from a live commander.
 func Replay(cfg *config.Config, rec *Recording) (*Result, error) {
+	res, unconsumed, err := replayRun(cfg, rec)
+	if err != nil {
+		return nil, err
+	}
+	if unconsumed > 0 {
+		return nil, &Error{
+			Kind:  ErrUnitInvalid,
+			Field: "Recording.Log",
+			Detail: fmt.Sprintf("the battle ended with %d orders in the log unapplied; the log describes "+
+				"a longer battle than the one that just ran, so it is not this battle's log", unconsumed),
+		}
+	}
+	return res, nil
+}
+
+// replayRun is Replay's body with one difference that matters: it RETURNS how
+// many orders the battle never reached instead of deciding what that means.
+//
+// Both of Replay's callers need the run and only one of them wants the refusal.
+// A caller that replays a log to RECOVER a battle wants to be told the log
+// belongs to a longer fight. A caller that replays a log to CHECK one wants to
+// be told the two disagree, and those are the same fact with two different
+// answers, so the judgement cannot live in the shared half.
+//
+// Before the split the check could not be made at all, because Verify went
+// through Replay and inherited the refusal as an error. So a log that made the
+// battle END EARLIER was not reported as a mismatch; it was reported as a
+// malformed log, which is the opposite of the finding a verifier exists to
+// produce, and which a caller cannot tell apart from having handed it the wrong
+// file. TestVerifyReportsAMismatchWhenTheLogSaysSomethingElse is the direct
+// check, and its own message is the right one: a check that cannot run is not a
+// check that passed.
+func replayRun(cfg *config.Config, rec *Recording) (*Result, int, error) {
 	if cfg == nil {
-		return nil, newError(ErrNilConfig,
+		return nil, 0, newError(ErrNilConfig,
 			"Replay needs a balance config; replaying under a different set of constants than the "+
 				"orders were computed under would produce a what-if and call it a replay")
 	}
 	if rec == nil {
-		return nil, &Error{
+		return nil, 0, &Error{
 			Kind:   ErrUnitInvalid,
 			Field:  "Replay",
 			Detail: "there is no recording to replay",
 		}
 	}
 	if rec.ConfigVersion != "" && rec.ConfigVersion != cfg.Version {
-		return nil, &Error{
+		return nil, 0, &Error{
 			Kind:  ErrInvalidConfig,
 			Field: "Recording.ConfigVersion",
 			Detail: fmt.Sprintf("the recording was made under balance version %q and this config is %q; "+
@@ -451,7 +484,7 @@ func Replay(cfg *config.Config, rec *Recording) (*Result, error) {
 	// resolve to real units. This is the check that catches it.
 	if want := log.RosterHash(); want != 0 {
 		if got := rosterFingerprint(rec.Setup); got != want {
-			return nil, &Error{
+			return nil, 0, &Error{
 				Kind:  ErrUnitInvalid,
 				Field: "Recording.Log",
 				Detail: fmt.Sprintf("this order log was recorded against force %016x and the setup given "+
@@ -463,21 +496,17 @@ func Replay(cfg *config.Config, rec *Recording) (*Result, error) {
 	}
 	rp, err := NewReplayer(log)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	res, err := RunCommanded(cfg, rec.Seed, rec.Setup, rp)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	if n := rp.Unconsumed(); n > 0 {
-		return nil, &Error{
-			Kind:  ErrUnitInvalid,
-			Field: "Recording.Log",
-			Detail: fmt.Sprintf("the battle ended with %d orders in the log unapplied; the log describes "+
-				"a longer battle than the one that just ran, so it is not this battle's log", n),
-		}
-	}
-	return res, nil
+	// The count is RETURNED rather than judged here. Replay turns a non-zero one
+	// into a refusal; Verify turns it into a mismatch finding, because a log that
+	// outlasts the battle it produced is a difference between two battles and not
+	// a malformed file. See replayRun.
+	return res, rp.Unconsumed(), nil
 }
 
 // ReplayCheck is the verdict of one replay attempt.
@@ -513,11 +542,25 @@ type ReplayCheck struct {
 // answer to the question and not a failure of the question. An error is reserved
 // for the replay not being runnable at all, which is a different problem.
 //
+// WHICH INCLUDES A LOG THAT OUTLASTS ITS BATTLE. Replay refuses that as a
+// malformed log, and refusing is right when the point is to recover the battle. It
+// is the wrong answer when the point is to check it, because a log describing a
+// longer fight than the one that ran is evidence the two disagree - which is the
+// finding, not a refusal to make it. So Verify calls replayRun directly and turns
+// an unconsumed tail into a mismatch with the count in the Diff.
+//
+// That distinction is not a nicety. Before it, a log tampered with by a
+// millimetre in one order could not be reported at all whenever the tamper
+// happened to end the battle early: the caller got an error about the file rather
+// than a verdict about the battle, and could not tell that apart from having
+// handed Verify the wrong recording. A verifier that cannot see a class of
+// tampering is worse than no verifier, because it is trusted.
+//
 // The Result argument is the original run's result. Passing nil compares against
 // replaying the recording twice, which is a weaker but still meaningful check and is
 // used where the caller has not kept the original.
 func Verify(cfg *config.Config, rec *Recording, original *Result) (*ReplayCheck, error) {
-	got, err := Replay(cfg, rec)
+	got, unconsumed, err := replayRun(cfg, rec)
 	if err != nil {
 		return nil, err
 	}
@@ -558,6 +601,24 @@ func Verify(cfg *config.Config, rec *Recording, original *Result) (*ReplayCheck,
 	check.Match = check.Want == check.Got
 	if !check.Match {
 		check.Diff, _ = ResultStateDiff(original, got)
+	}
+	// An unconsumed tail is a difference even in the one case where the hashes
+	// agree, which cannot happen in practice but is cheap to be certain about:
+	// two battles that hash the same and left different numbers of orders
+	// unapplied would be a contradiction, and saying so is better than reporting
+	// a match and hoping.
+	if unconsumed > 0 {
+		check.Match = false
+		check.Diff = fmt.Sprintf("the log holds %d orders and the replayed battle reached %d of "+
+			"them, leaving %d unapplied: the log describes a longer battle than this one",
+			check.Orders, check.Orders-unconsumed, unconsumed)
+		if check.Want == check.Got {
+			// Not expected, and if it ever happens the verdict is no longer
+			// supported by its evidence. Name the pair so a reader is not left
+			// trusting a hash that agrees with a difference.
+			check.Diff += fmt.Sprintf(" (both results hash to %s, so the difference is in the "+
+				"orders rather than the outcome and the hash does not cover it)", check.Want)
+		}
 	}
 	return check, nil
 }
