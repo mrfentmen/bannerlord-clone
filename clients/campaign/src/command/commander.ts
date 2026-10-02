@@ -13,6 +13,7 @@
  *   holdToggles accessibility setting, press once to open and press again to
  *   confirm — no holding required)
  * - 1-9: recall control group; Ctrl+1-9: assign the current selection
+ * - selected units carry a ring on the field, repainted as the camera moves
  * - F1-F4 (or f/g/h/r): attack/follow/hold/retreat the selected units at the pointer
  * - A: attack-move — the next click on the field advances the selection there
  * - C: charge — run at the pointer and engage
@@ -32,6 +33,7 @@ import { createMarkers, type Markers } from "./markers.js";
 import { showOrderDelay, type OrderDelayHandle } from "./orderDelay.js";
 import { createSelectionPanel, type SelectionPanel } from "./selectionPanel.js";
 import { createOrderPanel, type OrderPanel } from "./orderPanel.js";
+import { createSelectionRings, type SelectionRings } from "./selectionRings.js";
 import type { CommandSurface, Order, OrderKind } from "./types.js";
 
 export interface Commander {
@@ -157,6 +159,10 @@ export function createCommander(
   // Task 59: the order row lives in the same overlay, under the selection panel.
   const orderPanel: OrderPanel = createOrderPanel({ registry });
   overlay.appendChild(orderPanel.root);
+  // Task 65: a ring on the field under each selected unit. Painted from the
+  // same live-unit lookup the panel reads, so both agree on who is selected.
+  const rings: SelectionRings = createSelectionRings(surface);
+  overlay.appendChild(rings.root);
   const delays: OrderDelayHandle[] = [];
   /** Task 47: the last order issued to each unit — the panel's "stance". */
   const lastOrder = new Map<string, OrderKind>();
@@ -182,12 +188,19 @@ export function createCommander(
 
   function updatePanel(): void {
     const { byId } = liveUnits();
+    const selected = selection.selected();
     panel.update(
-      selection.selected().flatMap((id) => {
+      selected.flatMap((id) => {
         const u = byId.get(id);
         if (!u) return [];
         const lo = lastOrder.get(id);
         return [{ id: u.id, label: u.label, kind: u.kind, count: u.count, ...(lo ? { lastOrder: lo } : {}) }];
+      }),
+    );
+    rings.update(
+      selected.flatMap((id) => {
+        const u = byId.get(id);
+        return u ? [u] : [];
       }),
     );
   }
@@ -268,6 +281,9 @@ export function createCommander(
   // -- pointer tracking --------------------------------------------------------
   const onPointerMove = (ev: PointerEvent): void => {
     lastPointer = { x: ev.clientX, y: ev.clientY };
+    // Task 65: rings are pinned to projected unit positions, so they follow the
+    // camera — every drag repaints them at the new screen position.
+    updatePanel();
     if (dragStart && marquee) {
       const x = Math.min(dragStart.x, ev.clientX);
       const y = Math.min(dragStart.y, ev.clientY);
@@ -586,6 +602,7 @@ export function createCommander(
       markers.destroy();
       panel.destroy();
       orderPanel.destroy();
+      rings.destroy();
       modeHint.remove();
     },
   };
