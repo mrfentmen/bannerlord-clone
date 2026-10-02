@@ -11,6 +11,24 @@ import { generateSkirmish } from "./skirmish.js";
 
 const PREFIX = "BL-";
 
+/**
+ * Browser-safe base64url encode/decode (no Node Buffer — this code runs
+ * in the browser). Handles UTF-8 via TextEncoder/TextDecoder.
+ */
+function base64UrlEncode(text: string): string {
+  const bytes = new TextEncoder().encode(text);
+  let binary = "";
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+
+function base64UrlDecode(code: string): string {
+  const padded = code.replace(/-/g, "+").replace(/_/g, "/");
+  const binary = atob(padded + "=".repeat((4 - (padded.length % 4)) % 4));
+  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  return new TextDecoder().decode(bytes);
+}
+
 interface SharePayload {
   v: 1;
   mode: BattleConfig["mode"];
@@ -35,7 +53,7 @@ export function exportShareCode(config: BattleConfig): string {
     seed: config.seed,
   };
   const json = JSON.stringify(payload);
-  const b64 = Buffer.from(json, "utf8").toString("base64url");
+  const b64 = base64UrlEncode(json);
   return PREFIX + b64;
 }
 
@@ -55,7 +73,7 @@ export function importShareCode(code: string): ShareCodeResult {
   if (b64.length === 0) return { ok: false, reason: "empty share code" };
   let payload: unknown;
   try {
-    const json = Buffer.from(b64, "base64url").toString("utf8");
+    const json = base64UrlDecode(b64);
     payload = JSON.parse(json);
   } catch {
     return { ok: false, reason: "share code is corrupted or malformed" };
