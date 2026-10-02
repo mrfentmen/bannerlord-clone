@@ -18,3 +18,4 @@ export { schemeTimeline, type SchemeStage, type SchemeTimeline } from "./schemeT
 export { addLeverage, leverage, leverageBoard, LEVERAGE_DECAY, spendLeverage, type LeverageRecord } from "./leverage.js";
 export { APPROACH_PROFILES, ASSASSINATION_APPROACHES, attemptAssassination, type AssassinationApproach, type AssassinationOutcome, type ApproachProfile } from "./assassination.js";
 export { planExtraction, runExtraction, type ExtractionOutcome, type ExtractionPlan } from "./extraction.js";
+export { alertResponses, raiseAlert, respondToAlert, SPY_ALERT_RESPONSES, type AlertResolution, type EnemySpyAlert, type SpyAlertResponse } from "./spyAlerts.js";
