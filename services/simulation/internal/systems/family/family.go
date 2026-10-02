@@ -182,12 +182,12 @@ func run(v *sim.View, w *sim.WriteSet) {
 			read, causes, "aging")
 
 		// Natural death: chance increases with age (Gompertz-like).
-		// Annual mortality: ~1% at 60, ~3% at 70, ~8% at 80, ~20% at 90.
+		// Annual mortality: ~1% at 60, ~3% at 70, ~9% at 80, ~30% at 90.
 		// Converted to daily chance: annual/365.
 		if l.Age > 50 {
 			yearsOver50 := l.Age - 50
-			// annualChance = 0.01 * 1.12^yearsOver50 gives ~1% at 60, ~3% at 70, ~9% at 80
-			annualChance := 0.01 * math.Pow(1.12, yearsOver50)
+			// annualChance = 0.0032 * 1.12^yearsOver50 gives ~1% at 60, ~3% at 70, ~9.6% at 80
+			annualChance := 0.0032 * math.Pow(1.12, yearsOver50)
 			if annualChance > 0.5 {
 				annualChance = 0.5 // cap at 50% per year
 			}
