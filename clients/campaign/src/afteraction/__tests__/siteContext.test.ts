@@ -8,9 +8,10 @@
  */
 
 import { describe, expect, it } from "vitest";
-import { buildReport, createReportScreen, siteLine } from "../index.js";
+import { buildReport, createReportScreen, siteLine, timeOfDayLabel } from "../index.js";
 import { BIOME_LABEL, type BiomeId } from "../../modes/types.js";
 import type { AfterActionData } from "../types.js";
+import { WEATHER_KINDS, weatherFor } from "../../battleflow/weather.js";
 
 const DATA: AfterActionData = {
   battleLabel: "Dry Fork",
@@ -76,5 +77,70 @@ describe("site line on the report screen (task 99)", () => {
     for (const heading of ["Kills", "Casualties", "MVP unit", "Timeline"]) {
       expect(el.textContent).toContain(heading);
     }
+  });
+});
+describe("conditions on the site line (task 100)", () => {
+  it("adds the sky and the light after the place", () => {
+    expect(
+      siteLine({ mapName: "Dry Fork", biome: "plains", weather: { kind: "rain", label: "Rain" }, timeOfDay: "dusk" }),
+    ).toBe("Dry Fork — Plains · Rain · Dusk");
+  });
+
+  it("states conditions even when the flow could not place the battle", () => {
+    expect(siteLine({ weather: { kind: "clear", label: "Clear skies" }, timeOfDay: "night" })).toBe(
+      "Clear skies · Night",
+    );
+  });
+
+  it("uses the sim's own weather label, never a word of its own", () => {
+    for (const kind of WEATHER_KINDS) {
+      const weather = weatherFor(`encounter-${kind}`);
+      expect(siteLine({ weather })).toBe(weather.label);
+      expect(siteLine({ weather }).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("words every time of day", () => {
+    const times = ["dawn", "day", "dusk", "night"] as const;
+    expect(times.map((t) => timeOfDayLabel(t))).toEqual([
+      "Dawn",
+      "Daylight",
+      "Dusk",
+      "Night",
+    ]);
+  });
+
+  it("keeps each time of day distinct", () => {
+    const labels = (["dawn", "day", "dusk", "night"] as const).map(timeOfDayLabel);
+    expect(new Set(labels).size).toBe(labels.length);
+  });
+
+  it("joins the place and the conditions without doubling separators", () => {
+    expect(siteLine({ mapName: "Dry Fork", timeOfDay: "day" })).toBe("Dry Fork · Daylight");
+    expect(siteLine({ biome: "forest", weather: { kind: "fog", label: "Fog" } })).toBe("Forest · Fog");
+  });
+});
+
+describe("conditions on the report screen (task 100)", () => {
+  it("prints the sky and the light in the header line", () => {
+    const el = createReportScreen(buildReport(DATA, []), () => {}, {
+      site: {
+        mapName: "Dry Fork",
+        biome: "hills",
+        weather: weatherFor("dry-fork"),
+        timeOfDay: "dusk",
+      },
+    });
+    document.body.appendChild(el);
+
+    const sub = el.querySelector<HTMLElement>('[data-testid="afteraction-site"]');
+    expect(sub?.hidden).toBe(false);
+    expect(sub?.textContent).toBe(`Dry Fork — Hills · ${weatherFor("dry-fork").label} · Dusk`);
+  });
+
+  it("still shows the header line when there is no site at all", () => {
+    const el = createReportScreen(buildReport(DATA, []), () => {});
+    document.body.appendChild(el);
+    expect(el.querySelector<HTMLElement>('[data-testid="afteraction-site"]')?.hidden).toBe(true);
   });
 });
