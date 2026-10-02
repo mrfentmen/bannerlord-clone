@@ -33,15 +33,15 @@ type Encounter struct {
 
 // EncounterSide is one side of an encounter.
 type EncounterSide struct {
-	PartyID int    `json:"partyId"`
-	Name    string `json:"name"`
-	Troops  int    `json:"troops"`
+	PartyID int     `json:"partyId"`
+	Name    string  `json:"name"`
+	Troops  int     `json:"troops"`
 	Power   float64 `json:"power"`
 }
 
 // EncounterResolution is the auto-resolve outcome.
 type EncounterResolution struct {
-	WinnerPartyID int `json:"winnerPartyId"`
+	WinnerPartyID  int `json:"winnerPartyId"`
 	AttackerLosses int `json:"attackerLosses"`
 	DefenderLosses int `json:"defenderLosses"`
 	// Loot taken by the winner, in the campaign's currency.
@@ -78,9 +78,9 @@ type Battle struct {
 
 // BattleSide is one side's live state in a battle.
 type BattleSide struct {
-	PartyID int    `json:"partyId"`
-	Name    string `json:"name"`
-	Troops  int    `json:"troops"`
+	PartyID int     `json:"partyId"`
+	Name    string  `json:"name"`
+	Troops  int     `json:"troops"`
 	Morale  float64 `json:"morale"`
 }
 

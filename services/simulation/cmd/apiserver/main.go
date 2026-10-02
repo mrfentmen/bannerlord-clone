@@ -73,6 +73,8 @@ func run() error {
 		playerRuler   = flag.Int("player-ruler", 0, "simulation id of the ruler to play; 0 picks one")
 		playerTown    = flag.Int("player-town", 0, "simulation id of the town to play in; 0 uses the ruler's")
 		showOrder     = flag.Bool("print-system-order", false, "print the system order and exit")
+		loadFile      = flag.String("load-file", "", "restore this save file on boot instead of generating a world")
+		saveFile      = flag.String("save-file", "", "write a full save here on shutdown")
 	)
 	flag.Parse()
 
@@ -93,14 +95,14 @@ func run() error {
 	}
 
 	opts := campaign.Options{
-		Seed:                 *seed,
-		StartYear:            *startYear,
-		DaysPerRealSecond:    *timeScale,
-		TickIntervalMillis:   *tickMillis,
-		SnapshotEvery:        *snapshotEvery,
-		SnapshotDir:          *snapshotDir,
-		PlayerRulerID:        *playerRuler,
-		PlayerTownID:         *playerTown,
+		Seed:               *seed,
+		StartYear:          *startYear,
+		DaysPerRealSecond:  *timeScale,
+		TickIntervalMillis: *tickMillis,
+		SnapshotEvery:      *snapshotEvery,
+		SnapshotDir:        *snapshotDir,
+		PlayerRulerID:      *playerRuler,
+		PlayerTownID:       *playerTown,
 	}
 	camp, err := campaign.New(cfg, opts)
 	if err != nil {
@@ -110,6 +112,20 @@ func run() error {
 	logger.Printf("campaign built: seed %d, %d settlements, %d characters, day %d, player %s of %s",
 		*seed, camp.TownCount(), camp.RulerCount(), camp.TickNumber(),
 		camp.PlayerID(), camp.HomeTownID())
+
+	// -load-file restores a save instead of the generated world. It runs
+	// before the clock starts, so the restored world is the first thing the
+	// tick loop sees.
+	if *loadFile != "" {
+		data, err := os.ReadFile(*loadFile)
+		if err != nil {
+			return fmt.Errorf("reading save file %s: %w", *loadFile, err)
+		}
+		if err := camp.Load(data); err != nil {
+			return fmt.Errorf("loading save file %s: %w", *loadFile, err)
+		}
+		logger.Printf("restored save %s: day %d", *loadFile, camp.TickNumber())
+	}
 
 	// A signal-cancelled context is the whole shutdown story: the clock's goroutine
 	// finishes the tick it is in, the campaign writes a final snapshot, and the HTTP
@@ -122,7 +138,7 @@ func run() error {
 	server := &http.Server{
 		Addr: *addr,
 		Handler: api.New(camp, api.Options{
-			Logger:    logger,
+			Logger:     logger,
 			CORSOrigin: *corsOrigin,
 		}).Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
@@ -158,6 +174,18 @@ func run() error {
 		logger.Printf("the http server did not shut down cleanly: %v", err)
 	}
 	camp.Stop()
+	// -save-file writes a full save on shutdown, after the clock has stopped,
+	// so the file captures the world exactly as the last tick left it.
+	if *saveFile != "" {
+		data, err := camp.Save()
+		if err != nil {
+			logger.Printf("shutdown save failed: %v", err)
+		} else if err := os.WriteFile(*saveFile, data, 0o644); err != nil {
+			logger.Printf("writing shutdown save %s: %v", *saveFile, err)
+		} else {
+			logger.Printf("shutdown save written to %s (%d bytes)", *saveFile, len(data))
+		}
+	}
 	logger.Printf("stopped")
 	return nil
 }

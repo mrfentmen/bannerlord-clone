@@ -16,11 +16,11 @@ import (
 // settlement with the client's own published numbers so the marker it draws and the
 // class it reports cannot disagree.
 const (
-	cityPopulation    = 100_000.0
-	townPopulation    = 25_000.0
-	townClassCity     = "city"
-	townClassTown     = "town"
-	townClassVillage  = "village"
+	cityPopulation   = 100_000.0
+	townPopulation   = 25_000.0
+	townClassCity    = "city"
+	townClassTown    = "town"
+	townClassVillage = "village"
 )
 
 // townClass is the client's class key for a settlement of this population.
@@ -223,40 +223,40 @@ func (c *Campaign) townsLocked(s *model.State) []wire.TownState {
 func (c *Campaign) townStateLocked(t *model.Town) wire.TownState {
 	pop := t.Population
 	out := wire.TownState{
-		ID:                      EntityID(model.KindTown, t.ID),
-		SettlementID:            Slug(t.Name),
-		Name:                    t.Name,
-		Klass:                   townClass(pop),
-		HolderName:              c.state.Name(model.KindRuler, t.Holder),
-		Population:              &pop,
-		Workers:                 round2(t.Workers),
-		FoodStock:               round2(t.FoodStock),
-		FoodProduction:          round2(t.FoodProduction),
-		FoodDemand:              round2(t.FoodDemand),
-		MedicineStock:           round2(t.MedicineStock),
-		Sanitation:              round3(t.Sanitation),
-		Infected:                round3(t.Infected),
-		Crowding:                round3(t.Crowding),
-		Unrest:                  round3(t.Unrest),
-		Loyalty:                 round3(t.Loyalty),
-		Security:                round3(t.RoadSafety),
-		Rebellious:              t.Loyalty < 0.25,
-		UnderSiege:              &t.IsBesieged,
-		Prosperity:              round3(t.Prosperity),
-		TaxRate:                 round3(t.TaxRate),
-		StateTaxRate:            round3(t.StateTaxRate),
-		State:                   t.State,
-		Buildings:               c.buildingInfos(t),
-		ConstructionDaysLeft:    round2(t.ConstructionDaysLeft),
-		Garrison:                round2(t.Garrison),
-		GarrisonConduct:         round3(t.GarrisonConduct),
-		RoadSafety:              round3(t.RoadSafety),
-		Money:                   round2(t.Money),
-		Gold:                    round2(t.Gold),
-		Metal:                   round2(t.Metal),
-		UpdatedTick:             c.townUpdatedTick(t),
-		Recruitable:             c.recruitableUnits(t),
-		Notables:                c.notablesOfTown(t),
+		ID:                   EntityID(model.KindTown, t.ID),
+		SettlementID:         Slug(t.Name),
+		Name:                 t.Name,
+		Klass:                townClass(pop),
+		HolderName:           c.state.Name(model.KindRuler, t.Holder),
+		Population:           &pop,
+		Workers:              round2(t.Workers),
+		FoodStock:            round2(t.FoodStock),
+		FoodProduction:       round2(t.FoodProduction),
+		FoodDemand:           round2(t.FoodDemand),
+		MedicineStock:        round2(t.MedicineStock),
+		Sanitation:           round3(t.Sanitation),
+		Infected:             round3(t.Infected),
+		Crowding:             round3(t.Crowding),
+		Unrest:               round3(t.Unrest),
+		Loyalty:              round3(t.Loyalty),
+		Security:             round3(t.RoadSafety),
+		Rebellious:           t.Loyalty < 0.25,
+		UnderSiege:           &t.IsBesieged,
+		Prosperity:           round3(t.Prosperity),
+		TaxRate:              round3(t.TaxRate),
+		StateTaxRate:         round3(t.StateTaxRate),
+		State:                t.State,
+		Buildings:            c.buildingInfos(t),
+		ConstructionDaysLeft: round2(t.ConstructionDaysLeft),
+		Garrison:             round2(t.Garrison),
+		GarrisonConduct:      round3(t.GarrisonConduct),
+		RoadSafety:           round3(t.RoadSafety),
+		Money:                round2(t.Money),
+		Gold:                 round2(t.Gold),
+		Metal:                round2(t.Metal),
+		UpdatedTick:          c.townUpdatedTick(t),
+		Recruitable:          c.recruitableUnits(t),
+		Notables:             c.notablesOfTown(t),
 	}
 	if t.Holder >= 0 {
 		id := EntityID(model.KindRuler, t.Holder)

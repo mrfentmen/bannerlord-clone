@@ -251,7 +251,7 @@ func (c *Campaign) estimateMarchDays(party *model.Party, dest *model.Town, legs 
 		if speed < c.cfg.March.MinSpeed {
 			speed = c.cfg.March.MinSpeed
 		}
-		return ceilTo(days2(leagues/speed))
+		return ceilTo(days2(leagues / speed))
 	}
 	// Unmapped: a cross-country column is slower than one on a road, which is why
 	// the straight-line fallback is not optimistic.
@@ -367,7 +367,7 @@ func (c *Campaign) CommitMarch(ctx context.Context, req wire.MarchRequest) (any,
 	}
 
 	j := &job{
-		name:          "march",
+		name:           "march",
 		hasEngineOrder: true,
 		engineOrder: sim.Order{
 			Kind:    sim.OrderMarchTo,

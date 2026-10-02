@@ -17,9 +17,9 @@ type TradeRequest struct {
 // TradeResult is the answer to a trade. Accepted false with a Reason is a
 // refusal the player can read, not a transport failure, so it arrives as 200.
 type TradeResult struct {
-	Accepted bool   `json:"accepted"`
-	Side     string `json:"side"`
-	GoodName string `json:"goodName,omitempty"`
+	Accepted  bool    `json:"accepted"`
+	Side      string  `json:"side"`
+	GoodName  string  `json:"goodName,omitempty"`
 	UnitPrice float64 `json:"unitPrice"`
 	Quantity  float64 `json:"quantity"`
 	Total     float64 `json:"total"`
@@ -43,8 +43,8 @@ type RecruitRequest struct {
 
 // RecruitResult is the answer to a hire.
 type RecruitResult struct {
-	Accepted  bool   `json:"accepted"`
-	UnitName  string `json:"unitName"`
+	Accepted  bool    `json:"accepted"`
+	UnitName  string  `json:"unitName"`
 	Quantity  float64 `json:"quantity"`
 	TotalCost float64 `json:"totalCost"`
 	// NewCount is how many of this unit the party holds after the hire.
@@ -64,9 +64,9 @@ type TalkRequest struct {
 
 // TalkToNotableResult is a notable's dialogue and the actions open to the player.
 type TalkToNotableResult struct {
-	NotableID string         `json:"notableId"`
-	Name      string         `json:"name"`
-	Dialogue  []string       `json:"dialogue"`
+	NotableID string          `json:"notableId"`
+	Name      string          `json:"name"`
+	Dialogue  []string        `json:"dialogue"`
 	Actions   []NotableAction `json:"actions"`
 }
 
@@ -91,9 +91,9 @@ type ImproveRelationResult struct {
 
 // BattleXpInput is the aftermath of a battle. Losers learn too, at half rate.
 type BattleXpInput struct {
-	Won            bool     `json:"won"`
-	EnemyStrength  float64  `json:"enemyStrength"`
-	StackIDs       []string `json:"stackIds,omitempty"`
+	Won           bool     `json:"won"`
+	EnemyStrength float64  `json:"enemyStrength"`
+	StackIDs      []string `json:"stackIds,omitempty"`
 }
 
 // BattleXpAward is XP banked into one stack.
@@ -121,7 +121,7 @@ type UpgradeTroopsResult struct {
 
 // MarchRequest is a march order, or the same order asked about as a plan.
 type MarchRequest struct {
-	PartyID               string `json:"partyId"`
+	PartyID                 string `json:"partyId"`
 	DestinationSettlementID string `json:"destinationSettlementId"`
 	// Departure is "now" or "hold".
 	Departure string `json:"departure"`
@@ -131,9 +131,9 @@ type MarchRequest struct {
 // section 9 for exactly which constants it uses and why the march system, not
 // this, is the authority.
 type MarchPlan struct {
-	PartyID                string `json:"partyId"`
+	PartyID                 string `json:"partyId"`
 	DestinationSettlementID string `json:"destinationSettlementId"`
-	DestinationName        string `json:"destinationName"`
+	DestinationName         string `json:"destinationName"`
 	// Route is the path through surveyed roads, for drawing on the map.
 	Route []Point `json:"route"`
 	// DistanceKm converts the model's leagues.
@@ -197,7 +197,7 @@ type StateTaxRequest struct {
 
 // ConstructRequest queues a settlement project.
 type ConstructRequest struct {
-	TownID    string `json:"townId"`
+	TownID     string `json:"townId"`
 	BuildingID string `json:"buildingId"`
 }
 
@@ -208,17 +208,17 @@ type EthnicityRequest struct {
 
 // PlayerCharacter is the whole sheet from the character maker, posted verbatim.
 type PlayerCharacter struct {
-	FirstName      string             `json:"firstName"`
-	LastName       string             `json:"lastName"`
-	Gender         string             `json:"gender"`
-	AppearanceID   string             `json:"appearanceId"`
-	EthnicityID    string             `json:"ethnicityId"`
-	Age            float64            `json:"age"`
-	StartCity      string             `json:"startCity"`
-	Difficulty     string             `json:"difficulty"`
-	BackgroundChoices map[string]string `json:"backgroundChoices"`
-	BonusPoints    map[string]float64 `json:"bonusPoints"`
-	StartingSkills map[string]float64 `json:"startingSkills"`
-	StartingCash   float64            `json:"startingCash"`
-	Biography      string             `json:"biography"`
+	FirstName         string             `json:"firstName"`
+	LastName          string             `json:"lastName"`
+	Gender            string             `json:"gender"`
+	AppearanceID      string             `json:"appearanceId"`
+	EthnicityID       string             `json:"ethnicityId"`
+	Age               float64            `json:"age"`
+	StartCity         string             `json:"startCity"`
+	Difficulty        string             `json:"difficulty"`
+	BackgroundChoices map[string]string  `json:"backgroundChoices"`
+	BonusPoints       map[string]float64 `json:"bonusPoints"`
+	StartingSkills    map[string]float64 `json:"startingSkills"`
+	StartingCash      float64            `json:"startingCash"`
+	Biography         string             `json:"biography"`
 }

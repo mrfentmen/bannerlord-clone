@@ -6,7 +6,6 @@
 package bandit
 
 import (
-	"fmt"
 	"math"
 
 	"mbclone/simulation/internal/model"
@@ -578,4 +577,71 @@ func DestroyCamp(campID int, state *model.State, w *sim.WriteSet) (food, gold, m
 	}
 	delete(rt.Camps, campID)
 	return
+}
+
+// RuntimeSnapshot is the serializable form of the bandit runtime: the only
+// simulation state that lives outside model.State. Save/load captures it so a
+// restored game keeps its bandit camps, bounties, and ID counters.
+type RuntimeSnapshot struct {
+	Camps      map[int]*Camp   `json:"camps"`
+	Bounties   map[int]*Bounty `json:"bounties"`
+	NextCamp   int             `json:"nextCamp"`
+	NextBounty int             `json:"nextBounty"`
+	PartyCamp  map[int]int     `json:"partyCamp"`
+	IdleTicks  map[int]int     `json:"idleTicks"`
+}
+
+// SnapshotRuntime deep-copies the current bandit runtime.
+func SnapshotRuntime() *RuntimeSnapshot {
+	snap := &RuntimeSnapshot{
+		Camps:      make(map[int]*Camp, len(rt.Camps)),
+		Bounties:   make(map[int]*Bounty, len(rt.Bounties)),
+		NextCamp:   rt.nextCamp,
+		NextBounty: rt.nextBounty,
+		PartyCamp:  make(map[int]int, len(rt.partyCamp)),
+		IdleTicks:  make(map[int]int, len(rt.idleTicks)),
+	}
+	for id, c := range rt.Camps {
+		cp := *c
+		cp.PartyIDs = append([]int(nil), c.PartyIDs...)
+		snap.Camps[id] = &cp
+	}
+	for id, b := range rt.Bounties {
+		cp := *b
+		snap.Bounties[id] = &cp
+	}
+	for k, v := range rt.partyCamp {
+		snap.PartyCamp[k] = v
+	}
+	for k, v := range rt.idleTicks {
+		snap.IdleTicks[k] = v
+	}
+	return snap
+}
+
+// RestoreRuntime replaces the bandit runtime with a snapshot.
+func RestoreRuntime(snap *RuntimeSnapshot) {
+	rt = &Runtime{
+		Camps:      make(map[int]*Camp, len(snap.Camps)),
+		Bounties:   make(map[int]*Bounty, len(snap.Bounties)),
+		nextCamp:   snap.NextCamp,
+		nextBounty: snap.NextBounty,
+		partyCamp:  make(map[int]int, len(snap.PartyCamp)),
+		idleTicks:  make(map[int]int, len(snap.IdleTicks)),
+	}
+	for id, c := range snap.Camps {
+		cp := *c
+		cp.PartyIDs = append([]int(nil), c.PartyIDs...)
+		rt.Camps[id] = &cp
+	}
+	for id, b := range snap.Bounties {
+		cp := *b
+		rt.Bounties[id] = &cp
+	}
+	for k, v := range snap.PartyCamp {
+		rt.partyCamp[k] = v
+	}
+	for k, v := range snap.IdleTicks {
+		rt.idleTicks[k] = v
+	}
 }

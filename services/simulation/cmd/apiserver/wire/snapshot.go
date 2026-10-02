@@ -47,11 +47,11 @@ type Point struct {
 
 // PartyState is the player's party.
 type PartyState struct {
-	ID         string  `json:"id"`
-	Name       string  `json:"name"`
-	LeaderName string  `json:"leaderName"`
-	FactionID  string  `json:"factionId"`
-	Position   Point   `json:"position"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	LeaderName string `json:"leaderName"`
+	FactionID  string `json:"factionId"`
+	Position   Point  `json:"position"`
 	// Destination is nil when the party is stationary.
 	Destination *Destination `json:"destination"`
 	Route       []Point      `json:"route"`
@@ -103,8 +103,8 @@ type SideRatings struct {
 // StateProfile is one US state's standing inside a side, computed from the
 // towns the side holds there.
 type StateProfile struct {
-	Code       string  `json:"code"`
-	Name       string  `json:"name"`
+	Code       string   `json:"code"`
+	Name       string   `json:"name"`
 	Population *float64 `json:"population"`
 	// Ratings are 1 to 5, rescaled against the world mean.
 	Money   float64 `json:"money"`
@@ -124,12 +124,12 @@ type SideState struct {
 	// a side is hard exactly when it is stronger than the rest of the world.
 	// The strings are the client's union verbatim, space in "Easy to Medium"
 	// included.
-	Difficulty        string   `json:"difficulty"`
-	Pros              []string `json:"pros"`
-	Cons              []string `json:"cons"`
-	BiggestDanger     string   `json:"biggestDanger"`
-	SignatureMechanic string   `json:"signatureMechanic"`
-	MemberStates      []string `json:"memberStates"`
+	Difficulty        string         `json:"difficulty"`
+	Pros              []string       `json:"pros"`
+	Cons              []string       `json:"cons"`
+	BiggestDanger     string         `json:"biggestDanger"`
+	SignatureMechanic string         `json:"signatureMechanic"`
+	MemberStates      []string       `json:"memberStates"`
 	States            []StateProfile `json:"states"`
 }
 
@@ -158,22 +158,22 @@ type RulerEvent struct {
 
 // RulerState is one named character.
 type RulerState struct {
-	ID          string      `json:"id"`
-	Name        string      `json:"name"`
-	FactionID   string      `json:"factionId"`
-	FactionName string      `json:"factionName"`
+	ID          string `json:"id"`
+	Name        string `json:"name"`
+	FactionID   string `json:"factionId"`
+	FactionName string `json:"factionName"`
 	// Tier is one of the client's six names, decided from the fields the
 	// model actually records rather than from Ruler.Tier alone.
-	Tier     string       `json:"tier"`
-	Age      float64      `json:"age"`
-	Traits   RulerTraits  `json:"traits"`
-	Ambitions []string    `json:"ambitions"`
-	Holdings []Holding    `json:"holdings"`
-	Garrison float64      `json:"garrison"`
-	Wealth   Resources    `json:"wealth"`
-	LoyaltyToLeader float64 `json:"loyaltyToLeader"`
-	Influence float64      `json:"influence"`
-	Renown    float64      `json:"renown"`
+	Tier            string      `json:"tier"`
+	Age             float64     `json:"age"`
+	Traits          RulerTraits `json:"traits"`
+	Ambitions       []string    `json:"ambitions"`
+	Holdings        []Holding   `json:"holdings"`
+	Garrison        float64     `json:"garrison"`
+	Wealth          Resources   `json:"wealth"`
+	LoyaltyToLeader float64     `json:"loyaltyToLeader"`
+	Influence       float64     `json:"influence"`
+	Renown          float64     `json:"renown"`
 	// RelationToPlayer is -100 to 100.
 	RelationToPlayer float64      `json:"relationToPlayer"`
 	RecentEvents     []RulerEvent `json:"recentEvents"`
@@ -182,15 +182,15 @@ type RulerState struct {
 // CauseRow is one row of the cause log, CAUSE_EFFECT.md section 4. CausedBy is
 // what makes the Why panel a chain walk rather than a list.
 type CauseRow struct {
-	ID       string  `json:"id"`
-	Tick     int     `json:"tick"`
-	Day      int     `json:"day"`
-	EntityID string  `json:"entityId"`
+	ID       string `json:"id"`
+	Tick     int    `json:"tick"`
+	Day      int    `json:"day"`
+	EntityID string `json:"entityId"`
 	// EntityName is the readable name, so the panel never shows "entity 4121".
-	EntityName string   `json:"entityName"`
-	Field      string   `json:"field"`
-	Old        float64  `json:"old"`
-	New        float64  `json:"new"`
+	EntityName string  `json:"entityName"`
+	Field      string  `json:"field"`
+	Old        float64 `json:"old"`
+	New        float64 `json:"new"`
 	// System is the system that wrote the row, title-cased for display.
 	System string `json:"system"`
 	// CausedBy names the prior rows behind this one.
@@ -234,20 +234,20 @@ type TickUpdate struct {
 	Tick int `json:"tick"`
 	Day  int `json:"day"`
 	// TownClassName and MarketState are partials keyed by id.
-	Towns         map[string]map[string]any  `json:"towns,omitempty"`
-	Markets       map[string]map[string]any  `json:"markets,omitempty"`
-	Party         map[string]any             `json:"party,omitempty"`
-	Player        map[string]any             `json:"player,omitempty"`
-	Ledger        *Ledger                    `json:"ledger,omitempty"`
-	Warnings      []ResourceWarning          `json:"warnings,omitempty"`
-	Notifications []Notification             `json:"notifications,omitempty"`
-	CauseRows     []CauseRow                 `json:"causeRows,omitempty"`
+	Towns         map[string]map[string]any `json:"towns,omitempty"`
+	Markets       map[string]map[string]any `json:"markets,omitempty"`
+	Party         map[string]any            `json:"party,omitempty"`
+	Player        map[string]any            `json:"player,omitempty"`
+	Ledger        *Ledger                   `json:"ledger,omitempty"`
+	Warnings      []ResourceWarning         `json:"warnings,omitempty"`
+	Notifications []Notification            `json:"notifications,omitempty"`
+	CauseRows     []CauseRow                `json:"causeRows,omitempty"`
 }
 
 // SimSnapshot is the whole world as the client reads it.
 type SimSnapshot struct {
-	Day   int `json:"day"`
-	Year  int `json:"year"`
+	Day  int `json:"day"`
+	Year int `json:"year"`
 	// EraTier is 1 to 4, from ERA.md section 3 against the campaign's start
 	// year. The client refuses a snapshot whose eraTier is not one of those
 	// four integers.

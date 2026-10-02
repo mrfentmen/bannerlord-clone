@@ -541,6 +541,18 @@ func (e *Engine) SystemNames() []string {
 // SetOrders replaces the queue of player or scripted orders.
 func (e *Engine) SetOrders(o []Order) { e.orders = append([]Order{}, o...) }
 
+// Seed returns the seed the engine was constructed with. It is recorded in
+// run metadata and in save files.
+func (e *Engine) Seed() uint64 { return e.seed }
+
+// RNGState captures the master random stream's position. Save/load uses it
+// so a restored game resumes the exact random sequence.
+func (e *Engine) RNGState() uint64 { return e.rng.State() }
+
+// RestoreRNGState resumes the master random stream at a previously captured
+// position.
+func (e *Engine) RestoreRNGState(s uint64) { e.rng.SetState(s) }
+
 // AddHook registers a callback invoked once per tick after the commit, for
 // logging and metrics. Hooks are part of the runner, not a system, so they
 // cannot influence simulation results.
