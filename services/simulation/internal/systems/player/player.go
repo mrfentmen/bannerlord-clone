@@ -241,6 +241,7 @@ func applyMercenaries(v *sim.View, w *sim.WriteSet, o sim.Order) {
 // applyRecruit recruits volunteers from a town into the leader's party.
 // Costs gold per troop, limited by town prosperity (more prosperous towns
 // have more willing recruits) and the leader's available gold.
+// The party must be physically at the town (within 5km) to recruit.
 func applyRecruit(v *sim.View, w *sim.WriteSet, o sim.Order) {
 	r := v.State.Leaders[o.LeaderID]
 	t := v.State.Towns[o.TownID]
@@ -257,6 +258,14 @@ func applyRecruit(v *sim.View, w *sim.WriteSet, o sim.Order) {
 		}
 	}
 	if party == nil {
+		return
+	}
+	// Physical presence check: party must be within 5km of the town.
+	// Recruitment is in-person; you can't hire from across the map.
+	dx := party.X - t.X
+	dy := party.Y - t.Y
+	distSq := dx*dx + dy*dy
+	if distSq > 25 { // 5km squared
 		return
 	}
 	// Available recruits scale with prosperity and town size.
