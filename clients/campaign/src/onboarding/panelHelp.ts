@@ -15,9 +15,11 @@ export const PANEL_HELP_MAP: Record<string, string> = {
   Codex: "map",
   DifficultyPanel: "map",
   DifficultySelector: "map",
+  DiplomacyPanel: "diplomacy",
   GameMenu: "map",
   KeybindingEditor: "map",
   LedgerPanel: "economy",
+  LoansPanel: "economy",
   MarchPlanner: "map",
   MarketPanel: "economy",
   PartyPanel: "map",
@@ -25,12 +27,10 @@ export const PANEL_HELP_MAP: Record<string, string> = {
   RulerPanel: "clan",
   SettingsPanel: "map",
   ShortcutsReference: "map",
+  SpymasterPanel: "espionage",
   StartScreen: "map",
   TownPanel: "economy",
   WhyPanel: "map",
-  DiplomacyPanel: "map",
-  LoansPanel: "economy",
-  SpymasterPanel: "map",
 };
 
 /** Panels that are not user-facing (helpers, skeletons) and need no help. */
