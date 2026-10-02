@@ -1,11 +1,11 @@
 /**
- * Deployment placement interaction for the battle scene (Buffy task 3).
+ * Deployment placement interaction for the battle scene (Buffy tasks 3-4).
  *
  * During deployment a semi-transparent soldier ghost follows the cursor over
- * the battlefield, so the player sees where a unit is about to stand before
- * clicking. The placer owns the pointer subscription and the ghost visuals;
- * later deployment tasks (click to place, cancel, grid snap, undo) build on
- * the same handle.
+ * the battlefield, and a click inside the player's deployment zone drops a
+ * solid marker where the unit will stand. The placer owns the pointer
+ * subscription, the ghost visuals, and the placement list; later deployment
+ * tasks (cancel, grid snap, undo, clear) build on the same handle.
  *
  * The ghost starts as a primitive proxy so it is there the moment deployment
  * begins, and upgrades to a translucent clone of the soldier GLB once the
@@ -28,6 +28,7 @@ import {
   TransformNode,
   Vector3,
 } from "@babylonjs/core";
+import type { DeploymentZone } from "./BattleUI.js";
 
 /** Only the battle ground is a valid ghost surface; props and zones are ignored. */
 const GROUND_MESH_NAME = "battleGround";
@@ -37,17 +38,47 @@ const GHOST_MODEL_FILE = "operator-viper.glb";
 /** Ghosts are see-through: solid enough to read, faint enough not to occlude. */
 const GHOST_ALPHA = 0.45;
 
+/** A placed unit's footprint on the battlefield, in world metres. */
+export interface DeploymentPlacement {
+  x: number;
+  z: number;
+}
+
 export interface DeploymentPlacerOptions {
   /** Soldier GLB for the ghost; defaults to the BattleSoldier model. */
   modelFile?: string;
+  /** Zones placements are validated against — only `player` zones accept units. */
+  zones?: DeploymentZone[];
+  /** Fired after every successful placement, in order. */
+  onPlace?: (placement: DeploymentPlacement) => void;
+}
+
+/**
+ * Pure: is a battlefield point inside a zone? Zones are centred rectangles
+ * (the boxes `showDeploymentZone` builds), in world metres.
+ */
+export function pointInDeploymentZone(
+  point: { x: number; z: number },
+  zone: DeploymentZone,
+): boolean {
+  return (
+    Math.abs(point.x - zone.x) <= zone.width / 2 &&
+    Math.abs(point.z - zone.z) <= zone.depth / 2
+  );
 }
 
 export class DeploymentPlacer {
   private readonly scene: Scene;
   private readonly modelFile: string;
+  private readonly zones: DeploymentZone[];
+  private readonly onPlace: ((placement: DeploymentPlacement) => void) | null;
   private readonly ghostRoot: TransformNode;
   private readonly ghostMaterial: StandardMaterial;
   private readonly proxyMeshes: Mesh[] = [];
+  private readonly placements: DeploymentPlacement[] = [];
+  private readonly placementMeshes: Mesh[] = [];
+  private placementMaterial: StandardMaterial | null = null;
+  private placementCounter = 0;
   private observer: Observer<PointerInfo> | null = null;
   private lastPoint: Vector3 | null = null;
   private proxyRetired = false;
@@ -56,6 +87,8 @@ export class DeploymentPlacer {
   constructor(scene: Scene, options: DeploymentPlacerOptions = {}) {
     this.scene = scene;
     this.modelFile = options.modelFile ?? GHOST_MODEL_FILE;
+    this.zones = options.zones ? [...options.zones] : [];
+    this.onPlace = options.onPlace ?? null;
 
     this.ghostRoot = new TransformNode(GHOST_ROOT_NAME, scene);
 
@@ -89,15 +122,18 @@ export class DeploymentPlacer {
   }
 
   /**
-   * Start the preview: show the ghost and follow the cursor. Idempotent —
-   * calling it twice is a no-op, so re-entering deployment never stacks
-   * pointer observers.
+   * Start the preview: show the ghost, follow the cursor, and accept clicks.
+   * Idempotent — calling it twice is a no-op, so re-entering deployment never
+   * stacks pointer observers.
    */
   start(initialPoint?: Vector3): void {
     if (this.disposed || this.observer) return;
     this.observer = this.scene.onPointerObservable.add((info) => {
-      if (info.type !== PointerEventTypes.POINTERMOVE) return;
-      this.followCursor();
+      if (info.type === PointerEventTypes.POINTERMOVE) {
+        this.followCursor();
+      } else if (info.type === PointerEventTypes.POINTERPICK) {
+        this.handlePick(info);
+      }
     });
     this.ghostRoot.setEnabled(true);
     this.moveGhostTo(initialPoint ?? this.lastPoint ?? Vector3.Zero());
@@ -123,17 +159,83 @@ export class DeploymentPlacer {
     return this.lastPoint ? this.lastPoint.clone() : null;
   }
 
-  private followCursor(): void {
-    // Predicate-filtered pick: only the ground is a candidate, so the ghost
-    // keeps tracking it even when the cursor passes over a tree or a wall.
+  /**
+   * Place a unit marker at a battlefield point. Only points inside one of the
+   * player zones are accepted; an invalid point is returned as `false` with no
+   * side effect (the invalid-flash feedback is a later task).
+   */
+  placeAt(point: Vector3): boolean {
+    if (this.disposed) return false;
+    const inPlayerZone = this.zones.some(
+      (zone) => zone.faction === "player" && pointInDeploymentZone(point, zone),
+    );
+    if (!inPlayerZone) return false;
+
+    const placement: DeploymentPlacement = { x: point.x, z: point.z };
+    this.placements.push(placement);
+    this.addPlacementMarker(placement);
+    this.onPlace?.(placement);
+    return true;
+  }
+
+  /** Every placement so far, in order — read by count, undo, and clear. */
+  getPlacements(): DeploymentPlacement[] {
+    return this.placements.map((p) => ({ ...p }));
+  }
+
+  /** A click that is not a camera drag: try to place at the picked ground point. */
+  private handlePick(info: PointerInfo): void {
+    // Only the primary button places; button 2 is reserved for cancel.
+    if (info.event.button > 0) return;
+    const point = this.pickGround();
+    if (point) this.placeAt(point);
+  }
+
+  /** Ground point under the cursor, or null when it is off the battlefield. */
+  private pickGround(): Vector3 | null {
+    // Predicate-filtered pick: only the ground is a candidate, so props and
+    // zone boxes are ignored and the ground still answers under a tree or wall.
     const pick = this.scene.pick(
       this.scene.pointerX,
       this.scene.pointerY,
       (mesh) => mesh.name === GROUND_MESH_NAME,
     );
-    const point = pick?.hit ? pick.pickedPoint : null;
+    return pick?.hit && pick.pickedPoint ? pick.pickedPoint : null;
+  }
+
+  private followCursor(): void {
+    const point = this.pickGround();
     if (point) this.moveGhostTo(point);
     // No ground under the cursor (sky, off-map edge): keep the last valid spot.
+  }
+
+  /** A solid standing figure marks each placed unit until units spawn for real. */
+  private addPlacementMarker(placement: DeploymentPlacement): void {
+    const material = this.ensurePlacementMaterial();
+    const n = this.placementCounter++;
+    const body = MeshBuilder.CreateCapsule(
+      `deployPlaced${n}Body`, { height: 1.55, radius: 0.32 }, this.scene,
+    );
+    body.position.set(placement.x, 0.78, placement.z);
+    body.material = material;
+    body.isPickable = false;
+    const head = MeshBuilder.CreateSphere(
+      `deployPlaced${n}Head`, { diameter: 0.34, segments: 8 }, this.scene,
+    );
+    head.position.set(placement.x, 1.72, placement.z);
+    head.material = material;
+    head.isPickable = false;
+    this.placementMeshes.push(body, head);
+  }
+
+  private ensurePlacementMaterial(): StandardMaterial {
+    if (!this.placementMaterial) {
+      const material = new StandardMaterial("deployPlacedMat", this.scene);
+      material.diffuseColor = new Color3(0.2, 0.85, 0.3);
+      material.emissiveColor = new Color3(0.04, 0.16, 0.06);
+      this.placementMaterial = material;
+    }
+    return this.placementMaterial;
   }
 
   /**
@@ -173,13 +275,18 @@ export class DeploymentPlacer {
     }
   }
 
-  /** Remove the ghost, its pointer subscription, and its materials. */
+  /** Remove the ghost, the placed markers, the pointer subscription, and materials. */
   dispose(): void {
     this.disposed = true;
     this.stop();
     for (const mesh of this.proxyMeshes) mesh.dispose(false, false);
     this.proxyMeshes.length = 0;
     if (!this.proxyRetired) this.ghostMaterial.dispose();
+    for (const mesh of this.placementMeshes) mesh.dispose(false, false);
+    this.placementMeshes.length = 0;
+    this.placements.length = 0;
+    this.placementMaterial?.dispose();
+    this.placementMaterial = null;
     this.ghostRoot.dispose();
   }
 }

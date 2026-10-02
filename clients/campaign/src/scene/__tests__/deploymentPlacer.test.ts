@@ -1,18 +1,24 @@
 /**
- * Deployment ghost preview (Buffy task 3).
+ * Deployment ghost preview and placement (Buffy tasks 3-4).
  *
  * The placer owns the battlefield side of the deployment phase: a translucent
- * soldier ghost that tracks the cursor. These tests run the real class on a
+ * soldier ghost that tracks the cursor, and solid markers dropped by clicks
+ * inside the player's deployment zone. These tests run the real class on a
  * NullEngine — real meshes, no GPU — and cover show/hide, position updates,
- * observer hygiene, and teardown. The GLB upgrade cannot run headless (no
- * network to /models/), which is exactly the case the proxy fallback has to
- * survive.
+ * observer hygiene, teardown, and placement validation. The GLB upgrade
+ * cannot run headless (no network to /models/), which is exactly the case the
+ * proxy fallback has to survive.
  */
 
 import { describe, expect, it, vi } from "vitest";
 import { Scene, Vector3, type Mesh, type StandardMaterial } from "@babylonjs/core";
 import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
-import { DeploymentPlacer } from "../DeploymentPlacer.js";
+import type { DeploymentZone } from "../BattleUI.js";
+import {
+  DeploymentPlacer,
+  pointInDeploymentZone,
+  type DeploymentPlacement,
+} from "../DeploymentPlacer.js";
 
 function newScene(): Scene {
   const engine = new NullEngine({
@@ -127,5 +133,105 @@ describe("DeploymentPlacer ghost preview", () => {
 
     warn.mockRestore();
     placer.dispose();
+  });
+});
+
+describe("DeploymentPlacer placement clicks", () => {
+  const playerZone: DeploymentZone = { x: 0, z: 0, width: 20, depth: 10, faction: "player" };
+  const enemyZone: DeploymentZone = { x: 50, z: 0, width: 20, depth: 10, faction: "enemy" };
+
+  it("places a solid marker inside the player zone", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene, { zones: [playerZone] });
+
+    expect(placer.placeAt(new Vector3(5, 0, 3))).toBe(true);
+    expect(placer.getPlacements()).toEqual([{ x: 5, z: 3 }]);
+
+    const body = scene.getMeshByName("deployPlaced0Body") as Mesh;
+    const head = scene.getMeshByName("deployPlaced0Head") as Mesh;
+    expect(body).not.toBeNull();
+    expect(head).not.toBeNull();
+    expect(body.position.x).toBeCloseTo(5);
+    expect(body.position.z).toBeCloseTo(3);
+    // Solid, unlike the translucent ghost.
+    expect((body.material as StandardMaterial).alpha).toBe(1);
+
+    placer.dispose();
+  });
+
+  it("rejects clicks outside the player zone, including the enemy zone", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene, { zones: [playerZone, enemyZone] });
+
+    expect(placer.placeAt(new Vector3(11, 0, 0))).toBe(false); // past the east edge
+    expect(placer.placeAt(new Vector3(0, 0, 6))).toBe(false); // past the south edge
+    expect(placer.placeAt(new Vector3(50, 0, 0))).toBe(false); // enemy zone is not placeable
+
+    expect(placer.getPlacements()).toEqual([]);
+    expect(scene.getMeshByName("deployPlaced0Body")).toBeNull();
+
+    placer.dispose();
+  });
+
+  it("accepts points exactly on the zone edge", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene, { zones: [playerZone] });
+
+    expect(placer.placeAt(new Vector3(10, 0, 0))).toBe(true); // x edge
+    expect(placer.placeAt(new Vector3(-10, 0, 5))).toBe(true); // x and z edge
+    expect(placer.getPlacements()).toHaveLength(2);
+
+    placer.dispose();
+  });
+
+  it("reports every placement through onPlace, in order", () => {
+    const scene = newScene();
+    const seen: DeploymentPlacement[] = [];
+    const placer = new DeploymentPlacer(scene, {
+      zones: [playerZone],
+      onPlace: (p) => seen.push(p),
+    });
+
+    placer.placeAt(new Vector3(1, 0, 1));
+    placer.placeAt(new Vector3(2, 0, 2));
+
+    expect(seen).toEqual([{ x: 1, z: 1 }, { x: 2, z: 2 }]);
+
+    placer.dispose();
+  });
+
+  it("returns copies from getPlacements so callers cannot mutate the list", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene, { zones: [playerZone] });
+    placer.placeAt(new Vector3(1, 0, 1));
+
+    const list = placer.getPlacements();
+    list[0]!.x = 999;
+
+    expect(placer.getPlacements()).toEqual([{ x: 1, z: 1 }]);
+
+    placer.dispose();
+  });
+
+  it("removes markers and placements on dispose", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene, { zones: [playerZone] });
+    placer.placeAt(new Vector3(0, 0, 0));
+
+    placer.dispose();
+
+    expect(scene.getMeshByName("deployPlaced0Body")).toBeNull();
+    expect(placer.getPlacements()).toEqual([]);
+  });
+});
+
+describe("pointInDeploymentZone", () => {
+  it("treats the zone as a centred rectangle", () => {
+    const zone: DeploymentZone = { x: 10, z: -4, width: 6, depth: 8, faction: "player" };
+
+    expect(pointInDeploymentZone({ x: 10, z: -4 }, zone)).toBe(true); // centre
+    expect(pointInDeploymentZone({ x: 13, z: 0 }, zone)).toBe(true); // corner
+    expect(pointInDeploymentZone({ x: 13.1, z: 0 }, zone)).toBe(false); // just past x
+    expect(pointInDeploymentZone({ x: 10, z: 0.1 }, zone)).toBe(false); // just past z
   });
 });
