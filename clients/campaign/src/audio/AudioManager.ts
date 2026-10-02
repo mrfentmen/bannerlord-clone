@@ -78,6 +78,17 @@ export const WEAPON_SFX: Record<WeaponSound, SfxId> = {
 };
 
 /**
+ * Task 509: the explosion cues. The manifest's small explosion is the grenade
+ * (`sfx-weapon-explosion-small`) and the large one a shell or a charge
+ * (`sfx-weapon-explosion`); both are real assets.
+ */
+export type ExplosionKind = "grenade" | "shell";
+export const EXPLOSION_SFX: Record<ExplosionKind, SfxId> = {
+  grenade: "sfx-weapon-explosion-small",
+  shell: "sfx-weapon-explosion",
+};
+
+/**
  * Task 554: how long one music track takes to hand over to the next, in seconds.
  * Long enough that the two are heard as one move rather than a cut, short enough
  * that the battle theme is in place before the first volley.
@@ -285,6 +296,11 @@ export class AudioManager {
 
   playWeaponSound(type: WeaponSound = 'shot'): void {
     this.playSfx(WEAPON_SFX[type], { volume: 0.8 });
+  }
+
+  /** Task 509: a grenade or shell explosion, deliberately louder than a gunshot. */
+  playExplosion(kind: ExplosionKind = 'grenade'): void {
+    this.playSfx(EXPLOSION_SFX[kind], { volume: 0.9 });
   }
 
   playUiSound(type: 'click' | 'confirm' | 'error' | 'hover' | 'toggle' = 'click'): void {
