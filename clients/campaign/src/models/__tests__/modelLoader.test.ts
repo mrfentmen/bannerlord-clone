@@ -11,6 +11,9 @@
  *
  * Task 603: the byte counts the loader reports are forwarded with the model id,
  * on every attempt, and never for a model served from the cache.
+ *
+ * Task 605: preloadBattle loads the battlefield categories in one pass and
+ * reports which ids arrived and which failed, without rejecting.
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
@@ -26,6 +29,9 @@ const MODELS: ModelInfo[] = [
   { id: "troop-gunner", path: "models/troop-gunner.glb", category: "troop" },
   { id: "humvee", path: "models/humvee.glb", category: "vehicle" },
 ];
+
+/** What the stubbed manifest fetch returns; a test may replace it. */
+let manifestModels: ModelInfo[] = MODELS;
 
 /** A loader that fails `failures` times, then resolves with a token mesh. */
 function flakyLoader(failures: number, token = "mesh") {
@@ -49,8 +55,9 @@ function buildLoader(options: ConstructorParameters<typeof ModelLoader>[1]) {
 }
 
 beforeEach(() => {
+  manifestModels = MODELS;
   vi.stubGlobal("fetch", async () => ({
-    json: async () => ({ models: MODELS }),
+    json: async () => ({ models: manifestModels }),
   }));
   // The module reports its own failures; the assertions do not need the noise.
   vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -150,6 +157,74 @@ describe("ModelLoader retry (task 601)", () => {
 
     await expect(loader.load("absent")).resolves.toBeNull();
     expect(flaky.calls()).toBe(0);
+    loader.dispose();
+  });
+});
+
+describe("ModelLoader preloadBattle (task 605)", () => {
+  const FIELD_MANIFEST: ModelInfo[] = [
+    { id: "troop-gunner", path: "models/troop-gunner.glb", category: "troop" },
+    { id: "troop-rifleman", path: "models/troop-rifleman.glb", category: "troop" },
+    { id: "humvee", path: "models/humvee.glb", category: "vehicle" },
+    { id: "farmhouse", path: "models/farmhouse.glb", category: "structure" },
+    { id: "crate", path: "models/crate.glb", category: "prop" },
+    { id: "taxi", path: "models/taxi.glb", category: "nyc" },
+  ];
+
+  it("loads the battlefield categories and leaves the map dressing alone", async () => {
+    manifestModels = FIELD_MANIFEST;
+    const asked: string[] = [];
+    const load = async (info: ModelInfo): Promise<unknown> => {
+      asked.push(info.id);
+      return { name: info.id };
+    };
+    const loader = await readyLoader({ load });
+
+    const report = await loader.preloadBattle();
+    expect(report.loaded.sort()).toEqual(["humvee", "troop-gunner", "troop-rifleman"]);
+    expect(report.failed).toEqual([]);
+    expect(asked.sort()).toEqual(["humvee", "troop-gunner", "troop-rifleman"]);
+    loader.dispose();
+  });
+
+  it("names the models that failed instead of rejecting the whole pass", async () => {
+    manifestModels = FIELD_MANIFEST;
+    const load = async (info: ModelInfo): Promise<unknown> => {
+      if (info.category === "vehicle") throw new Error("wrecked");
+      return { name: info.id };
+    };
+    const loader = await readyLoader({ load, attempts: 1 });
+
+    const report = await loader.preloadBattle();
+    expect(report.failed).toEqual(["humvee"]);
+    expect(report.loaded.sort()).toEqual(["troop-gunner", "troop-rifleman"]);
+    loader.dispose();
+  });
+
+  it("is a quiet no-op when the manifest has no battlefield models", async () => {
+    manifestModels = FIELD_MANIFEST.filter((m) => m.category === "prop");
+    const load = async (): Promise<unknown> => {
+      throw new Error("should not be called");
+    };
+    const loader = await readyLoader({ load });
+
+    await expect(loader.preloadBattle()).resolves.toEqual({ loaded: [], failed: [] });
+    loader.dispose();
+  });
+
+  it("reuses an already loaded model instead of fetching it twice", async () => {
+    manifestModels = FIELD_MANIFEST;
+    let calls = 0;
+    const load = async (info: ModelInfo): Promise<unknown> => {
+      calls++;
+      return { name: info.id };
+    };
+    const loader = await readyLoader({ load });
+
+    await loader.load("humvee");
+    const report = await loader.preloadBattle();
+    expect(report.loaded).toContain("humvee");
+    expect(calls).toBe(3); // three battlefield models, one fetch each
     loader.dispose();
   });
 });

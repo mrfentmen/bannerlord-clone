@@ -22,6 +22,13 @@
  * Task 603: the byte counts SceneLoader already reports are forwarded to the
  * caller's `onProgress`, tagged with the model id, so a loading screen can show
  * real transfer progress instead of a spinner that means nothing.
+ *
+ * Task 604 (cache) was already in place and is covered by the retry tests:
+ * `load` serves the cache first, an in-flight promise is shared, and `dispose`
+ * drops the entries. No second cache layer was added.
+ *
+ * Task 605: {@link ModelLoader.preloadBattle} loads the battlefield categories
+ * in one pass and reports which ids arrived and which failed.
  */
 
 /** Attempts per model, including the first. Task 601. */
@@ -30,6 +37,12 @@ export const DEFAULT_ATTEMPTS = 3;
 export const DEFAULT_RETRY_DELAY_MS = 250;
 /** Time budget per attempt, ms. Task 602. */
 export const DEFAULT_TIMEOUT_MS = 30_000;
+
+/**
+ * Categories that belong on a battlefield (task 605). `structure`, `nyc` and
+ * `prop` are map dressing and are loaded on approach, not before a fight.
+ */
+export const BATTLE_CATEGORIES: readonly ModelInfo["category"][] = ["troop", "vehicle"];
 
 export interface ModelInfo {
   id: string;
@@ -54,6 +67,14 @@ export interface LoadProgress {
 
 /** How a loader reports bytes; `(loaded, total)` (task 603). */
 export type ProgressReporter = (loaded: number, total: number) => void;
+
+/** What a preload pass managed to fetch (task 605). */
+export interface PreloadReport {
+  /** Ids that came back with a model (from the network or the cache). */
+  loaded: string[];
+  /** Ids whose load failed and are therefore not on the field. */
+  failed: string[];
+}
 
 export interface ModelLoaderOptions {
   /** Attempts per model, including the first; defaults to 3 (task 601). */
@@ -112,6 +133,26 @@ export class ModelLoader {
    */
   async preload(ids: string[]): Promise<void> {
     await Promise.all(ids.map(id => this.load(id)));
+  }
+
+  /**
+   * Task 605: load every battlefield model in the manifest before the field is
+   * drawn. The pass never rejects — a model that fails is listed in `failed`,
+   * because the caller still has a battle to run.
+   */
+  async preloadBattle(): Promise<PreloadReport> {
+    return this.preloadCategories(BATTLE_CATEGORIES);
+  }
+
+  /** Loads every manifest model in the given categories (task 605). */
+  async preloadCategories(categories: readonly ModelInfo["category"][]): Promise<PreloadReport> {
+    const wanted = new Set(categories);
+    const ids = [...this.manifest.values()].filter((m) => wanted.has(m.category)).map((m) => m.id);
+    const results = await Promise.all(ids.map(async (id) => ({ id, model: await this.load(id) })));
+    return {
+      loaded: results.filter((r) => r.model !== null).map((r) => r.id),
+      failed: results.filter((r) => r.model === null).map((r) => r.id),
+    };
   }
 
   /**
