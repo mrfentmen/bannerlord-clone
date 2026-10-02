@@ -20,3 +20,4 @@ export { logTreasury, treasuryBalance, treasuryLog, treasuryTotals, type Treasur
 export { recordWorkshopSeason, workshopPL, type WorkshopPL, type WorkshopSeason } from "./workshopPL.js";
 export { rankCaravanRoutes, type RouteRanking } from "./caravanRanking.js";
 export { cancelPriceAlert, checkPriceAlerts, pendingPriceAlerts, priceAlertLine, setPriceAlert, type PriceAlert } from "./priceAlerts.js";
+export { FAIR_TAX_RATE, predictedTaxIncome, predictedTaxUnrest, simulateTaxPolicy, type TaxPrediction } from "./taxSimulator.js";
