@@ -47,6 +47,11 @@ export interface Order {
    * posture was chosen, which is different from "passive" — passive is a choice.
    */
   stance?: StanceKind;
+  /**
+   * Task 74: whether the group opens fire on its own. Absent leaves it to the sim,
+   * which is what an order that never mentions firing should mean.
+   */
+  fireMode?: FireMode;
   /** Task 46: the scene's estimate of how long the order takes to arrive, ms. */
   delayMs?: number;
   /** ms since epoch, for delay visualization downstream. */
@@ -68,6 +73,17 @@ export const FORMATION_LABEL: Record<FormationKind, string> = {
  * above, which describes the last order issued — that is history, this is intent.
  */
 export type StanceKind = "aggressive" | "defensive" | "passive";
+
+/**
+ * Task 74: whether the group opens fire on its own. `at-will` shoots what comes
+ * into reach; `hold-fire` waits for an attack order (task 75).
+ */
+export type FireMode = "at-will" | "hold-fire";
+
+export const FIRE_MODE_LABEL: Record<FireMode, string> = {
+  "at-will": "Fire at will",
+  "hold-fire": "Hold fire",
+};
 
 export const ORDER_LABEL: Record<OrderKind, string> = {
   attack: "Attack",

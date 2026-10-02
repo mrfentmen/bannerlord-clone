@@ -40,7 +40,15 @@ import { createFormationSelector, type FormationSelector } from "./formation.js"
 import { createFormationGhost } from "./formationGhost.js";
 import { createStanceSelector, type StanceSelector } from "./stance.js";
 import { createStanceIcons } from "./stanceIcons.js";
-import type { CommandSurface, FormationKind, Order, OrderKind, StanceKind } from "./types.js";
+import { createFireModeToggle, type FireModeToggle } from "./fireMode.js";
+import type {
+  CommandSurface,
+  FireMode,
+  FormationKind,
+  Order,
+  OrderKind,
+  StanceKind,
+} from "./types.js";
 
 export interface Commander {
   selection: SelectionModel;
@@ -80,6 +88,17 @@ const registeredBattleOrders = new WeakSet<InputRegistry>();
 function ensureAttackMoveAction(registry: InputRegistry): void {
   if (registeredBattleOrders.has(registry)) return;
   registeredBattleOrders.add(registry);
+  if (!registry.actions().some((a) => a.id === "battle.fireAtWill")) {
+    registry.registerAction({
+      id: "battle.fireAtWill",
+      label: "Order: fire at will",
+      description: "Selected units shoot anything in reach without waiting to be told.",
+      category: "battle-command",
+      // The F row is the order row and it was only full to F5 (quicksave).
+      defaultKeys: [{ key: "F6" }],
+      preventDefault: true,
+    });
+  }
   if (!registry.actions().some((a) => a.id === "battle.orderFormUp")) {
     registry.registerAction({
       id: "battle.orderFormUp",
@@ -203,6 +222,15 @@ export function createCommander(
   // Task 73: the chosen stance shown over each selected unit.
   const stanceIcons = createStanceIcons(surface);
   overlay.appendChild(stanceIcons.root);
+  /** Task 74: the fire mode last asked for, or null when none was. */
+  let fireMode: FireMode | null = null;
+  const fireToggle: FireModeToggle = createFireModeToggle({
+    registry,
+    onPress: (mode) => {
+      fireMode = mode;
+    },
+  });
+  orderPanel.slot.appendChild(fireToggle.root);
   // Task 71: the ghost that previews the shape under the pointer.
   const ghost = createFormationGhost(surface);
   overlay.appendChild(ghost.root);
@@ -276,6 +304,8 @@ export function createCommander(
     if (formation && order.formation === undefined) order.formation = formation;
     // Task 72: same rule for the posture — absent means the player never chose.
     if (stance && order.stance === undefined) order.stance = stance;
+    // Task 74: and for the fire mode. Absent leaves it to the sim.
+    if (fireMode && order.fireMode === undefined) order.fireMode = fireMode;
     surface.issueOrder(order);
     for (const id of order.unitIds) lastOrder.set(id, order.kind);
     const { byId } = liveUnits();
@@ -583,6 +613,15 @@ export function createCommander(
   offs.push(registry.on("battle.orderSpread", () => orderSelection("spread", false)));
   offs.push(registry.on("battle.orderFormUp", () => orderSelection("form-up", false)));
 
+  // -- fire at will (task 74) -----------------------------------------------------
+  offs.push(
+    registry.on("battle.fireAtWill", () => {
+      fireMode = "at-will";
+      fireToggle.set("at-will");
+      orderSelection("attack", true);
+    }),
+  );
+
   // -- attack-move (task 52): A arms the mode, the next field click issues it --
   offs.push(
     registry.on("battle.orderAttackMove", () => {
@@ -696,6 +735,7 @@ export function createCommander(
       stanceSelector.destroy();
       ghost.destroy();
       stanceIcons.destroy();
+      fireToggle.destroy();
       modeHint.remove();
     },
   };

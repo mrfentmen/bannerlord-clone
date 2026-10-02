@@ -26,11 +26,20 @@ export {
 } from "./stance.js";
 export { createStanceIcons, type StanceIcons } from "./stanceIcons.js";
 export {
+  createFireModeToggle,
+  FIRE_MODE_BUTTONS,
+  type FireModeButtonSpec,
+  type FireModeToggle,
+  type FireModeToggleOptions,
+} from "./fireMode.js";
+export {
   ORDER_LABEL,
   STANCE_LABEL,
+  FIRE_MODE_LABEL,
   FORMATION_LABEL,
   type CommandSurface,
   type CommandableUnit,
+  type FireMode,
   type FormationKind,
   type Order,
   type OrderKind,
