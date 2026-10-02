@@ -572,12 +572,64 @@ func TestBattleSizeIsConfigurable(t *testing.T) {
 		if err != nil {
 			t.Fatalf("force: %v", err)
 		}
-		if _, err := Run(raised, 3, setup); err != nil {
+		// A TICK BUDGET, not a whole battle, and the reason is the wall clock.
+		//
+		// This is a 4,001 v 4,001 fight - 8,002 units, the largest the engine
+		// will accept - and it was Run to its end, so it was a benchmark wearing a
+		// test's clothes. It had not finished after 21 minutes, and a full
+		// `go test ./internal/battle/` hit its own 30 minute timeout sitting in
+		// it, with the stack pointing here and nowhere else. That is the worst
+		// possible way for a test to be expensive: it does not fail, so nothing
+		// is reported, and it stops every other test in the package from being
+		// run at all.
+		//
+		// What is under test is stated in the case above and it is SIZE: whether
+		// the engine can build 8,002 units, index them, stage them and commit
+		// them. None of that needs the battle to conclude, and the sibling case
+		// already makes the same argument for 2,400 units. Sixty ticks is far
+		// more than enough to exercise every stage at this size and short enough
+		// to be a test: the roster alone starts the two sides
+		// battle.roster_start_distance apart, so sixty ticks is two armies
+		// marching, and marching is what the index, the intent stage and the
+		// commit all have to survive at eight thousand units.
+		//
+		// Set BATTLE_LIMMIT_TICKS to fight it out if you want the benchmark; the
+		// number it prints either way.
+		budget := 60
+		if v := os.Getenv("BATTLE_LIMIT_TICKS"); v != "" {
+			k, err := strconv.Atoi(v)
+			if err != nil || k < 1 {
+				t.Fatalf("BATTLE_LIMIT_TICKS=%q is not a tick count of one or more: %v", v, err)
+			}
+			budget = k
+		}
+		wall := time.Now()
+		res, err := RunTicks(raised, 3, setup, budget)
+		took := time.Since(wall)
+		if err != nil {
 			t.Fatalf("with the limit raised to %g the same force still failed: %v",
 				raised.Battle.MaxUnitsPerSide, err)
 		}
-		t.Logf("a %d unit a side force was refused at a limit of %d and accepted at %d",
-			oversized, original, int(raised.Battle.MaxUnitsPerSide))
+		if len(res.Sides) != 2 {
+			t.Fatalf("a %d unit a side force reported %d sides", oversized, len(res.Sides))
+		}
+		t.Logf("a %d unit a side force was refused at a limit of %d and accepted at %d: "+
+			"%d units on the field, %.0f v %.0f of %.0f bodies lost over %d ticks in %s%s",
+			oversized, original, int(raised.Battle.MaxUnitsPerSide), 2*oversized,
+			res.Sides[0].Dead+res.Sides[0].Wounded, res.Sides[1].Dead+res.Sides[1].Wounded,
+			res.Sides[0].StartBodies, res.Ticks, took.Round(time.Millisecond),
+			map[bool]string{true: " (the budget ended it)", false: ""}[res.Truncated])
+		// And the property itself, which is the only reason the case exists: both
+		// sides were built, both were indexed, and both have a report. A force of
+		// 8,002 units that came back with one side missing would be caught here
+		// rather than by whatever the caller did with the nil.
+		for _, sr := range res.Sides {
+			if sr.StartUnits != oversized {
+				t.Errorf("side %s reports %d units at the start, not the %d it was given; the "+
+					"force was truncated rather than refused or accepted whole", sr.Side,
+					sr.StartUnits, oversized)
+			}
+		}
 	})
 }
 

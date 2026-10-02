@@ -142,8 +142,8 @@ func TestTheTickLoopAllocatesNothingPerUnit(t *testing.T) {
 	big.cellScratch = scratch
 
 	for _, row := range []struct {
-		label string
-		units int
+		label  string
+		units  int
 		allocs float64
 	}{
 		{"40 v 40, one whole tick", 80, smallAllocs},
@@ -182,7 +182,7 @@ func TestTheTickLoopAllocatesNothingPerUnit(t *testing.T) {
 		t.Errorf("a tick of a 200 v 200 battle allocated %.1f times and a tick of a 40 v 40 "+
 			"battle allocated %.1f. The loop's garbage is supposed to be a constant that "+
 			"does not grow with the field, and something in it is allocating per unit, per "+
-			"cell or per candidate", 			bigAllocs, smallAllocs)
+			"cell or per candidate", bigAllocs, smallAllocs)
 	}
 }
 
