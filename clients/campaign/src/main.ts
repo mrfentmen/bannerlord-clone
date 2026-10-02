@@ -889,8 +889,23 @@ function openPanel(panel: HudPanel): void {
   if (panel !== "none" && panel !== "why" && !selectedSettlement) {
     selectedSettlement = world?.data.settlements[0]?.id ?? null;
   }
+  updateAmbience(panel);
   rebuildContext();
   paint();
+}
+
+/**
+ * Settlement ambience follows the settlement panels (town, market, barter):
+ * a city bed for cities, the town bed otherwise, looped quietly while the
+ * panel is open and stopped when it closes. The town class comes from the
+ * live snapshot, so this is the world as it is, not a guess.
+ */
+function updateAmbience(panel: HudPanel): void {
+  audio.stopLoops();
+  if (panel !== "town" && panel !== "market" && panel !== "barter") return;
+  const town = selectedSettlement ? townFor(selectedSettlement) : undefined;
+  const bed = town?.klass === "city" ? "ambience-city-day" : "ambience-town-day";
+  audio.playSfx(bed, { loop: true, volume: 0.22 });
 }
 
 function openWhy(entityId: string, field: string): void {
