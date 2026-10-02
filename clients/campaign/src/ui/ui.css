@@ -1815,6 +1815,10 @@ html[data-reduce-motion] *::after {
   pointer-events: auto;
   display: grid;
   grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "info   info"
+    "title  timer"
+    "sides  sides";
   align-items: center;
   gap: var(--space-1) var(--space-3);
   padding: var(--space-2) var(--space-3);
@@ -1824,7 +1828,41 @@ html[data-reduce-motion] *::after {
   box-shadow: var(--sheet-2);
 }
 
-.deployment-title { grid-column: 1; }
+.deployment-title { grid-area: title; }
+
+/* The site strip: banner, terrain, weather, clock. One row, right-aligned so it
+   reads as metadata about the ground rather than as more instructions. */
+.deploy-info {
+  grid-area: info;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  min-height: 0;
+}
+
+.deploy-info:empty { display: none; }
+
+.deploy-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* A pennant of the faction's cloth. It is identity, not information: the name
+   beside it is what the player reads, which is why no text sits on the cloth. */
+.deploy-banner__field {
+  width: 28px;
+  height: 16px;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  outline: 1px solid var(--paper-300);
+}
+
+.deploy-banner__name {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
 
 .deployment-header h2 {
   margin: 0;
@@ -1850,8 +1888,7 @@ html[data-reduce-motion] *::after {
 /* The countdown is data, so it is mono and tabular: the digits do not reflow the
    header as they change, which a proportional face would do once a second. */
 .deploy-timer {
-  grid-column: 2;
-  grid-row: 1 / span 2;
+  grid-area: timer;
   align-self: center;
   min-width: 4ch;
   text-align: right;
@@ -1863,7 +1900,7 @@ html[data-reduce-motion] *::after {
 /* One slot per side. The enemy slot is a state, not a control, so it sits in the
    same place and takes the same width as the player's button. */
 .deploy-sides {
-  grid-column: 2;
+  grid-area: sides;
   display: flex;
   align-items: stretch;
   gap: var(--space-2);

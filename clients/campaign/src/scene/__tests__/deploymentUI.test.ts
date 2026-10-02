@@ -11,8 +11,10 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { DeploymentUI, DEPLOY_SECONDS, formatCountdown } from "../BattleUI.js";
+import { DeploymentUI, DEPLOY_SECONDS, factionColor, formatCountdown } from "../BattleUI.js";
 import type { DeploymentZone } from "../BattleUI.js";
+import { factionPalette } from "../../design/factions.js";
+import { BANNER_COLORS } from "../../clan/bannerPalette.js";
 
 const PLAYER_ZONE: DeploymentZone = { x: -20, z: 30, width: 24, depth: 12, faction: "player" };
 const ENEMY_ZONE: DeploymentZone = { x: -20, z: -40, width: 24, depth: 12, faction: "enemy" };
@@ -23,6 +25,7 @@ function timerText(): string {
 
 beforeEach(() => {
   document.body.innerHTML = "";
+  document.documentElement.removeAttribute("data-colorblind-mode");
 });
 
 afterEach(() => {
@@ -220,5 +223,62 @@ describe("unit count (task 9)", () => {
     ui.hide();
 
     expect(() => ui.updateCount(3, 10)).not.toThrow();
+  });
+});
+describe("faction banner (task 12)", () => {
+  it("names the player's faction in the header strip", () => {
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE, ENEMY_ZONE], () => {}, { playerFaction: "Pacific Compact" });
+
+    const banner = document.querySelector(".deploy-info .deploy-banner");
+    expect(banner).not.toBeNull();
+    expect(banner?.querySelector(".deploy-banner__name")?.textContent).toBe("Pacific Compact");
+
+    ui.hide();
+  });
+
+  it("puts the banner in the strip, not beside the instructions", () => {
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE], () => {}, { playerFaction: "Pacific Compact" });
+
+    expect(document.querySelector(".deploy-info")).toBe(
+      document.querySelector(".deploy-banner")?.parentElement,
+    );
+
+    ui.hide();
+  });
+
+  it("shows nothing when no faction was given", () => {
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE], () => {});
+
+    expect(document.querySelector(".deploy-banner")).toBeNull();
+    expect(document.querySelector(".deploy-info")?.childElementCount).toBe(0);
+
+    ui.hide();
+  });
+
+  it("takes the cloth from the locked faction palette for a playable side", () => {
+    expect(factionColor("Pacific Compact")).toBe(factionPalette("off")["pacific-compact"].color);
+    expect(factionColor("  mountain alliance ")).toBe(factionPalette("off")["mountain-alliance"].color);
+  });
+
+  it("follows the active colour-blind mode", () => {
+    document.documentElement.setAttribute("data-colorblind-mode", "deuteranopia");
+    expect(factionColor("Pacific Compact")).toBe(factionPalette("deuteranopia")["pacific-compact"].color);
+  });
+
+  it("falls back to the locked clan-banner palette for a name that is not a side", () => {
+    const color = factionColor("Ironclaw Band");
+    expect(BANNER_COLORS).toContain(color);
+    // The same name always gets the same cloth, or a clan changes colour per battle.
+    expect(factionColor("Ironclaw Band")).toBe(color);
+    expect(factionColor("Nightjar Company")).not.toBe(color);
+  });
+
+  it("never invents a colour: every value comes from a locked palette", () => {
+    const colors = ["Pacific Compact", "Atlantic Corridor", "Wanderer", "", "unmapped clan"].map(factionColor);
+    const palette = new Set<string>([...BANNER_COLORS, ...Object.values(factionPalette("off")).map((s) => s.color)]);
+    for (const color of colors) expect(palette.has(color)).toBe(true);
   });
 });

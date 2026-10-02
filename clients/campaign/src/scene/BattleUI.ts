@@ -7,6 +7,9 @@
 
 import { battleSide, status } from "../design/tokens.js";
 import { h } from "../ui/dom.js";
+import { PLAYABLE_SIDE_IDS, factionPalette, type PlayableSideId } from "../design/factions.js";
+import { BANNER_COLORS } from "../clan/bannerPalette.js";
+import type { ColorblindMode } from "../settings/schema.js";
 
 /** Deployment phase: player places troops before battle starts. */
 export interface DeploymentZone {
@@ -28,6 +31,60 @@ export function formatCountdown(seconds: number): string {
   return `${min}:${String(sec).padStart(2, "0")}`;
 }
 
+/**
+ * What the battle site can tell the deployment header about itself. Every field is
+ * optional: the header says what it has been given and nothing more.
+ */
+export interface DeploymentInfo {
+  playerFaction?: string;
+}
+
+/** The playable side a faction name names, if it names one. */
+function factionSideId(name: string): PlayableSideId | null {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return PLAYABLE_SIDE_IDS.find((id) => id === slug) ?? null;
+}
+
+/** The colour-blind mode the app is running in, which main.ts records on the root. */
+function activeColorblindMode(): ColorblindMode {
+  const mode = document.documentElement.getAttribute("data-colorblind-mode");
+  return mode === "deuteranopia" || mode === "protanopia" || mode === "tritanopia" ? mode : "off";
+}
+
+/**
+ * A faction's cloth. A playable side takes the swatch from the locked faction
+ * palette, in whichever colour-blind mode is active; anything else — a clan, a
+ * mercenary band — takes a stable pick from the locked clan-banner palette, so
+ * the same name is always the same colour. Both are palettes rather than values
+ * chosen here, which is why this file holds no colour of its own.
+ */
+export function factionColor(name: string): string {
+  const side = factionSideId(name);
+  if (side) return factionPalette(activeColorblindMode())[side].color;
+  let hash = 0;
+  for (const char of name) hash = (hash * 31 + (char.codePointAt(0) ?? 0)) % BANNER_COLORS.length;
+  return BANNER_COLORS[hash] ?? BANNER_COLORS[0];
+}
+
+/**
+ * The player's banner. The cloth carries the identity and the name carries the
+ * information, so the name stays on the header's own ground rather than on the
+ * cloth — a pairing no contrast test has verified would be the wrong thing to
+ * put under text.
+ */
+function bannerEl(name: string): HTMLElement {
+  return h(
+    "div",
+    { class: "deploy-banner" },
+    h("span", { class: "deploy-banner__field", "aria-hidden": "true", style: `background: ${factionColor(name)}` }),
+    h("span", { class: "deploy-banner__name" }, name),
+  );
+}
+
 export class DeploymentUI {
   private container: HTMLElement | null = null;
   private timerEl: HTMLElement | null = null;
@@ -37,7 +94,7 @@ export class DeploymentUI {
   private completed = false;
   private countEl: HTMLElement | null = null;
 
-  show(_zones: DeploymentZone[], onComplete: () => void): void {
+  show(_zones: DeploymentZone[], onComplete: () => void, info: DeploymentInfo = {}): void {
     // show() may be called again on a still-visible overlay; the old interval has to
     // go before a new one starts or the two tick against the same header.
     this.hide();
@@ -45,6 +102,10 @@ export class DeploymentUI {
     const timerEl = h("span", { class: "deploy-timer", role: "timer" }, formatCountdown(DEPLOY_SECONDS));
     const btn = h("button", { type: "button", class: "deploy-ready" }, "Ready");
     const countEl = h("p", { class: "deploy-count", role: "status", "aria-live": "polite" });
+
+    // The strip above the header: what the site is, before the clock and the sides.
+    const strip = h("div", { class: "deploy-info" });
+    if (info.playerFaction) strip.appendChild(bannerEl(info.playerFaction));
 
     // Single player: the enemy is the AI, which is never waiting on the player, so its
     // side of the strip is a state rather than a control. Both sides are rendered as
@@ -78,6 +139,7 @@ export class DeploymentUI {
       h(
         "div",
         { class: "deployment-header" },
+        strip,
         h(
           "div",
           { class: "deployment-title" },
