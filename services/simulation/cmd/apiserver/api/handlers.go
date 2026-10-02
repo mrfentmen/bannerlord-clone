@@ -1,7 +1,8 @@
 package api
 
 import (
-	"fmt"
+"fmt"
+	"io"
 	"net/http"
 
 	"mbclone/simulation/cmd/apiserver/campaign"
@@ -278,3 +279,48 @@ func (s *Server) postMarchCommit(w http.ResponseWriter, r *http.Request) {
 	s.order(w, r, func() (any, error) { return s.camp.CommitMarch(ctx, req) })
 }
 
+// postSave writes the whole campaign to the response body as one JSON save
+// file. The client stores it wherever the player keeps saves.
+func (s *Server) postSave(w http.ResponseWriter, r *http.Request) {
+	data, err := s.camp.Save()
+	if err != nil {
+		s.writeFault(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Disposition", `attachment; filename="mbclone-save.json"`)
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
+}
+
+// postLoad restores the campaign from a save file posted in the request body.
+func (s *Server) postLoad(w http.ResponseWriter, r *http.Request) {
+	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 256<<20))
+	if err != nil {
+		s.writeFault(w, err)
+		return
+	}
+	if err := s.camp.Load(data); err != nil {
+		s.writeFault(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"ok": true, "day": s.camp.TickNumber()})
+}
+
+// postStepDays advances the world exactly the requested number of days and
+// returns the new day. Unlike the wall clock it is deterministic: the same
+// count from the same save always lands on the same world.
+func (s *Server) postStepDays(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Days int `json:"days"`
+	}
+	if !s.decode(w, r, &req) {
+		return
+	}
+	day, err := s.camp.StepDays(req.Days)
+	if err != nil {
+		s.writeFault(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"ok": true, "day": day})
+}

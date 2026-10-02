@@ -33,10 +33,10 @@ func (c *Campaign) SetTaxRate(ctx context.Context, req wire.TaxRequest) (any, er
 	}
 
 	j := &job{
-		name:          "town-tax",
+		name:           "town-tax",
 		hasEngineOrder: true,
-		engineOrder:   sim.Order{Kind: sim.OrderSetTax, TownID: c.townIDOf(req.TownID), Amount: req.Rate},
-		done:          make(chan jobResult, 1),
+		engineOrder:    sim.Order{Kind: sim.OrderSetTax, TownID: c.townIDOf(req.TownID), Amount: req.Rate},
+		done:           make(chan jobResult, 1),
 	}
 	if _, err := c.Submit(ctx, j); err != nil {
 		return nil, err
@@ -60,10 +60,10 @@ func (c *Campaign) SetStateTaxRate(ctx context.Context, req wire.StateTaxRequest
 	}
 
 	j := &job{
-		name:          "state-tax",
+		name:           "state-tax",
 		hasEngineOrder: true,
-		engineOrder:   sim.Order{Kind: sim.OrderSetStateTax, TownID: town.ID, Amount: req.Rate},
-		done:          make(chan jobResult, 1),
+		engineOrder:    sim.Order{Kind: sim.OrderSetStateTax, TownID: town.ID, Amount: req.Rate},
+		done:           make(chan jobResult, 1),
 	}
 	if _, err := c.Submit(ctx, j); err != nil {
 		return nil, err
