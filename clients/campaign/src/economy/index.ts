@@ -25,3 +25,4 @@ export { analyzeSmugglingRun, type SmugglingRiskAnalysis } from "./smuggling.js"
 export { answerProposal, proposeTradeDeal, type TradeAgreement, type TradeProposal, type TownDecision } from "./tradeDeals.js";
 export { shortageWarnings, type ShortageWarning, type SupplyNeed } from "./shortages.js";
 export { forecastTreasury, type ForecastLine, type TreasuryForecast } from "./treasuryForecast.js";
+export { accrueLoanInterest, activeLoans, borrow, defaultLoan, payLoan, type LoanRecord } from "./loans.js";
