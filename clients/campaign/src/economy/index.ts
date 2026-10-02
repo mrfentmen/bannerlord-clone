@@ -14,3 +14,5 @@ export * from "./supplyLines.js";
 export * from "./priceChart.js";
 export * from "./smuggling.js";
 export * from "./convoy.js";
+export * from "./garrison.js";
+export * from "./militia.js";

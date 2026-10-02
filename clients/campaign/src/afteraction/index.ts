@@ -10,6 +10,7 @@ export * from "./loot.js";
 export * from "./ransom.js";
 export * from "./veteranNames.js";
 export * from "./unitHistory.js";
+export * from "./prisoners.js";
 export * from "./warStats.js";
 export * from "./memorial.js";
 export { memorialPanel, type MemorialPanelOptions, type MemorialPanelHandle } from "./memorialPanel.js";

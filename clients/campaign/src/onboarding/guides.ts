@@ -29,6 +29,22 @@ const GLOSSARY: GlossaryTerm[] = [
   { term: "Reputation", definition: "Your honor in diplomacy. Broken deals lower it and haunt future talks.", tags: ["diplomacy"] },
 ];
 
+/**
+ * Task 124: link glossary terms inside a text. Wraps every known term in an
+ * anchor to its glossary entry (longest terms first so "supply line" wins
+ * over "supply"). Tooltip and hint renderers use this for "terms link from
+ * tooltips".
+ */
+export function glossarize(text: string): string {
+  const terms = searchGlossary("").sort((a, b) => b.term.length - a.term.length);
+  let out = text;
+  for (const t of terms) {
+    const re = new RegExp(`\\b${t.term.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\b`, "gi");
+    out = out.replace(re, (m) => `<a class="glossary-link" data-term="${t.term}">${m}</a>`);
+  }
+  return out;
+}
+
 export function searchGlossary(query: string): GlossaryTerm[] {
   const q = query.trim().toLowerCase();
   if (!q) return [...GLOSSARY];

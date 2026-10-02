@@ -8,3 +8,5 @@ export * from "./firstBattle.js";
 export * from "./help.js";
 export * from "./guides.js";
 export * from "./loadingTips.js";
+export * from "./guidedStart.js";
+export * from "./progress.js";

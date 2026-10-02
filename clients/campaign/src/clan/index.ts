@@ -4,6 +4,7 @@
 
 export * from "./types.js";
 export * from "./familyTree.js";
+export * from "./hideout.js";
 export { createTreeViewer, type TreeViewerOptions } from "./treeViewer.js";
 export * from "./marriage.js";
 export * from "./education.js";

@@ -13,15 +13,23 @@ export interface Tutorial {
   /** Hints for this context that haven't been dismissed. */
   hintsFor(context: string, elapsedMinutes: number): TutorialHint[];
   dismiss(hintId: string): void;
+  /** Skip the whole tutorial at any step (task 121 acceptance). */
+  skip(): void;
+  skipped(): boolean;
   dismissed(): string[];
   reset(): void;
 }
 
 export function createTutorial(hints: TutorialHint[]): Tutorial {
   const dismissedSet = new Set<string>();
+  let skipped = false;
   return {
+    skip() {
+      skipped = true;
+    },
+    skipped: () => skipped,
     hintsFor(context, elapsedMinutes) {
-      if (elapsedMinutes > FIRST_HOUR_MINUTES) return [];
+      if (skipped || elapsedMinutes > FIRST_HOUR_MINUTES) return [];
       return hints.filter((h) => h.context === context && !dismissedSet.has(h.id));
     },
     dismiss(hintId) {
@@ -30,6 +38,7 @@ export function createTutorial(hints: TutorialHint[]): Tutorial {
     dismissed: () => [...dismissedSet],
     reset() {
       dismissedSet.clear();
+      skipped = false;
     },
   };
 }
