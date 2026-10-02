@@ -28,6 +28,9 @@ export const PANEL_HELP_MAP: Record<string, string> = {
   StartScreen: "map",
   TownPanel: "economy",
   WhyPanel: "map",
+  DiplomacyPanel: "map",
+  LoansPanel: "economy",
+  SpymasterPanel: "map",
 };
 
 /** Panels that are not user-facing (helpers, skeletons) and need no help. */
