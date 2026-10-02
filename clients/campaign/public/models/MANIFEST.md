@@ -1,7 +1,7 @@
 # GLB manifest for Rowan — Milo's 3D model staging
 
 Per Pax's lane ruling: Milo's agents are out of clients/campaign scene wiring.
-The 30 GLB files below are staged as files only. Wire them however fits the client.
+The 42 GLB files below are staged as files only. Wire them however fits the client.
 
 All files are valid glTF 2.0. Target lengths are longest-axis metres for auto-scale.
 Orientation note: troop-officer.glb geometry lies flat along Z; apply rotationX = -PI/2 to stand it up.
@@ -28,7 +28,7 @@ Orientation note: troop-officer.glb geometry lies flat along Z; apply rotationX 
 - gunner.glb — target 1.8m (fresh Forge regen 2026-10-01; alternative to marginal troop-gunner.glb)
 - officer.glb — target 1.8m (fresh Forge regen 2026-10-01)
 
-## Structures (8)
+## Structures (14)
 - bunker.glb — target 12m
 - tent.glb — target 6m
 - concrete-barrier.glb — target 4m
@@ -36,6 +36,21 @@ Orientation note: troop-officer.glb geometry lies flat along Z; apply rotationX 
 - flag-pole.glb — target 12m
 - farmhouse.glb — target 14m (regen v2: flat-slab fix verified)
 - watchtower.glb — target 18m (regen v2: American fire-lookout style)
+- sandbags.glb — target 2m
+- nyc-church.glb — target 20m (batch 7)
+- rooftop-water-tower.glb — target 8m (batch 7)
+- fire-station.glb — target 12m (batch 7)
+- warehouse.glb — target 20m (batch 7, quality gate 65)
+- parking-garage.glb — target 15m (batch 7)
+- apartment-block.glb — target 25m (batch 7, quality gate 65)
+
+## Street props (6)
+- fire-hydrant.glb — target 1m (batch 6, quality gate 85)
+- traffic-light.glb — target 6m (batch 6, quality gate 85)
+- street-lamp.glb — target 6m (batch 6, quality gate 85)
+- police-barricade.glb — target 2m (batch 6, quality gate 65)
+- newsstand.glb — target 4m (batch 6, quality gate 85)
+- sidewalk-shed.glb — target 5m (batch 6)
 
 ## NYC batch 5 (4)
 - taxi.glb — target 5m (yellow cab, checker stripe, roof light)
@@ -44,10 +59,9 @@ Orientation note: troop-officer.glb geometry lies flat along Z; apply rotationX 
 - skyscraper.glb — target 120m (marginal detail; fine at map scale)
 
 ## Still generating (not yet staged)
-Batches 6/7 in progress: fire-hydrant, traffic-light, street-lamp, police-barricade,
-nyc-church, rooftop-water-tower, fire-station, newsstand, sidewalk-shed, warehouse,
-parking-garage, apartment-block. Batch 8 queued after: brownstone-v2, bodega-v2,
-nyc-tenement, office-tower, city-bus, subway-car. Manifest will be updated as they land.
+Batches 6/7 complete 2026-10-02 (12 models, all staged above). Batch 8 queued:
+brownstone-v2, bodega-v2, nyc-tenement, office-tower, city-bus, subway-car.
+Manifest will be updated as they land.
 
 ## Licence clearance (2026-10-01, Milo lane 5)
 
