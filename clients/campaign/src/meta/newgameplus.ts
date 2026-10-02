@@ -173,3 +173,27 @@ export function clearNewGamePlusRecord(provided?: Storage): void {
     // ignore
   }
 }
+
+export interface HeirCharacter {
+  startingCash: number;
+  biography: string;
+  bonusPointsTotal: number;
+}
+
+export interface HeirCharacterApplied extends HeirCharacter {}
+
+/**
+ * Apply a banked legacy record to a new heir character. Pure and therefore
+ * unit-testable — main.ts calls this instead of inlining the math.
+ */
+export function applyNewGamePlusRecord(
+  character: HeirCharacter,
+  record: NewGamePlusRecord | null,
+): HeirCharacterApplied {
+  if (!record) return { ...character };
+  return {
+    startingCash: character.startingCash + Math.max(0, record.gold),
+    biography: `${character.biography}\n\n${legacyBiographyLine(record)}`,
+    bonusPointsTotal: character.bonusPointsTotal + Math.max(0, record.bonusPoints),
+  };
+}
