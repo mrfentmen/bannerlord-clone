@@ -83,10 +83,17 @@ const STATE_KIND: Record<IssueState, StatusKind> = {
   failed: "critical",
 };
 
-/** What the button row says once there is nothing left to press. */
+/**
+ * What the button row says once there is nothing left to press.
+ *
+ * Both sentences name the log and nothing else. They do not say *why* a request failed,
+ * because the sim's reason for a failure is one of three things — the notice ran out, the
+ * taker walked away, or the work was refused — and a fixed sentence would be a client
+ * guessing which. The log above is where the sim says which it was.
+ */
 const RESOLVED_SENTENCE: Record<"succeeded" | "failed", string> = {
-  succeeded: "Settled. The log above is the whole of what happened.",
-  failed: "It failed. The log above says which day it ran out.",
+  succeeded: "Settled. The log above is what the simulation recorded.",
+  failed: "It failed. The log above is what the simulation recorded.",
 };
 
 /** The stamp a settled request carries, and whether it is a good mark or a bad one. */
@@ -485,9 +492,7 @@ export function questPanel(options: QuestPanelOptions): QuestPanelHandle {
         label: "How far along it is",
         value: issue.progress,
         format: (v) => `${Math.round(v * 100)}%`,
-        note: issue.requirement.met
-          ? `The world meets the objective today. ${noticeText(issue, day)}.`
-          : `The world does not meet the objective yet. ${noticeText(issue, day)}.`,
+        note: progressNote(issue, day),
         thresholds: { warningBelow: 0.25, goodAbove: 1 },
         testId: `quest-progress-${issue.id}`,
       }),
@@ -716,6 +721,20 @@ function noticeText(issue: Issue, day: number): string {
   return left === 1 ? "1 day of notice left" : `${left} days of notice left`;
 }
 
+/**
+ * The line under the progress gauge: two separate readings from the simulation, kept apart.
+ *
+ * Whether the world meets the objective, and how long is left on the notice. The notice is
+ * mentioned only for a request still running, because "12 days left" on a request that
+ * failed three days ago is a figure the player has to think twice before trusting, and
+ * because the deadline on a settled request is a number that no longer means anything.
+ */
+function progressNote(issue: Issue, day: number): string {
+  const met = issue.requirement.met ? "The world met the objective" : "The world did not meet the objective";
+  if (!isActive(issue)) return `${met}.`;
+  return `${issue.requirement.met ? "The world meets the objective today" : "The world does not meet the objective yet"}. ${noticeText(issue, day)}.`;
+}
+
 /** The last thing the sim recorded about a request, for a card whose notice is over. */
 function lastStepText(issue: Issue): string {
   const last = issue.steps[issue.steps.length - 1];
@@ -732,7 +751,9 @@ function requirementFigures(issue: Issue, day: number): string {
       : `measured from ${count(req.baseline)} on day ${issue.startedDay ?? day}`,
   );
   if (req.targetName !== null) bits.push(`at ${req.targetName}`);
-  bits.push(req.met ? "the world meets it today" : "the world does not meet it yet");
+  // No "today" and no "yet": those would promise a request that is already closed still
+  // has a future, and this reading is only ever what the world says now.
+  bits.push(req.met ? "the world meets it" : "the world does not meet it");
   return `${bits.join(" · ")}.`;
 }
 

@@ -88,6 +88,16 @@ func (c *Config) validate(path string) error {
 		{"issue.abandon_relation_penalty", c.Issue.AbandonRelationPenalty, 0, 1},
 		{"issue.reward_money_share", c.Issue.RewardMoneyShare, 0, 1},
 		{"issue.relation_share", c.Issue.RelationShare, 0, 5},
+		{"barter.buy_share", c.Barter.BuyShare, 0.01, 1},
+		{"barter.sell_share", c.Barter.SellShare, 1, 5},
+		{"barter.tolerance", c.Barter.Tolerance, 0, 0.5},
+		{"barter.tolerance_per_relation", c.Barter.TolerancePerRelation, 0, 0.05},
+		{"barter.tolerance_relation_floor", c.Barter.ToleranceRelationFloor, -0.5, 0},
+		{"barter.tolerance_relation_cap", c.Barter.ToleranceRelationCap, 0, 0.5},
+		{"barter.prisoner_base", c.Barter.PrisonerBase, 0, 5000},
+		{"barter.prisoner_quality_weight", c.Barter.PrisonerQualityWeight, 0, 1000},
+		{"barter.prisoner_daily_rise", c.Barter.PrisonerDailyRise, 0, 1},
+		{"barter.prisoner_daily_cap", c.Barter.PrisonerDailyCap, 0, 5},
 		{"world.years", c.World.Years, 0.1, 100},
 		{"world.min_towns", c.World.MinTowns, 1, 100000},
 		{"world.max_towns", c.World.MaxTowns, 1, 100000},
@@ -204,6 +214,15 @@ func (c *Config) validate(path string) error {
 	}
 	if c.Cause.MinChainLinks > c.Cause.MaxChainLinks {
 		return fmt.Errorf("config: %s: cause.min_chain_links exceeds cause.max_chain_links", path)
+	}
+	// The trader's spread is the whole reason barter is not a market panel with
+	// the prices hidden. At or below parity a lord deals at exactly the market
+	// rate in both directions, so crossing a table and crossing a counter become
+	// the same transaction and the screen stops meaning anything the market
+	// panel does not already mean.
+	if c.Barter.BuyShare*c.Barter.SellShare >= 1 {
+		return fmt.Errorf("config: %s: barter.buy_share*barter.sell_share (%g) leaves no margin for the trader: a lord who deals at the market rate has no reason to barter",
+			path, c.Barter.BuyShare*c.Barter.SellShare)
 	}
 	return nil
 }

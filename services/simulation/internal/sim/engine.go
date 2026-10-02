@@ -65,6 +65,55 @@ type Order struct {
 	Amount float64
 	// Target is a second entity, for a gift or a target town.
 	Target int
+	// Barter carries a struck deal for OrderBarter. It is a pointer because
+	// only that one order uses it, and a nil pointer on any other kind is the
+	// signal that nothing was set rather than an empty deal that would read as
+	// a deal with nothing on the table.
+	//
+	// The type lives here rather than in the barter package so that an order
+	// can carry one without the engine importing a system, which is the
+	// direction the dependency rule in this package's doc forbids.
+	Barter *BarterDeal
+}
+
+// BarterLine is one thing a struck barter deal moves: goods, gold, or a
+// captive, and how many.
+//
+// Kind is a string rather than an enum because the three kinds travel to the
+// client under those names and a kind nobody recognises has to be refusable by
+// name rather than by falling through a range check.
+type BarterLine struct {
+	// Kind is "good", "gold", or "prisoner".
+	Kind string
+	// ItemID is a GoodId, "gold", or the prisoner unit id.
+	ItemID string
+	// Quantity is whole: a barter table is people, sacks and coins.
+	Quantity int
+}
+
+// BarterDeal is a deal the player and a lord have agreed, with every line
+// already priced and checked.
+//
+// It travels whole rather than being re-derived at apply time. A table is a
+// statement about one moment; the quantities on it were priced against the gold
+// and stock that existed when it was read, and pricing them again against a
+// market that has since moved would be agreeing to something the player did not
+// look at.
+type BarterDeal struct {
+	// Party is the player's own party, and -1 for a lord with no party in the
+	// field, who can still deal in gold.
+	Party int
+	// Player and Trader are the two rulers.
+	Player int
+	Trader int
+	// Town is where the deal is struck, and whose stock the goods move against.
+	Town int
+	// Day is the tick the deal was struck on, so a cause row reads as the day
+	// it happened rather than the day it was applied.
+	Day int
+	// Offered goes from the player to the trader; Asked comes back.
+	Offered []BarterLine
+	Asked   []BarterLine
 }
 
 // OrderKind enumerates the queued actions.
@@ -120,6 +169,15 @@ const (
 	// system reads the world and finds out whether the goods arrived or the
 	// hideout came down, and an unsupported claim is refused rather than paid.
 	OrderCompleteIssue
+	// OrderBarter strikes a deal across a barter table, moving goods, gold and
+	// prisoners between a party and a lord who holds a town.
+	//
+	// The deal travels in the order rather than being re-derived from state,
+	// because a barter table is a statement about one moment and the numbers on
+	// it were priced against the stock that existed then. Re-deriving at apply
+	// time would price the same quantities against a market that has since
+	// moved, which is a deal the player never looked at.
+	OrderBarter
 )
 
 // WriteSet collects every change a tick's systems want to make. Systems stage
@@ -569,6 +627,47 @@ func (e *Engine) SystemNames() []string {
 
 // SetOrders replaces the queue of player or scripted orders.
 func (e *Engine) SetOrders(o []Order) { e.orders = append([]Order{}, o...) }
+
+// ApplyNow stages whatever one system would stage for the given orders and
+// commits it, without running a tick.
+//
+// It exists for a deal that has to land at the moment it is agreed rather than
+// at the next tick boundary: a player who strikes a bargain expects the tables
+// to have changed by the time the screen re-reads them, and a queue would leave
+// the goods on the table long enough to be traded twice.
+//
+// What it does not skip is the discipline. The system is handed a View and a
+// WriteSet exactly as a tick would hand it, its staged writes go through the
+// same apply path with the same clamping and the same cause-log thresholds, and
+// the rows it produces are the engine's own rather than appended by hand. A
+// change made here is indistinguishable in the log from one made in a tick. Only
+// the day counter and the other systems do not run, and neither is what this
+// method is for.
+func (e *Engine) ApplyNow(s *model.State, sys System, orders []Order) error {
+	if sys.Runs == nil {
+		return nil
+	}
+	w := NewWriteSet()
+	v := &View{
+		State:  s,
+		Log:    e.Log,
+		Cfg:    e.Cfg,
+		Tick:   s.Tick,
+		Year:   s.Year,
+		Day:    s.Tick % 365,
+		Rng:    e.rng.Derive(fmt.Sprintf("apply-%d-%s", s.Tick, sys.Name)),
+		Orders: orders,
+	}
+	sv := *v
+	sys.Runs(&sv, w)
+	for j := range w.writes {
+		w.writes[j].system = sys.Name
+	}
+	if err := w.Err(); err != nil {
+		return err
+	}
+	return e.apply(s, w)
+}
 
 // AddHook registers a callback invoked once per tick after the commit, for
 // logging and metrics. Hooks are part of the runner, not a system, so they

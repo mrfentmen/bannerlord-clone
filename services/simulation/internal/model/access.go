@@ -91,6 +91,20 @@ func (s *State) Get(kind Kind, id int, field string) (float64, bool) {
 	return 0, false
 }
 
+// Value reads a field of a party or a town by name, without needing the State
+// that holds it.
+//
+// It exists for the handful of places that hold one entity and want to name a
+// field in a table rather than a switch: the goods table in the barter system
+// has to say "this good is the party's cargo_food and the town's food_stock" in
+// one place, and a table whose halves could disagree would be a table that
+// prices goods out of one store and delivers them into another. Going through
+// State.Get for that would mean carrying the whole state to read one struct.
+func (p *Party) Value(field string) (float64, bool) { return partyGet(p, field) }
+
+// Value reads a field of a town by name. See Party.Value.
+func (t *Town) Value(field string) (float64, bool) { return townGet(t, field) }
+
 // Set writes a field of an entity. Callers go through WriteSet rather than
 // calling this directly, so that every write is logged and clamped.
 func (s *State) Set(kind Kind, id int, field string, v float64) bool {
