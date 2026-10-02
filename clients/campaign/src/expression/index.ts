@@ -4,6 +4,11 @@
 
 export * from "./types.js";
 export * from "./photoMode.js";
+export * from "./armorPreview.js";
+export * from "./weaponCompare.js";
+export * from "./mountPreview.js";
+export * from "./wardrobe.js";
+export * from "./coatOfArms.js";
 export * from "./photoModeBar.js";
 export * from "./gallery.js";
 export * from "./galleryPanel.js";

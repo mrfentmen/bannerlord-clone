@@ -31,6 +31,43 @@ export interface Wardrobe {
   setVictoryPose(id: string): void;
 }
 
+export type WarPaintLayer = "base" | "marking" | "accent";
+
+export interface WarPaintDesign {
+  /** Pattern id per layer, or null for bare skin. */
+  layers: Record<WarPaintLayer, string | null>;
+  /** Opacity 0..1 per layer. */
+  opacity: Record<WarPaintLayer, number>;
+}
+
+export const WAR_PAINT_LAYERS: WarPaintLayer[] = ["base", "marking", "accent"];
+
+export function createWarPaintDesign(): WarPaintDesign {
+  return {
+    layers: { base: null, marking: null, accent: null },
+    opacity: { base: 1, marking: 1, accent: 1 },
+  };
+}
+
+/**
+ * Task 135: paint a layer. Opacity clamps to 0..1; clearing the pattern
+ * resets that layer's opacity to full.
+ */
+export function setWarPaintLayer(
+  design: WarPaintDesign,
+  layer: WarPaintLayer,
+  pattern: string | null,
+  opacity = 1,
+): WarPaintDesign {
+  return {
+    layers: { ...design.layers, [layer]: pattern },
+    opacity: {
+      ...design.opacity,
+      [layer]: pattern === null ? 1 : Math.min(1, Math.max(0, opacity)),
+    },
+  };
+}
+
 export function createWardrobe(): Wardrobe {
   const unlockedSet = new Set<string>();
   const equippedMap = new Map<Cosmetic["slot"], string>();
