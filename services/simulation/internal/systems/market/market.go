@@ -40,15 +40,20 @@ func run(v *sim.View, w *sim.WriteSet) {
 		// Scarcity is stock relative to demand. The merchant's target stock is
 		// the buffer the market aims for, and a town sitting on its target
 		// pays the reference price. Below target, price rises.
-		scarcity := shared.SafeDiv(t.FoodStock, demand)
+		//
+		// Both sides are in person-days: stock is person-days on hand and the
+		// target is person-days of demand the merchant wants covered. An
+		// earlier version divided days-of-stock by person-days of target,
+		// which is always ~0, so every town priced at full crisis pressure
+		// from the second week and unrest pinned at maximum (depop 2026-10-02).
 		target := t.StockTarget
 		if target <= 0 {
 			target = demand * c.Market.StockTargetDays
 		}
+		relative := shared.SafeDiv(t.FoodStock, target)
 		// A town holding less than a day's demand is in crisis and the price
 		// should be at the cap, so the ratio is scaled against the target
 		// rather than against a fixed number of days.
-		relative := shared.SafeDiv(scarcity, target)
 		// Scarcity pricing: at or above the target the price is the reference
 		// price; below it the price rises in proportion to the shortfall.
 		pressure := 0.0
@@ -113,7 +118,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 		causes := v.Log.RecentFor(model.KindTown, id,
 			[]string{"food_stock", "food_demand", "road_safety", "prosperity", "stock_target", "medicine_stock", "metal"}, 6)
 
-		w.Set(model.KindTown, id, "scarcity", scarcity, read, causes, "")
+		w.Set(model.KindTown, id, "scarcity", relative, read, causes, "")
 		w.Set(model.KindTown, id, "price_food", newFoodPrice, read, causes, "")
 		w.Set(model.KindTown, id, "price_medicine", newMedicinePrice, read, causes, "")
 		w.Set(model.KindTown, id, "price_metal", newMetalPrice, read, causes, "")

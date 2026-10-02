@@ -378,6 +378,7 @@ func (l *loader) load(c *Config) {
 	c.Supply.AttritionSpeedWeight = l.f64("supply.attrition_speed_weight")
 	c.Supply.ResupplyRangeLeagues = l.f64("supply.resupply_range_leagues")
 	c.Supply.BlockadeBlockSupply = l.f64("supply.blockade_block_supply")
+	c.Supply.ResupplyMaxDays = l.f64("supply.resupply_max_days")
 
 	// --- attrition ---
 	c.Attrition.ExhaustionRate = l.f64("attrition.exhaustion_rate")

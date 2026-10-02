@@ -99,16 +99,28 @@ func run(v *sim.View, w *sim.WriteSet) {
 			shared.PairF("nearest_friendly", bestDist), nil, "distance to supply")
 
 		// Take what the town can spare. A town keeps a reserve for itself, so
-		// a ruler cannot strip his own capital to feed a campaign.
+		// a ruler cannot strip his own capital to feed a campaign. The reserve
+		// is a share of the stock on hand, not days of demand: the old formula
+		// (demand * reserve) protected a fifth of a day and let two armies
+		// empty a city on day one (depop 2026-10-02).
 		if bestTown >= 0 {
 			t := v.State.Towns[bestTown]
-			available := t.FoodStock - t.FoodDemand*c.Supply.HomeStockReserve
+			available := t.FoodStock * (1 - c.Supply.HomeStockReserve)
 			if available > 0 {
 				// Distance and road safety both reduce what actually arrives.
 				delivered := available * c.Supply.ResupplyFraction *
 					(1 - c.Supply.ResupplyDistanceWeight*shared.Clamp01(bestDist/c.Supply.ResupplyRangeLeagues))
 				// A road under blockade or thick with raiders carries less.
 				delivered *= shared.Clamp01(t.RoadSafety)
+				// An army takes what it can carry, not a share of a city's
+				// whole stockpile: the take is capped at a configured number
+				// of days of the party's own need. Without this, one large
+				// army (or two small ones) walks off with a town's entire
+				// larder in a single day and the town starves.
+				maxTake := dailyNeed * c.Supply.ResupplyMaxDays
+				if delivered > maxTake {
+					delivered = maxTake
+				}
 				if delivered > 0 {
 					w.Add(model.KindParty, pid, "party_food", delivered,
 						shared.ReadString(

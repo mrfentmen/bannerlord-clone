@@ -968,6 +968,9 @@ type Supply struct {
 	// BlockadeBlockSupply is the blockade level above which a town cannot
 	// supply an army, because no food is coming in by any route.
 	BlockadeBlockSupply float64
+	// ResupplyMaxDays caps one resupply at this many days of the party's own
+	// daily need, so an army cannot strip a town's whole stockpile at once.
+	ResupplyMaxDays float64
 }
 
 // Attrition wears an army down on the march and in the field.

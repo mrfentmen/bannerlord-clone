@@ -197,7 +197,7 @@ tax_prosperity_weight = 0.85    # how strongly prosperity multiplies tax income.
 tax_unrest_penalty = 0.70       # share of income lost at full unrest. Range 0.2-1.0.
 tax_loyalty_penalty = 0.35      # share lost when the holder is hated. Range 0-0.8.
 tax_max_rate = 0.55             # highest tax rate a ruler may set. Range 0.2-0.8.
-tax_default_rate = 0.22         # rate a ruler keeps when indifferent. Range 0.05-0.4.
+tax_default_rate = 0.15         # rate a ruler keeps when indifferent. Range 0.05-0.4. Must sit below unrest.tax_comfort_rate (0.18): an indifferent ruler keeping an uncomfortable rate pinned every town at max unrest (depop 2026-10-02).
 tax_harsh_unrest = 0.60         # unrest above which collection largely fails. Range 0.3-0.9.
 building_upkeep_per_capita = 0.030 # daily money to keep a town working. Range 0.005-0.1.
 market_fee_rate = 0.06          # cut of trade the town takes. Range 0-0.2.
@@ -334,8 +334,8 @@ raider_band_min = 40.0          # size below which a band is criminals rather th
 raider_troop_per_strength = 2.2 # troops bought per unit of raider pressure. Range 0.5-8.0.
 raider_safety_drag = 0.85       # how sharply raiders cut route safety, as a divisor. Range 0.1-3.0. Saturates: enough raiders make a road impassable.
 terrain_safety_drag = 0.45      # how much rough terrain lowers route safety at full roughness. Range 0-1.0.
-rebellion_daily_chance = 0.25     # daily rebellion chance below 25 loyalty (Tier 2.2). Range 0-1.0.
-rebellion_loyalty_threshold = 25.0 # loyalty below which rebellion is possible. Range 0-100.
+rebellion_daily_chance = 0.25     # daily rebellion chance below threshold loyalty (Tier 2.2). Range 0-1.0.
+rebellion_loyalty_threshold = 0.25 # loyalty (0-1 scale) below which rebellion is possible. Range 0-1. Was 25.0, which put every town below threshold every day and rebelled the whole map within two months (depop 2026-10-02).
 
 # ---------------------------------------------------------------------------
 # LOGISTICS SYSTEM — caravans on real routes
@@ -471,6 +471,7 @@ supply_morale_bonus = 0.012     # morale gained by a well-supplied army. Range 0
 attrition_speed_weight = 0.45   # how far from a supply point attrition bites. Range 0-1.0.
 resupply_range_leagues = 120.0  # how far an army can be from a friendly town and still draw food. Range 20-500. Beyond this, on its own: chain 6's problem.
 blockade_block_supply = 0.60   # blockade level above which a town cannot supply an army. Range 0-1.0. No food comes in by any route.
+resupply_max_days = 30.0       # one resupply is capped at this many days of the party's own daily need. Range 5-120. Stops an army stripping a town's whole larder at once (depop 2026-10-02).
 
 # ---------------------------------------------------------------------------
 # ATTRITION SYSTEM — exhaustion and disease in the field

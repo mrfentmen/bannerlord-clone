@@ -68,9 +68,15 @@ func run(v *sim.View, w *sim.WriteSet) {
 		}
 
 		// An outside offer. The pull of being able to leave is constant, and
-		// stronger when the current holder is hated. This is what makes a
-		// defection possible, but only when conditions support it.
-		outsidePull := c.Loyalty.OutsideOfferBase + c.Loyalty.OutsideOfferWeight*shared.Clamp01(t.Unrest)
+		// stronger when the current holder is hated. "Hated" means real
+		// unrest: gating on the loyalty floor keeps a mildly discontent town
+		// (unrest 0.1) from bleeding loyalty every day, which rebelled the
+		// whole map within two months (depop 2026-10-02). The service gain
+		// (0.0035/day) can never outrun an ungated 0.55*unrest pull.
+		outsidePull := c.Loyalty.OutsideOfferBase
+		if t.Unrest > c.Unrest.LoyaltyFloorUnrest {
+			outsidePull += c.Loyalty.OutsideOfferWeight * (t.Unrest - c.Unrest.LoyaltyFloorUnrest)
+		}
 		// A neighbouring town that is doing markedly better is a standing
 		// temptation.
 		for _, other := range v.State.TownIDs() {
