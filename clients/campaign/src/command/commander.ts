@@ -16,6 +16,7 @@
  * - F1-F4 (or f/g/h/r): attack/follow/hold/retreat the selected units at the pointer
  * - A: attack-move — the next click on the field advances the selection there
  * - C: charge — run at the pointer and engage
+ * - S: spread out — loosen the selection's front
  * - T: rally-point mode — next click plants the flag for reinforcements
  * - X: retreat horn — every live unit routs to the map edge
  * - the select-all action grabs every live unit
@@ -66,6 +67,18 @@ const registeredBattleOrders = new WeakSet<InputRegistry>();
 function ensureAttackMoveAction(registry: InputRegistry): void {
   if (registeredBattleOrders.has(registry)) return;
   registeredBattleOrders.add(registry);
+  if (!registry.actions().some((a) => a.id === "battle.orderSpread")) {
+    registry.registerAction({
+      id: "battle.orderSpread",
+      label: "Order: spread out",
+      description: "Selected units loosen up and hold a wider front.",
+      category: "battle-command",
+      // Plain "s": the map's pan-south chord is the same letter, but that handler
+      // is guarded by "a settlement is selected", so the two never both fire.
+      defaultKeys: [{ key: "s" }],
+      preventDefault: true,
+    });
+  }
   if (!registry.actions().some((a) => a.id === "battle.orderCharge")) {
     registry.registerAction({
       id: "battle.orderCharge",
@@ -443,6 +456,9 @@ export function createCommander(
   // Task 54: charge aims at the pointer, like attack — a charge with no enemy in
   // front of it is still a charge, so no extra mode and no click.
   offs.push(registry.on("battle.orderCharge", () => orderSelection("charge", true)));
+  // Tasks 57-58: spread out and form up are pointerless orders about the shape
+  // of the selection, wherever it happens to be standing.
+  offs.push(registry.on("battle.orderSpread", () => orderSelection("spread", false)));
 
   // -- attack-move (task 52): A arms the mode, the next field click issues it --
   offs.push(

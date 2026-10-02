@@ -1,7 +1,7 @@
 /**
- * Commander UX batch (MASTER_PLAN tasks 40, 43-48; Buffy tasks 51-52, 54): quick
+ * Commander UX batch (MASTER_PLAN tasks 40, 43-48; Buffy tasks 51-52, 54, 57): quick
  * order hotkeys, waypoint queue, ping, rally point, order-delay courier,
- * stance panel, retreat horn, right-click move, attack-move mode, charge.
+ * stance panel, retreat horn, right-click move, attack-move mode, charge, spread out.
  *
  * @vitest-environment jsdom
  */
@@ -223,6 +223,25 @@ describe("command UX batch (tasks 40, 43-48)", () => {
     try {
       input.handleKeyEvent(new KeyboardEvent("keydown", { key: "c" }));
       expect(surface.orders).toHaveLength(0);
+    } finally {
+      commander.destroy();
+    }
+  });
+
+  it("task 57: S spreads the selection out, wherever it is standing", () => {
+    const surface = fakeSurface();
+    const commander = createCommander(surface);
+    try {
+      pointer(window, "pointermove", { clientX: 900, clientY: 900 });
+      clickAt(surface, 100, 100); // select A only
+      input.handleKeyEvent(new KeyboardEvent("keydown", { key: "s" }));
+
+      expect(surface.orders).toHaveLength(1);
+      expect(surface.orders[0]).toMatchObject({ kind: "spread", unitIds: ["a"] });
+      // Pointerless: where the cursor happens to be is irrelevant.
+      expect(surface.orders[0]!.target).toBeUndefined();
+      // The panel reads the new order as a stance.
+      expect(document.querySelector('[data-testid="cmd-panel"]')!.textContent).toContain("spreading out");
     } finally {
       commander.destroy();
     }
