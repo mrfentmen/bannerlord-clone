@@ -300,8 +300,7 @@ export class BattleScene {
   }
 
   /** Industrial: warehouses, fences, containers. */
-  private buildIndustrial(): void {
-    const scene = this.scene;
+  private buildIndustrial(): void {    const scene = this.scene;
     const size = this.size;
     const wallMat = new StandardMaterial("warehouseMat", scene);
     wallMat.diffuseColor = new Color3(0.6, 0.6, 0.62);
@@ -367,6 +366,58 @@ export class BattleScene {
   getCamera(): ArcRotateCamera | null {
     const cam = this.scene.getCameraByName("battleCam");
     return cam as ArcRotateCamera | null;
+  }
+
+  /**
+   * Weather overlay: rain, fog, or clear (Pax task 66).
+   * Applies to any biome.
+   */
+  setWeather(weather: "clear" | "rain" | "fog"): void {
+    const scene = this.scene;
+    scene.fogMode = Scene.FOGMODE_NONE;
+
+    if (weather === "rain") {
+      // Light fog + dimmer light for rain atmosphere
+      // (full particle rain can be added via scene.particleSystems)
+      scene.fogMode = Scene.FOGMODE_EXP;
+      scene.fogDensity = 0.005;
+    } else if (weather === "fog") {
+      scene.fogMode = Scene.FOGMODE_EXP;
+      scene.fogDensity = 0.02;
+    }
+    // "clear" = no fog (already reset above)
+  }
+
+  /**
+   * Time-of-day lighting: dawn/day/dusk/night (Pax task 67).
+   */
+  setTimeOfDay(time: "dawn" | "day" | "dusk" | "night"): void {
+    const sun = this.scene.getLightByName("sun") as DirectionalLight | null;
+    const ambient = this.scene.getLightByName("ambient") as HemisphericLight | null;
+    if (!sun || !ambient) return;
+
+    switch (time) {
+      case "dawn":
+        sun.intensity = 0.8;
+        sun.diffuse = new Color3(1.0, 0.7, 0.5);
+        ambient.intensity = 0.4;
+        break;
+      case "day":
+        sun.intensity = 1.2;
+        sun.diffuse = new Color3(1.0, 1.0, 1.0);
+        ambient.intensity = 0.6;
+        break;
+      case "dusk":
+        sun.intensity = 0.7;
+        sun.diffuse = new Color3(1.0, 0.5, 0.3);
+        ambient.intensity = 0.35;
+        break;
+      case "night":
+        sun.intensity = 0.15;
+        sun.diffuse = new Color3(0.5, 0.6, 1.0);
+        ambient.intensity = 0.2;
+        break;
+    }
   }
 
   /** Dispose the scene and free resources. */
