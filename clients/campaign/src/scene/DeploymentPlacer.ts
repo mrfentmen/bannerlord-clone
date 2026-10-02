@@ -1,5 +1,5 @@
 /**
- * Deployment placement interaction for the battle scene (Buffy tasks 3-5).
+ * Deployment placement interaction for the battle scene (Buffy tasks 3-5, 10).
  *
  * During deployment a semi-transparent soldier ghost follows the cursor over
  * the battlefield, and a click inside the player's deployment zone drops a
@@ -8,7 +8,9 @@
  * tasks (grid snap, undo, clear) build on the same handle.
  *
  * The primary button places; the secondary button cancels the preview, which
- * hides the ghost and hands the unit back to the caller (`onCancel`).
+ * hides the ghost and hands the unit back to the caller (`onCancel`). A click
+ * that lands outside the zone flashes the ghost red for a moment instead of
+ * dropping a marker.
  *
  * The ghost starts as a primitive proxy so it is there the moment deployment
  * begins, and upgrades to a translucent clone of the soldier GLB once the
@@ -20,6 +22,7 @@
 import "@babylonjs/loaders";
 import {
   Color3,
+  type Material,
   Mesh,
   MeshBuilder,
   type Observer,
@@ -42,6 +45,26 @@ const GHOST_MODEL_FILE = "operator-viper.glb";
 const GHOST_ALPHA = 0.45;
 /** Right mouse button — cancels the placement preview (Buffy task 5). */
 const SECONDARY_BUTTON = 2;
+/** How long the ghost stays red after a click outside the zone (Buffy task 10). */
+const INVALID_FLASH_MS = 300;
+/** Warning red, against the ghost's normal green. */
+const INVALID_FLASH_COLOR = new Color3(0.95, 0.15, 0.12);
+
+/** A ghost material and the emissive colour it wore before the flash. */
+interface SavedEmissive {
+  material: Material;
+  emissive: Color3;
+}
+
+/**
+ * The emissive colour of a ghost material, or null when it has none. The
+ * proxy ghost is a StandardMaterial and a loaded soldier GLB brings its own
+ * PBR materials, so the flash reads the colour off the base Material type.
+ */
+function emissiveOf(material: Material): Color3 | null {
+  const emissive = (material as { emissiveColor?: Color3 }).emissiveColor;
+  return emissive instanceof Color3 ? emissive : null;
+}
 
 /** A placed unit's footprint on the battlefield, in world metres. */
 export interface DeploymentPlacement {
@@ -90,6 +113,8 @@ export class DeploymentPlacer {
   private observer: Observer<PointerInfo> | null = null;
   private lastPoint: Vector3 | null = null;
   private proxyRetired = false;
+  private flashTimer: ReturnType<typeof setTimeout> | null = null;
+  private readonly savedEmissive: SavedEmissive[] = [];
   private disposed = false;
 
   constructor(scene: Scene, options: DeploymentPlacerOptions = {}) {
@@ -152,6 +177,7 @@ export class DeploymentPlacer {
 
   /** Stop following the cursor and hide the ghost. Idempotent. */
   stop(): void {
+    this.endFlash();
     if (this.observer) {
       this.scene.onPointerObservable.remove(this.observer);
       this.observer = null;
@@ -187,14 +213,17 @@ export class DeploymentPlacer {
   /**
    * Place a unit marker at a battlefield point. Only points inside one of the
    * player zones are accepted; an invalid point is returned as `false` with no
-   * side effect (the invalid-flash feedback is a later task).
+   * marker added, and the ghost flashes red to say so (Buffy task 10).
    */
   placeAt(point: Vector3): boolean {
     if (this.disposed) return false;
     const inPlayerZone = this.zones.some(
       (zone) => zone.faction === "player" && pointInDeploymentZone(point, zone),
     );
-    if (!inPlayerZone) return false;
+    if (!inPlayerZone) {
+      this.flashInvalid();
+      return false;
+    }
 
     const placement: DeploymentPlacement = { x: point.x, z: point.z };
     this.placements.push(placement);
@@ -206,6 +235,45 @@ export class DeploymentPlacer {
   /** Every placement so far, in order — read by count, undo, and clear. */
   getPlacements(): DeploymentPlacement[] {
     return this.placements.map((p) => ({ ...p }));
+  }
+
+  /**
+   * Flash the ghost red (Buffy task 10) — the feedback for a click outside the
+   * player's deployment zone. Every material on the ghost is flashed and each
+   * one's previous emissive colour is restored afterwards, so both the
+   * primitive proxy and a loaded GLB clone return to exactly what they showed.
+   */
+  flashInvalid(): void {
+    if (this.disposed) return;
+    this.endFlash(); // a second invalid click restarts the window
+    const seen = new Set<Material>();
+    for (const node of this.ghostRoot.getChildMeshes(false)) {
+      const material = node.material;
+      if (!material || seen.has(material)) continue;
+      seen.add(material);
+      const emissive = emissiveOf(material);
+      if (!emissive) continue;
+      this.savedEmissive.push({ material, emissive: emissive.clone() });
+      emissive.copyFrom(INVALID_FLASH_COLOR);
+    }
+    this.flashTimer = setTimeout(() => this.endFlash(), INVALID_FLASH_MS);
+  }
+
+  /**
+   * End the red flash: drop the pending timer and put the saved emissive
+   * colours back. Runs when the flash elapses and from `stop()`/`dispose()`,
+   * so neither a red ghost nor a live timer outlives the preview.
+   */
+  private endFlash(): void {
+    if (this.flashTimer !== null) {
+      clearTimeout(this.flashTimer);
+      this.flashTimer = null;
+    }
+    for (const saved of this.savedEmissive) {
+      const emissive = emissiveOf(saved.material);
+      if (emissive) emissive.copyFrom(saved.emissive);
+    }
+    this.savedEmissive.length = 0;
   }
 
   /** A click that is not a camera drag: try to place at the picked ground point. */
@@ -310,7 +378,9 @@ export class DeploymentPlacer {
     }
   }
 
-  /** Remove the ghost, the placed markers, the pointer subscription, and materials. */
+  /**
+   * Remove the ghost, the placed markers, the pointer subscription, and materials.
+   */
   dispose(): void {
     this.disposed = true;
     this.stop();

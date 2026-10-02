@@ -1,18 +1,20 @@
 /**
- * Deployment ghost preview and placement (Buffy tasks 3-5).
+ * Deployment ghost preview and placement (Buffy tasks 3-5, 10).
  *
  * The placer owns the battlefield side of the deployment phase: a translucent
  * soldier ghost that tracks the cursor, solid markers dropped by clicks
- * inside the player's deployment zone, and a right-click that cancels the
- * preview. These tests run the real class on a NullEngine — real meshes, no
- * GPU — and cover show/hide, position updates, observer hygiene, teardown,
- * placement validation, and cancel. The GLB upgrade cannot run headless (no
- * network to /models/), which is exactly the case the proxy fallback has to
- * survive.
+ * inside the player's deployment zone, a right-click that cancels the
+ * preview, and a red flash for clicks that miss the zone. These tests run the
+ * real class on a NullEngine — real meshes, no GPU — and cover show/hide,
+ * position updates, observer hygiene, teardown, placement validation, cancel,
+ * and the flash. The GLB upgrade cannot run headless (no network to
+ * /models/), which is exactly the case the proxy fallback has to survive.
  */
 
 import { describe, expect, it, vi } from "vitest";
 import {
+  Color3,
+  PBRMaterial,
   PickingInfo,
   PointerEventTypes,
   PointerInfo,
@@ -335,6 +337,158 @@ describe("DeploymentPlacer right-click cancel", () => {
     expect(cancels).toBe(2);
 
     placer.dispose();
+  });
+});
+
+describe("DeploymentPlacer invalid-placement flash", () => {
+  const playerZone: DeploymentZone = { x: 0, z: 0, width: 20, depth: 10, faction: "player" };
+  const FLASH_MS = 300;
+
+  /** The proxy ghost's shared material and its pre-flash emissive colour. */
+  function ghostMaterial(scene: Scene): StandardMaterial {
+    return (scene.getMeshByName("deployGhostBody") as Mesh).material as StandardMaterial;
+  }
+
+  it("flashes the ghost red on an invalid click and restores the colour after ~300 ms", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene, { zones: [playerZone] });
+    const material = ghostMaterial(scene);
+    const normal = material.emissiveColor.clone();
+
+    vi.useFakeTimers();
+    try {
+      expect(placer.placeAt(new Vector3(40, 0, 0))).toBe(false); // outside the zone
+      expect(material.emissiveColor.r).toBeGreaterThan(normal.r);
+      expect(material.emissiveColor.g).toBeLessThan(normal.g); // red, not just brighter
+
+      vi.advanceTimersByTime(FLASH_MS - 1);
+      expect(material.emissiveColor.r).toBeGreaterThan(normal.r); // still flashing
+
+      vi.advanceTimersByTime(1);
+      expect(material.emissiveColor.r).toBeCloseTo(normal.r);
+      expect(material.emissiveColor.g).toBeCloseTo(normal.g);
+      expect(material.emissiveColor.b).toBeCloseTo(normal.b);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    placer.dispose();
+  });
+
+  it("does not flash on a valid placement", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene, { zones: [playerZone] });
+    const material = ghostMaterial(scene);
+    const normal = material.emissiveColor.clone();
+
+    placer.placeAt(new Vector3(1, 0, 1));
+
+    expect(material.emissiveColor.r).toBeCloseTo(normal.r);
+    expect(material.emissiveColor.g).toBeCloseTo(normal.g);
+
+    placer.dispose();
+  });
+
+  it("flashes every ghost material, so a GLB clone with PBR materials works", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene);
+    const proxyMat = ghostMaterial(scene);
+
+    // Stand in for the loaded soldier clone: a second, independently coloured
+    // PBR material on the other ghost mesh, exactly what upgradeToModel leaves.
+    const cloneMat = new PBRMaterial("deployGhostCloneMat", scene);
+    cloneMat.emissiveColor = new Color3(0.02, 0.03, 0.04);
+    (scene.getMeshByName("deployGhostHead") as Mesh).material = cloneMat;
+
+    const proxyNormal = proxyMat.emissiveColor.clone();
+    const cloneNormal = cloneMat.emissiveColor.clone();
+
+    vi.useFakeTimers();
+    try {
+      placer.flashInvalid();
+      expect(proxyMat.emissiveColor.r).toBeGreaterThan(proxyNormal.r);
+      expect(cloneMat.emissiveColor.r).toBeGreaterThan(cloneNormal.r);
+
+      vi.advanceTimersByTime(FLASH_MS);
+      expect(proxyMat.emissiveColor.r).toBeCloseTo(proxyNormal.r);
+      expect(cloneMat.emissiveColor.r).toBeCloseTo(cloneNormal.r);
+      expect(cloneMat.emissiveColor.g).toBeCloseTo(cloneNormal.g);
+      expect(cloneMat.emissiveColor.b).toBeCloseTo(cloneNormal.b);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    placer.dispose();
+  });
+
+  it("restores a second invalid click's flash to the original colour, not the red", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene, { zones: [playerZone] });
+    const material = ghostMaterial(scene);
+    const normal = material.emissiveColor.clone();
+
+    vi.useFakeTimers();
+    try {
+      placer.flashInvalid();
+      vi.advanceTimersByTime(FLASH_MS - 50);
+      placer.flashInvalid(); // restarts the window
+      vi.advanceTimersByTime(FLASH_MS - 50);
+      expect(material.emissiveColor.r).toBeGreaterThan(normal.r); // would have ended by now
+
+      vi.advanceTimersByTime(50);
+      expect(material.emissiveColor.r).toBeCloseTo(normal.r);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    placer.dispose();
+  });
+
+  it("restores the colour and drops the timer on stop()", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene, { zones: [playerZone] });
+    const material = ghostMaterial(scene);
+    const normal = material.emissiveColor.clone();
+
+    vi.useFakeTimers();
+    try {
+      placer.flashInvalid();
+      const pending = vi.getTimerCount();
+      expect(pending).toBeGreaterThan(0);
+
+      placer.stop();
+
+      expect(vi.getTimerCount()).toBe(0);
+      expect(material.emissiveColor.r).toBeCloseTo(normal.r);
+    } finally {
+      vi.useRealTimers();
+    }
+
+    placer.dispose();
+  });
+
+  it("clears the pending timer on dispose()", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene, { zones: [playerZone] });
+    const material = ghostMaterial(scene);
+    const normal = material.emissiveColor.clone();
+
+    vi.useFakeTimers();
+    try {
+      placer.flashInvalid();
+      expect(vi.getTimerCount()).toBeGreaterThan(0);
+      // Meshes and materials schedule teardown of their own, so assert that the
+      // flash timer was cleared rather than that nothing is left pending.
+      const clear = vi.spyOn(globalThis, "clearTimeout");
+
+      placer.dispose();
+
+      expect(clear).toHaveBeenCalled();
+      expect(material.emissiveColor.r).toBeCloseTo(normal.r);
+      clear.mockRestore();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
 
