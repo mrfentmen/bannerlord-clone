@@ -38,3 +38,36 @@ export function resolveSmuggling(plan: SmugglingPlan, roll: () => number): Smugg
   }
   return { caught: false, profit: plan.profit };
 }
+
+/**
+ * Risk calculator (Rowan solo task 75): show odds and expected value
+ * BEFORE the run. Fines on failure scale with cargo value and heat.
+ */
+export interface SmugglingRiskAnalysis {
+  /** 0..1 chance of getting caught. */
+  interceptionChance: number;
+  profitOnSuccess: number;
+  lossOnFailure: number;
+  expectedValue: number;
+  recommendation: "run" | "too-risky";
+  line: string;
+}
+
+export function analyzeSmugglingRun(plan: SmugglingPlan): SmugglingRiskAnalysis {
+  const lossOnFailure = plan.profit + Math.round(plan.profit * 1.5);
+  const chance = plan.detectionOdds;
+  const expectedValue = (1 - chance) * plan.profit - chance * lossOnFailure;
+  const recommendation = expectedValue > 0 ? "run" : "too-risky";
+  const line =
+    recommendation === "run"
+      ? `Expected +${Math.round(expectedValue)}: ${Math.round((1 - chance) * 100)}% to profit ${plan.profit} on ${plan.good}. Run it.`
+      : `Expected ${Math.round(expectedValue)}: ${Math.round(chance * 100)}% detection risk on ${plan.good}. Too risky.`;
+  return {
+    interceptionChance: Math.round(chance * 100) / 100,
+    profitOnSuccess: plan.profit,
+    lossOnFailure,
+    expectedValue: Math.round(expectedValue),
+    recommendation,
+    line,
+  };
+}
