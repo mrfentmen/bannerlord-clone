@@ -37,6 +37,7 @@ import {
 } from "../ui/kit.js";
 import { BattleApiError, createHttpBattleApi, type BattleApi } from "./api";
 import { encounterBanner, type EncounterBannerHandle } from "./encounterBanner";
+import { createBattleAnnouncer, type BattleAnnouncer } from "./announcer";
 import {
   BattleFlow,
   type AfterActionView,
@@ -90,6 +91,8 @@ export interface BattleMount {
   readonly poller: EncounterPoller;
   /** The "Hostile force encountered!" banner the poller offers encounters through. */
   readonly banner: EncounterBannerHandle;
+  /** Screen-reader announcer for battle events (solo task 18). */
+  readonly announcer: BattleAnnouncer;
   /** Adopt a server encounter (from the banner) and show pre-battle. */
   adoptEncounter(encounter: Encounter): void;
   /** Arrange an encounter by hand and show pre-battle. */
@@ -153,6 +156,11 @@ export function mountBattleUi(options: BattleMountOptions): BattleMount {
   });
   into.appendChild(banner.root);
 
+  // Screen-reader battle announcements (solo task 18): the region lives
+  // outside the overlay so re-renders never wipe it.
+  const announcer = createBattleAnnouncer();
+  into.appendChild(announcer.region);
+
   const poller = new EncounterPoller(api, options.playerPartyId, {
     // An encounter is offered, not thrown onto the screen: the player is in the middle
     // of a campaign and a fight they did not start deserves a word before it takes the
@@ -207,6 +215,7 @@ export function mountBattleUi(options: BattleMountOptions): BattleMount {
     busy = false;
     const done = flow.afterActionView();
     if (done && flow.phase === "afteraction") {
+      announcer.result(done.playerWon ? "victory" : "defeat");
       options.onBattleEvent?.(done.playerWon ? "victory" : "defeat", done);
     }
     render();
@@ -449,10 +458,11 @@ export function mountBattleUi(options: BattleMountOptions): BattleMount {
   function destroy(): void {
     poller.stop();
     banner.destroy();
+    announcer.region.remove();
     overlay.remove();
   }
 
   if (options.pollEncounters !== false) poller.start();
 
-  return { root: overlay, flow, poller, banner, adoptEncounter, attack, destroy };
+  return { root: overlay, flow, poller, banner, announcer, adoptEncounter, attack, destroy };
 }
