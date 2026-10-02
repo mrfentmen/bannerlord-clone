@@ -442,6 +442,18 @@ export const SETTINGS_ENTRIES: CodexEntry[] = [
     ["setting-graphics-presets"],
   ),
   e(
+    "setting-postfx",
+    "Post-processing toggles",
+    "settings",
+    "Bloom, vignette, depth of field, and motion blur, each toggled independently.",
+    [
+      "Four post-processing effects sit on the 3D pipeline and each toggles independently, immediately, with no reload. Bloom adds a soft glow around bright lights and the sun; depth of field softens what's far from the camera focus; motion blur smears fast camera moves.",
+      "Vignette is a gate on the look grade's vignette rather than its own effect: the look preset still decides how heavy the corner darkening is, and this toggle decides whether it shows at all. Motion blur is forced off while reduced motion is on, regardless of the toggle.",
+    ],
+    ["setting:bloomEnabled", "setting:vignetteEnabled", "setting:depthOfFieldEnabled", "setting:motionBlurEnabled", "post", "processing", "fx", "bloom", "vignette", "graphics"],
+    ["setting-graphics-engine", "setting-look-preset"],
+  ),
+  e(
     "setting-auto-detect",
     "Automatic quality detection",
     "settings",

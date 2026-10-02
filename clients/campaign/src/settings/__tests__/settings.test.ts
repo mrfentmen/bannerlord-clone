@@ -126,6 +126,27 @@ describe("settings schema", () => {
     expect(s.autoQualityDone).toBe(false);
   });
 
+  it("validates the task-146 post-processing toggles", () => {
+    const s = parseSettings({
+      bloomEnabled: true,
+      vignetteEnabled: false,
+      depthOfFieldEnabled: 1, // truthy but not boolean: strict false
+      motionBlurEnabled: true,
+    });
+    expect(s.bloomEnabled).toBe(true);
+    expect(s.vignetteEnabled).toBe(false);
+    expect(s.depthOfFieldEnabled).toBe(false);
+    expect(s.motionBlurEnabled).toBe(true);
+  });
+
+  it("defaults the task-146 toggles when missing from the blob", () => {
+    const s = parseSettings({ version: 3 });
+    expect(s.bloomEnabled).toBe(false);
+    expect(s.vignetteEnabled).toBe(true);
+    expect(s.depthOfFieldEnabled).toBe(false);
+    expect(s.motionBlurEnabled).toBe(false);
+  });
+
   it("clamps and enum-falls-back the new fields on garbage", () => {
     const s = parseSettings({
       renderScale: 99,

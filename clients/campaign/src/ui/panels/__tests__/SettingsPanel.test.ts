@@ -21,6 +21,10 @@ const GRAPHICS_KEYS = [
   "viewDistance",
   "lookPreset",
   "grainIntensity",
+  "bloomEnabled",
+  "vignetteEnabled",
+  "depthOfFieldEnabled",
+  "motionBlurEnabled",
 ];
 const AUDIO_KEYS = ["masterVolume", "musicVolume", "sfxVolume"];
 const GAMEPLAY_KEYS = [
@@ -148,6 +152,20 @@ describe("settingsPanel", () => {
     expect(settings.get().grainIntensity).toBeCloseTo(0.9, 10);
     setSelect(root, "lookPreset", "gritty");
     expect(settings.get().lookPreset).toBe("gritty");
+  });
+
+  it("task 146: post-processing toggles write to the store independently", () => {
+    const { root } = open();
+    setToggle(root, "bloomEnabled", true);
+    setToggle(root, "depthOfFieldEnabled", true);
+    expect(settings.get().bloomEnabled).toBe(true);
+    expect(settings.get().depthOfFieldEnabled).toBe(true);
+    // Untouched toggles keep their defaults.
+    expect(settings.get().vignetteEnabled).toBe(true);
+    expect(settings.get().motionBlurEnabled).toBe(false);
+    setToggle(root, "vignetteEnabled", false);
+    expect(settings.get().vignetteEnabled).toBe(false);
+    expect(settings.get().bloomEnabled).toBe(true);
   });
 
   it("cancel reverts every change made since the panel opened", () => {

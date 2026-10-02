@@ -20,6 +20,7 @@ import {
   HemisphericLight,
   Mesh,
   MeshBuilder,
+  MotionBlurPostProcess,
   PointerEventTypes,
   PostProcess,
   Scene,
@@ -42,6 +43,11 @@ import {
   lookPresetFor,
   type LookPresetId,
 } from "../design/lookPresets.js";
+import {
+  DEFAULT_POSTFX_TOGGLES,
+  resolvePostFx,
+  type PostFxToggles,
+} from "../design/postfx.js";
 import { buildTerrain, terrainSummary } from "./terrain.js";
 import {
   buildNetwork,
@@ -91,6 +97,13 @@ export interface SceneOptions {
    */
   lookPreset?: LookPresetId;
   grainIntensity?: number;
+  /**
+   * Individual post-processing toggles (task 146): bloom, vignette gate,
+   * depth of field, motion blur. Missing values mean "as default" (only the
+   * grade vignette on). Applies live through SceneHandle.applyPostFx;
+   * construction just reads the same path once.
+   */
+  postFx?: PostFxToggles;
 }
 
 export interface SceneHandle {
@@ -134,6 +147,12 @@ export interface SceneHandle {
    * place, and a missing grade pass is created lazily when grain appears.
    */
   applyLook(preset: LookPresetId, grainIntensity: number): void;
+  /**
+   * Individual post-processing toggles (task 146): bloom, pipeline vignette
+   * gate, depth of field, motion blur. Each applies independently, live, no
+   * restart. Motion blur stays off while reduced motion is on (task 20).
+   */
+  applyPostFx(toggles: PostFxToggles): void;
   /** One line about what the map is showing, for the data-source panel. */
   summary(): string;
   towns: TownCluster[];
@@ -368,6 +387,30 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
   // Reduce-motion flag, so a lazily created grade pass inherits it (task 20).
   let reduceMotionOn = false;
 
+  // -- individual post-processing toggles (task 146) -------------------------
+  // Each toggle applies independently, live. The grade vignette weight is
+  // remembered so the vignette toggle gates it without re-grading. Motion
+  // blur is a standalone post-process (Babylon's default pipeline has no
+  // motion-blur stage), created lazily like the grade pass.
+  let postFxToggles: PostFxToggles = { ...DEFAULT_POSTFX_TOGGLES, ...options.postFx };
+  let lastVignetteWeight = grade.vignette.weight;
+  let motionBlur: MotionBlurPostProcess | null = null;
+  function pushPostFx(): void {
+    const r = resolvePostFx(postFxToggles, lastVignetteWeight, reduceMotionOn);
+    pipeline.bloomEnabled = r.bloomEnabled;
+    pipeline.depthOfFieldEnabled = r.depthOfFieldEnabled;
+    pipeline.imageProcessing.vignetteEnabled = r.vignetteEnabled;
+    if (r.motionBlurEnabled && motionBlur === null) {
+      motionBlur = new MotionBlurPostProcess("postfx-motion-blur", scene, 1.0, camera);
+      camera.attachPostProcess(motionBlur);
+    } else if (!r.motionBlurEnabled && motionBlur !== null) {
+      camera.detachPostProcess(motionBlur);
+      motionBlur.dispose();
+      motionBlur = null;
+    }
+  }
+  pushPostFx();
+
   // -- picking --------------------------------------------------------------
   scene.onPointerObservable.add((info) => {
     if (info.type !== PointerEventTypes.POINTERPICK) return;
@@ -403,6 +446,11 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       mapGestures.dispose();
       shadowGen?.dispose();
       grain?.dispose();
+      if (motionBlur !== null) {
+        camera.detachPostProcess(motionBlur);
+        motionBlur.dispose();
+        motionBlur = null;
+      }
       pipeline.dispose();
       scene.dispose();
       engine.dispose();
@@ -484,6 +532,7 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
     setReduceMotion(on) {
       reduceMotionOn = on;
       grain?.setReduceMotion(on);
+      pushPostFx(); // motion blur is a reduced-motion casualty (task 146)
     },
     applyLook(preset, grainSlider) {
       const next = applyLookToGrade(
@@ -493,7 +542,8 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       );
       pipeline.imageProcessing.contrast = next.contrast;
       pipeline.imageProcessing.exposure = next.exposure;
-      pipeline.imageProcessing.vignetteEnabled = next.vignette.weight > 0;
+      lastVignetteWeight = next.vignette.weight;
+      pushPostFx(); // the vignette toggle gates the re-graded weight (task 146)
       pipeline.imageProcessing.vignetteWeight = next.vignette.weight;
       if (grain === null && next.grain.intensity > 0) {
         grain = new GradePass(camera, next, options.year);
@@ -501,6 +551,10 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       } else if (grain !== null) {
         grain.apply(next);
       }
+    },
+    applyPostFx(toggles) {
+      postFxToggles = { ...toggles };
+      pushPostFx();
     },
   };
 }

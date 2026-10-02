@@ -81,6 +81,14 @@ export interface Settings {
   lookPreset: LookPresetId;
   /** Grain intensity slider, 0..1. Live: scales the resolved grain; 0 disables. */
   grainIntensity: number;
+  /** Bloom post-process (task 146). Live: each toggle applies independently. */
+  bloomEnabled: boolean;
+  /** Pipeline vignette gate (task 146): the look grade's vignette shows only when on. Live. */
+  vignetteEnabled: boolean;
+  /** Depth of field post-process (task 146). Live. */
+  depthOfFieldEnabled: boolean;
+  /** Motion blur post-process (task 146). Live; forced off by reduceMotion. */
+  motionBlurEnabled: boolean;
   /** Mouse orbit/zoom multiplier on the 3D canvas. Live. */
   mouseSensitivity: number;
   /** Invert mouse orbit axes. Live. */
@@ -137,6 +145,10 @@ export const DEFAULT_SETTINGS: Settings = {
   viewDistance: "far",
   lookPreset: "standard",
   grainIntensity: DEFAULT_GRAIN_INTENSITY,
+  bloomEnabled: false,
+  vignetteEnabled: true,
+  depthOfFieldEnabled: false,
+  motionBlurEnabled: false,
   mouseSensitivity: 1,
   invertMouseX: false,
   invertMouseY: false,
@@ -226,6 +238,10 @@ export function parseSettings(raw: unknown): Settings {
     viewDistance: pickEnum(v.viewDistance, VIEW_DISTANCES, DEFAULT_SETTINGS.viewDistance),
     lookPreset: lookPresetFor(v.lookPreset).id,
     grainIntensity: clampGrainIntensity(v.grainIntensity),
+    bloomEnabled: v.bloomEnabled === true,
+    vignetteEnabled: v.vignetteEnabled !== false,
+    depthOfFieldEnabled: v.depthOfFieldEnabled === true,
+    motionBlurEnabled: v.motionBlurEnabled === true,
     mouseSensitivity: pickNumber(v.mouseSensitivity, 0.25, 3, DEFAULT_SETTINGS.mouseSensitivity),
     invertMouseX: v.invertMouseX === true,
     invertMouseY: v.invertMouseY === true,

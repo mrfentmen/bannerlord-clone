@@ -163,6 +163,30 @@ const CONTROLS: ControlDef[] = [
     kind: { type: "slider", min: 0, max: 1, step: 0.05, format: pct },
   },
   {
+    key: "bloomEnabled", tab: "graphics", label: "Bloom",
+    hint: "Soft glow around bright lights and the sun. Applies immediately.",
+    keywords: ["bloom", "glow", "post", "processing", "fx"],
+    kind: { type: "toggle" },
+  },
+  {
+    key: "vignetteEnabled", tab: "graphics", label: "Vignette",
+    hint: "Darkened frame corners from the look grade. Applies immediately.",
+    keywords: ["vignette", "corners", "post", "fx"],
+    kind: { type: "toggle" },
+  },
+  {
+    key: "depthOfFieldEnabled", tab: "graphics", label: "Depth of field",
+    hint: "Softens what's far from the camera focus. Applies immediately.",
+    keywords: ["depth", "field", "dof", "blur", "focus", "post", "fx"],
+    kind: { type: "toggle" },
+  },
+  {
+    key: "motionBlurEnabled", tab: "graphics", label: "Motion blur",
+    hint: "Blurs fast camera moves. Forced off while reduced motion is on. Applies immediately.",
+    keywords: ["motion", "blur", "post", "fx"],
+    kind: { type: "toggle" },
+  },
+  {
     key: "masterVolume", tab: "audio", label: "Master volume",
     hint: "Overall loudness.", keywords: ["volume", "master", "loud"],
     kind: { type: "slider", min: 0, max: 1, step: 0.05, format: pct },

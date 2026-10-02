@@ -302,6 +302,12 @@ function applySettingsLive(): void {  const s = settings.get();
     scene.applyViewDistance(s.viewDistance);
     scene.setReduceMotion(s.reduceMotion);
     scene.applyLook(s.lookPreset, s.grainIntensity);
+    scene.applyPostFx({
+      bloom: s.bloomEnabled,
+      vignette: s.vignetteEnabled,
+      depthOfField: s.depthOfFieldEnabled,
+      motionBlur: s.motionBlurEnabled,
+    });
   }
 }
 applyUiScale(settings.get().uiScale);
@@ -411,6 +417,12 @@ scene = createCampaignScene({
   maxFps: settings.get().maxFps,
   lookPreset: settings.get().lookPreset,
   grainIntensity: settings.get().grainIntensity,
+  postFx: {
+    bloom: settings.get().bloomEnabled,
+    vignette: settings.get().vignetteEnabled,
+    depthOfField: settings.get().depthOfFieldEnabled,
+    motionBlur: settings.get().motionBlurEnabled,
+  },
 });
 
 // Task 30: real draw-call counts for the perf overlay, from Babylon's own
