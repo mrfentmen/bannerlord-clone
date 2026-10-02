@@ -223,3 +223,179 @@ func TestDestroyedUnitIsNotACountedStatus(t *testing.T) {
 	t.Logf("side A: %d units, %d standing, %d routed, %d surrendered, %d destroyed in the log",
 		a.StartUnits, a.Standing, a.Routed, a.Surrendered, destroyed)
 }
+
+// surrenderedBodiesFromLog adds up the bodies behind the surrender events on one
+// side, by looking each named unit up in the setup that produced the battle.
+//
+// It cannot use the event's own Value: a surrender event's Value is
+// battle.surrender_morale_report, which is the morale the unit would have held,
+// not how many men it stood for, and the body count is only in the human-readable
+// Note. Reading the note would be a measurement of a sentence. The event does
+// carry the unit's id and side, and the roster's ids are dense and ascending per
+// side, so the body count is recoverable from the setup without parsing anything.
+func surrenderedBodiesFromLog(setup Setup, res *Result, side Side) (bodies float64, units int) {
+	in := setup.A
+	base := 0
+	if side == SideB {
+		in, base = setup.B, len(setup.A)
+	}
+	for _, e := range res.Events {
+		if e.Kind != EventSurrendered || e.Side != side {
+			continue
+		}
+		i := e.Unit - base
+		if i < 0 || i >= len(in) {
+			continue
+		}
+		bodies += in[i].Troops
+		units++
+	}
+	return bodies, units
+}
+
+// TestSurrenderedBodiesArePrisoners is task 99's engine half, and it is about
+// what a prisoner IS rather than about where the number is written down.
+//
+// The campaign layer has a prisoner count and nothing has ever put a field
+// battle's surrenders into it: internal/autoresolve computes prisoners from a
+// paper battle's routed survivors, internal/writeback reads that, and no code
+// outside internal/battle consumes battle.Result at all. So a battle that was
+// really fought has its surrenders sitting in SurrenderedBodies with no named
+// route to a prisoner count, and the obvious place for somebody to reach for is
+// the loser's casualties, which would be wrong in three separate ways: dead men
+// are not prisoners, wounded men are not in the winner's hands either, and a
+// routed man is alive and unaccounted for.
+//
+// So the claim is pinned here, on the number that is actually the right one:
+//
+//   - A surrendered unit's bodies are prisoners, and PrisonersTakenBy reports
+//     them.
+//   - A destroyed unit's bodies are not, and the loser's Dead and Wounded are
+//     not folded in.
+//   - A unit that surrendered is counted once, which is the guarantee
+//     TestSurrenderIsCountedOnceNotEveryTick makes about the unit count and this
+//     one needs for the body count.
+//
+// The last row is the one that would bite. SurrenderedBodies is assembled in the
+// result from each surrendered unit's Troops, and a surrender does not remove the
+// bodies, so a counter that tallied every surrendered unit on every tick of a
+// thousand-tick battle would report thousands of prisoners and nothing would say
+// so.
+func TestSurrenderedBodiesArePrisoners(t *testing.T) {
+	cfg := surrenderConfig(t)
+	const seed = 5150
+	setup := surrenderSetup(t, cfg, seed)
+
+	res, err := runWithStageOrder(cfg, seed, setup, []string{"morale"})
+	if err != nil {
+		t.Fatalf("battle: %v", err)
+	}
+	bodies, logged := surrenderedBodiesFromLog(setup, res, SideA)
+	if logged == 0 {
+		t.Fatalf("no unit surrendered in %d ticks; this test measures the prisoner count of a surrender "+
+			"and there was not one", res.Ticks)
+	}
+	// The same number arrived at from the log and from the result. That is the
+	// claim: a prisoner is a body that gave itself up, and this is how many bodies
+	// that was.
+	if got := res.PrisonersTakenBy(SideA); got != bodies {
+		t.Errorf("the event log holds %d surrendered units worth %.0f bodies and PrisonersTakenBy(A) is "+
+			"%.0f; a surrendered body is a prisoner, so these are the same number",
+			logged, bodies, got)
+	}
+	// The other side took none, because it did not itself surrender. Asking the
+	// question both ways is the whole point of a per-side accessor.
+	if got := res.PrisonersTakenBy(SideB); got != 0 {
+		t.Errorf("side B is holding %.0f prisoners; nothing on side B surrendered", got)
+	}
+	if got := res.PrisonersTaken(); got != [2]float64{bodies, 0} {
+		t.Errorf("PrisonersTaken is %v, want [%g 0]", got, bodies)
+	}
+	// And the casualties are NOT folded in, which is the failure this accessor
+	// exists to prevent. In this setup nothing is damaged at all, so the honest
+	// assertion is that a battle with casualties and no surrender yields no
+	// prisoners: the number has to come from the right column.
+	a := res.Sides[SideA.index()]
+	if a.Dead > 0 || a.Wounded > 0 {
+		t.Errorf("this setup runs only the morale stage, so nothing should be damaged, and side A reports "+
+			"%.0f dead and %.0f wounded; the prisoner count cannot be checked against a battle that also "+
+			"had casualties while side A surrendered", a.Dead, a.Wounded)
+	}
+	if a.SurrenderedBodies > a.StartBodies {
+		t.Errorf("side A is holding %.0f prisoners out of the %.0f bodies it started with",
+			a.SurrenderedBodies, a.StartBodies)
+	}
+	t.Logf("side A gave up %d unit(s) and %g bodies; prisoners taken %v; side A casualties %.0f dead / %.0f wounded",
+		logged, bodies, res.PrisonersTaken(), a.Dead, a.Wounded)
+}
+
+// TestPrisonersAreCountedOnceOverALongBattle is the body-count half of the same
+// guarantee the unit count already has.
+//
+// TestSurrenderIsCountedOnceNotEveryTick proves a surrendered UNIT is counted
+// once. This proves the BODIES behind it are, which is a separate loop in
+// result.go and would survive the first guard being right. The run is long on
+// purpose: forty ticks is four times what the surrender needs, which is long
+// enough for a counter that is wrong to be wrong once and not enough for it to
+// look catastrophic.
+func TestPrisonersAreCountedOnceOverALongBattle(t *testing.T) {
+	cfg := surrenderConfig(t)
+	cfg.Battle.MaxTicks = 200 // twenty times the bound the setup needs
+	const seed = 5150
+	setup := surrenderSetup(t, cfg, seed)
+
+	res, err := runWithStageOrder(cfg, seed, setup, []string{"morale"})
+	if err != nil {
+		t.Fatalf("battle: %v", err)
+	}
+	bodies, units := surrenderedBodiesFromLog(setup, res, SideA)
+	got := res.PrisonersTakenBy(SideA)
+	if got != bodies {
+		t.Errorf("over %d ticks side A surrendered %d units worth %.0f bodies, and the result says %.0f "+
+			"prisoners; a surrender is a man giving himself up once, and the same man is not a fresh "+
+			"prisoner on each of the %d ticks he spends off the field", res.Ticks, units, bodies, got, res.Ticks)
+	}
+	t.Logf("%d ticks: %d surrendered units, %.0f bodies, %.0f prisoners", res.Ticks, units, bodies, got)
+}
+
+// TestPrisonersAreTheSurrenderedColumnAndNotAnother pins the projection itself,
+// because the first two tests can only check it on a battle with no casualties in
+// it and this accessor is the one thing standing between a surrender count and a
+// casualty count.
+//
+// A Result is built by hand here with every loser's column carrying a different
+// number, so any of the three wrong answers is a different wrong number and the
+// test says which one it got. It is a synthetic result rather than a battle
+// because the property is about which field is read, and a battle that both
+// surrenders and takes heavy casualties is a seed-dependent accident.
+func TestPrisonersAreTheSurrenderedColumnAndNotAnother(t *testing.T) {
+	res := &Result{Sides: [2]SideResult{
+		{
+			Side: SideA, StartBodies: 100,
+			Dead: 31, Wounded: 27, SurrenderedBodies: 19,
+			Surrendered: 3, Routed: 12, Standing: 5, StrengthEnd: 44,
+		},
+		{
+			Side: SideB, StartBodies: 100,
+			Dead: 20, Wounded: 22, SurrenderedBodies: 7,
+			Surrendered: 1, Routed: 4, Standing: 9, StrengthEnd: 61,
+		},
+	}}
+	if got, want := res.PrisonersTakenBy(SideA), 19.0; got != want {
+		t.Errorf("PrisonersTakenBy(A) is %g, want %g: it must be the surrendered bodies and nothing else, "+
+			"not the dead (31), not the wounded (27), not the dead plus the wounded (58), and not the "+
+			"routed (12), which are alive and unaccounted for", got, want)
+	}
+	if got, want := res.PrisonersTakenBy(SideB), 7.0; got != want {
+		t.Errorf("PrisonersTakenBy(B) is %g, want %g", got, want)
+	}
+	if got, want := res.PrisonersTaken(), [2]float64{19, 7}; got != want {
+		t.Errorf("PrisonersTaken is %v, want %v", got, want)
+	}
+	// The prisoner's own count has to be inside the population it came out of, or
+	// the number is a sum of something else.
+	a := res.Sides[0]
+	if a.SurrenderedBodies > a.StartBodies {
+		t.Errorf("%g prisoners out of %g bodies is not a surrender count", a.SurrenderedBodies, a.StartBodies)
+	}
+}
