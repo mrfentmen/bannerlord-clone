@@ -18,3 +18,4 @@ export * from "./replay.js";
 export * from "./share.js";
 export { createReportScreen } from "./reportScreen.js";
 export * from "./unitXp.js";
+export { replayTimeline, type ReplayTimelineOptions } from "./replayTimeline.js";
