@@ -3,13 +3,14 @@
   "generated": "2026-10-02",
   "license": "All audio synthesized in-house with numpy DSP; no samples or licensed material.",
   "tools": [
-    "~/workspace/game-music/compose.py",
-    "~/workspace/game-music/compose5.py",
-    "~/workspace/game-music/compose6.py",
-    "~/workspace/game-music/sfx.py",
-    "~/workspace/game-music/sfx2.py",
-    "~/workspace/game-music/sfx3.py",
-    "~/workspace/game-music/radio.py"
+    "assets/audio/tools/synth.py",
+    "assets/audio/tools/compose.py",
+    "assets/audio/tools/compose5.py",
+    "assets/audio/tools/compose6.py",
+    "assets/audio/tools/sfx.py",
+    "assets/audio/tools/sfx2.py",
+    "assets/audio/tools/sfx3.py",
+    "assets/audio/tools/radio.py"
   ],
   "entries": [
     {
