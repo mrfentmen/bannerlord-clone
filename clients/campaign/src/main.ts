@@ -143,7 +143,7 @@ import {
   type SettlementChoice,
 } from "./economy/routePanel.js";
 import { saveLoadPanel } from "./saves/mount.js";
-import { SaveUiError } from "./saves/screens.js";
+import { SaveManager, SaveUiError } from "./saves/screens.js";
 import { ALL_CODEX_ENTRIES, CODEX_CATEGORIES } from "./codex/index.js";
 import { toast } from "./ui/kit.js";
 import { settings, type Settings } from "./settings/index.js";
@@ -822,6 +822,7 @@ function mountCampaign(): void {
     clearIronmanRun();
   }
   pendingIronman = false;
+  startAutosaveTimer();
 
   // -- New Game+ (MASTER_PLAN task 142) --------------------------------------
   // The legacy is spent only now that the heir's campaign actually mounts.
@@ -1313,6 +1314,29 @@ function openGameMenu(): void {
       handle.close();
       openControls();
     },
+    onSaveAndQuit: () => {
+      if (!snapshot) {
+        toast("Nothing to save yet.");
+        return;
+      }
+      const snap = snapshot;
+      void sharedSaveManager()
+        .autosave(snap)
+        .then(
+          () => {
+            toast("Progress saved.");
+            location.reload();
+          },
+          (err) => {
+            console.warn("Save & quit failed:", err);
+            toast(
+              "The save did not go through — quitting now would lose progress " +
+                "since the last save. Try Save / Load instead.",
+              6000,
+            );
+          },
+        );
+    },
     onQuitToTitle: () => location.reload(),
     onClose: () => {
       gameMenu = null;
@@ -1325,6 +1349,40 @@ function openGameMenu(): void {
   gameMenu = handle;
   contextNode = handle.root;
   paint();
+}
+
+// -- Autosave (Rowan) ----------------------------------------------------------
+// PAX's SaveManager documents autosave() as "called on a timer by the game
+// loop", but no timer ever called it: a crash, a closed tab, or the pause
+// menu's quit-to-title silently discarded everything since the last manual
+// save, and ironman mode's "one autosave" promise was never written. This is
+// the game loop's end of that contract: every five minutes, while a campaign
+// is mounted and the page is visible, the live snapshot goes to the autosave
+// slot. Failures stay quiet (console only) so a broken store never spams the
+// player; the manual Save / Load path is untouched.
+const AUTOSAVE_INTERVAL_MS = 5 * 60 * 1000;
+let autosaveTimerStarted = false;
+let autosaveManager: SaveManager | null = null;
+
+function sharedSaveManager(): SaveManager {
+  if (!autosaveManager) autosaveManager = new SaveManager();
+  return autosaveManager;
+}
+
+function startAutosaveTimer(): void {
+  if (autosaveTimerStarted) return;
+  autosaveTimerStarted = true;
+  window.setInterval(() => {
+    if (!snapshot) return;
+    if (document.visibilityState !== "visible") return;
+    const snap = snapshot;
+    void sharedSaveManager()
+      .autosave(snap)
+      .then(
+        () => toast("Autosaved."),
+        (err) => console.warn("Autosave failed:", err),
+      );
+  }, AUTOSAVE_INTERVAL_MS);
 }
 
 function openSaveLoad(): void {

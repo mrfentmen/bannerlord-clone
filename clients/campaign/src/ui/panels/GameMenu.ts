@@ -2,10 +2,10 @@
  * The pause / game menu (Rowan): what Escape opens when no panel is up.
  *
  * A modal dialog over the campaign map: resume, save/load, settings, controls,
- * and a two-step quit-to-title. main.ts holds the simulation clock at 0 while
- * the menu is open and restores the player's speed when it closes; this panel
- * only reports the open/close transitions through its callbacks, so the clock
- * policy stays in one place.
+ * save & quit, and a two-step quit-to-title. main.ts holds the simulation
+ * clock at 0 while the menu is open and restores the player's speed when it
+ * closes; this panel only reports the open/close transitions through its
+ * callbacks, so the clock policy stays in one place.
  *
  * Accessibility: role=dialog + aria-modal, labelled by the panel heading, and
  * the Resume button takes focus on open so keyboard play continues without a
@@ -26,6 +26,14 @@ export interface GameMenuOptions {
   onSettings: () => void;
   /** Open the controls / keybinding editor (the menu closes first). */
   onControls: () => void;
+  /**
+   * Save, then quit to the title screen. Optional: the entry is hidden when
+   * the host cannot save-and-quit. May be async; the button shows "Saving…"
+   * and disables itself while the save is in flight, then restores if the
+   * save fails so the menu stays usable. The host decides what failure means
+   * (it should leave the menu open so the player can try Save / Load).
+   */
+  onSaveAndQuit?: () => void | Promise<void>;
   /** Quit to the title screen. The button asks twice: it arms, then fires. */
   onQuitToTitle: () => void;
   /** The menu closed (resume, the close button, or Escape). */
@@ -63,6 +71,40 @@ export function gameMenuPanel(options: GameMenuOptions): GameMenuHandle {
   const settings = entry("Settings", "game-menu-settings", options.onSettings, "btn btn--quiet");
   const controls = entry("Controls", "game-menu-controls", options.onControls, "btn btn--quiet");
 
+  // Save & quit only exists when the host can actually save: nothing here
+  // invents a save path the app does not have.
+  let saveQuit: HTMLButtonElement | null = null;
+  const onSaveAndQuit = options.onSaveAndQuit;
+  if (onSaveAndQuit) {
+    const btn = h(
+      "button",
+      { type: "button", class: "btn btn--quiet game-menu__btn", "data-testid": "game-menu-savequit" },
+      "Save & quit",
+    );
+    btn.addEventListener("click", () => {
+      if (btn.disabled) return;
+      btn.disabled = true;
+      btn.textContent = "Saving…";
+      const done = (): void => {
+        btn.disabled = false;
+        btn.textContent = "Save & quit";
+      };
+      let result: void | Promise<void>;
+      try {
+        result = onSaveAndQuit();
+      } catch {
+        done();
+        return;
+      }
+      if (result && typeof (result as Promise<void>).then === "function") {
+        (result as Promise<void>).then(done, done);
+      } else {
+        done();
+      }
+    });
+    saveQuit = btn;
+  }
+
   const quit = h(
     "button",
     { type: "button", class: "btn btn--danger game-menu__btn", "data-testid": "game-menu-quit" },
@@ -88,6 +130,7 @@ export function gameMenuPanel(options: GameMenuOptions): GameMenuHandle {
       saveLoad,
       settings,
       controls,
+      ...(saveQuit ? [saveQuit] : []),
       quit,
     ),
   );
