@@ -16,3 +16,4 @@ export { activeWars, declareWarGoal, exhaustedWars, tickWarWeariness, wearinessP
 export { acceptanceOdds, EMPTY_PEACE_TERMS, negotiatePeace, type PeaceNegotiation, type PeaceTerms } from "./peaceConcessions.js";
 export { ATTACK_AXES, plannedOperations, planJointOperation, setOperationStatus, type AttackAxis, type JointOperation, type OperationPlan, type PlanJointOpInput } from "./jointOperations.js";
 export { suggestTribute, type TributeSuggestion } from "./tributeCalculator.js";
+export { diplomaticReputation, driftReputation, recordReputationAction, reputationMeterLine, reputationTitle, REPUTATION_ACTIONS, REPUTATION_EFFECTS, REPUTATION_DRIFT, type ReputationAction } from "./reputation.js";
