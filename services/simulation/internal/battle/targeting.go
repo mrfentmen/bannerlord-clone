@@ -27,13 +27,9 @@ import "math"
 // aimed-fire stages cannot see each other's choices and cannot see a target
 // chosen from a state that has already changed.
 func (b *Battle) stageTargeting() {
-	c := b.c
-	reach := c.MeleeRange
-	reach2 := reach * reach
 	for i := range b.units {
 		u := b.units[i]
 		s := &b.snap[i]
-		d := &b.deltas[i]
 		if !u.alive() || !s.Status.Actable() {
 			continue
 		}
@@ -42,33 +38,7 @@ func (b *Battle) stageTargeting() {
 		// A unit with no ammunition and no melee weapon of its own still swings:
 		// a rifle butt is a melee weapon. What it loses is skill, applied in the
 		// melee stage, not its right to try.
-		bestID, bestScore := -1, math.Inf(1)
-		cap := int(c.MeleeMaxTargets)
-		if cap <= 0 {
-			d.meleeTarget = -1
-		} else {
-			b.meleeHash.forEachCell(s.X, s.Y, reach, func(id int) {
-				cand := b.byID[id]
-				if cand.Side == u.Side || !cand.alive() {
-					return
-				}
-				d2 := dist2(cand.X-s.X, cand.Y-s.Y)
-				if d2 > reach2 {
-					return
-				}
-				if b.attackerCount[id] >= int(c.MaxAttackersPerTarget) {
-					return
-				}
-				score := b.targetScore(d2, cand, reach)
-				if score < bestScore {
-					bestScore, bestID = score, id
-				}
-			})
-			if bestID >= 0 {
-				b.attackerCount[bestID]++
-				d.meleeTarget = bestID
-			}
-		}
+		b.chooseMeleeTarget(i, s, u)
 
 		// --- aimed target ---
 		// Shooters fire independently of the concentration limit. A crowd
@@ -78,6 +48,73 @@ func (b *Battle) stageTargeting() {
 			b.chooseFireTarget(i, s, u)
 		}
 	}
+}
+
+// chooseMeleeTarget stages a unit's melee target: the best enemy it can reach
+// that is not already at its concentration limit.
+//
+// # WHY THIS WALK CANNOT STOP EARLY, AND WHY THAT IS THE ANSWER
+//
+// chooseFireTarget stops at battle.ranged_max_targets, and it can, because a
+// shooter takes the best of the FIRST N and nothing past the Nth is allowed to
+// change that. This walk has no such limit and cannot grow one: it takes the
+// single best of all of them, and the best is not known until every one has
+// been seen. The only sound early exit is one against a lower bound on the
+// score of everything unscored, and targetScore's floor - a target at zero
+// range, already destroyed - is not a thing a melee fight on this balance file
+// produces. So the walk visits the whole box.
+//
+// That costs almost nothing, and the cost is measured in
+// TestTheMeleeWalkIsTheBoxTheGeometrySaysItIs rather than claimed here: a
+// battle.melee_range of 2.6 m over battle.grid_cell_size of 12 is a nine cell
+// box, and on a live 400-unit field the walk keeps two of those cells and hands
+// over about sixteen candidates. The morale query at 90 m is several hundred
+// candidates at the same moment. The melee walk is a small fraction of the
+// cheapest thing in the tick, and there is nothing here to win.
+//
+// It was lifted out of stageTargeting so that
+// TestAMeleeUnitTakesTheBestTargetAndNotTheFirst can ask it directly. That is
+// the reason to keep it a function: an early exit here is the kind of change
+// that looks like a free win and turns a line that finishes off the wounded
+// into a line that hits whatever is nearest, and the test that stops it has to
+// be able to call the thing it is testing.
+func (b *Battle) chooseMeleeTarget(i int, s *snapshot, u *Unit) {
+	c := b.c
+	reach := c.MeleeRange
+	reach2 := reach * reach
+	if int(c.MeleeMaxTargets) <= 0 {
+		b.deltas[i].meleeTarget = -1
+		return
+	}
+	bestID, bestScore := -1, math.Inf(1)
+	b.meleeHash.forEachCell(s.X, s.Y, reach, func(id int) {
+		cand := b.byID[id]
+		if cand.Side == u.Side || !cand.alive() {
+			return
+		}
+		d2 := dist2(cand.X-s.X, cand.Y-s.Y)
+		if d2 > reach2 {
+			return
+		}
+		if b.attackerCount[id] >= int(c.MaxAttackersPerTarget) {
+			return
+		}
+		score := b.targetScore(d2, cand, reach)
+		if score < bestScore {
+			bestScore, bestID = score, id
+		}
+	})
+	if bestID >= 0 {
+		b.attackerCount[bestID]++
+	}
+	// Written whether or not anything was found, so the delta buffer cannot
+	// carry a target from an earlier call. stageTargeting zeroes the buffer every
+	// tick so it never could, and chooseFireTarget writes unconditionally for
+	// the same reason; this one did not, which meant a caller that reused a
+	// battle read a target it had already been given. Symmetry here is not
+	// tidiness, it is the difference between a function that is safe to call and
+	// one that is only safe to call once.
+	b.deltas[i].meleeTarget = bestID
 }
 
 // targetScore ranks a melee candidate. Lower is better.
