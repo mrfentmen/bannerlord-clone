@@ -93,7 +93,88 @@ An outbreak spreads by crowding, poor sanitation, and contact with infected trav
 - Towns feel like places with people in them, not stat bars.
 - No side is good or evil. Everyone is trying to keep their people alive.
 
-## 10. OUT OF SCOPE FOR V1
+## 10. CHARACTER PROGRESSION
+
+### Attributes
+Six core attributes, each governing related skills:
+- **Strength** — Melee damage, carry weight, intimidation
+- **Agility** — Ranged accuracy, dodge, movement speed
+- **Endurance** — Health, stamina, disease resistance
+- **Intellect** — Learning speed, medicine, engineering
+- **Charisma** — Leadership, persuasion, trade prices
+- **Luck** — Loot quality, critical hits, event outcomes (hidden, but real)
+
+### Skills
+Each skill levels by use (0-100). Milestones at 25/50/75/100 unlock perks.
+
+**Combat:** Melee, Ranged, Driving, Demolitions
+**Leadership:** Tactics, Logistics, Medicine, Engineering
+**Social:** Persuasion, Trade, Intimidation, Streetwise
+
+### Perks
+Examples:
+- *Logistics 50:* "Quartermaster" — Caravan spoilage reduced 25%
+- *Medicine 75:* "Field Surgeon" — Wounded troops recover 50% faster
+- *Persuasion 50:* "Silver Tongue" — Surrender offers accepted 30% more often
+- *Trade 75:* "Market Sense" — See price trends 7 days out
+
+## 11. COMPANIONS
+
+Named characters with backstories, skills, opinions, and personal quests. Not
+just stat blocks — they react to your choices.
+
+- **Recruit** from taverns, battlefields, or quests. Each has a history.
+- **Assign** as governors, caravan masters, or detachment leaders.
+- **Personal quests** unlock at loyalty thresholds. Complete them for powerful
+  perks. Ignore them and they leave — or worse.
+- **Opinions** — Companions approve/disapprove of your actions. A honorable
+  medic will object to raiding villages. A ruthless raider will mock mercy.
+
+## 12. SIEGES
+
+Taking a walled town is a campaign, not a battle.
+
+1. **Invest** — Surround the town. Cut supply lines. The garrison eats from
+   stockpiles; when those run out, they starve.
+2. **Bombard** — If you have artillery or engineers, damage walls. Each breach
+   is a new attack vector — and a new way for defenders to trap you.
+3. **Assault** — Storm the walls. Ladder, siege tower, or breach. Expect
+   heavy casualties. The defenders know the ground.
+4. **Negotiate** — Or skip the blood. Offer terms. A starving garrison might
+   surrender. A proud one won't.
+
+Defenders can sally out, get relieved by allies, or wait you out. Sieges cost
+the attacker food and money every day. Time favors the defender — unless
+they're starving.
+
+## 13. DIPLOMACY
+
+Relations are per-faction and per-ruler, tracked in shared state.
+
+- **Treaties:** Non-aggression, trade agreements, military alliances. All have
+  terms, durations, and break conditions.
+- **Marriage:** Ally families through marriage. Creates obligations — and
+  hostages to fortune.
+- **Tribute:** Pay for peace. Expensive. Humiliating. Sometimes the only option.
+- **Threats:** Demand tribute or territory. Works if you're stronger. Backfires
+  if you're bluffing.
+
+AI rulers have personalities: honorable, pragmatic, ruthless, paranoid. They
+remember betrayals. They hold grudges. They also recognize strength and reward
+loyalty — sometimes.
+
+## 14. THE FIVE ENDINGS
+
+Campaigns don't end at a fixed point. They end when you achieve one of five
+victories (see `lore.md` section 18 for full quest chains):
+
+- **Unifier:** Hold 26+ states for 365 days. The maps change.
+- **Kingmaker:** Put puppets on five thrones. Own their debts. Hold no titles.
+- **Breadlord:** Control the food supply. Rule without drawing a weapon.
+- **Ghost:** Build a mercenary legend so feared that sections pay you not to march.
+- **Survivor:** Keep one town alive through everything for 20 years.
+
+## 15. OUT OF SCOPE FOR V1
 
 - Multiplayer
 - Naval combat
