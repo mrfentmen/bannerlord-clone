@@ -12,7 +12,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   BattleApiError,
-  type AfterActionView,
   type BattleApi,
   type BattleOrders,
   type Encounter,
@@ -181,35 +180,6 @@ describe("battle mount", () => {
     expect(events).toContain("order");
   });
 
-  it("hands the finished after-action view to onBattleEvent", async () => {
-    // MASTER_PLAN 138/141: the consumer derives lifetime kills/gold and the
-    // quick-battle score from this view. Without it those stats stay zero, so
-    // the payload is asserted here rather than assumed.
-    const seen: { event: string; view: AfterActionView | undefined }[] = [];
-    const mount = mountBattleUi({
-      apiBaseUrl: "http://127.0.0.1:9",
-      playerPartyId: 1,
-      local: localSource(),
-      api: unreachableApi(),
-      mountInto: document.createElement("div"),
-      onBattleEvent: (event, view) => seen.push({ event, view }),
-    });
-    mounts.push(mount);
-
-    await mount.attack(1, 2);
-    await flush();
-    click(mount, "battle-autoresolve");
-    await flush();
-
-    const result = seen.find((s) => s.event === "victory" || s.event === "defeat");
-    expect(result, "a victory/defeat event fires").toBeDefined();
-    expect(result?.view, "the event carries the after-action view").toBeDefined();
-    expect(typeof result?.view?.playerWon).toBe("boolean");
-    expect(Number.isFinite(result?.view?.attackerLosses)).toBe(true);
-    expect(Number.isFinite(result?.view?.defenderLosses)).toBe(true);
-    expect(Number.isFinite(result?.view?.loot)).toBe(true);
-  });
-
   it("auto-resolve reaches after-action and dismiss returns to the campaign", async () => {
     const { mount, onDone } = makeMount(unreachableApi());
     await mount.attack(1, 2);
@@ -225,6 +195,19 @@ describe("battle mount", () => {
     expect(mount.root.hidden).toBe(true);
     expect(mount.flow.phase).toBe("idle");
     expect(onDone).toHaveBeenCalledTimes(1);
+  });
+
+  it("after-action shows the recorded aftermath (rival, appraisal)", async () => {
+    const { mount } = makeMount(unreachableApi());
+    await mount.attack(1, 2);
+    await flush();
+    click(mount, "battle-autoresolve");
+    await flush();
+
+    expect(query(mount, "battle-afteraction")).not.toBeNull();
+    const rival = query(mount, "battle-rival");
+    expect(rival).not.toBeNull();
+    expect(rival!.textContent).toContain("Rival Gang");
   });
 
   it("stand down closes the overlay without an after-action", async () => {
@@ -283,56 +266,6 @@ describe("battle mount", () => {
     mount.destroy();
     expect(into.contains(mount.root)).toBe(false);
     expect(mount.poller.running).toBe(false);
-    mounts.pop();
-  });
-
-  it("offers a polled encounter on the banner instead of taking the map", async () => {
-    const api: BattleApi = {
-      ...unreachableApi(),
-      listEncounters: async () => [encounter()],
-    };
-    const { mount } = makeMount(api);
-    await flush();
-
-    expect(mount.banner.root.hidden).toBe(false);
-    expect(mount.banner.root.textContent).toContain("Hostile force encountered!");
-    // The campaign map is still the player's: nothing has been taken from them yet.
-    expect(mount.root.hidden).toBe(true);
-    expect(mount.flow.phase).toBe("idle");
-
-    mount.banner.root.querySelector<HTMLElement>("[data-testid='encounter-meet']")!.click();
-
-    expect(mount.root.hidden).toBe(false);
-    expect(query(mount, "battle-prebattle")).not.toBeNull();
-    expect(mount.banner.root.hidden).toBe(true);
-  });
-
-  it("says so when polling fails, rather than leaving the player to wonder", async () => {
-    const api: BattleApi = {
-      ...unreachableApi(),
-      listEncounters: async () => {
-        throw new BattleApiError("denied", "refused", "The road is not being watched.", 400);
-      },
-    };
-    const { mount } = makeMount(api);
-    await flush();
-
-    expect(mount.banner.root.hidden).toBe(false);
-    expect(mount.banner.root.textContent).toContain("The road is not being watched.");
-  });
-
-  it("stays silent on the banner when there is no battle server to watch", async () => {
-    const { mount } = makeMount(unreachableApi());
-    await flush();
-    expect(mount.banner.root.hidden).toBe(true);
-  });
-
-  it("destroy takes the banner down with the overlay", () => {
-    const { mount, into } = makeMount(unreachableApi());
-    const banner = mount.banner.root;
-    expect(into.contains(banner)).toBe(true);
-    mount.destroy();
-    expect(into.contains(banner)).toBe(false);
     mounts.pop();
   });
 

@@ -467,6 +467,29 @@ export function mountBattleUi(options: BattleMountOptions): BattleMount {
     body.appendChild(row("Defender losses", String(view.defenderLosses), { mono: true }));
     if (view.loot > 0) body.appendChild(row("Loot", String(view.loot), { mono: true }));
     if (view.ticks > 0) body.appendChild(row("Battle ticks", String(view.ticks), { mono: true }));
+    const { aftermath } = view;
+    if (aftermath.lootAppraisal !== "No spoils.") {
+      body.appendChild(row("Appraisal", aftermath.lootAppraisal, { mono: true }));
+    }
+    if (aftermath.warStory) {
+      body.appendChild(
+        h("p", { class: "caption", "data-testid": "battle-warstory" }, aftermath.warStory),
+      );
+    }
+    if (aftermath.rivalLine) {
+      body.appendChild(
+        h("p", { class: "caption", "data-testid": "battle-rival" }, aftermath.rivalLine),
+      );
+    }
+    if (aftermath.comparison) {
+      const cmp = aftermath.comparison;
+      body.appendChild(
+        h("p", { class: "caption", "data-testid": "battle-comparison" }, cmp.verdict),
+      );
+      for (const d of cmp.deltas) {
+        body.appendChild(row(d.metric, d.line, { mono: true }));
+      }
+    }
     const actions = h("div", { class: "battle__actions" });
     actions.append(
       button("Return to campaign", dismiss, {
