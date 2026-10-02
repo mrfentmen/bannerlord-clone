@@ -22,3 +22,4 @@ export { rankCaravanRoutes, type RouteRanking } from "./caravanRanking.js";
 export { cancelPriceAlert, checkPriceAlerts, pendingPriceAlerts, priceAlertLine, setPriceAlert, type PriceAlert } from "./priceAlerts.js";
 export { FAIR_TAX_RATE, predictedTaxIncome, predictedTaxUnrest, simulateTaxPolicy, type TaxPrediction } from "./taxSimulator.js";
 export { analyzeSmugglingRun, type SmugglingRiskAnalysis } from "./smuggling.js";
+export { answerProposal, proposeTradeDeal, type TradeAgreement, type TradeProposal, type TownDecision } from "./tradeDeals.js";
