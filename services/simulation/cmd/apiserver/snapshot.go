@@ -246,6 +246,14 @@ func buildVillages(s *Server, playerSide int) []any {
 // and the field is immutable after startup, so this needs none.
 func (s *Server) playerLeaderID() int { return s.player }
 
+// playerSide returns the side ID of the player's leader, or -1 if none.
+func (s *Server) playerSide() int {
+	if l, ok := s.state.Leaders[s.playerLeaderID()]; ok && l != nil {
+		return l.SideID
+	}
+	return -1
+}
+
 // fogViewFor answers the three questions every fog rendering starts with: which side
 // the block is stated from, which towns that side has in sight now, and which it has
 // ever had in sight.

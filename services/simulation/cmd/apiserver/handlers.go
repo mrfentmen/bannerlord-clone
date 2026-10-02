@@ -12,6 +12,7 @@ import (
 	"mbclone/simulation/internal/rumours"
 	"mbclone/simulation/internal/savegame"
 	"mbclone/simulation/internal/sim"
+	"mbclone/simulation/internal/systems/access"
 )
 
 // tickLoop advances the simulation according to daysPerSecond.
@@ -101,6 +102,19 @@ func (s *Server) handleTrade(w http.ResponseWriter, r *http.Request) {
 	}
 	// TradeRun order: TownID = source town, Target = destination (same for now),
 	// Amount = goods amount.
+	//
+	// Validated synchronously: the old code queued the order and returned
+	// accepted:true without checking anything, so a trade into a town whose
+	// gates are closed would ack and then silently do nothing on the tick.
+	t := s.state.Towns[req.TownID]
+	if t == nil {
+		writeJSON(w, map[string]any{"accepted": false, "reason": "unknown town"})
+		return
+	}
+	if st, reason := access.TownAccess(s.state, t.SideID, s.playerSide()); st == access.Denied {
+		writeJSON(w, map[string]any{"accepted": false, "reason": reason})
+		return
+	}
 	s.queueOrder(sim.Order{
 		Kind:   sim.OrderTradeRun,
 		TownID: req.TownID,
@@ -123,6 +137,18 @@ func (s *Server) handleRecruit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// The player system finds the leader's party; LeaderID -1 means "the player".
+	//
+	// Validated synchronously like trade: unknown town or closed gates are
+	// refused now rather than acked and silently dropped on the tick.
+	t := s.state.Towns[req.TownID]
+	if t == nil {
+		writeJSON(w, map[string]any{"accepted": false, "reason": "unknown town"})
+		return
+	}
+	if st, reason := access.TownAccess(s.state, t.SideID, s.playerSide()); st == access.Denied {
+		writeJSON(w, map[string]any{"accepted": false, "reason": reason})
+		return
+	}
 	s.queueOrder(sim.Order{
 		Kind:     sim.OrderRecruitTroops,
 		TownID:   req.TownID,
