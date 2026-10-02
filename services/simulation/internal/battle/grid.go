@@ -317,6 +317,135 @@ func (h *hash) span(radius float64) int {
 	return n + 1
 }
 
+// walkCells calls fn once per NON-EMPTY cell the query keeps, handing it that
+// cell's ids as one contiguous run, and reports whether fn ever returned true.
+//
+// # THIS IS THE ONLY RING WALK IN THE ENGINE
+//
+// forEachCell and anyInCell are both written on top of it. They used to carry
+// their own copy of the ring loop, which is three copies of the geometry that
+// decides what a battle can see, and three copies of an order that has to be
+// identical or two stages disagree about who was in range.
+//
+// # WHY ONE CALL PER CELL AND NOT ONE PER UNIT
+//
+// The first version handed out one id at a time, so every unit in every cell of
+// the box cost an indirect call. That is invisible on a query that finds two men,
+// and it is most of the cost of a query that finds seven hundred.
+//
+// Measured on the 500 v 500 battle with the shipped balance file, the field is a
+// band about 900 m long and 100 m wide and battle.morale_neighbourhood is 90 m,
+// so a unit has about 745 neighbours inside its own neighbourhood, and
+// grid_morale_test.go fails if that stops being true. A CPU profile put
+// (*Battle).stageMorale's neighbour closure at 30.9% flat of the whole run and
+// (*hash).forEachCell at 68% cumulative beneath it. Handing out a cell's worth
+// of ids moves the call out of the candidate loop: 26 calls a unit a tick instead
+// of 745.
+//
+// # WHY THE CELL'S IDS, AND WHY A CALLER MAY STILL PREFER collectCells
+//
+// A run of ids is contiguous, so a caller can walk it in a plain loop. That is
+// the whole benefit and it is worth naming precisely: a caller's per-candidate
+// work inside a callback is still per-candidate work behind a function value, and
+// the compiler cannot hoist a loop-invariant out of it or prove an id in range
+// across seven arrays inside it.
+//
+// So a caller that is hot enough for that to show wants collectCells, which walks
+// the same cells in the same order, hands back the CELL INDICES as a slice the
+// caller then loops over itself, and therefore runs its per-candidate loop in its
+// own frame with plain locals. That is what stageMorale does.
+//
+// # DETERMINISM IS EXACTLY PRESERVED
+//
+// The ring order, the perimeter order, the bounds clamp and cellMisses are the
+// ones the walks had before, so ids arrive in the same sequence, and a caller that
+// accumulates in visit order accumulates in exactly the sequence it did before.
+// This is the same guarantee the dense grid and the flat mirror were made under,
+// and it is why the golden replay hashes still match.
+//
+// A cell holding no units is not handed to fn at all, which a caller cannot tell:
+// there was nothing in it to call fn with.
+func (h *hash) walkCells(x, y, radius float64, fn func(k int, run []int) bool) bool {
+	if h.count == 0 {
+		return false
+	}
+	cx, cy := h.extent(x, y)
+	last := h.span(radius)
+	items := h.items
+	starts := h.starts
+	w := h.w
+	hgt := h.h
+	r2 := radius * radius
+	// visit walks one index cell and reports whether fn matched anything in it.
+	// Bounds are clamped rather than tested per side: the walk knows the cell it
+	// is looking at came from the centre cell plus a ring, so only the grid's
+	// edges can fall outside it.
+	//
+	// The cell is also dropped whole when it lies entirely outside the query
+	// DISC, which is what cellMisses does and why. See its comment: the walk
+	// covers a square, the query is a circle, and the corners of the square are
+	// the part of it that can never hold anything in range.
+	visit := func(ix, iy int) bool {
+		if ix < 0 || iy < 0 || ix >= w || iy >= hgt {
+			return false
+		}
+		if h.cellMisses(ix, iy, x, y, r2) {
+			return false
+		}
+		i := ix + w*iy
+		lo, hi := starts[i], starts[i+1]
+		if lo == hi {
+			return false
+		}
+		return fn(i, items[lo:hi])
+	}
+	for ring := 0; ring <= last; ring++ {
+		if ring == 0 {
+			if visit(cx, cy) {
+				return true
+			}
+			continue
+		}
+		// The ring's perimeter, walked without repeating a corner: the top and
+		// bottom edges over the full width, then the two sides over the inner
+		// height. Every cell of the ring appears exactly once.
+		for dx := -ring; dx <= ring; dx++ {
+			if visit(cx+dx, cy-ring) {
+				return true
+			}
+			if visit(cx+dx, cy+ring) {
+				return true
+			}
+		}
+		for dy := -ring + 1; dy <= ring-1; dy++ {
+			if visit(cx-ring, cy+dy) {
+				return true
+			}
+			if visit(cx+ring, cy+dy) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// collectCells appends to dst the flat index of every NON-EMPTY cell the query at
+// (x,y) keeps, in walkCells's ring order, and returns the extended slice.
+//
+// The index is the one the CSR grid addresses its runs by, so a caller walks its
+// own candidates with items[starts[k]:starts[k+1]]. dst is the caller's own
+// scratch: handing it in means the walk allocates nothing after the scratch has
+// grown once, which is what keeps the per-tick loop allocation-free.
+//
+// See walkCells for why a hot caller wants this rather than a callback.
+func (h *hash) collectCells(dst []int32, x, y, radius float64) []int32 {
+	h.walkCells(x, y, radius, func(k int, run []int) bool {
+		dst = append(dst, int32(k))
+		return false
+	})
+	return dst
+}
+
 // forEachCell calls fn with the id of every unit in the cells overlapping the
 // square of side 2*radius centred on (x,y), in a fixed order.
 //
@@ -324,53 +453,18 @@ func (h *hash) span(radius float64) int {
 // fixed walk of the perimeter. It is deterministic, which is the only property
 // that matters; it is not especially cache friendly and does not need to be,
 // because the alternative is a non-reproducible battle.
+//
+// The walk itself lives in walkCells. A caller whose per-unit work is heavy
+// enough for the indirect call to show in a profile wants collectCells instead:
+// same cells, same order, no callback around its own loop. See walkCells for the
+// measurement that says which is which.
 func (h *hash) forEachCell(x, y, radius float64, fn func(id int)) {
-	if h.count == 0 {
-		return
-	}
-	cx, cy := h.extent(x, y)
-	last := h.span(radius)
-	items := h.items
-	starts := h.starts
-	w := h.w
-	r2 := radius * radius
-	// visit walks one index cell. Bounds are clamped rather than tested per
-	// side: the walk knows the cell it is looking at came from the centre cell
-	// plus a ring, so only the grid's edges can fall outside it.
-	//
-	// The cell is also dropped whole when it lies entirely outside the query
-	// DISC, which is what cellMisses does and why. See its comment: the walk
-	// covers a square, the query is a circle, and the corners of the square are
-	// the part of it that can never hold anything in range.
-	visit := func(ix, iy int) {
-		if ix < 0 || iy < 0 || ix >= w || iy >= h.h {
-			return
-		}
-		if h.cellMisses(ix, iy, x, y, r2) {
-			return
-		}
-		i := ix + w*iy
-		for _, id := range items[starts[i]:starts[i+1]] {
+	h.walkCells(x, y, radius, func(_ int, run []int) bool {
+		for _, id := range run {
 			fn(id)
 		}
-	}
-	for ring := 0; ring <= last; ring++ {
-		if ring == 0 {
-			visit(cx, cy)
-			continue
-		}
-		// The ring's perimeter, walked without repeating a corner: the top and
-		// bottom edges over the full width, then the two sides over the inner
-		// height. Every cell of the ring appears exactly once.
-		for dx := -ring; dx <= ring; dx++ {
-			visit(cx+dx, cy-ring)
-			visit(cx+dx, cy+ring)
-		}
-		for dy := -ring + 1; dy <= ring-1; dy++ {
-			visit(cx-ring, cy+dy)
-			visit(cx+ring, cy+dy)
-		}
-	}
+		return false
+	})
 }
 
 // anyInCell reports whether fn returns true for any unit in the cells
@@ -406,61 +500,14 @@ func (h *hash) forEachCell(x, y, radius float64, fn func(id int)) {
 // A caller that needs every match, or that needs them in a particular order to
 // break a tie, must use forEachCell, which is unchanged.
 func (h *hash) anyInCell(x, y, radius float64, fn func(id int) bool) bool {
-	if h.count == 0 {
-		return false
-	}
-	cx, cy := h.extent(x, y)
-	last := h.span(radius)
-	items := h.items
-	starts := h.starts
-	w := h.w
-	hgt := h.h
-	r2 := radius * radius
-	// visit walks one index cell and reports whether fn matched anything in it.
-	// Bounds are clamped rather than tested per side, for the reason given on
-	// forEachCell's own visit: only the grid's edges can fall outside the walk.
-	// The whole-cell disc rejection is for the same reason it is there on
-	// forEachCell: the walk is a square and the query is a circle.
-	visit := func(ix, iy int) bool {
-		if ix < 0 || iy < 0 || ix >= w || iy >= hgt {
-			return false
-		}
-		if h.cellMisses(ix, iy, x, y, r2) {
-			return false
-		}
-		i := ix + w*iy
-		for _, id := range items[starts[i]:starts[i+1]] {
+	return h.walkCells(x, y, radius, func(_ int, run []int) bool {
+		for _, id := range run {
 			if fn(id) {
 				return true
 			}
 		}
 		return false
-	}
-	for ring := 0; ring <= last; ring++ {
-		if ring == 0 {
-			if visit(cx, cy) {
-				return true
-			}
-			continue
-		}
-		for dx := -ring; dx <= ring; dx++ {
-			if visit(cx+dx, cy-ring) {
-				return true
-			}
-			if visit(cx+dx, cy+ring) {
-				return true
-			}
-		}
-		for dy := -ring + 1; dy <= ring-1; dy++ {
-			if visit(cx-ring, cy+dy) {
-				return true
-			}
-			if visit(cx+ring, cy+dy) {
-				return true
-			}
-		}
-	}
-	return false
+	})
 }
 
 // occupiedCells is how many non-empty cells the index holds, reported so a
