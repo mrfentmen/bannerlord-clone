@@ -50,6 +50,15 @@ func System() sim.System {
 
 func run(v *sim.View, w *sim.WriteSet) {
 	c := v.Cfg
+	// Default values if config is nil (e.g., in tests).
+	deathRate := 0.05
+	conformityDrop := 0.20
+	foodUpkeep := 0.10
+	if c != nil {
+		deathRate = c.RulerAI.PrisonerStarvationDeathRate
+		conformityDrop = c.RulerAI.PrisonerStarvationConformityDrop
+		foodUpkeep = c.RulerAI.PrisonerFoodUpkeep
+	}
 	for _, pid := range v.State.PartyIDs() {
 		p := v.State.Parties[pid]
 		if p == nil || p.Prisoners <= 0 {
@@ -82,7 +91,7 @@ func run(v *sim.View, w *sim.WriteSet) {
 		// prisoners in it would stop the world rather than cost its owner
 		// something. Nothing set prisoners before battles began taking men
 		// alive, which is why this sat here doing nothing.
-		foodCost := p.Prisoners * 0.1
+		foodCost := p.Prisoners * foodUpkeep
 		if foodCost > 0 {
 			w.Add(model.KindParty, pid, "party_food", -foodCost, read, causes,
 				"prisoners consume food")
@@ -92,10 +101,10 @@ func run(v *sim.View, w *sim.WriteSet) {
 		// Conformity drops fast and prisoners may die or escape.
 		if p.Prisoners > 0 && p.Food <= 0 {
 			// Conformity collapses when unfed.
-			w.Add(model.KindParty, pid, "prisoner_conformity", -c.RulerAI.PrisonerStarvationConformityDrop,
+			w.Add(model.KindParty, pid, "prisoner_conformity", -conformityDrop,
 				read, causes, "prisoners starving: conformity collapses")
 			// Prisoners die per day without food (configurable rate).
-			deaths := p.Prisoners * c.RulerAI.PrisonerStarvationDeathRate
+			deaths := p.Prisoners * deathRate
 			if deaths >= 1 {
 				w.Add(model.KindParty, pid, "prisoners", -deaths,
 					read, causes, "prisoners starved to death")

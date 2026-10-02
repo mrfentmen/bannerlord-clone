@@ -588,6 +588,7 @@ prisoner_ransom_relation = 0.10  # relation cost of ransoming. Range 0-0.5.
 prisoner_release_relation = 0.15  # relation gain from releasing a prisoner (honorable). Range 0-0.5.
 prisoner_starvation_death_rate = 0.05  # share of prisoners dying per day without food. Range 0-0.2.
 prisoner_starvation_conformity_drop = 0.20  # conformity lost per day without food. Range 0-1.0.
+prisoner_food_upkeep = 0.10  # food consumed per prisoner per day. Range 0-1.0.
 decide_every_days = 4.0         # how often a ruler makes a decision. Range 1-30. Daily decisions make rulers twitchy.
 starving_army_penalty = 0.25    # how much a starving army cuts offensive willingness. Range 0-1.0. An army that cannot march cannot attack.
 low_supply_penalty = 0.45       # how much an army short of food cuts it. Range 0-1.0. The supply check from MARCH_AND_WAR.md section 1.

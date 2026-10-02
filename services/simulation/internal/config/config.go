@@ -1240,6 +1240,8 @@ type RulerAI struct {
 	PrisonerStarvationDeathRate float64
 	// PrisonerStarvationConformityDrop is conformity lost per day without food.
 	PrisonerStarvationConformityDrop float64
+	// PrisonerFoodUpkeep is food consumed per prisoner per day.
+	PrisonerFoodUpkeep float64
 	// PrisonerReleaseRelation is the relation gain from releasing a prisoner.
 	// Positive, because release is the honorable political tool.
 	PrisonerReleaseRelation float64
