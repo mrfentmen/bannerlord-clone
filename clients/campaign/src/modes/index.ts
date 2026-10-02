@@ -17,3 +17,4 @@ export * from "./daily.js";
 export * from "./customBattle.js";
 export { createModesMenu, type ModesMenuOptions } from "./menu.js";
 export { tournamentBracket, type TournamentBracketOptions } from "./tournamentBracket.js";
+export { dealMapCandidates, pickMap, tallyVotes, type MapCandidate, type MapVote } from "./mapVoting.js";
