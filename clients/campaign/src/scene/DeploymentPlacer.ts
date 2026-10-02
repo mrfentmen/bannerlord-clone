@@ -1,16 +1,18 @@
 /**
- * Deployment placement interaction for the battle scene (Buffy tasks 3-5, 10).
+ * Deployment placement interaction for the battle scene
+ * (Buffy tasks 3-5, 10, 18).
  *
  * During deployment a semi-transparent soldier ghost follows the cursor over
  * the battlefield, and a click inside the player's deployment zone drops a
  * solid marker where the unit will stand. The placer owns the pointer
  * subscription, the ghost visuals, and the placement list; later deployment
- * tasks (grid snap, undo, clear) build on the same handle.
+ * tasks (undo, clear) build on the same handle.
  *
  * The primary button places; the secondary button cancels the preview, which
  * hides the ghost and hands the unit back to the caller (`onCancel`). A click
  * that lands outside the zone flashes the ghost red for a moment instead of
- * dropping a marker.
+ * dropping a marker. Grid snap (`setGridSnap`) puts the ghost and every marker
+ * on a 2 m grid so a deployment comes out in tidy ranks.
  *
  * The ghost starts as a primitive proxy so it is there the moment deployment
  * begins, and upgrades to a translucent clone of the soldier GLB once the
@@ -49,6 +51,13 @@ const SECONDARY_BUTTON = 2;
 const INVALID_FLASH_MS = 300;
 /** Warning red, against the ghost's normal green. */
 const INVALID_FLASH_COLOR = new Color3(0.95, 0.15, 0.12);
+/**
+ * Grid-snap step in metres (Buffy task 18). 2 m is about one infantry
+ * shoulder-to-shoulder slot, so a snapped deployment lines ranks up without
+ * crowding them — a 1 m grid packs tighter than troops can actually stand,
+ * and a 4 m grid spreads a squad across too much depth.
+ */
+const GRID_STEP_M = 2;
 
 /** A ghost material and the emissive colour it wore before the flash. */
 interface SavedEmissive {
@@ -81,6 +90,8 @@ export interface DeploymentPlacerOptions {
   onPlace?: (placement: DeploymentPlacement) => void;
   /** Fired once when the preview is cancelled, so the caller can return the unit. */
   onCancel?: () => void;
+  /** Start with grid snap on; otherwise placements follow the cursor exactly. */
+  gridSnap?: boolean;
 }
 
 /**
@@ -95,6 +106,21 @@ export function pointInDeploymentZone(
     Math.abs(point.x - zone.x) <= zone.width / 2 &&
     Math.abs(point.z - zone.z) <= zone.depth / 2
   );
+}
+
+/**
+ * Pure: snap a battlefield point to the deployment grid (Buffy task 18).
+ * Rounds to the nearest multiple of `step`, so the grid is anchored on the
+ * world origin and covers negative coordinates the same way as positive ones.
+ */
+export function snapToGrid(
+  point: { x: number; z: number },
+  step: number,
+): { x: number; z: number } {
+  return {
+    x: Math.round(point.x / step) * step,
+    z: Math.round(point.z / step) * step,
+  };
 }
 
 export class DeploymentPlacer {
@@ -115,6 +141,7 @@ export class DeploymentPlacer {
   private proxyRetired = false;
   private flashTimer: ReturnType<typeof setTimeout> | null = null;
   private readonly savedEmissive: SavedEmissive[] = [];
+  private gridSnap: boolean;
   private disposed = false;
 
   constructor(scene: Scene, options: DeploymentPlacerOptions = {}) {
@@ -123,6 +150,7 @@ export class DeploymentPlacer {
     this.zones = options.zones ? [...options.zones] : [];
     this.onPlace = options.onPlace ?? null;
     this.onCancel = options.onCancel ?? null;
+    this.gridSnap = options.gridSnap ?? false;
 
     this.ghostRoot = new TransformNode(GHOST_ROOT_NAME, scene);
 
@@ -201,8 +229,38 @@ export class DeploymentPlacer {
 
   /** Stand the ghost at a battlefield point (y is always ground level). */
   moveGhostTo(point: Vector3): void {
-    this.lastPoint = new Vector3(point.x, 0, point.z);
-    this.ghostRoot.position.set(point.x, 0, point.z);
+    const at = this.resolvePoint(point);
+    this.lastPoint = at;
+    this.ghostRoot.position.copyFrom(at);
+  }
+
+  /**
+   * Turn grid snap on or off (Buffy task 18). With it on, the ghost and every
+   * marker land on the 2 m deployment grid; with it off, placements follow the
+   * cursor exactly. Enabling snaps the ghost where it currently stands, so the
+   * preview never shows a spot the unit cannot actually take.
+   */
+  setGridSnap(enabled: boolean): void {
+    if (this.gridSnap === enabled) return;
+    this.gridSnap = enabled;
+    if (enabled && this.lastPoint) this.moveGhostTo(this.lastPoint);
+  }
+
+  /** Whether placements are snapped to the deployment grid. */
+  getGridSnap(): boolean {
+    return this.gridSnap;
+  }
+
+  /**
+   * Where a placement actually lands: the pick point, snapped to the grid when
+   * snapping is on. Zone validation runs on this, so a unit is never accepted
+   * or rejected based on where the cursor was rather than where it will stand.
+   */
+  private resolvePoint(point: Vector3): Vector3 {
+    const ground = new Vector3(point.x, 0, point.z);
+    if (!this.gridSnap) return ground;
+    const snapped = snapToGrid(ground, GRID_STEP_M);
+    return new Vector3(snapped.x, 0, snapped.z);
   }
 
   /** Where the ghost is standing, or null before the first move. */
@@ -217,15 +275,16 @@ export class DeploymentPlacer {
    */
   placeAt(point: Vector3): boolean {
     if (this.disposed) return false;
+    const at = this.resolvePoint(point);
     const inPlayerZone = this.zones.some(
-      (zone) => zone.faction === "player" && pointInDeploymentZone(point, zone),
+      (zone) => zone.faction === "player" && pointInDeploymentZone(at, zone),
     );
     if (!inPlayerZone) {
       this.flashInvalid();
       return false;
     }
 
-    const placement: DeploymentPlacement = { x: point.x, z: point.z };
+    const placement: DeploymentPlacement = { x: at.x, z: at.z };
     this.placements.push(placement);
     this.addPlacementMarker(placement);
     this.onPlace?.(placement);

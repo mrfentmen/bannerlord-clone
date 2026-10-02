@@ -1,17 +1,17 @@
 /**
  * Deployment ghost preview, placement, and camera framing
- * (Buffy tasks 3-5, 10, 11).
+ * (Buffy tasks 3-5, 10, 11, 18).
  *
  * The placer owns the battlefield side of the deployment phase: a translucent
  * soldier ghost that tracks the cursor, solid markers dropped by clicks
  * inside the player's deployment zone, a right-click that cancels the
- * preview, and a red flash for clicks that miss the zone. `BattleScene` adds
- * the deployment camera pose. These tests run the real classes on a
- * NullEngine — real meshes and cameras, no GPU — and cover show/hide,
- * position updates, observer hygiene, teardown, placement validation, cancel,
- * the flash, and the camera framing. The GLB upgrade cannot run headless (no
- * network to /models/), which is exactly the case the proxy fallback has to
- * survive.
+ * preview, a red flash for clicks that miss the zone, and an optional 2 m
+ * grid snap. `BattleScene` adds the deployment camera pose. These tests run
+ * the real classes on a NullEngine — real meshes and cameras, no GPU — and
+ * cover show/hide, position updates, observer hygiene, teardown, placement
+ * validation, cancel, the flash, snapping, and the camera framing. The GLB
+ * upgrade cannot run headless (no network to /models/), which is exactly the
+ * case the proxy fallback has to survive.
  */
 
 import { describe, expect, it, vi } from "vitest";
@@ -33,6 +33,7 @@ import type { DeploymentZone } from "../BattleUI.js";
 import {
   DeploymentPlacer,
   pointInDeploymentZone,
+  snapToGrid,
   type DeploymentPlacement,
 } from "../DeploymentPlacer.js";
 
@@ -496,6 +497,154 @@ describe("DeploymentPlacer invalid-placement flash", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+});
+
+describe("DeploymentPlacer grid snap", () => {
+  const playerZone: DeploymentZone = { x: 0, z: 0, width: 20, depth: 10, faction: "player" };
+
+  it("is off by default and free-moves the ghost", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene);
+
+    expect(placer.getGridSnap()).toBe(false);
+
+    placer.moveGhostTo(new Vector3(3.7, 0, -1.3));
+    const ghost = scene.getTransformNodeByName("deployGhost")!;
+    expect(ghost.position.x).toBeCloseTo(3.7);
+    expect(ghost.position.z).toBeCloseTo(-1.3);
+
+    placer.dispose();
+  });
+
+  it("places at the exact cursor point when off", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene, { zones: [playerZone] });
+
+    expect(placer.placeAt(new Vector3(3.7, 0, -1.3))).toBe(true);
+
+    expect(placer.getPlacements()).toHaveLength(1);
+    const [placement] = placer.getPlacements();
+    expect(placement!.x).toBeCloseTo(3.7);
+    expect(placement!.z).toBeCloseTo(-1.3);
+
+    placer.dispose();
+  });
+
+  it("snaps the ghost and the markers onto the 2 m grid when on", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene, { zones: [playerZone] });
+    placer.setGridSnap(true);
+
+    placer.moveGhostTo(new Vector3(3.7, 0, -1.3));
+    const ghost = scene.getTransformNodeByName("deployGhost")!;
+    expect(ghost.position.x).toBeCloseTo(4); // nearest even metre
+    expect(ghost.position.z).toBeCloseTo(-2);
+    expect(placer.getPreviewPoint()!.x).toBeCloseTo(4);
+
+    expect(placer.placeAt(new Vector3(3.7, 0, -1.3))).toBe(true);
+    const [placement] = placer.getPlacements();
+    expect(placement!.x).toBeCloseTo(4);
+    expect(placement!.z).toBeCloseTo(-2);
+
+    // The marker mesh stands where the ghost promised.
+    const body = scene.getMeshByName("deployPlaced0Body") as Mesh;
+    expect(body.position.x).toBeCloseTo(4);
+    expect(body.position.z).toBeCloseTo(-2);
+
+    placer.dispose();
+  });
+
+  it("can be started snapped from the constructor option", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene, { zones: [playerZone], gridSnap: true });
+
+    expect(placer.getGridSnap()).toBe(true);
+    expect(placer.placeAt(new Vector3(0.9, 0, 4.4))).toBe(true);
+    const [placement] = placer.getPlacements();
+    expect(placement!.x).toBeCloseTo(0);
+    expect(placement!.z).toBeCloseTo(4); // 4.4 is nearer 4 than 6
+
+    placer.dispose();
+  });
+
+  it("snaps the ghost where it stands when snapping is switched on", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene);
+    placer.moveGhostTo(new Vector3(3.7, 0, -1.3));
+
+    placer.setGridSnap(true);
+
+    const ghost = scene.getTransformNodeByName("deployGhost")!;
+    expect(ghost.position.x).toBeCloseTo(4);
+    expect(ghost.position.z).toBeCloseTo(-2);
+
+    placer.dispose();
+  });
+
+  it("leaves an already-snapped ghost alone when snapping is switched off", () => {
+    const scene = newScene();
+    const placer = new DeploymentPlacer(scene, { gridSnap: true });
+    placer.moveGhostTo(new Vector3(3.7, 0, -1.3));
+
+    placer.setGridSnap(false);
+    placer.moveGhostTo(new Vector3(3.7, 0, -1.3));
+
+    const ghost = scene.getTransformNodeByName("deployGhost")!;
+    expect(placer.getGridSnap()).toBe(false);
+    expect(ghost.position.x).toBeCloseTo(3.7);
+    expect(ghost.position.z).toBeCloseTo(-1.3);
+
+    placer.dispose();
+  });
+
+  it("validates the snapped point, so a click past the edge can snap back in", () => {
+    const scene = newScene();
+    // A zone 8 m wide reaches to x = 4: 4.2 m is outside it free, but snaps
+    // to 4 m, which is the edge and legal.
+    const narrowZone: DeploymentZone = { x: 0, z: 0, width: 8, depth: 20, faction: "player" };
+    const free = new DeploymentPlacer(scene, { zones: [narrowZone] });
+    expect(free.placeAt(new Vector3(4.2, 0, 0))).toBe(false);
+    free.dispose();
+
+    const snapped = new DeploymentPlacer(scene, { zones: [narrowZone], gridSnap: true });
+    expect(snapped.placeAt(new Vector3(4.2, 0, 0))).toBe(true);
+    expect(snapped.getPlacements()[0]!.x).toBeCloseTo(4);
+    snapped.dispose();
+  });
+
+  it("rejects a click that snaps past the zone edge", () => {
+    const scene = newScene();
+    // The zone reaches x = 3 and a click exactly there is legal free, but
+    // rounds up to 4 m — outside. Where the unit stands decides, not the cursor.
+    const zone: DeploymentZone = { x: 0, z: 0, width: 6, depth: 20, faction: "player" };
+    const free = new DeploymentPlacer(scene, { zones: [zone] });
+    expect(free.placeAt(new Vector3(3, 0, 0))).toBe(true);
+    free.dispose();
+
+    const snapped = new DeploymentPlacer(scene, { zones: [zone], gridSnap: true });
+    expect(snapped.placeAt(new Vector3(3, 0, 0))).toBe(false);
+    expect(snapped.getPlacements()).toEqual([]);
+    snapped.dispose();
+  });
+});
+
+describe("snapToGrid", () => {
+  it("rounds to the nearest multiple of the step", () => {
+    expect(snapToGrid({ x: 3.7, z: -1.3 }, 2)).toEqual({ x: 4, z: -2 });
+    expect(snapToGrid({ x: 3.1, z: 3.9 }, 2)).toEqual({ x: 4, z: 4 });
+    expect(snapToGrid({ x: 0, z: 0 }, 2)).toEqual({ x: 0, z: 0 });
+  });
+
+  it("covers negative coordinates like positive ones", () => {
+    expect(snapToGrid({ x: -5.4, z: -7.9 }, 2)).toEqual({ x: -6, z: -8 });
+    expect(snapToGrid({ x: -3.1, z: -3.9 }, 2)).toEqual({ x: -4, z: -4 });
+  });
+
+  it("takes any step, not just the 2 m default", () => {
+    expect(snapToGrid({ x: 7.4, z: 12.2 }, 5)).toEqual({ x: 5, z: 10 });
+    expect(snapToGrid({ x: 7.6, z: 12.6 }, 5)).toEqual({ x: 10, z: 15 });
+    expect(snapToGrid({ x: 7.4, z: 12.2 }, 1)).toEqual({ x: 7, z: 12 });
   });
 });
 
