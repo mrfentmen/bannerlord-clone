@@ -62,7 +62,6 @@ func (b *Battle) stageMorale() {
 	c := b.c
 	r := b.rngFor("morale")
 	span := c.MoraleNeighbourhood
-	span2 := span * span
 	dt := c.TickSeconds
 
 	for i := range b.units {
@@ -73,68 +72,16 @@ func (b *Battle) stageMorale() {
 			continue
 		}
 
-		var friendly, enemy, friendDead, enemyDead, routed float64
-		// The neighbourhood query runs against the COARSE hash, not the melee
-		// one, and that is the single most important performance decision in the
-		// tick. battle.morale_neighbourhood is ninety metres and
-		// battle.grid_cell_size is twelve, so walking this query on the melee
-		// hash costs a fifteen-by-fifteen block of cell lookups — two hundred
-		// and twenty-five of them — for every unit, every tick. On the coarse
-		// hash, whose cells are tens of metres across, the same ninety-metre
-		// neighbourhood is a three-by-three block: nine lookups.
-		//
-		// The number of units examined is much the same either way, because a
-		// wide cell in a crowded block holds about as many units as several
-		// narrow ones. What changes by a factor of twenty-five is the cost of
-		// finding them, and a CPU profile of the 100 v 100 battle put 78% of the
-		// run in cell lookup rather than in the neighbour arithmetic. A battle
-		// that cannot be simulated is a battle that is not simulated, so the
-		// query takes the shape its radius actually wants.
-		//
-		// The candidate read itself comes from the flat mirror rather than from
-		// b.byID. This is the stage the profile put 50% of the whole 500 v 500 run
-		// in, and 30% of the run in the body of this closure, so the cost of
-		// touching a candidate was the largest single cost in the engine. See
-		// hotfield.go: same values, same order, four sequential streams instead of
-		// a pointer chase into a wide struct, and hpFrac's division hoisted out of
-		// a loop that ran it half a million times a tick. Every value read here is
-		// the value the pointer chase read, so the arithmetic and its order are
-		// unchanged and the golden replay hashes still match.
-		hf := &b.hot
-		mySide := uint8(u.Side)
-		b.fireHash.forEachCell(s.X, s.Y, span, func(id int) {
-			d2 := dist2(hf.x[id]-s.X, hf.y[id]-s.Y)
-			if d2 > span2 {
-				return
-			}
-			// How much of this neighbour's state reaches the unit: full at the
-			// centre, battle.morale_casualty_falloff at the edge of the
-			// neighbourhood.
-			reach := 1 - c.MoraleCasualtyFalloff
-			if d2 > 0 {
-				t := math.Sqrt(d2) / span
-				if t < 1 {
-					reach = 1 - t*(1-c.MoraleCasualtyFalloff)
-				}
-			}
-			if hf.side[id] == mySide {
-				if !hf.alive[id] {
-					friendDead += hf.troops[id] * reach
-					return
-				}
-				if hf.snapRouted[id] {
-					routed += hf.troops[id] * reach
-					return
-				}
-				friendly += hf.troopsHP[id] * reach
-				return
-			}
-			if !hf.alive[id] {
-				enemyDead += hf.troops[id] * reach
-				return
-			}
-			enemy += hf.troopsHP[id] * reach
-		})
+		// The whole of the neighbourhood query, and the reason it is a function
+		// of its own rather than forty lines in the middle of this stage: it is the
+		// hot loop of the engine, half of a 500 v 500 run, and it has to be
+		// measurable on its own. The big comment on why it walks the coarse hash,
+		// why it reads the flat mirror and why it is written per candidate is on
+		// moraleNeighbourhood, with the measurement that decided each.
+		near := b.moraleNeighbourhood(s.X, s.Y, uint8(u.Side), span, b.cellScratch)
+		b.cellScratch = near.scratch
+		friendly, routed := near.friendly, near.routed
+		enemy, friendDead, enemyDead := near.enemy, near.friendDead, near.enemyDead
 
 		// 1. casualties seen, on both sides. See casualtySeen for why it is a
 		// share of the local weight and not a count of bodies.
@@ -309,6 +256,146 @@ func (b *Battle) stageMorale() {
 
 		b.resolveCondition(i, u, s, d, r)
 	}
+}
+
+// neighbourhood is what one unit can see of the field, weighted by how far away
+// each thing is. Five weights, and every one of stageMorale's first three terms
+// is a ratio of some of them.
+//
+// The fields are separate rather than one slice because they are five different
+// quantities with different meanings, and a caller that summed them would be
+// adding a man's fear to a man's relief. scratch rides along because the walk
+// that fills this in needs somewhere to put the cells it visited, and handing it
+// back is how the capacity is kept for the next unit and the next tick.
+type neighbourhood struct {
+	// friendly is the living weight of this unit's own side inside the
+	// neighbourhood, and routed is the weight of that side which is on its feet
+	// but running. A routed man still occupies ground and still frightens the
+	// enemy, so he is counted; see the local balance term in stageMorale for why
+	// he is counted as own presence and not as absence.
+	friendly, routed float64
+	// friendDead is the weight of this unit's own side that fell where it stands.
+	// The index holds dead units for the rest of the battle at the position they
+	// died, which is what makes a rout travel down a line rather than off the
+	// front of it.
+	friendDead float64
+	// enemy and enemyDead are the same two for the other side.
+	enemy, enemyDead float64
+	// scratch is the cell walk's buffer, returned grown.
+	scratch []int32
+}
+
+// moraleNeighbourhood fills in what the unit at (x,y) can see of its own side and
+// the enemy's, inside battle.morale_neighbourhood.
+//
+// # WHY THE COARSE HASH AND NOT THE MELEE ONE
+//
+// The index this walks is the one built at battle.ranged_grid_cell_size, not the
+// one at battle.grid_cell_size, and that is the single most important performance
+// decision in the tick. battle.morale_neighbourhood is ninety metres and
+// battle.grid_cell_size is twelve, so walking this query on the melee hash costs a
+// fifteen-by-fifteen block of cells — two hundred and twenty-five of them — for
+// every unit, every tick. On the coarse hash, whose cells are tens of metres
+// across, the same neighbourhood is a five-by-five block: twenty-five.
+//
+// The number of UNITS examined is much the same either way, because a wide cell
+// in a crowded block holds about as many units as several narrow ones. What
+// changes by a factor of nine is the cost of finding them, and a CPU profile of
+// the 100 v 100 battle put 78% of the run in cell lookup rather than in the
+// neighbour arithmetic. A battle that cannot be simulated is a battle that is not
+// simulated, so the query takes the shape its radius actually wants.
+//
+// # WHY IT IS WRITTEN PER CANDIDATE AND NOT PER CELL
+//
+// Because on the shipped balance file there is no cell-level shortcut left to
+// take. The reference field is a band about 900 m long and 100 m wide holding a
+// thousand units, so a unit's own ninety-metre neighbourhood holds several hundred
+// of them, and TestTheMoraleNeighbourhoodHoldsMostOfTheField measures it and fails
+// if it stops being so. The disc test rejects whole cells only at the corners of
+// the walk, so nearly every candidate the walk reaches really is in range; a finer
+// index would reject more cells and visit a closer fit of the disc, but it would
+// visit far more cells to do it and would examine the same several hundred men.
+//
+// So the cost is the number of neighbours a unit really has, and what is left to
+// work on is the cost of asking about one of them. That is why this loop:
+//
+//   - gets its cells from hash.collectCells, which hands back cell INDICES, so
+//     this is an ordinary loop in this frame rather than work behind a function
+//     value. A callback per candidate cannot hoist a loop-invariant and cannot
+//     prove an id in range across seven arrays; a loop can do both.
+//   - takes the mirror's slices by value, so the compiler reads a slice header
+//     once instead of chasing b.hot for every neighbour.
+//   - hoists 1-battle.morale_casualty_falloff, which is both the edge weight and
+//     the slope of the falloff, out of the loop. The same value, computed once.
+//
+// # WHY IT STILL READS THE SNAPSHOT'S ROUTED AND NOT THE COMMITTED ONE
+//
+// Because the code it replaced did, and collapsing the two status sources would
+// change results on any tick where a stage has written a status the snapshot has
+// not picked up yet. See hotfield.go, which keeps both for this reason.
+//
+// # DETERMINISM IS EXACTLY PRESERVED
+//
+// Same cells, same order, same arithmetic on the same values, in the same
+// sequence, so every float is added in the order it was added before and the
+// golden replay hashes in testdata/golden still match. TestCollectCellsReproduces-
+// ForEachCellExactly is the direct check on the order, and the hashes are the check
+// on the arithmetic.
+func (b *Battle) moraleNeighbourhood(x, y float64, mySide uint8, span float64, scratch []int32) neighbourhood {
+	var out neighbourhood
+	span2 := span * span
+
+	hf := &b.hot
+	n := len(hf.x)
+	xs, ys := hf.x[:n], hf.y[:n]
+	sideOf := hf.side[:n]
+	troopsOf := hf.troops[:n]
+	troopsHPOf := hf.troopsHP[:n]
+	aliveOf := hf.alive[:n]
+	snapRoutedOf := hf.snapRouted[:n]
+	edge := 1 - b.c.MoraleCasualtyFalloff
+
+	fh := b.fireHash
+	items, starts := fh.items, fh.starts
+	cells := fh.collectCells(scratch[:0], x, y, span)
+	// The grown scratch is kept by the caller for the next unit and the next
+	// tick, so the walk stops allocating once it has seen the widest query on
+	// the field.
+	out.scratch = cells
+	for _, k := range cells {
+		for _, id := range items[starts[k]:starts[k+1]] {
+			d2 := dist2(xs[id]-x, ys[id]-y)
+			if d2 > span2 {
+				continue
+			}
+			// How much of this neighbour's state reaches the unit: full at the
+			// centre, battle.morale_casualty_falloff at the edge of the
+			// neighbourhood.
+			reach := edge
+			if d2 > 0 {
+				t := math.Sqrt(d2) / span
+				if t < 1 {
+					reach = 1 - t*edge
+				}
+			}
+			if sideOf[id] == mySide {
+				if !aliveOf[id] {
+					out.friendDead += troopsOf[id] * reach
+				} else if snapRoutedOf[id] {
+					out.routed += troopsOf[id] * reach
+				} else {
+					out.friendly += troopsHPOf[id] * reach
+				}
+				continue
+			}
+			if !aliveOf[id] {
+				out.enemyDead += troopsOf[id] * reach
+			} else {
+				out.enemy += troopsHPOf[id] * reach
+			}
+		}
+	}
+	return out
 }
 
 // casualtySeen is the morale a tick costs or earns for the dead a unit can see,

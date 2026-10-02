@@ -192,6 +192,12 @@ type Battle struct {
 	// meleeScratch and fireScratch are reused candidate buffers, so a tick
 	// allocates nothing at all once the battle is under way.
 	meleeScratch, fireScratch []int
+	// cellScratch is the same idea one level up: the CELL INDICES a neighbourhood
+	// walk kept, reused so the walk itself allocates nothing. It is about thirty
+	// entries wide against a seven hundred entry candidate list, which is why it
+	// is worth handing back the cells rather than the candidates: the hot caller
+	// loops over the cells in its own frame. See hash.collectCells.
+	cellScratch []int32
 	// attackerCount is the melee stage's concentration counter, indexed by id.
 	attackerCount []int
 	// contact is, for every unit, whether a living enemy of its own side is
