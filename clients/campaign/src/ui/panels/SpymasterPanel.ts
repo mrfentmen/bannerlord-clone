@@ -30,6 +30,7 @@ import {
   spyRoster,
   type RosterSpy,
 } from "../../espionage/roster.js";
+import { markHintShown, shouldShowHint } from "../../onboarding/hintCooldown.js";
 
 /** Mission length in campaign days (panel presentation choice). */
 const MISSION_DAYS: Record<SpyMissionKind, number> = {
@@ -60,6 +61,15 @@ export function spymasterPanel(options: SpymasterPanelOptions): HTMLElement {
     const fresh = spymasterPanel(options);
     root.replaceWith(fresh);
   };
+
+  // Contextual hint, at most once per 10 minutes (solo task 92).
+  if (shouldShowHint("spymaster.intro")) {
+    markHintShown("spymaster.intro");
+    body.appendChild(
+      h("p", { class: "caption", "data-testid": "hint-spymaster-intro" },
+        "Place spies at posts, then assign missions. Missions complete on their deadline day."),
+    );
+  }
 
   const postName = (id: string) => options.postNames?.[id] ?? id;
 

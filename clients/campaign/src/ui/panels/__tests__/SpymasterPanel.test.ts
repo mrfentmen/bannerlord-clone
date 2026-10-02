@@ -48,6 +48,13 @@ describe("spymaster panel (integration)", () => {
     expect(root.textContent).toMatch(/rots in a cell|slipped the arrest/);
   });
 
+  it("shows the intro hint at most once per 10 minutes", () => {
+    const first = spymasterPanel({ currentDay: 100 });
+    expect(first.querySelector("[data-testid='hint-spymaster-intro']")).not.toBeNull();
+    const second = spymasterPanel({ currentDay: 100 });
+    expect(second.querySelector("[data-testid='hint-spymaster-intro']")).toBeNull();
+  });
+
   it("shows empty states with no spies or alerts", () => {
     const root = spymasterPanel({ currentDay: 100 });
     expect(root.textContent).toContain("No spies placed");

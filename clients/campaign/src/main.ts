@@ -1395,6 +1395,10 @@ let timelineRefresh: (() => void) | null = null;
 function openLifetimeStats(): void {
   currentPanel = "none";
   const { root, refresh } = lifetimeStatsPanel({
+    ...(snapshot?.player.characterName ? { playerName: snapshot.player.characterName } : {}),
+    ...(snapshot?.player.factionId ? { clanName: snapshot.player.factionId } : {}),
+    achievementsUnlocked: achievements.unlockedCount(),
+    achievementsTotal: achievements.allProgress().length,
     onClose: () => {
       currentPanel = "none";
       contextNode = null;

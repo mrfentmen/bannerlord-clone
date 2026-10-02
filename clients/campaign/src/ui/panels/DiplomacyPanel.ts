@@ -31,6 +31,7 @@ import {
   type BorderIncident,
   type IncidentResponse,
 } from "../../diplomacy/borderIncidents.js";
+import { markHintShown, shouldShowHint } from "../../onboarding/hintCooldown.js";
 
 export interface DiplomacyPanelOptions {
   /** Campaign season; relation changes are stamped with it. */
@@ -53,6 +54,15 @@ function buildDiplomacyPanel(options: DiplomacyPanelOptions, notice: string | nu
   if (notice) {
     body.appendChild(
       h("p", { class: "caption", "data-testid": "diplomacy-notice" }, notice),
+    );
+  }
+
+  // Contextual hint, at most once per 10 minutes (solo task 92).
+  if (shouldShowHint("diplomacy.intro")) {
+    markHintShown("diplomacy.intro");
+    body.appendChild(
+      h("p", { class: "caption", "data-testid": "hint-diplomacy-intro" },
+        "Answer border incidents before they fester. Every relation change is logged with its reason."),
     );
   }
 

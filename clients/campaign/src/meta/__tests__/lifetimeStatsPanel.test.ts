@@ -36,4 +36,20 @@ describe("lifetime stats panel", () => {
     expect(() => handle.refresh()).not.toThrow();
     handle.root.remove();
   });
+
+  it("renders the shareable career showcase", () => {
+    const handle = lifetimeStatsPanel({
+      playerName: "Del",
+      clanName: "fentmen",
+      achievementsUnlocked: 25,
+      achievementsTotal: 52,
+    });
+    document.body.appendChild(handle.root);
+    const card = document.querySelector('[data-testid="lifetime-showcase-card"]');
+    expect(card).not.toBeNull();
+    expect(card!.textContent).toContain("Del of fentmen");
+    expect(card!.textContent).toContain("25/52");
+    expect(document.querySelector('[data-testid="lifetime-showcase-copy"]')).not.toBeNull();
+    handle.root.remove();
+  });
 });

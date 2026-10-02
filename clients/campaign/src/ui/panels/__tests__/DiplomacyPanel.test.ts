@@ -42,6 +42,13 @@ describe("diplomacy panel (integration)", () => {
     expect(firstRow!.textContent).toContain("returned hostages");
   });
 
+  it("shows the intro hint at most once per 10 minutes", () => {
+    const first = diplomacyPanel({ currentSeason: 12 });
+    expect(first.querySelector("[data-testid='hint-diplomacy-intro']")).not.toBeNull();
+    const second = diplomacyPanel({ currentSeason: 12 });
+    expect(second.querySelector("[data-testid='hint-diplomacy-intro']")).toBeNull();
+  });
+
   it("shows empty states with nothing recorded", () => {
     const root = diplomacyPanel({ currentSeason: 12 });
     expect(root.textContent).toContain("Quiet borders");

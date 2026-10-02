@@ -4,9 +4,9 @@
  * Renders the cross-campaign accumulator from meta/lifetimeStats.ts as a
  * stat grid: kills, gold earned, battles (won/lost + win rate), hours
  * played, campaigns, seasons, treaties, schemes. Pure DOM over the store —
- * the panel re-reads on refresh. Kills and gold come from the battle layer's
- * after-action view (both sides' losses plus loot), so they are measured;
- * the panel still supports marking a row whose reporter is not wired.
+ * the panel re-reads on refresh. Rows whose source isn't reporting yet
+ * (kills, gold) carry a muted "awaiting battle reports" note rather than
+ * pretending the zeros are measured.
  */
 
 import { h } from "../ui/dom.js";
@@ -20,6 +20,8 @@ import {
   resetLifetimeStats,
   type LifetimeStatsRecord,
 } from "./lifetimeStats.js";
+import { buildShowcase } from "./profileShowcase.js";
+import { diplomaticReputation, reputationTitle } from "../diplomacy/reputation.js";
 import "./lifetimeStats.css";
 
 export interface LifetimeStatsPanelHandle {
@@ -44,12 +46,16 @@ const STATS: StatDef[] = [
     glyph: "⚔️",
     label: "Kills",
     value: (s) => formatCount(s.kills),
+    sub: () => "awaiting battle reports",
+    pendingSource: true,
   },
   {
     id: "gold",
     glyph: "🪙",
     label: "Gold earned",
     value: (s) => formatCount(s.goldEarned),
+    sub: () => "awaiting battle reports",
+    pendingSource: true,
   },
   {
     id: "battles",
@@ -93,7 +99,18 @@ const STATS: StatDef[] = [
   },
 ];
 
-export function lifetimeStatsPanel(options: { onClose?: () => void } = {}): LifetimeStatsPanelHandle {
+export interface LifetimeStatsPanelOptions {
+  onClose?: () => void;
+  /** Shown on the shareable career card. */
+  playerName?: string;
+  clanName?: string;
+  rank?: string;
+  /** Achievement counts for the career card. */
+  achievementsUnlocked?: number;
+  achievementsTotal?: number;
+}
+
+export function lifetimeStatsPanel(options: LifetimeStatsPanelOptions = {}): LifetimeStatsPanelHandle {
   const { root, body } = panel({
     title: "Lifetime statistics",
     testId: "lifetime-stats-panel",
@@ -127,10 +144,13 @@ export function lifetimeStatsPanel(options: { onClose?: () => void } = {}): Life
     render();
   });
   footer.appendChild(resetBtn);
+  const showcase = h("div", { class: "lifetime__showcase", "data-testid": "lifetime-showcase" });
+  body.appendChild(showcase);
 
   function render(): void {
     const stats = loadLifetimeStats();
     grid.textContent = "";
+    renderShowcase(stats);
     const anyActivity =
       stats.battlesFought > 0 || stats.playSeconds > 0 || stats.campaignsStarted > 0;
     if (!anyActivity) {
@@ -157,6 +177,39 @@ export function lifetimeStatsPanel(options: { onClose?: () => void } = {}): Life
       if (sub) card.appendChild(h("p", { class: "lifetime__sub" }, sub));
       grid.appendChild(card);
     }
+  }
+
+  /** Shareable career card (solo task 100). */
+  function renderShowcase(stats: LifetimeStatsRecord): void {
+    showcase.textContent = "";
+    const rep = diplomaticReputation();
+    const card = buildShowcase({
+      playerName: options.playerName ?? "Nameless",
+      clanName: options.clanName ?? "Clanless",
+      rank: options.rank ?? "Adventurer",
+      seasonsPlayed: stats.seasonsPlayed,
+      battlesWon: stats.battlesWon,
+      coinEarned: stats.goldEarned,
+      achievementsUnlocked: options.achievementsUnlocked ?? 0,
+      achievementsTotal: options.achievementsTotal ?? 0,
+      reputationTitle: reputationTitle(rep),
+    });
+    const pre = h("pre", { class: "lifetime__card-text", "data-testid": "lifetime-showcase-card" }, card.card);
+    const copy = h(
+      "button",
+      { type: "button", class: "btn btn--plain", "data-testid": "lifetime-showcase-copy" },
+      "Copy share code",
+    );
+    copy.addEventListener("click", () => {
+      void navigator.clipboard?.writeText(card.shareCode).catch(() => {});
+      copy.textContent = "Copied!";
+      window.setTimeout(() => { copy.textContent = "Copy share code"; }, 1500);
+    });
+    showcase.append(
+      h("p", { class: "label" }, "Career showcase"),
+      pre,
+      copy,
+    );
   }
 
   render();

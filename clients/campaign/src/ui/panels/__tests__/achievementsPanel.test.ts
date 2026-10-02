@@ -86,4 +86,29 @@ describe("achievementsPanel", () => {
     (root.querySelector('[aria-label="Close Achievements"]') as HTMLElement).click();
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it("sorts rarest-first and shows tiers when community rates are supplied", () => {
+    const store = createAchievementStore(memoryStorage());
+    const ids = store.allProgress().slice(0, 3).map((p) => p.def.id);
+    const rates: Record<string, number> = {
+      [ids[0]!]: 0.9,
+      [ids[1]!]: 0.01,
+      [ids[2]!]: 0.5,
+    };
+    const root = achievementsPanel({ store, unlockRates: rates });
+    document.body.appendChild(root);
+    const rows = [...root.querySelectorAll('[data-testid^="achievement-"]:not([data-testid^="achievement-rarity"])')];
+    // Rarest first: 0.01, 0.5, 0.9.
+    expect(rows[0]!.getAttribute("data-testid")).toBe(`achievement-${ids[1]}`);
+    expect(rows[1]!.getAttribute("data-testid")).toBe(`achievement-${ids[2]}`);
+    expect(rows[2]!.getAttribute("data-testid")).toBe(`achievement-${ids[0]}`);
+    expect(root.querySelector(`[data-testid="achievement-rarity-${ids[1]}"]`)).not.toBeNull();
+  });
+
+  it("keeps definition order without rates", () => {
+    const store = createAchievementStore(memoryStorage());
+    const root = achievementsPanel({ store });
+    document.body.appendChild(root);
+    expect(root.querySelector('[data-testid^="achievement-rarity-"]')).toBeNull();
+  });
 });
