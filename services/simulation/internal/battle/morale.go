@@ -138,7 +138,33 @@ func (b *Battle) stageMorale() {
 
 		// 1. casualties seen, on both sides. See casualtySeen for why it is a
 		// share of the local weight and not a count of bodies.
-		d.Morale += casualtySeen(friendDead, friendly+routed, enemyDead, enemy+enemyDead, &c, dt)
+		//
+		// BOTH DENOMINATORS ARE TOTALS, WHICH IS THE WHOLE OF THE FIX HERE.
+		//
+		// This passed friendly+routed for its own side's dead, which is the LIVING
+		// weight, and enemy+enemyDead for the enemy's, which is the total. So the
+		// two halves of the difference were different kinds of quantity: the
+		// enemy's was a share of all it could see, and its own was a ratio of dead
+		// to living. A ratio of dead to living has no upper bound, and the price
+		// of a neighbour dying therefore rose without limit as the men who could
+		// still see him were themselves killed, which is the one thing a term
+		// whose documented range is 0-20 must not do. casualtySeen has always been
+		// correct: it divides by whatever total it is handed, and the caller was
+		// handing it a total on one side and a remainder on the other.
+		//
+		// It is the same defect as the two already fixed in this file, in the one
+		// place the remaining instance of it was: an unbounded term read as a
+		// bounded one. Measured with the shipped balance file on the skirmishers
+		// scenario, where a ninth of the local weight beside side B was dead and no
+		// two men had yet reached a blow's reach, this cost -0.104 morale a tick,
+		// 0.42 a second, and it is the term that was ending a shooting match before
+		// the armies touched.
+		//
+		// TestCasualtyTermStaysBoundedAtTheStage is the regression: it reads this
+		// call's own arithmetic, because the pure-function test beside it cannot,
+		// having computed its expectations from the same convention the caller
+		// used.
+		d.Morale += casualtySeen(friendDead, friendly+routed+friendDead, enemyDead, enemy+enemyDead, &c, dt)
 
 		// 2. local balance.
 		//

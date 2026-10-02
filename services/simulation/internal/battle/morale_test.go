@@ -293,3 +293,124 @@ func TestEvenForcesFightToCasualties(t *testing.T) {
 		t.Errorf("no unit was ever suppressed; the fire did nothing")
 	}
 }
+
+// TestCasualtyTermStaysBoundedAtTheStage: the casualty term's own side is a SHARE
+// of the local weight, and the bound that goes with it has to hold where the term
+// is actually called, not only in the shape function.
+//
+// WHY THIS IS NOT TestCasualtySeenIsAShareNotACount AGAIN: that test pins
+// casualtySeen, and casualtySeen was never wrong. It divides by whatever total it
+// is handed. The caller was wrong: it passed friendly+routed, the LIVING weight of
+// its own side, as the denominator for its own side's dead, and passed
+// enemy+enemyDead, the TOTAL weight, for the enemy's. So the two halves of the
+// difference were not the same kind of quantity, and the own half was a RATIO of
+// dead to living rather than a share of the dead among the dead and the living.
+// That ratio has no upper bound at all. Ninety bodies down against one man
+// watching is a ratio of 90 where the share is 90/91, and the price of a
+// neighbour dying rose without limit as the men who could still see him ran out.
+//
+// The pure-function test could not see it, because it computed its expectations
+// from the same convention the caller used. This one reads the stage's own
+// arithmetic: the same battle twice, once with a neighbourhood of dead beside the
+// unit and once without, so the difference between the two ticks is the casualty
+// term and every other term cancels.
+//
+// Measured on the skirmishers scenario, where the share that reaches the term is
+// about a ninth, the caller charged -0.104 morale a tick at a constant of 3.4,
+// which is 0.42 a second, from a battle in which no two men had yet reached a
+// blow's reach. It is the same unbounded-subtraction defect as the two already
+// fixed in this file, reached by the remaining road: the term whose job is to be
+// bounded is bounded only if every caller passes it a total.
+func TestCasualtyTermStaysBoundedAtTheStage(t *testing.T) {
+	cfg := copiedConfig(t)
+	c := cfg.Battle
+	dt := c.TickSeconds
+	ceiling := c.MoraleCasualtyHit * dt
+
+	// One tick of morale on a watching unit, for a neighbourhood with deadUnits
+	// destroyed units of ten bodies beside it. Everything else about the two runs
+	// is identical: one living enemy inside morale_neighbourhood, so the ratio
+	// term fires at the same rate in both and cancels in the difference, no
+	// leaders, no suppression, nothing routed.
+	watched := func(t *testing.T, deadUnits int) float64 {
+		t.Helper()
+		const ten = 10
+		a := []Unit{{Side: SideA, Role: RoleMelee, HP: 100, MaxHP: 100, Morale: 0.5,
+			Speed: 0, Troops: 1, Status: StatusFighting}}
+		for i := 0; i < deadUnits; i++ {
+			a = append(a, Unit{Side: SideA, Role: RoleMelee, HP: 100, MaxHP: 100, Morale: 0,
+				Speed: 0, Troops: ten, Status: StatusFighting})
+		}
+		b := []Unit{{Side: SideB, Role: RoleMelee, HP: 100, MaxHP: 100, Morale: 0.5,
+			Speed: 0, Troops: 10, Status: StatusFighting}}
+		bt, err := newBattle(cfg, 20260930, Setup{A: a, B: b, Terrain: TerrainOpen, Label: "casualty bound"})
+		if err != nil {
+			t.Fatalf("building the battle failed: %v", err)
+		}
+		// newBattle lays a roster out, so the positions a test needs are set
+		// after it: the watcher at the origin, the dead beside it well inside
+		// battle.morale_neighbourhood, and the enemy inside the neighbourhood as
+		// well so that the recovery term stays off.
+		bt.units[0].X, bt.units[0].Y = 0, 0
+		last := len(bt.units) - 1
+		// The enemy stands two neighbourhoods off, so the local balance term has
+		// no enemy to read and is off in both runs. That term answers how much of
+		// the enemy is here, and the enemy is not here: this test is about the
+		// dead, and the one term that reads the living has to be identical in both
+		// runs for the difference between them to be the casualty term alone.
+		bt.units[last].X, bt.units[last].Y = c.MoraleNeighbourhood*2, 0
+		for i := 1; i < last; i++ {
+			// The dead are packed into a square metre beside the watcher, which is
+			// what a volley into the same place leaves. It also keeps every one of
+			// them at effectively full reach, so the share is the share the
+			// arithmetic is about rather than a reach-weighted average of it.
+			bt.units[i].X = float64(i%3) * 0.01
+			bt.units[i].Y = float64(i/3) * 0.01
+		}
+		// The neighbours are killed rather than declared dead at construction,
+		// because a roster that opens with a corpse is refused, which is the right
+		// refusal: a battle begins with everyone alive.
+		for i := 1; i < last; i++ {
+			bt.destroy(bt.units[i])
+		}
+		if err := bt.beginTick(); err != nil {
+			t.Fatalf("beginTick: %v", err)
+		}
+		bt.stageMorale()
+		return bt.deltas[0].Morale
+	}
+
+	const dead = 9 // nine units of ten bodies: ninety bodies down against one man watching
+	clean := watched(t, 0)
+	grieving := watched(t, dead)
+	cost := clean - grieving
+
+	// Every man in the neighbourhood but one is down, so the share of the local
+	// weight of its own side that is dead is 90/91 of it, and the term is worth
+	// that share of the constant. It is a cost: the neighbours died.
+	share := 90.0 / 91.0
+	want := c.MoraleCasualtyHit * share * dt
+	if math.Abs(cost-want) > 1e-3 {
+		t.Errorf("a neighbourhood with %.0f bodies down against %.0f alive cost %.6f morale a tick; a share "+
+			"of %.6f at morale_casualty_hit %g and tick %g is %.6f. The stage is dividing its own side's dead by "+
+			"something that is not the whole of its own side", dead*10.0, 1.0, cost, share, c.MoraleCasualtyHit, dt, want)
+	}
+	// And the bound, stated as a property rather than recomputed: nothing a
+	// formation can lose can cost more than the constant times the tick, which is
+	// a neighbourhood wiped out. This is the assertion the old caller failed, and
+	// it failed it by a factor of a hundred and twenty: the same state charged
+	// 29.995 a tick against a ceiling of 0.25.
+	if math.Abs(cost) > ceiling+1e-9 {
+		t.Errorf("the casualty term cost %.6f a tick against a ceiling of %.6f (morale_casualty_hit %g x tick "+
+			"%g); the term is unbounded again", math.Abs(cost), ceiling, c.MoraleCasualtyHit, dt)
+	}
+	// The witness has to be a real fight: dead men beside a living man have to
+	// cost him something, or the bound is being satisfied by a term that does
+	// nothing at all.
+	if !(cost > 0) {
+		t.Errorf("watching %.0f bodies fall beside it cost %.6f morale; nothing is reading the dead",
+			dead*10.0, cost)
+	}
+	t.Logf("a neighbourhood with %d bodies down against 1 alive cost %.6f a tick; ceiling %.6f; clean tick %.6f",
+		dead*10, cost, ceiling, clean)
+}
