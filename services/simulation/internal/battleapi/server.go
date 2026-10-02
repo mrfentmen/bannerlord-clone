@@ -43,6 +43,14 @@ type Server struct {
 	campaignSeed uint64
 	buildHash    string
 
+	// store is where a resolved battle's record is written. It is a
+	// battle.BattleStore, which is the same directory format `simrun replay
+	// --battle <id>` reads, so a battle fought through this server is replayable
+	// from the command line with no export step.
+	store *battle.BattleStore
+	// recordBound is the order log's row limit. See defaultOrderLogBound.
+	recordBound int
+
 	mu       sync.Mutex
 	sessions map[string]*entry
 	nextID   uint64
@@ -50,12 +58,54 @@ type Server struct {
 	battleCounter uint64
 }
 
+// DefaultBattleDir is where this server writes battle records when nothing else
+// is configured.
+//
+// It is deliberately the same string as simrun.DefaultBattleDir, and
+// TestTheServersBattleDirIsTheOneSimrunReads exists because two constants that
+// have to agree should not be two constants. A server recording somewhere else
+// would produce records the replay CLI cannot find, which reads as "the replay
+// path is broken" rather than as "the paths differ".
+const DefaultBattleDir = "logs/battles"
+
+// defaultOrderLogBound is how many order rows a battle's log may hold.
+//
+// Bounded, not unbounded, because a commanded session writes a row per group per
+// tick: the 500 v 500 reference battle records 510265 rows in 76 MB, and a battle
+// nobody ever resolves would keep growing. The bound is a ceiling and a log that
+// reaches it says so — OrderLog.Truncated is published as order_log_truncated in
+// the state response, and battle.SaveBattle REFUSES to save a truncated log
+// rather than writing a record that can never be replayed. So the failure mode of
+// hitting this is "that battle was not recorded", which is visible, and not "the
+// battle was recorded wrongly", which would not be.
+//
+// A million rows is roughly two 500 v 500 battles of headroom, or about fifty
+// times a 12 v 12 one. WithBattleStore's sibling WithOrderLogBound raises it.
+const defaultOrderLogBound = 1 << 20
+
 type entry struct {
 	session           *battle.Session
 	campaignSessionID string
 	orders            []loggedOrder
 	lastErr           error
 	created           time.Time
+
+	// record is this battle's order log, or nil if recording never started.
+	// handleStart attaches the recorder before the first tick, so this is
+	// non-nil for every battle this server has fought since it was built.
+	record *battle.OrderLog
+	// unitsPerSide is the roster both sides were generated from, kept so the
+	// record can name the force it describes. See saveRecord.
+	unitsPerSide int
+	// saved is set once the record has been written, so a battle that resolves
+	// inside pump and is then asked to resolve again saves once rather than
+	// twice. handleResolve is idempotent and must stay that way.
+	saved bool
+	// recordErr is why the record could not be written, if it could not be. It
+	// is reported in the state response rather than turned into an error on the
+	// request: a battle that was fought and decided must not be reported as
+	// failed because a disk was full.
+	recordErr string
 
 	// standing is one side's standing formation orders, created by the first
 	// order that names that side and amended by every one after it. It is
@@ -89,6 +139,18 @@ type loggedOrder struct {
 // New builds a Server. campaignSeed is the campaign's seed for battle-seed
 // derivation; buildHash is reported by /v1/version (Pax's server injects the
 // real one, "dev" until then).
+//
+// Every battle this server fights is RECORDED from its first tick, and a resolved
+// one is written to DefaultBattleDir in the format `simrun replay --battle <id>`
+// reads. That is not an extra feature; it is the only thing that makes the order
+// log worth having. Before this, a battle fought through the shipped API produced
+// no log, and an empty log replays cleanly because an empty log correctly means
+// nobody commanded anything — so the recording defect could not surface as a
+// replay mismatch, only as a game that ignored a player's orders and reported that
+// it had not.
+//
+// Use WithBattleStore to put the records somewhere else, or nil to keep them in
+// memory only. See defaultOrderLogBound for the one bound that applies.
 func New(cfg *config.Config, campaignSeed uint64, buildHash string) *Server {
 	if buildHash == "" {
 		buildHash = "dev"
@@ -97,8 +159,29 @@ func New(cfg *config.Config, campaignSeed uint64, buildHash string) *Server {
 		cfg:          cfg,
 		campaignSeed: campaignSeed,
 		buildHash:    buildHash,
+		store:        battle.OpenBattleStore(DefaultBattleDir),
+		recordBound:  defaultOrderLogBound,
 		sessions:     make(map[string]*entry),
 	}
+}
+
+// WithBattleStore puts battle records in store instead of DefaultBattleDir. A nil
+// store keeps the log in memory, where it is still reachable from the state
+// response and still costs nothing to hold, but nothing is written and the battle
+// is gone when the process is.
+//
+// It returns the server so a caller can chain it off New.
+func (s *Server) WithBattleStore(store *battle.BattleStore) *Server {
+	s.store = store
+	return s
+}
+
+// WithOrderLogBound sets how many order rows a battle's log may hold. Zero is
+// unbounded, which a long battle nobody resolves will eventually regret. See
+// defaultOrderLogBound.
+func (s *Server) WithOrderLogBound(rows int) *Server {
+	s.recordBound = rows
+	return s
 }
 
 // Handler returns the route mux. Mount it under / (it carries the /v1 prefix)
@@ -140,6 +223,51 @@ func (s *Server) pump() {
 		if err := e.session.Advance(ticksPerWake); err != nil {
 			e.lastErr = fmt.Errorf("battle %s: %w", id, err)
 		}
+	}
+	// Battles that DECIDED on their own, rather than through handleResolve, are
+	// saved here. A battle fought at the pump rate resolves without anybody asking
+	// for it, and without this its record is never written — which would make
+	// recording work only for the one path that already had a bug in it.
+	for id, e := range s.sessions {
+		if e.session.Phase() == battle.PhaseResolved {
+			s.saveRecord(id, e)
+		}
+	}
+}
+
+// saveRecord writes a resolved battle's order log, setup, seed and result into the
+// store, once.
+//
+// It is called with s.mu held, from both pump and handleResolve, and it does no
+// locking of its own. Every failure is kept on the entry rather than returned,
+// because the caller is a route handler for a battle that has already been fought
+// and decided: there is nothing left to refuse.
+//
+// The record is the session's own Setup and its own seed, which is why gaps (a)
+// and (c) in the CHANGELOG entry for this had to be closed first. Before
+// Session.Setup existed the only Setup available here was one assembled from the
+// frozen rosters, and its Label — which Result.Hash folds in — was a private
+// format string to be guessed. A record saved with the wrong label replays to a
+// different hash for a bit-identical battle, and every other number in it agrees.
+func (s *Server) saveRecord(id string, e *entry) {
+	if e.saved || e.record == nil || s.store == nil {
+		return
+	}
+	e.saved = true
+	res := e.session.Result()
+	if res == nil {
+		e.recordErr = "the battle resolved without a result to record"
+		return
+	}
+	roster := battle.Roster{Units: e.unitsPerSide}
+	rec := &battle.Recording{
+		Seed:          e.session.Seed(),
+		ConfigVersion: s.cfg.Version,
+		Setup:         e.session.Setup(),
+		Log:           e.record,
+	}
+	if err := s.store.Save(id, roster, roster, res, rec); err != nil {
+		e.recordErr = err.Error()
 	}
 }
 
@@ -257,11 +385,27 @@ func (s *Server) handleStart(w http.ResponseWriter, r *http.Request) {
 		writeAPIError(w, &apiError{http.StatusInternalServerError, "deploy", err.Error()})
 		return
 	}
+	e := &entry{session: sess, campaignSessionID: req.CampaignSessionID, created: time.Now(), unitsPerSide: units}
+	// Recording starts BEFORE BeginFighting, so the log covers the whole battle.
+	// Calling it after would be legal and would lose exactly the ticks between
+	// deployment and the first order, which are the ticks a player's first order
+	// most needs to be replayed against.
+	//
+	// A recorder that will not attach does not stop the battle. This is the one
+	// place where failing to record must not fail to fight: the player asked for a
+	// battle, and a battle they cannot have because the log was full is worse than
+	// a battle whose log is short. The failure is kept on the entry and published
+	// as record_error, so it is visible in the state response rather than silent.
+	if log, err := sess.Record(s.recordBound, "battle-server "+id); err != nil {
+		e.recordErr = "the order log did not start: " + err.Error()
+	} else {
+		e.record = log
+	}
 	if err := sess.BeginFighting(); err != nil {
 		writeAPIError(w, &apiError{http.StatusInternalServerError, "begin", err.Error()})
 		return
 	}
-	s.sessions[id] = &entry{session: sess, campaignSessionID: req.CampaignSessionID, created: time.Now()}
+	s.sessions[id] = e
 	writeJSON(w, http.StatusCreated, map[string]any{
 		"battle_id": id,
 		"phase":     sess.Phase().String(),
@@ -331,6 +475,35 @@ func (s *Server) stateOf(e *entry) map[string]any {
 	if sess.Decided() {
 		o := sess.Outcome()
 		out["outcome"] = map[string]string{"kind": o.Kind.String(), "reason": o.Reason.String()}
+	}
+	// What the record is doing, because "orders_logged" says how many orders were
+	// ACCEPTED and nothing about whether the battle they were given to is
+	// reproducible. Those are different questions and a client that cannot tell them
+	// apart is a client being told a battle was recorded when it may not have been.
+	out["order_log_rows"] = 0
+	out["order_log_truncated"] = false
+	out["record_saved"] = e.saved
+	switch {
+	case e.record == nil:
+		if e.recordErr != "" {
+			out["record_error"] = e.recordErr
+		} else {
+			out["record_error"] = "this battle is not being recorded"
+		}
+	case e.saved && e.recordErr != "":
+		out["order_log_rows"] = e.record.Len()
+		out["order_log_truncated"] = e.record.Truncated()
+		out["record_saved"] = false
+		out["record_error"] = e.recordErr
+	case e.saved:
+		out["order_log_rows"] = e.record.Len()
+		out["order_log_truncated"] = e.record.Truncated()
+		if s.store == nil {
+			out["record_error"] = "the battle's order log is in memory only; no battle store is configured"
+		}
+	default:
+		out["order_log_rows"] = e.record.Len()
+		out["order_log_truncated"] = e.record.Truncated()
 	}
 	if e.lastErr != nil {
 		out["sim_error"] = e.lastErr.Error()
@@ -832,6 +1005,10 @@ func (s *Server) handleResolve(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// The same save pump does, so that a battle resolved here and a battle that
+	// resolved on its own leave the same thing behind. Guarded by entry.saved, so
+	// resolving twice — which this route promises is fine — saves once.
+	s.saveRecord(req.BattleID, e)
 	writeJSON(w, http.StatusOK, s.stateOf(e))
 }
 

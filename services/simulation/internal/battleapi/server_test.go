@@ -14,6 +14,7 @@ import (
 	"testing"
 	"time"
 
+	"mbclone/simulation/internal/battle"
 	"mbclone/simulation/internal/config"
 )
 
@@ -40,7 +41,14 @@ func testConfig(t *testing.T) *config.Config {
 
 func testServer(t *testing.T) (*Server, *httptest.Server) {
 	t.Helper()
-	s := New(testConfig(t), 0xC0FFEE, "test-build")
+	// The battle store goes to a temp directory, not to the shipped default. New
+	// writes every resolved battle to logs/battles relative to the working
+	// directory, which is right for the game and wrong for a test: `go test` runs
+	// with the package directory as its working directory, every test server here
+	// numbers its battles from one, and they would all write btl-1 into the source
+	// tree and overwrite each other.
+	s := New(testConfig(t), 0xC0FFEE, "test-build").
+		WithBattleStore(battle.OpenBattleStore(t.TempDir()))
 	srv := httptest.NewServer(s.Handler())
 	t.Cleanup(srv.Close)
 	return s, srv
@@ -165,18 +173,76 @@ func TestSessionBinding(t *testing.T) {
 
 // Orders validate against the fourteen-order set. An unknown order is a 400
 // carrying the valid list.
+//
+// Two layers are in play and the difference between them is the point of this
+// test. The NAME is checked against the fourteen; whether the order can be CARRIED
+// OUT is checked by the formation layer, and that check is stricter. `flank` is in
+// the fourteen and the formation layer refuses it — "the tactics layer plans a
+// flanking move; a formation that simply turned towards a wing would arrive at the
+// wrong place" — so this fixture failed twice against behaviour that is working: once
+// on a name that validates and an order that is then refused, with a message about
+// neither, and once on a bare `advance` to men with no shape.
+//
+// Both refusals are right. `advance` says what a formation should do and names no
+// shape, so applying it to men who have none means inventing a formation the
+// player did not ask for.
+//
+// What matters for a client is not that a refusal exists but that it says what to
+// do instead, so that is asserted rather than assumed: the 400 names the code, and
+// the message names the order that will be accepted next. A refusal a client
+// cannot act on is a dead end, and this is the only test in the package that looks
+// at the body of one.
 func TestOrdersValidation(t *testing.T) {
 	_, srv := testServer(t)
 	id := startBattle(t, srv, "s1")
 
 	code, out := postJSON(t, srv.URL+"/v1/battle/orders", fmt.Sprintf(
-		`{"battle_id":%q,"campaign_session_id":"s1","orders":[{"name":"advance"},{"name":"flank","params":{"side":"left"}}]}`,
+		`{"battle_id":%q,"campaign_session_id":"s1","orders":[`+
+			`{"name":"change-formation","params":{"shape":"line"}},`+
+			`{"name":"advance"},`+
+			`{"name":"hold-position"},`+
+			`{"name":"face-direction","params":{"angle_deg":-30}},`+
+			`{"name":"move","params":{"x":-200,"y":90}}]}`,
 		id))
 	if code != http.StatusOK {
 		t.Fatalf("valid orders: status %d (%v)", code, out)
 	}
-	if out["accepted"].(float64) != 2 {
-		t.Fatalf("accepted = %v, want 2", out["accepted"])
+	if out["accepted"].(float64) != 5 {
+		t.Fatalf("accepted = %v, want 5", out["accepted"])
+	}
+
+	// A name that validates and an order the formation layer then refuses. The 400
+	// has to carry the reason, because from the client's side the name was on the
+	// valid list a moment ago and nothing else explains the refusal.
+	code, out = postJSON(t, srv.URL+"/v1/battle/orders", fmt.Sprintf(
+		`{"battle_id":%q,"campaign_session_id":"s1","orders":[{"name":"flank","params":{"side":"left"}}]}`, id))
+	if code != http.StatusBadRequest {
+		t.Fatalf("a name that validates but the formation layer refuses: status %d, want 400 (%v)", code, out)
+	}
+	errObj, _ := out["error"].(map[string]any)
+	if errObj["code"] != "order_refused" {
+		t.Errorf("error code %v, want order_refused (%v)", errObj["code"], out)
+	}
+	if msg, _ := errObj["message"].(string); !strings.Contains(msg, "flank") {
+		t.Errorf("the refusal does not name the order it is refusing: %q", msg)
+	}
+
+	// A movement order to men with no shape: refused, and the refusal says what
+	// would work. Sent to a fresh battle so side A really does have no formation
+	// yet, rather than inheriting the line the request above gave it.
+	fresh := startBattle(t, srv, "s1")
+	code, out = postJSON(t, srv.URL+"/v1/battle/orders", fmt.Sprintf(
+		`{"battle_id":%q,"campaign_session_id":"s1","orders":[{"name":"advance"}]}`, fresh))
+	if code != http.StatusBadRequest {
+		t.Fatalf("advance to men with no formation: status %d, want 400 (%v)", code, out)
+	}
+	errObj, _ = out["error"].(map[string]any)
+	if errObj["code"] != "needs_a_shape" {
+		t.Errorf("error code %v, want needs_a_shape: a client that cannot tell a refusal it can fix "+
+			"from a refusal it cannot has nothing to do with it (%v)", errObj["code"], out)
+	}
+	if msg, _ := errObj["message"].(string); !strings.Contains(msg, "change-formation") {
+		t.Errorf("the refusal does not name the order that will be accepted instead: %q", msg)
 	}
 
 	code, out = postJSON(t, srv.URL+"/v1/battle/orders", fmt.Sprintf(
@@ -184,9 +250,12 @@ func TestOrdersValidation(t *testing.T) {
 	if code != http.StatusBadRequest {
 		t.Fatalf("unknown order: status %d, want 400 (%v)", code, out)
 	}
-	valid, _ := out["valid_orders"].([]any)
+	// The key is `valid`, not `valid_orders`. It was `valid_orders` when this
+	// assertion was written, and a client written against that name has been
+	// reading a missing field and calling it an empty list ever since.
+	valid, _ := out["valid"].([]any)
 	if len(valid) != 14 {
-		t.Fatalf("valid_orders has %d entries, want 14 (%v)", len(valid), out)
+		t.Fatalf("valid has %d entries, want 14 (%v)", len(valid), out)
 	}
 }
 

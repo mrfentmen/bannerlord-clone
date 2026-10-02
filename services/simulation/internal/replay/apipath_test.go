@@ -14,6 +14,7 @@ import (
 	"strings"
 	"testing"
 
+	"mbclone/simulation/internal/battle"
 	"mbclone/simulation/internal/battleapi"
 	"mbclone/simulation/internal/config"
 )
@@ -223,6 +224,20 @@ func TestTheShippedBattleAPIReachesTheCommandSeam(t *testing.T) {
 	}
 }
 
+// newServerOverAPI builds a battle server whose records go to a temp directory.
+//
+// battleapi.New writes every resolved battle to logs/battles RELATIVE TO THE
+// WORKING DIRECTORY, which is right for the game and wrong for a test: `go test`
+// runs with the package directory as its working directory, so the records land in
+// internal/replay/logs/battles/, every test server numbers its battles from one,
+// and they overwrite each other's btl-1. This helper exists because that is not a
+// thing to discover from a dirty working tree after the fact.
+func newServerOverAPI(t *testing.T, cfg *config.Config, campaignSeed uint64) *battleapi.Server {
+	t.Helper()
+	return battleapi.New(cfg, campaignSeed, "replay-test").
+		WithBattleStore(battle.OpenBattleStore(t.TempDir()))
+}
+
 // apiFight is one battle fought over HTTP, and what came back.
 type apiFight struct {
 	id           string
@@ -263,7 +278,7 @@ func (f apiFight) tick() int {
 // sending orders to it part way through, and returns what the API published.
 func fightOverAPI(t *testing.T, cfg *config.Config, campaignSeed uint64, units int, orders []string) apiFight {
 	t.Helper()
-	srv := httptest.NewServer(battleapi.New(cfg, campaignSeed, "replay-test").Handler())
+	srv := httptest.NewServer(newServerOverAPI(t, cfg, campaignSeed).Handler())
 	defer srv.Close()
 
 	start := startBattle(t, srv.URL, campaignSeed, units)
@@ -280,7 +295,7 @@ func fightOverAPI(t *testing.T, cfg *config.Config, campaignSeed uint64, units i
 // and seed without fighting it.
 func startBattleOverAPI(t *testing.T, cfg *config.Config, campaignSeed uint64, units int) apiFight {
 	t.Helper()
-	srv := httptest.NewServer(battleapi.New(cfg, campaignSeed, "replay-test").Handler())
+	srv := httptest.NewServer(newServerOverAPI(t, cfg, campaignSeed).Handler())
 	defer srv.Close()
 	start := startBattle(t, srv.URL, campaignSeed, units)
 	return apiFight{id: start.id, seed: start.seed}
