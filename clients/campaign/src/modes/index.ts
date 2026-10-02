@@ -20,3 +20,4 @@ export { tournamentBracket, type TournamentBracketOptions } from "./tournamentBr
 export { dealMapCandidates, pickMap, tallyVotes, type MapCandidate, type MapVote } from "./mapVoting.js";
 export { historicalProgress, isHistoricalUnlocked, recordHistoricalWin, resetHistoricalProgress, type HistoricalProgress } from "./historicalProgress.js";
 export { createRosterBuilder, ROSTER_BUDGET, unitCost, type RosterBuilder, type RosterEntry, type UnitKind, type UnitTier } from "./rosterBuilder.js";
+export { exportShareCode, importShareCode, skirmishShareCode, type ShareCodeResult } from "./shareCodes.js";
