@@ -1661,3 +1661,153 @@ func TestASessionSaysWhichShapeEveryUnitIsIn(t *testing.T) {
 	}
 	t.Logf("%d states from %d living men: %d in the held line, %d in the advancing wedge", len(states), live, lines, wedges)
 }
+
+// TestAHeldLineDoesNotWalkIntoTheEnemyThatReachesIt is the question the hold
+// ground raises that the drift test cannot ask, because the drift test never has
+// an enemy arrive.
+//
+// A hold now remembers its ground and walks its men back onto it. The obvious
+// fear about that is the other direction: the enemy closes, gets in contact, and
+// the shape walks FORWARD off its ground to take its men back, which is a
+// defensive line charging into the enemy because it was told to hold.
+//
+// Measured on the thirty-a-side session at seed 5157, two lines told to hold,
+// stepping until the sides are in contact and then for two hundred ticks more:
+//
+//	tick 100: closest A-B 727.8 m   centroid (-445.19, -2.03)  30/30 pinned
+//	tick 500: closest A-B 112.2 m   centroid (-445.19, -2.03)  30/30 pinned
+//	tick 600: closest A-B  30.1 m   centroid (-445.19, -2.03)  30/30 pinned
+//	tick 800: closest A-B  50.5 m   centroid (-445.19, -2.03)  30/30 pinned
+//
+// Nothing. The line does not move, and every man of it is pinned, which is the
+// shape holding him rather than asking him to move. It is measured here through
+// the published states rather than through the units, because the states are what
+// a caller would be reading to decide the same thing.
+func TestAHeldLineDoesNotWalkIntoTheEnemyThatReachesIt(t *testing.T) {
+	cfg := loadConfig(t)
+	const seed = 5150 + 7
+	s, a, b, leaders := newTestSession(t, seed)
+	if err := s.Deploy(a, b, leaders); err != nil {
+		t.Fatalf("Deploy: %v", err)
+	}
+	groups := SplitIntoGroups(idsOfSlice(a), 2)
+	o, err := NewOrders(cfg, SideA, []Group{
+		{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold}, Units: groups[0]},
+		{Order: GroupOrder{Kind: FormationLine, Order: OrderFormationHold}, Units: groups[1]},
+	})
+	if err != nil {
+		t.Fatalf("standing orders: %v", err)
+	}
+	if err := s.BeginFighting(); err != nil {
+		t.Fatalf("BeginFighting: %v", err)
+	}
+	oc, err := o.Commander()
+	if err != nil {
+		t.Fatalf("building the commander: %v", err)
+	}
+	if err := s.Command(oc); err != nil {
+		t.Fatalf("Command: %v", err)
+	}
+
+	// Settle first, so the ground being measured is a formed line rather than a
+	// crowd tidying itself.
+	for k := 0; k < 100; k++ {
+		if err := s.Step(); err != nil {
+			t.Fatalf("Step: %v", err)
+		}
+	}
+	atRest := slotCentroid(t, s)
+	t.Logf("at rest after 100 ticks: (%+.2f, %+.2f), closest A-B %.1f m",
+		atRest[0], atRest[1], closestAcross(s))
+
+	// Step until the two sides are in contact, with a bound, because a test that
+	// waits for something that never happens is a test that hangs rather than a
+	// test that fails.
+	const contact = 40.0
+	arrived := false
+	for k := 0; k < 2000 && !s.Decided(); k++ {
+		if err := s.Step(); err != nil {
+			t.Fatalf("Step: %v", err)
+		}
+		if closestAcross(s) <= contact {
+			arrived = true
+			break
+		}
+	}
+	if !arrived {
+		t.Fatalf("the two sides were never within %.0f m of each other in 2000 ticks (closest %.1f m), "+
+			"so this run says nothing about a held line with an enemy on it", contact, closestAcross(s))
+	}
+	t.Logf("in contact at tick %d: closest A-B %.1f m", s.Tick(), closestAcross(s))
+
+	// And then for two hundred more, which is where a shape that was walking its
+	// men home would show itself. The enemy does not stay at 39 m: it breaks off
+	// inside this window and ends it 158 m out, so what the two hundred ticks
+	// cover is the approach, the contact and the withdrawal, and the claim being
+	// made is only that the line did not move through any of the three.
+	for k := 0; k < 200; k++ {
+		if err := s.Step(); err != nil {
+			t.Fatalf("Step: %v", err)
+		}
+	}
+	now := slotCentroid(t, s)
+	t.Logf("200 ticks after contact: (%+.2f, %+.2f), d(%+.2f, %+.2f), closest A-B %.1f m",
+		now[0], now[1], now[0]-atRest[0], now[1]-atRest[1], closestAcross(s))
+
+	states := s.FormationStates()
+	pinned := 0
+	for _, st := range states {
+		if st.Pinned {
+			pinned++
+		}
+	}
+	if len(states) > 0 && pinned < len(states) {
+		t.Errorf("%d of %d men of a held line in contact are pinned to their slots; a hold in contact "+
+			"should be standing, and a shape that is still tidying itself is a shape still walking",
+			pinned, len(states))
+	}
+	// The bound is one metre over four hundred ticks of contact, which is a
+	// quarter of what the drift test allows over two hundred with no enemy at all.
+	if d := math.Hypot(now[0]-atRest[0], now[1]-atRest[1]); d > 1.0 {
+		t.Errorf("a line ordered to hold walked %.2f m in the ticks after the enemy reached it "+
+			"(d %+.2f, %+.2f); a hold keeps its ground through contact, and walking forward off it "+
+			"to take the men home is a defensive line charging the enemy", d, now[0]-atRest[0], now[1]-atRest[1])
+	}
+}
+
+// slotCentroid is where the shape says the commanded side is standing, read from
+// the published states rather than from the units, because the states are the
+// thing a caller has.
+func slotCentroid(t *testing.T, s *Session) [2]float64 {
+	t.Helper()
+	states := s.FormationStates()
+	if len(states) == 0 {
+		t.Fatal("a commanded session published no formation states to measure")
+	}
+	var sx, sy float64
+	for _, st := range states {
+		sx += st.SlotX
+		sy += st.SlotY
+	}
+	n := float64(len(states))
+	return [2]float64{sx / n, sy / n}
+}
+
+// closestAcross is the distance between the nearest man on each side.
+func closestAcross(s *Session) float64 {
+	best := math.Inf(1)
+	for _, u := range s.battle.units {
+		if u.Side != SideA || !u.alive() {
+			continue
+		}
+		for _, w := range s.battle.units {
+			if w.Side != SideB || !w.alive() {
+				continue
+			}
+			if d := math.Hypot(u.X-w.X, u.Y-w.Y); d < best {
+				best = d
+			}
+		}
+	}
+	return best
+}
