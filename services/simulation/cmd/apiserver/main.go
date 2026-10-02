@@ -121,6 +121,7 @@ func (s *Server) routes() *http.ServeMux {
 	mux.HandleFunc("/v1/save", s.handleSave)
 	mux.HandleFunc("/v1/load", s.handleLoad)
 	mux.HandleFunc("/v1/why", s.handleWhy)
+	mux.HandleFunc("/v1/rumours", s.handleRumours)
 	mux.HandleFunc("/ws", s.handleWS)
 	mux.HandleFunc("/health", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`{"ok":true}`))

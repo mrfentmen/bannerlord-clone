@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"time"
 
+	"mbclone/simulation/internal/rumours"
 	"mbclone/simulation/internal/savegame"
 	"mbclone/simulation/internal/sim"
 )
@@ -260,4 +261,13 @@ func (s *Server) handleLoad(w http.ResponseWriter, r *http.Request) {
 	s.state = loaded
 	s.mu.Unlock()
 	writeJSON(w, map[string]any{"loaded": true, "path": req.Path, "tick": loaded.Tick})
+}
+
+func (s *Server) handleRumours(w http.ResponseWriter, r *http.Request) {
+	s.mu.RLock()
+	state := s.state
+	s.mu.RUnlock()
+
+	rumours := rumours.Generate(state, 5.0, 10)
+	writeJSON(w, map[string]any{"rumours": rumours})
 }
