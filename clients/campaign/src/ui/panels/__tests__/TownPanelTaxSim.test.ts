@@ -68,3 +68,20 @@ describe("town panel tax simulator (integration)", () => {
     expect(up!.textContent).toContain("25%");
   });
 });
+
+describe("town panel trade agreement (integration)", () => {
+  it("proposes a deal and shows the town's answer", () => {
+    const root = townPanel(options());
+    document.body.innerHTML = "";
+    document.body.appendChild(root);
+
+    (root.querySelector("#deal-offer") as HTMLInputElement).value = "500";
+    (root.querySelector("#deal-discount") as HTMLInputElement).value = "10";
+    (root.querySelector("#deal-tariff") as HTMLInputElement).value = "10";
+    (root.querySelector('[data-testid="deal-propose"]') as HTMLButtonElement).click();
+
+    const result = root.querySelector('[data-testid="deal-result"]')!;
+    expect(result.textContent).toMatch(/accepts|counter|refuses/i);
+    expect(result.textContent).toContain("Brooklyn");
+  });
+});

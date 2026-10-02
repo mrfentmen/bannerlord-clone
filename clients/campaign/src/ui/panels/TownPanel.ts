@@ -18,13 +18,14 @@
  * recorded rather than filled with a placeholder.
  */
 
-import { h, numberField, row, sectionHeader } from "../dom.js";
+import { button, h, numberField, row, sectionHeader } from "../dom.js";
 import { emptyState, errorState, gauge, panel, statusChip, type StatusKind } from "../kit.js";
 import { townSkeleton } from "./skeletons.js";
 import { asBottomSheet } from "./narrow.js";
 import type { BuildingInfo, ConstructionResult, RecruitableUnit, RecruitResult, TownState } from "../../data/types.js";
 import { SimulationUnavailableError } from "../../data/provider.js";
 import { simulateTaxPolicy } from "../../economy/taxSimulator.js";
+import { answerProposal, proposeTradeDeal } from "../../economy/tradeDeals.js";
 
 export interface TownPanelOptions {
   /**
@@ -309,6 +310,49 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
       row("Gold", `$${Math.round(town.gold).toLocaleString("en-US")}`, { mono: true, testId: "town-gold" }),
       row("Metal", `${Math.round(town.metal).toLocaleString("en-US")}`, { mono: true, testId: "town-metal" }),
     ),
+  );
+
+  // -- trade agreement (solo task 76): propose a deal, the town answers ---
+  body.appendChild(sectionHeader("Trade agreement"));
+  const { input: dealOffer } = numberField("deal-offer", "Up-front offer", 0, { min: 0 });
+  const { input: dealDiscount } = numberField("deal-discount", "Discount on your goods (0-50)", 0, { min: 0, max: 50 });
+  const { input: dealTariff } = numberField("deal-tariff", "Tariff relief asked (0-50)", 0, { min: 0, max: 50 });
+  const dealPriority = h("input", {
+    type: "checkbox",
+    id: "deal-priority",
+    "aria-label": "Priority market access",
+    "data-testid": "deal-priority",
+  }) as HTMLInputElement;
+  const dealResult = h("p", { class: "caption", "data-testid": "deal-result", role: "status" },
+    "Propose terms; the town answers accept, counter, or refuse.");
+  const dealBtn = button("Propose deal", () => {
+    const offer = Number(dealOffer.value);
+    const discount = Number(dealDiscount.value);
+    const tariffAsk = Number(dealTariff.value);
+    if (!Number.isFinite(offer) || offer < 0 || !Number.isFinite(discount) || discount < 0 || discount > 50 ||
+        !Number.isFinite(tariffAsk) || tariffAsk < 0 || tariffAsk > 50) {
+      dealResult.textContent = "Terms out of range.";
+      return;
+    }
+    try {
+      const proposal = proposeTradeDeal(
+        town.id, town.name, town.loyalty, offer, discount, tariffAsk, dealPriority.checked,
+      );
+      const answer = answerProposal(proposal, (options.day ?? 0) >>> 0);
+      dealResult.textContent = answer.line;
+    } catch (e) {
+      dealResult.textContent = e instanceof Error ? e.message : "The deal fell through.";
+    }
+  }, { testId: "deal-propose" });
+  body.appendChild(
+    h("div", { class: "form-row" }, dealOffer, dealDiscount, dealTariff,
+      h("label", { for: "deal-priority" }, "Priority access", dealPriority)),
+  );
+  body.appendChild(dealBtn);
+  body.appendChild(dealResult);
+  body.appendChild(
+    h("p", { class: "caption" },
+      `Standing here is the town's loyalty (${Math.round(town.loyalty)}); the deal is binding once the town answers.`),
   );
 
   // -- actions: the market link, the march, the rulers ----------------------
