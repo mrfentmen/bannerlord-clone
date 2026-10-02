@@ -1,0 +1,14 @@
+# Battle records the running server writes. `battleapi.DefaultBattleDir` and
+# `simrun.DefaultBattleDir` are both `logs/battles`, relative to the process's
+# working directory, so any test or server started in this directory leaves one
+# here. These are runtime output and reproducible output: a record is worth
+# keeping when a bug needs one, and it belongs in a bug report or /tmp, not in
+# the tree where the next `git add -A` commits it as source.
+logs/
+
+# `go build` output from the module root (`go build ./cmd/simrun` writes here).
+/simrun
+
+# `go test -c` output. The root .gitignore already covers *.test; repeated here
+# because this file is the one a reader of services/simulation/ will find.
+/*.test
