@@ -5,6 +5,8 @@
  * The 3D scene is in BattleScene.ts; this is the overlay UI.
  */
 
+import { battleSide } from "../design/tokens.js";
+
 /** Deployment phase: player places troops before battle starts. */
 export interface DeploymentZone {
   x: number;
@@ -149,7 +151,7 @@ export class BattleMinimap {
 
     // Dots
     for (const d of dots) {
-      ctx.fillStyle = d.faction === "player" ? "#4a9eff" : "#ff4a4a";
+      ctx.fillStyle = d.faction === "player" ? battleSide.player : battleSide.enemy;
       ctx.beginPath();
       ctx.arc(d.x * s, d.z * s, 2, 0, Math.PI * 2);
       ctx.fill();
