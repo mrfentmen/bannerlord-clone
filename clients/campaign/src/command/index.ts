@@ -13,3 +13,4 @@ export {
   type OrderKind,
 } from "./types.js";
 export { createPingStore, describePing, PING_KINDS, PING_LABELS, PING_TTL_MS, type Ping, type PingKind, type PingStore } from "./pings.js";
+export { FLANK_BONUS, REAR_BONUS, flankArc, flankBonus, flankBadgeText, type FlankArc } from "./flanking.js";
