@@ -110,5 +110,16 @@ func run(v *sim.View, w *sim.WriteSet) {
 					read, causes, "prisoners starved to death")
 			}
 		}
+
+		// Broken prisoners: at 0 conformity, prisoners die from despair.
+		// This is separate from starvation; even fed prisoners with 0 conformity
+		// are at risk.
+		if p.Prisoners > 0 && p.PrisonerConformity <= 0 {
+			deaths := p.Prisoners * 0.02 // 2% per day at 0 conformity
+			if deaths >= 1 {
+				w.Add(model.KindParty, pid, "prisoners", -deaths,
+					read, causes, "prisoners died from despair (0 conformity)")
+			}
+		}
 	}
 }

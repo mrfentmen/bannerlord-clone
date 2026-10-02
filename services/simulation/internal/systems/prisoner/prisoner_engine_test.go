@@ -53,3 +53,23 @@ func TestStarvationThroughEngine(t *testing.T) {
 			s.Parties[1].Prisoners)
 	}
 }
+
+// TestDeathAtZeroConformity verifies prisoners die when conformity hits 0.
+func TestDeathAtZeroConformity(t *testing.T) {
+	s := model.NewState()
+	s.Parties[1] = &model.Party{
+		ID: 1, SideID: 1, Troops: 100, Food: 50, // Has food!
+		Prisoners: 50, PrisonerConformity: 0.0, // But 0 conformity
+	}
+
+	e := sim.NewEngine(testCfg(t), cause.NewLog(1000), 42, []sim.System{System()})
+	if err := e.Tick(s); err != nil {
+		t.Fatalf("tick: %v", err)
+	}
+
+	// Prisoners should have died from despair (2% of 50 = 1).
+	if s.Parties[1].Prisoners >= 50 {
+		t.Errorf("prisoners = %v, want < 50 (0 conformity kills prisoners)",
+			s.Parties[1].Prisoners)
+	}
+}
