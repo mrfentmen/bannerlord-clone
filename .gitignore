@@ -44,3 +44,4 @@ labs/crowd-poc/assets/originals/
 # Agent scratch
 /tmp/
 *.tmp
+services/simulation/apiserver
