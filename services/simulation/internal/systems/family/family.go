@@ -19,6 +19,8 @@
 package family
 
 import (
+	"math"
+
 	"mbclone/simulation/internal/model"
 	"mbclone/simulation/internal/sim"
 	"mbclone/simulation/internal/systems/shared"
@@ -179,10 +181,17 @@ func run(v *sim.View, w *sim.WriteSet) {
 		w.Add(model.KindLeader, lid, "ruler_age", 1.0/365.0,
 			read, causes, "aging")
 
-		// Natural death: chance increases with age.
-		// Base mortality: negligible before 50, rising sharply after 70.
+		// Natural death: chance increases with age (Gompertz-like).
+		// Annual mortality: ~1% at 60, ~3% at 70, ~8% at 80, ~20% at 90.
+		// Converted to daily chance: annual/365.
 		if l.Age > 50 {
-			deathChance := 0.0001 * (l.Age - 50) * (l.Age - 50)
+			yearsOver50 := l.Age - 50
+			// annualChance = 0.01 * 1.12^yearsOver50 gives ~1% at 60, ~3% at 70, ~9% at 80
+			annualChance := 0.01 * math.Pow(1.12, yearsOver50)
+			if annualChance > 0.5 {
+				annualChance = 0.5 // cap at 50% per year
+			}
+			deathChance := annualChance / 365.0
 			if rng.Chance(deathChance) {
 				w.Set(model.KindLeader, lid, "is_alive", 0,
 					read, causes, "natural death")
