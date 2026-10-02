@@ -120,9 +120,21 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
     return party.goods.find((g) => g.goodId === goodId)?.quantity ?? 0;
   }
 
-  /** How much one order is worth at the price on screen. Shown before committing to it. */
-  function orderValue(good: MarketGood): number {
-    return good.price * quantity;
+  /**
+   * The price one order is placed against, which is a multiplier and not a sum of money.
+   *
+   * A good's price is the market's multiplier near one (a market holding its normal
+   * stock trades at about 1, and scarcity moves it from there — the same rule
+   * `priceFor` writes down in the fixture provider). The coin figure is
+   * `price * unitCost`, and `unitCost` is server config — `market.base_price`, or
+   * `campaign.medicine_unit_price` for medicine — which the snapshot never sends. So
+   * the client cannot multiply its way to the cost of an order, and a figure it made
+   * up would sit under the Buy button wearing the costume of a quote. The price is
+   * therefore reported as the multiplier it is, and the real total is read out of the
+   * TradeResult the simulation sends back.
+   */
+  function orderPrice(good: MarketGood): string {
+    return good.price.toFixed(2);
   }
 
   /**
@@ -222,7 +234,14 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
     if (!market) return;
     const row = market.goods.find((g) => g.goodId === good.goodId);
     if (row) {
-      row.previousPrice = result.unitPrice;
+      // Both numbers here are multipliers, which is the only reason the trend arrow
+      // means anything afterwards. The price already on screen is what the order was
+      // placed against, and marketPriceAfter is the multiplier the market actually
+      // settled on once the tick committed. unitPrice is deliberately not used: it is
+      // coins per unit, so writing it into previousPrice would have the arrow
+      // comparing a coin figure against a multiplier and reading every trade
+      // backwards.
+      row.previousPrice = row.price;
       row.price = result.marketPriceAfter;
       row.stock = side === "buy" ? row.stock - result.quantity : row.stock + result.quantity;
       row.history = [...row.history, { day: currentDay, price: result.marketPriceAfter }].slice(-HISTORY_POINTS);
@@ -321,7 +340,7 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
         { class: "field-row", style: "margin-bottom:var(--space-3)" },
         qty.field,
         h("p", { class: "caption", style: "margin:0 0 0;flex:1 1 var(--space-7)" },
-          `Purse ${money(purse)}. Prices move when you trade, so the figure you see is the figure before.`),
+          `Purse ${money(purse)}. Prices move when you trade, so the figure you see is the figure before. What an order costs in coin is the simulation's to say, and it says so when the trade lands.`),
       ),
     );
 
@@ -507,13 +526,18 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
    * order, and the size is the decision the player is making.
    */
   function labelOrder(good: MarketGood, button: HTMLElement, side: "buy" | "sell"): void {
-    const value = money(orderValue(good));
     const verb = side === "buy" ? "Buy" : "Sell";
-    button.setAttribute("aria-label", `${verb} ${quantity} ${good.name} for ${value} at ${good.price.toFixed(2)} each`);
+    // A button reading "Buy" tells a screen reader nothing about the size of the order,
+    // so the quantity and the price it goes against are named. The coin total is not:
+    // it is the simulation's figure and it arrives with the answer.
+    button.setAttribute(
+      "aria-label",
+      `${verb} ${quantity} ${good.name} at a price of ${orderPrice(good)} each; the simulation sets the coin cost`,
+    );
     if (side === "sell" && heldOf(good.goodId) < 1) {
       button.setAttribute("title", "The caravan is holding none of this. Buy some before selling it.");
     } else {
-      button.setAttribute("title", `${verb} ${quantity} for ${value}.`);
+      button.setAttribute("title", `${verb} ${quantity} ${good.name} at a price of ${orderPrice(good)} each.`);
     }
   }
 
