@@ -108,6 +108,10 @@ type Session struct {
 	seed   uint64
 	cfg    *config.Config
 	battle *Battle
+	// setup is the Setup Deploy constructed and handed to newBattle, kept so a
+	// caller can be given the battle's own definition instead of rebuilding one.
+	// See Setup.
+	setup Setup
 	// outcome and result are set when the sim decides the battle.
 	outcome Outcome
 	decided bool
@@ -199,6 +203,7 @@ func (s *Session) Deploy(aUnits, bUnits []Unit, leaders []Leader) error {
 		Terrain: TerrainOpen,
 		Label:   fmt.Sprintf("%s vs %s", s.attacker.Name, s.defender.Name),
 	}
+	s.setup = setup
 	b, err := newBattle(s.cfg, s.seed, setup)
 	if err != nil {
 		return err
@@ -367,6 +372,29 @@ func (s *Session) Record(bound int, source string) (*OrderLog, error) {
 // not recording. It is how a caller asks whether a log reached its bound, which
 // is the one thing about a log that decides whether it is replayable at all.
 func (s *Session) Recorder() *Recorder { return s.rec }
+
+// Setup returns the Setup this session fought with: the frozen rosters, the
+// leaders filtered to their own sides, open terrain, and the label Deploy built
+// from the two party names.
+//
+// It exists because recording a session battle needs a Setup and Deploy was
+// throwing one away. BattleRecord.Setup(cfg) and Script.Setup(cfg) can both
+// produce one; a Session could not, so a caller wiring Session.Record into the
+// battle server had to assemble one by hand out of the frozen rosters — every
+// field except Label is recoverable from exported accessors, and Label is
+// Deploy's private format string, so a caller who guessed it wrong got a
+// recording that replays to a different hash for a bit-identical battle.
+// Result.Hash folds the label in, so the mistake is silent and the numbers
+// still look right.
+//
+// What is returned is the Setup Deploy actually used, not a reconstruction, so
+// there is nothing left to get wrong. The slices are the session's own frozen
+// copies shared with the battle's, not copies of them: this is a read, for
+// handing to a recorder, and a caller that mutates what it is given has a bug
+// rather than a request. It is the zero Setup before Deploy and after the
+// rosters are gone, which cannot currently happen, and reads as zero rather than
+// panicking.
+func (s *Session) Setup() Setup { return s.setup }
 
 // wrap is the recorder's inside, or the commander itself when there is no
 // recorder. A nil recorder is not special-cased at every call site because the

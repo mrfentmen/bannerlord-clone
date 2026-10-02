@@ -75,7 +75,7 @@ func TestASessionBattleSavesAndVerifiesThroughTheBattleStore(t *testing.T) {
 	rec := &battle.Recording{
 		Seed:          s.Seed(),
 		ConfigVersion: cfg.Version,
-		Setup:         setupFromSession(s),
+		Setup:         s.Setup(),
 		Log:           log,
 	}
 	roster := battle.Roster{Units: 12}
@@ -89,8 +89,8 @@ func TestASessionBattleSavesAndVerifiesThroughTheBattleStore(t *testing.T) {
 	}
 	if !check.Match {
 		t.Errorf("a session battle saved into the battle store and verified back did not match: %v\n"+
-			"  The Setup here was rebuilt with setupFromSession, so a mismatch means the rosters or "+
-			"the label are being rebuilt wrongly and the helper is the thing at fault, not the store",
+			"  The Setup here is the session's own, from Session.Setup, so a mismatch means the "+
+			"session is not handing out what it fought with",
 			check)
 	}
 	t.Logf("one seed for both sides: %d ticks, %d order rows, %s", res.Ticks, log.Len(), check)
@@ -127,7 +127,7 @@ func TestASessionBattleBuiltTheWayTheShippedAPIBuildsOneVerifies(t *testing.T) {
 	rec := &battle.Recording{
 		Seed:          s.Seed(),
 		ConfigVersion: cfg.Version,
-		Setup:         setupFromSession(s),
+		Setup:         s.Setup(),
 		Log:           log,
 	}
 	roster := battle.Roster{Units: 12}
@@ -187,7 +187,7 @@ func TestThreeSeedDerivationsDoNotVerify(t *testing.T) {
 	rec := &battle.Recording{
 		Seed:          s.Seed(),
 		ConfigVersion: cfg.Version,
-		Setup:         setupFromSession(s),
+		Setup:         s.Setup(),
 		Log:           log,
 	}
 	roster := battle.Roster{Units: 12}
@@ -214,27 +214,35 @@ func TestThreeSeedDerivationsDoNotVerify(t *testing.T) {
 		"one seed.", check)
 }
 
-// TestASessionBattleWithTheWrongLabelFailsToVerify is the label hazard, made real.
+// TestASessionBattleWithTheWrongLabelFailsToVerify is the label hazard, and what is
+// left of it now the session can hand out its own Setup.
 //
-// The label used is not nonsense. It is the shape a caller would naturally write
-// from what the API publishes: the state response's two sides carry `party_name`,
-// and a caller assembling a Setup from a session has exactly those two strings.
+// The hazard is real and is not going away: Result.Hash folds the label in, so a
+// recording whose Setup is named differently verifies as a mismatch for a battle
+// that is bit-identical. Every printed number agrees and the hash does not.
+//
+// What changed is that a caller no longer has to guess. Session.Setup returns the
+// Setup Deploy actually built, and this file's good paths now ask for it instead of
+// assembling one. The wrong label below is therefore a demonstration of what is at
+// stake, written by mutating a copy on purpose — not something a caller can arrive
+// at by trying.
 func TestASessionBattleWithTheWrongLabelFailsToVerify(t *testing.T) {
 	cfg := loadConfig(t)
 	s, res, log := foughtSession(t, cfg, 5150, 12)
 
-	right := setupFromSession(s)
-	if want := fmt.Sprintf("%s vs %s", s.Attacker().Name, s.Defender().Name); right.Label != want {
-		t.Fatalf("setupFromSession built the label %q, which is not Deploy's %q; the good-path "+
-			"test would have been proving something else", right.Label, want)
-	}
-	wrong := setupFromSession(s)
+	right := s.Setup()
+	wrong := s.Setup()
 	wrong.Label = s.Attacker().Name + " vs " + s.Defender().Name + " (field battle)"
 
 	gotRight, err := battle.Replay(cfg, &battle.Recording{
 		Seed: s.Seed(), ConfigVersion: cfg.Version, Setup: right, Log: log})
 	if err != nil {
-		t.Fatalf("replaying with Deploy's label failed: %v", err)
+		t.Fatalf("replaying with the session's own Setup failed: %v", err)
+	}
+	if got := gotRight.HashString(); got != res.HashString() {
+		t.Fatalf("the session's own Setup does not reproduce its own battle: %s against %s. "+
+			"Session.Setup is handing out something other than what the battle was fought with",
+			got, res.HashString())
 	}
 	gotWrong, err := battle.Replay(cfg, &battle.Recording{
 		Seed: s.Seed(), ConfigVersion: cfg.Version, Setup: wrong, Log: log})
@@ -262,20 +270,62 @@ func TestASessionBattleWithTheWrongLabelFailsToVerify(t *testing.T) {
 		return
 	}
 	t.Logf("the hashes DIFFER while tick count, outcome and reason are identical: every printed " +
-		"number agrees and the hash does not. That is the whole hazard.")
+		"number agrees and the hash does not. That is the whole hazard, and it is why the good " +
+		"paths above ask the session for its Setup rather than building one: Deploy's label is a " +
+		"private format string and a caller guessing it gets a corrupt-looking recording of a " +
+		"perfectly good battle.")
 }
 
-// setupFromSession rebuilds the Setup a session fought with, from exported
-// accessors only. Everything except Label comes from the frozen rosters and is
-// exact; Label is Deploy's private format string.
-func setupFromSession(s *battle.Session) battle.Setup {
+// TestASessionSetupIsTheBattleItFought is the claim Session.Setup makes, checked
+// against the only authority that can check it.
+//
+// It is not a tautology to say a Setup is what a battle was fought with: `newBattle`
+// takes a Setup by value, copies each unit again before assigning ids, and never
+// stores it, so nothing inside the engine can be asked. The check is therefore
+// end-to-end — replay the session's log against the Setup the session now hands out
+// and require the session's own hash back.
+//
+// It also pins the two things a reconstruction could get wrong on its own:
+//   - the LABEL, which Result.Hash folds in and which was Deploy's private format
+//     string until this accessor existed;
+//   - the LEADERS, which Deploy splits across the two frozen rosters and rejoins,
+//     and which a caller reading one roster at a time gets wrong by omission — a
+//     battle can fight perfectly well without leaders, so nothing complains.
+func TestASessionSetupIsTheBattleItFought(t *testing.T) {
+	cfg := loadConfig(t)
+	s, res, log := foughtSession(t, cfg, 5150, 12)
+
+	setup := s.Setup()
 	ra, rb := s.Roster(battle.SideA), s.Roster(battle.SideB)
-	return battle.Setup{
-		A:       ra.Units,
-		B:       rb.Units,
-		Leaders: append(append([]battle.Leader{}, ra.Leaders...), rb.Leaders...),
-		Terrain: battle.TerrainOpen,
-		Label:   fmt.Sprintf("%s vs %s", s.Attacker().Name, s.Defender().Name),
+	if want := len(ra.Leaders) + len(rb.Leaders); len(setup.Leaders) != want {
+		t.Errorf("Session.Setup carries %d leaders, against %d on the two frozen rosters together",
+			len(setup.Leaders), want)
+	}
+	for _, l := range setup.Leaders {
+		if l.Side != battle.SideA && l.Side != battle.SideB {
+			t.Errorf("Session.Setup carries a leader for side %d, which is neither side", l.Side)
+		}
+	}
+	if want := fmt.Sprintf("%s vs %s", s.Attacker().Name, s.Defender().Name); setup.Label != want {
+		t.Errorf("Session.Setup names the battle %q, against Deploy's %q", setup.Label, want)
+	}
+
+	got, err := battle.Replay(cfg, &battle.Recording{
+		Seed: s.Seed(), ConfigVersion: cfg.Version, Setup: setup, Log: log})
+	if err != nil {
+		t.Fatalf("replaying the session against the Setup the session handed out: %v", err)
+	}
+	t.Logf("session          : %d ticks, %v (%v), hash %s",
+		res.Ticks, res.Outcome.Kind, res.Outcome.Reason, res.HashString())
+	t.Logf("Session.Setup replayed: %d ticks, %v (%v), hash %s, %d leaders, label %q",
+		got.Ticks, got.Outcome.Kind, got.Outcome.Reason, got.HashString(), len(setup.Leaders), setup.Label)
+	if got.HashString() != res.HashString() {
+		t.Errorf("the Setup the session handed out does not reproduce the session's own battle.\n"+
+			"  session       : %d ticks, hash %s\n"+
+			"  Setup replayed: %d ticks, hash %s\n"+
+			"  Session.Setup is meant to BE Deploy's Setup, not a reconstruction of it, so a "+
+			"difference here means it is handing out something the battle was not fought with.",
+			res.Ticks, res.HashString(), got.Ticks, got.HashString())
 	}
 }
 
