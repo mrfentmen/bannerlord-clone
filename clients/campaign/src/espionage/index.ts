@@ -11,3 +11,4 @@ export * from "./plots.js";
 export * from "./rumors.js";
 export * from "./infiltration.js";
 export * from "./blackmail.js";
+export { assignMission, cancelMission, MISSION_ICONS, spyMapMarkers, spyMission, SPY_MISSIONS, type PlacedSpy, type SpyMapMarker, type SpyMission, type SpyMissionKind } from "./spyMissions.js";
