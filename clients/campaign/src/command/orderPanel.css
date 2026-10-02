@@ -56,6 +56,20 @@
   white-space: nowrap;
 }
 
+/* Task 61: the hotkey chip. Muted so the label reads first. The browser's own
+   monospace for <kbd> is left alone — CONSTITUTION.md section 3.4 puts every font
+   choice in the token file, and a key cap is the one place mono belongs. */
+.cmd-order__key {
+  padding: 0 var(--space-1);
+  border: 1px solid var(--ink-300);
+  border-radius: var(--radius-1);
+  background: var(--paper-200);
+  color: var(--ink-700);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
 /* Task 60: the tooltip text. Kept in the DOM (the button's aria-describedby
    points at it) and revealed on hover and keyboard focus; no animation, so
    reduced-motion has nothing to switch off. */

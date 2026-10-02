@@ -11,10 +11,15 @@
  * Task 60: every button carries the registry's own description for that action
  * as a tooltip, so the explanation of an order lives with the action rather
  * than being written out twice here.
+ *
+ * Task 61: each button also shows the hotkey that issues its order, read from
+ * the registry's *current* binding and refreshed when the player rebinds, so
+ * the chip is never a lie about which key to press.
  */
 
 import "./orderPanel.css";
 import { h } from "../ui/dom.js";
+import { formatBinding } from "../ui/panels/ShortcutsReference.js";
 import type { InputRegistry } from "../input/index.js";
 
 /** One button: the action it presses and the label the player reads. */
@@ -62,6 +67,10 @@ export interface OrderPanel {
 export function createOrderPanel(options: OrderPanelOptions): OrderPanel {
   const { registry, onPress } = options;
   const row: HTMLButtonElement[] = [];
+  /** The chip each button owns, so a rebind can be written back into it. */
+  const keys: { chip: HTMLElement; action: string }[] = [];
+  /** Actions the registry knows at build time; `bindingFor` throws otherwise. */
+  const registered = new Set<string>();
 
   const root = h("div", {
     class: "cmd-orders",
@@ -71,8 +80,8 @@ export function createOrderPanel(options: OrderPanelOptions): OrderPanel {
   });
 
   for (const spec of options.buttons ?? ORDER_BUTTONS) {
-    const action = registry.actions().find((a) => a.id === spec.action);
-    const hint = action ? `${action.label}. ${action.description}` : spec.label;
+    const known = registry.actions().find((a) => a.id === spec.action);
+    const hint = known ? `${known.label}. ${known.description}` : spec.label;
     const btn = h("button", {
       type: "button",
       class: "cmd-order",
@@ -86,6 +95,15 @@ export function createOrderPanel(options: OrderPanelOptions): OrderPanel {
     btn.appendChild(h("span", { class: "cmd-order__label" }, spec.label));
     // The same sentence as text, so the explanation is reachable without hover.
     btn.appendChild(h("span", { class: "cmd-order__hint", id: `${spec.testId}-hint` }, hint));
+    // Task 61: the hotkey chip. An unknown action has no bindings, and an
+    // unbound action says so rather than showing an empty chip.
+    const chip = h("kbd", {
+      class: "cmd-order__key",
+      "data-testid": `${spec.testId}-key`,
+    });
+    btn.appendChild(chip);
+    keys.push({ chip, action: spec.action });
+    if (known) registered.add(spec.action);
     btn.addEventListener("click", () => {
       // A pointer activation carries no KeyboardEvent, so the action is
       // dispatched as "touch" — the registry's pointer-and-mouse source.
@@ -95,6 +113,17 @@ export function createOrderPanel(options: OrderPanelOptions): OrderPanel {
     root.appendChild(btn);
     row.push(btn);
   }
+
+  function hotkeyText(action: string): string {
+    const bindings = registered.has(action) ? registry.bindingFor(action) : [];
+    return bindings.length === 0 ? "unbound" : bindings.map(formatBinding).join(" / ");
+  }
+
+  function refreshKeys(): void {
+    for (const { chip, action } of keys) chip.textContent = hotkeyText(action);
+  }
+  refreshKeys();
+  const offBindings = registry.onBindingsChanged(refreshKeys);
 
   function setEnabled(enabled: boolean): void {
     root.hidden = !enabled;
@@ -107,6 +136,7 @@ export function createOrderPanel(options: OrderPanelOptions): OrderPanel {
     buttons: () => [...row],
     setEnabled,
     destroy() {
+      offBindings();
       root.remove();
     },
   };

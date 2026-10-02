@@ -1,5 +1,5 @@
 /**
- * The order panel (Buffy tasks 59-60): a bottom row of order buttons that dispatch
+ * The order panel (Buffy tasks 59-61): a bottom row of order buttons that dispatch
  * the same input actions the hotkeys do (task 60 adds their tooltips), enabled
  * only while something is selected.
  *
@@ -7,7 +7,7 @@
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { createInputRegistry } from "../../input/registry.js";
+import { createInputRegistry, type InputRegistry } from "../../input/registry.js";
 import { createOrderPanel, ORDER_BUTTONS } from "../orderPanel.js";
 import { createCommander } from "../commander.js";
 import type { CommandSurface, CommandableUnit, Order } from "../types.js";
@@ -29,6 +29,26 @@ function fakeSurface(): { surface: CommandSurface; orders: Order[] } {
     onUnitsChanged: () => () => {},
   };
   return { surface, orders };
+}
+
+/**
+ * A registry carrying every action the panel names: the catalog's own, plus the
+ * ones the commander registers at load. The runtime ones get a distinctive
+ * binding so a test can tell a catalog default from a registered one.
+ */
+function battleRegistry(): InputRegistry {
+  const registry = createInputRegistry();
+  for (const spec of ORDER_BUTTONS) {
+    if (registry.actions().some((a) => a.id === spec.action)) continue;
+    registry.registerAction({
+      id: spec.action,
+      label: spec.label,
+      category: "battle-command",
+      description: `${spec.label} test action.`,
+      defaultKeys: [{ key: "z", shift: true }],
+    });
+  }
+  return registry;
 }
 
 beforeEach(() => {
@@ -196,6 +216,79 @@ describe("order panel tooltips (task 60)", () => {
     } finally {
       panel.destroy();
     }
+  });
+});
+
+describe("order panel hotkeys (task 61)", () => {
+  function chipOf(testId: string): string {
+    return document.querySelector(`[data-testid="${testId}-key"]`)!.textContent ?? "";
+  }
+
+  it("shows each button's current binding on the button", () => {
+    const registry = battleRegistry();
+    const panel = createOrderPanel({ registry });
+    document.body.appendChild(panel.root);
+    try {
+      // Catalog defaults: hold is h/F3, attack is f/F1.
+      expect(chipOf("cmd-order-hold")).toBe("h / F3");
+      expect(chipOf("cmd-order-attack")).toBe("f / F1");
+      // Runtime-registered actions show their own binding.
+      expect(chipOf("cmd-order-form-up")).toBe("Shift+z");
+    } finally {
+      panel.destroy();
+    }
+  });
+
+  it("follows a rebind instead of going stale", () => {
+    const registry = battleRegistry();
+    const panel = createOrderPanel({ registry });
+    document.body.appendChild(panel.root);
+    try {
+      expect(chipOf("cmd-order-hold")).toBe("h / F3");
+
+      registry.setBinding("battle.orderHold", [{ key: "k" }]);
+
+      expect(chipOf("cmd-order-hold")).toBe("k");
+    } finally {
+      panel.destroy();
+    }
+  });
+
+  it("says 'unbound' rather than showing an empty chip", () => {
+    const registry = battleRegistry();
+    const panel = createOrderPanel({ registry });
+    document.body.appendChild(panel.root);
+    try {
+      registry.setBinding("battle.orderHold", []);
+      expect(chipOf("cmd-order-hold")).toBe("unbound");
+    } finally {
+      panel.destroy();
+    }
+  });
+
+  it("says 'unbound' for an action the registry has never heard of", () => {
+    const registry = createInputRegistry();
+    const panel = createOrderPanel({
+      registry,
+      buttons: [{ action: "battle.orderNope", label: "Nope", testId: "cmd-order-nope" }],
+    });
+    document.body.appendChild(panel.root);
+    try {
+      expect(chipOf("cmd-order-nope")).toBe("unbound");
+    } finally {
+      panel.destroy();
+    }
+  });
+
+  it("stops listening for rebinds once destroyed", () => {
+    const registry = battleRegistry();
+    const panel = createOrderPanel({ registry });
+    document.body.appendChild(panel.root);
+    panel.destroy();
+
+    expect(document.querySelector('[data-testid="cmd-order-hold-key"]')).toBeNull();
+    // No listener left behind to write into a row that no longer exists.
+    expect(() => registry.setBinding("battle.orderHold", [{ key: "k" }])).not.toThrow();
   });
 });
 
