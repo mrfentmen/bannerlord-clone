@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { spymasterPanel } from "../SpymasterPanel.js";
 import { fileAlert, raiseAlert } from "../../../espionage/spyAlerts.js";
 import { placeSpy } from "../../../espionage/roster.js";
+import { addLeverage } from "../../../espionage/leverage.js";
 
 beforeEach(() => localStorage.clear());
 
@@ -78,5 +79,24 @@ describe("spymaster panel (integration)", () => {
     const root = spymasterPanel({ currentDay: 100 });
     expect(root.textContent).toContain("No spies placed");
     expect(root.textContent).toContain("No alerts");
+  });
+});
+
+describe("spymaster panel leverage and wet work (integration)", () => {
+  it("shows the leverage board and approach profiles", () => {
+    addLeverage("Lord Varys", 30, 2);
+    const root = spymasterPanel({ currentDay: 100 });
+    document.body.innerHTML = "";
+    document.body.appendChild(root);
+
+    const leverageTable = root.querySelector('[data-testid="spymaster-leverage"]');
+    expect(leverageTable).not.toBeNull();
+    expect(leverageTable!.textContent).toContain("Lord Varys");
+
+    const wet = root.querySelector('[data-testid="spymaster-wetwork"]');
+    expect(wet).not.toBeNull();
+    expect(wet!.textContent).toContain("Poison");
+    expect(wet!.textContent).toContain("Ambush");
+    document.body.innerHTML = "";
   });
 });

@@ -38,8 +38,11 @@ import {
 } from "../../espionage/schemeStore.js";
 import { SCHEME_KINDS, SCHEME_LABELS } from "../../espionage/schemes.js";
 import { schemeTimeline } from "../../espionage/schemeTimeline.js";
+import { APPROACH_PROFILES } from "../../espionage/assassination.js";
+import { leverageBoard } from "../../espionage/leverage.js";
 import type { Scheme, SchemeKind } from "../../espionage/types.js";
 import { markHintShown, shouldShowHint } from "../../onboarding/hintCooldown.js";
+import { seasonForDay } from "../../expression/chroniclePanel.js";
 
 /** Mission length in campaign days (panel presentation choice). */
 const MISSION_DAYS: Record<SpyMissionKind, number> = {
@@ -234,6 +237,45 @@ export function spymasterPanel(options: SpymasterPanelOptions): HTMLElement {
         rerender();
       }, { variant: "quiet", testId: "scheme-advance" }),
     ),
+  );
+
+  // -- leverage (solo task 62): who you have something on -------------------
+  body.appendChild(sectionHeader("Leverage"));
+  const board = leverageBoard(seasonForDay(options.currentDay));
+  if (board.length === 0) {
+    body.appendChild(
+      emptyState("No leverage", "Blackmail material your network has gathered appears here."),
+    );
+  } else {
+    const columns: Column<(typeof board)[number]>[] = [
+      { header: "Target", render: (l) => l.target },
+      { header: "Points", numeric: true, render: (l) => `${l.points}` },
+    ];
+    body.appendChild(dataTable("Leverage", columns, board, "spymaster-leverage"));
+  }
+
+  // -- wet work (solo task 63): approach profiles, planning reference --------
+  body.appendChild(sectionHeader("Wet work"));
+  const approaches = Object.values(APPROACH_PROFILES);
+  const wetColumns: Column<(typeof approaches)[number]>[] = [
+    { header: "Approach", render: (a) => a.name },
+    { header: "Method", render: (a) => a.description },
+    {
+      header: "Kill odds",
+      numeric: true,
+      render: (a) => `${Math.round(a.successChance * 100)}%`,
+    },
+    {
+      header: "Exposure if failed",
+      numeric: true,
+      render: (a) => `${Math.round(a.exposureOnFailure * 100)}%`,
+    },
+    { header: "Cost", numeric: true, render: (a) => `$${a.cost}` },
+  ];
+  body.appendChild(dataTable("Wet work", wetColumns, approaches, "spymaster-wetwork"));
+  body.appendChild(
+    h("p", { class: "caption" },
+      "A planning reference. Hits are ordered through the campaign layer, not this panel."),
   );
 
   body.appendChild(sectionHeader("Enemy spy alerts"));
