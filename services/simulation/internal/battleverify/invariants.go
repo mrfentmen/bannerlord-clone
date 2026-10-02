@@ -36,10 +36,6 @@ type Input struct {
 	// setup and about what the battle did, nil when the caller supplied none.
 	ScenarioSetup func(battle.Setup) []Violation
 	ScenarioRun   func(*Report) []Violation
-	// MayEndAtRange is the scenario's reason for being allowed to be decided
-	// without the armies ever touching, empty when contact is required. See
-	// Scenario.MayEndAtRange for why it is a reason and not a flag.
-	MayEndAtRange string
 }
 
 // Verify runs every rule against one run's evidence and returns what each found.
@@ -183,25 +179,6 @@ func checkContact(f *Findings, in Input) {
 		return
 	}
 
-	// A scenario that is allowed to end at range still has to show a fight, and
-	// the engine's own counters are what shows it. The bar is deliberately low:
-	// one thing landed. A scenario cannot buy its way out of this rule by being
-	// declared a firefight.
-	//
-	// The numbers are quoted rather than merely counted, because a pass here is a
-	// claim that the arrows did the work, and the reader has to be able to see how
-	// many arrows and how well they hit.
-	if in.MayEndAtRange != "" {
-		shots, hits, inflicted := shootingOf(in.Result)
-		if hits > 0 || inflicted > 0 {
-			f.pass(RuleContact, note+fmt.Sprintf("; this scenario is one that may be decided at range (%s), "+
-				"and the shooting carried it: %.0f shots, %.0f of them hit, %.0f bodies put down by fire "+
-				"and shock. No swing was thrown, so the melee stage did not run in this battle",
-				in.MayEndAtRange, shots, hits, inflicted))
-			return
-		}
-	}
-
 	if p.minFoe <= melee {
 		f.fail(RuleContact, note, []Violation{{
 			Rule: RuleContact, Tick: p.minFoeAt,
@@ -224,19 +201,20 @@ func checkContact(f *Findings, in Input) {
 			"range, it was a battle in which nothing happened.%s",
 			p.minFoe, p.minFoeAt, p.minFoeA, p.minFoeB, p.minFoe/melee, melee, ticks,
 			in.Config.Battle.RosterStartDistance, tickReachOf(in.Config), in.Config.Battle.RosterSpeedBase,
-			approachTicksOf(in.Config), shots, hits, inflicted, noSwingWorthFighting(in)),
+			approachTicksOf(in.Config), shots, hits, inflicted, noSwingWorthFighting()),
 	}})
 }
 
-// noSwingWorthFighting is the closing sentence when a scenario was allowed to end
-// at range and did not manage even that, naming the exemption so the finding says
-// the rule was available and was not used.
-func noSwingWorthFighting(in Input) string {
-	if in.MayEndAtRange == "" {
-		return " The melee stage, its damage model, and its formation modifiers were never executed once"
-	}
-	return fmt.Sprintf(" This scenario is allowed to be decided at range (%s), and the exemption was not "+
-		"used: nothing landed, so there is no fight here to report", in.MayEndAtRange)
+// noSwingWorthFighting is the closing sentence of a battle in which nothing landed
+// and nothing was thrown, so the reader is told which half of the model was never
+// executed.
+//
+// It is a constant rather than a sentence built from the run because there is
+// nothing left in the run to vary it with: no exemption exists to name, and the
+// numbers are already in the two sentences before it.
+func noSwingWorthFighting() string {
+	return " The melee stage, its damage model, and its formation modifiers were never executed once, and " +
+		"nothing landed either, so this is not a battle fought at range"
 }
 
 // hitsOf is the total number of hits the two sides landed, ranged and melee.
