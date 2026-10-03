@@ -58,7 +58,7 @@ Orientation note: troop-officer.glb geometry lies flat along Z; apply rotationX 
 - food-cart.glb — target 3m (cart with striped umbrella)
 - skyscraper.glb — target 120m (marginal detail; fine at map scale)
 
-## Blender builds (14) — 2026-10-02/03
+## Blender builds (42) — 2026-10-02/03
 Built from scratch in Blender 4.2 via the Blender MCP (bpy scripting, Cycles
 CPU renders verified). All-original geometry, no stock assets.
 Standard treatment (treatment.py): procedural PBR materials, HDRI studio
@@ -77,6 +77,34 @@ lighting, detail pass (bolts, seams, ridges).
 - empire-state.glb — target 92m (art deco setbacks, window strips, mooring mast)
 - flatiron.glb — target 43m (triangular wedge, rounded prow, limestone)
 - chrysler.glb — target 77m (white shaft, terraced crown, needle spire)
+- precinct.glb — target 9m (stone facade, blue canopy, flag pole, barred windows)
+- diner.glb — target 4m (chrome box, strip windows, rooftop sign)
+- laundromat.glb — target 5.5m (brick storefront, sign band)
+- warehouse.glb — target 8m (loading dock, 3 rollup doors)
+- parking-garage.glb — target 10m (3 open decks, columns, stair tower)
+- church.glb — target 20m (nave, steeple, rose window)
+- apartment-block.glb — target 18m (6-story brick, balconies)
+- firehouse.glb — target 8m (2 garage doors, sign band)
+- auto-repair.glb — target 5m (2 rollup bays, office)
+- motel.glb — target 7m (2 floors, walkways, vacancy sign)
+- office-midrise.glb — target 26m (8-story, window grid, glass lobby)
+- rowhouse.glb — target 9m (brick 3-story, stoop)
+- tenement.glb — target 15m (5-story brick, fire escape)
+- bodega.glb — target 6.5m (storefront, roll gate)
+- streetlight.glb — target 8m (cobra head pole)
+- traffic-light.glb — target 5.5m (pole arm, 3-lamp head)
+- bus-stop.glb — target 2.5m (glass shelter, bench)
+- jersey-barrier.glb — target 1m (concrete)
+- newspaper-box.glb — target 1.3m (coin-op box)
+- dumpster.glb — target 1.6m (2 lids, wheels)
+- payphone.glb — target 2.3m (glass half-booth)
+- checkpoint-gate.glb — target 2.6m (booth, striped arm)
+- tank-trap.glb — target 1.5m (steel hedgehog)
+- ammo-crate.glb — target 0.5m (wooden box)
+- bike-rack.glb — target 0.9m (4 hoops)
+- planter.glb — target 1.2m (concrete, bushes)
+- hotdog-cart.glb — target 3m (umbrella, wheels)
+- sidewalk-shed.glb — target 2.6m (construction scaffolding)
 
 ## Batch 8: image-to-3D (6) — 2026-10-02Concept art generated locally (Pollinations, free), then turned into 3D via
 three.ws Forge image-to-3D (POST /api/forge, image_urls, tier=draft). All
