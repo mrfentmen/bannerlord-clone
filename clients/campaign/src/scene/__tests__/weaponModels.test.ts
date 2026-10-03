@@ -27,6 +27,7 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 // Registers the .glb loader on SceneLoader. The client does this once at boot;
 // here it has to be imported for the same reason.
 import "@babylonjs/loaders/glTF";
+import { LoadTimer } from "../../models/LoadTiming.js";
 import { ModelLibrary, type ModelsManifest } from "../models.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -160,14 +161,31 @@ describe("staged weapon GLBs load through ModelLibrary", () => {
     }
   });
 
-  it("caches a container per entry and reuses it", async () => {
+  it("caches a container per entry and times only the real load once", async () => {
     const scene = newScene();
-    const library = new ModelLibrary(scene, baseUrl);
+    let now = 0;
+    const timer = new LoadTimer({ now: () => now, onWarn: () => {} });
+    const library = new ModelLibrary(scene, baseUrl, timer);
     const entry = weapons[0]!;
     const a = library.container(entry);
     const b = library.container(entry);
     expect(a, "a second request should reuse the cached promise").toBe(b);
+    now = 125;
     await a;
+    expect(timer.all()).toEqual([{ id: entry.name, durationMs: 125 }]);
+    scene.dispose();
+  });
+
+  it("records the time for a failed load before allowing retry", async () => {
+    const scene = newScene();
+    let now = 0;
+    const timer = new LoadTimer({ now: () => now, onWarn: () => {} });
+    const library = new ModelLibrary(scene, baseUrl, timer);
+    const missing = { ...weapons[0]!, file: "weapons/__does_not_exist__.glb" };
+    const pending = library.container(missing);
+    now = 250;
+    await expect(pending).rejects.toThrow();
+    expect(timer.all()).toEqual([{ id: missing.name, durationMs: 250 }]);
     scene.dispose();
   });
 
