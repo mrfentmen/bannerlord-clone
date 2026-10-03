@@ -858,3 +858,46 @@ func ambitionNames(a model.Ambition) []string {
 		return []string{}
 	}
 }
+
+// RestoreSnapshot restores the campaign state from a snapshot. This is used
+// when the client loads a save: the snapshot (stored in the client's IndexedDB)
+// becomes the live simulation state.
+func (c *Campaign) RestoreSnapshot(ctx context.Context, snap wire.SimSnapshot) (any, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// Validate schema version
+	if snap.SchemaVersion != wire.SnapshotSchemaVersion {
+		return nil, unprocessablef("Snapshot schema version is not supported.",
+			"schema version %d, expected %d", snap.SchemaVersion, wire.SnapshotSchemaVersion)
+	}
+
+	// Restore time
+	c.state.Tick = snap.Day
+	c.state.Year = float64(snap.Year)
+
+	// Restore player party
+	if p := c.state.Parties[c.party]; p != nil {
+		p.X = snap.Party.Position.X
+		p.Y = snap.Party.Position.Z
+		p.Money = snap.Party.Money
+		p.Morale = snap.Party.Morale
+		p.Fatigue = snap.Party.Fatigue
+		p.Food = snap.Party.Food
+		p.Medicine = snap.Party.Medicine
+		p.Metal = snap.Party.Metal
+		p.WagesOwed = snap.Party.WagesOwed
+		// Troops: sum the stacks
+		var totalTroops float64
+		for _, s := range snap.Party.Troops {
+			totalTroops += float64(s.Count)
+		}
+		p.Troops = totalTroops
+	}
+
+	// Note: full town/market/ruler restoration is not yet implemented.
+	// The snapshot contains them, but the model's internal town state
+	// (garrisons, loyalty, etc.) requires deeper integration.
+
+	return wire.Accepted{Accepted: true}, nil
+}

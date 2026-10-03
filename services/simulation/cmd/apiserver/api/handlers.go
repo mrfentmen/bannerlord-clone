@@ -23,6 +23,14 @@ func (s *Server) getSnapshot(w http.ResponseWriter, r *http.Request) {
 	s.writeJSON(w, http.StatusOK, snap)
 }
 
+func (s *Server) postSnapshotRestore(w http.ResponseWriter, r *http.Request) {
+	var snap wire.SimSnapshot
+	if !s.decode(w, r, &snap) {
+		return
+	}
+	s.order(w, r, func() (any, error) { return s.camp.RestoreSnapshot(r.Context(), snap) })
+}
+
 func (s *Server) getWhy(w http.ResponseWriter, r *http.Request) {
 	entity := queryField(r, "entity")
 	if entity == "" {

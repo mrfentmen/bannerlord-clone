@@ -56,6 +56,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/snapshot", s.getSnapshot)
+	s.mux.HandleFunc("POST /v1/snapshot/restore", s.postSnapshotRestore)
 	s.mux.HandleFunc("GET /v1/why", s.getWhy)
 	s.mux.HandleFunc("POST /v1/trade", s.postTrade)
 	s.mux.HandleFunc("POST /v1/recruit", s.postRecruit)
