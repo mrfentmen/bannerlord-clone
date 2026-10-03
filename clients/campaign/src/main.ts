@@ -29,6 +29,7 @@ import { installPerfOverlay, setPerfStatsProvider } from "./ui/perfOverlay.js";
 import { BUILD_HASH } from "./buildHash.js";
 import { getAudioManager } from "./audio/AudioManager.js";
 import { applyAudioSettings } from "./audio/applySettings.js";
+import { installUiSounds } from "./audio/uiSounds.js";
 
 // Task 25/26: the error boundary, console tail, and bug reporter are imported
 // here but installed after the canvas handles exist (see below).
@@ -199,13 +200,9 @@ installUpdateNotifier();
   const applyVolumeSettings = (): void => applyAudioSettings(audio, settings.get());
   applyVolumeSettings();
   settings.subscribe(applyVolumeSettings);
-  // Global UI click sounds: delegate on the app root for any button press.
-  app.addEventListener("click", (e) => {
-    const target = e.target as HTMLElement;
-    if (target.closest("button")) {
-      getAudioManager().playUiSound("click");
-    }
-  });
+  // Global UI sounds (tasks 531/535): click for any button, toggle for any
+  // checkbox, delegated from the app root.
+  installUiSounds(app);
 }
 
 // Task 30: FPS / frame-time / draw-call overlay; `?perf=1` shows it at boot.
