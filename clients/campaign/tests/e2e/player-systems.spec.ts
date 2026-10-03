@@ -101,3 +101,21 @@ test("the journal opens and records the campaign", async ({ page }) => {
   const body = await panel.textContent();
   expect(body && body.trim().length).toBeGreaterThan(0);
 });
+
+test("the notification center lists, filters and jumps to settlements", async ({ page }) => {
+  await openAndStart(page);
+  // The HUD rail rebuilds on every tick: dispatch, don't click.
+  await page.getByTestId("open-notifications").dispatchEvent("click");
+  const panel = page.getByTestId("notifications-panel");
+  await expect(panel).toBeVisible();
+  // The context panel is kept by identity across ticks, so its controls are stable.
+  const list = panel.getByTestId("notifications-list");
+  await expect(list).toContainText("grain road");
+  // Filtering to a priority with no notices shows the honest empty state.
+  await panel.getByTestId("notifications-filter-priority").selectOption("critical");
+  await expect(list).toContainText("Nothing matches those filters.");
+  // Back to all: a town notice offers the settlement jump, which opens the town.
+  await panel.getByTestId("notifications-filter-priority").selectOption("all");
+  await panel.getByTestId("notice-town-n-hist-town-longmont").click();
+  await expect(page.getByTestId("town-panel")).toContainText("Longmont");
+});
