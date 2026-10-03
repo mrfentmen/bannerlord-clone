@@ -170,10 +170,10 @@ export function marketSkeleton(title = "Market"): HTMLElement {
 // -- party --------------------------------------------------------------------
 
 /**
- * `party-skeleton`. Shortages, supplies, condition and wages, roles, troops, goods:
- * six sections, in the order the real panel puts them, with the same gauges, rows and
- * table stubs. The shortages section is drawn whether or not anything is short, which
- * is why the real panel draws it either way too.
+ * `party-skeleton`. Shortages, supplies, condition and wages, roles, troops,
+ * prisoners, goods: seven sections, in the order the real panel puts them, with
+ * the same gauges, rows and table stubs. The shortages section is drawn whether
+ * or not anything is short, which is why the real panel draws it either way too.
  */
 export function partySkeletonBody(): HTMLElement {
   const root = region(PARTY_SHAPE, "party-skeleton", "Reading the party roll.");
@@ -190,6 +190,8 @@ export function partySkeletonBody(): HTMLElement {
   root.appendChild(section(rows(4)));
   // Troops: a header row and three unit rows of five columns.
   root.appendChild(section([tableStub(5, 3)]));
+  // Prisoners: a header row and two prisoner rows of three columns.
+  root.appendChild(section([tableStub(3, 2)]));
   // Goods: a header row and two goods rows of three columns.
   root.appendChild(section([tableStub(3, 2)]));
   return root;

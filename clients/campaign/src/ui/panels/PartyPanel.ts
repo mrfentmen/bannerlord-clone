@@ -53,6 +53,18 @@ export interface PartyPanelOptions {
    * was refused — is printed verbatim.
    */
   onUpgradeTroops?: (stackId: string) => Promise<UpgradeTroopsResult>;
+  /**
+   * Ransom prisoners for gold. The panel sends the troop id and count; the
+   * simulation owns the price and the result. Only drawn when the caller can
+   * actually send the order.
+   */
+  onRansomPrisoners?: (troopId: string, count: number) => Promise<{ gold: number }>;
+  /**
+   * Recruit prisoners into the party. The panel sends the troop id and count;
+   * the simulation owns the cost and the result. Only drawn when the caller can
+   * actually send the order.
+   */
+  onRecruitPrisoners?: (troopId: string, count: number) => Promise<void>;
   /** The party roll is still being read. `party-skeleton` goes up first. */
   loading?: boolean;
   testId?: string;
@@ -262,20 +274,51 @@ export function partyPanel(options: PartyPanelOptions): HTMLElement {
   if (party.prisoners.length === 0) {
     body.appendChild(emptyState("No prisoners.", "Take captives in battle to ransom or recruit them."));
   } else {
-    body.appendChild(
-      stackable(
-        dataTable(
-          "Prisoners held",
-          [
-            { header: "Unit", render: (p) => h("span", { class: "label" }, p.name) },
-            { header: "Count", numeric: true, testId: "prisoner-count", render: (p) => String(p.count) },
-            { header: "Tier", numeric: true, testId: "prisoner-tier", render: (p) => String(p.tier) },
-          ],
-          party.prisoners,
-          "party-prisoners",
-        ),
-      ),
-    );
+    const prisonerColumns: Column<{ troopId: string; name: string; count: number; tier: number }>[] = [
+      { header: "Unit", render: (p) => h("span", { class: "label" }, p.name) },
+      { header: "Count", numeric: true, testId: "prisoner-count", render: (p) => String(p.count) },
+      { header: "Tier", numeric: true, testId: "prisoner-tier", render: (p) => String(p.tier) },
+    ];
+    // The actions column only appears when the caller can actually send the orders.
+    // A ransom button that does nothing is worse than no ransom button.
+    if (options.onRansomPrisoners || options.onRecruitPrisoners) {
+      prisonerColumns.push({
+        header: "Actions",
+        render: (p) => {
+          const wrap = h("span", { class: "row__actions" });
+          if (options.onRansomPrisoners) {
+            const ransomBtn = h(
+              "button",
+              { type: "button", class: "btn btn--small", "data-testid": `ransom-${p.troopId}` },
+              "Ransom",
+            );
+            ransomBtn.addEventListener("click", () => {
+              ransomBtn.setAttribute("disabled", "");
+              void options.onRansomPrisoners!(p.troopId, p.count).finally(() => {
+                ransomBtn.removeAttribute("disabled");
+              });
+            });
+            wrap.appendChild(ransomBtn);
+          }
+          if (options.onRecruitPrisoners) {
+            const recruitBtn = h(
+              "button",
+              { type: "button", class: "btn btn--small", "data-testid": `recruit-${p.troopId}` },
+              "Recruit",
+            );
+            recruitBtn.addEventListener("click", () => {
+              recruitBtn.setAttribute("disabled", "");
+              void options.onRecruitPrisoners!(p.troopId, p.count).finally(() => {
+                recruitBtn.removeAttribute("disabled");
+              });
+            });
+            wrap.appendChild(recruitBtn);
+          }
+          return wrap;
+        },
+      });
+    }
+    body.appendChild(stackable(dataTable("Prisoners held", prisonerColumns, party.prisoners, "party-prisoners")));
   }
 
   // -- goods -----------------------------------------------------------------

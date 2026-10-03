@@ -276,3 +276,39 @@ describe("the prisoners section", () => {
     expect(root.textContent).toContain("No prisoners.");
   });
 });
+
+describe("prisoner actions", () => {
+  function partyWithPrisoners() {
+    const party = partyWith([]);
+    party.prisoners = [{ troopId: "t-bandit", name: "Bandit", count: 4, tier: 1 }];
+    return party;
+  }
+
+  it("shows ransom and recruit buttons when the caller provides handlers", () => {
+    const root = partyPanel(
+      options({
+        party: partyWithPrisoners(),
+        onRansomPrisoners: vi.fn().mockResolvedValue({ gold: 100 }),
+        onRecruitPrisoners: vi.fn().mockResolvedValue(undefined),
+      }),
+    );
+    expect(root.querySelector('[data-testid="ransom-t-bandit"]')).not.toBeNull();
+    expect(root.querySelector('[data-testid="recruit-t-bandit"]')).not.toBeNull();
+  });
+
+  it("hides the action buttons when no handlers are provided", () => {
+    const root = partyPanel(options({ party: partyWithPrisoners() }));
+    expect(root.querySelector('[data-testid="ransom-t-bandit"]')).toBeNull();
+    expect(root.querySelector('[data-testid="recruit-t-bandit"]')).toBeNull();
+  });
+
+  it("calls the ransom handler with troop id and count", async () => {
+    const onRansom = vi.fn().mockResolvedValue({ gold: 100 });
+    const root = partyPanel(
+      options({ party: partyWithPrisoners(), onRansomPrisoners: onRansom }),
+    );
+    (root.querySelector('[data-testid="ransom-t-bandit"]') as HTMLButtonElement).click();
+    await settle();
+    expect(onRansom).toHaveBeenCalledWith("t-bandit", 4);
+  });
+});

@@ -145,16 +145,16 @@ describe("named skeletons, not spinners (CONSTITUTION.md 3.2)", () => {
   it("gives the party panel a party-skeleton with the live panel's sections", () => {
     const live = party();
     const sk = partySkeletonBody();
-    // Shortages, supplies, condition and wages, roles, troops, goods. Six either way:
-    // the shortages section is drawn whether or not anything is short, so a party that
-    // is short and one that is not are the same height.
-    expect(live.querySelectorAll(".panel__section").length).toBe(6);
-    expect(sk.querySelectorAll(".skeleton__section").length).toBe(6);
+    // Shortages, supplies, condition and wages, roles, troops, prisoners, goods.
+    // Seven either way: the shortages section is drawn whether or not anything is
+    // short, so a party that is short and one that is not are the same height.
+    expect(live.querySelectorAll(".panel__section").length).toBe(7);
+    expect(sk.querySelectorAll(".skeleton__section").length).toBe(7);
     // Three supply gauges and two condition gauges, as the live panel draws them.
     expect(sk.querySelectorAll(".skeleton__gauge").length).toBe(5);
-    // And the same two table stubs, with the same column counts.
-    expect(sk.querySelectorAll(".skeleton__table").length).toBe(2);
-    expect(sk.querySelectorAll(".skeleton__tr").length).toBe(5);
+    // And the same three table stubs, with the same column counts.
+    expect(sk.querySelectorAll(".skeleton__table").length).toBe(3);
+    expect(sk.querySelectorAll(".skeleton__tr").length).toBe(7);
   });
 
   it("gives the market a market-skeleton with a two-row table stub (ART_DIRECTION 11)", () => {
@@ -542,7 +542,7 @@ describe("the party panel", () => {
     expect(panel.querySelector("[data-testid='party-warnings']")).toBeNull();
     expect(visibleText(panel.querySelector("[data-testid='party-warnings-clear']")!)).toMatch(/nothing short/i);
     // Same height either way, which is the point of keeping the section.
-    expect(panel.querySelectorAll(".panel__section").length).toBe(6);
+    expect(panel.querySelectorAll(".panel__section").length).toBe(7);
   });
 
   it("says so when wages are owed, and stamps it", () => {
