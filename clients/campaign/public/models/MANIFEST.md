@@ -61,6 +61,8 @@ Orientation note: troop-officer.glb geometry lies flat along Z; apply rotationX 
 ## Blender builds (6) — 2026-10-02/03
 Built from scratch in Blender 4.2 via the Blender MCP (bpy scripting, Cycles
 CPU renders verified). All-original geometry, no stock assets.
+Standard treatment (treatment.py): procedural PBR materials, HDRI studio
+lighting, detail pass (bolts, seams, ridges).
 - wooden-crate.glb — target 2m (beveled dark-wood frame, plank panels, diagonal brace)
 - traffic-cone.glb — target 1m (tapered body, reflective white stripes, square base)
 - fire-hydrant-blender.glb — target 1m (dome top, side + front nozzles, base flange)
