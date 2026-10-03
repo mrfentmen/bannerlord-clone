@@ -77,12 +77,13 @@ import { townPanel } from "./ui/panels/TownPanel.js";
 import { whyPanel } from "./ui/panels/WhyPanel.js";
 import type {
   GoodId,
-  NpcParty,
+  NearbyForce,
   SettlementOption,
   SimSnapshot,
   TickUpdate,
   TownState,
 } from "./data/types.js";
+import type { EncounterChoice } from "./ui/panels/EncounterPanel.js";
 import { input } from "./input/index.js";
 import { keybindingEditor } from "./ui/panels/KeybindingEditor.js";
 import { openDeploymentPreview } from "./deploy/index.js";
@@ -899,13 +900,13 @@ function mountCampaign(): void {
       local: {
         describeEncounter: (attackerId, defenderId) => {
           // Use the actual encountered NPC party if available.
-          const encounterNpc = (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
+          const encounterNpc = (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
           const defender = encounterNpc
             ? {
                 partyId: defenderId,
                 name: encounterNpc.name,
                 troops: encounterNpc.troopCount,
-                power: encounterNpc.troops.reduce((n, t) => n + t.count * t.tier, 0),
+                power: (encounterNpc.troops ?? []).reduce((n, t) => n + t.count * t.tier, 0),
               }
             : {
                 partyId: defenderId,
@@ -994,12 +995,12 @@ function mountCampaign(): void {
               console.error("Battle writeback failed:", err);
             });
 
-          const encounterNpc = (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
+          const encounterNpc = (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
           if (won && encounterNpc) {
             void provider
               .defeatNpcParty(encounterNpc.id)
               .then(() => {
-                delete (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
+                delete (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
                 return reloadSnapshot();
               })
               .catch((err) => {
@@ -1013,14 +1014,14 @@ function mountCampaign(): void {
                 prisonersTaken: Math.min(3, Math.round(playerWounded / 2)),
               })
               .then(() => {
-                delete (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
+                delete (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
                 return reloadSnapshot();
               })
               .catch((err) => {
                 console.error("Defeat consequences failed:", err);
               });
           } else if (!won) {
-            delete (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
+            delete (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
           }
         }
       },
@@ -2395,11 +2396,11 @@ async function checkForHostiles(): Promise<void> {
 }
 
 /** Handle the player's encounter choice: fight, flee, or dismiss. */
-async function handleEncounterChoice(choice: { action: "fight" | "flee" | "dismiss"; npcParty: NpcParty }): Promise<void> {
+async function handleEncounterChoice(choice: EncounterChoice): Promise<void> {
   const { npcParty } = choice;
   if (choice.action === "fight") {
     // Store the NPC for the battle's describeEncounter to use.
-    (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc = npcParty;
+    (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc = npcParty;
     console.log(`[encounter] Fighting ${npcParty.name} (${npcParty.troopCount} troops)`);
     // Start the battle: player (attacker) vs the NPC party (defender).
     // The defender party ID is a hash of the NPC ID since battleflow uses numbers.
@@ -2409,7 +2410,7 @@ async function handleEncounterChoice(choice: { action: "fight" | "flee" | "dismi
         await battleUi.attack(0, defenderId); // 0 = player party
       } catch (err) {
         console.error("Failed to start battle:", err);
-        delete (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
+        delete (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
       }
     }
   } else if (choice.action === "flee") {
@@ -2429,7 +2430,7 @@ function hashNpcId(id: string): number {
 }
 
 /** Handle fleeing from an encounter: move the player away, apply consequences. */
-async function handleFlee(npcParty: NpcParty): Promise<void> {
+async function handleFlee(npcParty: NearbyForce): Promise<void> {
   if (!snapshot || !provider) return;
   console.log(`[encounter] Fled from ${npcParty.name}`);
 
