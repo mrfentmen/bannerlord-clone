@@ -286,9 +286,13 @@ func (c *Campaign) SetEthnicity(ctx context.Context, req wire.EthnicityRequest) 
 
 // SetCharacter takes the whole sheet from the character maker.
 //
-// The name, appearance, age, and biography are stored and shown. The starting cash
-// and starting skills have nowhere to go in the model — a party's purse is produced
-// by worldgen and its upkeep, and the model has no per-soldier skill value — so they
+// The name, appearance, age, and biography are stored and shown. The six
+// attributes and the per-skill focus points are stored and handed back by
+// Character, because a character sheet is a record rather than an input to the
+// model: no field in the model is a player attribute, and inventing one would put
+// a number nothing reads into the cause chain. The starting cash and starting
+// skills have nowhere to go in the model either — a party's purse is produced by
+// worldgen and its upkeep, and the model has no per-soldier skill value — so they
 // are accepted, kept in the record, and named here as not applied rather than
 // quietly dropped.
 func (c *Campaign) SetCharacter(ctx context.Context, ch wire.PlayerCharacter) (any, error) {
@@ -319,6 +323,8 @@ func (c *Campaign) SetCharacter(ctx context.Context, ch wire.PlayerCharacter) (a
 		startCity:    ch.StartCity,
 		difficulty:   ch.Difficulty,
 		backgrounds:  ch.BackgroundChoices,
+		attributes:   ch.Attributes,
+		skillFocus:   ch.SkillFocus,
 		bonus:        ch.BonusPoints,
 		skills:       ch.StartingSkills,
 		startingCash: ch.StartingCash,
@@ -347,9 +353,82 @@ func (c *Campaign) Character() wire.PlayerCharacter {
 		StartCity:         ch.startCity,
 		Difficulty:        ch.difficulty,
 		BackgroundChoices: ch.backgrounds,
+		Attributes:        ch.attributes,
+		SkillFocus:        ch.skillFocus,
 		BonusPoints:       ch.bonus,
 		StartingSkills:    ch.skills,
 		StartingCash:      ch.startingCash,
 		Biography:         ch.biography,
 	}
+}
+
+// ApplyBattleResult applies a legacy battle outcome to the player's party.
+// Killed troops are removed; wounded move to the wounded pool.
+func (c *Campaign) ApplyBattleResult(ctx context.Context, in wire.BattleResultInput) (any, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	p := c.state.Parties[c.party]
+	if p == nil {
+		return nil, notFoundf("player party not found")
+	}
+
+	// Apply losses: all as killed (legacy has no wounded split)
+	losses := in.PlayerLosses
+	if losses > p.Troops {
+		losses = p.Troops
+	}
+	p.Troops -= losses
+
+	// Loot to money
+	p.Money += in.Loot
+
+	return wire.BattleResultOutcome{
+		TroopsRemaining: p.Troops,
+		Money:           p.Money,
+		XPAwards:        []wire.BattleXpAward{},
+		Prisoners:       []wire.PrisonerState{},
+	}, nil
+}
+
+// ApplyBattleOutcome applies an authoritative battle result to the player's party.
+// Uses actual killed/wounded numbers, not estimates.
+func (c *Campaign) ApplyBattleOutcome(ctx context.Context, in wire.BattleResult) (any, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	p := c.state.Parties[c.party]
+	if p == nil {
+		return nil, notFoundf("player party not found")
+	}
+
+	// Determine player participant
+	var player wire.BattleParticipantResult
+	if in.Attacker.IsPlayer {
+		player = in.Attacker
+	} else {
+		player = in.Defender
+	}
+
+	// Apply killed (permanent) and wounded (to wounded pool)
+	killed := player.Killed
+	wounded := player.Wounded
+	if killed+wounded > p.Troops {
+		// Scale down proportionally if losses exceed troops
+		scale := p.Troops / (killed + wounded)
+		killed *= scale
+		wounded *= scale
+	}
+	p.Troops -= (killed + wounded)
+	p.Wounded += wounded
+
+	// Loot to money
+	p.Money += in.Loot
+
+	return wire.BattleResultOutcome{
+		TroopsRemaining: p.Troops,
+		Money:           p.Money,
+		XPAwards:        []wire.BattleXpAward{},
+		Prisoners:       []wire.PrisonerState{},
+	}, nil
 }

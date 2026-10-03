@@ -177,6 +177,22 @@ func (s *Server) postBattleXp(w http.ResponseWriter, r *http.Request) {
 	s.order(w, r, func() (any, error) { return s.camp.AwardBattleXp(r.Context(), in) })
 }
 
+func (s *Server) postBattleResult(w http.ResponseWriter, r *http.Request) {
+	var in wire.BattleResultInput
+	if !s.decode(w, r, &in) {
+		return
+	}
+	s.order(w, r, func() (any, error) { return s.camp.ApplyBattleResult(r.Context(), in) })
+}
+
+func (s *Server) postBattleOutcome(w http.ResponseWriter, r *http.Request) {
+	var in wire.BattleResult
+	if !s.decode(w, r, &in) {
+		return
+	}
+	s.order(w, r, func() (any, error) { return s.camp.ApplyBattleOutcome(r.Context(), in) })
+}
+
 func (s *Server) postUpgrade(w http.ResponseWriter, r *http.Request) {
 	var req wire.UpgradeTroopsRequest
 	if !s.decode(w, r, &req) {

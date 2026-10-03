@@ -208,17 +208,84 @@ type EthnicityRequest struct {
 
 // PlayerCharacter is the whole sheet from the character maker, posted verbatim.
 type PlayerCharacter struct {
-	FirstName      string             `json:"firstName"`
-	LastName       string             `json:"lastName"`
-	Gender         string             `json:"gender"`
-	AppearanceID   string             `json:"appearanceId"`
-	EthnicityID    string             `json:"ethnicityId"`
-	Age            float64            `json:"age"`
-	StartCity      string             `json:"startCity"`
-	Difficulty     string             `json:"difficulty"`
+	FirstName         string            `json:"firstName"`
+	LastName          string            `json:"lastName"`
+	Gender            string            `json:"gender"`
+	AppearanceID      string            `json:"appearanceId"`
+	EthnicityID       string            `json:"ethnicityId"`
+	Age               float64           `json:"age"`
+	StartCity         string            `json:"startCity"`
+	Difficulty        string            `json:"difficulty"`
 	BackgroundChoices map[string]string `json:"backgroundChoices"`
-	BonusPoints    map[string]float64 `json:"bonusPoints"`
+	// Attributes is the six-attribute sheet the character maker allocates, and
+	// SkillFocus the focus points it spends on individual skills. Both are the
+	// CHARACTER.md record; they are kept as maps rather than validated against the
+	// catalog here because the catalog is world data the simulation does not read,
+	// and a character the client may legitimately change the shape of should not be
+	// rejected over a skill id the simulation has no opinion about.
+	Attributes map[string]float64 `json:"attributes,omitempty"`
+	SkillFocus map[string]float64 `json:"skillFocus,omitempty"`
+	// BonusPoints is the character maker's pre-attribute focus pool, kept so an
+	// older client still posts a sheet this accepts.
+	BonusPoints    map[string]float64 `json:"bonusPoints,omitempty"`
 	StartingSkills map[string]float64 `json:"startingSkills"`
 	StartingCash   float64            `json:"startingCash"`
 	Biography      string             `json:"biography"`
+}
+
+// BattleResultInput is the legacy battle outcome (casualties as a single number).
+type BattleResultInput struct {
+	Won               bool     `json:"won"`
+	PlayerLosses      float64  `json:"playerLosses"`
+	Loot              float64  `json:"loot"`
+	EnemyStrength     float64  `json:"enemyStrength"`
+	PrisonersCaptured []PrisonerInput `json:"prisonersCaptured,omitempty"`
+}
+
+// PrisonerInput is a captured enemy troop type.
+type PrisonerInput struct {
+	TroopID string  `json:"troopId"`
+	Name    string  `json:"name"`
+	Count   float64 `json:"count"`
+	Tier    float64 `json:"tier"`
+}
+
+// BattleParticipantResult is one side's authoritative outcome.
+type BattleParticipantResult struct {
+	PartyID         string  `json:"partyId"`
+	Name            string  `json:"name"`
+	IsPlayer        bool    `json:"isPlayer"`
+	InitialTroops   float64 `json:"initialTroops"`
+	SurvivingTroops float64 `json:"survivingTroops"`
+	Killed          float64 `json:"killed"`
+	Wounded         float64 `json:"wounded"`
+	PrisonersTaken  float64 `json:"prisonersTaken"`
+	PrisonersLost   float64 `json:"prisonersLost"`
+	Retreated       bool    `json:"retreated"`
+}
+
+// BattleResult is the authoritative battle outcome.
+type BattleResult struct {
+	BattleID string                  `json:"battleId"`
+	Winner   string                  `json:"winner"`
+	Attacker BattleParticipantResult `json:"attacker"`
+	Defender BattleParticipantResult `json:"defender"`
+	Loot     float64                 `json:"loot"`
+	Ticks    float64                 `json:"ticks"`
+}
+
+// BattleResultOutcome is what the campaign returns after applying a battle.
+type BattleResultOutcome struct {
+	TroopsRemaining float64          `json:"troopsRemaining"`
+	Money           float64          `json:"money"`
+	XPAwards        []BattleXpAward  `json:"xpAwards"`
+	Prisoners       []PrisonerState  `json:"prisoners"`
+}
+
+// PrisonerState is a held prisoner type.
+type PrisonerState struct {
+	TroopID string  `json:"troopId"`
+	Name    string  `json:"name"`
+	Count   float64 `json:"count"`
+	Tier    float64 `json:"tier"`
 }
