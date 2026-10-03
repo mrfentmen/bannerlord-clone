@@ -1,6 +1,11 @@
 /**
  * Blend transitions between animation states.
  *
+ * Task 634: once the reaction is over the character goes back to what it was
+ * doing, over 0.3 s -- the longest blend in the table. A reaction that snaps back
+ * into a run looks like a cut, and a cut in the middle of a firefight is the
+ * single most visible animation artefact in a shooter.
+ *
  * Task 633: a hit reaction interrupts whatever is playing, from any state, in
  * 0.05 s. That is the shortest blend in the game and it is deliberate: a hit
  * that takes a fifth of a second to appear reads as the game ignoring the shot.
@@ -31,6 +36,9 @@
 /** A blend length in seconds. */
 export type BlendSeconds = number;
 
+/** Task 634: how long a hit reaction takes to blend back out, seconds. */
+export const RETURN_FROM_HIT_SECONDS = 0.3;
+
 /** Every transition the animation layer can be asked for. */
 export type BlendState =
   | 'idle'
@@ -40,6 +48,23 @@ export type BlendState =
   | 'shoot'
   | 'hit'
   | 'death';
+
+/** A state a hit reaction must never return to. */
+const NEVER_RETURN_TO: ReadonlySet<BlendState> = new Set<BlendState>(['hit', 'death']);
+
+/**
+ * Task 634: the state a hit reaction returns to.
+ *
+ * `previous` is whatever was playing before the hit. A reaction caused by a
+ * second hit while the first is still playing must return to the state *before*
+ * that, not straight back into the reaction -- otherwise the character loops in
+ * the flinch forever. `hit` and `death` are never returned to: a hit reaction
+ * ends in a normal stance, and a death is not something to blend back out of.
+ */
+export function stateToReturnTo(previous: BlendState | null): BlendState {
+  if (previous === null || NEVER_RETURN_TO.has(previous)) return 'idle';
+  return previous;
+}
 
 /** A transition's blend length, in seconds. */
 export interface BlendTiming {
@@ -202,6 +227,27 @@ export class BlendTrack {
     const next = this.ensure(to);
     next.target = 1;
     next.blendS = interruptTimeFor(to);
+  }
+
+  /**
+   * Task 634: end a hit reaction and blend back to the state it interrupted.
+   *
+   * The blend is {@link RETURN_FROM_HIT_SECONDS} whichever state that is -- it
+   * is the reaction blending out, not a locomotion change, so the table's rows
+   * for locomotion do not apply.
+   */
+  playAfterHit(previous: BlendState | null): BlendState {
+    const target = stateToReturnTo(previous);
+    const current = this.active;
+    if (current !== null && current !== target) {
+      const out = this.ensure(current);
+      out.target = 0;
+      out.blendS = RETURN_FROM_HIT_SECONDS;
+    }
+    const next = this.ensure(target);
+    next.target = 1;
+    next.blendS = RETURN_FROM_HIT_SECONDS;
+    return target;
   }
 
   /** Advances every weight by `deltaS`. */

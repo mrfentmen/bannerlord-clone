@@ -17,9 +17,11 @@ import {
   type BlendState,
   DEFAULT_BLEND_SECONDS,
   IDLE_TO_WALK,
+  RETURN_FROM_HIT_SECONDS,
   WALK_TO_RUN,
   blendTimeFor,
   interruptTimeFor,
+  stateToReturnTo,
   transitionKey,
 } from "../BlendTransitions.js";
 
@@ -54,6 +56,70 @@ describe("blend timings (task 631)", () => {
 
   it("has a printable key for a transition", () => {
     expect(transitionKey('idle', 'walk')).toBe('idle->walk');
+  });
+});
+
+describe("hit back to previous (task 634)", () => {
+  it("blends out of the reaction over 0.3 s", () => {
+    expect(RETURN_FROM_HIT_SECONDS).toBe(0.3);
+    for (const previous of ['idle', 'walk', 'run', 'aim', 'shoot'] as BlendState[]) {
+      const track = new BlendTrack();
+      track.play(previous);
+      runFor(track, 0.3);
+      track.interrupt('hit');
+      runFor(track, 0.05);
+      expect(track.weightOf('hit')).toBeCloseTo(1, 5);
+
+      expect(track.playAfterHit(previous)).toBe(previous);
+      const half = runFor(track, 0.15);
+      expect(half.weights[previous]).toBeCloseTo(0.5, 1);
+      expect(half.weights.hit).toBeCloseTo(0.5, 1);
+
+      runFor(track, 0.15);
+      expect(track.weightOf(previous)).toBeCloseTo(1, 5);
+      expect(track.weightOf('hit')).toBe(0);
+      expect(track.active).toBe(previous);
+    }
+  });
+
+  it("returns to the state before the first hit, not into the reaction", () => {
+    const track = new BlendTrack();
+    track.play('run');
+    runFor(track, 0.3);
+    track.interrupt('hit');
+    runFor(track, 0.05);
+    // A second hit lands while the first reaction is still playing.
+    expect(track.playAfterHit('hit')).toBe('idle');
+    expect(stateToReturnTo('hit')).toBe('idle');
+  });
+
+  it("never returns to a death", () => {
+    expect(stateToReturnTo('death')).toBe('idle');
+    expect(stateToReturnTo(null)).toBe('idle');
+    const track = new BlendTrack();
+    track.play('idle');
+    runFor(track, 0.3);
+    expect(track.playAfterHit(null)).toBe('idle');
+  });
+
+  it("is slower than a locomotion change, which is the point", () => {
+    expect(RETURN_FROM_HIT_SECONDS).toBeGreaterThan(IDLE_TO_WALK.inS);
+    expect(RETURN_FROM_HIT_SECONDS).toBeGreaterThan(WALK_TO_RUN.inS);
+    expect(RETURN_FROM_HIT_SECONDS).toBeGreaterThan(interruptTimeFor('hit'));
+  });
+
+  it("returns to a state that is only half blended in", () => {
+    const track = new BlendTrack();
+    track.play('idle');
+    runFor(track, 0.3);
+    track.play('walk');
+    runFor(track, 0.1); // interrupted before walk reached full weight
+    track.interrupt('hit');
+    runFor(track, 0.05);
+    expect(track.playAfterHit('walk')).toBe('walk');
+    runFor(track, 0.3);
+    expect(track.weightOf('walk')).toBeCloseTo(1, 5);
+    expect(track.weightOf('hit')).toBe(0);
   });
 });
 
