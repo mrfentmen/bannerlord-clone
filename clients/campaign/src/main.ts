@@ -66,6 +66,7 @@ import { marketPanel } from "./ui/panels/MarketPanel.js";
 import { settingsPanel } from "./ui/panels/SettingsPanel.js";
 import { gameMenuPanel } from "./ui/panels/GameMenu.js";
 import { partyPanel } from "./ui/panels/PartyPanel.js";
+import { characterPanel } from "./ui/panels/CharacterPanel.js";
 import { marchPlanner } from "./ui/panels/MarchPlanner.js";
 import { ledgerPanel } from "./ui/panels/LedgerPanel.js";
 import { rulerCard, rulerRoster } from "./ui/panels/RulerPanel.js";
@@ -2188,6 +2189,22 @@ function rebuildContext(): void {
           selectedRuler = id;
           rebuildContext();
           paint();
+        },
+      });
+      return;
+    }
+    case "character": {
+      const p = snap.player;
+      contextNode = characterPanel({
+        character: {
+          characterName: p.characterName,
+          age: p.age,
+          ethnicityId: p.ethnicityId,
+          biography: p.biography,
+          attributes: p.attributes,
+          skills: p.skills,
+          influence: p.influence,
+          renown: p.renown,
         },
       });
       return;

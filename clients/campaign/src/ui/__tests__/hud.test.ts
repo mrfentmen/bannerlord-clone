@@ -464,7 +464,7 @@ describe("the party rail", () => {
   it("shows the party, its grain in days, and the panels it can open", () => {
     const rail = hudAt().querySelector("[data-testid='party-rail']")!;
     expect(rail.textContent).toContain(snapshot.player.characterName);
-    for (const id of ["open-party", "open-march", "open-ledger", "open-roster", "open-data-source"]) {
+    for (const id of ["open-party", "open-character", "open-march", "open-ledger", "open-roster", "open-data-source"]) {
       const btn = hudAt().querySelector(`[data-testid='${id}']`);
       expect(btn, `the rail is missing ${id}`).not.toBeNull();
       expect(btn!.getAttribute("aria-label")?.length ?? (btn!.textContent ?? "").length).toBeGreaterThan(0);
