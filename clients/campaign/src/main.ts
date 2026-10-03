@@ -53,6 +53,7 @@ import { publishWorld } from "./world/context.js";
 import { classifySettlement } from "./world/load.js";
 import type { WorldSettlement } from "./world/types.js";
 import { createCampaignScene, type SceneHandle } from "./scene/CampaignScene.js";
+import { buildEventMarkers } from "./scene/eventMarkers.js";
 import { findRoute, shortestPath } from "./scene/network.js";
 import { createHud, dataSourcePanel, fatalError, type HudPanel, type HudState } from "./ui/hud.js";
 import { MapTooltip, buildSettlementHoverCard } from "./ui/mapTooltip.js";
@@ -1538,11 +1539,23 @@ function applyTick(base: SimSnapshot, update: TickUpdate): SimSnapshot {
 
 // -- paint -------------------------------------------------------------------
 
+/**
+ * Battle/siege markers on the map. The derivation is pure (`scene/eventMarkers.ts`);
+ * this just hands the result to the scene. Runs inside paint(), after the fog pass.
+ */
+function syncEventMarkers(): void {
+  if (!scene || !snapshot) return;
+  scene.setEventMarkers(buildEventMarkers(snapshot.notifications, snapshot.towns));
+}
+
 function paint(): void {
   if (!snapshot) return;
   reindexTowns();
   // After the reindex, never before: the fog pass reads the settlement-to-town join.
   applyFog();
+  // Event markers ride the fog pass: the scene skips unseen towns, so this must run
+  // after fog is applied, never before.
+  syncEventMarkers();
   const headcount = snapshot.party.troops.reduce((a, t) => a + t.count, 0);
   const dailyFood = headcount * 0.85;
   const state: HudState = {

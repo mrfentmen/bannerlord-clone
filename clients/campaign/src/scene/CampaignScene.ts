@@ -25,7 +25,7 @@ import {
   StandardMaterial,
   Vector3,
 } from "@babylonjs/core";
-import { accent, mapColor, tokens } from "../design/tokens.js";
+import { accent, mapColor, status, tokens } from "../design/tokens.js";
 import { resolveGrade, type QualityLevel } from "../design/grade.js";
 import { buildTerrain, terrainSummary } from "./terrain.js";
 import {
@@ -117,6 +117,16 @@ export interface SceneHandle {
    * player for looking away and coming back.
    */
   setSelectedSettlement(settlementId: string | null): void;
+  /**
+   * Battle and siege markers, from the simulation's own notifications.
+   *
+   * Each marker is a pulsing billboard at the settlement's marker, fixed screen size
+   * like the pin. The list replaces the previous one wholesale — the caller sends the
+   * recent notifications it wants drawn. A marked town in `unseen` fog is skipped: the
+   * notification text already names the place, but the map must not draw what the side
+   * cannot see.
+   */
+  setEventMarkers(markers: readonly MapEventMarker[]): void;
   /** One line about what the map is showing, for the data-source panel. */
   summary(): string;
   /**
@@ -149,6 +159,12 @@ export interface SceneHandle {
     recency?: ReadonlyMap<string, TownRecency>,
   ): void;
   towns: TownCluster[];
+}
+
+/** A recent battle or siege the map should mark, keyed to the client's settlement id. */
+export interface MapEventMarker {
+  settlementId: string;
+  kind: "battle" | "siege";
 }
 
 export function createCampaignScene(options: SceneOptions): SceneHandle {
@@ -290,6 +306,19 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
   let selectedSettlementId: string | null = null;
   const clusterById = new Map(towns.map((cluster) => [cluster.settlementId, cluster] as const));
 
+  // -- battle/siege event markers -------------------------------------------
+  // One shared texture per kind (battle red, siege amber), one material per pooled
+  // mesh so the texture can be swapped without cloning textures. The pool is small:
+  // the caller sends only recent notifications, and a map with twenty pulsing markers
+  // is a map nobody can read.
+  const EVENT_POOL_SIZE = 12;
+  const eventTextures: Record<MapEventMarker["kind"], DynamicTexture> = {
+    battle: buildEventTexture(scene, "event-tex-battle", status.critical.mark),
+    siege: buildEventTexture(scene, "event-tex-siege", status.warning.mark),
+  };
+  const eventPool: Mesh[] = [];
+  let eventTime = 0;
+
   // -- the planned route ----------------------------------------------------
   let routeMesh: Mesh | null = null;
   // Destination marker: a small billboarded diamond in the route's own accent colour
@@ -352,11 +381,14 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
   });
 
   engine.runRenderLoop(() => {
-    if (grain) grain.tick(engine.getDeltaTime());
+    const deltaMs = engine.getDeltaTime();
+    if (grain) grain.tick(deltaMs);
+    eventTime += deltaMs / 1000;
     const renderHeight = engine.getRenderHeight();
     sizePartyPin(pin, camera.radius, renderHeight);
     sizeSelectionRing(selectionRing, camera.radius, renderHeight);
     sizeDestinationMarker(destMarker, camera.radius, renderHeight);
+    pulseEventMarkers(eventPool, eventTime, camera.radius, renderHeight);
     scene.render();
   });
 
@@ -428,6 +460,35 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       // this after every fog change.
       const state = states.get(cluster.settlementId) ?? "visible";
       selectionRing.setEnabled(state !== "unseen");
+    },
+    setEventMarkers(markers) {
+      // Last write wins per settlement: the caller sends chronological notifications,
+      // so a siege that followed a battle at the same town shows the siege.
+      const bySettlement = new Map<string, MapEventMarker["kind"]>();
+      for (const marker of markers) bySettlement.set(marker.settlementId, marker.kind);
+      let i = 0;
+      for (const [settlementId, kind] of bySettlement) {
+        if (i >= EVENT_POOL_SIZE) break;
+        const cluster = clusterById.get(settlementId);
+        // Unseen towns are skipped, not drawn dimmed: a marker is a claim about where
+        // something is happening, and the map must not make that claim about a place
+        // the side cannot see. The notification feed still names the town.
+        const visState = states.get(settlementId) ?? "visible";
+        if (!cluster || visState === "unseen") continue;
+        let mesh = eventPool[i];
+        if (!mesh) {
+          mesh = buildEventMarkerMesh(scene, eventTextures);
+          eventPool.push(mesh);
+        }
+        i += 1;
+        const material = mesh.material as StandardMaterial;
+        material.diffuseTexture = eventTextures[kind];
+        material.opacityTexture = eventTextures[kind];
+        mesh.position.copyFrom(cluster.markerPosition);
+        mesh.position.y += 150;
+        mesh.setEnabled(true);
+      }
+      for (; i < eventPool.length; i += 1) eventPool[i]!.setEnabled(false);
     },
     setTownVisibility(next, recency) {
       states = next;
@@ -843,6 +904,88 @@ function buildDestinationMarker(scene: Scene): Mesh {
   marker.renderingGroupId = 1;
   marker.isPickable = false;
   return marker;
+}
+
+const EVENT_MARKER_PIXELS = 34;
+const EVENT_MARKER_MIN_M = 50;
+const EVENT_MARKER_MAX_M = 1100;
+
+/**
+ * Pulse the event markers: fixed screen size like every other map symbol, with a
+ * gentle scale oscillation so a battle reads as ongoing rather than as a pin.
+ */
+function pulseEventMarkers(pool: Mesh[], time: number, radius: number, viewportHeightPx: number): void {
+  for (const mesh of pool) {
+    if (!mesh.isEnabled()) continue;
+    const base = screenMarkerMetres(
+      EVENT_MARKER_PIXELS,
+      radius,
+      viewportHeightPx,
+      EVENT_MARKER_MIN_M,
+      EVENT_MARKER_MAX_M,
+    );
+    mesh.scaling.setAll(base * (1 + 0.14 * Math.sin(time * 3.2 + mesh.position.x * 0.01)));
+  }
+}
+
+/**
+ * One event texture per kind. Battle is a filled red diamond, siege a hollow amber
+ * one: the diamond keeps the settlement-pin motif (both mark places), the fill
+ * carries the difference, and colour is never the only signal — shape differs too.
+ */
+function buildEventTexture(scene: Scene, name: string, color: string): DynamicTexture {
+  const size = 256;
+  const texture = new DynamicTexture(name, { width: size, height: size }, scene, true);
+  texture.hasAlpha = true;
+  const ctx = texture.getContext() as CanvasRenderingContext2D;
+  ctx.clearRect(0, 0, size, size);
+  const c = size / 2;
+  const r = size * 0.3;
+  const diamond = (): void => {
+    ctx.beginPath();
+    ctx.moveTo(c, c - r);
+    ctx.lineTo(c + r, c);
+    ctx.lineTo(c, c + r);
+    ctx.lineTo(c - r, c);
+    ctx.closePath();
+  };
+  // Paper edge so the mark reads against any terrain.
+  diamond();
+  ctx.lineWidth = size * 0.1;
+  ctx.strokeStyle = tokens.paper[0];
+  ctx.stroke();
+  diamond();
+  if (name.includes("battle")) {
+    ctx.fillStyle = color;
+    ctx.fill();
+  } else {
+    ctx.lineWidth = size * 0.09;
+    ctx.strokeStyle = color;
+    ctx.stroke();
+  }
+  texture.update();
+  return texture;
+}
+
+function buildEventMarkerMesh(
+  scene: Scene,
+  textures: Record<MapEventMarker["kind"], DynamicTexture>,
+): Mesh {
+  const material = new StandardMaterial("event-marker-mat", scene);
+  material.diffuseTexture = textures.battle;
+  material.opacityTexture = textures.battle;
+  material.emissiveColor = new Color3(1, 1, 1);
+  material.diffuseColor = new Color3(0, 0, 0);
+  material.specularColor = new Color3(0, 0, 0);
+  material.backFaceCulling = false;
+  material.disableLighting = true;
+  const mesh = MeshBuilder.CreatePlane("event-marker", { size: 1 }, scene);
+  mesh.material = material;
+  mesh.billboardMode = Mesh.BILLBOARDMODE_ALL;
+  mesh.renderingGroupId = 1;
+  mesh.isPickable = false;
+  mesh.setEnabled(false);
+  return mesh;
 }
 
 /**
