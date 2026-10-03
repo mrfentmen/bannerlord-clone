@@ -39,6 +39,7 @@ function town(): TownState {
     garrisonConduct: 0.6,
     roadSafety: 0.7,
     informationTrust: 0.6,
+    crimeRating: 0.15,
     money: 1000,
     gold: 0,
     metal: 0,
