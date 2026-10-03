@@ -59,6 +59,8 @@ func main() {
 		os.Exit(simrun.BattleRecordCmd(args, os.Stdout, os.Stderr, loadConfigFor))
 	case "replay":
 		os.Exit(simrun.ReplayCmd(args, os.Stdout, os.Stderr, loadConfigFor))
+	case "inspect":
+		cmdInspect(args)
 	default:
 		usage()
 		os.Exit(2)
@@ -76,6 +78,7 @@ func usage() {
   balance  -log FILE                               field distribution of a run
   battle   -seed N [-a-units N] [-b-units N]      fight a battle and record it
   replay   -battle ID                             re-run a recorded battle and diff it
+  inspect  -seed N -days D -parties N             AI observability: what the AIs are doing
 
   -settlements PATH   settlement feed for run/sweep/chains
                       (default `+simfeed.DefaultPath+`; "-" for the synthesised map)
