@@ -57,6 +57,8 @@ import { buildEventMarkers } from "./scene/eventMarkers.js";
 import { findRoute, shortestPath } from "./scene/network.js";
 import { createHud, dataSourcePanel, fatalError, type HudPanel, type HudState } from "./ui/hud.js";
 import { MapTooltip, buildSettlementHoverCard } from "./ui/mapTooltip.js";
+import { TutorialBanner } from "./ui/tutorialBanner.js";
+import { currentHint, loadTutorialStore, saveTutorialStore } from "./data/tutorial.js";
 import { settlementFogView } from "./data/fogView.js";
 import { unknownTownPanel } from "./ui/panels/UnknownTownPanel.js";
 import { marketPanel } from "./ui/panels/MarketPanel.js";
@@ -145,6 +147,8 @@ let lastWhy: { entityId: string; field: string } | null = null;
 let objectiveStore = loadObjectiveStore();
 // Journal state (mandate §8): the campaign's history, persisted across sessions.
 let journalStore = loadJournalStore();
+// Tutorial state (mandate §13): dismissed hints and the global disable, persisted.
+let tutorialStore = loadTutorialStore();
 let connectionState: "connected" | "reconnecting" | "degraded" = "connected";
 /** The route the party is on, and the in-game day it left. */
 interface Travel {
@@ -233,6 +237,18 @@ publishWorld({
 
 setBootNote("Starting the renderer.");
 const mapTooltip = new MapTooltip(app);
+const tutorialBanner = new TutorialBanner(app, {
+  onDismiss: (hintId) => {
+    tutorialStore.dismissed.add(hintId);
+    saveTutorialStore(tutorialStore);
+    tutorialBanner.show(null);
+  },
+  onDisable: () => {
+    tutorialStore.disabled = true;
+    saveTutorialStore(tutorialStore);
+    tutorialBanner.show(null);
+  },
+});
 scene = createCampaignScene({
   canvas: canvasEl,
   world: worldData.data,
@@ -1087,6 +1103,10 @@ function rebuildContext(): void {
       return;
     case "objectives":
       // No town needed: objectives are measured from the party and the world.
+      if (!tutorialStore.objectivesOpened) {
+        tutorialStore.objectivesOpened = true;
+        saveTutorialStore(tutorialStore);
+      }
       contextNode = objectivesNode();
       return;
     case "journal":
@@ -1656,6 +1676,22 @@ function paint(): void {
     journalStore = journaled;
     saveJournalStore(journalStore);
   }
+  // Tutorial hints (mandate §13): one contextual hint at a time, evaluated from live
+  // state on every paint.
+  const hintHeadcount = snapshot.party.troops.reduce((a, t) => a + t.count, 0);
+  const hintDailyFood = hintHeadcount * 0.85;
+  tutorialBanner.show(
+    currentHint(
+      {
+        party: snapshot.party,
+        visitedSettlementIds: objectiveStore.visited,
+        daysOfFood: hintDailyFood === 0 ? 0 : snapshot.party.food / hintDailyFood,
+        objectivesOpened: tutorialStore.objectivesOpened,
+      },
+      tutorialStore.dismissed,
+      tutorialStore.disabled,
+    ),
+  );
   const headcount = snapshot.party.troops.reduce((a, t) => a + t.count, 0);
   const dailyFood = headcount * 0.85;
   const state: HudState = {
