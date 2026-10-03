@@ -71,6 +71,37 @@ describe("global UI sounds (tasks 531/535)", () => {
     expect(spy).not.toHaveBeenCalled();
   });
 
+  it("ticks when the pointer arrives on a button from outside", () => {
+    const button = document.createElement("button");
+    const label = document.createElement("span");
+    button.appendChild(label);
+    root.appendChild(button);
+
+    button.dispatchEvent(new MouseEvent("pointerover", { bubbles: true, relatedTarget: root }));
+    label.dispatchEvent(new MouseEvent("pointerover", { bubbles: true, relatedTarget: button }));
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledWith("hover");
+  });
+
+  it("does not re-tick while moving between a button's own children", () => {
+    const button = document.createElement("button");
+    const first = document.createElement("span");
+    const second = document.createElement("span");
+    button.append(first, second);
+    root.appendChild(button);
+
+    first.dispatchEvent(new MouseEvent("pointerover", { bubbles: true, relatedTarget: button }));
+    second.dispatchEvent(new MouseEvent("pointerover", { bubbles: true, relatedTarget: first }));
+    expect(spy).not.toHaveBeenCalled();
+  });
+
+  it("stays silent for a pointer over a plain element", () => {
+    const plain = document.createElement("div");
+    root.appendChild(plain);
+    plain.dispatchEvent(new MouseEvent("pointerover", { bubbles: true, relatedTarget: root }));
+    expect(spy).not.toHaveBeenCalled();
+  });
+
   it("stops listening when uninstalled", () => {
     const button = document.createElement("button");
     root.appendChild(button);

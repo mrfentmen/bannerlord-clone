@@ -1,10 +1,11 @@
 /**
- * Tasks 531/535/533/534: the UI's sound cues.
+ * Tasks 531/532/535/533/534: the UI's sound cues.
  *
- * The game has hundreds of buttons and switches, so the click and toggle are
- * delegated from the app root rather than attached to every control: a click
- * anywhere on a `<button>` plays the click, and a checkbox — the switch this
- * UI uses for settings toggles and mode modifiers — plays the toggle when it
+ * The game has hundreds of buttons and switches, so the click, hover and
+ * toggle are delegated from the app root rather than attached to every
+ * control: a click anywhere on a `<button>` plays the click, a pointer
+ * arriving on one plays the hover tick, and a checkbox — the switch this UI
+ * uses for settings toggles and mode modifiers — plays the toggle when it
  * flips. Because they are delegated listeners, controls added later are
  * covered without their builders knowing that audio exists.
  *
@@ -31,12 +32,26 @@ export function installUiSounds(root: HTMLElement): () => void {
       getAudioManager().playUiSound("toggle");
     }
   };
+  // Task 532: a tick when the pointer arrives on a button, not when it moves
+  // between the button's own children — otherwise a button with a label and a
+  // glyph would tick twice on the way in.
+  const onPointerOver = (event: Event): void => {
+    const target = event.target;
+    if (!(target instanceof Element)) return;
+    const button = target.closest("button");
+    if (!button) return;
+    const from = (event as MouseEvent).relatedTarget;
+    if (from instanceof Node && button.contains(from)) return;
+    getAudioManager().playUiSound("hover");
+  };
 
   root.addEventListener("click", onClick);
   root.addEventListener("change", onChange);
+  root.addEventListener("pointerover", onPointerOver);
   return () => {
     root.removeEventListener("click", onClick);
     root.removeEventListener("change", onChange);
+    root.removeEventListener("pointerover", onPointerOver);
   };
 }
 
