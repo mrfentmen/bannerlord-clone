@@ -39,7 +39,6 @@ function town(): TownState {
     garrisonConduct: 0.6,
     roadSafety: 0.7,
     informationTrust: 0.6,
-    crimeRating: 0.15,
     money: 1000,
     gold: 0,
     metal: 0,
@@ -109,6 +108,17 @@ describe("town panel workshops", () => {
     (root.querySelector('[data-testid="buy-workshop"]') as HTMLButtonElement).click();
     await Promise.resolve();
     expect(onBuy).toHaveBeenCalledWith("smithy");
+  });
+
+  it("sends the selected workshop type to the buy handler", async () => {
+    const onBuy = vi.fn().mockResolvedValue({ workshopId: "w-new" });
+    const root = townPanel(options({ onBuyWorkshop: onBuy }));
+    const select = root.querySelector('[data-testid="buy-workshop-type"]') as HTMLSelectElement;
+    expect(select).not.toBeNull();
+    select.value = "brewery";
+    (root.querySelector('[data-testid="buy-workshop"]') as HTMLButtonElement).click();
+    await Promise.resolve();
+    expect(onBuy).toHaveBeenCalledWith("brewery");
   });
 });
 

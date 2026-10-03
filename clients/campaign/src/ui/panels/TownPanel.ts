@@ -412,14 +412,27 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
       body.appendChild(list);
     }
     if (options.onBuyWorkshop !== undefined) {
+      const typeSelect = h("select", {
+        class: "field__input",
+        "data-testid": "buy-workshop-type",
+        "aria-label": "Workshop type",
+      }) as HTMLSelectElement;
+      for (const [value, label] of [
+        ["smithy", "Smithy"],
+        ["brewery", "Brewery"],
+        ["weavery", "Weavery"],
+        ["tannery", "Tannery"],
+        ["press", "Press"],
+      ]) {
+        const opt = h("option", { value }, label) as HTMLOptionElement;
+        typeSelect.appendChild(opt);
+      }
       const buyBtn = h("button", { type: "button", class: "btn", "data-testid": "buy-workshop" }, "Buy a workshop");
       buyBtn.addEventListener("click", () => {
-        // The type picker is a follow-up; the first cut buys the default smithy
-        // so the order path is live and testable end to end.
         buyBtn.setAttribute("disabled", "");
-        void options.onBuyWorkshop!("smithy").finally(() => buyBtn.removeAttribute("disabled"));
+        void options.onBuyWorkshop!(typeSelect.value).finally(() => buyBtn.removeAttribute("disabled"));
       });
-      body.appendChild(h("div", { style: "margin-top:var(--space-2)" }, buyBtn));
+      body.appendChild(h("div", { style: "margin-top:var(--space-2)" }, typeSelect, buyBtn));
     }
   }
 
