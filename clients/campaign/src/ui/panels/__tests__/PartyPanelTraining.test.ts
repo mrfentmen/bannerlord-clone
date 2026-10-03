@@ -258,3 +258,21 @@ describe("the troop table", () => {
     expect(cells.map((c) => c.textContent)).toEqual(["3", "0"]);
   });
 });
+
+describe("the prisoners section", () => {
+  it("lists held prisoners with counts and tiers", () => {
+    const party = partyWith([]);
+    party.prisoners = [
+      { troopId: "t-bandit", name: "Bandit", count: 4, tier: 1 },
+      { troopId: "t-raider", name: "Raider", count: 7, tier: 2 },
+    ];
+    const root = partyPanel(options({ party }));
+    const counts = Array.from(root.querySelectorAll('[data-testid="prisoner-count"]'));
+    expect(counts.map((c) => c.textContent)).toEqual(["4", "7"]);
+  });
+
+  it("says plainly when there are no prisoners", () => {
+    const root = partyPanel(options({ party: partyWith([]) }));
+    expect(root.textContent).toContain("No prisoners.");
+  });
+});

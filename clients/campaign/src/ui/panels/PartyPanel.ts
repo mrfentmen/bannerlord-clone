@@ -257,6 +257,27 @@ export function partyPanel(options: PartyPanelOptions): HTMLElement {
     body.appendChild(trainingSection(party, options));
   }
 
+  // -- prisoners -------------------------------------------------------------
+  body.appendChild(sectionHeader("Prisoners"));
+  if (party.prisoners.length === 0) {
+    body.appendChild(emptyState("No prisoners.", "Take captives in battle to ransom or recruit them."));
+  } else {
+    body.appendChild(
+      stackable(
+        dataTable(
+          "Prisoners held",
+          [
+            { header: "Unit", render: (p) => h("span", { class: "label" }, p.name) },
+            { header: "Count", numeric: true, testId: "prisoner-count", render: (p) => String(p.count) },
+            { header: "Tier", numeric: true, testId: "prisoner-tier", render: (p) => String(p.tier) },
+          ],
+          party.prisoners,
+          "party-prisoners",
+        ),
+      ),
+    );
+  }
+
   // -- goods -----------------------------------------------------------------
   body.appendChild(sectionHeader("Goods in the wagons"));
   const held = party.goods.filter((g) => g.quantity > 0);
