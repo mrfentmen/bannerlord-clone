@@ -175,4 +175,24 @@ describe("ambient bed (task 571)", () => {
     expect(ctx.sources[0]!.stoppedAt).toBeCloseTo(7.6, 5);
     expect(firstVoiceGain().gain.events.at(-1)).toEqual({ kind: "ramp", value: 0, time: 7.5 });
   });
+
+  it("does not start a bed that finishes loading after the bus was stopped", async () => {
+    const audio = await readyAudio();
+    const originalPreload = audio.preload.bind(audio);
+    let release!: () => void;
+    vi.spyOn(audio, "preload").mockImplementation(async (ids) => {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      await originalPreload(ids);
+    });
+
+    const pending = audio.playAmbient(TOWN_DAY);
+    await Promise.resolve();
+    audio.stopAmbient();
+    release();
+    await pending;
+
+    expect(ctx.sources).toHaveLength(0);
+  });
 });

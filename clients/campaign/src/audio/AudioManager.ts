@@ -155,6 +155,7 @@ export class AudioManager {
   } | null = null;
   private musicPreviewToken = 0;
   private currentAmbient: Voice | null = null;
+  private ambientRequestToken = 0;
   /** The combat bed's stems, keyed by id (task 563). */
   private combatVoices = new Map<SfxId, Voice>();
 
@@ -337,13 +338,15 @@ export class AudioManager {
    * alone, exactly as a track does.
    */
   async playAmbient(id: string): Promise<void> {
+    const token = ++this.ambientRequestToken;
     if (!this.ctx) await this.init();
-    if (!this.ctx || !this.ambientGain) return;
+    if (token !== this.ambientRequestToken || !this.ctx || !this.ambientGain) return;
     if (this.currentAmbient?.id === id) return;
 
     if (!this.buffers.has(id)) {
       await this.preload([id]);
     }
+    if (token !== this.ambientRequestToken) return;
     const buffer = this.buffers.get(id);
     if (!buffer) return;
 
@@ -354,6 +357,7 @@ export class AudioManager {
 
   /** Stops the ambient bed with its own short fade (task 571). */
   stopAmbient(): void {
+    this.ambientRequestToken++;
     if (!this.ctx || !this.ambientGain) return;
     const voice = this.currentAmbient;
     this.currentAmbient = null;

@@ -31,6 +31,7 @@ import { getAudioManager } from "./audio/AudioManager.js";
 import { applyAudioSettings } from "./audio/applySettings.js";
 import { installUiSounds, playVerdictSound } from "./audio/uiSounds.js";
 import { playNoticeCue } from "./audio/noticePop.js";
+import { applySelectionAmbient } from "./audio/selectionAmbient.js";
 
 // Task 25/26: the error boundary, console tail, and bug reporter are imported
 // here but installed after the canvas handles exist (see below).
@@ -933,7 +934,11 @@ function mountCampaign(): void {
       },
       onDone: () => {
         // The overlay persists (hidden) and the poller keeps adopting future
-        // encounters; just refresh the campaign state underneath.
+        // encounters; just refresh the campaign state underneath. The battle
+        // owned the ambient bus while active, so return it to the selected town.
+        if (selectedSettlement) {
+          applySelectionAmbient(getAudioManager(), { townSelected: townFor(selectedSettlement) !== undefined });
+        }
         void reloadSnapshot();
       },
     });
@@ -1199,6 +1204,9 @@ function selectSettlement(id: string): void {
     scene.focus(p.x, p.z, klass === "city" ? 20_000 : klass === "town" ? 13_000 : 7_500);
   }
   currentPanel = town ? "town" : "none";
+  // Task 571: a selected town is the existing place-entry signal. The sim has
+  // day-count but no hour/weather feed, so use only the real daytime bed here.
+  applySelectionAmbient(getAudioManager(), { townSelected: town !== undefined });
   contextNode = town ? townNode(town) : noSimulationRecordNode(place?.name ?? id);
   syncParty();
   paint();
