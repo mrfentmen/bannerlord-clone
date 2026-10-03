@@ -109,16 +109,24 @@ export function gaitFor(speedMps: number, current: Gait = 'idle'): Gait {
   return speed >= GAIT_THRESHOLD_MPS ? 'run' : 'walk';
 }
 
-/** Bones an aim overlay is allowed to touch, by name fragment. */
+/**
+ * Bones an aim overlay is allowed to touch, by name fragment.
+ *
+ * Both arm conventions are listed because the staged rigs use different ones:
+ * Babylon's own skeletons say `UpperArm`/`LowerArm` and the mixamo-named
+ * operator GLBs say `UpperArm`/`ForeArm`. Listing `arm` covers whichever arrives
+ * without ever reaching the legs, which are excluded first and separately.
+ */
 export const AIM_BONE_MASK: readonly string[] = [
   'spine',
   'chest',
-  'upperChest',
   'neck',
   'head',
   'shoulder',
   'upperarm',
   'lowerarm',
+  'forearm',
+  'arm',
   'hand',
 ];
 
@@ -170,7 +178,6 @@ export class AimLayer {
   update(deltaS: number, bones: readonly string[] = []): AimOverlay {
     const duration = Number.isFinite(this.fadeS) && this.fadeS > 0 ? this.fadeS : AIM_FADE_S;
     const step = Number.isFinite(deltaS) ? Math.max(0, deltaS) : 0;
-    const before = this.weight;
     const target = this.aiming ? 1 : 0;
     if (step >= duration) {
       this.weight = target;
@@ -180,10 +187,16 @@ export class AimLayer {
         ? Math.min(target, this.weight + rate)
         : Math.max(target, this.weight - rate);
     }
+    // `moving` means the overlay has not arrived yet -- not that this frame
+    // changed something. A caller polling it wants to know whether to keep
+    // writing the layer, and a layer that has landed does not need writing.
+    const settled = Math.abs(this.weight - target) <= 1e-6;
     return {
       weight: this.weight,
-      bones: bones.filter(boneInAimMask),
-      moving: Math.abs(this.weight - target) > 1e-6 || before !== this.weight,
+      // Nothing to apply at zero weight: reporting the bone list anyway would
+      // invite a scene to write an additive layer of weight zero.
+      bones: this.weight > 0 ? bones.filter(boneInAimMask) : [],
+      moving: !settled,
     };
   }
 
