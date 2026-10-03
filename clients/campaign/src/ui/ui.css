@@ -1850,3 +1850,18 @@
 .tutorial-banner__title { font-weight: bold; color: var(--ink-900); margin-bottom: var(--space-1); }
 .tutorial-banner__text { color: var(--ink-700); margin: 0 0 var(--space-2); }
 .tutorial-banner__actions { display: flex; gap: var(--space-2); justify-content: flex-end; }
+
+/* Map settlement labels (src/ui/mapLabels.ts). */
+.map-labels { position: fixed; inset: 0; pointer-events: none; z-index: 40; overflow: hidden; }
+.map-label {
+  position: absolute;
+  top: 0;
+  left: 0;
+  font-size: var(--type-small-size);
+  color: var(--paper-0);
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9), 0 0 8px rgba(0, 0, 0, 0.7);
+  white-space: nowrap;
+  will-change: transform;
+}
+.map-label[data-klass="city"] { font-weight: bold; font-size: var(--type-body-size); }
+.map-label[data-klass="town"] { font-weight: bold; }

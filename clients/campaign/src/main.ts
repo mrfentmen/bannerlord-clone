@@ -57,6 +57,7 @@ import { buildEventMarkers } from "./scene/eventMarkers.js";
 import { findRoute, shortestPath } from "./scene/network.js";
 import { createHud, dataSourcePanel, fatalError, type HudPanel, type HudState } from "./ui/hud.js";
 import { MapTooltip, buildSettlementHoverCard } from "./ui/mapTooltip.js";
+import { MapLabels } from "./ui/mapLabels.js";
 import { TutorialBanner } from "./ui/tutorialBanner.js";
 import { currentHint, loadTutorialStore, saveTutorialStore } from "./data/tutorial.js";
 import { settlementFogView } from "./data/fogView.js";
@@ -237,6 +238,7 @@ publishWorld({
 
 setBootNote("Starting the renderer.");
 const mapTooltip = new MapTooltip(app);
+const mapLabels = new MapLabels(app);
 const tutorialBanner = new TutorialBanner(app, {
   onDismiss: (hintId) => {
     tutorialStore.dismissed.add(hintId);
@@ -323,11 +325,32 @@ const hud = createHud({
   onNotification: (entityId, field) => openWhy(entityId, field),
 });
 
+/**
+ * Zoom-dependent settlement labels (mandate §17). Runs on an interval rather than
+ * per frame: labels track the camera, not the simulation, and 4 Hz is plenty for a
+ * hand on the zoom.
+ */
+function syncLabels(): void {
+  if (!scene) return;
+  mapLabels.update(
+    scene.towns.map((t) => ({
+      settlementId: t.settlementId,
+      name: t.name,
+      klass: t.klass,
+      anchor: t.markerPosition,
+    })),
+    (world) => scene!.toScreen(world),
+    scene.cameraRadius(),
+    (id) => fogDisplayStates.get(id),
+  );
+}
+
 function mountCampaign(): void {
   if (!snapshot) return;
   audio.setScene("campaign-day");
   app.appendChild(hud.root);
   paint();
+  window.setInterval(syncLabels, 250);
 
   window.addEventListener("keydown", (ev) => {
     if (ev.key === "Escape") {

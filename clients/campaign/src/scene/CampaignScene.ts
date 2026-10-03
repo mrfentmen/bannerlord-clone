@@ -17,6 +17,7 @@ import {
   Effect,
   Engine,
   HemisphericLight,
+  Matrix,
   Mesh,
   MeshBuilder,
   PointerEventTypes,
@@ -127,6 +128,13 @@ export interface SceneHandle {
    * cannot see.
    */
   setEventMarkers(markers: readonly MapEventMarker[]): void;
+  /**
+   * Project a world position to CSS pixels, or `null` when it is behind the camera.
+   * The map-label layer uses this to place HTML labels over the 3D settlements.
+   */
+  toScreen(world: Vector3): { x: number; y: number } | null;
+  /** Current camera distance in metres, for zoom-gated map detail. */
+  cameraRadius(): number;
   /** One line about what the map is showing, for the data-source panel. */
   summary(): string;
   /**
@@ -410,6 +418,20 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
     focus(x, z, radius) {
       camera.setTarget(new Vector3(x, projection.heightAt(x, z) * VERTICAL_SCALE, z));
       if (radius !== undefined) camera.radius = radius;
+    },
+    toScreen(world) {
+      const projected = Vector3.Project(
+        world,
+        Matrix.Identity(),
+        scene.getTransformMatrix(),
+        camera.viewport.toGlobal(engine.getRenderWidth(), engine.getRenderHeight()),
+      );
+      // z outside [0, 1] means behind the camera or beyond the far plane: no label.
+      if (projected.z < 0 || projected.z > 1) return null;
+      return { x: projected.x, y: projected.y };
+    },
+    cameraRadius() {
+      return camera.radius;
     },
     showRoute(points, state = "visible") {
       routeMesh?.dispose();
