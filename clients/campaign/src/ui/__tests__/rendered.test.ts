@@ -30,6 +30,7 @@ import { marchPlanner } from "../panels/MarchPlanner.js";
 import { encyclopediaPanel } from "../panels/EncyclopediaPanel.js";
 import { objectivesPanel } from "../panels/ObjectivesPanel.js";
 import { journalPanel } from "../panels/JournalPanel.js";
+import { notificationsPanel } from "../panels/NotificationsPanel.js";
 import { createHud } from "../hud.js";
 import type { SimSnapshot, SimulationProvider } from "../../data/types.js";
 
@@ -96,6 +97,13 @@ function renderedPanels(snap: SimSnapshot): Record<string, HTMLElement> {
     }).root,
     journal: journalPanel({
       store: syncJournal({ entries: [], nextSeq: 0 }, snap.notifications, []),
+      onClose: noop,
+    }).root,
+    notifications: notificationsPanel({
+      notifications: snap.notifications,
+      townIds: new Set(snap.towns.map((t) => t.id)),
+      onWhy: noop,
+      onViewSettlement: noop,
       onClose: noop,
     }).root,
   };

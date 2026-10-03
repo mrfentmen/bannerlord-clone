@@ -71,6 +71,7 @@ import { questPanel } from "./ui/panels/QuestPanel.js";
 import { encyclopediaPanel } from "./ui/panels/EncyclopediaPanel.js";
 import { objectivesPanel } from "./ui/panels/ObjectivesPanel.js";
 import { journalPanel } from "./ui/panels/JournalPanel.js";
+import { notificationsPanel } from "./ui/panels/NotificationsPanel.js";
 import { buildEncyclopedia } from "./data/encyclopedia.js";
 import { loadJournalStore, saveJournalStore, syncJournal } from "./data/journal.js";
 import {
@@ -1151,6 +1152,11 @@ function rebuildContext(): void {
       // No town needed: the journal is the campaign's history, not the selection's.
       contextNode = journalNode();
       return;
+    case "notifications":
+      // No town needed: the center reads every notice in the snapshot, and each
+      // notice that names a settlement offers its own jump.
+      contextNode = notificationsNode();
+      return;
     case "radio":
       // The bulletins are generated from the live snapshot, so the news is
       // always about the world as it is right now.
@@ -1473,6 +1479,17 @@ function objectivesNode(): Node {
 function journalNode(): Node {
   return journalPanel({
     store: journalStore,
+    onClose: () => openPanel("none"),
+  }).root;
+}
+
+function notificationsNode(): Node {
+  if (!snapshot) return noSimulationRecordNode("No world to read");
+  return notificationsPanel({
+    notifications: snapshot.notifications,
+    townIds: new Set(snapshot.towns.map((t) => t.id)),
+    onWhy: (entityId, field) => openWhy(entityId, field),
+    onViewSettlement: (townId) => selectSettlement(townId),
     onClose: () => openPanel("none"),
   }).root;
 }
