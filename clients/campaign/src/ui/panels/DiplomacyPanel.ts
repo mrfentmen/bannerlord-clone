@@ -49,6 +49,8 @@ import { suggestTribute } from "../../diplomacy/tributeCalculator.js";
 import { rankGreatPowers, type ClanPower, type PowerRank } from "../../diplomacy/greatPowers.js";
 import type { TreatyTerm } from "../../diplomacy/treaties.js";
 import { relationBand } from "../../diplomacy/notables.js";
+import { allianceAcceptOdds, negotiateRound } from "../../diplomacy/negotiation.js";
+import type { AllianceOffer } from "../../diplomacy/types.js";
 import { markHintShown, shouldShowHint } from "../../onboarding/hintCooldown.js";
 import "./diplomacyPanel.css";
 
@@ -237,6 +239,10 @@ function buildDiplomacyPanel(options: DiplomacyPanelOptions, notice: string | nu
       body.appendChild(treatyTerms(status));
     }
   }
+
+  // -- alliance (tasks 210 and 211) -------------------------------------------
+  const alliance = allianceBlock(options);
+  if (alliance) body.appendChild(alliance);
 
   // -- tribute (task 214) -----------------------------------------------------
   // `suggestTribute` reads the power differential and says who should pay and how
@@ -673,3 +679,122 @@ const TERM_STATUS_WORD: Record<TreatyTerm["status"], string> = {
   broken: "Broken",
   pending: "Not yet reported",
 };
+
+/**
+ * Proposing an alliance. Tasks 210 and 211.
+ *
+ * The odds are `allianceAcceptOdds` from `src/diplomacy/negotiation.ts`, and the
+ * counter-offer is `counterOffer` from the same file: the panel supplies the three
+ * inputs that module names — the standing with that faction, the demand being made,
+ * and the player's own reputation — and prints what comes back. It does not compute
+ * a second set of odds, because two disagreeing estimates of whether an alliance will
+ * be accepted is worse than one.
+ *
+ * The requirements shown are the terms the player has written and the demand being
+ * asked, plus where the counter-offer lands: `counterOffer` moves the demand toward
+ * the middle by a concession step, so showing both numbers is the difference between
+ * "they will probably refuse" and an offer the player can adjust.
+ *
+ * **Nothing here records an alliance.** `negotiateRound` computes the structure of a
+ * round and the campaign's own layer answers it; the diplomacy layer has no store this
+ * panel can write a signed alliance into without inventing one. The panel says so
+ * rather than pretending the offer went anywhere.
+ */
+function allianceBlock(options: DiplomacyPanelOptions): HTMLElement | null {
+  if (options.factions === undefined) return null;
+  const wrap = h("section", { "data-testid": "diplomacy-alliance" });
+  wrap.appendChild(sectionHeader("Alliance"));
+
+  if (options.factions.length === 0) {
+    wrap.appendChild(
+      emptyState("Nobody to propose to", "A faction has to be known before an alliance can be proposed."),
+    );
+    return wrap;
+  }
+
+  const target = h(
+    "select",
+    { "aria-label": "Faction to propose to", "data-testid": "alliance-faction" },
+    ...options.factions.map((f) => h("option", { value: f.id }, f.name)),
+  ) as HTMLSelectElement;
+
+  const demand = numberField("alliance-demand", "Demand of them (0-100)", 50, { min: 0, max: 100 });
+  const terms = h("input", {
+    type: "text",
+    id: "alliance-terms",
+    placeholder: "Terms, comma separated",
+    "aria-label": "Alliance terms, comma separated",
+    "data-testid": "alliance-terms",
+    class: "field__input",
+  }) as HTMLInputElement;
+
+  const oddsLine = h("p", {
+    class: "caption",
+    "data-testid": "alliance-odds",
+    role: "status",
+  }, "Set a demand and read the odds.");
+  const counterLine = h("p", {
+    class: "caption",
+    "data-testid": "alliance-counter",
+    role: "status",
+  }, "Their counter-offer appears here once the odds are read.");
+
+  wrap.appendChild(h("div", { class: "form-row" }, target, demand.field));
+  wrap.appendChild(
+    h("div", { class: "field" }, h("label", { class: "field__label label", for: "alliance-terms" }, "Terms"), terms),
+  );
+
+  /** The demand and terms, validated once, for both readings below. */
+  const read = (): { ok: true; value: number; list: string[] } | { ok: false; why: string } => {
+    const value = Number(demand.input.value);
+    if (!Number.isFinite(value) || value < 0 || value > 100) {
+      return { ok: false, why: "A demand is 0 to 100." };
+    }
+    const list = terms.value.split(",").map((t) => t.trim()).filter((t) => t.length > 0);
+    if (list.length === 0) {
+      return { ok: false, why: "An alliance needs at least one term." };
+    }
+    return { ok: true, value, list };
+  };
+
+  wrap.appendChild(
+    button("Read the odds", () => {
+      const demandValue = read();
+      if (!demandValue.ok) {
+        oddsLine.textContent = demandValue.why;
+        counterLine.textContent = "Their counter-offer appears here once the odds are read.";
+        return;
+      }
+      const factionId = target.value;
+      const factionName = options.factions!.find((f) => f.id === factionId)?.name ?? factionId;
+      const relation = relationWith(factionId);
+      const reputation = diplomaticReputation();
+      const odds = allianceAcceptOdds(relation, demandValue.value, reputation);
+      const offer: AllianceOffer = { from: "you", to: factionId, terms: demandValue.list, demand: demandValue.value };
+      const round = negotiateRound(offer, 1, relation, reputation, 0);
+
+      oddsLine.textContent =
+        `${percent(odds)} likely to be accepted by ${factionName}. ` +
+        `That is from a standing of ${signedRelation(relation)} and a reputation of ${reputation}/100.`;
+      // The requirement the player can act on: where their demand has to land.
+      counterLine.textContent =
+        `Against a demand of ${round.offer.demand} they would counter at ${round.counter.demand}. ` +
+        `Terms on the table: ${demandValue.list.join("; ")}.`;
+    }, { testId: "alliance-read" }),
+  );
+  wrap.appendChild(oddsLine);
+  wrap.appendChild(counterLine);
+  wrap.appendChild(
+    h(
+      "p",
+      { class: "annotation", style: "font-size:var(--type-caption-size)" },
+      "Reading the odds is all this panel does. Sending the offer is the campaign's, and nothing here records a signed alliance.",
+    ),
+  );
+  return wrap;
+}
+
+/** An accept probability as a whole percentage. */
+function percent(odds: number): string {
+  return `${Math.round(odds * 100)}%`;
+}
