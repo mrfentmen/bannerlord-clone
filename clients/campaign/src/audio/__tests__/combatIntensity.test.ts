@@ -116,7 +116,7 @@ async function readyAudio(): Promise<AudioManager> {
 
 /** The mixer builds four gains first; the next four are the stems in ladder order. */
 function stemGain(index: number): FakeGain {
-  const gain = ctx.gains[4 + index];
+  const gain = ctx.gains[5 + index];
   expect(gain, `no stem gain at index ${index}`).toBeTruthy();
   return gain!;
 }

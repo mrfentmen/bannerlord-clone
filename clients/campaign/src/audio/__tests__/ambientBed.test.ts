@@ -109,10 +109,10 @@ async function readyAudio(): Promise<AudioManager> {
 }
 
 /** The mixer builds four gains first: master, music, sfx, ambient. */
-const AMBIENT_BUS = 3;
+const AMBIENT_BUS = 4;
 /** The first voice's gain comes right after the mixer's. */
 function firstVoiceGain(): FakeGain {
-  const gain = ctx.gains[4];
+  const gain = ctx.gains[5];
   expect(gain, "no voice gain was built").toBeTruthy();
   return gain!;
 }

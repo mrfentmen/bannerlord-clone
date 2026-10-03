@@ -111,7 +111,7 @@ async function readyAudio(): Promise<AudioManager> {
 
 /** The gain a voice was built with: the four mixer gains come first. */
 function voiceGain(index: number): FakeGain {
-  const gain = ctx.gains[4 + index];
+  const gain = ctx.gains[5 + index];
   expect(gain, `no voice gain at index ${index}`).toBeTruthy();
   return gain!;
 }

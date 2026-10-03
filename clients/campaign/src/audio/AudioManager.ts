@@ -121,6 +121,11 @@ export const COMBAT_LAYER_RAMP_SECONDS = 0.5;
  */
 export const AMBIENT_CROSSFADE_SECONDS = 2;
 
+/** Task 559: duck the music bus to 35% while dialogue subtitles are visible. */
+export const DIALOGUE_MUSIC_DUCK_LEVEL = 0.35;
+/** Task 559: soften duck and restore transitions instead of stepping the music. */
+export const DIALOGUE_DUCK_RAMP_SECONDS = 0.25;
+
 /** One playing looping bed — music or ambient: its source and its fade gain. */
 interface Voice {
   id: string;
@@ -132,6 +137,9 @@ export class AudioManager {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
   private musicGain: GainNode | null = null;
+  /** Dialogue-only attenuation after the music level slider (task 559). */
+  private dialogueDuckGain: GainNode | null = null;
+  private dialogueDucked = false;
   private sfxGain: GainNode | null = null;
   private ambientGain: GainNode | null = null;
 
@@ -166,7 +174,9 @@ export class AudioManager {
     this.masterGain = this.ctx.createGain();
     this.masterGain.connect(this.ctx.destination);
     this.musicGain = this.ctx.createGain();
-    this.musicGain.connect(this.masterGain);
+    this.dialogueDuckGain = this.ctx.createGain();
+    this.musicGain.connect(this.dialogueDuckGain);
+    this.dialogueDuckGain.connect(this.masterGain);
     this.sfxGain = this.ctx.createGain();
     this.sfxGain.connect(this.masterGain);
     this.ambientGain = this.ctx.createGain();
@@ -180,6 +190,10 @@ export class AudioManager {
     const at = this.ctx.currentTime;
     this.masterGain?.gain.setValueAtTime(this.muted ? 0 : this.levels.master, at);
     this.musicGain?.gain.setValueAtTime(this.levels.music, at);
+    this.dialogueDuckGain?.gain.setValueAtTime(
+      this.dialogueDucked ? DIALOGUE_MUSIC_DUCK_LEVEL : 1,
+      at,
+    );
     this.sfxGain?.gain.setValueAtTime(this.levels.sfx, at);
     this.ambientGain?.gain.setValueAtTime(this.levels.ambient, at);
   }
@@ -407,6 +421,28 @@ export class AudioManager {
   setMuted(muted: boolean): void {
     this.muted = muted;
     this.applyLevels();
+  }
+
+  /**
+   * Task 559: lower the music under a visible dialogue line. The attenuation
+   * is its own gain node after the music level slider, so it leaves SFX,
+   * ambient, and the player's saved music volume untouched. State is kept
+   * before init and applied as soon as the context exists.
+   */
+  setDialogueDucked(ducked: boolean): void {
+    if (this.dialogueDucked === ducked) return;
+    this.dialogueDucked = ducked;
+    const ctx = this.ctx;
+    const gain = this.dialogueDuckGain?.gain;
+    if (!ctx || !gain) return;
+
+    const now = ctx.currentTime;
+    gain.cancelScheduledValues(now);
+    gain.setValueAtTime(gain.value, now);
+    gain.linearRampToValueAtTime(
+      ducked ? DIALOGUE_MUSIC_DUCK_LEVEL : 1,
+      now + DIALOGUE_DUCK_RAMP_SECONDS,
+    );
   }
 
   /**

@@ -12,7 +12,11 @@
  */
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AudioManager } from "../AudioManager.js";
+import {
+  AudioManager,
+  DIALOGUE_DUCK_RAMP_SECONDS,
+  DIALOGUE_MUSIC_DUCK_LEVEL,
+} from "../AudioManager.js";
 import { applyAudioSettings } from "../applySettings.js";
 
 interface ParamEvent {
@@ -32,6 +36,7 @@ class FakeParam {
     this.value = value;
     this.events.push({ kind: "ramp", value, time });
   }
+  cancelScheduledValues(): void {}
 }
 
 class FakeGain {
@@ -76,11 +81,12 @@ class FakeAudioContext {
   }
 }
 
-/** The mixer's four buses, in the order `init()` creates them. */
+/** The mixer's buses, in the order `init()` creates them. */
 const MASTER = 0;
 const MUSIC = 1;
-const SFX = 2;
-const AMBIENT = 3;
+const DUCK = 2;
+const SFX = 3;
+const AMBIENT = 4;
 
 let ctx: FakeAudioContext;
 
@@ -111,6 +117,7 @@ describe("volume slider wiring (task 561)", () => {
 
     expect(bus(MASTER).gain.value).toBe(1);
     expect(bus(MUSIC).gain.value).toBe(0.7);
+    expect(bus(DUCK).gain.value).toBe(1);
     expect(bus(SFX).gain.value).toBe(0.9);
     expect(bus(AMBIENT).gain.value).toBe(0.5);
   });
@@ -184,5 +191,50 @@ describe("volume slider wiring (task 561)", () => {
     expect(bus(MASTER).gain.value).toBe(0);
     expect(bus(MUSIC).gain.value).toBe(0.9);
     expect(bus(SFX).gain.value).toBe(0.9);
+  });
+
+  it("ducks only the post-slider music gain while dialogue is visible", async () => {
+    const audio = new AudioManager();
+    await audio.init();
+    applyAudioSettings(audio, { masterVolume: 0.8, musicVolume: 0.6, sfxVolume: 0.8 });
+    ctx.currentTime = 12;
+
+    audio.setDialogueDucked(true);
+
+    expect(bus(MUSIC).gain.value).toBe(0.6);
+    expect(bus(DUCK).gain.value).toBe(DIALOGUE_MUSIC_DUCK_LEVEL);
+    expect(bus(DUCK).gain.events.at(-1)).toEqual({
+      kind: "ramp",
+      value: DIALOGUE_MUSIC_DUCK_LEVEL,
+      time: 12 + DIALOGUE_DUCK_RAMP_SECONDS,
+    });
+    expect(bus(SFX).gain.value).toBe(0.8);
+    expect(bus(AMBIENT).gain.value).toBe(0.6);
+  });
+
+  it("restores music when dialogue hides and ignores repeated state", async () => {
+    const audio = new AudioManager();
+    await audio.init();
+    audio.setDialogueDucked(true);
+    const duck = bus(DUCK);
+    const eventCount = duck.gain.events.length;
+
+    audio.setDialogueDucked(true);
+    expect(duck.gain.events).toHaveLength(eventCount);
+
+    ctx.currentTime = 3;
+    audio.setDialogueDucked(false);
+    expect(duck.gain.events.at(-1)).toEqual({
+      kind: "ramp",
+      value: 1,
+      time: 3 + DIALOGUE_DUCK_RAMP_SECONDS,
+    });
+  });
+
+  it("remembers dialogue ducking requested before the audio context", async () => {
+    const audio = new AudioManager();
+    audio.setDialogueDucked(true);
+    await audio.init();
+    expect(bus(DUCK).gain.value).toBe(DIALOGUE_MUSIC_DUCK_LEVEL);
   });
 });

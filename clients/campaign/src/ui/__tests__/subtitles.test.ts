@@ -4,8 +4,9 @@
  *
  * @vitest-environment jsdom
  */
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createSubtitleBar } from "../subtitles.js";
+import { getAudioManager } from "../../audio/AudioManager.js";
 import { settings } from "../../settings/index.js";
 
 describe("subtitle bar (task 21)", () => {
@@ -55,5 +56,28 @@ describe("subtitle bar (task 21)", () => {
     document.body.appendChild(bar.root);
     expect(bar.root.classList.contains("subtitles--bg-off")).toBe(true);
     bar.destroy();
+  });
+
+  it("ducks music while a dialogue line is visible and restores it on hide", () => {
+    const duck = vi.spyOn(getAudioManager(), "setDialogueDucked");
+    const bar = createSubtitleBar();
+    bar.show("Captain", "Hold the line.");
+    expect(duck).toHaveBeenLastCalledWith(true);
+
+    bar.hide();
+    expect(duck).toHaveBeenLastCalledWith(false);
+    bar.destroy();
+    duck.mockRestore();
+  });
+
+  it("restores music when the subtitle bar is destroyed with a line showing", () => {
+    const duck = vi.spyOn(getAudioManager(), "setDialogueDucked");
+    const bar = createSubtitleBar();
+    bar.show("Captain", "Hold the line.");
+    duck.mockClear();
+
+    bar.destroy();
+    expect(duck).toHaveBeenCalledExactlyOnceWith(false);
+    duck.mockRestore();
   });
 });
