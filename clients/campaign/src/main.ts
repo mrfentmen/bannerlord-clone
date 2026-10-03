@@ -57,7 +57,7 @@ import { buildEventMarkers } from "./scene/eventMarkers.js";
 import { findRoute, shortestPath } from "./scene/network.js";
 import { createHud, dataSourcePanel, fatalError, type HudPanel, type HudState } from "./ui/hud.js";
 import { MapTooltip, buildSettlementHoverCard } from "./ui/mapTooltip.js";
-import { MapLabels } from "./ui/mapLabels.js";
+import { MapLabels, type LabelCandidate } from "./ui/mapLabels.js";
 import { Toast } from "./ui/toast.js";
 import { TutorialBanner } from "./ui/tutorialBanner.js";
 import { currentHint, loadTutorialStore, saveTutorialStore } from "./data/tutorial.js";
@@ -331,16 +331,24 @@ const hud = createHud({
  * Zoom-dependent settlement labels (mandate §17). Runs on an interval rather than
  * per frame: labels track the camera, not the simulation, and 4 Hz is plenty for a
  * hand on the zoom.
+ *
+ * The candidate list is built once: settlements do not move, so rebuilding it every
+ * 250 ms would be 500+ throwaway objects per update for nothing.
  */
+let labelCandidates: LabelCandidate[] | null = null;
+
 function syncLabels(): void {
   if (!scene) return;
-  mapLabels.update(
-    scene.towns.map((t) => ({
+  if (!labelCandidates) {
+    labelCandidates = scene.towns.map((t) => ({
       settlementId: t.settlementId,
       name: t.name,
       klass: t.klass,
       anchor: t.markerPosition,
-    })),
+    }));
+  }
+  mapLabels.update(
+    labelCandidates,
     (world) => scene!.toScreen(world),
     scene.cameraRadius(),
     (id) => fogDisplayStates.get(id),
