@@ -22,9 +22,17 @@ import { NullEngine } from "@babylonjs/core/Engines/nullEngine.js";
 import { Scene } from "@babylonjs/core/scene.js";
 import { readMaterialNames, type GlbMaterial } from "../GlbFormat.js";
 import {
+  ARMOUR_TIERS,
   SKIN_TONES,
+  applyArmourTier,
   applyFactionTint,
   applySkinTone,
+  armourMaterialIndices,
+  armourTier,
+  armourVariantFor,
+  rememberPackedColour,
+  type ArmourTier,
+
   factionColours,
   factionMaterialIndices,
   factionVariantFor,
@@ -220,5 +228,103 @@ describe("faction clothing colours (task 723)", () => {
       expect(channel).toBeLessThanOrEqual(1);
     }
     expect(mat.diffuseColor.r).toBe(1);
+  });
+});
+
+describe("armour tiers (task 724)", () => {
+  const operator = materialsOf('operator-viper.glb');
+
+  function tierMaterial(): StandardMaterial {
+    const scene = new Scene(new NullEngine());
+    const mat = new StandardMaterial('armour', scene);
+    mat.diffuseColor = new Color3(0.4, 0.4, 0.42);
+    mat.specularColor = new Color3(0, 0, 0);
+    return mat;
+  }
+
+  it("has four tiers, in order, and they are distinguishable", () => {
+    expect(ARMOUR_TIERS.map((t) => t.id)).toEqual(['light', 'medium', 'heavy', 'plate']);
+    // Each tier is darker and shinier than the one before it.
+    for (let i = 1; i < ARMOUR_TIERS.length; i++) {
+      const prev = ARMOUR_TIERS[i - 1] as ArmourTier;
+      const tier = ARMOUR_TIERS[i] as ArmourTier;
+      expect(tier.darken, tier.id).toBeGreaterThan(prev.darken);
+      expect(tier.metallic, tier.id).toBeGreaterThan(prev.metallic);
+      expect(tier.roughness, tier.id).toBeLessThan(prev.roughness);
+    }
+  });
+
+  it("claims the armour materials and never skin or hair", () => {
+    const indices = armourMaterialIndices(operator);
+    expect(indices.length).toBeGreaterThan(0);
+    const names = indices.map((i) => (operator[i] as GlbMaterial).name.toLowerCase());
+    expect(names.some((n) => n.includes('skin'))).toBe(false);
+    expect(names.some((n) => n.includes('hair'))).toBe(false);
+  });
+
+  it("darkens the packed colour and makes it more metallic", () => {
+    const mat = tierMaterial();
+    const before = mat.diffuseColor.r;
+    applyArmourTier(mat, armourTier('plate') as ArmourTier);
+    expect(mat.diffuseColor.r).toBeLessThan(before);
+    expect(mat.diffuseColor.r).toBeGreaterThanOrEqual(0);
+    expect(mat.specularColor.r).toBeCloseTo(0.85, 5);
+    expect(mat.specularPower).toBeCloseTo(0.78, 5);
+    // The lift is light on the surface, not a colour cast: all channels equal.
+    expect(mat.emissiveColor.r).toBe(mat.emissiveColor.g);
+    expect(mat.emissiveColor.b).toBe(mat.emissiveColor.g);
+  });
+
+  it("leaves the light tier's colour alone", () => {
+    const mat = tierMaterial();
+    applyArmourTier(mat, armourTier('light') as ArmourTier);
+    expect(mat.diffuseColor.r).toBeCloseTo(0.4);
+    expect(mat.specularColor.r).toBe(0);
+    expect(mat.emissiveColor.r).toBe(0);
+  });
+
+  it("does not compound when a tier is changed twice", () => {
+    // Each write starts from the packed colour, not from the previous tier's
+    // result: equipping plate and then taking it off again must land back on the
+    // asset's own colour, not somewhere darker than it.
+    const mat = tierMaterial();
+    applyArmourTier(mat, armourTier('plate') as ArmourTier);
+    expect(mat.diffuseColor.r).toBeLessThan(0.4);
+    applyArmourTier(mat, armourTier('light') as ArmourTier);
+    expect(mat.diffuseColor.r).toBeCloseTo(0.4, 5);
+    expect(mat.specularColor.r).toBe(0);
+
+    // ...and the same holds going the other way, which is the ordering a scene
+    // actually uses when a character is loaded in heavy kit and then re-equipped.
+    applyArmourTier(mat, armourTier('plate') as ArmourTier);
+    expect(mat.diffuseColor.r).toBeCloseTo(0.4 * (1 - (armourTier('plate') as ArmourTier).darken), 5);
+  });
+
+  it("reads the baseline from the colour it was given, not from a stale one", () => {
+    const mat = tierMaterial();
+    rememberPackedColour(mat);
+    mat.diffuseColor = new Color3(0.8, 0.8, 0.8);
+    applyArmourTier(mat, armourTier('heavy') as ArmourTier);
+    expect(mat.diffuseColor.r).toBeCloseTo(0.4 * (1 - (armourTier('heavy') as ArmourTier).darken), 5);
+  });
+
+  it("refuses a model with no named armour and a tier nobody defined", () => {
+    const skinOnly: GlbMaterial[] = [{ index: 0, name: 'Viper_Skin' }];
+    expect(armourVariantFor(skinOnly, 'plate').gap).toBe('no-armour-materials');
+    expect(armourVariantFor(materialsOf('civilian.glb'), 'plate').gap).toBe('no-named-materials');
+    const variant = armourVariantFor(operator, 'tier-nine');
+    expect(variant.gap).toBe('unknown-tier');
+    expect(variant.tier).toBeNull();
+    expect(variant.materialIndices.length).toBeGreaterThan(0);
+    expect(armourTier('tier-nine')).toBeNull();
+  });
+
+  it("clamps a tier with nonsense in it", () => {
+    const mat = tierMaterial();
+    applyArmourTier(mat, { id: 'broken', darken: 4, metallic: -1, roughness: 9, emissiveLift: Number.NaN });
+    for (const channel of [mat.diffuseColor.r, mat.specularColor.r, mat.emissiveColor.r]) {
+      expect(channel).toBeGreaterThanOrEqual(0);
+      expect(channel).toBeLessThanOrEqual(1);
+    }
   });
 });

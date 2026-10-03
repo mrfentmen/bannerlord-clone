@@ -248,3 +248,152 @@ export function applyFactionTint(material: SkinMaterial, tint: { r: number; g: n
   material.diffuseColor = next;
   return next;
 }
+
+/**
+ * Task 724: armour tiers.
+ *
+ * Four tiers over the same meshes. A tier is not a different model -- it is how
+ * the material reads: a heavier tier is darker, more metallic and less rough,
+ * because that is what makes it look like plate instead of cloth. Staging four
+ * sets of armour meshes for the same body would be four times the draw setup and
+ * four chances for the shapes to drift apart, which is the actual problem with
+ * tiered armour done as separate assets.
+ *
+ * Tier changes are applied to the tier materials only, on the same named
+ * materials the skin and faction work already uses, and skin and hair are never
+ * tiered: a character's face does not become more metallic as they equip plate.
+ */
+
+/** An armour tier. */
+export interface ArmourTier {
+  id: string;
+  /** How much darker than the pack's colour the tier reads, 0..1. */
+  darken: number;
+  /** How metallic the material reads, 0..1. */
+  metallic: number;
+  /** How rough, 0..1: lower is shinier. */
+  roughness: number;
+  /** A faint emissive lift, so plate catches light instead of going flat. */
+  emissiveLift: number;
+}
+
+/** The four tiers, from cloth to plate. */
+export const ARMOUR_TIERS: readonly ArmourTier[] = [
+  { id: 'light', darken: 0, metallic: 0, roughness: 0.9, emissiveLift: 0 },
+  { id: 'medium', darken: 0.18, metallic: 0.25, roughness: 0.72, emissiveLift: 0.02 },
+  { id: 'heavy', darken: 0.32, metallic: 0.55, roughness: 0.48, emissiveLift: 0.04 },
+  { id: 'plate', darken: 0.42, metallic: 0.85, roughness: 0.22, emissiveLift: 0.07 },
+];
+
+/** Materials an armour tier is written to. */
+export const ARMOUR_MATERIAL_PATTERNS: readonly string[] = [
+  'swat',
+  'body',
+  'armour',
+  'armor',
+  'plate',
+  'vest',
+  'cloth',
+];
+
+/** A tier by id, or null when there is no such tier. */
+export function armourTier(id: string): ArmourTier | null {
+  return ARMOUR_TIERS.find((t) => t.id === id) ?? null;
+}
+
+/** Which materials an armour tier may be written to, by index. */
+export function armourMaterialIndices(materials: readonly GlbMaterial[]): number[] {
+  const named = materials.filter((m) => m.name.length > 0);
+  if (named.length === 0) return [];
+  const out: number[] = [];
+  for (const pattern of ARMOUR_MATERIAL_PATTERNS) {
+    const index = findMaterial(named, pattern);
+    if (index >= 0 && !out.includes(index)) out.push(index);
+  }
+  return out.sort((a, b) => a - b);
+}
+
+/** The material fields a tier writes; a StandardMaterial satisfies this. */
+export interface TierMaterial extends SkinMaterial {
+  metallicColor?: Color3;
+  specularColor?: Color3;
+  emissiveColor?: Color3;
+  specularPower?: number;
+}
+
+/**
+ * Task 724: what a tier means for one model.
+ *
+ * `packed` is each material's own colour, captured before any faction tint, so
+ * darkening is a function of the asset rather than of whatever tint happens to be
+ * loaded this frame -- otherwise changing tiers would also change the faction
+ * colour.
+ */
+export function armourVariantFor(
+  materials: readonly GlbMaterial[],
+  tierId: string,
+): {
+  tier: ArmourTier | null;
+  materialIndices: number[];
+  gap: 'no-named-materials' | 'no-armour-materials' | 'unknown-tier' | null;
+} {
+  const tier = armourTier(tierId);
+  const indices = armourMaterialIndices(materials);
+  if (materials.every((m) => m.name.length === 0)) {
+    return { tier, materialIndices: indices, gap: 'no-named-materials' };
+  }
+  if (indices.length === 0) {
+    return { tier, materialIndices: [], gap: 'no-armour-materials' };
+  }
+  return { tier, materialIndices: indices, gap: tier ? null : 'unknown-tier' };
+}
+
+/**
+ * The colour a material was packed with, remembered on first use.
+ *
+ * Without this, changing tier twice darkens twice: each write takes the current
+ * colour as its baseline, so equipping plate and then taking it off again leaves
+ * a character darker than the asset. Keyed by material, so it holds for as long
+ * as the material does and costs nothing to look up.
+ */
+const packedColours = new WeakMap<object, Color3>();
+
+/** Records a material's authored colour, if it has not been recorded already. */
+export function rememberPackedColour(material: TierMaterial): Color3 {
+  const existing = packedColours.get(material);
+  if (existing) return existing.clone();
+  const packed = material.diffuseColor.clone();
+  packedColours.set(material, packed);
+  return packed;
+}
+
+/**
+ * Applies a tier to a material, from its packed colour.
+ *
+ * Darkening is multiplicative rather than a subtraction so a tier cannot drive a
+ * channel below zero, and the emissive lift is added to all three channels so it
+ * reads as light on the surface rather than as a colour cast. The baseline is the
+ * packed colour captured on first write, so tier changes are not cumulative.
+ */
+export function applyArmourTier(material: TierMaterial, tier: ArmourTier): TierMaterial {
+  const packed = rememberPackedColour(material);
+  const darken = 1 - clamp01(tier.darken);
+  material.diffuseColor = new Color3(
+    clamp01(packed.r * darken),
+    clamp01(packed.g * darken),
+    clamp01(packed.b * darken),
+  );
+  const value = clamp01(tier.metallic);
+  // Babylon's metallic workflow: specular carries the metallic value, and
+  // specularPower is the inverse of roughness, so plate is shiny and cloth is not.
+  if (material.metallicColor) material.metallicColor = new Color3(value, value, value);
+  if (material.specularColor) material.specularColor = new Color3(value, value, value);
+  if (material.specularPower !== undefined) {
+    material.specularPower = clamp01(1 - clamp01(tier.roughness));
+  }
+  if (material.emissiveColor) {
+    const lift = clamp01(tier.emissiveLift);
+    material.emissiveColor = new Color3(lift, lift, lift);
+  }
+  return material;
+}
