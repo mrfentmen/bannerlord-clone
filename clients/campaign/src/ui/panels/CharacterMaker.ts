@@ -1,8 +1,10 @@
 /**
  * The character maker: Bannerlord-style creation for modern America.
  *
- * Steps: Name → Appearance → Age → City → Background → Attributes → Review.
- * Each background choice grants skill bonuses and shapes the biography.
+ * Steps: Name → Appearance → Age → City → Difficulty → Background → Attributes →
+ * Skills → Review. Each background choice grants skill bonuses and shapes the
+ * biography. Attributes and skills are the six and the eighteen of
+ * `CHARACTER.md`, and `src/data/attributes.ts` owns the rules for both.
  * The result feeds into the campaign start.
  */
 
@@ -10,6 +12,11 @@ import { clear, h } from "../dom.js";
 import { BACKGROUNDS, appearancesForEthnicity, computeCharacterStats,
   START_CITIES, AGE_BRACKETS, DIFFICULTIES, clanNamesForEthnicity,
   scenarioForBackgrounds, type GameCharacter } from "../../data/backgrounds.js";
+import { ATTRIBUTES, ATTRIBUTE_MAX, ATTRIBUTE_MIN, ATTRIBUTE_POINTS_TOTAL,
+  FOCUS_POINTS_TOTAL, SKILLS, attributeLabel, attributePointsRemaining,
+  attributePointsSpent, canLowerAttribute, canRaiseAttribute, evenAttributes,
+  emptyFocus, focusRemaining, nextPerkThreshold, perksEarned,
+  skillLabel, startingSkillLevels } from "../../data/attributes.js";
 import { ETHNICITIES } from "../../data/ethnicities.js";
 
 export interface CharacterMakerOptions {
@@ -17,29 +24,24 @@ export interface CharacterMakerOptions {
   onCancel: () => void;
   testId?: string;
   /**
-   * Bonus attribute points the player may allocate (MASTER_PLAN task 142:
-   * New Game+ heirs get legacy training on top of the base 5).
+   * Focus points the player may allocate on individual skills (MASTER_PLAN task
+   * 142: New Game+ heirs get legacy training on top of the base budget).
    */
   bonusPointsTotal?: number | undefined;
 }
 
-const MAKER_STEPS = ["Name", "Appearance", "Age", "City", "Difficulty", "Background", "Attributes", "Review"] as const;
-type MakerStep = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7;
+const MAKER_STEPS = ["Name", "Appearance", "Age", "City", "Difficulty", "Background",
+  "Attributes", "Skills", "Review"] as const;
+type MakerStep = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
-const LAST_STEP: MakerStep = 7;
-/** Base bonus attribute points; New Game+ heirs add LEGACY_BONUS_POINTS. Exported so main.ts can compute the NG+ total. */
-export const BONUS_POINTS_TOTAL = 5;
-const SKILL_NAMES = [
-  "combat",
-  "leadership",
-  "trade",
-  "medicine",
-  "engineering",
-  "athletics",
-  "streetwise",
-  "stealth",
-  "survival",
-] as const;
+const LAST_STEP: MakerStep = 8;
+/**
+ * The default focus-point budget. Kept under its old name because `main.ts` and
+ * the New Game+ heir record already speak in "bonus points", and what those points
+ * buy is now honest: focus on individual skills rather than a row mislabelled as an
+ * attribute. See `FOCUS_POINTS_TOTAL`, which this defers to.
+ */
+export const BONUS_POINTS_TOTAL = FOCUS_POINTS_TOTAL;
 
 export function characterMaker(options: CharacterMakerOptions): HTMLElement {
   let step: MakerStep = 0;
@@ -51,7 +53,8 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
   let age = 30;
   let startCity = "manhattan-sample";
   let difficulty = "normal";
-  let bonusPoints: Record<string, number> = {};
+  let attributes = evenAttributes();
+  let skillFocus = emptyFocus();
   let backgroundChoices: Record<string, string> = {};
   // Default to first option in each category.
   for (const cat of BACKGROUNDS) {
@@ -67,15 +70,17 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
 
   function canProceed(): boolean {
     if (step === 0) return firstName.trim().length > 0 && lastName.trim().length > 0;
+    // The attribute budget is fixed and always completable: every attribute can be
+    // lowered to its floor, so a player can always get back to spending exactly the
+    // thirty and cannot strand themselves short. The focus pool deliberately is
+    // not gated the same way. Requiring all of it spent would mean a player who
+    // wants to skip the step has to find five reasons to spend points they do not
+    // have, so leaving points unspent is allowed and the remainder is simply lost.
+    if (step === 6) return attributePointsSpent(attributes) === ATTRIBUTE_POINTS_TOTAL;
     return true;
   }
 
-  const bonusPointsTotal = options.bonusPointsTotal ?? BONUS_POINTS_TOTAL;
-
-  function pointsRemaining(): number {
-    const spent = Object.values(bonusPoints).reduce((a, b) => a + b, 0);
-    return bonusPointsTotal - spent;
-  }
+  const focusBudget = (): number => options.bonusPointsTotal ?? BONUS_POINTS_TOTAL;
 
   function stepBar(): HTMLElement {
     const bar = h("div", { class: "stepbar" });
@@ -398,58 +403,145 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     return frag;
   }
 
+  /**
+   * A minus/plus/value row, shared by the attribute and skill steps so the two
+   * read identically and a test can find either by the same shape.
+   */
+  function pointRow(options2: {
+    testid: string;
+    label: string;
+    title: string | undefined;
+    detail: HTMLElement[];
+    value: number;
+    canLower: boolean;
+    canRaise: boolean;
+    onLower: () => void;
+    onRaise: () => void;
+  }): HTMLElement {
+    const row = h("div", {
+      class: "attr-row",
+      style: "display:flex;align-items:center;gap:8px;margin:4px 0",
+    });
+    const name = h("span", { style: "flex:1" }, options2.label);
+    if (options2.title !== undefined) name.title = options2.title;
+    row.appendChild(name);
+    for (const node of options2.detail) row.appendChild(node);
+
+    const minus = h(
+      "button",
+      {
+        class: "btn",
+        "data-testid": `${options2.testid}-minus`,
+        disabled: options2.canLower ? undefined : true,
+        "aria-label": `Remove a point from ${options2.label}`,
+      },
+      "−",
+    ) as HTMLButtonElement;
+    minus.addEventListener("click", options2.onLower);
+
+    const val = h("span", { "data-testid": `${options2.testid}-value`, style: "min-width:2ch;text-align:center" },
+      String(options2.value));
+
+    const plus = h(
+      "button",
+      {
+        class: "btn",
+        "data-testid": `${options2.testid}-plus`,
+        disabled: options2.canRaise ? undefined : true,
+        "aria-label": `Add a point to ${options2.label}`,
+      },
+      "+",
+    ) as HTMLButtonElement;
+    plus.addEventListener("click", options2.onRaise);
+
+    row.append(minus, val, plus);
+    return row;
+  }
+
   function attributesStep(): HTMLElement {
     const frag = h("div", { class: "maker-step" });
-    frag.appendChild(h("h2", { class: "title" }, "Spend your bonus points"));
-    const remaining = pointsRemaining();
+    frag.appendChild(h("h2", { class: "title" }, "Your six attributes"));
+    const remaining = attributePointsRemaining(attributes);
+    frag.appendChild(h("p", { class: "caption" },
+      `Distribute ${ATTRIBUTE_POINTS_TOTAL} points across the six. ` +
+      `Each attribute is worth ${ATTRIBUTE_MIN} to ${ATTRIBUTE_MAX} and it caps the three skills it governs.`));
     frag.appendChild(
-      h("p", { class: "caption", "data-testid": "points-remaining" },
-        `${remaining} of ${bonusPointsTotal} points remaining`),
+      h("p", { class: "caption", "data-testid": "attribute-points-remaining" },
+        `${remaining} of ${ATTRIBUTE_POINTS_TOTAL} points remaining`),
     );
 
     const list = h("div", { "data-testid": "attributes-list" });
-    for (const skill of SKILL_NAMES) {
-      const pts = bonusPoints[skill] ?? 0;
-      const row = h("div", { class: "attr-row", style: "display:flex;align-items:center;gap:8px;margin:4px 0" });
-      row.appendChild(h("span", { style: "flex:1" }, skill));
-      const minus = h(
-        "button",
-        {
-          class: "btn",
-          "data-testid": `attr-minus-${skill}`,
-          disabled: pts <= 0 ? true : undefined,
-          "aria-label": `Remove point from ${skill}`,
-        },
-        "−",
-      ) as HTMLButtonElement;
-      minus.addEventListener("click", () => {
-        const cur = bonusPoints[skill] ?? 0;
-        if (cur > 0) {
-          bonusPoints[skill] = cur - 1;
-          if (bonusPoints[skill] === 0) delete bonusPoints[skill];
+    for (const attribute of ATTRIBUTES) {
+      const id = attribute.id;
+      const skills = h("span", { class: "caption" },
+        attribute.skills.map((s) => skillLabel(s)).join(", "));
+      list.appendChild(pointRow({
+        testid: `attr-${id}`,
+        label: attribute.name,
+        title: attribute.description,
+        detail: [skills],
+        value: attributes[id],
+        canLower: canLowerAttribute(attributes, id),
+        canRaise: canRaiseAttribute(attributes, id),
+        onLower: () => {
+          if (canLowerAttribute(attributes, id)) attributes[id] = attributes[id] - 1;
           render();
-        }
-      });
-      const val = h("span", { "data-testid": `attr-value-${skill}`, style: "min-width:2ch;text-align:center" },
-        String(pts));
-      const plus = h(
-        "button",
-        {
-          class: "btn",
-          "data-testid": `attr-plus-${skill}`,
-          disabled: remaining <= 0 ? true : undefined,
-          "aria-label": `Add point to ${skill}`,
         },
-        "+",
-      ) as HTMLButtonElement;
-      plus.addEventListener("click", () => {
-        if (pointsRemaining() > 0) {
-          bonusPoints[skill] = (bonusPoints[skill] ?? 0) + 1;
+        onRaise: () => {
+          if (canRaiseAttribute(attributes, id)) attributes[id] = attributes[id] + 1;
           render();
-        }
-      });
-      row.append(minus, val, plus);
-      list.appendChild(row);
+        },
+      }));
+    }
+    frag.appendChild(list);
+    return frag;
+  }
+
+  function skillsStep(): HTMLElement {
+    const frag = h("div", { class: "maker-step" });
+    const total = focusBudget();
+    frag.appendChild(h("h2", { class: "title" }, "Where to put your focus"));
+    frag.appendChild(h("p", { class: "caption" },
+      "Your attributes already set every skill's starting level. Focus points push a " +
+      "single skill past the perks it would otherwise reach, so spend them where you want to be good."));
+    frag.appendChild(
+      h("p", { class: "caption", "data-testid": "focus-points-remaining" },
+        `${focusRemaining(skillFocus, total)} of ${total} focus points remaining`),
+    );
+
+    const levels = startingSkillLevels(attributes, skillFocus, {});
+    const list = h("div", { "data-testid": "skills-list" });
+    for (const skill of SKILLS) {
+      const id = skill.id;
+      const level = levels[id];
+      const next = nextPerkThreshold(level);
+      const perkCount = perksEarned(level);
+      const detail = [
+        h("span", { class: "caption" }, attributeLabel(skill.attribute)),
+        h("span", { class: "caption" }, `level ${level} · ${perkCount} of 8 perks`),
+      ];
+      if (next !== null) {
+        detail.push(h("span", { class: "tagline" }, `next at ${next}`));
+      }
+      list.appendChild(pointRow({
+        testid: `skill-${id}`,
+        label: skill.name,
+        title: skill.description,
+        detail,
+        value: skillFocus[id] ?? 0,
+        canLower: (skillFocus[id] ?? 0) > 0,
+        canRaise: focusRemaining(skillFocus, total) > 0,
+        onLower: () => {
+          const current = skillFocus[id] ?? 0;
+          if (current > 0) skillFocus[id] = current - 1;
+          render();
+        },
+        onRaise: () => {
+          if (focusRemaining(skillFocus, total) <= 0) return;
+          skillFocus[id] = (skillFocus[id] ?? 0) + 1;
+          render();
+        },
+      }));
     }
     frag.appendChild(list);
     return frag;
@@ -459,7 +551,8 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     const frag = h("div", { class: "maker-step" });
     frag.appendChild(h("h2", { class: "title" }, "Review your character"));
 
-    const { skills, cash, biography } = computeCharacterStats(backgroundChoices, age, bonusPoints);
+    const { skills, cash, biography } = computeCharacterStats(backgroundChoices, age, {});
+    const canonicalLevels = startingSkillLevels(attributes, skillFocus, skills);
     const ethnicity = ETHNICITIES.find((e) => e.id === ethnicityId);
     const appearance = appearancesForEthnicity(ethnicityId).find((a) => a.id === appearanceId);
     const bracket = AGE_BRACKETS.find((b) => age >= b.min && age <= b.max);
@@ -495,22 +588,38 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
       card.appendChild(cityEffects);
     }
 
-    const bonusEntries = Object.entries(bonusPoints).filter(([, v]) => v > 0);
-    if (bonusEntries.length > 0) {
-      card.appendChild(h("h4", {}, "Bonus points"));
-      const bonusList = h("ul", {});
-      for (const [skill, pts] of bonusEntries) {
-        bonusList.appendChild(h("li", {}, `${skill}: +${pts}`));
-      }
-      card.appendChild(bonusList);
+    card.appendChild(h("h4", {}, "Attributes"));
+    const attrList = h("ul", {});
+    for (const attribute of ATTRIBUTES) {
+      attrList.appendChild(
+        h("li", { "data-testid": `review-attribute-${attribute.id}` },
+          `${attribute.name}: ${attributes[attribute.id]}`),
+      );
     }
+    card.appendChild(attrList);
 
-    card.appendChild(h("h4", {}, "Starting skills"));
-    const skillList = h("ul", {});
-    for (const [skill, value] of Object.entries(skills).sort((a, b) => b[1] - a[1])) {
-      skillList.appendChild(h("li", {}, `${skill}: ${value}`));
+    card.appendChild(h("h4", {}, "Skills"));
+    const skillRows = h("ul", { "data-testid": "review-skills" });
+    const ranked = [...SKILLS].sort((a, b) => canonicalLevels[b.id] - canonicalLevels[a.id]);
+    for (const skill of ranked) {
+      const level = canonicalLevels[skill.id];
+      const focus = skillFocus[skill.id] ?? 0;
+      const suffix = focus > 0 ? ` (${focus} focus)` : "";
+      skillRows.appendChild(
+        h("li", { "data-testid": `review-skill-${skill.id}` },
+          `${skill.name}: ${level} · ${perksEarned(level)} of 8 perks${suffix}`),
+      );
     }
-    card.appendChild(skillList);
+    card.appendChild(skillRows);
+
+    card.appendChild(h("h4", {}, "Legacy starting skills"));
+    card.appendChild(h("p", { class: "caption" },
+      "The nine broad skills the background sheet still speaks in, kept for the clan roster."));
+    const legacyList = h("ul", { "data-testid": "review-legacy-skills" });
+    for (const [skill, value] of Object.entries(skills).sort((a, b) => b[1] - a[1])) {
+      legacyList.appendChild(h("li", {}, `${skill}: ${value}`));
+    }
+    card.appendChild(legacyList);
     card.appendChild(h("p", {}, `Starting cash: $${cash.toLocaleString()}`));
     card.appendChild(h("h4", {}, "Biography"));
     card.appendChild(h("p", { class: "caption" }, biography));
@@ -545,6 +654,7 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     else if (step === 4) body.appendChild(difficultyStep());
     else if (step === 5) body.appendChild(backgroundStep());
     else if (step === 6) body.appendChild(attributesStep());
+    else if (step === 7) body.appendChild(skillsStep());
     else body.appendChild(reviewStep());
     root.appendChild(body);
 
@@ -571,7 +681,7 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     } else {
       const done = h("button", { class: "btn btn--primary", "data-testid": "maker-done" }, "Start Game");
       done.addEventListener("click", () => {
-        const { skills, cash, biography } = computeCharacterStats(backgroundChoices, age, bonusPoints);
+        const { skills, cash, biography } = computeCharacterStats(backgroundChoices, age, {});
         options.onComplete({
           firstName: firstName.trim(),
           lastName: lastName.trim(),
@@ -579,11 +689,12 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
           appearanceId,
           ethnicityId,
           backgroundChoices: { ...backgroundChoices },
-          bonusPoints: { ...bonusPoints },
+          attributes: { ...attributes },
+          skillFocus: { ...skillFocus },
+          startingSkills: skills,
           startCity,
           age,
           difficulty,
-          startingSkills: skills,
           startingCash: cash,
           biography,
         });

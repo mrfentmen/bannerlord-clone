@@ -9,8 +9,12 @@
  *
  * - gold: 25% of the banked campaign's liquid wealth (player money + gold +
  *   party money), rounded down, added to the heir's starting cash;
- * - training: +2 bonus attribute points in the character maker, labeled
- *   "legacy training" — the heir of a legend starts better taught;
+ * - training: +2 focus points in the character maker, labeled "legacy
+ *   training" — the heir of a legend starts better taught. This used to say
+ *   "attribute points" and did not have attributes to spend: the maker's point
+ *   allocator was a list of skills wearing an attribute's label. The maker now
+ *   has both, and the pool an heir adds to is the focus budget, which is the
+ *   same knob under an honest name;
  * - renown and gear: RECORDED, not transferred. The banked renown is shown in
  *   the start-screen carryover list (the task's acceptance criterion) and
  *   written into the heir's biography as a legacy line. Gear names ride along
@@ -45,7 +49,7 @@ export interface NewGamePlusRecord {
 
 /** Share of liquid wealth that survives into the next campaign. */
 export const GOLD_CARRYOVER_RATE = 0.25;
-/** Extra character-maker bonus points granted to an NG+ heir. */
+/** Extra character-maker focus points granted to an NG+ heir. */
 export const LEGACY_BONUS_POINTS = 2;
 /** In-game days per season, matching the chronicle and ironman season math. */
 export const SEASON_DAYS = 90;
@@ -97,7 +101,7 @@ export function carryoverLines(record: NewGamePlusRecord): string[] {
   const lines = [
     `Heir of ${record.rulerName} — ${record.seasonsPlayed} seasons, ${record.battlesWon} battles won, ${record.renown} renown`,
     `Inheritance: ${record.gold.toLocaleString("en-US")} gold (${Math.round(GOLD_CARRYOVER_RATE * 100)}% of the old treasury)`,
-    `Legacy training: +${record.bonusPoints} attribute points in the character maker`,
+    `Legacy training: +${record.bonusPoints} focus points in the character maker`,
   ];
   if (record.gear.length > 0) {
     lines.push(`Heirlooms: ${record.gear.join(", ")}`);

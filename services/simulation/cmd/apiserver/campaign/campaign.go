@@ -242,6 +242,8 @@ type character struct {
 	startCity    string
 	difficulty   string
 	backgrounds  map[string]string
+	attributes   map[string]float64
+	skillFocus   map[string]float64
 	bonus        map[string]float64
 	skills       map[string]float64
 	startingCash float64

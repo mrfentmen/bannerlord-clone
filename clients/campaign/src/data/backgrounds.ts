@@ -11,6 +11,8 @@
  * - flavor text for the character story
  */
 
+import type { AttributeId, SkillId } from "./attributes.js";
+
 /** A single background choice (childhood, youth, training, etc.). */
 export interface BackgroundOption {
   id: string;
@@ -272,15 +274,28 @@ export interface GameCharacter {
   appearanceId: string;
   ethnicityId: string;
   backgroundChoices: Record<string, string>; // categoryId -> optionId
-  /** Player-allocated bonus points: skill -> points. */
-  bonusPoints: Record<string, number>;
+  /**
+   * The six attributes as the player allocated them (`src/data/attributes.ts`).
+   *
+   * These, plus `skillFocus`, are the record CHARACTER.md describes; they are not
+   * derived from the background sheet, which cannot express six attributes because
+   * it was written before the client had any.
+   */
+  attributes: Record<AttributeId, number>;
+  /** Focus points the player spent on individual skills: skill id -> points. */
+  skillFocus: Record<SkillId, number>;
   /** Starting city slug. */
   startCity: string;
   /** Character age. */
   age: number;
   /** Difficulty id. */
   difficulty: string;
-  /** Computed starting skills from backgrounds + ethnicity + bonus points. */
+  /**
+   * The nine broad skills the background and age sheets speak in: base 1 plus what
+   * the choices granted. The canonical eighteen are derived from this plus the
+   * attributes by `startingSkillLevels`; the two are kept side by side because the
+   * clan roster and the simulation's `ClanMember.skills` are on this sheet's scale.
+   */
   startingSkills: Record<string, number>;
   startingCash: number;
   biography: string;

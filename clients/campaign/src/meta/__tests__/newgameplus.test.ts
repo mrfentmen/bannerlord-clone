@@ -87,7 +87,7 @@ describe("carryoverLines", () => {
     expect(lines.join("\n")).toContain("Asha the Bold");
     expect(lines.join("\n")).toContain("1250 renown");
     expect(lines.join("\n")).toContain("2,000 gold");
-    expect(lines.join("\n")).toContain("+2 attribute points");
+    expect(lines.join("\n")).toContain("+2 focus points");
     expect(lines.join("\n")).toContain("Champion's Sabre");
   });
 
