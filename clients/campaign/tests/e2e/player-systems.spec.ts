@@ -114,8 +114,11 @@ test("the notification center lists, filters and jumps to settlements", async ({
   // Filtering to a priority with no notices shows the honest empty state.
   await panel.getByTestId("notifications-filter-priority").selectOption("critical");
   await expect(list).toContainText("Nothing matches those filters.");
-  // Back to all: a town notice offers the settlement jump, which opens the town.
+  // Back to all: a town notice offers the settlement jump, which opens Longmont's
+  // screen — the live town panel, or the fog panel when Longmont is out of sight.
   await panel.getByTestId("notifications-filter-priority").selectOption("all");
   await panel.getByTestId("notice-town-n-hist-town-longmont").click();
-  await expect(page.getByTestId("town-panel")).toContainText("Longmont");
+  const townScreen = page.getByTestId("town-panel").or(page.getByTestId("unknown-town-panel"));
+  await expect(townScreen).toBeVisible();
+  await expect(townScreen).toContainText("Longmont");
 });
