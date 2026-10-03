@@ -215,6 +215,20 @@ describe("music crossfade (task 554)", () => {
     expect(ctx.sources[0]!.stoppedAt).toBeNull();
   });
 
+  it("keeps preview ownership when an unrelated music asset fails to load", async () => {
+    const audio = await readyAudio();
+    await audio.playMusic("battle-theme");
+    expect(await audio.previewMusic("menu-theme")).toBe(true);
+
+    await audio.playMusic("not-in-the-manifest");
+    audio.stopMusicPreview();
+    await Promise.resolve();
+
+    expect(ctx.sources).toHaveLength(3);
+    expect(ctx.sources[2]!.started).toBe(true);
+    expect(ctx.sources[1]!.stoppedAt).not.toBeNull();
+  });
+
   it("cancels a preview that is still loading when stopped", async () => {
     const audio = await readyAudio();
     const originalPreload = audio.preload.bind(audio);

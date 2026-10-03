@@ -246,15 +246,15 @@ export class AudioManager {
    * is not loaded yet never silences the one that is.
    */
   async playMusic(track: string): Promise<void> {
-    // Any non-preview track change takes ownership away from a settings
-    // preview. Closing the settings panel must not later restore stale music.
-    if (this.musicPreview) {
-      this.musicPreview = null;
-      this.musicPreviewToken++;
-    }
     if (!this.ctx) await this.init();
     if (!this.ctx || !this.musicGain) return;
-    if (this.currentVoice?.id === track) return;
+    if (this.currentVoice?.id === track) {
+      // A normal caller taking over the preview's same track means it should
+      // keep playing after the Settings panel closes.
+      this.musicPreview = null;
+      this.musicPreviewToken++;
+      return;
+    }
 
     if (!this.buffers.has(track)) {
       await this.preload([track]);
@@ -262,6 +262,10 @@ export class AudioManager {
     const buffer = this.buffers.get(track);
     if (!buffer) return;
 
+    // A different track owns playback only after it is ready to start. A failed
+    // fetch leaves both the current audio and its preview lifecycle intact.
+    this.musicPreview = null;
+    this.musicPreviewToken++;
     const previous = this.currentVoice;
     if (previous) this.fadeOutVoice(previous, MUSIC_CROSSFADE_SECONDS);
     this.currentVoice = this.startVoice(track, buffer, MUSIC_CROSSFADE_SECONDS, this.musicGain);
