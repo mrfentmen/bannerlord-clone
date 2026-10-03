@@ -224,12 +224,17 @@ def build_wire_files(
     retrieved: str | None = None,
     census_year: int = 2020,
     estimates_vintage: int = 2023,
+    bbox: tuple[float, float, float, float] | None = None,
+    region_name_override: str | None = None,
 ) -> WireBuildResult:
     """Convert pipeline tables to the client's three wire-format files.
 
     ``census_year`` / ``estimates_vintage`` default to the values in
     ``config/world_data.toml``; pass the loaded config's values when they differ
     so the populationSource citation stays honest.
+
+    By default uses the V1 region from the regions table. Pass bbox as
+    (south, west, north, east) to build a state slice instead (e.g. California).
     """
     dist = Path(dist_dir)
     exports = Path(exports_dir) if exports_dir else dist / "exports"
@@ -248,11 +253,15 @@ def build_wire_files(
     if not regions:
         raise ValueError("regions table is empty; the pipeline must record a V1 region")
     region = regions[0]
-    south = float(region["bbox_south"])
-    west = float(region["bbox_west"])
-    north = float(region["bbox_north"])
-    east = float(region["bbox_east"])
-    region_name = str(region["region_name"])
+    if bbox is not None:
+        south, west, north, east = bbox
+        region_name = region_name_override or "state-slice"
+    else:
+        south = float(region["bbox_south"])
+        west = float(region["bbox_west"])
+        north = float(region["bbox_north"])
+        east = float(region["bbox_east"])
+        region_name = str(region["region_name"])
 
     state_profiles = _load_table(dist, exports, "state_profiles")
     fips_to_abbr = {str(r["state_fips"]): str(r["abbreviation"]) for r in state_profiles}
