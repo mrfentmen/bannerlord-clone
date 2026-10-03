@@ -255,6 +255,8 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     startSiege: async (townId, attackerPartyIds, armyId) => state.startSiege(townId, attackerPartyIds, armyId),
     assaultSiege: async (siegeId) => state.assaultSiege(siegeId),
     liftSiege: async (siegeId) => state.liftSiege(siegeId),
+    recruitCompanion: async (charId) => state.recruitCompanion(charId),
+    assignPartyRole: async (charId, role) => state.assignPartyRole(charId, role),
     marry: async (charId1, charId2) => state.marry(charId1, charId2),
     haveChild: async (parentId1, parentId2, childName) => state.haveChild(parentId1, parentId2, childName),
     killCharacter: async (charId, cause) => state.killCharacter(charId, cause),
@@ -460,6 +462,31 @@ class FixtureState {
     };
     this.#characters = [playerChar];
     this.#clans = [playerClan];
+
+    // Companion candidates: wandering heroes available for hire.
+    // They start clanless; recruitment adds them to the player's clan.
+    const companionSpecs = [
+      { name: "Sable", age: 28, skills: { medicine: 4, leadership: 2 } },
+      { name: "Corvus", age: 32, skills: { scouting: 5, tactics: 3 } },
+      { name: "Mira", age: 26, skills: { steward: 4, trade: 3 } },
+      { name: "Dain", age: 35, skills: { engineering: 5, tactics: 2 } },
+    ];
+    for (let i = 0; i < companionSpecs.length; i++) {
+      const spec = companionSpecs[i]!;
+      this.#characters.push({
+        id: `comp-${i}`,
+        name: spec.name,
+        age: spec.age,
+        clanId: "",
+        factionId: "",
+        alive: true,
+        parentIds: [],
+        childrenIds: [],
+        role: "companion",
+        isPlayer: false,
+        skills: spec.skills,
+      });
+    }
 
     this.#rulers = RULER_SPECS.map((r, i) => ({
       id: `ruler-${i}`,
@@ -1476,8 +1503,15 @@ class FixtureState {
       this.#party.morale = Math.max(0, this.#party.morale - 0.05);
     }
 
-    // Food: 1 food per 5 troops per day
-    const dailyFood = Math.ceil(troopCount / 5);
+    // Food: 1 food per 5 troops per day (quartermaster reduces waste)
+    let dailyFood = Math.ceil(troopCount / 5);
+    const quartermasterId = this.#party.roles.quartermaster;
+    if (quartermasterId) {
+      const qm = this.#characters.find((c) => c.id === quartermasterId);
+      const stewardSkill = qm?.skills?.steward ?? 0;
+      // Each steward point reduces food consumption by 3%
+      dailyFood = Math.max(1, Math.floor(dailyFood * (1 - stewardSkill * 0.03)));
+    }
     const food = this.#party.food;
     if (food >= dailyFood) {
       this.#party.food -= dailyFood;
@@ -1516,10 +1550,19 @@ class FixtureState {
    * return to fighting strength. Recovery is faster with a surgeon and medicine.
    */
   #recoverWounded(): void {
-    const hasSurgeon = this.#party.roles.surgeon != null;
+    const surgeonId = this.#party.roles.surgeon;
+    let surgeonBonus = 0;
+    if (surgeonId) {
+      surgeonBonus = 0.1;
+      // Skilled surgeons heal faster: +2% per medicine skill point
+      const surgeon = this.#characters.find((c) => c.id === surgeonId);
+      if (surgeon?.skills?.medicine) {
+        surgeonBonus += surgeon.skills.medicine * 0.02;
+      }
+    }
     const medicineBonus = this.#party.medicine > 0 ? 0.1 : 0;
-    // Base 20% recover per day, +10% with surgeon, +10% with medicine.
-    const recoveryRate = 0.2 + (hasSurgeon ? 0.1 : 0) + medicineBonus;
+    // Base 20% recover per day, +surgeon, +10% with medicine.
+    const recoveryRate = 0.2 + surgeonBonus + medicineBonus;
 
     for (const stack of this.#party.troops) {
       if (stack.wounded > 0) {
@@ -2530,6 +2573,73 @@ class FixtureState {
   }
 
   /**
+   * Recruit a companion into the player's clan. Costs 500 gold.
+   * The companion must be alive, clanless, and have the companion role.
+   */
+  async recruitCompanion(charId: string): Promise<void> {
+    const char = this.#characters.find((c) => c.id === charId);
+    if (!char) throw new Error("Character not found.");
+    if (!char.alive) throw new Error("Cannot recruit a dead character.");
+    if (char.role !== "companion") throw new Error("This character is not available as a companion.");
+    if (char.clanId) throw new Error("This companion already belongs to a clan.");
+
+    const cost = 500;
+    if (this.#party.money < cost) {
+      throw new Error(`Recruiting a companion costs ${cost} gold.`);
+    }
+
+    this.#party.money -= cost;
+    char.clanId = "clan-player";
+    char.factionId = this.#player.factionId;
+
+    const clan = this.#clans.find((c) => c.id === "clan-player");
+    if (clan && !clan.memberIds.includes(charId)) {
+      clan.memberIds.push(charId);
+    }
+
+    this.#notifications.push({
+      id: `n-comp-recruit-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: `${char.name} joined your clan as a companion!`,
+      entityId: char.id,
+      field: "companion",
+    });
+  }
+
+  /**
+   * Assign a companion to a party role (or unassign with null).
+   * The companion must belong to the player's clan.
+   */
+  async assignPartyRole(charId: string, role: "quartermaster" | "scout" | "surgeon" | "engineer" | null): Promise<void> {
+    const char = this.#characters.find((c) => c.id === charId);
+    if (!char) throw new Error("Character not found.");
+    if (!char.alive) throw new Error("Cannot assign a dead character.");
+    if (char.clanId !== "clan-player") throw new Error("Only your clan members can hold party roles.");
+
+    if (role === null) {
+      // Unassign: remove from wherever they are
+      for (const r of ["quartermaster", "scout", "surgeon", "engineer"] as const) {
+        if (this.#party.roles[r] === charId) {
+          delete this.#party.roles[r];
+        }
+      }
+    } else {
+      // Assign: remove whoever was there, put this character in
+      this.#party.roles[role] = charId;
+    }
+
+    this.#notifications.push({
+      id: `n-role-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: role ? `${char.name} assigned as ${role}.` : `${char.name} relieved of party duties.`,
+      entityId: char.id,
+      field: "role",
+    });
+  }
+
+  /**
    * Apply casualties proportionally across attacker parties.
    */
   #applySiegeCasualties(partyIds: string[], totalLoss: number): void {
@@ -2569,8 +2679,16 @@ class FixtureState {
         continue;
       }
 
-      // Preparation advances
-      siege.preparation = Math.min(1, siege.preparation + 0.1);
+      // Preparation advances (engineer speeds it up)
+      let prepRate = 0.1;
+      // Check if any attacker party has an engineer (simplified: player party only)
+      const engineerId = this.#party.roles.engineer;
+      if (engineerId && siege.attackerPartyIds.includes(this.#party.id)) {
+        const eng = this.#characters.find((c) => c.id === engineerId);
+        const engSkill = eng?.skills?.engineering ?? 0;
+        prepRate += engSkill * 0.02;
+      }
+      siege.preparation = Math.min(1, siege.preparation + prepRate);
 
       // Build siege engines (1 per 3 days after preparation starts)
       if (siege.preparation > 0.3 && this.#day % 3 === 0) {

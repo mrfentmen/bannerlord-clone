@@ -734,6 +734,8 @@ export interface GameCharacter {
   partyId?: string;
   /** Whether this is the player character. */
   isPlayer: boolean;
+  /** Skill levels (0-10) for companions. Affects party/settlement systems. */
+  skills?: Record<string, number>;
 }
 
 /** Marriage record. */
@@ -1113,6 +1115,10 @@ export interface SimulationProvider {
   assaultSiege(siegeId: string): Promise<{ victory: boolean; casualties: number }>;
   /** Lift a siege (attackers withdraw). */
   liftSiege(siegeId: string): Promise<void>;
+  /** Recruit a companion into the player's clan. Costs 500 gold. */
+  recruitCompanion(charId: string): Promise<void>;
+  /** Assign a companion to a party role. */
+  assignPartyRole(charId: string, role: "quartermaster" | "scout" | "surgeon" | "engineer" | null): Promise<void>;
   /** Set an army's objective. */
   setArmyObjective(armyId: string, objective: Army["objective"]): Promise<void>;
   /** Restore the provider's internal state from a saved snapshot. */

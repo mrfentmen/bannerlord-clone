@@ -629,6 +629,24 @@ export class HttpSimulationProvider implements SimulationProvider {
     );
   }
 
+  async recruitCompanion(charId: string): Promise<void> {
+    await this.#post(
+      `/v1/companions/${encodeURIComponent(charId)}/recruit`,
+      {},
+      "The companion did not join.",
+      () => null,
+    );
+  }
+
+  async assignPartyRole(charId: string, role: "quartermaster" | "scout" | "surgeon" | "engineer" | null): Promise<void> {
+    await this.#post(
+      `/v1/companions/${encodeURIComponent(charId)}/role`,
+      { role },
+      "The role assignment did not land.",
+      () => null,
+    );
+  }
+
   async marry(charId1: string, charId2: string): Promise<void> {
     await this.#post(
       "/v1/dynasty/marry",
