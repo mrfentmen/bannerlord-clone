@@ -47,6 +47,7 @@ import {
 import { EMPTY_PEACE_TERMS, negotiatePeace } from "../../diplomacy/peaceConcessions.js";
 import { suggestTribute } from "../../diplomacy/tributeCalculator.js";
 import { rankGreatPowers, type ClanPower, type PowerRank } from "../../diplomacy/greatPowers.js";
+import { relationBand } from "../../diplomacy/notables.js";
 import { markHintShown, shouldShowHint } from "../../onboarding/hintCooldown.js";
 import "./diplomacyPanel.css";
 
@@ -77,6 +78,15 @@ export interface DiplomacyPanelOptions {
    * strengths would be a map made of guesses. Omitted, the section is absent.
    */
   powers?: ClanPower[];
+  /**
+   * The factions to list, as the caller holds them. Tasks 202 and 203.
+   *
+   * The diplomacy layer tracks relations keyed by faction id but keeps no roster of
+   * factions itself, so the list is drawn only when the caller supplies one. Omitted,
+   * the section is absent — a list of invented neighbours would be a map made of
+   * guesses.
+   */
+  factions?: DiplomacyFaction[];
   onClose?: () => void;
   testId?: string;
 }
@@ -121,6 +131,9 @@ function buildDiplomacyPanel(options: DiplomacyPanelOptions, notice: string | nu
 
   const powers = powerBoard(options.powers);
   if (powers) body.appendChild(powers);
+
+  const factions = factionList(options.factions);
+  if (factions) body.appendChild(factions);
 
   body.appendChild(sectionHeader("War goals"));
   const wars = activeWars();
@@ -440,4 +453,118 @@ function incidentCard(
 
 function responseLabel(response: IncidentResponse): string {
   return response === "retaliate" ? "Retaliate" : response === "protest" ? "Protest" : "Overlook";
+}
+
+/**
+ * One faction on the diplomacy list.
+ *
+ * Only what identifies it: the panel resolves everything else — the standing, the
+ * wars, the treaties — from the modules that own those, by id.
+ */
+export interface DiplomacyFaction {
+  /** The id the diplomacy layer keys its records by. */
+  id: string;
+  /** Display name. */
+  name: string;
+}
+
+/**
+ * Who the player is dealing with. Tasks 202 and 203.
+ *
+ * The relation is read with `relationWith` from
+ * `src/diplomacy/relationNotifications.ts`, which is where every relation change in
+ * the client lands, so this list cannot disagree with the change feed below it. The
+ * band is `relationBand` from `src/diplomacy/notables.ts`, the client's shared
+ * -100..100 definition.
+ *
+ * The bar is two-sided because the scale is: a bar that only grew rightward would
+ * make a faction you are at -80 with look closer to neutral than one you are merely
+ * cold-shouldered at -10. The fill leaves the centre toward the side the relation
+ * lies on, and the number is printed beside it so nobody has to read the bar at all.
+ */
+function factionList(factions: DiplomacyFaction[] | undefined): HTMLElement | null {
+  if (factions === undefined) return null;
+  const wrap = h("section", { "data-testid": "diplomacy-factions" });
+  wrap.appendChild(sectionHeader("Factions"));
+
+  if (factions.length === 0) {
+    wrap.appendChild(
+      emptyState("No factions to report", "Nobody has been met yet. Factions appear once the campaign reports them."),
+    );
+    return wrap;
+  }
+
+  const list = h("ul", { class: "faction-list" });
+  for (const faction of factions) {
+    const relation = relationWith(faction.id);
+    const band = relationBand(relation);
+    const item = h("li", {
+      class: "faction",
+      "data-testid": `faction-${faction.id}`,
+      "data-band": band,
+      "data-direction": relation < 0 ? "down" : "up",
+    });
+
+    const head = h("div", { class: "field-row", style: "justify-content:space-between;align-items:baseline;gap:var(--space-2)" });
+    head.append(
+      h("strong", { class: "label" }, faction.name),
+      h(
+        "span",
+        { class: "mono caption", "data-testid": `faction-relation-${faction.id}` },
+        `${RELATION_BAND_WORD[band]} · ${signedRelation(relation)}`,
+      ),
+    );
+    item.appendChild(head);
+
+    const half = Math.abs(relation) / 2;
+    item.appendChild(
+      h(
+        "div",
+        {
+          class: "relation",
+          role: "meter",
+          "aria-label": `Standing with ${faction.name}`,
+          "aria-valuemin": "-100",
+          "aria-valuemax": "100",
+          "aria-valuenow": String(relation),
+          "aria-valuetext": `${signedRelation(relation)}, ${RELATION_BAND_WORD[band]}`,
+          "data-testid": `faction-bar-${faction.id}`,
+        },
+        h("span", { class: "relation__axis", "aria-hidden": "true" }),
+        h("span", {
+          class: "relation__fill",
+          "aria-hidden": "true",
+          "data-testid": `faction-fill-${faction.id}`,
+          style: relation < 0
+            ? `left:${50 - half}%;width:${half}%`
+            : `left:50%;width:${half}%`,
+        }),
+      ),
+    );
+
+    list.appendChild(item);
+  }
+  wrap.appendChild(list);
+  wrap.appendChild(
+    h(
+      "p",
+      { class: "caption", style: "margin:var(--space-2) 0 0" },
+      "Standing runs from -100 against you to +100 for you, and every change is logged below with its reason.",
+    ),
+  );
+  return wrap;
+}
+
+/** The band words, so a relation reads as a judgement rather than a bare number. */
+const RELATION_BAND_WORD: Record<ReturnType<typeof relationBand>, string> = {
+  hostile: "Hostile",
+  cold: "Cold",
+  neutral: "Neutral",
+  warm: "Warm",
+  allied: "Allied",
+};
+
+/** A signed relation, so +5 never reads as 5. */
+function signedRelation(value: number): string {
+  return value > 0 ? `+${Math.round(value)}` : String(Math.round(value));
 }

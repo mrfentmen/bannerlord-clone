@@ -50,3 +50,61 @@
   border-left: 3px solid var(--status-good);
   padding-left: var(--space-2);
 }
+
+/* -- faction list (task 202) ---------------------------------------------- */
+
+.faction-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.faction {
+  padding-bottom: var(--space-2);
+  border-bottom: 1px solid var(--paper-200);
+}
+
+.faction:last-child {
+  border-bottom: none;
+}
+
+/* Two-sided, because the scale is: a bar that only grew rightward would make a
+   faction you are at -80 with look closer to neutral than one merely cold at -10.
+   The rule down the side and the word in the heading carry the band too, so the
+   direction survives with no colour vision. */
+.relation {
+  position: relative;
+  height: var(--space-2);
+  margin-top: var(--space-1);
+  background: var(--paper-100);
+  border: 1px solid var(--paper-300);
+  border-radius: var(--radius-1);
+  overflow: hidden;
+}
+
+.relation__axis {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--paper-400);
+}
+
+.relation__fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  background: var(--accent-info);
+}
+
+.faction[data-direction="down"] .relation__fill {
+  background: var(--status-critical);
+}
+
+.faction[data-direction="up"] .relation__fill {
+  background: var(--accent-info);
+}
