@@ -65,7 +65,14 @@ import { partyPanel } from "./ui/panels/PartyPanel.js";
 import { marchPlanner } from "./ui/panels/MarchPlanner.js";
 import { questPanel } from "./ui/panels/QuestPanel.js";
 import { encyclopediaPanel } from "./ui/panels/EncyclopediaPanel.js";
+import { objectivesPanel } from "./ui/panels/ObjectivesPanel.js";
 import { buildEncyclopedia } from "./data/encyclopedia.js";
+import {
+  evaluateObjectives,
+  loadObjectiveStore,
+  saveObjectiveStore,
+  type Objective,
+} from "./data/objectives.js";
 import { rumourFeedPanel } from "./ui/panels/RumourFeed.js";
 import { radioPanel } from "./ui/panels/RadioPanel.js";
 import { ledgerPanel } from "./ui/panels/LedgerPanel.js";
@@ -131,6 +138,9 @@ let currentPanel: HudPanel = "none";
 let contextNode: Node | null = null;
 let timeScale = 0;
 let lastWhy: { entityId: string; field: string } | null = null;
+// Objective state (mandate §12): visited settlements and sticky completions, persisted
+// across sessions. Progress itself is always re-read from the live snapshot.
+let objectiveStore = loadObjectiveStore();
 let connectionState: "connected" | "reconnecting" | "degraded" = "connected";
 /** The route the party is on, and the in-game day it left. */
 interface Travel {
@@ -759,6 +769,11 @@ function selectSettlement(id: string): void {
   // The map ring follows the selection, so the panel on the right and the map agree
   // about what is selected.
   scene?.setSelectedSettlement(id);
+  // Scouting objective: opening a settlement counts as visiting it.
+  if (!objectiveStore.visited.has(id)) {
+    objectiveStore.visited.add(id);
+    saveObjectiveStore(objectiveStore);
+  }
   const place = settlement(id);
   const town = townFor(id);
   if (place && scene) {
@@ -1066,6 +1081,10 @@ function rebuildContext(): void {
       // to each other rather than to the map selection.
       contextNode = encyclopediaNode();
       return;
+    case "objectives":
+      // No town needed: objectives are measured from the party and the world.
+      contextNode = objectivesNode();
+      return;
     case "radio":
       // The bulletins are generated from the live snapshot, so the news is
       // always about the world as it is right now.
@@ -1342,6 +1361,41 @@ function rumourNode(): Node {
   }).root;
 }
 
+/**
+ * Evaluate objectives against the live snapshot and persist newly-earned completions.
+ *
+ * Runs on every paint (every tick), so a completion earned while the panel is closed
+ * is still recorded — opening the panel later must not be able to un-complete it.
+ */
+function syncObjectives(): Objective[] {
+  if (!snapshot) return [];
+  const objectives = evaluateObjectives(
+    {
+      party: snapshot.party,
+      visitedSettlementIds: objectiveStore.visited,
+      notifications: snapshot.notifications,
+    },
+    objectiveStore.completed,
+  );
+  let changed = false;
+  for (const o of objectives) {
+    if (o.completed && !objectiveStore.completed.has(o.id)) {
+      objectiveStore.completed.add(o.id);
+      changed = true;
+    }
+  }
+  if (changed) saveObjectiveStore(objectiveStore);
+  return objectives;
+}
+
+function objectivesNode(): Node {
+  if (!snapshot) return noSimulationRecordNode("No campaign to measure");
+  return objectivesPanel({
+    objectives: syncObjectives(),
+    onClose: () => openPanel("none"),
+  }).root;
+}
+
 function encyclopediaNode(): Node {
   if (!snapshot) return noSimulationRecordNode("No world to read");
   // Built fresh on every open: rulers change sides, towns change hands, and an index
@@ -1573,6 +1627,9 @@ function paint(): void {
   // Event markers ride the fog pass: the scene skips unseen towns, so this must run
   // after fog is applied, never before.
   syncEventMarkers();
+  // Objective completions are sticky and persisted, so they are evaluated on every
+  // paint (every tick), not only when the panel is open.
+  syncObjectives();
   const headcount = snapshot.party.troops.reduce((a, t) => a + t.count, 0);
   const dailyFood = headcount * 0.85;
   const state: HudState = {

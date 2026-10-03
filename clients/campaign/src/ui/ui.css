@@ -1816,3 +1816,11 @@
   text-align: left;
 }
 .ency__empty { color: var(--ink-500); }
+
+/* Objectives panel (src/ui/panels/ObjectivesPanel.ts). */
+.obj__summary { color: var(--ink-500); font-size: var(--type-small-size); margin-bottom: var(--space-3); }
+.obj { border: 1px solid var(--paper-300); border-radius: var(--radius-1); padding: var(--space-3); margin-bottom: var(--space-2); background: var(--paper-0); }
+.obj__head { display: flex; justify-content: space-between; align-items: center; gap: var(--space-2); }
+.obj__title { margin: 0; color: var(--ink-900); font-size: var(--type-body-size); }
+.obj__desc { color: var(--ink-700); margin: var(--space-1) 0 var(--space-2); }
+.obj__done { color: var(--status-good); font-weight: bold; margin: 0; }
