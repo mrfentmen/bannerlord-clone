@@ -70,6 +70,12 @@ import type {
 } from "../types.js";
 import { troopStackPower, troopTier } from "../types.js";
 import { SNAPSHOT_SCHEMA_VERSION } from "../wire.js";
+// Rowan (del order 2026-10-03): ethnicity-based name generator and merchant /
+// courier trade paths. The fixture draws every notable name from names.ts and
+// assigns trade circuits from tradePaths.ts, so each campaign seed gets a
+// fresh cast of leaders, kings, nobles, merchants and couriers on fixed roads.
+import { generateNotableName, titledName, type NpcRole } from "../names.js";
+import { planTradeParties, SETTLEMENT_POSITIONS } from "../tradePaths.js";
 
 /** Marker strings. `tools/check-no-fixtures.mjs` greps the production bundle for
  *  these, so this module cannot be smuggled into a shipped build unnoticed. */
@@ -455,13 +461,19 @@ class FixtureState {
 
     // Trade caravans: travel between towns, buying low and selling high.
     // They move goods through the economy, affecting supply and prices.
+    // Rowan (del order 2026-10-03): each caravan is assigned a fixed trade
+    // circuit from `data/tradePaths.ts` and a named merchant leader from the
+    // ethnicity name generator, drawn from the campaign seed.
     const caravanNames = ["Red Wagon Trading", "Blue Mule Co.", "Golden Wheel"];
+    const tradeSpecs = planTradeParties(rand);
+    const merchantSpecs = tradeSpecs.filter((s) => s.circuit.length > 2);
     this.#npcParties.push(...caravanNames.map((name, i) => {
       const angle = (i / caravanNames.length) * Math.PI * 2;
       const dist = 60 + rand() * 40;
+      const spec = merchantSpecs[i % merchantSpecs.length]!;
       return {
         id: `npc-caravan-${i}`,
-        name,
+        name: `${name} — ${spec.leaderTitle} ${spec.leaderName}`,
         kind: "caravan" as const,
         factionId: "merchants",
         position: {
@@ -474,8 +486,31 @@ class FixtureState {
         destination: null,
         speedKmPerDay: 30,
         cargo: [],
+        circuit: spec.circuit,
+        circuitIndex: -1,
       };
     }));
+
+    // Rowan (del order 2026-10-03): courier parties run fixed point-to-point
+    // mail routes between towns, drawn from the campaign seed like everything
+    // else. They travel their route physically instead of trading abstractly.
+    for (const spec of tradeSpecs.filter((s) => s.circuit.length === 2)) {
+      const nextStop = SETTLEMENT_POSITIONS[spec.circuit[1]!] ?? spec.start;
+      this.#npcParties.push({
+        id: spec.id,
+        name: `${spec.name} — ${spec.leaderTitle} ${spec.leaderName}`,
+        kind: "courier" as const,
+        factionId: "merchants",
+        position: { ...spec.start },
+        troops: [{ name: "Riders", count: spec.troopCount, tier: 1 }],
+        troopCount: spec.troopCount,
+        hostile: false,
+        destination: { ...nextStop },
+        speedKmPerDay: spec.speedKmPerDay,
+        circuit: spec.circuit,
+        circuitIndex: 1,
+      });
+    }
 
     // Initialize clans and characters.
     // Player clan: the player's dynasty.
@@ -578,18 +613,24 @@ class FixtureState {
       const count = 2 + Math.floor(rand() * 3); // 2-4
       const types = [...NOTABLE_TYPES].sort(() => rand() - 0.5).slice(0, count);
       const notables: Notable[] = types.map((type, i) => {
-        const culture = NOTABLE_CULTURES[Math.floor(rand() * NOTABLE_CULTURES.length)]!;
-        const firsts = NOTABLE_FIRST_NAMES[culture]!;
-        const lasts = NOTABLE_LAST_NAMES[culture]!;
-        const first = firsts[Math.floor(rand() * firsts.length)]!;
-        const last = lasts[Math.floor(rand() * lasts.length)]!;
+        // Rowan (del order 2026-10-03): every notable name comes from the
+        // ethnicity-based generator, so each campaign seed gets fresh
+        // leaders, kings and nobles. Titles follow the notable's station.
+        const person = generateNotableName(rand);
+        const role: NpcRole =
+          type === "merchant" ? "merchant"
+          : type === "gang-leader" ? "king"
+          : type === "veteran" ? "noble"
+          : "leader";
+        const titled = titledName(role, rand, person.ethnicityId);
         // Bigger towns attract more powerful notables.
         const sizeBonus = town.klass === "city" ? 25 : town.klass === "town" ? 10 : 0;
         const power = Math.round(clamp(20 + rand() * 55 + sizeBonus, 1, 100));
         const notable: Notable = {
           id: `notable-${town.settlementId}-${i}`,
           settlementId: town.settlementId,
-          name: `${first} ${last}`,
+          name: titled.fullName,
+          title: titled.title,
           type,
           power,
           // Start slightly warm or cool; the player earns the rest.
@@ -1698,6 +1739,13 @@ class FixtureState {
         this.#moveCaravan(npc);
         continue;
       }
+      if (npc.circuit && npc.circuit.length > 1 && !npc.destination) {
+        // Rowan: couriers run their fixed route, stop to stop, forever.
+        const next = ((npc.circuitIndex ?? 0) + 1) % npc.circuit.length;
+        npc.circuitIndex = next;
+        const stop = SETTLEMENT_POSITIONS[npc.circuit[next]!];
+        if (stop) npc.destination = { ...stop };
+      }
       if (!npc.destination) {
         // Pick a new wander target within ~150km.
         const angle = rand() * Math.PI * 2;
@@ -1731,10 +1779,18 @@ class FixtureState {
     const cycleDay = this.#day % 5;
     if (cycleDay !== 0) return;
 
-    // Pick a random town
-    const townIds = [...this.#towns.keys()];
-    if (townIds.length === 0) return;
-    const townId = townIds[Math.floor(this.#random() * townIds.length)]!;
+    // Rowan: caravans with an assigned trade circuit visit its stops in
+    // order; caravans without one pick a random town as before.
+    let townId: string;
+    if (npc.circuit && npc.circuit.length > 0) {
+      const next = ((npc.circuitIndex ?? -1) + 1) % npc.circuit.length;
+      npc.circuitIndex = next;
+      townId = npc.circuit[next]!;
+    } else {
+      const townIds = [...this.#towns.keys()];
+      if (townIds.length === 0) return;
+      townId = townIds[Math.floor(this.#random() * townIds.length)]!;
+    }
     const market = this.#markets.get(townId);
     if (!market) return;
 
@@ -3867,36 +3923,9 @@ const GOOD_MARKET_UNITS: Record<GoodId, number> = {
 };
 
 /**
- * Procedural American notable names, grouped loosely by the game's cultures.
- * A generator, not a list: picks are deterministic per seed via the fixture RNG.
+ * Rowan (del order 2026-10-03): notable names moved to `data/names.ts` —
+ * the ethnicity-based generator. The old per-culture tables were removed.
  */
-const NOTABLE_FIRST_NAMES: Record<string, string[]> = {
-  italian: ["Marco", "Sofia", "Tony", "Gina", "Sal", "Rosa", "Vito", "Elena"],
-  irish: ["Seamus", "Bridget", "Connor", "Maeve", "Patrick", "Nora", "Finn", "Aoife"],
-  chinese: ["Wei", "Mei", "Jian", "Li", "Chen", "Xiao", "Fang", "Bo"],
-  korean: ["Jin", "Soo", "Min", "Hana", "Tae", "Yuna", "Dong", "Seo"],
-  african: ["Marcus", "Keisha", "Darnell", "Tamika", "Jerome", "Latoya", "Andre", "Nia"],
-  jamaican: ["Damian", "Marlene", "Orlando", "Shanice", "Tyrone", "Althea", "Dwayne", "Denise"],
-  mexican: ["Carlos", "Maria", "Diego", "Lucia", "Miguel", "Rosa", "Jorge", "Elena"],
-  puertoRican: ["Luis", "Carmen", "Rafael", "Isabel", "Miguel", "Sofia", "Diego", "Luz"],
-  german: ["Hans", "Greta", "Klaus", "Ingrid", "Otto", "Helga", "Fritz", "Anna"],
-  russian: ["Ivan", "Natasha", "Dmitri", "Olga", "Sergei", "Irina", "Viktor", "Anya"],
-};
-
-const NOTABLE_LAST_NAMES: Record<string, string[]> = {
-  italian: ["Rossi", "Marino", "Conti", "Ferrara", "Bianchi", "Romano"],
-  irish: ["Murphy", "Kelly", "Sullivan", "Walsh", "Byrne", "Ryan"],
-  chinese: ["Wang", "Li", "Zhang", "Liu", "Chen", "Yang"],
-  korean: ["Kim", "Lee", "Park", "Choi", "Jung", "Kang"],
-  african: ["Johnson", "Williams", "Brown", "Jones", "Davis", "Wilson"],
-  jamaican: ["Brown", "Campbell", "Reid", "Thompson", "Walker", "Morgan"],
-  mexican: ["Garcia", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Perez"],
-  puertoRican: ["Rivera", "Torres", "Santiago", "Cruz", "Morales", "Ortiz"],
-  german: ["Schmidt", "Weber", "Meyer", "Wagner", "Becker", "Schulz"],
-  russian: ["Ivanov", "Petrov", "Sokolov", "Smirnov", "Kuznetsov", "Popov"],
-};
-
-const NOTABLE_CULTURES = Object.keys(NOTABLE_FIRST_NAMES);
 
 const NOTABLE_TYPE_BLURBS: Record<NotableType, string> = {
   merchant: "Runs the biggest concern in town. Everything has a price.",

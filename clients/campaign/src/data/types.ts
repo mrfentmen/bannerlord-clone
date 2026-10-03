@@ -252,6 +252,8 @@ export interface Notable {
   id: string;
   settlementId: string;
   name: string;
+  /** Street-level rank (Boss, Kingpin, Elder...) — see `data/names.ts`. */
+  title?: string;
   type: NotableType;
   /** 1 to 100. Higher power unlocks more and better recruits. */
   power: number;
@@ -464,7 +466,7 @@ export interface BattleResultOutcome {
 export interface NpcParty {
   id: string;
   name: string;
-  kind: "bandit" | "caravan" | "lord" | "militia";
+  kind: "bandit" | "caravan" | "courier" | "lord" | "militia";
   factionId: string;
   position: { x: number; z: number };
   troops: { name: string; count: number; tier: number }[];
@@ -481,6 +483,13 @@ export interface NpcParty {
   cargo?: { goodId: string; quantity: number }[];
   /** Town ID the caravan is heading to (for trade route logic). */
   targetTownId?: string;
+  /**
+   * Ordered settlement ids this party loops (merchant circuits, courier
+   * runs — see `data/tradePaths.ts`). Absent for wanderers like bandits.
+   */
+  circuit?: string[];
+  /** Index into `circuit` of the stop currently being traveled to. */
+  circuitIndex?: number;
 }
 
 /**

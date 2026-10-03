@@ -152,6 +152,22 @@ export interface CreateProviderOptions {
    * long it is willing to wait.
    */
   timeoutMs?: number;
+  /**
+   * Rowan (del order 2026-10-03): world seed for the fixture. When omitted,
+   * a fresh random seed is used per boot, so every new campaign gets
+   * different leaders, kings, nobles, merchants and couriers. Tests that
+   * need determinism pass a fixed seed (or build the fixture directly,
+   * which keeps its default seed).
+   */
+  seed?: number;
+}
+
+/**
+ * Fresh random world seed for a new campaign. 31 bits, never negative,
+ * so it fits the fixture's seed arithmetic either way.
+ */
+function newCampaignSeed(): number {
+  return (Math.random() * 0x7fffffff) | 0;
 }
 
 export function createSimulationProvider(options: CreateProviderOptions): SimulationProvider {
@@ -162,7 +178,7 @@ export function createSimulationProvider(options: CreateProviderOptions): Simula
       // Production fallback: when no sim server is reachable, the game runs on
       // the local fixture so the deployed site is playable. The fixture is a
       // complete local simulation, not test scaffolding.
-      return createFixtureSimulationProvider();
+      return createFixtureSimulationProvider({ seed: options.seed ?? newCampaignSeed() });
     default: {
       // Exhaustive: adding a kind forces a decision here rather than a fallthrough.
       const never: never = options.kind;
