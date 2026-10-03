@@ -506,6 +506,12 @@ describe("the party rail", () => {
     expect(rail.querySelector("[data-testid='rail-prisoners']")!.textContent).toBe("0");
   });
 
+  it("shows the party's movement speed from the snapshot", () => {
+    const rail = hudAt().querySelector("[data-testid='party-rail']")!;
+    const speed = rail.querySelector("[data-testid='rail-speed']")!;
+    expect(speed.textContent).toBe(`${snapshot.party.speedKmPerDay.toFixed(1)} km/d`);
+  });
+
   it("gives every rail control an accessible name", () => {
     const hud = createHud({
       onSelectPanel: () => {},
