@@ -32,6 +32,11 @@ export default defineConfig({
     reuseExistingServer: false,
     // The bundle is 6 MB of Babylon, so the build itself takes a few minutes.
     timeout: 600_000,
+    // The suite runs against test fixtures (the specs assert the fixture banner).
+    // The fixtures build keeps the fixture module, but the client only reads it when
+    // VITE_SIMULATION_SOURCE=fixture; without this the boot tries the HTTP
+    // simulation and dies at "The map did not load".
+    env: { VITE_SIMULATION_SOURCE: "fixture" },
   },
   // Playwright's bundled Chromium does not support macOS 12, which is what this machine
   // runs, so the tests drive the installed Google Chrome instead. `npx playwright
