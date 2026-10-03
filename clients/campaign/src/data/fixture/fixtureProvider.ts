@@ -234,6 +234,7 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     planMarch: async (request) => state.planMarch(request),
     commitMarch: async (request) => state.commitMarch(request),
     setTimeScale: async (daysPerRealSecond) => state.setTimeScale(daysPerRealSecond),
+    debugSetClanTier: (tier: number) => state.debugSetClanTier(tier),
     skipToArrival: async () => state.skipToArrival(),
     setEthnicity: (ethnicityId) => state.setEthnicity(ethnicityId),
     setCharacter: (character) => state.setCharacter(character),
@@ -3578,6 +3579,14 @@ class FixtureState {
       this.#timer = setInterval(() => this.#step(), 1000 / daysPerRealSecond);
     }
     return { accepted: true, daysPerRealSecond };
+  }
+
+  /**
+   * Debug: set the player clan tier (for tests that need high party capacity).
+   */
+  debugSetClanTier(tier: number): void {
+    const clan = this.#clans.find((c) => c.id === "clan-player");
+    if (clan) clan.tier = tier;
   }
 
   /**

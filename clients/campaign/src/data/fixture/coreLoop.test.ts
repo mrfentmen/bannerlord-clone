@@ -245,6 +245,8 @@ describe("marching and daily upkeep", () => {
   it("unpaid wages become wages owed rather than negative money", async () => {
     const provider = createFixtureSimulationProvider();
     provider.setTimeScale(0);
+    // This test needs 145 troops; raise clan tier for capacity (25 + 6*25 = 175).
+    (provider as any).debugSetClanTier(6);
 
     // Raise a large force across two towns: 145 militia at 0.5 wage each, which is the
     // whole purse at the $15 hiring bonus. Nothing is left over, so the first day's
