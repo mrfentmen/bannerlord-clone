@@ -887,6 +887,11 @@ export interface SimulationProvider {
    * applyBattleResult when the battle produces a full BattleResult.
    */
   applyBattleOutcome(result: BattleResult): Promise<BattleResultOutcome>;
+  /**
+   * Mark an NPC party as defeated (removes it from the campaign). Called after
+   * the player wins a battle against that party.
+   */
+  defeatNpcParty(partyId: string): Promise<void>;
   /** Restore the provider's internal state from a saved snapshot. */
   restoreSnapshot(snapshot: SimSnapshot): Promise<void>;
   /** NPC parties within rangeKm of the player party. */

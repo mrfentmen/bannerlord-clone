@@ -982,6 +982,20 @@ function mountCampaign(): void {
               .catch((err) => {
                 console.error("Battle writeback failed:", err);
               });
+
+            // If the player won against an NPC party, remove the defeated party.
+            const encounterNpc = (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
+            if (won && encounterNpc) {
+              void provider
+                .defeatNpcParty(encounterNpc.id)
+                .then(() => {
+                  delete (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
+                  return reloadSnapshot();
+                })
+                .catch((err) => {
+                  console.error("NPC defeat failed:", err);
+                });
+            }
           }
         } else {
           haptics?.play("order");

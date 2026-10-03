@@ -468,6 +468,15 @@ export class HttpSimulationProvider implements SimulationProvider {
     );
   }
 
+  async defeatNpcParty(partyId: string): Promise<void> {
+    await this.#post(
+      `/v1/parties/${encodeURIComponent(partyId)}/defeat`,
+      {},
+      "The party defeat did not land.",
+      () => null,
+    );
+  }
+
   async restoreSnapshot(snapshot: SimSnapshot): Promise<void> {
     await this.#post<void>(
       "/v1/snapshot/restore",

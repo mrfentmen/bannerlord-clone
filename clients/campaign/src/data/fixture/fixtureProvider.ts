@@ -231,6 +231,7 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     awardBattleXp: async (input) => state.awardBattleXp(input),
     applyBattleResult: async (input) => state.applyBattleResult(input),
     applyBattleOutcome: async (result) => state.applyBattleOutcome(result),
+    defeatNpcParty: async (partyId) => state.defeatNpcParty(partyId),
     restoreSnapshot: async (snapshot) => state.restoreSnapshot(snapshot),
     getNearbyHostiles: async (rangeKm) => state.getNearbyHostiles(rangeKm),
     upgradeTroops: async (request) => state.upgradeTroops(request),
@@ -1645,6 +1646,26 @@ class FixtureState {
       xpAwards,
       prisoners: structuredClone(this.#party.prisoners),
     };
+  }
+
+  /**
+   * Remove a defeated NPC party from the campaign. The party is gone;
+   * a new bandit party may spawn elsewhere after some days.
+   */
+  async defeatNpcParty(partyId: string): Promise<void> {
+    const idx = this.#npcParties.findIndex((p) => p.id === partyId);
+    if (idx >= 0) {
+      const removed: NpcParty = this.#npcParties[idx]!;
+      this.#npcParties.splice(idx, 1);
+      this.#notifications.push({
+        id: `n-defeat-${this.#sequence++}`,
+        day: this.#day,
+        priority: "informational",
+        text: `${removed.name} has been destroyed.`,
+        entityId: removed.id,
+        field: "party",
+      });
+    }
   }
 
   /**
