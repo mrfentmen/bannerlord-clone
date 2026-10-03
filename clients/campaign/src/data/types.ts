@@ -1011,10 +1011,16 @@ export interface SimulationProvider {
   getHeir(clanId: string): Promise<GameCharacter | null>;
   /** Test hook: set clan tier. */
   debugSetClanTier?(clanId: string, tier: number): Promise<void>;
+  /** Test hook: add prisoners. */
+  debugAddPrisoners?(troopId: string, name: string, count: number, tier: number): Promise<void>;
   /** Buy a workshop in a town. */
   buyWorkshop(townId: string, type: string): Promise<{ workshopId: string }>;
   /** Sell a workshop. */
   sellWorkshop(workshopId: string): Promise<void>;
+  /** Recruit prisoners into the party. Costs 20 gold per prisoner. */
+  recruitPrisoners(troopId: string, count: number): Promise<void>;
+  /** Ransom prisoners for gold. */
+  ransomPrisoners(troopId: string, count: number): Promise<{ gold: number }>;
   /** Restore the provider's internal state from a saved snapshot. */
   restoreSnapshot(snapshot: SimSnapshot): Promise<void>;
   /** NPC parties within rangeKm of the player party. */

@@ -541,6 +541,23 @@ export class HttpSimulationProvider implements SimulationProvider {
     );
   }
 
+  async recruitPrisoners(troopId: string, count: number): Promise<void> {
+    await this.#post(
+      `/v1/prisoners/${encodeURIComponent(troopId)}/recruit`,
+      { count },
+      "The prisoner recruitment did not land.",
+      () => null,
+    );
+  }
+
+  async ransomPrisoners(troopId: string, count: number): Promise<{ gold: number }> {
+    return this.#post<{ gold: number }>(
+      `/v1/prisoners/${encodeURIComponent(troopId)}/ransom`,
+      { count },
+      "The ransom did not land.",
+    );
+  }
+
   async marry(charId1: string, charId2: string): Promise<void> {
     await this.#post(
       "/v1/dynasty/marry",

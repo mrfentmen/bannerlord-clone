@@ -243,11 +243,14 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     recruitMilitia: async (townId, count) => state.recruitMilitia(townId, count),
     buyWorkshop: async (townId, type) => state.buyWorkshop(townId, type),
     sellWorkshop: async (workshopId) => state.sellWorkshop(workshopId),
+    recruitPrisoners: async (troopId, count) => state.recruitPrisoners(troopId, count),
+    ransomPrisoners: async (troopId, count) => state.ransomPrisoners(troopId, count),
     marry: async (charId1, charId2) => state.marry(charId1, charId2),
     haveChild: async (parentId1, parentId2, childName) => state.haveChild(parentId1, parentId2, childName),
     killCharacter: async (charId, cause) => state.killCharacter(charId, cause),
     getHeir: async (clanId) => state.getHeir(clanId),
     debugSetClanTier: async (clanId, tier) => state.debugSetClanTier(clanId, tier),
+    debugAddPrisoners: async (troopId, name, count, tier) => state.debugAddPrisoners(troopId, name, count, tier),
     restoreSnapshot: async (snapshot) => state.restoreSnapshot(snapshot),
     getNearbyHostiles: async (rangeKm) => state.getNearbyHostiles(rangeKm),
     upgradeTroops: async (request) => state.upgradeTroops(request),
@@ -2182,6 +2185,88 @@ class FixtureState {
   }
 
   /**
+   * Recruit prisoners into the party. Costs 20 gold per prisoner.
+   * Prisoners join at their current tier.
+   */
+  async recruitPrisoners(troopId: string, count: number): Promise<void> {
+    const prisoner = this.#party.prisoners.find((p) => p.troopId === troopId);
+    if (!prisoner) throw new Error("No such prisoners held.");
+    if (count <= 0 || count > prisoner.count) {
+      throw new Error(`Cannot recruit ${count} (have ${prisoner.count}).`);
+    }
+    
+    const cost = count * 20;
+    if (this.#party.money < cost) {
+      throw new Error(`Recruiting ${count} prisoners costs ${cost} gold.`);
+    }
+    
+    this.#party.money -= cost;
+    prisoner.count -= count;
+    if (prisoner.count === 0) {
+      this.#party.prisoners = this.#party.prisoners.filter((p) => p.troopId !== troopId);
+    }
+    
+    // Add to troops (merge with existing stack of same type if present)
+    const existing = this.#party.troops.find((t) => t.id === troopId);
+    if (existing) {
+      existing.count += count;
+    } else {
+      this.#party.troops.push({
+        id: troopId,
+        name: prisoner.name,
+        count,
+        wounded: 0,
+        quality: prisoner.tier,
+        tier: prisoner.tier,
+        xp: 0,
+        wage: prisoner.tier * 2,
+        morale: 0.5,
+      });
+    }
+    
+    this.#notifications.push({
+      id: `n-recruit-pris-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: `Recruited ${count} ${prisoner.name} from prisoners (${cost} gold).`,
+      entityId: this.#party.id,
+      field: "troops",
+    });
+  }
+
+  /**
+   * Ransom prisoners for gold. Higher tiers ransom for more.
+   */
+  async ransomPrisoners(troopId: string, count: number): Promise<{ gold: number }> {
+    const prisoner = this.#party.prisoners.find((p) => p.troopId === troopId);
+    if (!prisoner) throw new Error("No such prisoners held.");
+    if (count <= 0 || count > prisoner.count) {
+      throw new Error(`Cannot ransom ${count} (have ${prisoner.count}).`);
+    }
+    
+    // Ransom value: 30 gold per tier per prisoner
+    const gold = count * prisoner.tier * 30;
+    
+    prisoner.count -= count;
+    if (prisoner.count === 0) {
+      this.#party.prisoners = this.#party.prisoners.filter((p) => p.troopId !== troopId);
+    }
+    
+    this.#party.money += gold;
+    
+    this.#notifications.push({
+      id: `n-ransom-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: `Ransomed ${count} ${prisoner.name} for ${gold} gold.`,
+      entityId: this.#party.id,
+      field: "prisoners",
+    });
+    
+    return { gold };
+  }
+
+  /**
    * Marry two characters. Both must be alive and unmarried.
    */
   async marry(charId1: string, charId2: string): Promise<void> {
@@ -2350,6 +2435,19 @@ class FixtureState {
     const clan = this.#clans.find((c) => c.id === clanId);
     if (!clan) throw new Error("Clan not found.");
     clan.tier = Math.max(1, Math.min(6, tier));
+  }
+
+  /**
+   * Test hook: add prisoners directly.
+   * @internal
+   */
+  async debugAddPrisoners(troopId: string, name: string, count: number, tier: number): Promise<void> {
+    const existing = this.#party.prisoners.find((p) => p.troopId === troopId);
+    if (existing) {
+      existing.count += count;
+    } else {
+      this.#party.prisoners.push({ troopId, name, count, tier });
+    }
   }
 
   /**
