@@ -64,7 +64,10 @@ describe("prone crawl (task 671)", () => {
   });
 
   it("reports a state nobody has registered yet", () => {
-    const resolved = resolveStateClip('downed', ['idle']);
+    // Every state the ActionState type names is registered by now, so the
+    // unregistered case is reached through a name outside it -- which is what a
+    // typo from a caller looks like.
+    const resolved = resolveStateClip('cheer' as 'downed', ['idle']);
     expect(resolved.available).toBe(false);
     expect(resolved.gap).toBe('no-clip-registered');
     expect(resolved.entry).toBeNull();
@@ -357,5 +360,44 @@ describe("revive, kneel then stand (task 679)", () => {
       expect(registered.filter((c) => c === clip)).toHaveLength(1);
     }
     expect(clips).toContain('downed');
+  });
+});
+
+describe("the downed pose (task 680)", () => {
+  it("loops forever, and is the slowest entry of all", () => {
+    expect(STATE_CLIPS.downed?.clip).toBe('downed');
+    // Incapacitated, not dead: this pose is how long the character stays down.
+    expect(STATE_CLIPS.downed?.loop).toBe(true);
+    const blends = Object.values(STATE_CLIPS).map((e) => e?.blendS ?? 0);
+    expect(STATE_CLIPS.downed?.blendS ?? 0).toBe(Math.max(...blends));
+  });
+
+  it("resolves on the operator rigs and on the medic rig", () => {
+    for (const rig of ['operator-viper.glb', 'operator-heron.glb', 'female-operator.glb']) {
+      expect(resolveStateClip('downed', clipsOf(rig)).available, rig).toBe(true);
+    }
+  });
+
+  it("is distinct from prone, which looks similar and means the opposite", () => {
+    // A prone character can shoot back; a downed one cannot. Registering them
+    // as the same pose is how a player ends up playing a character they cannot
+    // move but that can still return fire.
+    expect(STATE_CLIPS.downed?.clip).not.toBe(STATE_CLIPS['prone-crawl']?.clip);
+    expect(STATE_CLIPS.downed?.lowerBody).toBe('idle');
+    expect(STATE_CLIPS['prone-crawl']?.lowerBody).toBe('walk');
+  });
+
+  it("is available wherever a revive is, because a revive ends it", () => {
+    for (const rig of ['operator-viper.glb', 'female-operator.glb']) {
+      const clips = clipsOf(rig);
+      expect(resolveStateClip('downed', clips).available, rig).toBe(true);
+      expect(resolveStateClip('revive-kneel', clips).available, rig).toBe(true);
+    }
+  });
+
+  it("has no clip on the rigs that were never rigged to be incapacitated", () => {
+    for (const rig of ['horse.glb', 'soldier-animated.glb']) {
+      expect(resolveStateClip('downed', clipsOf(rig)).gap, rig).toBe('clip-not-in-model');
+    }
   });
 });

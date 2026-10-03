@@ -32,6 +32,7 @@ export type ActionState =
   | 'revive-kneel'
   | 'revive-stand'
   | 'downed'
+  | 'downed'
   | 'jump-start'
   | 'jump-loop'
   | 'jump-land'
@@ -47,6 +48,7 @@ export type ActionState =
   | 'heal'
   | 'revive-kneel'
   | 'revive-stand'
+  | 'downed'
   | 'downed'
   | 'surrender'
   | 'cheer'
@@ -107,6 +109,10 @@ export const STATE_CLIPS: Readonly<Partial<Record<ActionState, StateClip>>> = {
   // direction: the revive ends when the body does.
   'revive-kneel': { clip: 'revive_kneel', blendS: 0.25, loop: false, lowerBody: 'idle' },
   'revive-stand': { clip: 'revived', blendS: 0.3, loop: false, lowerBody: 'idle' },
+  // Task 680: downed is not dead. It loops forever, and it is the only state
+  // registered here that must stay put -- so a scene can hand it to the revive
+  // system, which is the only thing that ends it.
+  downed: { clip: 'downed', blendS: 0.4, loop: true, lowerBody: 'idle' },
 };
 
 /** Why a state cannot play. */
