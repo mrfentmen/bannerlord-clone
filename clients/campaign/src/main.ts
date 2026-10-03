@@ -1490,11 +1490,17 @@ function journalNode(): Node {
 
 function notificationsNode(): Node {
   if (!snapshot) return noSimulationRecordNode("No world to read");
+  // Notifications name the town id (`town-longmont`); selecting a settlement takes
+  // the settlement id (`longmont`). The map bridges them, so the jump lands.
+  const townIdToSettlementId = new Map(snapshot.towns.map((t) => [t.id, t.settlementId] as const));
   return notificationsPanel({
     notifications: snapshot.notifications,
-    townIds: new Set(snapshot.towns.map((t) => t.id)),
+    townIds: new Set(townIdToSettlementId.keys()),
     onWhy: (entityId, field) => openWhy(entityId, field),
-    onViewSettlement: (townId) => selectSettlement(townId),
+    onViewSettlement: (townId) => {
+      const settlementId = townIdToSettlementId.get(townId);
+      if (settlementId) selectSettlement(settlementId);
+    },
     onClose: () => openPanel("none"),
   }).root;
 }

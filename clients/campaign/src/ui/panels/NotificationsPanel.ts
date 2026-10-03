@@ -14,9 +14,10 @@ import { asBottomSheet } from "./narrow.js";
 
 export interface NotificationsPanelOptions {
   notifications: Notification[];
-  /** Settlement ids the client can open, so only resolvable notices offer a jump. */
+  /** Town ids the client can open, so only resolvable notices offer a jump. */
   townIds: Set<string>;
   onWhy: (entityId: string, field: string) => void;
+  /** Called with the notice's town id; the host resolves it to a settlement. */
   onViewSettlement: (townId: string) => void;
   onClose: () => void;
 }
