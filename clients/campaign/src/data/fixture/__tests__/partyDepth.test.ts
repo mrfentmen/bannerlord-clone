@@ -18,9 +18,11 @@ describe("party depth", () => {
     const offered = town.recruitable[0]!;
     // Capacity 50, current 25. Recruit 30 → 55 > 50. Availability is 118.
     const result = await provider.recruit({
+      partyId: before.party.id,
       townId: town.id,
       unitId: offered.unitId,
       quantity: 30,
+      expectedDay: before.day,
     });
     expect(result.accepted).toBe(false);
     expect(result.reason).toMatch(/capacity/i);

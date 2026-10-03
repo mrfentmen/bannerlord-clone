@@ -439,6 +439,30 @@ class FixtureState {
       };
     });
 
+    // Trade caravans: travel between towns, buying low and selling high.
+    // They move goods through the economy, affecting supply and prices.
+    const caravanNames = ["Red Wagon Trading", "Blue Mule Co.", "Golden Wheel"];
+    this.#npcParties.push(...caravanNames.map((name, i) => {
+      const angle = (i / caravanNames.length) * Math.PI * 2;
+      const dist = 60 + rand() * 40;
+      return {
+        id: `npc-caravan-${i}`,
+        name,
+        kind: "caravan" as const,
+        factionId: "merchants",
+        position: {
+          x: Math.cos(angle) * dist,
+          z: Math.sin(angle) * dist,
+        },
+        troops: [{ name: "Guards", count: 8, tier: 2 }],
+        troopCount: 8,
+        hostile: false,
+        destination: null,
+        speedKmPerDay: 30,
+        cargo: [],
+      };
+    }));
+
     // Initialize clans and characters.
     // Player clan: the player's dynasty.
     const playerChar: GameCharacter = {
@@ -1650,6 +1674,10 @@ class FixtureState {
    */
   #moveNpcParties(): void {    const rand = this.#random;
     for (const npc of this.#npcParties) {
+      if (npc.kind === "caravan") {
+        this.#moveCaravan(npc);
+        continue;
+      }
       if (!npc.destination) {
         // Pick a new wander target within ~150km.
         const angle = rand() * Math.PI * 2;
@@ -1669,6 +1697,49 @@ class FixtureState {
       const step = Math.min(dist, npc.speedKmPerDay);
       npc.position.x += (dx / dist) * step;
       npc.position.z += (dz / dist) * step;
+    }
+  }
+
+  /**
+   * Caravan trade logic: abstract trade flow between towns.
+   * Every few days, a caravan arrives at a random town, sells cargo,
+   * and buys cheap goods. Moves goods through the economy.
+   */
+  #moveCaravan(npc: NpcParty): void {
+    // Caravans trade on a cycle: every 5 days they reach a new town.
+    // Use the NPC's position as a timer proxy (deterministic via day).
+    const cycleDay = this.#day % 5;
+    if (cycleDay !== 0) return;
+
+    // Pick a random town
+    const townIds = [...this.#towns.keys()];
+    if (townIds.length === 0) return;
+    const townId = townIds[Math.floor(this.#random() * townIds.length)]!;
+    const market = this.#markets.get(townId);
+    if (!market) return;
+
+    // Sell cargo (increasing town stock, lowering price)
+    for (const item of npc.cargo ?? []) {
+      const good = market.goods.find((g) => g.goodId === item.goodId);
+      if (good && item.quantity > 0) {
+        good.stock += item.quantity;
+        good.price = round2(BASE_PRICE[item.goodId as keyof typeof BASE_PRICE] * priceFor(good.stock, good.demand));
+      }
+    }
+    npc.cargo = [];
+
+    // Buy the cheapest good (up to 20 units)
+    let cheapest: MarketGood | null = null;
+    for (const good of market.goods) {
+      if (!cheapest || good.price < cheapest.price) {
+        cheapest = good;
+      }
+    }
+    if (cheapest && cheapest.stock > 20) {
+      const qty = Math.min(20, Math.floor(cheapest.stock * 0.2));
+      cheapest.stock -= qty;
+      cheapest.price = round2(BASE_PRICE[cheapest.goodId as keyof typeof BASE_PRICE] * priceFor(cheapest.stock, cheapest.demand));
+      npc.cargo.push({ goodId: cheapest.goodId, quantity: qty });
     }
   }
 

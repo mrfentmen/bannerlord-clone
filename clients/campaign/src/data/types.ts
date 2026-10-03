@@ -474,6 +474,10 @@ export interface NpcParty {
   speedKmPerDay: number;
   /** Army this party belongs to, if any. */
   armyId?: string;
+  /** Caravan cargo: goods being transported for trade. */
+  cargo?: { goodId: string; quantity: number }[];
+  /** Town ID the caravan is heading to (for trade route logic). */
+  targetTownId?: string;
 }
 
 /**
