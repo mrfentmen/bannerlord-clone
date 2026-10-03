@@ -6,6 +6,7 @@ import { diplomacyPanel } from "../DiplomacyPanel.js";
 import { adjustRelation, relationWith } from "../../../diplomacy/relationNotifications.js";
 import { relationBand } from "../../../diplomacy/notables.js";
 import { declareWarGoal, WAR_GOAL_DESCRIPTIONS } from "../../../diplomacy/warGoals.js";
+import { markTerm, signTreaty } from "../../../diplomacy/treaties.js";
 
 beforeEach(() => {
   localStorage.clear();
@@ -216,5 +217,64 @@ describe("diplomacy at-war indicator (task 204)", () => {
     panel([GLU]);
     expect(row(GLU.id).querySelector('[role="meter"]')).not.toBeNull();
     expect(row(GLU.id).querySelector(".mono")!.textContent).toContain("Neutral");
+  });
+});
+
+describe("diplomacy treaty indicator (task 205)", () => {
+  it("says nothing about treaties when none is signed with the faction", () => {
+    panel([GLU]);
+    expect(row(GLU.id).querySelector('[data-testid="faction-treaty-great-lakes-union"]')).toBeNull();
+  });
+
+  it("names the treaty and reports it as holding", () => {
+    signTreaty("Non-aggression", GLU.id, GLU.name, 12, [{ text: "No raids", party: "them" }]);
+    panel([GLU]);
+    const line = row(GLU.id).querySelector('[data-testid="faction-treaty-great-lakes-union"]')!;
+    expect(line.textContent).toContain("Non-aggression");
+    expect(line.textContent).toContain("holding");
+  });
+
+  it("says so when a term has been broken rather than claiming the treaty holds", () => {
+    const treaty = signTreaty("Non-aggression", GLU.id, GLU.name, 12, [{ text: "No raids", party: "them" }]);
+    markTerm(treaty.id, treaty.terms[0]!.id, false);
+    panel([GLU]);
+    const line = row(GLU.id).querySelector('[data-testid="faction-treaty-great-lakes-union"]')!;
+    expect(line.textContent).toContain("strained");
+    expect(line.textContent).toContain("1 term broken");
+    expect(line.textContent).not.toContain("holding)");
+  });
+
+  it("uses the singular for one broken term", () => {
+    const treaty = signTreaty("Trade pact", PC.id, PC.name, 12, [{ text: "Open the border", party: "them" }]);
+    markTerm(treaty.id, treaty.terms[0]!.id, false);
+    panel([PC]);
+    expect(row(PC.id).querySelector('[data-testid="faction-treaty-pacific-compact"]')!.textContent).toContain(
+      "1 term broken",
+    );
+  });
+
+  it("lists every treaty with that faction, not only the first", () => {
+    signTreaty("Non-aggression", GLU.id, GLU.name, 12, [{ text: "No raids", party: "them" }]);
+    signTreaty("Trade pact", GLU.id, GLU.name, 13, [{ text: "Open the border", party: "them" }]);
+    panel([GLU]);
+    const line = row(GLU.id).querySelector('[data-testid="faction-treaty-great-lakes-union"]')!;
+    expect(line.textContent).toContain("Non-aggression");
+    expect(line.textContent).toContain("Trade pact");
+  });
+
+  it("does not put one faction's treaty on another's row", () => {
+    signTreaty("Non-aggression", GLU.id, GLU.name, 12, [{ text: "No raids", party: "them" }]);
+    panel([GLU, PC]);
+    expect(row(GLU.id).querySelector('[data-testid="faction-treaty-great-lakes-union"]')).not.toBeNull();
+    expect(row(PC.id).querySelector('[data-testid="faction-treaty-pacific-compact"]')).toBeNull();
+  });
+
+  it("agrees with the treaties table, because both read treatyCompliance", () => {
+    const treaty = signTreaty("Non-aggression", GLU.id, GLU.name, 12, [{ text: "No raids", party: "them" }]);
+    markTerm(treaty.id, treaty.terms[0]!.id, false);
+    panel([GLU]);
+    const table = document.body.querySelector('[data-testid="diplomacy-treaties"]')!;
+    expect(table.textContent).toContain("Under strain");
+    expect(row(GLU.id).textContent).toContain("strained");
   });
 });

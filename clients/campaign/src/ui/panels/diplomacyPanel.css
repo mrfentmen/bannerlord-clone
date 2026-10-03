@@ -121,3 +121,10 @@
   border-left: 3px solid var(--status-critical);
   padding-left: var(--space-2);
 }
+
+.faction__treaty {
+  margin: var(--space-1) 0 0;
+  color: var(--ink-500);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}

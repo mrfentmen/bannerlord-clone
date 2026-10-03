@@ -497,6 +497,7 @@ function factionList(factions: DiplomacyFaction[] | undefined): HTMLElement | nu
   // Resolved once, by id, rather than per row: the war and treaty modules own those
   // records, and this list only reports what they say.
   const wars = new Map(activeWars().map((w) => [w.enemyId, w]));
+  const treaties = treatyCompliance();
 
   const list = h("ul", { class: "faction-list" });
   for (const faction of factions) {
@@ -536,6 +537,24 @@ function factionList(factions: DiplomacyFaction[] | undefined): HTMLElement | nu
           war.goal
             ? `At war — fighting for ${war.goal}: ${WAR_GOAL_DESCRIPTIONS[war.goal]}`
             : "At war — no goal declared.",
+        ),
+      );
+    }
+
+    // Task 205. A signed treaty is the one binding the client can actually evidence
+    // between two factions, so that is what is reported — with whether it is holding.
+    // `treatyCompliance` is the same source the treaties table below is built from,
+    // so the two agree on what is strained and what is not.
+    const held = treaties.filter((t) => t.treaty.factionId === faction.id);
+    if (held.length > 0) {
+      const names = held
+        .map((t) => `${t.treaty.name} (${t.underStrain ? `strained, ${t.brokenTerms} term${t.brokenTerms === 1 ? "" : "s"} broken` : "holding"})`)
+        .join("; ");
+      item.appendChild(
+        h(
+          "p",
+          { class: "faction__treaty", "data-testid": `faction-treaty-${faction.id}` },
+          `Bound by: ${names}`,
         ),
       );
     }
