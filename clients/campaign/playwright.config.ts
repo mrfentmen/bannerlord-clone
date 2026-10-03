@@ -10,7 +10,10 @@ export default defineConfig({
   testDir: "tests/e2e",
   fullyParallel: false,
   workers: 1,
-  timeout: 90_000,
+  // Must exceed the READY_TIMEOUT (120 s) the e2e specs wait for first paint: the
+  // boot loads ~16 MB of world files plus the elevation boot tiles, and a global
+  // timeout shorter than that wait fails the test before the app can become ready.
+  timeout: 240_000,
   expect: { timeout: 15_000 },
   reporter: [["list"]],
   use: {
