@@ -19,6 +19,7 @@
  */
 
 import "./saves.css";
+import { getAudioManager } from "../audio/AudioManager.js";
 import { h, replace, clear } from "../ui/dom.js";
 import { panel, statusChip, emptyState, toast } from "../ui/kit.js";
 import {
@@ -144,6 +145,8 @@ export function saveLoadPanel(options: SaveLoadPanelOptions): {
       const name = nameInput.value;
       const card = await screens.save(name);
       nameInput.value = "";
+      // Task 550: a save that landed gets a chime, not just a toast.
+      getAudioManager().playUiSound("confirm");
       toast(`Saved "${card.name}".`);
       await renderList();
     }),

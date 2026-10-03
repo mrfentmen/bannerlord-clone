@@ -11,6 +11,7 @@
 
 import { describe, it, expect, beforeEach, afterEach, vi } from "vitest";
 import { SaveManager, saveLoadPanel } from "../index";
+import { getAudioManager } from "../../audio/AudioManager.js";
 import type { SimSnapshot } from "../../data/types";
 
 function fakeSnapshot(day: number): SimSnapshot {
@@ -107,7 +108,12 @@ function byTestId(root: ParentNode, id: string): HTMLElement | null {
 }
 
 describe("saveLoadPanel", () => {
-  beforeEach(() => installFakeIdb());
+  let playUiSound: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    installFakeIdb();
+    playUiSound = vi.spyOn(getAudioManager(), "playUiSound").mockImplementation(() => {});
+  });
   afterEach(() => {
     document.body.innerHTML = "";
     vi.unstubAllGlobals();
@@ -139,9 +145,10 @@ describe("saveLoadPanel", () => {
     const err = byTestId(root, "save-error") as HTMLElement;
     expect(err.hidden).toBe(false);
     expect(err.textContent).toContain("Give the save a name first.");
+    expect(playUiSound).not.toHaveBeenCalled();
   });
 
-  it("saving a named slot lists it", async () => {
+  it("saving a named slot lists it and plays the save chime", async () => {
     const { root } = mount();
     await settle();
     (byTestId(root, "save-name-input") as HTMLInputElement).value =
@@ -151,6 +158,8 @@ describe("saveLoadPanel", () => {
     const row = root.querySelector('[data-testid^="save-slot-"]');
     expect(row?.textContent).toContain("My campaign");
     expect(row?.textContent).toContain("Day 42");
+    expect(playUiSound).toHaveBeenCalledTimes(1);
+    expect(playUiSound).toHaveBeenCalledWith("confirm");
   });
 
   it("load hands the slot's snapshot to onLoad", async () => {
