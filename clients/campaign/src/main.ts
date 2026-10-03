@@ -564,6 +564,9 @@ const hud = createHud({
   onTimeScale: (s) => {
     timeScale = s;
     provider.setTimeScale(s);
+    // Tasks 548/549: the time dial is a switch — every detent, including
+    // the pause detent, gets the toggle tick.
+    getAudioManager().playUiSound("toggle");
     paint();
   },
   onSkipToArrival: () => void skipToArrival(),
