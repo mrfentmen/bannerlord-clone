@@ -21,6 +21,11 @@ import {
   EYE_HEIGHT,
   HEAD_PIVOT,
   HeadLookTracker,
+  IkGate,
+  RAGDOLL_RECOVERY_S,
+  RecoveringIkGate,
+  type IkSystem,
+  type RagdollState,
   MAX_HEAD_PITCH,
   MAX_HEAD_YAW,
   DEFAULT_FOOT_GAIT,
@@ -601,5 +606,133 @@ describe("rider legs to stirrups (task 642)", () => {
     const stirrup = stirrupFor(HORSE, SEAT, { thighM: 0, shinM: Number.NaN });
     expect(Number.isNaN(stirrup.solution.lowerAngle)).toBe(false);
     expect(stirrup.solution.lowerAngle).toBeGreaterThan(0);
+  });
+});
+
+describe("IK disabled by a ragdoll (task 643)", () => {
+  it("lets every system write while nothing is ragdolling", () => {
+    const gate = new IkGate();
+    for (const system of ['feet', 'hand', 'head', 'stirrup'] as const) {
+      expect(gate.enabled(system), system).toBe(true);
+      expect(gate.decision(system)).toEqual({ enabled: true, reason: null });
+    }
+  });
+
+  it("closes every system the moment a ragdoll starts", () => {
+    const gate = new IkGate();
+    gate.setRagdoll({ active: true, phase: 'falling' });
+    for (const system of ['feet', 'hand', 'head', 'stirrup'] as const) {
+      expect(gate.enabled(system), system).toBe(false);
+      expect(gate.decision(system).reason).toBe('ragdoll-active');
+    }
+  });
+
+  it("actually blocks the write, so a corpse keeps no planted foot", () => {
+    const gate = new IkGate();
+    const writes: string[] = [];
+    gate.setRagdoll({ active: true });
+    // A feet IK consumer, doing exactly what task 639 does.
+    gate.apply('feet', () => {
+      writes.push('foot');
+      return footTargetsForGait(HIP, [null, null]);
+    });
+    expect(writes).toEqual([]);
+    expect(gate.apply('feet', () => 'nothing')).toBeNull();
+
+    gate.setRagdoll({ active: false });
+    const targets = gate.apply('feet', () => {
+      writes.push('foot');
+      return footTargetsForGait(HIP, [null, null]);
+    });
+    expect(writes).toEqual(['foot']);
+    expect(targets?.length).toBe(2);
+  });
+
+  it("asks the physics owner rather than keeping its own idea of the state", () => {
+    let ragdolling = false;
+    const gate = new IkGate(() => (ragdolling ? { active: true, phase: 'falling' } : { active: false }));
+    expect(gate.enabled('head')).toBe(true);
+    ragdolling = true;
+    // The gate does not know until it asks -- which is the point.
+    expect(gate.state.active).toBe(false);
+    expect(gate.refresh().active).toBe(true);
+    expect(gate.enabled('head')).toBe(false);
+  });
+
+  it("survives a physics owner that answers with nothing", () => {
+    const gate = new IkGate(() => undefined as unknown as RagdollState);
+    expect(gate.refresh().active).toBe(false);
+    expect(gate.enabled('hand')).toBe(true);
+    const broken = new IkGate(() => ({ active: 'yes' } as unknown as RagdollState));
+    expect(broken.refresh().active).toBe(false);
+  });
+
+  it("keeps a system switched off by configuration off, and says why not", () => {
+    const gate = new IkGate(() => ({ active: false }), new Set<IkSystem>(['stirrup']));
+    // No ragdoll running, and the stirrup IK is still off: the reason is null,
+    // because nothing is wrong with the ragdoll.
+    expect(gate.decision('stirrup')).toEqual({ enabled: false, reason: null });
+    expect(gate.enabled('feet')).toBe(true);
+  });
+
+  it("reopens once the ragdoll is over", () => {
+    const gate = new IkGate();
+    gate.setRagdoll({ active: true, phase: 'falling' });
+    expect(gate.enabled('feet')).toBe(false);
+    gate.setRagdoll({ active: false, phase: 'settled' });
+    expect(gate.enabled('feet')).toBe(true);
+  });
+
+  it("ignores a malformed state rather than trusting it", () => {
+    const gate = new IkGate();
+    gate.setRagdoll(null as unknown as RagdollState);
+    expect(gate.state.active).toBe(false);
+  });
+});
+
+describe("IK recovery after a ragdoll (task 643)", () => {
+  it("holds IK off until the body has settled, then lets it back", () => {
+    const gate = new RecoveringIkGate();
+    gate.setRagdoll({ active: true, phase: 'falling' });
+    // Time spent falling is not time spent settling: the clock is zeroed.
+    gate.advance(5);
+    expect(gate.enabled('feet')).toBe(false);
+    expect(gate.settledSeconds).toBe(0);
+
+    gate.setRagdoll({ active: false, phase: 'settled' });
+    // Settled, but only just: the solver still owns the joints.
+    expect(gate.recovered).toBe(false);
+    expect(gate.enabled('feet')).toBe(false);
+    gate.advance(RAGDOLL_RECOVERY_S / 2);
+    expect(gate.enabled('feet')).toBe(false);
+    gate.advance(RAGDOLL_RECOVERY_S / 2);
+    expect(gate.recovered).toBe(true);
+    expect(gate.enabled('feet')).toBe(true);
+
+    // A body put back to sleep starts the wait again.
+    gate.setRagdoll({ active: true });
+    expect(gate.settledSeconds).toBe(0);
+  });
+
+  it("lets an animation-driven stand-up skip the wait", () => {
+    const gate = new RecoveringIkGate();
+    gate.setRagdoll({ active: false, phase: 'recovered' });
+    expect(gate.enabled('hand')).toBe(true);
+    expect(gate.settledSeconds).toBe(0);
+  });
+
+  it("resets its clock while the ragdoll is still running", () => {
+    const gate = new RecoveringIkGate();
+    gate.advance(5);
+    gate.setRagdoll({ active: true });
+    gate.decision('feet');
+    expect(gate.settledSeconds).toBe(0);
+  });
+
+  it("ignores a broken settled time", () => {
+    const gate = new RecoveringIkGate();
+    gate.advance(Number.NaN);
+    gate.advance(-2);
+    expect(gate.settledSeconds).toBe(0);
   });
 });

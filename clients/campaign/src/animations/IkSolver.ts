@@ -776,3 +776,159 @@ export function stirrupsFor(
   const right = vec(seat.x + side, seat.y, seat.z);
   return [stirrupFor(horse, left, options), stirrupFor(horse, right, options)];
 }
+
+/**
+ * Task 643: IK stands down while a ragdoll is active.
+ *
+ * A ragdoll is the physics solver owning every joint from the neck down. An IK
+ * pass running on top of it fights the solver frame by frame and produces the
+ * classic artefact: a corpse whose feet are planted on the ground while its torso
+ * is still falling, twitching once per frame. So IK is gated, not scaled down.
+ *
+ * The gate is deliberately a *query*, not a flag: a caller asks the physics state
+ * rather than the animation layer keeping its own copy, because the moment those
+ * two disagree, a corpse gets a foot back. {@link IkGate} wraps any such query
+ * once so the policy is applied consistently by every IK consumer.
+ */
+
+/** Where an IK system is being applied. */
+export type IkSystem = 'feet' | 'hand' | 'head' | 'stirrup';
+
+/** Whether a ragdoll is running, and for what. */
+export interface RagdollState {
+  /** True while physics owns the joints. */
+  active: boolean;
+  /** What the ragdoll is doing, for a debug overlay. */
+  phase?: 'falling' | 'settled' | 'recovered';
+}
+
+/** Nothing is ragdolling. */
+export const NO_RAGDOLL: RagdollState = { active: false };
+
+/** A decision about one IK system this frame. */
+export interface IkGateDecision {
+  /** True when the IK may write to its joints. */
+  enabled: boolean;
+  /** Why it is off, for a log; null when it is on. */
+  reason: 'ragdoll-active' | null;
+}
+
+/**
+ * The gate itself: one query, applied to every IK system.
+ *
+ * `query` is the physics owner's answer, injected rather than imported -- the
+ * ragdoll solver lives in `src/physics/**`, another lane's module, and the point
+ * of injecting it is that this policy can be tested without a physics world.
+ */
+export class IkGate {
+  private ragdoll = NO_RAGDOLL;
+
+  constructor(
+    private readonly query: () => RagdollState = () => NO_RAGDOLL,
+    private readonly alwaysOff: ReadonlySet<IkSystem> = new Set<IkSystem>(),
+  ) {}
+
+  /** Task 643: set the ragdoll state directly, for a scene that owns it. */
+  setRagdoll(state: RagdollState): void {
+    this.ragdoll = state && typeof state === 'object' ? state : NO_RAGDOLL;
+  }
+
+  /** The current ragdoll state. */
+  get state(): RagdollState {
+    return this.ragdoll;
+  }
+
+  /** Asks the physics owner whether a ragdoll is running. */
+  refresh(): RagdollState {
+    const asked = this.query();
+    this.ragdoll = asked && typeof asked === 'object' && typeof asked.active === 'boolean' ? asked : NO_RAGDOLL;
+    return this.ragdoll;
+  }
+
+  /** True while IK is allowed to write. */
+  enabled(system: IkSystem): boolean {
+    return this.decision(system).enabled;
+  }
+
+  /** The decision for one IK system, with the reason it is off. */
+  decision(system: IkSystem): IkGateDecision {
+    // A system switched off by configuration is off whatever the ragdoll is
+    // doing, so the reason stays null: nothing is wrong with the ragdoll.
+    if (this.alwaysOff.has(system)) return { enabled: false, reason: null };
+    if (this.ragdoll.active) return { enabled: false, reason: 'ragdoll-active' };
+    return { enabled: true, reason: null };
+  }
+
+  /**
+   * Applies the gate to a write.
+   *
+   * Returns true when the write happened. This is what makes the gate
+   * structural: an IK consumer that uses this cannot forget to check, and the
+   * test that proves feet do not write while a ragdoll runs is a test of this
+   * function rather than of somebody's discipline.
+   */
+  apply<T>(system: IkSystem, write: () => T): T | null {
+    if (!this.enabled(system)) return null;
+    return write();
+  }
+}
+
+/**
+ * Task 643: how long after a ragdoll settles IK may take over again.
+ *
+ * Not zero: the physics solver needs a moment to stop jittering, and IK snapping
+ * a joint back the frame it settles is the same artefact as IK fighting it. Half
+ * a second is long enough to read as "the body goes limp, then gets up".
+ */
+export const RAGDOLL_RECOVERY_S = 0.5;
+
+/**
+ * A gate that also tracks how long the ragdoll has been settled.
+ *
+ * `settledS` is what a scene passes it, and the gate holds IK off until it has
+ * been settled for {@link RAGDOLL_RECOVERY_S}. `phase: 'recovered'` bypasses the
+ * wait, which is what an animation-driven stand-up needs.
+ */
+export class RecoveringIkGate extends IkGate {
+  private settledFor = 0;
+
+  /** A ragdoll that starts again zeroes the recovery clock immediately. */
+  override setRagdoll(state: RagdollState): void {
+    super.setRagdoll(state);
+    if (this.state.active) this.settledFor = 0;
+  }
+
+  /** Feeds the time the ragdoll has been settled, in seconds. */
+  advance(settledS: number): void {
+    this.settledFor = this.settledFor + (Number.isFinite(settledS) ? Math.max(0, settledS) : 0);
+  }
+
+  override decision(system: IkSystem): IkGateDecision {
+    // A falling body owns every joint, and the clock only runs once it has
+    // stopped: time spent falling is not time spent settling.
+    if (this.state.active) {
+      this.settledFor = 0;
+      return super.decision(system);
+    }
+    const base = super.decision(system);
+    if (!base.enabled) return base;
+    if (this.state.phase === 'recovered') return base;
+    if (this.settledFor < RAGDOLL_RECOVERY_S) return { enabled: false, reason: null };
+    return base;
+  }
+
+  /** Seconds the ragdoll has been settled, as tracked. */
+  get settledSeconds(): number {
+    return this.settledFor;
+  }
+
+  /** Whether the recovery wait has been served. */
+  get recovered(): boolean {
+    return this.settledSeconds >= RAGDOLL_RECOVERY_S;
+  }
+
+  /** Forgets the recovery clock, e.g. when the body is teleported. */
+  resetRecovery(): void {
+    this.settledFor = 0;
+  }
+}
