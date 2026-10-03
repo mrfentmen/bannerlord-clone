@@ -1742,3 +1742,27 @@
 .radio__bulletins { list-style: decimal; padding-left: var(--space-4); display: grid; gap: var(--space-2); }
 .radio__headline { font-weight: bold; color: var(--ink-900); }
 .radio__text { color: var(--ink-700); }
+
+/* Map hover tooltip (src/ui/mapTooltip.ts). */
+.map-tooltip {
+  position: fixed;
+  z-index: 60;
+  max-width: 300px;
+  pointer-events: none;
+  background: var(--paper-0);
+  border: 1px solid var(--paper-300);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--type-body-size);
+}
+.map-tooltip-title { font-weight: bold; color: var(--ink-900); }
+.map-tooltip-sub { color: var(--ink-500); font-size: var(--type-small-size); margin-bottom: var(--space-2); }
+.map-tooltip-rows { display: grid; gap: var(--space-1); margin: 0; }
+.map-tooltip-row { display: flex; justify-content: space-between; gap: var(--space-4); }
+.map-tooltip-row dt { color: var(--ink-500); }
+.map-tooltip-row dd { margin: 0; color: var(--ink-900); font-weight: bold; text-align: right; }
+.map-tooltip-row .tone-ok { color: var(--status-good); }
+.map-tooltip-row .tone-warn { color: var(--status-warning); }
+.map-tooltip-row .tone-bad { color: var(--status-critical); }
+.map-tooltip-row .tone-muted { color: var(--ink-300); font-weight: normal; }
+.map-tooltip-hint { margin-top: var(--space-2); color: var(--ink-300); font-size: var(--type-small-size); }

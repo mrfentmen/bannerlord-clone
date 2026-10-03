@@ -55,6 +55,7 @@ import type { WorldSettlement } from "./world/types.js";
 import { createCampaignScene, type SceneHandle } from "./scene/CampaignScene.js";
 import { findRoute, shortestPath } from "./scene/network.js";
 import { createHud, dataSourcePanel, fatalError, type HudPanel, type HudState } from "./ui/hud.js";
+import { MapTooltip, buildSettlementHoverCard } from "./ui/mapTooltip.js";
 import { settlementFogView } from "./data/fogView.js";
 import { unknownTownPanel } from "./ui/panels/UnknownTownPanel.js";
 import { marketPanel } from "./ui/panels/MarketPanel.js";
@@ -214,6 +215,7 @@ publishWorld({
 });
 
 setBootNote("Starting the renderer.");
+const mapTooltip = new MapTooltip(app);
 scene = createCampaignScene({
   canvas: canvasEl,
   world: worldData.data,
@@ -221,6 +223,22 @@ scene = createCampaignScene({
   year: START_YEAR,
   quality: config.quality,
   onSelect: (id) => selectSettlement(id),
+  // Settlement hover cards (mandate §17). The scene reports the settlement under the
+  // pointer; this looks up its live town state and shows the card next to the cursor.
+  // A settlement with no town state (no simulation row for it) gets no card rather
+  // than a card of guesses.
+  onHoverSettlement: (hit) => {
+    if (!hit || !snapshot) {
+      mapTooltip.hide();
+      return;
+    }
+    const town = snapshot.towns.find((t) => t.settlementId === hit.settlementId);
+    if (!town) {
+      mapTooltip.hide();
+      return;
+    }
+    mapTooltip.show(hit.x, hit.y, buildSettlementHoverCard(town));
+  },
 });
 
 // -- 2. the simulation --------------------------------------------------------

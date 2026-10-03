@@ -80,6 +80,13 @@ export interface SceneOptions {
   year: number;
   quality: QualityLevel;
   onSelect: (settlementId: string) => void;
+  /**
+   * Called when the settlement under the pointer changes, with the pointer's client
+   * coordinates for tooltip placement — or `null` when the pointer leaves every
+   * settlement. The scene owns picking (it owns the meshes); the caller owns the data
+   * and the tooltip DOM. Fires only on change, never per mousemove.
+   */
+  onHoverSettlement?: (hit: { settlementId: string; x: number; y: number } | null) => void;
 }
 
 export interface SceneHandle {
@@ -290,6 +297,33 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
     if (info.type !== PointerEventTypes.POINTERPICK) return;
     const id = info.pickInfo?.pickedMesh?.metadata?.settlementId;
     if (typeof id === "string") options.onSelect(id);
+  });
+
+  // Hover picking for the map tooltip. Throttled: a raycast against every town mesh on
+  // every mousemove is the shape of work the render loop does not need, and the tooltip
+  // only has to keep up with a hand, not with the pointer hardware. The callback fires
+  // only when the hovered settlement changes (including to null), so the caller never
+  // rebuilds a tooltip it is already showing.
+  let lastHoverId: string | null = null;
+  let lastHoverPick = 0;
+  const HOVER_PICK_MS = 90;
+  scene.onPointerObservable.add((info) => {
+    if (info.type !== PointerEventTypes.POINTERMOVE || !options.onHoverSettlement) return;
+    const now = performance.now();
+    if (now - lastHoverPick < HOVER_PICK_MS) return;
+    lastHoverPick = now;
+    const pick = scene.pick(scene.pointerX, scene.pointerY);
+    const id = pick?.pickedMesh?.metadata?.settlementId;
+    const hitId = typeof id === "string" ? id : null;
+    const evt = info.event as PointerEvent | undefined;
+    const hit = hitId && evt ? { settlementId: hitId, x: evt.clientX, y: evt.clientY } : null;
+    // Change detection is on the delivered value, not the picked one: a pick with no
+    // pointer coordinates delivers null, and the next move must still get its chance to
+    // deliver the real hover rather than being swallowed as "unchanged".
+    const deliveredId = hit?.settlementId ?? null;
+    if (deliveredId === lastHoverId) return;
+    lastHoverId = deliveredId;
+    options.onHoverSettlement!(hit);
   });
 
   engine.runRenderLoop(() => {
