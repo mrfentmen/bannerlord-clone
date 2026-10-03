@@ -637,6 +637,210 @@
       "sha256": "95e7d40e3b90d4598d4a701c63958344f98ac5c7306909318e1af4995308e8d7",
       "duration_s": 2.0,
       "bytes": 28028
+    },
+    {
+      "path": "audio/music/anthem-pacific-compact-mix.mp3",
+      "kind": "music",
+      "sha256": "61cca77f790517c02e6a4e9549f0e389bf65df68718e49cae6d2d27ef698bd00",
+      "duration_s": 39.4,
+      "bytes": 947348,
+      "faction": "Pacific Compact",
+      "stems": [
+        {
+          "path": "audio/music/anthem-pacific-compact-stem-bass.mp3",
+          "sha256": "1d6b8c5fdd340c774a0c644012091ee2826e117e42db3c62e413da9421e24e8a",
+          "duration_s": 39.4,
+          "bytes": 947348
+        },
+        {
+          "path": "audio/music/anthem-pacific-compact-stem-pads.mp3",
+          "sha256": "03791eb9cb7fd9d42c965326dff3d1502474df2f6c40fbaf4f2571ec2db13d97",
+          "duration_s": 39.4,
+          "bytes": 947348
+        },
+        {
+          "path": "audio/music/anthem-pacific-compact-stem-percussion.mp3",
+          "sha256": "3e910783146f94c8ec349ca7c15cdd15ee055777623f46a16fa59a44a9bc643e",
+          "duration_s": 39.4,
+          "bytes": 947348
+        },
+        {
+          "path": "audio/music/anthem-pacific-compact-stem-pluck.mp3",
+          "sha256": "4de45dc3ec079c19de9d5027f8b63319531faf811fad6bd8fba670cdd0795389",
+          "duration_s": 39.4,
+          "bytes": 947348
+        }
+      ]
+    },
+    {
+      "path": "audio/music/anthem-mountain-alliance-mix.mp3",
+      "kind": "music",
+      "sha256": "caa03e30d4428abe2da069ba7765c37c3b87858f199accaaad76cea88a971a30",
+      "duration_s": 41.0,
+      "bytes": 985591,
+      "faction": "Mountain Alliance",
+      "stems": [
+        {
+          "path": "audio/music/anthem-mountain-alliance-stem-bass.mp3",
+          "sha256": "ff9c831a665978d2c5c91cc1ff5a019c9aa735e1374348a2981647d01f436480",
+          "duration_s": 41.0,
+          "bytes": 985591
+        },
+        {
+          "path": "audio/music/anthem-mountain-alliance-stem-brass.mp3",
+          "sha256": "67a6e5512aec65bb0d4878c6098b601a8df6bbd5519a07e2bee26392e393976e",
+          "duration_s": 41.0,
+          "bytes": 985591
+        },
+        {
+          "path": "audio/music/anthem-mountain-alliance-stem-drones.mp3",
+          "sha256": "a895bb0321a1290f2077622567c856b3edca3fe6ac95751d06bef68b56cd5d94",
+          "duration_s": 41.0,
+          "bytes": 985591
+        },
+        {
+          "path": "audio/music/anthem-mountain-alliance-stem-drums.mp3",
+          "sha256": "74246f8badd13332524b2a9b821ca3492a922d102b68b45256857a4df7ada2e3",
+          "duration_s": 41.0,
+          "bytes": 985591
+        }
+      ]
+    },
+    {
+      "path": "audio/music/anthem-great-lakes-union-mix.mp3",
+      "kind": "music",
+      "sha256": "39a4055e8624e88fcfa31875bbef387062db4f23278f38cd1f2ff94833fc0339",
+      "duration_s": 35.3,
+      "bytes": 848292,
+      "faction": "Great Lakes Union",
+      "stems": [
+        {
+          "path": "audio/music/anthem-great-lakes-union-stem-bass.mp3",
+          "sha256": "20799c3fab58dabfb93483f8a101046b383753d6179de4f13b437e85689e9169",
+          "duration_s": 35.3,
+          "bytes": 848292
+        },
+        {
+          "path": "audio/music/anthem-great-lakes-union-stem-brass.mp3",
+          "sha256": "c0839fda115a2174d6966b4bfafcc6ecf9c27d364370c6afffb1b9210cd6241c",
+          "duration_s": 35.3,
+          "bytes": 848292
+        },
+        {
+          "path": "audio/music/anthem-great-lakes-union-stem-drums.mp3",
+          "sha256": "e09ae3eccf73c65d49f1ffd33e17558e74f4c8911a19753dc180eb2e743c748b",
+          "duration_s": 35.3,
+          "bytes": 848292
+        },
+        {
+          "path": "audio/music/anthem-great-lakes-union-stem-lead.mp3",
+          "sha256": "17c63144c1097a0d38439e101718c5b27258b59628c725c2c0e7005e3c34823a",
+          "duration_s": 35.3,
+          "bytes": 848292
+        }
+      ]
+    },
+    {
+      "path": "audio/music/anthem-southern-compact-mix.mp3",
+      "kind": "music",
+      "sha256": "4e356b13809d7e0bb8e880a61aba4acf1275cc32c69ffb7571f853817578358a",
+      "duration_s": 61.0,
+      "bytes": 1465826,
+      "faction": "Southern Compact",
+      "stems": [
+        {
+          "path": "audio/music/anthem-southern-compact-stem-bass.mp3",
+          "sha256": "8fbc53addc4d7062ed7e89a8abe4ad5952299645bab2b7587cb0f9f65fd74cd8",
+          "duration_s": 61.0,
+          "bytes": 1465826
+        },
+        {
+          "path": "audio/music/anthem-southern-compact-stem-brush.mp3",
+          "sha256": "b8b0827b836b51feab8ba6cf60d7804d1ae5acf3f34d208d290b72591d3c5d20",
+          "duration_s": 61.0,
+          "bytes": 1465826
+        },
+        {
+          "path": "audio/music/anthem-southern-compact-stem-lead.mp3",
+          "sha256": "ee31918fbecd23527600f6758aeecc046e5737aa8fefc64846724be436790428",
+          "duration_s": 61.0,
+          "bytes": 1465826
+        },
+        {
+          "path": "audio/music/anthem-southern-compact-stem-pads.mp3",
+          "sha256": "03845194b68af35f929e91dd43d6a83cf327d829beb4e1400177218912b7b9f0",
+          "duration_s": 61.0,
+          "bytes": 1465826
+        }
+      ]
+    },
+    {
+      "path": "audio/music/anthem-lone-star-frontier-mix.mp3",
+      "kind": "music",
+      "sha256": "b698d32a741c7defb4c5fe99eece9a47cbf876224acff089966f60ca051a8c08",
+      "duration_s": 46.7,
+      "bytes": 1122891,
+      "faction": "Lone Star Frontier",
+      "stems": [
+        {
+          "path": "audio/music/anthem-lone-star-frontier-stem-bass.mp3",
+          "sha256": "f548bab838e6788e0dd4deaf786a0a88d8ba46dd3d7df7821669ab45d7018f68",
+          "duration_s": 46.7,
+          "bytes": 1122891
+        },
+        {
+          "path": "audio/music/anthem-lone-star-frontier-stem-brass.mp3",
+          "sha256": "0ef538e1814fc1d7e9a9a1a9d354b90a074556657b94aa5562c54f90b2dea849",
+          "duration_s": 46.7,
+          "bytes": 1122891
+        },
+        {
+          "path": "audio/music/anthem-lone-star-frontier-stem-pluck.mp3",
+          "sha256": "ce9bc4957417f1b6077b310b7f93e2eaa3bb45b9fe5ddf92d09f520f94a7cf0c",
+          "duration_s": 46.7,
+          "bytes": 1122891
+        },
+        {
+          "path": "audio/music/anthem-lone-star-frontier-stem-wind.mp3",
+          "sha256": "49885d0075d06982f09579f43f191aaa78f9ae2f0b774eb460388c36c0a857ec",
+          "duration_s": 46.7,
+          "bytes": 1122891
+        }
+      ]
+    },
+    {
+      "path": "audio/music/anthem-atlantic-corridor-mix.mp3",
+      "kind": "music",
+      "sha256": "c57d6dc119e3b2604039487d951f4cbec36a9819c119faeedd20fa9842139d43",
+      "duration_s": 31.5,
+      "bytes": 756759,
+      "faction": "Atlantic Corridor",
+      "stems": [
+        {
+          "path": "audio/music/anthem-atlantic-corridor-stem-bass.mp3",
+          "sha256": "105d5537fb35c3e826e008bf82aa28b7bb7a6e8b128271a141ba0a0fee0674ac",
+          "duration_s": 31.5,
+          "bytes": 756759
+        },
+        {
+          "path": "audio/music/anthem-atlantic-corridor-stem-brass.mp3",
+          "sha256": "78dcf266748448bd1cf5f3d685cf26f89538960a3e36770c7d199d21e01822a9",
+          "duration_s": 31.5,
+          "bytes": 756759
+        },
+        {
+          "path": "audio/music/anthem-atlantic-corridor-stem-drums.mp3",
+          "sha256": "7e5b6ca4d4664388e74c897a913d1217bb2b3da5bd1a339da1dc5c0ae128ed13",
+          "duration_s": 31.5,
+          "bytes": 756759
+        },
+        {
+          "path": "audio/music/anthem-atlantic-corridor-stem-ostinato.mp3",
+          "sha256": "1346ccea99dc980c9b17f20c5be3305bccd5645a4614e9844a99dd33faeed703",
+          "duration_s": 31.5,
+          "bytes": 756759
+        }
+      ]
     }
   ]
 }
