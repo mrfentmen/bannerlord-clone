@@ -753,6 +753,9 @@ function fogIndicatorState(): FogIndicator {
 function selectSettlement(id: string): void {
   selectedSettlement = id;
   selectedRuler = null;
+  // The map ring follows the selection, so the panel on the right and the map agree
+  // about what is selected.
+  scene?.setSelectedSettlement(id);
   const place = settlement(id);
   const town = townFor(id);
   if (place && scene) {

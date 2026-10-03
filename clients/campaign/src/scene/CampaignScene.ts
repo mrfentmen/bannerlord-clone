@@ -25,7 +25,7 @@ import {
   StandardMaterial,
   Vector3,
 } from "@babylonjs/core";
-import { mapColor, tokens } from "../design/tokens.js";
+import { accent, mapColor, tokens } from "../design/tokens.js";
 import { resolveGrade, type QualityLevel } from "../design/grade.js";
 import { buildTerrain, terrainSummary } from "./terrain.js";
 import {
@@ -107,6 +107,16 @@ export interface SceneHandle {
   showRoute(points: Vector3[], state?: TownVisibility): void;
   setPartyPosition(x: number, z: number, heading: number): void;
   setPartyVisible(visible: boolean): void;
+  /**
+   * Highlight the selected settlement on the map.
+   *
+   * A billboarded ring at the settlement's marker, held at a fixed screen size the way
+   * the party pin is. `null` clears it. A selected settlement in `unseen` fog keeps its
+   * selection but the ring hides with the town: highlighting something the map is not
+   * drawing would be a fog leak, and dropping the selection instead would punish the
+   * player for looking away and coming back.
+   */
+  setSelectedSettlement(settlementId: string | null): void;
   /** One line about what the map is showing, for the data-source panel. */
   summary(): string;
   /**
@@ -270,6 +280,16 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
 
   partyRoot.position.set(projection.width / 2, 0, projection.depth / 2);
 
+  // -- selection ring -------------------------------------------------------
+  // The map's answer to "what did I just click". A ring rather than a second pin,
+  // because the pin vocabulary is already taken: diamonds are settlements, the pennant
+  // is the player's party. The ring sits on the settlement's marker and is sized per
+  // frame like the pin, so it reads at every zoom without shouting over the town.
+  const selectionRing = buildSelectionRing(scene);
+  selectionRing.setEnabled(false);
+  let selectedSettlementId: string | null = null;
+  const clusterById = new Map(towns.map((cluster) => [cluster.settlementId, cluster] as const));
+
   // -- the planned route ----------------------------------------------------
   let routeMesh: Mesh | null = null;
 
@@ -328,7 +348,9 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
 
   engine.runRenderLoop(() => {
     if (grain) grain.tick(engine.getDeltaTime());
-    sizePartyPin(pin, camera.radius, engine.getRenderHeight());
+    const renderHeight = engine.getRenderHeight();
+    sizePartyPin(pin, camera.radius, renderHeight);
+    sizeSelectionRing(selectionRing, camera.radius, renderHeight);
     scene.render();
   });
 
@@ -377,6 +399,22 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
     setPartyVisible(visible) {
       partyRoot.setEnabled(visible);
     },
+    setSelectedSettlement(settlementId) {
+      selectedSettlementId = settlementId;
+      const cluster = settlementId ? clusterById.get(settlementId) : undefined;
+      if (!cluster) {
+        selectionRing.setEnabled(false);
+        return;
+      }
+      // The ring rides the marker, not the 3D cluster: the marker is the thing that
+      // reads at campaign zoom, and the ring is a map symbol, not architecture.
+      selectionRing.position.copyFrom(cluster.markerPosition);
+      selectionRing.position.y += 40;
+      // Fog decides visibility here too — see setTownVisibility below, which re-applies
+      // this after every fog change.
+      const state = states.get(cluster.settlementId) ?? "visible";
+      selectionRing.setEnabled(state !== "unseen");
+    },
     setTownVisibility(next, recency) {
       states = next;
       let drawn = 0;
@@ -403,6 +441,13 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       statesApplied = true;
       drawnSettlements = drawn;
       watchedSettlements = watched;
+      // A selected town that fog just hid takes its ring with it; one that fog just
+      // revealed gets it back. The selection itself is untouched — fog is about what
+      // the side knows, not about what the player clicked.
+      if (selectedSettlementId) {
+        const selectedState = states.get(selectedSettlementId) ?? "visible";
+        selectionRing.setEnabled(selectedState !== "unseen");
+      }
     },
     fogTally() {
       // Recounted from the clusters rather than served from the counters above, because
@@ -614,18 +659,109 @@ function buildPartyPin(scene: Scene): Mesh {
 }
 
 /**
+ * Metres on the ground that hold `pixels` at the current camera distance.
+ *
+ * The conversion the projection itself rests on: world metres visible across the
+ * viewport is `2 * radius * tan(fov / 2)`, so metres-per-pixel follows. Shared by the
+ * party pin and the selection ring, which are both map symbols that hold a fixed
+ * apparent size rather than a fixed world size.
+ */
+export function screenMarkerMetres(
+  pixels: number,
+  radius: number,
+  viewportHeightPx: number,
+  minM: number,
+  maxM: number,
+  fov = 0.8,
+): number {
+  const metresPerPixel = (2 * radius * Math.tan(fov / 2)) / Math.max(1, viewportHeightPx);
+  return Math.min(maxM, Math.max(minM, pixels * metresPerPixel));
+}
+
+/**
  * Size the pin so it holds a fixed apparent size, the way a map symbol should.
  *
- * The conversion is the same one the projection itself rests on: world metres visible
- * across the viewport is `2 * radius * tan(fov / 2)`, so metres-per-pixel follows and
- * the pin can be solved for directly. Clamped at both ends, because at the closest zoom
- * a fixed-width pin swallows the convoy, and without a ceiling it would out-shout a city.
+ * Clamped at both ends, because at the closest zoom a fixed-width pin swallows the
+ * convoy, and without a ceiling it would out-shout a city.
  */
 export function sizePartyPin(pin: Mesh, radius: number, viewportHeightPx: number, fov = 0.8): number {
-  const metresPerPixel = (2 * radius * Math.tan(fov / 2)) / Math.max(1, viewportHeightPx);
-  const metres = Math.min(PARTY_PIN_MAX_M, Math.max(PARTY_PIN_MIN_M, PARTY_PIN_PIXELS * metresPerPixel));
+  const metres = screenMarkerMetres(
+    PARTY_PIN_PIXELS,
+    radius,
+    viewportHeightPx,
+    PARTY_PIN_MIN_M,
+    PARTY_PIN_MAX_M,
+    fov,
+  );
   pin.scaling.setAll(metres);
   return metres;
+}
+
+const SELECTION_RING_PIXELS = 46;
+const SELECTION_RING_MIN_M = 60;
+const SELECTION_RING_MAX_M = 1400;
+
+/** The selection ring holds a fixed apparent size, exactly like the party pin. */
+export function sizeSelectionRing(
+  ring: Mesh,
+  radius: number,
+  viewportHeightPx: number,
+  fov = 0.8,
+): number {
+  const metres = screenMarkerMetres(
+    SELECTION_RING_PIXELS,
+    radius,
+    viewportHeightPx,
+    SELECTION_RING_MIN_M,
+    SELECTION_RING_MAX_M,
+    fov,
+  );
+  ring.scaling.setAll(metres);
+  return metres;
+}
+
+/**
+ * The selection ring: a plain circle in the player's stamp-blue with a paper edge, so
+ * it reads against olive plains, dark forest and snow alike.
+ *
+ * Drawn from the locked tokens, billboarded, unlit — a map symbol, not a light.
+ */
+function buildSelectionRing(scene: Scene): Mesh {
+  const size = 256;
+  const texture = new DynamicTexture("selection-ring-tex", { width: size, height: size }, scene, true);
+  texture.hasAlpha = true;
+  const ctx = texture.getContext() as CanvasRenderingContext2D;
+  ctx.clearRect(0, 0, size, size);
+  const c = size / 2;
+  const r = size * 0.36;
+  // Paper edge first, so the blue ring never sits directly on the terrain.
+  ctx.beginPath();
+  ctx.arc(c, c, r, 0, Math.PI * 2);
+  ctx.lineWidth = size * 0.11;
+  ctx.strokeStyle = tokens.paper[0];
+  ctx.stroke();
+  ctx.beginPath();
+  ctx.arc(c, c, r, 0, Math.PI * 2);
+  ctx.lineWidth = size * 0.07;
+  ctx.strokeStyle = accent.primary;
+  ctx.stroke();
+  texture.update();
+
+  const material = new StandardMaterial("selection-ring-mat", scene);
+  material.diffuseTexture = texture;
+  material.opacityTexture = texture;
+  material.emissiveColor = new Color3(1, 1, 1);
+  material.diffuseColor = new Color3(0, 0, 0);
+  material.specularColor = new Color3(0, 0, 0);
+  material.backFaceCulling = false;
+  material.disableLighting = true;
+
+  const ring = MeshBuilder.CreatePlane("selection-ring", { size: 1 }, scene);
+  ring.material = material;
+  ring.billboardMode = Mesh.BILLBOARDMODE_ALL;
+  ring.renderingGroupId = 1;
+  ring.isPickable = false;
+  return ring;
 }
 
 /**
