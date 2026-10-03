@@ -292,6 +292,11 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
 
   // -- the planned route ----------------------------------------------------
   let routeMesh: Mesh | null = null;
+  // Destination marker: a small billboarded diamond in the route's own accent colour
+  // at the far end of the planned march, so the player can see where the line goes
+  // without tracing it. Same fixed-screen-size treatment as the pin and ring.
+  const destMarker = buildDestinationMarker(scene);
+  destMarker.setEnabled(false);
 
   // -- post-processing, from the locked recipe ------------------------------
   const settings = resolveGrade(options.quality, options.year);
@@ -351,6 +356,7 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
     const renderHeight = engine.getRenderHeight();
     sizePartyPin(pin, camera.radius, renderHeight);
     sizeSelectionRing(selectionRing, camera.radius, renderHeight);
+    sizeDestinationMarker(destMarker, camera.radius, renderHeight);
     scene.render();
   });
 
@@ -376,7 +382,10 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
     showRoute(points, state = "visible") {
       routeMesh?.dispose();
       routeMesh = null;
-      if (points.length < 2) return;
+      if (points.length < 2) {
+        destMarker.setEnabled(false);
+        return;
+      }
       const lifted = points.map(
         (p) => new Vector3(p.x, projection.heightAt(p.x, p.z) * VERTICAL_SCALE + 45, p.z),
       );
@@ -389,6 +398,11 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       line.isPickable = false;
       line.renderingGroupId = 1;
       routeMesh = line;
+      // The marker sits on the destination itself, one marker-height above the line end
+      // so the two do not z-fight at a glancing camera angle.
+      const end = lifted[lifted.length - 1]!;
+      destMarker.position.set(end.x, end.y + 60, end.z);
+      destMarker.setEnabled(true);
     },
     setPartyPosition(x, z, heading) {
       partyRoot.position.x = x;
@@ -700,7 +714,6 @@ export function sizePartyPin(pin: Mesh, radius: number, viewportHeightPx: number
 const SELECTION_RING_PIXELS = 46;
 const SELECTION_RING_MIN_M = 60;
 const SELECTION_RING_MAX_M = 1400;
-
 /** The selection ring holds a fixed apparent size, exactly like the party pin. */
 export function sizeSelectionRing(
   ring: Mesh,
@@ -762,6 +775,74 @@ function buildSelectionRing(scene: Scene): Mesh {
   ring.renderingGroupId = 1;
   ring.isPickable = false;
   return ring;
+}
+
+const DEST_MARKER_PIXELS = 30;
+const DEST_MARKER_MIN_M = 40;
+const DEST_MARKER_MAX_M = 900;
+
+/** The destination marker holds a fixed apparent size, like the pin and the ring. */
+export function sizeDestinationMarker(
+  marker: Mesh,
+  radius: number,
+  viewportHeightPx: number,
+  fov = 0.8,
+): number {
+  const metres = screenMarkerMetres(
+    DEST_MARKER_PIXELS,
+    radius,
+    viewportHeightPx,
+    DEST_MARKER_MIN_M,
+    DEST_MARKER_MAX_M,
+    fov,
+  );
+  marker.scaling.setAll(metres);
+  return metres;
+}
+
+/**
+ * The march destination marker: a small diamond in the route's influence purple.
+ *
+ * It borrows the settlement pin's diamond motif because it marks a place, but in the
+ * route's colour rather than paper-white, so it reads as "where the line ends" and
+ * not as another town.
+ */
+function buildDestinationMarker(scene: Scene): Mesh {
+  const size = 256;
+  const texture = new DynamicTexture("dest-marker-tex", { width: size, height: size }, scene, true);
+  texture.hasAlpha = true;
+  const ctx = texture.getContext() as CanvasRenderingContext2D;
+  ctx.clearRect(0, 0, size, size);
+  const c = size / 2;
+  const r = size * 0.3;
+  ctx.beginPath();
+  ctx.moveTo(c, c - r);
+  ctx.lineTo(c + r, c);
+  ctx.lineTo(c, c + r);
+  ctx.lineTo(c - r, c);
+  ctx.closePath();
+  ctx.fillStyle = tokens.accent.influence;
+  ctx.fill();
+  ctx.lineWidth = size * 0.05;
+  ctx.strokeStyle = tokens.paper[0];
+  ctx.stroke();
+  texture.update();
+
+  const material = new StandardMaterial("dest-marker-mat", scene);
+  material.diffuseTexture = texture;
+  material.opacityTexture = texture;
+  material.emissiveColor = new Color3(1, 1, 1);
+  material.diffuseColor = new Color3(0, 0, 0);
+  material.specularColor = new Color3(0, 0, 0);
+  material.backFaceCulling = false;
+  material.disableLighting = true;
+
+  const marker = MeshBuilder.CreatePlane("dest-marker", { size: 1 }, scene);
+  marker.material = material;
+  marker.billboardMode = Mesh.BILLBOARDMODE_ALL;
+  marker.renderingGroupId = 1;
+  marker.isPickable = false;
+  return marker;
 }
 
 /**
