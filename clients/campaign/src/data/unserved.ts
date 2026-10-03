@@ -48,8 +48,6 @@ export type UnservedOrder =
   | "leaveArmy"
   | "disbandArmy"
   | "setArmyObjective"
-  | "besiegeTown"
-  | "recruitCompanion"
   | "listWars"
   | "makePeace"
   | "listQuests"
@@ -68,11 +66,11 @@ export interface UnservedPath {
   /**
    * The `SimulationProvider` method that sends this path.
    *
-   * Recorded separately from `order` because the two names are not the same for five of
-   * the twenty-two entries: `listArmies` is sent by `createArmy`, `listWars` by
-   * `declareWar`, `listQuests` by `acceptQuest`, `besiegeTown` by `startSiege`, and
-   * `setClanHeir` by `getHeir`. Those names describe the order a player would give; the
-   * method names describe the call the client actually makes.
+   * Recorded separately from `order` because the two names are not the same for four of
+   * the twenty entries: `listArmies` is sent by `createArmy`, `listWars` by
+   * `declareWar`, `listQuests` by `acceptQuest`, and `setClanHeir` by `getHeir`. Those
+   * names describe the order a player would give; the method names describe the call
+   * the client actually makes.
    *
    * It is written down here rather than left to be remembered because the gate that
    * withholds a control takes the order name and the body of that gate calls the method,
@@ -149,16 +147,7 @@ export const UNSERVED: Readonly<Record<string, UnservedPath>> = {
     method: "setArmyObjective",
     reason: "armies are implemented in the client's fixture, with no server side yet",
   },
-  "/v1/towns/{}/siege": {
-    order: "besiegeTown",
-    method: "startSiege",
-    reason: "sieges are implemented in the client's fixture, with no server side yet",
-  },
-  "/v1/companions/{}/recruit": {
-    order: "recruitCompanion",
-    method: "recruitCompanion",
-    reason: "companions are implemented in the client's fixture, with no server side yet",
-  },
+  
   "/v1/wars": {
     order: "listWars",
     method: "declareWar",

@@ -631,8 +631,14 @@ export class HttpSimulationProvider implements SimulationProvider {
   }
 
   async recruitCompanion(charId: string): Promise<void> {
+    // The server's route is `hire`, not `recruit`, and it is mounted and implemented
+    // (`POST /v1/companions/{id}/hire` -> `Campaign.HireCompanion`), so this used to be
+    // a 404 against a route that has worked for as long as it has existed: the fixture
+    // implements `recruitCompanion` and the fixture is what the tavern is developed
+    // against. The request body is empty because the route names the companion in the
+    // path and hires them for the player's party; it reads no fields at all.
     await this.#post(
-      `/v1/companions/${encodeURIComponent(charId)}/recruit`,
+      `/v1/companions/${encodeURIComponent(charId)}/hire`,
       {},
       "The companion did not join.",
       () => null,

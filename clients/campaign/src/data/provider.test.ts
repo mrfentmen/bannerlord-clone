@@ -790,3 +790,39 @@ describe("a force in encounter range is refused rather than half-read", () => {
     expect((failure as SimulationUnavailableError).playerMessage).toMatch(/Nearby parties could not be listed/);
   });
 });
+
+describe("orders are posted to the route the server mounts", () => {
+  // A method that posts to a path no route serves is invisible in every test that
+  // runs against the fixture: the fixture implements the method, so the call
+  // resolves, the panel updates, and nothing anywhere says the URL was invented. The
+  // only place the two ends meet is here — the request the provider actually builds.
+  // `apiContract.test.ts` compares the two files' path lists, which catches a path the
+  // server never mounted; this catches the verb, which that comparison deliberately
+  // ignores because inferring it from the TypeScript is guesswork.
+
+  it("hires a companion with the verb the server mounts", async () => {
+    // POST /v1/companions/{id}/hire, not /recruit: the server mounts and implements
+    // `hire`, and every tavern hire was a 404 until the provider was pointed at it.
+    const urls: string[] = [];
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      urls.push(String(input));
+      return jsonResponse({ id: "char-9", name: "Ilsa" });
+    });
+    await providerWith(fetchImpl as unknown as typeof fetch).recruitCompanion("char-9");
+    expect(urls).toEqual(["http://sim.invalid/v1/companions/char-9/hire"]);
+  });
+
+  it("lays a siege on the town the path names, with the force that is doing it", async () => {
+    const sent: { url: string; body: unknown }[] = [];
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      sent.push({ url: String(input), body: init?.body ? JSON.parse(String(init.body)) : null });
+      return jsonResponse({ siegeId: "siege-4" });
+    });
+    const laid = await providerWith(fetchImpl as unknown as typeof fetch).startSiege("town-12", ["party-3"]);
+    expect(sent).toEqual([
+      { url: "http://sim.invalid/v1/towns/town-12/siege", body: { attackerPartyIds: ["party-3"] } },
+    ]);
+    // The id is what the assault and lift routes are then called with.
+    expect(laid).toEqual({ siegeId: "siege-4" });
+  });
+});

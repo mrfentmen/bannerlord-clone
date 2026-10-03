@@ -182,6 +182,17 @@ describe("the client's API contract", () => {
     expect(mounted.some((route) => serves(route, "/v1/encounters/defeat"))).toBe(true);
   });
 
+  it("asks for a companion by the verb the server mounts", () => {
+    // The tavern hires with `hire`, and it did not always: the provider asked for
+    // `/v1/companions/{id}/recruit`, which no route serves, so every hire 404'd
+    // against a server that has implemented and tested `hire` all along. Paths are
+    // compared without methods elsewhere, which is why this one is spelled out -- the
+    // general test is satisfied by the moment the segments match, and only the exact
+    // path can catch a verb that became a noun somewhere between the two halves.
+    expect(requestedPaths()).toContain("/v1/companions/{}/hire");
+    expect(requestedPaths()).not.toContain("/v1/companions/{}/recruit");
+  });
+
   it("keeps an unmounted path out of the allow-list once a panel reaches for it", () => {
     // The allow-list above is only honest while everything in it is unreachable, either
     // because nothing calls it or because the call is behind a gate that consults
