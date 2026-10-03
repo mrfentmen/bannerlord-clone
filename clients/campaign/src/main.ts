@@ -921,7 +921,13 @@ function mountCampaign(): void {
                 partyId: defenderId,
                 name: encounterNpc.name,
                 troops: encounterNpc.troopCount,
-                power: (encounterNpc.troops ?? []).reduce((n, t) => n + t.count * t.tier, 0),
+                // A headcount is all the server knows about a force it is not
+                // simulating, so a force with no composition is worth one power
+                // per troop here. The fixture does carry stacks, and when it
+                // does they are used instead.
+                power: encounterNpc.troops?.length
+                  ? encounterNpc.troops.reduce((n, t) => n + t.count * t.tier, 0)
+                  : encounterNpc.troopCount,
               }
             : {
                 partyId: defenderId,
@@ -2393,10 +2399,18 @@ function destinationsFor(): SettlementOption[] {
 const warnedHostiles = new Set<string>();
 const activeEncounters = new Set<string>();
 let hostileCheckTick = 0;
+/** The last failure from the hostile sweep, so it is said once and not every 5 ticks. */
+let hostileCheckProblem: string | null = null;
 
 /**
- * Check for hostile NPC parties near the player. Shows a notification when
- * a new hostile enters range. Called on tick, throttled to every 5 ticks.
+ * Check for hostile forces near the player. Shows a notification when a new
+ * hostile enters range. Called on tick, throttled to every 5 ticks.
+ *
+ * The force the panel is built from is the row `getNearbyHostiles` returned, not
+ * a lookup in `snapshot.npcParties`. The campaign server sends no npcParties at
+ * all, so the lookup used to find nothing on a live server and the panel never
+ * opened: the fight, the flight and the dismissal were all reachable only in a
+ * fixture build, where the two sources happened to agree.
  */
 async function checkForHostiles(): Promise<void> {
   if (!snapshot || !provider) return;
@@ -2404,28 +2418,23 @@ async function checkForHostiles(): Promise<void> {
   if (hostileCheckTick % 5 !== 0) return;
 
   try {
-    const hostiles = await provider.getNearbyHostiles(50); // 50km encounter range
+    const hostiles = (await provider.getNearbyHostiles(50)).filter((h) => h.hostile);
     for (const h of hostiles) {
       if (!warnedHostiles.has(h.id) && !activeEncounters.has(h.id)) {
         warnedHostiles.add(h.id);
         activeEncounters.add(h.id);
         // Show the encounter panel: fight, flee, or dismiss.
         const playerTroops = snapshot.party.troops.reduce((n, s) => n + s.count, 0);
-        // Get the full NPC party data for the encounter.
-        const npcParties = snapshot.npcParties ?? [];
-        const npc = npcParties.find((p) => p.id === h.id);
-        if (npc) {
-          const { encounterPanel } = await import("./ui/panels/EncounterPanel.js");
-          const panel = encounterPanel({
-            npc,
-            playerTroops,
-            onChoice: (choice) => {
-              activeEncounters.delete(h.id);
-              handleEncounterChoice(choice);
-            },
-          });
-          document.body.appendChild(panel);
-        }
+        const { encounterPanel } = await import("./ui/panels/EncounterPanel.js");
+        const panel = encounterPanel({
+          npc: h,
+          playerTroops,
+          onChoice: (choice) => {
+            activeEncounters.delete(h.id);
+            handleEncounterChoice(choice);
+          },
+        });
+        document.body.appendChild(panel);
       }
     }
     // Clean up warnings for parties that are no longer near
@@ -2433,43 +2442,81 @@ async function checkForHostiles(): Promise<void> {
     for (const id of warnedHostiles) {
       if (!nearIds.has(id)) warnedHostiles.delete(id);
     }
-  } catch {
-    // Silently ignore - the provider may not support this yet
+    // The route answered, so whatever was wrong last time has cleared.
+    hostileCheckProblem = null;
+  } catch (err) {
+    // Said once per distinct failure and said to the player. Swallowing this
+    // used to hide the whole encounter path: a route that 404s, a payload that
+    // fails its check and a connection that is simply down all look the same
+    // from inside a `catch {}`, and all of them mean the player walks past a
+    // hostile force with no panel and no explanation.
+    const problem =
+      err instanceof SimulationUnavailableError
+        ? err.playerMessage
+        : err instanceof Error
+          ? err.message
+          : String(err);
+    if (problem === hostileCheckProblem) return;
+    hostileCheckProblem = problem;
+    console.error("[encounter] Could not look for hostiles:", err);
+    toast(`${problem} Hostiles will be missed until it comes back.`, 6000);
   }
+}
+
+/**
+ * The player's party id in the battle domain, as POST /v1/encounters wants it.
+ *
+ * The campaign writes party ids as `party-<n>` and the nearby-parties route
+ * hands out the bare number, so both are read here rather than assumed. Returns
+ * null when the id is not one the server could resolve -- the fixture's
+ * "party-player", say -- so the caller can say so instead of sending a number
+ * that names no party.
+ */
+function numericPartyId(id: string): number | null {
+  const entity = /^party-(\d+)$/.exec(id);
+  if (entity) return Number(entity[1]);
+  const bare = /^\d+$/.test(id) ? Number(id) : Number.NaN;
+  return Number.isSafeInteger(bare) && bare > 0 ? bare : null;
 }
 
 /** Handle the player's encounter choice: fight, flee, or dismiss. */
 async function handleEncounterChoice(choice: EncounterChoice): Promise<void> {
   const { npcParty } = choice;
   if (choice.action === "fight") {
-    // Store the NPC for the battle's describeEncounter to use.
+    // Store the force for the battle's describeEncounter to use.
     (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc = npcParty;
     console.log(`[encounter] Fighting ${npcParty.name} (${npcParty.troopCount} troops)`);
-    // Start the battle: player (attacker) vs the NPC party (defender).
-    // The defender party ID is a hash of the NPC ID since battleflow uses numbers.
-    if (battleUi && snapshot) {
-      const defenderId = hashNpcId(npcParty.id);
-      try {
-        await battleUi.attack(0, defenderId); // 0 = player party
-      } catch (err) {
-        console.error("Failed to start battle:", err);
-        delete (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
-      }
+    // Start the battle: player (attacker) vs the force (defender). Both sides are
+    // named by the ids the server itself handed out -- the player's own party id
+    // out of the snapshot, the defender's out of the nearby-parties row -- because
+    // POST /v1/encounters looks both up in the world and refuses a party that is
+    // not there. This used to pass a literal 0 for the player, which no party has,
+    // and a hash of the NPC's name for the defender, which named no party either;
+    // the request was refused before the player had chosen anything.
+    const attackerId = snapshot ? numericPartyId(snapshot.party.id) : null;
+    const defenderId = numericPartyId(npcParty.id);
+    if (!battleUi || !snapshot || attackerId === null || defenderId === null) {
+      console.error(
+        `[encounter] Cannot raise a battle: ${battleUi ? "" : "no battle overlay; "}` +
+          `${attackerId === null ? "the player's party id is not one the server can resolve; " : ""}` +
+          `${defenderId === null ? `${npcParty.name} has no server party id` : ""}`,
+      );
+      delete (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
+      toast(`${npcParty.name} cannot be fought from here.`, 5000);
+      return;
+    }
+    try {
+      await battleUi.attack(attackerId, defenderId);
+    } catch (err) {
+      console.error("Failed to start battle:", err);
+      delete (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
+      toast(`The fight against ${npcParty.name} could not be raised.`, 5000);
     }
   } else if (choice.action === "flee") {
     await handleFlee(npcParty);
   } else {
     console.log(`[encounter] Dismissed encounter with ${npcParty.name}`);
   }
-}
-
-/** Hash an NPC string ID to a numeric battle party ID. */
-function hashNpcId(id: string): number {
-  let hash = 0;
-  for (let i = 0; i < id.length; i++) {
-    hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
-  }
-  return Math.abs(hash) + 1000; // offset to avoid colliding with player ID 0
 }
 
 /** Handle fleeing from an encounter: move the player away, apply consequences. */
