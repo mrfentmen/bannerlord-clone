@@ -31,6 +31,10 @@ import {
   armourTier,
   armourVariantFor,
   rememberPackedColour,
+  CIVILIAN_OUTFITS,
+  civilianOutfit,
+  outfitMaterialIndices,
+  outfitVariantFor,
   type ArmourTier,
 
   factionColours,
@@ -326,5 +330,55 @@ describe("armour tiers (task 724)", () => {
       expect(channel).toBeGreaterThanOrEqual(0);
       expect(channel).toBeLessThanOrEqual(1);
     }
+  });
+});
+
+describe("civilian outfits (task 725)", () => {
+  it("ships a distinct palette, as townsfolk are not in factions", () => {
+    expect(CIVILIAN_OUTFITS.length).toBeGreaterThanOrEqual(6);
+    expect(new Set(CIVILIAN_OUTFITS.map((o) => o.id)).size).toBe(CIVILIAN_OUTFITS.length);
+    for (const outfit of CIVILIAN_OUTFITS) {
+      expect(outfit.label.length, outfit.id).toBeGreaterThan(0);
+    }
+    expect(civilianOutfit('smith')?.id).toBe('smith');
+    expect(civilianOutfit('the-mayor')).toBeNull();
+  });
+
+  it("writes an outfit onto a model that names its clothes", () => {
+    const variant = outfitVariantFor(materialsOf('operator-viper.glb'), 'farmer');
+    expect(variant.gap).toBeNull();
+    expect(variant.materialIndices.length).toBeGreaterThan(0);
+    expect(variant.tint).not.toBeNull();
+  });
+
+  it("refuses civilian.glb for the reason worth hearing", () => {
+    // One unnamed material with the skin baked in: tinting it tints the face.
+    const variant = outfitVariantFor(materialsOf('civilian.glb'), 'farmer');
+    expect(variant.gap).toBe('single-baked-material');
+    expect(variant.materialIndices).toEqual([]);
+    // ...and it keeps its authored colour rather than being left undefined.
+    expect(variant.tint).not.toBeNull();
+  });
+
+  it("refuses a named model with nothing to wear", () => {
+    const skinOnly: GlbMaterial[] = [{ index: 0, name: 'Viper_Skin' }];
+    expect(outfitVariantFor(skinOnly, 'farmer').gap).toBe('no-outfit-materials');
+    expect(outfitVariantFor([], 'farmer').gap).toBe('no-named-materials');
+  });
+
+  it("names an outfit nobody defined", () => {
+    const variant = outfitVariantFor(materialsOf('operator-viper.glb'), 'mayor');
+    expect(variant.gap).toBe('unknown-outfit');
+    expect(variant.tint).toBeNull();
+    expect(variant.materialIndices.length).toBeGreaterThan(0);
+  });
+
+  it("never claims skin or hair", () => {
+    const operator = materialsOf('operator-viper.glb');
+    const names = outfitMaterialIndices(operator).map((i) =>
+      (operator[i] as GlbMaterial).name.toLowerCase(),
+    );
+    expect(names.some((n) => n.includes('skin'))).toBe(false);
+    expect(names.some((n) => n.includes('hair'))).toBe(false);
   });
 });

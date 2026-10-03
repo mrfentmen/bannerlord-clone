@@ -397,3 +397,113 @@ export function applyArmourTier(material: TierMaterial, tier: ArmourTier): TierM
   }
   return material;
 }
+
+/**
+ * Task 725: civilian outfit colours.
+ *
+ * Townsfolk are not in factions, so this is a palette of outfits rather than a set
+ * of faction colours -- the same person might be a farmer in a green coat or a
+ * blacksmith in a leather apron, and neither is anybody else's uniform.
+ *
+ * The honest part is the same as task 723: a model has to name its clothing.
+ * `civilian.glb` is the exception that proves the rule -- one unnamed material
+ * with the skin baked into the same texture, so tinting it tints the face too.
+ * {@link outfitVariantFor} refuses it by name rather than handing back a green
+ * face.
+ */
+
+/** An outfit, as a colour and what it is for. */
+export interface Outfit {
+  id: string;
+  label: string;
+  tint: { r: number; g: number; b: number };
+}
+
+/** The outfit palette. */
+export const CIVILIAN_OUTFITS: readonly Outfit[] = [
+  { id: 'farmer', label: 'farmer', tint: { r: 0.42, g: 0.46, b: 0.29 } },
+  { id: 'smith', label: 'blacksmith', tint: { r: 0.3, g: 0.22, b: 0.16 } },
+  { id: 'merchant', label: 'merchant', tint: { r: 0.44, g: 0.31, b: 0.19 } },
+  { id: 'innkeep', label: 'tavern keeper', tint: { r: 0.53, g: 0.42, b: 0.32 } },
+  { id: 'priest', label: 'priest', tint: { r: 0.72, g: 0.71, b: 0.68 } },
+  { id: 'guard', label: 'town guard', tint: { r: 0.31, g: 0.35, b: 0.4 } },
+  { id: 'bandit', label: 'bandit', tint: { r: 0.34, g: 0.26, b: 0.24 } },
+  { id: 'deserter', label: 'deserter', tint: { r: 0.45, g: 0.44, b: 0.38 } },
+];
+
+/** An outfit by id, or null when there is no such outfit. */
+export function civilianOutfit(id: string): Outfit | null {
+  return CIVILIAN_OUTFITS.find((o) => o.id === id) ?? null;
+}
+
+/** Material names that mean clothing. */
+export const OUTFIT_MATERIAL_PATTERNS: readonly string[] = [
+  'cloth',
+  'shirt',
+  'jacket',
+  'coat',
+  'apron',
+  'dress',
+  'robe',
+  'tunic',
+  'uniform',
+  'swat',
+  'body',
+];
+
+/** Which materials an outfit colour may be written to. */
+export function outfitMaterialIndices(materials: readonly GlbMaterial[]): number[] {
+  const named = materials.filter((m) => m.name.length > 0);
+  if (named.length === 0) return [];
+  const out: number[] = [];
+  for (const pattern of OUTFIT_MATERIAL_PATTERNS) {
+    const index = findMaterial(named, pattern);
+    if (index >= 0 && !out.includes(index)) out.push(index);
+  }
+  return out.sort((a, b) => a - b);
+}
+
+/** What to write, and on which materials. */
+export interface OutfitVariant {
+  outfitId: string;
+  materialIndices: number[];
+  tint: { r: number; g: number; b: number } | null;
+  gap: 'single-baked-material' | 'no-named-materials' | 'no-outfit-materials' | 'unknown-outfit' | null;
+}
+
+/**
+ * Task 725: what an outfit means for one model.
+ *
+ * The gaps are separate on purpose: `single-baked-material` is the one worth
+ * hearing about, because it means the asset exists and would look wrong -- it is
+ * the reason civilian.glb is left in its authored colours instead of being
+ * recoloured into a green-faced farmer.
+ */
+export function outfitVariantFor(
+  materials: readonly GlbMaterial[],
+  outfitId: string,
+): OutfitVariant {
+  const outfit = civilianOutfit(outfitId);
+  const indices = outfitMaterialIndices(materials);
+  // Exactly one unnamed material is the baked case. An empty list is a different
+  // thing -- a file that declares no materials at all -- and must not be reported
+  // as an outfit that merely failed to tint.
+  if (materials.length === 1 && materials[0]?.name.length === 0) {
+    return {
+      outfitId,
+      materialIndices: [],
+      tint: outfit?.tint ?? null,
+      gap: 'single-baked-material',
+    };
+  }
+  if (materials.every((m) => m.name.length === 0)) {
+    return { outfitId, materialIndices: indices, tint: outfit?.tint ?? null, gap: 'no-named-materials' };
+  }
+  if (indices.length === 0) {
+    return { outfitId, materialIndices: [], tint: outfit?.tint ?? null, gap: 'no-outfit-materials' };
+  }
+  if (!outfit) {
+    return { outfitId, materialIndices: indices, tint: null, gap: 'unknown-outfit' };
+  }
+  return { outfitId, materialIndices: indices, tint: outfit.tint, gap: null };
+}
