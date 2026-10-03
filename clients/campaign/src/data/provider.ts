@@ -524,6 +524,23 @@ export class HttpSimulationProvider implements SimulationProvider {
     );
   }
 
+  async buyWorkshop(townId: string, type: string): Promise<{ workshopId: string }> {
+    return this.#post<{ workshopId: string }>(
+      `/v1/towns/${encodeURIComponent(townId)}/workshops`,
+      { type },
+      "The workshop purchase did not land.",
+    );
+  }
+
+  async sellWorkshop(workshopId: string): Promise<void> {
+    await this.#post(
+      `/v1/workshops/${encodeURIComponent(workshopId)}/sell`,
+      {},
+      "The workshop sale did not land.",
+      () => null,
+    );
+  }
+
   async marry(charId1: string, charId2: string): Promise<void> {
     await this.#post(
       "/v1/dynasty/marry",
