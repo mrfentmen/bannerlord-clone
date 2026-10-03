@@ -47,7 +47,16 @@ notables present) is possible without new APIs, but the core tavern mechanics
 (recruitment, companions, events) need the sim. Framework deferred until the
 entities exist — a panel of only-aggregated data would be a shallow shell.
 
-## NPC parties (§15, §17) — BLOCKED (recorded 2026-10-03)
+## NPC dialogue (§2) — BLOCKED
+
+Notables exist with rich state (role, power, relationToPlayer, openIssues, grievance)
+and appear as quest givers, but there is no talk/dialogue API — no
+`/v1/notables/talk` or equivalent. A dialogue framework needs:
+- `POST` talk to a notable: greeting + available topics
+- Dialogue choices with real consequences (quest offers, recruitment, trade)
+- Relation changes from dialogue
+
+Without this, any dialogue UI would be choices without consequences. Not building one.
 
 `SimSnapshot` publishes one player party. No NPC-party collection exists in the
 TypeScript snapshot contract, so NPC party markers, caravans, armies, and
