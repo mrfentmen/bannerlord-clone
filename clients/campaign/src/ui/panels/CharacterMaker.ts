@@ -9,9 +9,10 @@
  */
 
 import { clear, h } from "../dom.js";
-import { BACKGROUNDS, appearancesForEthnicity, computeCharacterStats,
+import { CHARACTER_STAGES, appearancesForEthnicity, computeCharacterStats,
   START_CITIES, AGE_BRACKETS, DIFFICULTIES, clanNamesForEthnicity,
   scenarioForBackgrounds, type GameCharacter } from "../../data/backgrounds.js";
+import { attributesWithFamilyBonus, familyById } from "../../data/families.js";
 import { ATTRIBUTES, ATTRIBUTE_MAX, ATTRIBUTE_MIN, ATTRIBUTE_POINTS_TOTAL,
   FOCUS_POINTS_TOTAL, SKILLS, attributeLabel, attributePointsRemaining,
   attributePointsSpent, canLowerAttribute, canRaiseAttribute, evenAttributes,
@@ -56,8 +57,8 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
   let attributes = evenAttributes();
   let skillFocus = emptyFocus();
   let backgroundChoices: Record<string, string> = {};
-  // Default to first option in each category.
-  for (const cat of BACKGROUNDS) {
+  // Default to first option in each stage, family first.
+  for (const cat of CHARACTER_STAGES) {
     backgroundChoices[cat.id] = cat.options[0]!.id;
   }
 
@@ -363,14 +364,20 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
   function backgroundStep(): HTMLElement {
     const frag = h("div", { class: "maker-step" });
     frag.appendChild(h("h2", { class: "title" }, "Your story"));
-    frag.appendChild(h("p", { class: "caption" }, "Each choice grants skill bonuses and starting cash. Pick the life that made you."));
+    frag.appendChild(h("p", { class: "caption" }, "Your family grants +1 to one attribute, applied on top of your points at review. Each life choice grants skill bonuses and starting cash. Pick the life that made you."));
 
-    for (const category of BACKGROUNDS) {
+    for (const category of CHARACTER_STAGES) {
       frag.appendChild(h("h3", {}, category.question));
       const grid = h("div", { class: "roles", "data-testid": `bg-${category.id}` });
       for (const opt of category.options) {
         const selected = backgroundChoices[category.id] === opt.id;
         const skillList = h("ul", { class: "pros" });
+        if (category.id === "family") {
+          const fam = familyById(opt.id);
+          if (fam) {
+            skillList.appendChild(h("li", {}, `+${fam.attributeBonus.points} ${attributeLabel(fam.attributeBonus.attribute)}`));
+          }
+        }
         for (const [skill, bonus] of Object.entries(opt.skills)) {
           skillList.appendChild(h("li", {}, `+${bonus} ${skill}`));
         }
@@ -465,6 +472,11 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     frag.appendChild(h("p", { class: "caption" },
       `Distribute ${ATTRIBUTE_POINTS_TOTAL} points across the six. ` +
       `Each attribute is worth ${ATTRIBUTE_MIN} to ${ATTRIBUTE_MAX} and it caps the three skills it governs.`));
+    const famBonus = familyById(backgroundChoices["family"] ?? "")?.attributeBonus;
+    if (famBonus) {
+      frag.appendChild(h("p", { class: "caption", "data-testid": "family-attribute-bonus" },
+        `Your family grants +${famBonus.points} ${attributeLabel(famBonus.attribute)} on top of these points, applied at review.`));
+    }
     frag.appendChild(
       h("p", { class: "caption", "data-testid": "attribute-points-remaining" },
         `${remaining} of ${ATTRIBUTE_POINTS_TOTAL} points remaining`),
@@ -552,7 +564,10 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     frag.appendChild(h("h2", { class: "title" }, "Review your character"));
 
     const { skills, cash, biography } = computeCharacterStats(backgroundChoices, age, {});
-    const canonicalLevels = startingSkillLevels(attributes, skillFocus, skills);
+    // The stored attributes stay a pure 30-point buy; the family bonus applies
+    // at derivation time (see attributesWithFamilyBonus).
+    const finalAttributes = attributesWithFamilyBonus(attributes, backgroundChoices["family"]);
+    const canonicalLevels = startingSkillLevels(finalAttributes, skillFocus, skills);
     const ethnicity = ETHNICITIES.find((e) => e.id === ethnicityId);
     const appearance = appearancesForEthnicity(ethnicityId).find((a) => a.id === appearanceId);
     const bracket = AGE_BRACKETS.find((b) => age >= b.min && age <= b.max);
@@ -590,10 +605,12 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
 
     card.appendChild(h("h4", {}, "Attributes"));
     const attrList = h("ul", {});
+    const reviewBonus = familyById(backgroundChoices["family"] ?? "")?.attributeBonus;
     for (const attribute of ATTRIBUTES) {
+      const boosted = reviewBonus?.attribute === attribute.id;
       attrList.appendChild(
         h("li", { "data-testid": `review-attribute-${attribute.id}` },
-          `${attribute.name}: ${attributes[attribute.id]}`),
+          `${attribute.name}: ${finalAttributes[attribute.id]}${boosted ? " (+1 family)" : ""}`),
       );
     }
     card.appendChild(attrList);

@@ -442,3 +442,55 @@ function perksShown(row: string): string {
 function focusSum(sheet: GameCharacter): number {
   return Object.values(sheet.skillFocus).reduce((a, b) => a + b, 0);
 }
+describe("family stage", () => {
+  const BACKGROUND_STEP = 5;
+
+  it("opens the background step on the family question with six options", () => {
+    const { root } = build();
+    walkTo(root, BACKGROUND_STEP);
+    const grid = q(root, "bg-family");
+    expect(grid.querySelectorAll("button").length).toBe(6);
+    expect(root.textContent).toContain("What family were you born into?");
+  });
+
+  it("defaults to the first family and shows its attribute bonus", () => {
+    const { root } = build();
+    walkTo(root, BACKGROUND_STEP);
+    const badge = q<HTMLButtonElement>(root, "bg-family-badge");
+    expect(badge.getAttribute("aria-pressed")).toBe("true");
+    expect(badge.textContent).toContain("+1");
+    expect(badge.textContent).toContain("Social");
+  });
+
+  it("switches families when another is picked", () => {
+    const { root } = build();
+    walkTo(root, BACKGROUND_STEP);
+    click(root, "bg-family-merchant");
+    expect(q<HTMLButtonElement>(root, "bg-family-merchant").getAttribute("aria-pressed")).toBe("true");
+    expect(q<HTMLButtonElement>(root, "bg-family-badge").getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("tells the player on the attributes step that the family bonus lands on top", () => {
+    const { root } = build();
+    walkTo(root, ATTRIBUTES_STEP);
+    expect(text(root, "family-attribute-bonus")).toContain("+1");
+    expect(text(root, "family-attribute-bonus")).toContain("Social");
+  });
+
+  it("shows the boosted attribute at review and keeps the stored sheet honest", () => {
+    const maker = build();
+    walkTo(maker.root, BACKGROUND_STEP);
+    click(maker.root, "bg-family-merchant");
+    // walkTo starts from step 0, so step forward from the background step.
+    for (let i = BACKGROUND_STEP; i < REVIEW_STEP; i += 1) click(maker.root, "maker-next");
+    // Merchant family: +1 Intelligence on top of the even 5s.
+    expect(text(maker.root, "review-attribute-intelligence")).toContain("6 (+1 family)");
+    expect(text(maker.root, "review-attribute-social")).not.toContain("(+1 family)");
+    click(maker.root, "maker-done");
+    const sheet = maker.complete()!;
+    // The stored attributes stay the pure 30-point buy; the bonus applies at
+    // derivation time. The family choice itself is what the campaign reads.
+    expect(sheet.attributes.intelligence).toBe(5);
+    expect(sheet.backgroundChoices["family"]).toBe("merchant");
+  });
+});

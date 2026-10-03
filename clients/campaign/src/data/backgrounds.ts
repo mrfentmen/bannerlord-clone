@@ -12,6 +12,7 @@
  */
 
 import type { AttributeId, SkillId } from "./attributes.js";
+import { FAMILY_CATEGORY } from "./families.js";
 
 /** A single background choice (childhood, youth, training, etc.). */
 export interface BackgroundOption {
@@ -192,6 +193,15 @@ export const BACKGROUNDS: BackgroundCategory[] = [
     ],
   },
 ];
+
+/**
+ * Every stage of character creation in order, Bannerlord-style: the family
+ * you were born into first, then the four life stages. The maker renders
+ * these, and `computeCharacterStats` / `scenarioForBackgrounds` read them.
+ * `BACKGROUNDS` stays exported unchanged for anything that only wants the
+ * life stages.
+ */
+export const CHARACTER_STAGES: BackgroundCategory[] = [FAMILY_CATEGORY, ...BACKGROUNDS];
 
 /** Appearance presets — face/body options for the character portrait. */
 export interface AppearancePreset {
@@ -457,7 +467,7 @@ export const STARTING_SCENARIOS: StartingScenario[] = [
     id: "family-business",
     title: "Family Business",
     description: "Your family's shop is failing. You're the only hope.",
-    triggers: ["suburbs", "small-business", "college"],
+    triggers: ["suburbs", "small-business", "college", "merchant", "trade"],
     objective: "Earn $5,000 to save the shop",
     reward: "Family workshop, +trade skill",
   },
@@ -465,7 +475,7 @@ export const STARTING_SCENARIOS: StartingScenario[] = [
     id: "military-call",
     title: "Old Unit",
     description: "Your old CO calls. He needs people he can trust.",
-    triggers: ["military", "cop", "athlete"],
+    triggers: ["military", "cop", "athlete", "badge"],
     objective: "Complete 3 missions for the unit",
     reward: "Military contacts, combat gear",
   },
@@ -481,7 +491,7 @@ export const STARTING_SCENARIOS: StartingScenario[] = [
     id: "farm-crisis",
     title: "The Farm",
     description: "Drought hit. The family farm is dying.",
-    triggers: ["rural", "farmhand"],
+    triggers: ["rural", "farmhand", "farm", "outdoors"],
     objective: "Find water or new income for the farm",
     reward: "Land, +survival skill",
   },
@@ -655,7 +665,7 @@ export function computeCharacterStats(
   let cash = 0;
   const storyParts: string[] = [];
 
-  for (const category of BACKGROUNDS) {
+  for (const category of CHARACTER_STAGES) {
     const optionId = backgroundChoices[category.id];
     const option = category.options.find((o) => o.id === optionId);
     if (!option) continue;

@@ -31,17 +31,30 @@ function e(
 
 export const LORE_ENTRIES: CodexEntry[] = [
   e(
+    "lore-families",
+    "The families of the new country",
+    "world",
+    "Six kinds of family survived the Unraveling. Yours decides your first strengths.",
+    [
+      "The old country had classes; the new one has families. When the institutions fell, what you inherited was not money or titles but a trade, a temperament, and a name people recognized. Six family kinds cover nearly everyone you will meet.",
+      "Badge families wore the uniform \u2014 cops, troopers, Guard. They raised children who stand straight and know how the system works, and they grant a commanding presence. Merchant families ran storefronts, trucking lines, warehouses; their children can smell a bad deal at fifty paces. Farm families worked their own land and answer to no one; their children do not scare easy. Trade families were mechanics, welders, machinists \u2014 the shop was the family church, and their children can fix anything with moving parts.",
+      "Outdoors families were guides and trappers who never quite lived indoors; their children read sign and move quiet. Contractor families did private security and convoy guard work \u2014 war was the family business, and some of it rubbed off on the kids. Nobody chooses their family, but everyone chooses what to do with what it gave them.",
+    ],
+    ["lore", "family", "families", "background", "character", "origins"],
+    ["lore-origins", "lore-who-you-are", "lore-the-unraveling"],
+  ),
+  e(
     "lore-origins",
     "Where you come from",
     "world",
-    "Your past is yours to choose: childhood, youth, training, and profession.",
+    "Your past is yours to choose: family first, then childhood, youth, training, and profession.",
     [
-      "Nobody in this country is born to anything anymore \u2014 which means everyone is the author of their own beginning. In the character maker you choose four chapters of your life, and each one leaves its mark on your skills and your starting purse.",
-      "Childhood is where you grew up: the housing projects, the suburbs, a small town, or the foster system. Youth is what you did as a teenager: athletics, hustling, studying, or running with a crew. Training is how you learned to handle yourself: the military, the boxing gym, the street, or your own hard schooling. Profession is what you did before all this: turning wrenches, patching people up, moving product, or wearing a badge.",
+      "Nobody in this country is born to anything anymore \u2014 which means everyone is the author of their own beginning. In the character maker you choose five chapters of your life, and each one leaves its mark on your skills and your starting purse.",
+      "First comes family: the badge, the business, the farm, the shop, the wilds, or the war. Then childhood is where you grew up: the housing projects, the suburbs, a small town, or the foster system. Youth is what you did as a teenager: athletics, hustling, studying, or running with a crew. Training is how you learned to handle yourself: the military, the boxing gym, the street, or your own hard schooling. Profession is what you did before all this: turning wrenches, patching people up, moving product, or wearing a badge.",
       "None of these are destiny. A foster kid who became a medic commands the same respect as a suburban athlete who learned logistics \u2014 what matters is what you do with the company once the campaign starts. But people will read your past in your bearing, and the map remembers where everyone started.",
     ],
     ["lore", "origins", "background", "character", "family", "backstory"],
-    ["lore-who-you-are", "lore-the-world", "lore-front-range"],
+    ["lore-families", "lore-who-you-are", "lore-the-world", "lore-front-range"],
   ),
   e(
     "lore-rook-reyes",
