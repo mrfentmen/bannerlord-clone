@@ -983,6 +983,8 @@ export interface SimulationProvider {
    * Merge a detached party back into the player party.
    */
   mergeParty(partyId: string): Promise<void>;
+  /** Recruit militia for a town's garrison. Costs money, increases garrison. */
+  recruitMilitia(townId: string, count: number): Promise<void>;
   // -- Clans and dynasty ----------------------------------------------------
   /** Create a marriage between two living unmarried characters. */
   marry(charId1: string, charId2: string): Promise<void>;

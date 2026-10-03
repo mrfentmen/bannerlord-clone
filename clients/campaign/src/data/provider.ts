@@ -515,6 +515,15 @@ export class HttpSimulationProvider implements SimulationProvider {
     );
   }
 
+  async recruitMilitia(townId: string, count: number): Promise<void> {
+    await this.#post(
+      `/v1/towns/${encodeURIComponent(townId)}/militia`,
+      { count },
+      "The militia recruitment did not land.",
+      () => null,
+    );
+  }
+
   async marry(charId1: string, charId2: string): Promise<void> {
     await this.#post(
       "/v1/dynasty/marry",

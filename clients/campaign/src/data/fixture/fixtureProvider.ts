@@ -239,6 +239,7 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     applyPlayerDefeat: async (input) => state.applyPlayerDefeat(input),
     splitParty: async (input) => state.splitParty(input),
     mergeParty: async (partyId) => state.mergeParty(partyId),
+    recruitMilitia: async (townId, count) => state.recruitMilitia(townId, count),
     marry: async (charId1, charId2) => state.marry(charId1, charId2),
     haveChild: async (parentId1, parentId2, childName) => state.haveChild(parentId1, parentId2, childName),
     killCharacter: async (charId, cause) => state.killCharacter(charId, cause),
@@ -1287,6 +1288,19 @@ class FixtureState {
       if (town.lootedVillage) town.security = clamp(town.security - 0.02, 0, 1);
       town.security = clamp(town.security, 0, 1);
 
+      // -- Garrison wages -----------------------------------------------------
+      // Garrison costs 1 gold per 10 militia per day, paid from town money.
+      // If the town can't pay, garrison desertion occurs.
+      const garrisonWages = Math.ceil(town.garrison / 10);
+      if (town.money >= garrisonWages) {
+        town.money -= garrisonWages;
+      } else {
+        // Can't pay: lose 5% of garrison to desertion
+        const deserters = Math.ceil(town.garrison * 0.05);
+        town.garrison = Math.max(0, town.garrison - deserters);
+        town.money = 0;
+      }
+
       // -- Loyalty system (Bannerlord, scaled 0-100 -> 0-1) --------------------
       let loyaltyDelta = 0;
       if (town.holderCulture !== town.culture) loyaltyDelta -= 0.03;
@@ -2041,6 +2055,33 @@ class FixtureState {
       text: `Merged "${detached.name}" (${detached.troopCount} troops) back into the party.`,
       entityId: this.#party.id,
       field: "troops",
+    });
+  }
+
+  /**
+   * Recruit militia for a town. Costs 50 gold per militia.
+   * Militia increases garrison, which improves security.
+   */
+  async recruitMilitia(townId: string, count: number): Promise<void> {
+    const town = this.#towns.get(townId);
+    if (!town) throw new Error("Town not found.");
+    if (count <= 0) throw new Error("Count must be positive.");
+    
+    const cost = count * 50;
+    if (this.#party.money < cost) {
+      throw new Error(`Recruiting ${count} militia costs ${cost} gold.`);
+    }
+    
+    this.#party.money -= cost;
+    town.garrison += count;
+    
+    this.#notifications.push({
+      id: `n-militia-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: `Recruited ${count} militia for ${town.name} (${cost} gold). Garrison: ${town.garrison}.`,
+      entityId: town.id,
+      field: "garrison",
     });
   }
 
