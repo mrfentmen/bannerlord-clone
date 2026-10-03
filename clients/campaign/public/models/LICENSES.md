@@ -59,3 +59,22 @@ Added 2026-10-01.
   includes `"prop"` for hand-held weapons.
 - Upstream license text for the Quaternius packs is CC0 1.0 Universal:
   https://creativecommons.org/publicdomain/zero/1.0/
+
+## Vendor packs (awesome-ai-games sweep, 2026-10-03)
+
+Pulled from AI-built open-source games catalogued in AgentsLoop/awesome-opus-5.5-games.
+GLB files load directly in the client; FBX files are staged for a future FBX→GLB conversion pass.
+
+| Directory | Source repo | License | Contents |
+|-----------|-------------|---------|----------|
+| `vendor/fable51-worlds/` | [PhiloLabs/fable51-worlds](https://github.com/PhiloLabs/fable51-worlds) | MIT | 210 GLB: modular pedestrian parts (civilian variety), 13 vehicles, street/arch/retail props, vegetation |
+| `vendor/branch-zero/` | [JaCoderX/Branch-Zero](https://github.com/JaCoderX/Branch-Zero) | MIT (repo); KayKit assets CC0 1.0 | 70 GLB: KayKit Adventurers characters + animation rigs, Kenney bank staff |
+| `vendor/hexland/` | [kimotomura-0101/hexland](https://github.com/kimotomura-0101/hexland) | CC0 1.0 (KayKit pack license) | 753 FBX: KayKit knights/pirates/zombies, weapon racks, ships; 7 animals incl. Horse.fbx |
+| `vendor/game-city-skylines/` | [codersusu/game-city-skylines](https://github.com/codersusu/game-city-skylines) | CC0 1.0 (Kenney pack license) | 214 FBX: Kenney cars, commercial/industrial/suburban buildings, watercraft |
+| `vendor/gravewake/` | [LioraLabs/gravewake](https://github.com/LioraLabs/gravewake) | MIT | 26 GLB: catapult (siege), fantasy characters/props |
+| `vendor/sakura-rally/` | [SummerEngine/sakura-rally](https://github.com/SummerEngine/sakura-rally) | MIT | 106 GLB: cars and track props |
+
+Notes:
+- Repos without a LICENSE file were excluded even when the models looked useful (e.g. GTB6's GTA-style characters/cars) — needs author permission.
+- Kenney assets are CC0 per kenney.nl; the Kenney stock-asset question with the boss remains open — flag before shipping Kenney content.
+- KayKit assets are CC0 1.0 per kaykit.co.

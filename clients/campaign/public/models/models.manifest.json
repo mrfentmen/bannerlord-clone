@@ -1,338 +1,2398 @@
 {
-  "models": [
-    {
-      "category": "vehicle",
-      "file": "pickup-truck.glb",
-      "name": "pickup-truck",
-      "targetLengthM": 7
-    },
-    {
-      "category": "vehicle",
-      "file": "motorcycle.glb",
-      "name": "motorcycle",
-      "targetLengthM": 3.2
-    },
-    {
-      "category": "vehicle",
-      "file": "apc.glb",
-      "name": "apc",
-      "targetLengthM": 9
-    },
-    {
-      "category": "vehicle",
-      "file": "supply-truck.glb",
-      "name": "supply-truck",
-      "targetLengthM": 10
-    },
-    {
-      "category": "vehicle",
-      "file": "humvee.glb",
-      "name": "humvee",
-      "notes": "party convoy lead",
-      "targetLengthM": 6
-    },
-    {
-      "category": "vehicle",
-      "file": "tank.glb",
-      "name": "tank",
-      "notes": "regen v2: single-barrel fix verified",
-      "targetLengthM": 10
-    },
-    {
-      "category": "vehicle",
-      "file": "artillery.glb",
-      "name": "artillery",
-      "targetLengthM": 8
-    },
-    {
-      "category": "vehicle",
-      "file": "patrol-boat.glb",
-      "name": "patrol-boat",
-      "targetLengthM": 12
-    },
-    {
-      "category": "vehicle",
-      "file": "helicopter.glb",
-      "name": "helicopter",
-      "notes": "marginal quality; ambient/background use only",
-      "targetLengthM": 16
-    },
-    {
-      "category": "troop",
-      "file": "troop-gunner.glb",
-      "name": "troop-gunner",
-      "notes": "marginal quality; verify in client",
-      "targetLengthM": 1.8
-    },
-    {
-      "category": "troop",
-      "file": "troop-medic.glb",
-      "name": "troop-medic",
-      "targetLengthM": 1.8
-    },
-    {
-      "category": "troop",
-      "file": "troop-officer.glb",
-      "name": "troop-officer",
-      "notes": "geometry lies flat along Z (verified from accessor bounds); rotated upright",
-      "rotateX": -1.5707963267948966,
-      "targetLengthM": 1.8
-    },
-    {
-      "category": "troop",
-      "file": "civilian.glb",
-      "name": "civilian",
-      "notes": "marginal quality; verify in client",
-      "targetLengthM": 1.8
-    },
-    {
-      "category": "troop",
-      "file": "warlord.glb",
-      "name": "warlord",
-      "targetLengthM": 1.9
-    },
-    {
-      "category": "structure",
-      "file": "bunker.glb",
-      "name": "bunker",
-      "targetLengthM": 12
-    },
-    {
-      "category": "structure",
-      "file": "tent.glb",
-      "name": "tent",
-      "targetLengthM": 6
-    },
-    {
-      "category": "structure",
-      "file": "concrete-barrier.glb",
-      "name": "concrete-barrier",
-      "targetLengthM": 4
-    },
-    {
-      "category": "structure",
-      "estimated": true,
-      "file": "sandbags.glb",
-      "name": "sandbags",
-      "notes": "absent from MANIFEST.md; size estimated from accessor bounds",
-      "targetLengthM": 2
-    },
-    {
-      "category": "structure",
-      "file": "water-tower.glb",
-      "name": "water-tower",
-      "notes": "industrial tower, batch 4",
-      "targetLengthM": 25
-    },
-    {
-      "category": "structure",
-      "file": "flag-pole.glb",
-      "name": "flag-pole",
-      "targetLengthM": 12
-    },
-    {
-      "category": "structure",
-      "file": "farmhouse.glb",
-      "name": "farmhouse",
-      "targetLengthM": 14
-    },
-    {
-      "category": "structure",
-      "file": "watchtower.glb",
-      "name": "watchtower",
-      "notes": "American fire-lookout style",
-      "targetLengthM": 18
-    },
-    {
-      "category": "nyc",
-      "file": "taxi.glb",
-      "name": "taxi",
-      "notes": "yellow cab, checker stripe, roof light",
-      "targetLengthM": 5
-    },
-    {
-      "category": "nyc",
-      "file": "subway-entrance.glb",
-      "name": "subway-entrance",
-      "notes": "staircase, railings, frame",
-      "targetLengthM": 8
-    },
-    {
-      "category": "nyc",
-      "file": "food-cart.glb",
-      "name": "food-cart",
-      "notes": "cart with striped umbrella",
-      "targetLengthM": 3
-    },
-    {
-      "category": "nyc",
-      "file": "skyscraper.glb",
-      "name": "skyscraper",
-      "notes": "marginal detail; fine at map scale",
-      "targetLengthM": 120
-    },
-    {
-      "name": "gunner",
-      "file": "gunner.glb",
-      "category": "troop",
-      "targetLengthM": 1.8,
-      "notes": "fresh Forge regen 2026-10-01; alternative to marginal troop-gunner.glb"
-    },
-    {
-      "name": "medic",
-      "file": "medic.glb",
-      "category": "troop",
-      "targetLengthM": 1.8,
-      "notes": "quality gate 85"
-    },
-    {
-      "name": "officer",
-      "file": "officer.glb",
-      "category": "troop",
-      "targetLengthM": 1.8,
-      "notes": "fresh Forge regen 2026-10-01; upright, no rotateX needed (verified from accessor bounds)"
-    },
-    {
-      "name": "sniper",
-      "file": "sniper.glb",
-      "category": "troop",
-      "targetLengthM": 1.8,
-      "notes": "marksman variant, quality gate 65; geometry is flat (XZ plane, 0.04 Y extent) \u2014 verify in client"
-    },
-    {
-      "name": "soldier-animated",
-      "file": "soldier-animated.glb",
-      "category": "troop",
-      "targetLengthM": 1.8,
-      "notes": "Quaternius CC0, Idle/Walk/Run/TPose"
-    },
-    {
-      "name": "female-operator",
-      "file": "female-operator.glb",
-      "category": "troop",
-      "targetLengthM": 1.75,
-      "notes": "Quaternius CC0, 25 combat animations"
-    },
-    {
-      "name": "tank-quaternius",
-      "file": "tank-quaternius.glb",
-      "category": "vehicle",
-      "targetLengthM": 7.0,
-      "notes": "Quaternius CC0, animated tracks"
-    },
-    {
-      "name": "weapon-ak74",
-      "file": "weapons/ak74.glb",
-      "category": "prop",
-      "targetLengthM": 0.9,
-      "notes": "Quaternius CC0"
-    },
-    {
-      "name": "weapon-scarl",
-      "file": "weapons/scarl.glb",
-      "category": "prop",
-      "targetLengthM": 0.85,
-      "notes": "Quaternius CC0"
-    },
-    {
-      "name": "weapon-m24",
-      "file": "weapons/m24.glb",
-      "category": "prop",
-      "targetLengthM": 1.1,
-      "notes": "Quaternius CC0"
-    },
-    {
-      "name": "weapon-axmc",
-      "file": "weapons/axmc.glb",
-      "category": "prop",
-      "targetLengthM": 1.2,
-      "notes": "Quaternius CC0"
-    },
-    {
-      "name": "weapon-awm",
-      "file": "weapons/awm.glb",
-      "category": "prop",
-      "targetLengthM": 1.15,
-      "notes": "Quaternius CC0"
-    },
-    {
-      "name": "weapon-vss",
-      "file": "weapons/vss.glb",
-      "category": "prop",
-      "targetLengthM": 1.0,
-      "notes": "Quaternius CC0"
-    },
-    {
-      "name": "weapon-mp5a5",
-      "file": "weapons/mp5a5.glb",
-      "category": "prop",
-      "targetLengthM": 0.65,
-      "notes": "Quaternius CC0"
-    },
-    {
-      "name": "weapon-m3a1",
-      "file": "weapons/m3a1.glb",
-      "category": "prop",
-      "targetLengthM": 0.7,
-      "notes": "Quaternius CC0"
-    },
-    {
-      "name": "weapon-p226",
-      "file": "weapons/p226.glb",
-      "category": "prop",
-      "targetLengthM": 0.2,
-      "notes": "Quaternius CC0"
-    },
-    {
-      "name": "weapon-m1911",
-      "file": "weapons/m1911.glb",
-      "category": "prop",
-      "targetLengthM": 0.22,
-      "notes": "Quaternius CC0"
-    },
-    {
-      "name": "operator-viper",
-      "file": "operator-viper.glb",
-      "category": "troop",
-      "targetLengthM": 1.75,
-      "notes": "Quaternius CC0, assault - orange/charcoal"
-    },
-    {
-      "name": "operator-heron",
-      "file": "operator-heron.glb",
-      "category": "troop",
-      "targetLengthM": 1.75,
-      "notes": "Quaternius CC0, medic - teal/white"
-    },
-    {
-      "name": "operator-lynx",
-      "file": "operator-lynx.glb",
-      "category": "troop",
-      "targetLengthM": 1.75,
-      "notes": "Quaternius CC0, recon - cyan/navy"
-    },
-    {
-      "name": "operator-magpie",
-      "file": "operator-magpie.glb",
-      "category": "troop",
-      "targetLengthM": 1.75,
-      "notes": "Quaternius CC0, scavenger - ochre/olive"
-    },
-    {
-      "name": "operator-jackal",
-      "file": "operator-jackal.glb",
-      "category": "troop",
-      "targetLengthM": 1.75,
-      "notes": "Quaternius CC0, locksmith - violet/black"
-    },
-    {
-      "name": "horse",
-      "file": "horse.glb",
-      "category": "vehicle",
-      "targetLengthM": 2.4,
-      "notes": "Quaternius CC0 animated horse, Idle/Walk/Gallop/Death/Attack via poly.pizza"
-    }
-  ],
-  "source": "milo lane staging (worker/milo/simulation @ 20a7275), MANIFEST.md; see notes. Asset licensing cleared for build use per muse-bus 2026-10-01.",
-  "version": 4
+ "models": [
+  {
+   "category": "vehicle",
+   "file": "pickup-truck.glb",
+   "name": "pickup-truck",
+   "targetLengthM": 7
+  },
+  {
+   "category": "vehicle",
+   "file": "motorcycle.glb",
+   "name": "motorcycle",
+   "targetLengthM": 3.2
+  },
+  {
+   "category": "vehicle",
+   "file": "apc.glb",
+   "name": "apc",
+   "targetLengthM": 9
+  },
+  {
+   "category": "vehicle",
+   "file": "supply-truck.glb",
+   "name": "supply-truck",
+   "targetLengthM": 10
+  },
+  {
+   "category": "vehicle",
+   "file": "humvee.glb",
+   "name": "humvee",
+   "notes": "party convoy lead",
+   "targetLengthM": 6
+  },
+  {
+   "category": "vehicle",
+   "file": "tank.glb",
+   "name": "tank",
+   "notes": "regen v2: single-barrel fix verified",
+   "targetLengthM": 10
+  },
+  {
+   "category": "vehicle",
+   "file": "artillery.glb",
+   "name": "artillery",
+   "targetLengthM": 8
+  },
+  {
+   "category": "vehicle",
+   "file": "patrol-boat.glb",
+   "name": "patrol-boat",
+   "targetLengthM": 12
+  },
+  {
+   "category": "vehicle",
+   "file": "helicopter.glb",
+   "name": "helicopter",
+   "notes": "marginal quality; ambient/background use only",
+   "targetLengthM": 16
+  },
+  {
+   "category": "troop",
+   "file": "troop-gunner.glb",
+   "name": "troop-gunner",
+   "notes": "marginal quality; verify in client",
+   "targetLengthM": 1.8
+  },
+  {
+   "category": "troop",
+   "file": "troop-medic.glb",
+   "name": "troop-medic",
+   "targetLengthM": 1.8
+  },
+  {
+   "category": "troop",
+   "file": "troop-officer.glb",
+   "name": "troop-officer",
+   "notes": "geometry lies flat along Z (verified from accessor bounds); rotated upright",
+   "rotateX": -1.5707963267948966,
+   "targetLengthM": 1.8
+  },
+  {
+   "category": "troop",
+   "file": "civilian.glb",
+   "name": "civilian",
+   "notes": "marginal quality; verify in client",
+   "targetLengthM": 1.8
+  },
+  {
+   "category": "troop",
+   "file": "warlord.glb",
+   "name": "warlord",
+   "targetLengthM": 1.9
+  },
+  {
+   "category": "structure",
+   "file": "bunker.glb",
+   "name": "bunker",
+   "targetLengthM": 12
+  },
+  {
+   "category": "structure",
+   "file": "tent.glb",
+   "name": "tent",
+   "targetLengthM": 6
+  },
+  {
+   "category": "structure",
+   "file": "concrete-barrier.glb",
+   "name": "concrete-barrier",
+   "targetLengthM": 4
+  },
+  {
+   "category": "structure",
+   "estimated": true,
+   "file": "sandbags.glb",
+   "name": "sandbags",
+   "notes": "absent from MANIFEST.md; size estimated from accessor bounds",
+   "targetLengthM": 2
+  },
+  {
+   "category": "structure",
+   "file": "water-tower.glb",
+   "name": "water-tower",
+   "notes": "industrial tower, batch 4",
+   "targetLengthM": 25
+  },
+  {
+   "category": "structure",
+   "file": "flag-pole.glb",
+   "name": "flag-pole",
+   "targetLengthM": 12
+  },
+  {
+   "category": "structure",
+   "file": "farmhouse.glb",
+   "name": "farmhouse",
+   "targetLengthM": 14
+  },
+  {
+   "category": "structure",
+   "file": "watchtower.glb",
+   "name": "watchtower",
+   "notes": "American fire-lookout style",
+   "targetLengthM": 18
+  },
+  {
+   "category": "nyc",
+   "file": "taxi.glb",
+   "name": "taxi",
+   "notes": "yellow cab, checker stripe, roof light",
+   "targetLengthM": 5
+  },
+  {
+   "category": "nyc",
+   "file": "subway-entrance.glb",
+   "name": "subway-entrance",
+   "notes": "staircase, railings, frame",
+   "targetLengthM": 8
+  },
+  {
+   "category": "nyc",
+   "file": "food-cart.glb",
+   "name": "food-cart",
+   "notes": "cart with striped umbrella",
+   "targetLengthM": 3
+  },
+  {
+   "category": "nyc",
+   "file": "skyscraper.glb",
+   "name": "skyscraper",
+   "notes": "marginal detail; fine at map scale",
+   "targetLengthM": 120
+  },
+  {
+   "name": "gunner",
+   "file": "gunner.glb",
+   "category": "troop",
+   "targetLengthM": 1.8,
+   "notes": "fresh Forge regen 2026-10-01; alternative to marginal troop-gunner.glb"
+  },
+  {
+   "name": "medic",
+   "file": "medic.glb",
+   "category": "troop",
+   "targetLengthM": 1.8,
+   "notes": "quality gate 85"
+  },
+  {
+   "name": "officer",
+   "file": "officer.glb",
+   "category": "troop",
+   "targetLengthM": 1.8,
+   "notes": "fresh Forge regen 2026-10-01; upright, no rotateX needed (verified from accessor bounds)"
+  },
+  {
+   "name": "sniper",
+   "file": "sniper.glb",
+   "category": "troop",
+   "targetLengthM": 1.8,
+   "notes": "marksman variant, quality gate 65; geometry is flat (XZ plane, 0.04 Y extent) \u2014 verify in client"
+  },
+  {
+   "name": "soldier-animated",
+   "file": "soldier-animated.glb",
+   "category": "troop",
+   "targetLengthM": 1.8,
+   "notes": "Quaternius CC0, Idle/Walk/Run/TPose"
+  },
+  {
+   "name": "female-operator",
+   "file": "female-operator.glb",
+   "category": "troop",
+   "targetLengthM": 1.75,
+   "notes": "Quaternius CC0, 25 combat animations"
+  },
+  {
+   "name": "tank-quaternius",
+   "file": "tank-quaternius.glb",
+   "category": "vehicle",
+   "targetLengthM": 7.0,
+   "notes": "Quaternius CC0, animated tracks"
+  },
+  {
+   "name": "weapon-ak74",
+   "file": "weapons/ak74.glb",
+   "category": "prop",
+   "targetLengthM": 0.9,
+   "notes": "Quaternius CC0"
+  },
+  {
+   "name": "weapon-scarl",
+   "file": "weapons/scarl.glb",
+   "category": "prop",
+   "targetLengthM": 0.85,
+   "notes": "Quaternius CC0"
+  },
+  {
+   "name": "weapon-m24",
+   "file": "weapons/m24.glb",
+   "category": "prop",
+   "targetLengthM": 1.1,
+   "notes": "Quaternius CC0"
+  },
+  {
+   "name": "weapon-axmc",
+   "file": "weapons/axmc.glb",
+   "category": "prop",
+   "targetLengthM": 1.2,
+   "notes": "Quaternius CC0"
+  },
+  {
+   "name": "weapon-awm",
+   "file": "weapons/awm.glb",
+   "category": "prop",
+   "targetLengthM": 1.15,
+   "notes": "Quaternius CC0"
+  },
+  {
+   "name": "weapon-vss",
+   "file": "weapons/vss.glb",
+   "category": "prop",
+   "targetLengthM": 1.0,
+   "notes": "Quaternius CC0"
+  },
+  {
+   "name": "weapon-mp5a5",
+   "file": "weapons/mp5a5.glb",
+   "category": "prop",
+   "targetLengthM": 0.65,
+   "notes": "Quaternius CC0"
+  },
+  {
+   "name": "weapon-m3a1",
+   "file": "weapons/m3a1.glb",
+   "category": "prop",
+   "targetLengthM": 0.7,
+   "notes": "Quaternius CC0"
+  },
+  {
+   "name": "weapon-p226",
+   "file": "weapons/p226.glb",
+   "category": "prop",
+   "targetLengthM": 0.2,
+   "notes": "Quaternius CC0"
+  },
+  {
+   "name": "weapon-m1911",
+   "file": "weapons/m1911.glb",
+   "category": "prop",
+   "targetLengthM": 0.22,
+   "notes": "Quaternius CC0"
+  },
+  {
+   "name": "operator-viper",
+   "file": "operator-viper.glb",
+   "category": "troop",
+   "targetLengthM": 1.75,
+   "notes": "Quaternius CC0, assault - orange/charcoal"
+  },
+  {
+   "name": "operator-heron",
+   "file": "operator-heron.glb",
+   "category": "troop",
+   "targetLengthM": 1.75,
+   "notes": "Quaternius CC0, medic - teal/white"
+  },
+  {
+   "name": "operator-lynx",
+   "file": "operator-lynx.glb",
+   "category": "troop",
+   "targetLengthM": 1.75,
+   "notes": "Quaternius CC0, recon - cyan/navy"
+  },
+  {
+   "name": "operator-magpie",
+   "file": "operator-magpie.glb",
+   "category": "troop",
+   "targetLengthM": 1.75,
+   "notes": "Quaternius CC0, scavenger - ochre/olive"
+  },
+  {
+   "name": "operator-jackal",
+   "file": "operator-jackal.glb",
+   "category": "troop",
+   "targetLengthM": 1.75,
+   "notes": "Quaternius CC0, locksmith - violet/black"
+  },
+  {
+   "name": "horse",
+   "file": "horse.glb",
+   "category": "vehicle",
+   "targetLengthM": 2.4,
+   "notes": "Quaternius CC0 animated horse, Idle/Walk/Gallop/Death/Attack via poly.pizza"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf-gpt-astra/public/models/dewey-monument.glb",
+   "name": "vendor-fable51-worlds-dewey-monument"
+  },
+  {
+   "category": "character",
+   "file": "vendor/fable51-worlds/union-square-sf-gpt-astra/public/models/pedestrian.glb",
+   "name": "vendor-fable51-worlds-pedestrian"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/fable51-worlds/union-square-sf-gpt-astra/public/models/powell-cable-car.glb",
+   "name": "vendor-fable51-worlds-powell-cable-car"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf-gpt-astra/public/models/retail-displays.glb",
+   "name": "vendor-fable51-worlds-retail-displays"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/awning_fabric_3m.glb",
+   "name": "vendor-fable51-worlds-awning-fabric-3m"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/awning_fabric_3m_black.glb",
+   "name": "vendor-fable51-worlds-awning-fabric-3m-black"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/awning_fabric_3m_green.glb",
+   "name": "vendor-fable51-worlds-awning-fabric-3m-green"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/balcony_iron_2.4m.glb",
+   "name": "vendor-fable51-worlds-balcony-iron-2.4m"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/balcony_iron_2.4m_lod1.glb",
+   "name": "vendor-fable51-worlds-balcony-iron-2.4m-lod1"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/balcony_stone_2.4m.glb",
+   "name": "vendor-fable51-worlds-balcony-stone-2.4m"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/balcony_stone_2.4m_lod1.glb",
+   "name": "vendor-fable51-worlds-balcony-stone-2.4m-lod1"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/balustrade_1m.glb",
+   "name": "vendor-fable51-worlds-balustrade-1m"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/balustrade_1m_lod1.glb",
+   "name": "vendor-fable51-worlds-balustrade-1m-lod1"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/canopy_metal_4m.glb",
+   "name": "vendor-fable51-worlds-canopy-metal-4m"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/column_corinthian_6m.glb",
+   "name": "vendor-fable51-worlds-column-corinthian-6m"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/column_corinthian_6m_lod1.glb",
+   "name": "vendor-fable51-worlds-column-corinthian-6m-lod1"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/column_doric_4m.glb",
+   "name": "vendor-fable51-worlds-column-doric-4m"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/column_doric_4m_lod1.glb",
+   "name": "vendor-fable51-worlds-column-doric-4m-lod1"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/cornice_heavy_1m.glb",
+   "name": "vendor-fable51-worlds-cornice-heavy-1m"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/cornice_medium_1m.glb",
+   "name": "vendor-fable51-worlds-cornice-medium-1m"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/door_hotel_marquee_6.0.glb",
+   "name": "vendor-fable51-worlds-door-hotel-marquee-6.0"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/door_hotel_marquee_6.0_lod1.glb",
+   "name": "vendor-fable51-worlds-door-hotel-marquee-6.0-lod1"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/door_revolving_2.4.glb",
+   "name": "vendor-fable51-worlds-door-revolving-2.4"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/door_revolving_2.4_lod1.glb",
+   "name": "vendor-fable51-worlds-door-revolving-2.4-lod1"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/fire_escape_module_2.4x3.6.glb",
+   "name": "vendor-fable51-worlds-fire-escape-module-2.4x3.6"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/fire_escape_module_2.4x3.6_lod1.glb",
+   "name": "vendor-fable51-worlds-fire-escape-module-2.4x3.6-lod1"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/flagpole_facade_4m.glb",
+   "name": "vendor-fable51-worlds-flagpole-facade-4m"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/flagpole_facade_4m_lod1.glb",
+   "name": "vendor-fable51-worlds-flagpole-facade-4m-lod1"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/mansard_1m.glb",
+   "name": "vendor-fable51-worlds-mansard-1m"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/mansard_dormer_1.5m.glb",
+   "name": "vendor-fable51-worlds-mansard-dormer-1.5m"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/parapet_1m.glb",
+   "name": "vendor-fable51-worlds-parapet-1m"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/pilaster_flat_0.6x4m.glb",
+   "name": "vendor-fable51-worlds-pilaster-flat-0.6x4m"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/pilaster_flat_0.8x12m.glb",
+   "name": "vendor-fable51-worlds-pilaster-flat-0.8x12m"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/roof_penthouse_6x4x3.glb",
+   "name": "vendor-fable51-worlds-roof-penthouse-6x4x3"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/roof_penthouse_6x4x3_lod1.glb",
+   "name": "vendor-fable51-worlds-roof-penthouse-6x4x3-lod1"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/roof_watertank.glb",
+   "name": "vendor-fable51-worlds-roof-watertank"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/roof_watertank_lod1.glb",
+   "name": "vendor-fable51-worlds-roof-watertank-lod1"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/rustication_1m.glb",
+   "name": "vendor-fable51-worlds-rustication-1m"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/sign_blade_1.0x0.6.glb",
+   "name": "vendor-fable51-worlds-sign-blade-1.0x0.6"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/sign_corner_wrap.glb",
+   "name": "vendor-fable51-worlds-sign-corner-wrap"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/sign_fascia_blank_3x0.8.glb",
+   "name": "vendor-fable51-worlds-sign-fascia-blank-3x0.8"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/storefront_arcade_arch_4.0x5.5.glb",
+   "name": "vendor-fable51-worlds-storefront-arcade-arch-4.0x5.5"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/storefront_arcade_arch_4.0x5.5_lod1.glb",
+   "name": "vendor-fable51-worlds-storefront-arcade-arch-4.0x5.5-lod1"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/storefront_bay_3.0x4.5.glb",
+   "name": "vendor-fable51-worlds-storefront-bay-3.0x4.5"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/storefront_bay_4.0x5.0.glb",
+   "name": "vendor-fable51-worlds-storefront-bay-4.0x5.0"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/storefront_door_double_2.0x2.8.glb",
+   "name": "vendor-fable51-worlds-storefront-door-double-2.0x2.8"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/storefront_door_double_2.0x2.8_lod1.glb",
+   "name": "vendor-fable51-worlds-storefront-door-double-2.0x2.8-lod1"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/storefront_door_recessed_3.0x4.5.glb",
+   "name": "vendor-fable51-worlds-storefront-door-recessed-3.0x4.5"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/storefront_door_recessed_3.0x4.5_lod1.glb",
+   "name": "vendor-fable51-worlds-storefront-door-recessed-3.0x4.5-lod1"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/storefront_luxury_4.0x5.0.glb",
+   "name": "vendor-fable51-worlds-storefront-luxury-4.0x5.0"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/storefront_luxury_4.0x5.0_lod1.glb",
+   "name": "vendor-fable51-worlds-storefront-luxury-4.0x5.0-lod1"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/stringcourse_1m.glb",
+   "name": "vendor-fable51-worlds-stringcourse-1m"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/win_arch_stone_1.5x3.0.glb",
+   "name": "vendor-fable51-worlds-win-arch-stone-1.5x3.0"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/win_arch_stone_1.5x3.0_lod1.glb",
+   "name": "vendor-fable51-worlds-win-arch-stone-1.5x3.0-lod1"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/win_bay_oriel_2.4x3.0.glb",
+   "name": "vendor-fable51-worlds-win-bay-oriel-2.4x3.0"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/win_bay_oriel_2.4x3.0_lod1.glb",
+   "name": "vendor-fable51-worlds-win-bay-oriel-2.4x3.0-lod1"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/win_curtain_3.0x3.6.glb",
+   "name": "vendor-fable51-worlds-win-curtain-3.0x3.6"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/win_dh_stone_1.2x2.2.glb",
+   "name": "vendor-fable51-worlds-win-dh-stone-1.2x2.2"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/win_dh_stone_1.5x2.6.glb",
+   "name": "vendor-fable51-worlds-win-dh-stone-1.5x2.6"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/win_office_strip_3.0x1.8.glb",
+   "name": "vendor-fable51-worlds-win-office-strip-3.0x1.8"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/win_pair_stone_2.4x2.4.glb",
+   "name": "vendor-fable51-worlds-win-pair-stone-2.4x2.4"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/win_pair_stone_2.4x2.4_lod1.glb",
+   "name": "vendor-fable51-worlds-win-pair-stone-2.4x2.4-lod1"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/win_punched_modern_1.8x2.0.glb",
+   "name": "vendor-fable51-worlds-win-punched-modern-1.8x2.0"
+  },
+  {
+   "category": "building",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/window_ac_unit.glb",
+   "name": "vendor-fable51-worlds-window-ac-unit"
+  },
+  {
+   "category": "character",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/backpack.glb",
+   "name": "vendor-fable51-worlds-backpack"
+  },
+  {
+   "category": "character",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/camera.glb",
+   "name": "vendor-fable51-worlds-camera"
+  },
+  {
+   "category": "character",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/coffee_cup.glb",
+   "name": "vendor-fable51-worlds-coffee-cup"
+  },
+  {
+   "category": "character",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/handbag.glb",
+   "name": "vendor-fable51-worlds-handbag"
+  },
+  {
+   "category": "character",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/head.glb",
+   "name": "vendor-fable51-worlds-head"
+  },
+  {
+   "category": "character",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/head_hat.glb",
+   "name": "vendor-fable51-worlds-head-hat"
+  },
+  {
+   "category": "character",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/head_longhair.glb",
+   "name": "vendor-fable51-worlds-head-longhair"
+  },
+  {
+   "category": "character",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/lower_arm.glb",
+   "name": "vendor-fable51-worlds-lower-arm"
+  },
+  {
+   "category": "character",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/lower_leg.glb",
+   "name": "vendor-fable51-worlds-lower-leg"
+  },
+  {
+   "category": "character",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/pelvis.glb",
+   "name": "vendor-fable51-worlds-pelvis"
+  },
+  {
+   "category": "character",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/phone.glb",
+   "name": "vendor-fable51-worlds-phone"
+  },
+  {
+   "category": "character",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/torso.glb",
+   "name": "vendor-fable51-worlds-torso"
+  },
+  {
+   "category": "character",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/torso_coat.glb",
+   "name": "vendor-fable51-worlds-torso-coat"
+  },
+  {
+   "category": "character",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/torso_dress.glb",
+   "name": "vendor-fable51-worlds-torso-dress"
+  },
+  {
+   "category": "character",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/umbrella.glb",
+   "name": "vendor-fable51-worlds-umbrella"
+  },
+  {
+   "category": "character",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/upper_arm.glb",
+   "name": "vendor-fable51-worlds-upper-arm"
+  },
+  {
+   "category": "character",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/upper_leg.glb",
+   "name": "vendor-fable51-worlds-upper-leg"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_avenue_shelf.glb",
+   "name": "vendor-fable51-worlds-apple-avenue-shelf"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_bench_forum.glb",
+   "name": "vendor-fable51-worlds-apple-bench-forum"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_genius_table.glb",
+   "name": "vendor-fable51-worlds-apple-genius-table"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_glass_balustrade_1m.glb",
+   "name": "vendor-fable51-worlds-apple-glass-balustrade-1m"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_headphones.glb",
+   "name": "vendor-fable51-worlds-apple-headphones"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_imac.glb",
+   "name": "vendor-fable51-worlds-apple-imac"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_ipad_stand.glb",
+   "name": "vendor-fable51-worlds-apple-ipad-stand"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_iphone_stand.glb",
+   "name": "vendor-fable51-worlds-apple-iphone-stand"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_macbook.glb",
+   "name": "vendor-fable51-worlds-apple-macbook"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_planter_tree_box.glb",
+   "name": "vendor-fable51-worlds-apple-planter-tree-box"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_stair_module.glb",
+   "name": "vendor-fable51-worlds-apple-stair-module"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_stool.glb",
+   "name": "vendor-fable51-worlds-apple-stool"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_table.glb",
+   "name": "vendor-fable51-worlds-apple-table"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_table_long.glb",
+   "name": "vendor-fable51-worlds-apple-table-long"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_video_wall_frame.glb",
+   "name": "vendor-fable51-worlds-apple-video-wall-frame"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_watch_stand.glb",
+   "name": "vendor-fable51-worlds-apple-watch-stand"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/char_isabelle.glb",
+   "name": "vendor-fable51-worlds-char-isabelle"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/char_kirby.glb",
+   "name": "vendor-fable51-worlds-char-kirby"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/char_link.glb",
+   "name": "vendor-fable51-worlds-char-link"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/char_luigi.glb",
+   "name": "vendor-fable51-worlds-char-luigi"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/char_mario.glb",
+   "name": "vendor-fable51-worlds-char-mario"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/char_pikmin_blue.glb",
+   "name": "vendor-fable51-worlds-char-pikmin-blue"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/char_pikmin_red.glb",
+   "name": "vendor-fable51-worlds-char-pikmin-red"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/char_pikmin_yellow.glb",
+   "name": "vendor-fable51-worlds-char-pikmin-yellow"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/char_toad.glb",
+   "name": "vendor-fable51-worlds-char-toad"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_cafe_chair.glb",
+   "name": "vendor-fable51-worlds-gen-cafe-chair"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_cafe_table.glb",
+   "name": "vendor-fable51-worlds-gen-cafe-table"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_checkout.glb",
+   "name": "vendor-fable51-worlds-gen-checkout"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_clothing_rack.glb",
+   "name": "vendor-fable51-worlds-gen-clothing-rack"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_display_pedestal.glb",
+   "name": "vendor-fable51-worlds-gen-display-pedestal"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_display_pedestal_tall.glb",
+   "name": "vendor-fable51-worlds-gen-display-pedestal-tall"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_hotel_lobby_sofa.glb",
+   "name": "vendor-fable51-worlds-gen-hotel-lobby-sofa"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_jewelry_case.glb",
+   "name": "vendor-fable51-worlds-gen-jewelry-case"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_lobby_lamp.glb",
+   "name": "vendor-fable51-worlds-gen-lobby-lamp"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_mannequin.glb",
+   "name": "vendor-fable51-worlds-gen-mannequin"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_mannequin_black.glb",
+   "name": "vendor-fable51-worlds-gen-mannequin-black"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_shelf_wall_3m.glb",
+   "name": "vendor-fable51-worlds-gen-shelf-wall-3m"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_shopping_bag.glb",
+   "name": "vendor-fable51-worlds-gen-shopping-bag"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_window_display_dress.glb",
+   "name": "vendor-fable51-worlds-gen-window-display-dress"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/nintendo_checkout.glb",
+   "name": "vendor-fable51-worlds-nintendo-checkout"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/nintendo_demo_kiosk.glb",
+   "name": "vendor-fable51-worlds-nintendo-demo-kiosk"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/nintendo_gondola.glb",
+   "name": "vendor-fable51-worlds-nintendo-gondola"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/nintendo_led_wall.glb",
+   "name": "vendor-fable51-worlds-nintendo-led-wall"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/nintendo_pedestal_statue.glb",
+   "name": "vendor-fable51-worlds-nintendo-pedestal-statue"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/nintendo_plush_bin.glb",
+   "name": "vendor-fable51-worlds-nintendo-plush-bin"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/nintendo_question_block.glb",
+   "name": "vendor-fable51-worlds-nintendo-question-block"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/nintendo_switch2_display.glb",
+   "name": "vendor-fable51-worlds-nintendo-switch2-display"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/nintendo_wall_shelf_3m.glb",
+   "name": "vendor-fable51-worlds-nintendo-wall-shelf-3m"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/nintendo_warp_pipe.glb",
+   "name": "vendor-fable51-worlds-nintendo-warp-pipe"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/smoke/lamp.glb",
+   "name": "vendor-fable51-worlds-lamp"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/banner_pole_bracket.glb",
+   "name": "vendor-fable51-worlds-banner-pole-bracket"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/barricade_a_frame.glb",
+   "name": "vendor-fable51-worlds-barricade-a-frame"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/bench_metal.glb",
+   "name": "vendor-fable51-worlds-bench-metal"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/bench_plaza.glb",
+   "name": "vendor-fable51-worlds-bench-plaza"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/bench_wood.glb",
+   "name": "vendor-fable51-worlds-bench-wood"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/bike_rack.glb",
+   "name": "vendor-fable51-worlds-bike-rack"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/bike_rack_wave.glb",
+   "name": "vendor-fable51-worlds-bike-rack-wave"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/bollard_removable.glb",
+   "name": "vendor-fable51-worlds-bollard-removable"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/bollard_steel.glb",
+   "name": "vendor-fable51-worlds-bollard-steel"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/bollard_stone.glb",
+   "name": "vendor-fable51-worlds-bollard-stone"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/bus_shelter_sfmta.glb",
+   "name": "vendor-fable51-worlds-bus-shelter-sfmta"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/cable_car_stop_sign.glb",
+   "name": "vendor-fable51-worlds-cable-car-stop-sign"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/catch_basin.glb",
+   "name": "vendor-fable51-worlds-catch-basin"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/cone_traffic.glb",
+   "name": "vendor-fable51-worlds-cone-traffic"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/curb_ramp.glb",
+   "name": "vendor-fable51-worlds-curb-ramp"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/dumpster.glb",
+   "name": "vendor-fable51-worlds-dumpster"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/fence_iron_1m.glb",
+   "name": "vendor-fable51-worlds-fence-iron-1m"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/flagpole_10m.glb",
+   "name": "vendor-fable51-worlds-flagpole-10m"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/garage_kiosk.glb",
+   "name": "vendor-fable51-worlds-garage-kiosk"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/hearts_sculpture.glb",
+   "name": "vendor-fable51-worlds-hearts-sculpture"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/hydrant_sf.glb",
+   "name": "vendor-fable51-worlds-hydrant-sf"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/hydrant_sf_red.glb",
+   "name": "vendor-fable51-worlds-hydrant-sf-red"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/kiosk_wayfinding.glb",
+   "name": "vendor-fable51-worlds-kiosk-wayfinding"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/mailbox_usps.glb",
+   "name": "vendor-fable51-worlds-mailbox-usps"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/manhole.glb",
+   "name": "vendor-fable51-worlds-manhole"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/muni_stop_pole.glb",
+   "name": "vendor-fable51-worlds-muni-stop-pole"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/newsrack.glb",
+   "name": "vendor-fable51-worlds-newsrack"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/newsrack_blue.glb",
+   "name": "vendor-fable51-worlds-newsrack-blue"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/parking_meter_sf.glb",
+   "name": "vendor-fable51-worlds-parking-meter-sf"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/pigeon.glb",
+   "name": "vendor-fable51-worlds-pigeon"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/planter_large.glb",
+   "name": "vendor-fable51-worlds-planter-large"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/planter_long.glb",
+   "name": "vendor-fable51-worlds-planter-long"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/planter_square.glb",
+   "name": "vendor-fable51-worlds-planter-square"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/rail_handrail_1m.glb",
+   "name": "vendor-fable51-worlds-rail-handrail-1m"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/scaffold_sidewalk_3m.glb",
+   "name": "vendor-fable51-worlds-scaffold-sidewalk-3m"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/street_sign_pole.glb",
+   "name": "vendor-fable51-worlds-street-sign-pole"
+  },
+  {
+   "category": "character",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/streetlight_pedestrian_4m.glb",
+   "name": "vendor-fable51-worlds-streetlight-pedestrian-4m"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/streetlight_plaza_globe.glb",
+   "name": "vendor-fable51-worlds-streetlight-plaza-globe"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/streetlight_sf_double.glb",
+   "name": "vendor-fable51-worlds-streetlight-sf-double"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/streetlight_sf_teardrop.glb",
+   "name": "vendor-fable51-worlds-streetlight-sf-teardrop"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/traffic_signal_mast.glb",
+   "name": "vendor-fable51-worlds-traffic-signal-mast"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/traffic_signal_post.glb",
+   "name": "vendor-fable51-worlds-traffic-signal-post"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/trashcan_black.glb",
+   "name": "vendor-fable51-worlds-trashcan-black"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/trashcan_sf.glb",
+   "name": "vendor-fable51-worlds-trashcan-sf"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/tree_grate.glb",
+   "name": "vendor-fable51-worlds-tree-grate"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/tree_guard.glb",
+   "name": "vendor-fable51-worlds-tree-guard"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/utility_box.glb",
+   "name": "vendor-fable51-worlds-utility-box"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/utility_box_small.glb",
+   "name": "vendor-fable51-worlds-utility-box-small"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/christmas_tree_big.glb",
+   "name": "vendor-fable51-worlds-christmas-tree-big"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/flowerbed_1m.glb",
+   "name": "vendor-fable51-worlds-flowerbed-1m"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/grass_patch.glb",
+   "name": "vendor-fable51-worlds-grass-patch"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/hedge_1m.glb",
+   "name": "vendor-fable51-worlds-hedge-1m"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/hedge_1m_low.glb",
+   "name": "vendor-fable51-worlds-hedge-1m-low"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/palm_canary.glb",
+   "name": "vendor-fable51-worlds-palm-canary"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/palm_canary_lod1.glb",
+   "name": "vendor-fable51-worlds-palm-canary-lod1"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/palm_canary_short.glb",
+   "name": "vendor-fable51-worlds-palm-canary-short"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/planter_shrubs.glb",
+   "name": "vendor-fable51-worlds-planter-shrubs"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/shrub_box.glb",
+   "name": "vendor-fable51-worlds-shrub-box"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/tree_ficus_indoor.glb",
+   "name": "vendor-fable51-worlds-tree-ficus-indoor"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/tree_ficus_lod1.glb",
+   "name": "vendor-fable51-worlds-tree-ficus-lod1"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/tree_olive.glb",
+   "name": "vendor-fable51-worlds-tree-olive"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/tree_plane.glb",
+   "name": "vendor-fable51-worlds-tree-plane"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/tree_plane_lod1.glb",
+   "name": "vendor-fable51-worlds-tree-plane-lod1"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/tree_street_small.glb",
+   "name": "vendor-fable51-worlds-tree-street-small"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/tree_street_small_lod1.glb",
+   "name": "vendor-fable51-worlds-tree-street-small-lod1"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/vine_wall_2m.glb",
+   "name": "vendor-fable51-worlds-vine-wall-2m"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/bicycle.glb",
+   "name": "vendor-fable51-worlds-bicycle"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/box_truck.glb",
+   "name": "vendor-fable51-worlds-box-truck"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/bus_muni.glb",
+   "name": "vendor-fable51-worlds-bus-muni"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/bus_tour.glb",
+   "name": "vendor-fable51-worlds-bus-tour"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/cable_car_powell.glb",
+   "name": "vendor-fable51-worlds-cable-car-powell"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/hatch.glb",
+   "name": "vendor-fable51-worlds-hatch"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/police_suv.glb",
+   "name": "vendor-fable51-worlds-police-suv"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/scooter_share.glb",
+   "name": "vendor-fable51-worlds-scooter-share"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/sedan.glb",
+   "name": "vendor-fable51-worlds-sedan"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/suv.glb",
+   "name": "vendor-fable51-worlds-suv"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/taxi.glb",
+   "name": "vendor-fable51-worlds-taxi"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/van_delivery.glb",
+   "name": "vendor-fable51-worlds-van-delivery"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/wheel_generic.glb",
+   "name": "vendor-fable51-worlds-wheel-generic"
+  },
+  {
+   "category": "character",
+   "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Animations/Rig_Medium_General.glb",
+   "name": "vendor-branch-zero-rig-medium-general"
+  },
+  {
+   "category": "character",
+   "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Animations/Rig_Medium_MovementBasic.glb",
+   "name": "vendor-branch-zero-rig-medium-movementbasic"
+  },
+  {
+   "category": "character",
+   "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Animations/Rig_Medium_Simulation.glb",
+   "name": "vendor-branch-zero-rig-medium-simulation"
+  },
+  {
+   "category": "character",
+   "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Characters/Barbarian.glb",
+   "name": "vendor-branch-zero-barbarian"
+  },
+  {
+   "category": "character",
+   "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Characters/Bob_jacket_cape.glb",
+   "name": "vendor-branch-zero-bob-jacket-cape"
+  },
+  {
+   "category": "character",
+   "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Characters/Johnny_jacket.glb",
+   "name": "vendor-branch-zero-johnny-jacket"
+  },
+  {
+   "category": "character",
+   "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Characters/Knight.glb",
+   "name": "vendor-branch-zero-knight"
+  },
+  {
+   "category": "character",
+   "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Characters/Mage.glb",
+   "name": "vendor-branch-zero-mage"
+  },
+  {
+   "category": "character",
+   "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Characters/Mage_jacket_nocape.glb",
+   "name": "vendor-branch-zero-mage-jacket-nocape"
+  },
+  {
+   "category": "character",
+   "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Characters/Ranger.glb",
+   "name": "vendor-branch-zero-ranger"
+  },
+  {
+   "category": "character",
+   "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Characters/Ranger_jacket_nocape.glb",
+   "name": "vendor-branch-zero-ranger-jacket-nocape"
+  },
+  {
+   "category": "character",
+   "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Characters/Rogue.glb",
+   "name": "vendor-branch-zero-rogue"
+  },
+  {
+   "category": "character",
+   "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Characters/Rogue_Hooded.glb",
+   "name": "vendor-branch-zero-rogue-hooded"
+  },
+  {
+   "category": "character",
+   "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Characters/Rogue_jacket_nocape.glb",
+   "name": "vendor-branch-zero-rogue-jacket-nocape"
+  },
+  {
+   "category": "character",
+   "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Characters/Walker_jacket.glb",
+   "name": "vendor-branch-zero-walker-jacket"
+  },
+  {
+   "category": "character",
+   "file": "vendor/branch-zero/apps/game/assets/characters/kenney_staff/bank_staff.glb",
+   "name": "vendor-branch-zero-bank-staff"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/fx_unicorn/unicorn_pink.glb",
+   "name": "vendor-branch-zero-unicorn-pink"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_board_frame.glb",
+   "name": "vendor-branch-zero-prop-board-frame"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_counter.glb",
+   "name": "vendor-branch-zero-prop-counter"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_elevator_lantern.glb",
+   "name": "vendor-branch-zero-prop-elevator-lantern"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_elevator_panel.glb",
+   "name": "vendor-branch-zero-prop-elevator-panel"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_engraver.glb",
+   "name": "vendor-branch-zero-prop-engraver"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_names_board_frame.glb",
+   "name": "vendor-branch-zero-prop-names-board-frame"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_pendant_lamp.glb",
+   "name": "vendor-branch-zero-prop-pendant-lamp"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_printer.glb",
+   "name": "vendor-branch-zero-prop-printer"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_rope_post.glb",
+   "name": "vendor-branch-zero-prop-rope-post"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_shredder.glb",
+   "name": "vendor-branch-zero-prop-shredder"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_stamp.glb",
+   "name": "vendor-branch-zero-prop-stamp"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_vault_door.glb",
+   "name": "vendor-branch-zero-prop-vault-door"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_vault_frame.glb",
+   "name": "vendor-branch-zero-prop-vault-frame"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_vault_repeater.glb",
+   "name": "vendor-branch-zero-prop-vault-repeater"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_water_cooler.glb",
+   "name": "vendor-branch-zero-prop-water-cooler"
+  },
+  {
+   "category": "character",
+   "file": "vendor/branch-zero/apps/game/assets/models/inpc/gum_bot_bank.glb",
+   "name": "vendor-branch-zero-gum-bot-bank"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/book_set.glb",
+   "name": "vendor-branch-zero-book-set"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/cabinet_medium.glb",
+   "name": "vendor-branch-zero-cabinet-medium"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/cabinet_medium_decorated.glb",
+   "name": "vendor-branch-zero-cabinet-medium-decorated"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/chair_A.glb",
+   "name": "vendor-branch-zero-chair-a"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/chair_stool.glb",
+   "name": "vendor-branch-zero-chair-stool"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/couch.glb",
+   "name": "vendor-branch-zero-couch"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/lamp_standing.glb",
+   "name": "vendor-branch-zero-lamp-standing"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/lamp_table.glb",
+   "name": "vendor-branch-zero-lamp-table"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/pictureframe_large_A.glb",
+   "name": "vendor-branch-zero-pictureframe-large-a"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/pictureframe_large_B.glb",
+   "name": "vendor-branch-zero-pictureframe-large-b"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/pictureframe_medium.glb",
+   "name": "vendor-branch-zero-pictureframe-medium"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/rug_oval_B.glb",
+   "name": "vendor-branch-zero-rug-oval-b"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/rug_rectangle_stripes_B.glb",
+   "name": "vendor-branch-zero-rug-rectangle-stripes-b"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/shelf_B_large_decorated.glb",
+   "name": "vendor-branch-zero-shelf-b-large-decorated"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/table_small.glb",
+   "name": "vendor-branch-zero-table-small"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kenney_furniture/bookcaseOpen.glb",
+   "name": "vendor-branch-zero-bookcaseopen"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kenney_furniture/bookcaseOpenLow.glb",
+   "name": "vendor-branch-zero-bookcaseopenlow"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kenney_furniture/chairCushion.glb",
+   "name": "vendor-branch-zero-chaircushion"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kenney_furniture/chairDesk.glb",
+   "name": "vendor-branch-zero-chairdesk"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kenney_furniture/coatRackStanding.glb",
+   "name": "vendor-branch-zero-coatrackstanding"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kenney_furniture/computerKeyboard.glb",
+   "name": "vendor-branch-zero-computerkeyboard"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kenney_furniture/computerScreen.glb",
+   "name": "vendor-branch-zero-computerscreen"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kenney_furniture/desk.glb",
+   "name": "vendor-branch-zero-desk"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kenney_furniture/doorwayFront.glb",
+   "name": "vendor-branch-zero-doorwayfront"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kenney_furniture/lampSquareCeiling.glb",
+   "name": "vendor-branch-zero-lampsquareceiling"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kenney_furniture/rugDoormat.glb",
+   "name": "vendor-branch-zero-rugdoormat"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kenney_furniture/rugRectangle.glb",
+   "name": "vendor-branch-zero-rugrectangle"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/branch-zero/apps/game/assets/models/kenney_nature/flower_redA.glb",
+   "name": "vendor-branch-zero-flower-reda"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/branch-zero/apps/game/assets/models/kenney_nature/plant_bushDetailed.glb",
+   "name": "vendor-branch-zero-plant-bushdetailed"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/branch-zero/apps/game/assets/models/kenney_nature/plant_bushSmall.glb",
+   "name": "vendor-branch-zero-plant-bushsmall"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/branch-zero/apps/game/assets/models/kenney_nature/plant_flatShort.glb",
+   "name": "vendor-branch-zero-plant-flatshort"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/branch-zero/apps/game/assets/models/kenney_nature/plant_flatTall.glb",
+   "name": "vendor-branch-zero-plant-flattall"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kenney_nature/pot_large.glb",
+   "name": "vendor-branch-zero-pot-large"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/branch-zero/apps/game/assets/models/kenney_nature/pot_small.glb",
+   "name": "vendor-branch-zero-pot-small"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/branch-zero/apps/game/assets/models/kenney_nature/tree_palmShort.glb",
+   "name": "vendor-branch-zero-tree-palmshort"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/branch-zero/apps/game/assets/models/kenney_nature/tree_small_dark.glb",
+   "name": "vendor-branch-zero-tree-small-dark"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/branch-zero/apps/game/assets/models/kenney_nature/tree_thin.glb",
+   "name": "vendor-branch-zero-tree-thin"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/gravewake/models/altar.glb",
+   "name": "vendor-gravewake-altar"
+  },
+  {
+   "category": "building",
+   "file": "vendor/gravewake/models/archer.glb",
+   "name": "vendor-gravewake-archer"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/gravewake/models/banshee.glb",
+   "name": "vendor-gravewake-banshee"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/gravewake/models/barrow.glb",
+   "name": "vendor-gravewake-barrow"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/gravewake/models/blightskull.glb",
+   "name": "vendor-gravewake-blightskull"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/gravewake/models/bloat.glb",
+   "name": "vendor-gravewake-bloat"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/gravewake/models/bones.glb",
+   "name": "vendor-gravewake-bones"
+  },
+  {
+   "category": "weapon",
+   "file": "vendor/gravewake/models/catapult.glb",
+   "name": "vendor-gravewake-catapult"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/gravewake/models/colossus.glb",
+   "name": "vendor-gravewake-colossus"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/gravewake/models/crawler.glb",
+   "name": "vendor-gravewake-crawler"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/gravewake/models/ghoul.glb",
+   "name": "vendor-gravewake-ghoul"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/gravewake/models/grass.glb",
+   "name": "vendor-gravewake-grass"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/gravewake/models/grave.glb",
+   "name": "vendor-gravewake-grave"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/gravewake/models/lantern.glb",
+   "name": "vendor-gravewake-lantern"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/gravewake/models/lich.glb",
+   "name": "vendor-gravewake-lich"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/gravewake/models/necromancer.glb",
+   "name": "vendor-gravewake-necromancer"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/gravewake/models/rocks.glb",
+   "name": "vendor-gravewake-rocks"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/gravewake/models/roots.glb",
+   "name": "vendor-gravewake-roots"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/gravewake/models/ruin.glb",
+   "name": "vendor-gravewake-ruin"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/gravewake/models/skeleton.glb",
+   "name": "vendor-gravewake-skeleton"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/gravewake/models/snag.glb",
+   "name": "vendor-gravewake-snag"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/gravewake/models/statue.glb",
+   "name": "vendor-gravewake-statue"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/gravewake/models/tree.glb",
+   "name": "vendor-gravewake-tree"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/gravewake/models/warden.glb",
+   "name": "vendor-gravewake-warden"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/gravewake/models/wizard.glb",
+   "name": "vendor-gravewake-wizard"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/gravewake/models/wraith.glb",
+   "name": "vendor-gravewake-wraith"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/sakura-rally/assets/models/car/hayate.glb",
+   "name": "vendor-sakura-rally-hayate"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/sakura-rally/assets/models/car/rally_car.glb",
+   "name": "vendor-sakura-rally-rally-car"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/azalea.glb",
+   "name": "vendor-sakura-rally-azalea"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/bamboo_clump.glb",
+   "name": "vendor-sakura-rally-bamboo-clump"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/banner_fence.glb",
+   "name": "vendor-sakura-rally-banner-fence"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/bench.glb",
+   "name": "vendor-sakura-rally-bench"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/boulder.glb",
+   "name": "vendor-sakura-rally-boulder"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/bridge_rail.glb",
+   "name": "vendor-sakura-rally-bridge-rail"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/sakura-rally/assets/models/props/bus_stop.glb",
+   "name": "vendor-sakura-rally-bus-stop"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/sakura-rally/assets/models/props/bush_a.glb",
+   "name": "vendor-sakura-rally-bush-a"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/sakura-rally/assets/models/props/bush_b.glb",
+   "name": "vendor-sakura-rally-bush-b"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/cedar_a.glb",
+   "name": "vendor-sakura-rally-cedar-a"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/cedar_b.glb",
+   "name": "vendor-sakura-rally-cedar-b"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/checkpoint_gate.glb",
+   "name": "vendor-sakura-rally-checkpoint-gate"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/cliff_a.glb",
+   "name": "vendor-sakura-rally-cliff-a"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/cliff_b.glb",
+   "name": "vendor-sakura-rally-cliff-b"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/corner_chevron_left.glb",
+   "name": "vendor-sakura-rally-corner-chevron-left"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/corner_chevron_rail_left.glb",
+   "name": "vendor-sakura-rally-corner-chevron-rail-left"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/corner_chevron_rail_right.glb",
+   "name": "vendor-sakura-rally-corner-chevron-rail-right"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/corner_chevron_right.glb",
+   "name": "vendor-sakura-rally-corner-chevron-right"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/corner_warn_curve_left.glb",
+   "name": "vendor-sakura-rally-corner-warn-curve-left"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/corner_warn_curve_right.glb",
+   "name": "vendor-sakura-rally-corner-warn-curve-right"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/corner_warn_hairpin_left.glb",
+   "name": "vendor-sakura-rally-corner-warn-hairpin-left"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/corner_warn_hairpin_right.glb",
+   "name": "vendor-sakura-rally-corner-warn-hairpin-right"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/corner_warn_series_left.glb",
+   "name": "vendor-sakura-rally-corner-warn-series-left"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/corner_warn_series_right.glb",
+   "name": "vendor-sakura-rally-corner-warn-series-right"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/corner_warn_sharp_left.glb",
+   "name": "vendor-sakura-rally-corner-warn-sharp-left"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/corner_warn_sharp_right.glb",
+   "name": "vendor-sakura-rally-corner-warn-sharp-right"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/distance_board_100.glb",
+   "name": "vendor-sakura-rally-distance-board-100"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/distance_board_50.glb",
+   "name": "vendor-sakura-rally-distance-board-50"
+  },
+  {
+   "category": "building",
+   "file": "vendor/sakura-rally/assets/models/props/farmhouse_a.glb",
+   "name": "vendor-sakura-rally-farmhouse-a"
+  },
+  {
+   "category": "building",
+   "file": "vendor/sakura-rally/assets/models/props/farmhouse_b.glb",
+   "name": "vendor-sakura-rally-farmhouse-b"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/fence_bamboo.glb",
+   "name": "vendor-sakura-rally-fence-bamboo"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/fence_wood.glb",
+   "name": "vendor-sakura-rally-fence-wood"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/fern.glb",
+   "name": "vendor-sakura-rally-fern"
+  },
+  {
+   "category": "building",
+   "file": "vendor/sakura-rally/assets/models/props/finish_arch.glb",
+   "name": "vendor-sakura-rally-finish-arch"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/flag_pole.glb",
+   "name": "vendor-sakura-rally-flag-pole"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/flag_pole_blue.glb",
+   "name": "vendor-sakura-rally-flag-pole-blue"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/flag_pole_pink.glb",
+   "name": "vendor-sakura-rally-flag-pole-pink"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/sakura-rally/assets/models/props/flowers_patch.glb",
+   "name": "vendor-sakura-rally-flowers-patch"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/garage_nobori.glb",
+   "name": "vendor-sakura-rally-garage-nobori"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/garage_tyres.glb",
+   "name": "vendor-sakura-rally-garage-tyres"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/garage_workshop.glb",
+   "name": "vendor-sakura-rally-garage-workshop"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/ginkgo.glb",
+   "name": "vendor-sakura-rally-ginkgo"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/sakura-rally/assets/models/props/grass_tuft.glb",
+   "name": "vendor-sakura-rally-grass-tuft"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/guardrail.glb",
+   "name": "vendor-sakura-rally-guardrail"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/hay_bale_round.glb",
+   "name": "vendor-sakura-rally-hay-bale-round"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/hay_bale_square.glb",
+   "name": "vendor-sakura-rally-hay-bale-square"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/hazagi.glb",
+   "name": "vendor-sakura-rally-hazagi"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/hokora.glb",
+   "name": "vendor-sakura-rally-hokora"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/jizo.glb",
+   "name": "vendor-sakura-rally-jizo"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/sakura-rally/assets/models/props/kei_truck.glb",
+   "name": "vendor-sakura-rally-kei-truck"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/koinobori.glb",
+   "name": "vendor-sakura-rally-koinobori"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/kura.glb",
+   "name": "vendor-sakura-rally-kura"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/lantern_string.glb",
+   "name": "vendor-sakura-rally-lantern-string"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/log.glb",
+   "name": "vendor-sakura-rally-log"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/maple_green.glb",
+   "name": "vendor-sakura-rally-maple-green"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/maple_orange.glb",
+   "name": "vendor-sakura-rally-maple-orange"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/maple_red.glb",
+   "name": "vendor-sakura-rally-maple-red"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/maple_yellow.glb",
+   "name": "vendor-sakura-rally-maple-yellow"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/marshal.glb",
+   "name": "vendor-sakura-rally-marshal"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/marshal_post.glb",
+   "name": "vendor-sakura-rally-marshal-post"
+  },
+  {
+   "category": "vegetation",
+   "file": "vendor/sakura-rally/assets/models/props/persimmon_tree.glb",
+   "name": "vendor-sakura-rally-persimmon-tree"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/pine_a.glb",
+   "name": "vendor-sakura-rally-pine-a"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/pine_b.glb",
+   "name": "vendor-sakura-rally-pine-b"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/reeds.glb",
+   "name": "vendor-sakura-rally-reeds"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/rice_paddy_marker.glb",
+   "name": "vendor-sakura-rally-rice-paddy-marker"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/road_mirror.glb",
+   "name": "vendor-sakura-rally-road-mirror"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/rock_a.glb",
+   "name": "vendor-sakura-rally-rock-a"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/rock_b.glb",
+   "name": "vendor-sakura-rally-rock-b"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/rock_c.glb",
+   "name": "vendor-sakura-rally-rock-c"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/rock_d.glb",
+   "name": "vendor-sakura-rally-rock-d"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/rock_e.glb",
+   "name": "vendor-sakura-rally-rock-e"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/sakura_a.glb",
+   "name": "vendor-sakura-rally-sakura-a"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/sakura_b.glb",
+   "name": "vendor-sakura-rally-sakura-b"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/sakura_c.glb",
+   "name": "vendor-sakura-rally-sakura-c"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/sakura_young.glb",
+   "name": "vendor-sakura-rally-sakura-young"
+  },
+  {
+   "category": "vehicle",
+   "file": "vendor/sakura-rally/assets/models/props/scarecrow.glb",
+   "name": "vendor-sakura-rally-scarecrow"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/shed.glb",
+   "name": "vendor-sakura-rally-shed"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/shrine.glb",
+   "name": "vendor-sakura-rally-shrine"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/shrine_bell.glb",
+   "name": "vendor-sakura-rally-shrine-bell"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/spectator_a.glb",
+   "name": "vendor-sakura-rally-spectator-a"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/spectator_b.glb",
+   "name": "vendor-sakura-rally-spectator-b"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/spectator_c.glb",
+   "name": "vendor-sakura-rally-spectator-c"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/spectator_d.glb",
+   "name": "vendor-sakura-rally-spectator-d"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/spectator_e.glb",
+   "name": "vendor-sakura-rally-spectator-e"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/spectator_f.glb",
+   "name": "vendor-sakura-rally-spectator-f"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/spectator_g.glb",
+   "name": "vendor-sakura-rally-spectator-g"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/spectator_h.glb",
+   "name": "vendor-sakura-rally-spectator-h"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/spectator_i.glb",
+   "name": "vendor-sakura-rally-spectator-i"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/spectator_j.glb",
+   "name": "vendor-sakura-rally-spectator-j"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/spectator_k.glb",
+   "name": "vendor-sakura-rally-spectator-k"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/spectator_l.glb",
+   "name": "vendor-sakura-rally-spectator-l"
+  },
+  {
+   "category": "building",
+   "file": "vendor/sakura-rally/assets/models/props/start_arch.glb",
+   "name": "vendor-sakura-rally-start-arch"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/stone_lantern.glb",
+   "name": "vendor-sakura-rally-stone-lantern"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/stone_wall.glb",
+   "name": "vendor-sakura-rally-stone-wall"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/stump.glb",
+   "name": "vendor-sakura-rally-stump"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/tape_post.glb",
+   "name": "vendor-sakura-rally-tape-post"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/telephone_pole.glb",
+   "name": "vendor-sakura-rally-telephone-pole"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/tent.glb",
+   "name": "vendor-sakura-rally-tent"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/tire_stack.glb",
+   "name": "vendor-sakura-rally-tire-stack"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/torii_large.glb",
+   "name": "vendor-sakura-rally-torii-large"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/torii_small.glb",
+   "name": "vendor-sakura-rally-torii-small"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/traffic_cone.glb",
+   "name": "vendor-sakura-rally-traffic-cone"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/vending_machine.glb",
+   "name": "vendor-sakura-rally-vending-machine"
+  },
+  {
+   "category": "prop",
+   "file": "vendor/sakura-rally/assets/models/props/water_well.glb",
+   "name": "vendor-sakura-rally-water-well"
+  }
+ ],
+ "source": "milo lane staging (worker/milo/simulation @ 20a7275), MANIFEST.md; see notes. Asset licensing cleared for build use per muse-bus 2026-10-01.",
+ "version": 5
 }
