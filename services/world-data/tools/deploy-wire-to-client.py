@@ -1,17 +1,15 @@
 #!/usr/bin/env python3
 """Deploy the pipeline's wire files into the campaign client's public/world/.
 
-The client reads exactly three files out of `clients/campaign/public/world/`, and
-those files were once fetched by the client's own `tools/fetch-world-data.mjs`
-against a different region entirely (the Northern Colorado Front Range). Since
-the Ohio River Valley wire build landed, both regions have been in the same
-directory at different times and nothing recorded which is current - the symptom
-being a `region.json` that names 2,236 zoom-12 elevation tiles of which 668 are
-on disk, so the map fails to draw.
+The client reads four files out of `clients/campaign/public/world/`, and those files were
+once fetched by the client's own `tools/fetch-world-data.mjs` against a different region
+entirely (the Northern Colorado Front Range). Since the Ohio River Valley wire build
+landed, both regions have been in the same directory at different times and nothing
+recorded which was current - the symptom being a `region.json` that names 2,236 zoom-12
+elevation tiles of which 668 are on disk, so the map fails to draw.
 
-This script makes the deployment a step rather than a copy-paste, and it copies
-the three files across unchanged. What it will not do is quietly drop the fields
-that only the client has:
+This script makes the deployment a step rather than a copy-paste, and it copies the files
+across unchanged. What it will not do is quietly drop the fields that only the client has:
 
   * `wire_version`, added by `build-territories.py` alongside `territories.json`;
   * `network.json`'s `travelEdges` and `travelEdgesMeta`, added by
@@ -21,9 +19,15 @@ Those are carried over from the file being replaced, and reported, so the result
 is byte-comparable to `services/world-data/exports/wire/` plus a known set of
 known enrichments rather than a fourth variant nobody can account for.
 
+`boundaries.json` is the fourth file and is built by
+`tools/build-wire-place-boundaries.py`, which reads the Census place geometry the
+pipeline's own `place_boundaries` table deliberately throws away. Run it before this
+script, or the deploy reports the missing file rather than copying nothing.
+
 Usage:
 
-    python tools/deploy-wire-to-client.py                 # wire -> client
+    python tools/build-wire-place-boundaries.py    # writes exports/wire/boundaries.json
+    python tools/deploy-wire-to-client.py # wire -> client
     python tools/deploy-wire-to-client.py --check         # report drift, write nothing
 """
 
@@ -39,7 +43,7 @@ SERVICE = REPO / "services" / "world-data"
 WIRE = SERVICE / "exports" / "wire"
 CLIENT_WORLD = REPO / "clients" / "campaign" / "public" / "world"
 
-FILES = ("region.json", "settlements.json", "network.json")
+FILES = ("region.json", "settlements.json", "network.json", "boundaries.json")
 
 # Keys the client's copies carry that the wire build does not produce, and where
 # they come from. Listed rather than copied wholesale so a key that disappears
@@ -48,6 +52,10 @@ CARRIED = {
     "region.json": ("wire_version",),
     "settlements.json": ("wire_version",),
     "network.json": ("wire_version", "travelEdges", "travelEdgesMeta"),
+    # boundaries.json is built by tools/build-wire-place-boundaries.py rather than by
+    # `worlddata wire`, but it is a wire file like the other three and is deployed the
+    # same way. It carries nothing the build does not produce.
+    "boundaries.json": ("wire_version",),
 }
 
 # The wire build stamps `retrieved` with today's date, because it does not know
@@ -69,6 +77,11 @@ IDENTITY = {
     "region.json": ("name", "bbox"),
     "settlements.json": ("source",),
     "network.json": ("source",),
+    # The boundary file has no region of its own - it is cut to whatever settlements the
+    # wire ships - so identity is that it names exactly those settlements. Comparing the
+    # keys rather than any one field is what catches a boundary file left behind from a
+    # region change, which would otherwise be stamped with the new region's date.
+    "boundaries.json": ("source", "cartoYear"),
 }
 
 
@@ -84,7 +97,19 @@ def same_data(name: str, fresh: dict, existing: dict | None) -> bool:
     """
     if existing is None:
         return False
-    return all(existing.get(key) == fresh.get(key) for key in IDENTITY[name])
+    if not all(existing.get(key) == fresh.get(key) for key in IDENTITY[name]):
+        return False
+    if name == "boundaries.json":
+        # One entry per settlement, so the set of place keys is what identifies the
+        # boundary file. A region change moves settlements, which moves these keys, which
+        # is the case the generic comparison above cannot see.
+        return _boundary_keys(existing) == _boundary_keys(fresh)
+    return True
+
+
+def _boundary_keys(payload: dict) -> set[str]:
+    """The place keys a boundary file covers."""
+    return {str(entry.get("placeKey")) for entry in payload.get("boundaries", []) or []}
 
 
 def merge(name: str, fresh: dict, existing: dict | None, notes: list[str]) -> dict:

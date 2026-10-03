@@ -283,6 +283,53 @@ def test_an_unreadable_cache_is_recomputed_and_replaced(tmp_path, corrupt):
     assert "reused" in note
 
 
+def test_a_cache_naming_an_unknown_pickle_protocol_is_recovered(tmp_path):
+    """A cache written by a newer interpreter is not a crash.
+
+    `pickle.load` raises `ValueError: unsupported pickle protocol: N` - not
+    `UnpicklingError` - when a file's first two bytes name a protocol the running
+    interpreter does not implement. `cached()` used to catch only the UnpicklingError
+    family, so that ValueError escaped, and the whole run died on the two most
+    expensive stages the cache exists to protect.
+
+    This is not hypothetical: pickle protocol 6 became the default in CPython 3.14, and
+    every manifest this pipeline writes records the interpreter that produced the data.
+    A machine on 3.14 running with the cache directory on shared storage therefore
+    leaves a file a machine on 3.12 cannot read, and the reader must recompute rather
+    than stop.
+
+    The two readers in `cache.py` had drifted on this - `_read()` already listed
+    ValueError - so the file is also checked for the drift itself rather than only for
+    the symptom.
+    """
+    cache_dir = tmp_path / "cache"
+    path = cache_dir / "stages" / "boundaries.pickle"
+    path.parent.mkdir(parents=True)
+    path.write_bytes(b"\x80\x63" + b"\x00" * 20)  # protocol 99
+
+    calls = []
+
+    def compute():
+        calls.append(1)
+        return ["recomputed"]
+
+    result, note = stage_cache.cached(cache_dir, "boundaries", "stamp-1", compute, reuse=True)
+    assert result == ["recomputed"]
+    assert len(calls) == 1
+    assert "could not be read" in note
+    assert "ValueError" in note, "the note must name why the cache was unusable, not just that it was"
+
+    # The rewrite happened, so the next run is cheap again.
+    result, note = stage_cache.cached(cache_dir, "boundaries", "stamp-1", compute, reuse=True)
+    assert len(calls) == 1, "the recovered cache was not used, so the rewrite did not happen"
+    assert "reused" in note
+
+    # `_read()` and `cached()` must agree on what is unreadable, or the next edit can
+    # reopen the gap. Both now share one tuple.
+    assert stage_cache._read(path) is not None
+    assert ValueError in stage_cache._UNREADABLE
+
+
 def test_a_cache_holding_something_other_than_a_record_is_replaced(tmp_path):
     """A readable pickle of the wrong shape is still an unusable cache."""
     cache_dir = tmp_path / "cache"

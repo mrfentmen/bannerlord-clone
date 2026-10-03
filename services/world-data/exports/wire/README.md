@@ -5,24 +5,60 @@ built from the pipeline's tables by `python -m worlddata wire`.
 
 ## What these are
 
-Rowan's client (`clients/campaign`) reads exactly three files, with shapes
+Rowan's client (`clients/campaign`) reads four files, with shapes
 defined in `clients/campaign/src/world/types.ts`:
 
-| File | Contents |
-|---|---|
-| `region.json` | V1 region name, bbox, state coverage, and two terrarium tile tiers |
-| `settlements.json` | 487 settlements inside the V1 bbox, biggest first |
-| `network.json` | 439 road + 4,653 rail segments with real TIGER/Line geometry |
+| File | Contents | Built by |
+|---|---|---|
+| `region.json` | V1 region name, bbox, state coverage, and two terrarium tile tiers | `worlddata wire` |
+| `settlements.json` | 487 settlements inside the V1 bbox, biggest first | `worlddata wire` |
+| `network.json` | 439 road + 4,653 rail segments with real TIGER/Line geometry | `worlddata wire` |
+| `boundaries.json` | 487 real Census place outlines, 623 polygons, 48,612 vertices | `tools/build-wire-place-boundaries.py` |
 
 These are the files the client actually boots from. They are deployed into
 `clients/campaign/public/world/` by `tools/deploy-wire-to-client.py`, and
-`tests/test_exports_bundle.py` fails if the deployed copies drift from this
-directory.
+`tests/test_wire_deploy.py` and `tests/test_exports_bundle.py` fail if the
+deployed copies drift from this directory.
 
 The client's own `tools/fetch-world-data.mjs` is **not** how this data is produced.
 It always fetches the Northern Colorado Front Range, so running it over a deployed
 region replaces Ohio data with Colorado data. The region is chosen in
 `config/world_data.toml` under `[v1]`, not by that script.
+
+## `boundaries.json` is built separately
+
+`worlddata wire` cannot produce it. The pipeline's `place_boundaries` table has 32,037
+real Census place outlines but no coordinates, because
+`src/worlddata/transforms/boundaries.py` deliberately discards the polygon rings once it
+has taken the interior point and the area out of them — holding 32,000 vertex lists alive
+for the rest of the run is what got the pipeline OOM-killed twice. The rings are still in
+`data/raw/cb_2023_us_place_500k.zip`, so `tools/build-wire-place-boundaries.py` reads that
+archive again and keeps them for the 487 places this region ships:
+
+```bash
+cd services/world-data
+python tools/build-wire-place-boundaries.py   # writes exports/wire/boundaries.json
+python tools/deploy-wire-to-client.py         # deploy all four files
+```
+
+That tool runs after `worlddata wire`, not instead of it: it cuts the file to whatever
+settlements `settlements.json` carries, so it needs that file to exist first.
+
+Two things about the output worth knowing before trusting it:
+
+- **Ring winding is normalised, not passed through.** The file states `exterior rings
+  clockwise, holes counter-clockwise` so a renderer can classify a ring by winding instead
+  of recomputing areas. The source shapefile does not always honour that, because
+  `to_multipolygon` keeps a counter-clockwise ring too small to be a hole as a polygon of
+  its own — 42 rings in this region, all of them Columbus-area slivers. Reversing a ring's
+  vertex order moves no vertex and changes no area, so the fix is free and the stated
+  contract is then true of every ring rather than most of them.
+- **Nothing is simplified.** 487 places come to 48,612 vertices, about 1.2 MB of JSON, so
+  every vertex the Census Bureau published reaches the client. Coordinates are rounded to
+  six decimal places (~0.1 m), which is the precision the Census file publishes at.
+
+This is generalised 500k cartography, not surveyed boundaries, and it is a separate licence
+line from TIGER/Line even though both are public domain.
 
 ## Provenance
 
@@ -35,8 +71,16 @@ region replaces Ohio data with Colorado data. The region is chosen in
 - Roads/rail: U.S. Census Bureau, TIGER/Line 2023 Primary/Secondary Roads and
   Rail Lines. Public domain, no attribution required. Geometry is the real
   polyline from the `route_segments` table, reprojected to `[lat, lon]`.
+- Place outlines: U.S. Census Bureau, Cartographic Boundary Files, 2023, 500k,
+  place. Public domain, no attribution required. Joined to `settlements.json` by
+  the Census settlement id (`state_fips-place_fips`), never by name; the file's
+  `centroid` for a place is the same interior point the settlement's own `lat`/`lon`
+  carries, so the two files agree exactly rather than approximately.
 - Every one of the 487 settlements carries a real population figure and a
   `populationSource` citation. There are no null populations in this region.
+  Every one of the 487 also carries a real boundary outline — the builder refuses
+  to write a file missing any, rather than shipping a region where some towns have
+  a shape and others are a bare dot with nothing saying why.
 
 ## Elevation tiles: two tiers
 
@@ -69,13 +113,25 @@ region cannot leave a stale list behind.
 ```bash
 cd services/world-data
 python -m worlddata wire            # reads dist/, writes dist/wire/
-python -m worlddata wire --out exports/wire   # refresh this directory
-python tools/deploy-wire-to-client.py         # deploy into the client
+python -m worlddata wire --out exports/wire   # refresh region/settlements/network
+python tools/build-wire-place-boundaries.py   # then cut the outlines to those settlements
+python tools/deploy-wire-to-client.py         # deploy all four files
 ```
 
 The wire step needs the full pipeline output (`dist/route_segments.parquet`
 with geometry), not just the committed portable bundle — geometry is excluded
 from `exports/` as regenerable. It fails loudly if that file is missing.
+
+The boundary step needs `data/raw/cb_2023_us_place_500k.zip`, which the fetch
+stage puts there. It streams the archive once, keeps 487 of 32,608 records, and
+finishes in about three seconds.
+
+Check for drift without writing anything:
+
+```bash
+python tools/build-wire-place-boundaries.py --check
+python tools/deploy-wire-to-client.py --check
+```
 
 ## Standing rule
 

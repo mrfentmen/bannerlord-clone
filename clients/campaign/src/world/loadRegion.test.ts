@@ -4,7 +4,7 @@
  * Everything else in this directory tests a function on its own. This one runs
  * `loadWorldData` over the actual `public/world/` files the client ships and
  * boots from, with the network and the canvas stubbed. That is the only way to
- * catch the class of failure that has actually happened here: the three files are
+ * catch the class of failure that has actually happened here: the four files are
  * produced by different tooling, so a mismatch between them is invisible to every
  * unit test and shows up as a map that draws the wrong terrain, or not at all.
  *
@@ -17,7 +17,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { WorldDataError, loadWorldData } from "./load.js";
+import { WorldDataError, loadWorldData, settlementsWithoutBoundaries } from "./load.js";
 
 const WORLD_DIR = fileURLToPath(new URL("../../public/world/", import.meta.url));
 
@@ -90,9 +90,14 @@ describe("loading the committed world data", () => {
     expect(world.roads.length).toBe(439);
     expect(world.rail.length).toBe(4_653);
     expect(world.region.name).toContain("Ohio River Valley");
+    // One outline per settlement: the boundary file is the only real shape the client has
+    // for a town, so a region that loaded with none of them is a region with no footprints
+    // at all. `src/world/boundaries.test.ts` checks the geometry in detail.
+    expect(world.boundaries.length).toBe(487);
+    expect(settlementsWithoutBoundaries(world.settlements, world.boundaries)).toEqual([]);
   });
 
-  it("fetches exactly the three wire files and then the boot tiles", async () => {
+  it("fetches exactly the four wire files and then the boot tiles", async () => {
     await loadWorldData({ baseUrl: "/world" });
 
     const region = readWorld<{ elevation: { tiles: { path: string }[] } }>("region.json");
@@ -100,6 +105,7 @@ describe("loading the committed world data", () => {
       "/world/region.json",
       "/world/settlements.json",
       "/world/network.json",
+      "/world/boundaries.json",
       ...region.elevation.tiles.map((t) => `/world/${t.path}`),
     ];
     // The detail tier is a fetchable artifact, not a boot dependency, so none of its
@@ -156,7 +162,8 @@ describe("loading the committed world data", () => {
       baseUrl: "/world",
       onStage: (stage, loaded, total) => stages.set(stage, [loaded, total]),
     });
-    expect(stages.get("survey")).toEqual([0, 3]);
+    // Four wire files: region, settlements, network, and the town outlines.
+    expect(stages.get("survey")).toEqual([0, 4]);
     const terrain = stages.get("terrain");
     expect(terrain).toBeDefined();
     expect(terrain![0]).toBe(terrain![1]);

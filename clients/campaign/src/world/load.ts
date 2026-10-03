@@ -8,8 +8,10 @@
  */
 
 import type {
+  BoundariesFile,
   Heightfield,
   NetworkFile,
+  PlaceBoundary,
   RegionFile,
   RoadClass,
   RoadWay,
@@ -72,6 +74,45 @@ async function getJson<T>(url: string, what: string): Promise<T> {
     throw new WorldDataError(
       "decode",
       `The world survey file for ${what} is damaged. Fetch the world data again.`,
+      `JSON.parse of ${url} threw: ${String(err)}`,
+    );
+  }
+}
+
+/**
+ * Fetch a file the client can do without.
+ *
+ * Returns `null` for a 404 and throws for everything else. The distinction is the point:
+ * `boundaries.json` is a separate wire build that a region may legitimately predate, and
+ * a client that treated its absence as a failure could not load the region at all. A 500,
+ * a truncated response or unparseable bytes is a different thing — the file was meant to be
+ * there and is not readable — and CONSTITUTION.md section 1.3 says that has to be loud.
+ */
+async function getOptionalJson<T>(url: string, what: string): Promise<T | null> {
+  let response: Response;
+  try {
+    response = await fetch(url);
+  } catch (err) {
+    throw new WorldDataError(
+      "network",
+      `The world survey could not be reached. Check the connection and try again.`,
+      `fetch(${url}) threw for ${what}: ${String(err)}`,
+    );
+  }
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new WorldDataError(
+      "network",
+      `The world survey returned an error loading the ${what} file.`,
+      `GET ${url} -> HTTP ${response.status} ${response.statusText}`,
+    );
+  }
+  try {
+    return (await response.json()) as T;
+  } catch (err) {
+    throw new WorldDataError(
+      "decode",
+      `The ${what} file is damaged. Fetch the world data again.`,
       `JSON.parse of ${url} threw: ${String(err)}`,
     );
   }
@@ -267,6 +308,175 @@ export function bandFor(elevationMetres: number): (typeof terrainBands)[number] 
   return terrainBands[terrainBands.length - 1]!;
 }
 
+/**
+ * Turn the wire's boundary outlines into world-space polygons.
+ *
+ * Every check that matters happens here rather than at the point of drawing, because a
+ * tessellator handed a ring with a `NaN` in it produces an empty mesh and no message, and
+ * a mesh that is missing a town's outline looks exactly like a town that has none.
+ *
+ * Three things are refused outright rather than skipped:
+ *
+ *  - a boundary naming a settlement that `settlements.json` does not carry. That is what a
+ *    half-completed region change looks like: the two files deployed from different
+ *    regions, each internally valid, which is exactly the failure this whole loader exists
+ *    to make loud.
+ *  - a ring that is not closed. An unclosed ring is a corrupt read, and drawing it leaves a
+ *    gap the client cannot explain.
+ *  - a ring with fewer than four points, which cannot enclose any area.
+ *
+ * A multipolygon place keeps all its polygons. Taking only the largest would silently
+ * delete real land — Columbus is 29 polygons, and 26 of them are the slivers
+ * `to_multipolygon` kept rather than discard.
+ */
+export function projectBoundaries(
+  file: BoundariesFile,
+  settlements: WorldSettlement[],
+  projection: Projection,
+): PlaceBoundary[] {
+  if (!Array.isArray(file.boundaries)) {
+    throw new WorldDataError(
+      "decode",
+      "The settlement outlines in the world survey are damaged.",
+      "boundaries.json has no boundaries array",
+      false,
+    );
+  }
+  const known = new Set(settlements.map((s) => s.id));
+  const byId = new Map(settlements.map((s) => [s.id, s]));
+  const seen = new Set<string>();
+  const out: PlaceBoundary[] = [];
+
+  for (const entry of file.boundaries) {
+    if (typeof entry?.placeKey !== "string" || !known.has(entry.placeKey)) {
+      throw new WorldDataError(
+        "decode",
+        "The world survey's town outlines and its town list disagree, so the map cannot be drawn.",
+        `boundaries.json names place key ${JSON.stringify(entry?.placeKey)}, which is not among the ` +
+          `${known.size} settlements in settlements.json`,
+        false,
+      );
+    }
+    if (seen.has(entry.placeKey)) {
+      throw new WorldDataError(
+        "decode",
+        "The world survey lists the same town outline twice.",
+        `boundaries.json has two entries for place key ${entry.placeKey}`,
+        false,
+      );
+    }
+    seen.add(entry.placeKey);
+
+    const centroid = entry.centroid;
+    if (
+      !centroid ||
+      !Number.isFinite(centroid.lat) ||
+      !Number.isFinite(centroid.lon)
+    ) {
+      throw new WorldDataError(
+        "decode",
+        `${entry.name || entry.placeKey} has no usable position in the survey.`,
+        `boundaries.json ${entry.placeKey} centroid is ${JSON.stringify(centroid)}`,
+        false,
+      );
+    }
+    if (!Array.isArray(entry.polygons) || entry.polygons.length === 0) {
+      throw new WorldDataError(
+        "decode",
+        `${entry.name || entry.placeKey} has no outline in the survey.`,
+        `boundaries.json ${entry.placeKey} has ${Array.isArray(entry.polygons) ? 0 : "no"} polygons`,
+        false,
+      );
+    }
+
+    const polygons: WorldPoint[][][] = [];
+    let vertexCount = 0;
+    for (const polygon of entry.polygons) {
+      if (!Array.isArray(polygon) || polygon.length === 0) {
+        throw new WorldDataError(
+          "decode",
+          `${entry.name || entry.placeKey} has an outline with no shape in it.`,
+          `boundaries.json ${entry.placeKey} has an empty polygon`,
+          false,
+        );
+      }
+      const rings: WorldPoint[][] = [];
+      for (const ring of polygon) {
+        if (!Array.isArray(ring) || ring.length < 4) {
+          throw new WorldDataError(
+            "decode",
+            `Part of ${entry.name || entry.placeKey}'s outline is too short to be a shape.`,
+            `boundaries.json ${entry.placeKey} has a ring of ` +
+              `${Array.isArray(ring) ? ring.length : "no"} points`,
+            false,
+          );
+        }
+        const points: WorldPoint[] = [];
+        for (const point of ring) {
+          if (!Array.isArray(point) || !Number.isFinite(point[0]) || !Number.isFinite(point[1])) {
+            throw new WorldDataError(
+              "decode",
+              `Part of ${entry.name || entry.placeKey}'s outline has no usable position.`,
+              `boundaries.json ${entry.placeKey} has a malformed point ${JSON.stringify(point)}`,
+              false,
+            );
+          }
+          points.push(projection.toWorld(point[0], point[1]));
+        }
+        const first = points[0]!;
+        const last = points[points.length - 1]!;
+        if (first.x !== last.x || first.z !== last.z) {
+          throw new WorldDataError(
+            "decode",
+            `Part of ${entry.name || entry.placeKey}'s outline does not close.`,
+            `boundaries.json ${entry.placeKey} has a ring ending at ` +
+              `[${last.x.toFixed(3)}, ${last.z.toFixed(3)}] that starts at ` +
+              `[${first.x.toFixed(3)}, ${first.z.toFixed(3)}]`,
+            false,
+          );
+        }
+        rings.push(points);
+        vertexCount += points.length;
+      }
+      polygons.push(rings);
+    }
+
+    const settlement = byId.get(entry.placeKey)!;
+    out.push({
+      settlementId: entry.placeKey,
+      name: typeof entry.name === "string" && entry.name ? entry.name : settlement.name,
+      displayName:
+        typeof entry.displayName === "string" && entry.displayName
+          ? entry.displayName
+          : settlement.name,
+      sizeClass: typeof entry.sizeClass === "string" ? entry.sizeClass : null,
+      lsadCode: typeof entry.lsadCode === "string" ? entry.lsadCode : null,
+      landAreaKm2: Number.isFinite(entry.landAreaKm2) ? entry.landAreaKm2 : null,
+      centroid: projection.toWorld(centroid.lat, centroid.lon),
+      polygonCount: polygons.length,
+      vertexCount,
+      polygons,
+    });
+  }
+
+  return out;
+}
+
+/**
+ * Settlements in the region that carry no outline.
+ *
+ * Reported rather than hidden. A settlement with no boundary is a real gap in the survey,
+ * and the honest presentation is the count and the names, not a circle drawn where the
+ * outline should be.
+ */
+export function settlementsWithoutBoundaries(
+  settlements: WorldSettlement[],
+  boundaries: PlaceBoundary[],
+): WorldSettlement[] {
+  const covered = new Set(boundaries.map((b) => b.settlementId));
+  return settlements.filter((s) => !covered.has(s.id));
+}
+
 function toRoadClass(highway: string): RoadClass | null {
   if (highway === "motorway" || highway === "trunk" || highway === "primary" || highway === "secondary") {
     return highway;
@@ -287,11 +497,14 @@ export async function loadWorldData(options: LoadOptions): Promise<WorldData> {
   const base = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
   const root = new URL(base, location.href).href;
 
-  onStage?.("survey", 0, 3);
-  const [region, settlementFile, network] = await Promise.all([
+  onStage?.("survey", 0, 4);
+  const [region, settlementFile, network, boundaryFile] = await Promise.all([
     getJson<RegionFile>(`${root}region.json`, "region"),
     getJson<SettlementsFile>(`${root}settlements.json`, "settlements"),
     getJson<NetworkFile>(`${root}network.json`, "road network"),
+    // Optional, so a 404 resolves to null rather than failing the whole load. See
+    // `getOptionalJson`.
+    getOptionalJson<BoundariesFile>(`${root}boundaries.json`, "town outlines"),
   ]);
 
   validateRegion(region);
@@ -335,6 +548,12 @@ export async function loadWorldData(options: LoadOptions): Promise<WorldData> {
     });
   }
 
+  // Projected only once the projection exists, which needs the heightfield: the outlines
+  // are rings in lat/lon and every point in them has to go through `toWorld`.
+  const boundaries = boundaryFile
+    ? projectBoundaries(boundaryFile, settlements, makeProjection(region, heightfield))
+    : [];
+
   return {
     region,
     settlements,
@@ -344,8 +563,14 @@ export async function loadWorldData(options: LoadOptions): Promise<WorldData> {
       name: r.name,
       coords: r.coords,
     })),
+    boundaries,
     heightfield,
-    provenance: { elevation: "aws-terrarium", network: "openstreetmap", population: "us-census" },
+    provenance: {
+      elevation: "aws-terrarium",
+      network: "openstreetmap",
+      population: "us-census",
+      boundaries: "us-census",
+    },
   };
 }
 

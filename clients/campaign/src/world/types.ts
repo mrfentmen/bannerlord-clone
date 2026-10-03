@@ -196,12 +196,96 @@ export interface NetworkFile {
   travelEdgesMeta?: { count: number; matched_settlements: number; note: string };
 }
 
+/**
+ * `boundaries.json`: the real Census Bureau outline of each settlement in the region.
+ *
+ * Optional, and separately built. `worlddata wire` cannot produce it, because the
+ * pipeline's `place_boundaries` table throws the polygon rings away as soon as it has taken
+ * the interior point out of them; `services/world-data/tools/build-wire-place-boundaries.py`
+ * reads the Cartographic Boundary file again and keeps them. So a region can be deployed
+ * without this file, and the loader treats "absent" as "this region has no footprints"
+ * rather than as a fault — while a file that *is* there and cannot be read is a fault,
+ * because that is a corrupted deployment.
+ *
+ * Coordinates are `[lat, lon]`, the same order as every other coordinate in this file, and
+ * rings run the way `ringOrder` states: exterior clockwise, holes counter-clockwise. A
+ * renderer can classify a ring by winding rather than recomputing areas, and the wire
+ * build guarantees the classification is correct for every ring it ships.
+ */
+export interface PlaceBoundaryFile {
+  /** The settlement's own id, matching `settlements.json`'s `osmId`. Join on this, never on name. */
+  placeKey: string;
+  /** The Census Bureau's own name with its area type, e.g. "Columbus city". */
+  name: string;
+  /** The display name the settlement is known by, e.g. "Columbus". */
+  displayName: string | null;
+  /** The wire settlement's own classification: city, town or village. */
+  sizeClass: string | null;
+  /** The Census Bureau's LSAD area-type code, e.g. "25" for city. Not the same thing as `sizeClass`. */
+  lsadCode: string | null;
+  /** Census Bureau's own ALAND figure in km². Not an area this client computed. */
+  landAreaKm2: number | null;
+  /** The pipeline's interior point for this place — equal to the settlement's lat/lon. */
+  centroid: { lat: number; lon: number };
+  polygonCount: number;
+  ringCount: number;
+  vertexCount: number;
+  /**
+   * Each polygon is the exterior ring followed by its holes; each ring is a closed
+   * `[lat, lon]` list. A multipolygon place (islands, or a sliver kept as its own piece)
+   * is more than one entry here, and drawing only `polygons[0]` would drop real land.
+   */
+  polygons: [number, number][][][];
+}
+
+export interface BoundariesFile {
+  source: string;
+  licence: string;
+  retrieved: string;
+  coordinateOrder: string;
+  ringOrder: string;
+  cartoYear: number;
+  settlementCount: number;
+  polygonCount: number;
+  ringCount: number;
+  vertexCount: number;
+  note: string;
+  boundaries: PlaceBoundaryFile[];
+}
+
+/**
+ * A place boundary after validation, projected-ready: rings in world metres.
+ *
+ * Kept as a distinct type from `PlaceBoundaryFile` for the same reason `WorldSettlement`
+ * is distinct from `WorldSettlementFile`: the on-disk shape is the contract with
+ * `services/world-data`, and this is the shape the rest of the client draws from.
+ */
+export interface PlaceBoundary {
+  settlementId: string;
+  name: string;
+  displayName: string;
+  sizeClass: string | null;
+  lsadCode: string | null;
+  landAreaKm2: number | null;
+  centroid: WorldPoint;
+  polygonCount: number;
+  vertexCount: number;
+  /** Projected rings in world metres, still in lat/lon winding order. */
+  polygons: WorldPoint[][][];
+}
+
 /** Every dataset, with the provenance the client shows in its data-source panel. */
 export interface WorldData {
   region: RegionFile;
   settlements: WorldSettlement[];
   roads: RoadWay[];
   rail: RailWay[];
+  /**
+   * Real settlement outlines, when the region ships them. Empty for a region deployed
+   * without `boundaries.json` — which is a fact about the data, recorded rather than
+   * papered over with a circle around each town.
+   */
+  boundaries: PlaceBoundary[];
   /** Raw terrarium pixels, decoded to metres by `elevation.ts`. Keyed `z/x/y`. */
   heightfield: Heightfield;
   provenance: Record<string, DataProvenance>;
