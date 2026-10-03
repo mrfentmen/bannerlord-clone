@@ -248,10 +248,18 @@ renders them with `population: null` and says so on screen. It does **not** subs
 band midpoint or an OSM tag. Inventing a number would be exactly the "plausible but
 fake" failure the constitution forbids.
 
-**`gaps.json` is stale and should be regenerated.** It still describes the Colorado
-region and is not read by any code in `src/`. Treat it as a record to be replaced by the
-pipeline when one is deployed, not as current state. The check that matters for the
-deployed data is in `src/world/loadRegion.test.ts`, which reads the files themselves.
+**`gaps.json` has been regenerated for this region.** It used to hold the eleven Colorado
+places above and was a false record of the deployed region. It now states the real gap
+set — empty, computed from the deployed `settlements.json` rather than transcribed — and
+keeps what it replaced under `supersedes`, so the earlier claim is still auditable. The
+reason nothing regenerated it before is fixed too: `tools/fetch-world-data.mjs` is the
+OpenStreetMap comparison fetch, and it no longer writes into `public/world/` at all. Its
+output goes to `public/world/osm/`, which the client never loads, and `region.json` is
+read from the pipeline's export rather than written from a bbox of its own. See
+`src/world/fetchWorldDataTool.test.ts` for the guard on that.
+
+The check that matters for the deployed data is in `src/world/loadRegion.test.ts`, which
+reads the files themselves.
 
 ### 4.2 Rail is drawn but not routed
 

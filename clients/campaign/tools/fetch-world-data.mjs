@@ -7,57 +7,100 @@
 // error, not a warning.
 //
 // Sources and licences are recorded in public/world/DATA-MANIFEST.md.
+//
+// ---------------------------------------------------------------------------
+// READ THE REGION FILE FIRST. IT IS THE AUTHORITY.
+// ---------------------------------------------------------------------------
+// `public/world/region.json` is written by the world-data pipeline
+// (services/world-data, `python -m worlddata wire`) and names the region, its
+// bounding box, and every elevation tile the client is allowed to ask for. This
+// script reads it and fetches exactly that. Nothing here decides which region
+// the game is.
+//
+// That is not a style preference. This file used to carry its own hardcoded
+// "Northern Colorado Front Range" bbox and write region.json back from it, which
+// meant `npm run fetch:world` - a documented, obvious thing to run - silently
+// replaced the pipeline's Ohio River Valley data with Colorado OpenStreetMap
+// data: a different bbox, a different settlement list, a different road network,
+// and ODbL obligations the real data does not carry. The region file is now read
+// rather than written.
+//
+// The OpenStreetMap passes below are still here, because OSM is a real
+// alternative source and comparing the two is legitimate. They write to
+// `osm/` and never to the files the client loads. To put OSM data in the client,
+// pass --install-osm and understand that you are replacing the pipeline export.
 
-import { mkdir, writeFile, readFile, access } from "node:fs/promises";
+import { mkdir, writeFile, readFile, readdir, access, cp } from "node:fs/promises";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createHash } from "node:crypto";
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(HERE, "..");
 const OUT = join(ROOT, "public", "world");
+// Where the OpenStreetMap comparison fetch writes. Never loaded by the client.
+const OUT_OSM = join(OUT, "osm");
 
 // ---------------------------------------------------------------------------
-// V1 region. Northern Colorado Front Range.
-//
-// Chosen because it exercises everything the campaign map has to render: real
-// 1500 m to 4400 m relief, a genuine river valley, interstate plus rail, and a
-// city/town/village spread from 700,000 down to under 500. It also straddles a
-// side boundary, since Colorado is Mountain Alliance and Nebraska to the east is
-// Great Lakes Union (FACTIONS.md section 4).
-//
-// PHASES.md Phase 0 assigns the V1 region to the world-data pipeline. Until that
-// lands this is the client's own working region; it is recorded here so the two
-// are reconciled rather than silently diverging.
+// The authoritative region, read from the pipeline's export.
 // ---------------------------------------------------------------------------
-const REGION = {
-  name: "Northern Colorado Front Range",
-  bbox: { south: 39.6, west: -105.6, north: 40.1, east: -104.8 },
-  elevationZoom: 12,
-};
+/**
+ * Read public/world/region.json. Throws if it is missing or malformed.
+ *
+ * The client itself reads this file rather than a constant (see
+ * src/world/load.ts), so a fetch tool that disagreed with it would produce a
+ * directory the client cannot load. There is nothing to reconcile: one file.
+ */
+async function loadRegion() {
+  const path = join(OUT, "region.json");
+  let text;
+  try {
+    text = await readFile(path, "utf8");
+  } catch (err) {
+    throw new Error(
+      `cannot read ${path}: ${err.message}\n` +
+        "The world-data pipeline's export is the authority for the region. " +
+        "Regenerate it with: cd services/world-data && python -m worlddata wire --out exports/wire",
+    );
+  }
+  let region;
+  try {
+    region = JSON.parse(text);
+  } catch (err) {
+    throw new Error(`${path} is not valid JSON: ${err.message}`);
+  }
+  const { bbox, elevation } = region;
+  if (!bbox || ![bbox.south, bbox.west, bbox.north, bbox.east].every(Number.isFinite)) {
+    throw new Error(`${path} has no usable bbox`);
+  }
+  if (bbox.south >= bbox.north || bbox.west >= bbox.east) {
+    throw new Error(`${path} bbox is not a valid box: ${JSON.stringify(bbox)}`);
+  }
+  if (!elevation || elevation.encoding !== "terrarium" || !Array.isArray(elevation.tiles)) {
+    throw new Error(`${path} has no terrarium tile list`);
+  }
+  if (elevation.tiles.length === 0) {
+    throw new Error(`${path} lists zero elevation tiles`);
+  }
+  return region;
+}
 
 const ELEVATION_URL = "https://s3.amazonaws.com/elevation-tiles-prod/terrarium";
+
 // U.S. Census Bureau sub-county population estimates, Vintage 2024. A plain CSV over
 // plain HTTPS, no API key, and the 2020 base column is an authoritative real figure.
 //
 // The Census *API* (api.census.gov) now redirects keyless requests to a "Missing
 // Key" page, so the static file is the route that still works without a secret in
 // the repo.
+//
+// Vintage 2024 is the vintage the OpenStreetMap comparison path matches against by
+// name. The pipeline's own settlements carry Vintage 2023, imported at source; the
+// two are separate real series and the export states which one it used.
 const CENSUS_ESTIMATES_URL =
   "https://www2.census.gov/programs-surveys/popest/datasets/2020-2024/cities/totals/sub-est2024.csv";
-const CENSUS_STATE = "08"; // Colorado
-// Real state names to FIPS codes, for the states the V1 region touches. Anything
-// outside this table resolves to null rather than to a guess.
-const FIPS = {
-  Colorado: "CO",
-  Nebraska: "NE",
-  Wyoming: "WY",
-  Kansas: "KS",
-  "New Mexico": "NM",
-  Utah: "UT",
-};
 // Summary levels that denote a named place rather than a county or a state total.
 const PLACE_SUMLEV = new Set(["157", "162", "170", "172"]);
+
 // The global Overpass instance is a shared volunteer resource and is regularly
 // saturated. Rotating a list and retrying patiently beats hammering one host.
 const OVERPASS_ENDPOINTS = [
@@ -86,16 +129,6 @@ const ONLY = (() => {
 const UA =
   "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 " +
   "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-
-function lonToTileX(lon, z) {
-  return Math.floor(((lon + 180) / 360) * 2 ** z);
-}
-function latToTileY(lat, z) {
-  const r = (lat * Math.PI) / 180;
-  return Math.floor(
-    ((1 - Math.log(Math.tan(r) + 1 / Math.cos(r)) / Math.PI) / 2) * 2 ** z,
-  );
-}
 
 async function exists(path) {
   try {
@@ -174,9 +207,9 @@ async function overpass(query, label) {
   throw new Error(`no Overpass endpoint answered within the patience window: ${lastError}`);
 }
 
-/** Split the region into a grid of small bboxes. Small queries get served. */
-function cells() {
-  const { south, west, north, east } = REGION.bbox;
+/** Split a bbox into a grid of small bboxes. Small queries get served. */
+function cells(bbox) {
+  const { south, west, north, east } = bbox;
   const out = [];
   for (let r = 0; r < OVERPASS_CELL_ROWS; r += 1) {
     for (let c = 0; c < OVERPASS_CELL_COLS; c += 1) {
@@ -193,55 +226,137 @@ function cells() {
 
 // ---------------------------------------------------------------------------
 
-async function fetchElevation() {
-  const { south, west, north, east } = REGION.bbox;
-  const z = REGION.elevationZoom;
-  const x0 = lonToTileX(west, z);
-  const x1 = lonToTileX(east, z);
-  // Tile rows increase southward, so north maps to the lower row index.
-  const y0 = latToTileY(north, z);
-  const y1 = latToTileY(south, z);
+/**
+ * Fetch exactly the elevation tiles region.json lists, and no others.
+ *
+ * Iterating the file's tile list rather than recomputing a range from the bbox
+ * is the whole point. The client loads a heightfield by asking for each path in
+ * that list and throwing on the first one that 404s, so a tile set that is
+ * computed here and a tile list written there can disagree and leave the map
+ * unloadable. That is not hypothetical: 272 committed tiles for a previous
+ * region shared no column with the 2,236 the region file asked for, so not one
+ * tile the client wanted was on disk.
+ */
+async function fetchElevation(region) {
+  const { tiles: wanted, zoom: z, encoding } = region.elevation;
+  if (encoding !== "terrarium") {
+    throw new Error(`region.json asks for elevation encoding ${encoding}, this tool only fetches terrarium`);
+  }
 
-  const tiles = [];
+  let present = 0;
   let downloaded = 0;
   let bytes = 0;
+  const missing = [];
 
-  for (let x = x0; x <= x1; x += 1) {
-    for (let y = y0; y <= y1; y += 1) {
-      const rel = join("elevation", String(z), String(x), `${y}.png`);
-      const dest = join(OUT, rel);
-      const url = `${ELEVATION_URL}/${z}/${x}/${y}.png`;
-      if (await exists(dest)) {
-        // Already fetched on a previous run. Reuse it rather than re-hammering AWS.
-      } else {
-        const buf = await fetchWithRetry(url, { attempts: 5 });
-        // A terrarium tile is a PNG. Check the signature so an error page saved as
-        // .png can never be mistaken for elevation.
-        const isPng =
-          buf.length > 8 &&
-          buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
-        if (!isPng) {
-          throw new Error(`tile ${z}/${x}/${y} is not a PNG (${buf.length} bytes)`);
-        }
-        await mkdir(dirname(dest), { recursive: true });
-        await writeFile(dest, buf);
-        downloaded += 1;
-        bytes += buf.length;
-      }
-      // Relative to region.json, which sits in the same directory. A "world/" prefix
-      // here would make the client resolve /world/world/... when joined.
-      tiles.push({ z, x, y, path: rel.replace(/\\/g, "/") });
+  for (const tile of wanted) {
+    const { x, y } = tile;
+    const rel = tile.path ?? join("elevation", String(tile.z), String(x), `${y}.png`);
+    const dest = join(OUT, rel);
+    const url = `${ELEVATION_URL}/${tile.z}/${x}/${y}.png`;
+    if (await exists(dest)) {
+      present += 1;
+      continue;
     }
+    const buf = await fetchWithRetry(url, { attempts: 5 });
+    // A terrarium tile is a PNG. Check the signature so an error page saved as
+    // .png can never be mistaken for elevation.
+    const isPng =
+      buf.length > 8 && buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4e && buf[3] === 0x47;
+    if (!isPng) {
+      throw new Error(`tile ${tile.z}/${x}/${y} is not a PNG (${buf.length} bytes)`);
+    }
+    await mkdir(dirname(dest), { recursive: true });
+    await writeFile(dest, buf);
+    downloaded += 1;
+    bytes += buf.length;
+    missing.push(rel);
   }
+
   console.log(
-    `elevation: ${tiles.length} tiles at z${z} (${x1 - x0 + 1}x${y1 - y0 + 1}), ` +
-      `${downloaded} new, ${(bytes / 1024 / 1024).toFixed(2)} MB downloaded`,
+    `elevation: ${wanted.length} tiles at z${z}, ${present} already on disk, ` +
+      `${downloaded} fetched (${(bytes / 1024 / 1024).toFixed(2)} MB)`,
   );
-  return tiles;
+  return { total: wanted.length, present, downloaded, bytes };
 }
 
 /**
- * Place populations for Colorado from the Census Bureau's sub-county estimates file.
+ * Report on the elevation directory against region.json without fetching.
+ *
+ * This is the check that would have caught the region mismatch before it shipped.
+ * `--check` runs it and nothing else.
+ */
+async function checkElevation(region) {
+  const wanted = region.elevation.tiles;
+  const missing = [];
+  for (const tile of wanted) {
+    const rel = tile.path ?? join("elevation", String(tile.z), String(tile.x), `${tile.y}.png`);
+    if (!(await exists(join(OUT, rel)))) missing.push(rel);
+  }
+  // Tiles on disk that region.json never asked for: leftovers from a previous
+  // region. They cost repository size and they are the reason it is worth naming.
+  const wantedSet = new Set(
+    wanted.map((t) => t.path ?? join("elevation", String(t.z), String(t.x), `${t.y}.png`)),
+  );
+  const stray = [];
+  const walk = async (dir, prefix) => {
+    let entries;
+    try {
+      entries = await readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+    for (const entry of entries) {
+      const next = join(dir, entry.name);
+      const rel = prefix ? `${prefix}/${entry.name}` : entry.name;
+      if (entry.isDirectory()) await walk(next, rel);
+      else if (!wantedSet.has(rel)) stray.push(rel);
+    }
+  };
+  await walk(join(OUT, "elevation"), "elevation");
+
+  console.log(`region: ${region.name}`);
+  console.log(`elevation: ${wanted.length} tiles declared, ${wanted.length - missing.length} on disk`);
+  if (missing.length) {
+    console.log(`  missing ${missing.length}, first few: ${missing.slice(0, 5).join(", ")}`);
+    console.log(`  run: npm run fetch:world -- --only=elevation`);
+  }
+  if (stray.length) {
+    console.log(`  ${stray.length} tile(s) on disk are not in region.json, first few: ${stray.slice(0, 5).join(", ")}`);
+    console.log(`  they are from a different region and the client will never request them`);
+  }
+  return { missing, stray, ok: missing.length === 0 && stray.length === 0 };
+}
+
+/**
+ * The state names the region file says the region covers.
+ *
+ * region.json records this as a comma-separated list of real state names
+ * ("Indiana, Kentucky, Ohio, Virginia, West Virginia"), derived by the pipeline
+ * from the states that actually contain settlements inside the bbox. Matching
+ * Census rows on that name list means no numeric identifier is typed by hand
+ * anywhere in this file, which is the point of CONSTITUTION.md section 1.1. The
+ * previous version hardcoded "08" for Colorado and matched on the CSV's numeric
+ * STATE column, which is how a tool written for one region quietly stayed
+ * written for it.
+ */
+function regionStateNames(region) {
+  const declared = region.stateCoverage?.region;
+  if (typeof declared !== "string" || declared.trim() === "") {
+    throw new Error(
+      "region.json has no stateCoverage.region, so there is no way to tell which states the " +
+        "Census file should be filtered to. Refusing to guess one.",
+    );
+  }
+  return declared
+    .split(",")
+    .map((name) => name.trim())
+    .filter(Boolean)
+    .map((name) => name.toLowerCase());
+}
+
+/**
+ * Place populations for the region's states, from the Census Bureau's
+ * sub-county estimates file.
  *
  * OSM nodes carry a `population` tag that is often a decade out of date and
  * unsourced. CONSTITUTION.md section 1.1 says real data wins and gaps get logged, so
@@ -252,7 +367,9 @@ async function fetchElevation() {
  * byte-identical to the 2020 decennial count for every place: the Census revises the
  * base when it corrects a geography. The spot check records where they differ.
  */
-async function fetchCensusPlaces() {
+async function fetchCensusPlaces(region) {
+  const wanted = regionStateNames(region);
+  const wantedSet = new Set(wanted);
   const text = await fetchWithRetry(CENSUS_ESTIMATES_URL, {
     attempts: 5,
     as: "text",
@@ -269,7 +386,7 @@ async function fetchCensusPlaces() {
     return i;
   };
   const iSumlev = col("SUMLEV");
-  const iState = col("STATE");
+  const iStateName = col("STNAME");
   const iName = col("NAME");
   const iBase = col("ESTIMATESBASE2020");
   const iEst = col("POPESTIMATE2020");
@@ -277,7 +394,9 @@ async function fetchCensusPlaces() {
   const byName = new Map();
   for (const line of lines.slice(1)) {
     const f = line.split(",");
-    if (f[iState] !== CENSUS_STATE) continue;
+    // STNAME is the Census Bureau's own spelling of the state, so matching on it
+    // needs no code table in this file.
+    if (!wantedSet.has(f[iStateName]?.trim().toLowerCase())) continue;
     if (!PLACE_SUMLEV.has(f[iSumlev])) continue;
     // "Thornton city" -> "Thornton". Also handles CDPs and the few
     // incorporations whose name contains a space before the suffix.
@@ -290,25 +409,28 @@ async function fetchCensusPlaces() {
     byName.set(bare.toLowerCase(), {
       name: bare,
       censusName: f[iName],
+      state: f[iStateName]?.trim() ?? null,
       population,
       estimate2020: Number(f[iEst]),
     });
   }
   if (byName.size === 0) {
-    throw new Error("Census estimates file produced zero Colorado places. Refusing to continue.");
+    throw new Error(
+      `Census estimates file produced zero places for ${wanted.join(", ")}. Refusing to continue.`,
+    );
   }
-  console.log(`census: ${byName.size} Colorado places from the Vintage 2024 estimates file`);
+  console.log(`census: ${byName.size} places in ${wanted.join(", ")} from the Vintage 2024 estimates file`);
   return byName;
 }
 
-async function fetchSettlements() {
-  const census = await fetchCensusPlaces();
+async function fetchSettlements(region) {
+  const census = await fetchCensusPlaces(region);
   const seen = new Map();
   const hosts = new Set();
   let matched = 0;
   const unmatched = [];
 
-  for (const [i, cell] of cells().entries()) {
+  for (const [i, cell] of cells(region.bbox).entries()) {
     const bboxStr = `${round(cell.s, 4)},${round(cell.w, 4)},${round(cell.n, 4)},${round(cell.e, 4)}`;
     // Settlements in this region are mapped as nodes; querying ways too makes the
     // scan far more expensive and the regional instance times out on it.
@@ -353,7 +475,7 @@ async function fetchSettlements() {
         // No default. A settlement with no state tag gets null, and the client says
         // "state not recorded" rather than guessing.
         state: tags["addr:state"] ?? null,
-        stateCode: FIPS[tagState] ?? null,
+        stateCode: null,
       });
     }
     console.log(`  settlements cell ${i + 1}/9: ${json.elements.length} nodes`);
@@ -370,7 +492,7 @@ async function fetchSettlements() {
   return { list, hosts: [...hosts], unmatched };
 }
 
-async function fetchNetwork() {
+async function fetchNetwork(region) {
   const roads = new Map();
   const rail = new Map();
   const hosts = new Set();
@@ -403,7 +525,7 @@ async function fetchNetwork() {
       console.log(`skipping pass "${pass.label}" (--only filter)`);
       continue;
     }
-    for (const [i, cell] of cells().entries()) {
+    for (const [i, cell] of cells(region.bbox).entries()) {
       const bboxStr = `${round(cell.s, 4)},${round(cell.w, 4)},${round(cell.n, 4)},${round(cell.e, 4)}`;
       const { json, endpoint } = await overpass(pass.query(bboxStr), `${pass.label} cell ${i + 1}/9`);
       hosts.add(new URL(endpoint).host);
@@ -450,42 +572,20 @@ function round(n, places) {
 
 let RETRIEVED = null;
 
-async function writeRegion(tiles) {
-  await writeFile(
-    join(OUT, "region.json"),
-    JSON.stringify(
-      {
-        name: REGION.name,
-        bbox: REGION.bbox,
-        elevation: {
-          encoding: "terrarium",
-          formula: "elevation_metres = R * 256 + G + B / 256 - 32768",
-          zoom: REGION.elevationZoom,
-          tileSize: 256,
-          tiles: tiles.map((t) => ({ z: t.z, x: t.x, y: t.y, path: t.path })),
-        },
-        retrieved: RETRIEVED,
-        stateCoverage: {
-          // OSM nodes in this region carry no `addr:state` tag, so per-settlement state
-          // is null in the export rather than defaulted. What can be stated as fact is
-          // that the region as a whole sits inside one state: the bounding box
-          // 39.60-40.10 N, -105.60 to -104.80 W lies within Colorado's published
-          // extent and does not reach the Nebraska, Kansas or Wyoming lines.
-          region: "Colorado",
-          regionCode: "CO",
-          basis: "bounding box containment against the published state extent",
-          settlementTagsPresent: 0,
-        },
-      },
-      null,
-      2,
-    ) + "\n",
-  );
-}
+// ---------------------------------------------------------------------------
+// Where the OpenStreetMap comparison fetch writes.
+//
+// Everything below this line is the OSM path. It writes into public/world/osm/,
+// which the client never loads. That is the second half of the fix for the
+// region mismatch: the OSM passes are kept, because OSM is a real alternative
+// source worth comparing against, but they are no longer one flag away from
+// replacing the pipeline's export.
+// ---------------------------------------------------------------------------
+let OSM_OUT = OUT_OSM;
 
-async function writeSettlements(list) {
+async function writeOsmSettlements(list) {
   await writeFile(
-    join(OUT, "settlements.json"),
+    join(OSM_OUT, "settlements.json"),
     JSON.stringify(
       {
         source: "OpenStreetMap via Overpass API",
@@ -504,7 +604,7 @@ async function writeNetwork({ roads, rail }) {
   // No indentation here. With ~22,000 polylines the pretty-printed form is more than
   // twice the size of the compact one and it is a machine file, not a document.
   await writeFile(
-    join(OUT, "network.json"),
+    join(OSM_OUT, "network.json"),
     JSON.stringify({
       source: "OpenStreetMap via Overpass API",
       licence: "ODbL 1.0",
@@ -516,132 +616,108 @@ async function writeNetwork({ roads, rail }) {
   );
 }
 
+/**
+ * --install-osm: put the OpenStreetMap fetch where the client will load it.
+ *
+ * Off by default. Without it the OSM pass writes to public/world/osm/ and the
+ * client keeps loading the pipeline's export. With it, the OSM settlements and
+ * network are copied over the pipeline's, which is a real change of data source
+ * and a real change of licence (ODbL 1.0 instead of US public domain), so it has
+ * to be asked for by name. region.json is left alone either way: the bbox and
+ * the elevation tile list come from the pipeline, and replacing them with an OSM
+ * fetch's own idea of the region is what caused this in the first place.
+ */
+async function installOsm() {
+  const region = await loadRegion();
+  for (const file of ["settlements.json", "network.json"]) {
+    const from = join(OUT_OSM, file);
+    if (!(await exists(from))) {
+      throw new Error(
+        `${file} was not written to ${OUT_OSM}, so there is nothing to install. ` +
+          "Run the OSM fetch first.",
+      );
+    }
+    await cp(from, join(OUT, file));
+    console.log(`installed osm/${file} over ${file}`);
+  }
+  console.log(
+    "The client now loads OpenStreetMap geometry. Update public/world/DATA-MANIFEST.md " +
+      "and the credits: ODbL 1.0 attribution is owed for it, and the TIGER/Line " +
+      "attribution no longer applies.",
+  );
+  console.log(`region.json still describes ${region.name}; the client reads its bbox from there.`);
+}
+
+// The OSM spot-check list below was transcribed for the previous region. It is
+// kept so the shape of the check is preserved, but it is not run against the
+// current region: a spot check of places the client does not render proves
+// nothing. `--only=spotcheck` refuses instead of producing a green wrong answer.
+const LEGACY_SPOT_CHECK_REGION = "Northern Colorado Front Range";
+
 async function main() {
   await mkdir(OUT, { recursive: true });
   RETRIEVED = new Date().toISOString().slice(0, 10);
 
+  if (process.argv.includes("--check")) {
+    const region = await loadRegion();
+    const result = await checkElevation(region);
+    process.exitCode = result.ok ? 0 : 1;
+    return;
+  }
+
+  const region = await loadRegion();
+  OSM_OUT = OUT_OSM;
+  await mkdir(OSM_OUT, { recursive: true });
+  console.log(`region: ${region.name} (from region.json, the world-data pipeline's export)`);
+
   if (ONLY && ONLY.includes("elevation")) {
-    const tiles = await fetchElevation();
-    await writeRegion(tiles);
-    console.log("wrote region.json");
+    await fetchElevation(region);
     return;
   }
 
-  if (ONLY && ONLY.includes("settlements")) {
-    const { list } = await fetchSettlements();
-    await writeSettlements(list);
-    console.log("wrote settlements.json");
+  if (ONLY && ONLY.includes("spotcheck")) {
+    throw new Error(
+      "the spot-check list in this tool is transcribed for " +
+        `${LEGACY_SPOT_CHECK_REGION} and does not apply to ${region.name}. ` +
+        "services/world-data/docs/SPOT_CHECK.md holds the pipeline's spot check, which is " +
+        "built from the real export rather than transcribed by hand.",
+    );
+  }
+
+  if (process.argv.includes("--install-osm")) {
+    await installOsm();
     return;
   }
 
-  const tiles = await fetchElevation();
-  await writeRegion(tiles);
+  if (!ONLY) {
+    await fetchElevation(region);
+  }
 
-  const { list, unmatched } = await fetchSettlements();
-  await writeSettlements(list);
+  const { list, unmatched } = await fetchSettlements(region);
+  await writeOsmSettlements(list);
 
-  const network = await fetchNetwork();
+  const network = await fetchNetwork(region);
   await writeNetwork(network);
 
-  // PHASES.md Phase 0 requires spot checks against real published figures. The
-  // figures below are transcribed by hand from the published 2020 Census decennial
-  // place counts (as quoted in Census QuickFacts), NOT from any dataset this script
-  // downloaded, so the check is genuinely independent of what it is checking.
-  //
-  // Note on agreement: the client displays the Census estimates programme's 2020 base
-  // (ESTIMATESBASE2020), which the Census revises when it corrects a geography. It is
-  // therefore not always byte-identical to the published decennial count, so the check
-  // is recorded as a signed delta and a relative error, not a boolean.
-  const SPOT_CHECKS = [
-    ["Denver", 715522],
-    ["Lakewood", 155984],
-    ["Thornton", 141867],
-    ["Arvada", 124402],
-    ["Westminster", 116317],
-    ["Boulder", 108250],
-    ["Longmont", 98885],
-    ["Englewood", 32453],
-    ["Littleton", 45652],
-    ["Broomfield", 74112],
-    ["Golden", 19475],
-    ["Nederland", 1561],
-  ];
-  const spotRows = SPOT_CHECKS.map(([name, published]) => {
-    const hit = list.find((s) => s.name.toLowerCase() === name.toLowerCase());
-    if (!hit) {
-      return {
-        name,
-        inRegion: false,
-        ours: null,
-        published,
-        delta: null,
-        relativeError: null,
-        source: SPOT_SOURCE,
-        note: "outside the V1 region bbox, so the client does not render it",
-      };
-    }
-    if (hit.population === null) {
-      return {
-        name,
-        inRegion: true,
-        ours: null,
-        published,
-        delta: null,
-        relativeError: null,
-        source: SPOT_SOURCE,
-        note: "no Census estimates row matched this OSM place name",
-      };
-    }
-    const delta = hit.population - published;
-    return {
-      name,
-      inRegion: true,
-      ours: hit.population,
-      published,
-      delta,
-      relativeError: Number((delta / published).toFixed(5)),
-      source: SPOT_SOURCE,
-      note: Math.abs(delta) === 0 ? "exact match" : "estimates-programme base vs decennial count",
-    };
-  });
-  const comparable = spotRows.filter((r) => r.delta !== null);
-  const exact = comparable.filter((r) => r.delta === 0).length;
-  const worst = comparable.reduce((a, r) => Math.max(a, Math.abs(r.relativeError ?? 0)), 0);
-  console.log(
-    `spot check: ${comparable.length} places in region, ${exact} exact, ` +
-      `worst relative error ${(worst * 100).toFixed(2)}%`,
-  );
+  // The OSM pass's own population-gap list, written beside the OSM data it
+  // describes. It used to be written to public/world/, where it outlived the
+  // region it was about: the file on main until this change listed eleven
+  // Colorado mountain communities - Evergreen, Tolland, Gold Hill, Zuni and the
+  // rest - as gaps in a region that contains none of them.
   await writeFile(
-    join(OUT, "spot-check.json"),
-    JSON.stringify(
-      {
-        note:
-          "Client-side spot check of the settlements the client renders. Independent of " +
-          "the downloaded dataset: these are published 2020 Census figures transcribed by hand.",
-        source: SPOT_SOURCE,
-        retrieved: RETRIEVED,
-        rows: spotRows,
-      },
-      null,
-      2,
-    ) + "\n",
-  );
-  await writeFile(
-    join(OUT, "gaps.json"),
+    join(OSM_OUT, "gaps.json"),
     JSON.stringify(
       {
         retrieved: RETRIEVED,
         note:
-          "Datasets with no real coverage in this region, per CONSTITUTION.md section 1.1. " +
-          "The client renders these as unknown rather than substituting a guess.",
-        gaps: [
-          ...unmatched.map((u) => ({
-            field: `population`,
-            entity: u.name,
-            reason: "no incorporated place or Census-designated place of that name in the Census estimates file",
-            handling: "client shows the settlement with no population and no derived class",
-          })),
-        ],
+          "OpenStreetMap places in this region with no matching Census place row. " +
+          "CONSTITUTION.md section 1.1: recorded, not filled in with a guess.",
+        gaps: unmatched.map((u) => ({
+          field: "population",
+          entity: u.name,
+          reason: "no incorporated place or Census-designated place of that name in the Census estimates file",
+          handling: "client shows the settlement with no population and no derived class",
+        })),
       },
       null,
       2,
@@ -649,14 +725,15 @@ async function main() {
   );
 
   console.log(
-    `\nwrote region.json, settlements.json, network.json, spot-check.json, gaps.json ` +
-      `to clients/campaign/public/world/`,
+    `\nwrote osm/settlements.json, osm/network.json and osm/gaps.json to ` +
+      `clients/campaign/public/world/osm/`,
+  );
+  console.log(
+    "The client was NOT modified. It still loads the world-data pipeline's export from " +
+      "public/world/. Pass --install-osm to replace it with the OpenStreetMap fetch.",
   );
 }
 
-const SPOT_SOURCE =
-  "U.S. Census Bureau, 2020 Census Redistricting Data (P.L. 94-171) published place counts, " +
-  "as quoted in Census QuickFacts";
 const CENSUS_POPULATION_SOURCE =
   "U.S. Census Bureau, Vintage 2024 sub-county population estimates, ESTIMATESBASE2020";
 
