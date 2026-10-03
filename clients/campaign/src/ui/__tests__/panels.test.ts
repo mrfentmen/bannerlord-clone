@@ -79,6 +79,8 @@ function town(opts: { loading?: boolean; town?: TownState | null } = {}): HTMLEl
     onOpenMarket: noop,
     onMarchHere: noop,
     onRoster: noop,
+    workshops: [],
+    onBuyWorkshop: async () => ({ workshopId: "w-test" }),
   });
 }
 
