@@ -316,6 +316,54 @@ exist in any real form yet. See section 1.
   after the wire build, and `tools/deploy-wire-to-client.py` preserves them rather than
   dropping them. It also refuses to carry a `retrieved` date from a *different* region,
   which is how the Colorado date would otherwise have been stamped onto Ohio data.
+- **`wire_version` is the one field that describes the shape of the rest of the file, so
+  the client reads it.** The other three describe data: populations and polylines change
+  every run, but the names and nesting they arrive under change only when the format is
+  deliberately revised. `loadWorldData` calls `validateWireVersion()` on all four files
+  before it validates anything else, and refuses a stamp it does not recognise
+  (`SUPPORTED_WIRE_VERSION` in `src/world/load.ts`, currently 2) with a non-retryable
+  `WorldDataError`.
+
+  It checks the version before the shape on purpose. A v3 file may be shaped nothing this
+  client recognises, and reporting "broken elevation format" for a renamed field sends
+  whoever reads the log after the wrong cause.
+
+  Which files carry the stamp today: `settlements.json` and `network.json` ship v2;
+  `region.json` and `boundaries.json` ship **unstamped**, because `build-territories.py`
+  writes `wire_version` onto `territories.json` and nothing stamps the other two. An
+  absent stamp is read as an honest "this file makes no version claim" and loads fine —
+  refusing it would leave the client unable to load its own shipped data. `deploy` reports
+  the gap rather than papering over it:
+
+  ```
+  deploy: NOTE: region.json: no wire_version in the client's copy, so the deployed file will not have it
+  deploy: NOTE: boundaries.json: no wire_version in the client's copy, so the deployed file will not have it
+  ```
+
+  So stamping all four is a real follow-up, and it belongs in the wire build rather than
+  in the deploy tool — the deploy only carries what is already there. Both directions are
+  refused on purpose: a downgrade means a file was replaced by something that bypassed the
+  deploy tool, which is the mechanism that keeps the number from going backwards.
+
+  **When you change a shape in `src/world/types.ts`, bump `SUPPORTED_WIRE_VERSION`.** That
+  is the client-side twin of `CACHE_FORMAT_VERSION` in `services/world-data`; both exist
+  because the failure they prevent is silent. A wire revision the client half-reads does
+  not throw — it renders a map with the roads missing.
+- **The client cache-busts every world URL with the build hash.** The four wire files and
+  the 154 boot tiles keep their paths across redeploys, so nothing in the request changes
+  when their contents do. `getJson`, `getOptionalJson`, and `loadHeightfield` all append
+  `?b=<BUILD_HASH>`, so a browser cannot answer a new bundle's request for
+  `/world/region.json` with yesterday's bytes.
+
+  Keyed on the build hash rather than the clock deliberately: a reload inside one
+  deployment still hits the cache (8 MB of terrain is not refetched per reload), and
+  everything is refetched exactly once per deployment. It is a query parameter, not a path
+  segment, because these are static files under `public/world/` — a path that does not
+  exist would 404 rather than serve the file.
+
+  Without this, a player who loaded the map once and returned after a deploy got valid
+  JSON describing the wrong region: the same failure `src/world/loadRegion.test.ts` exists
+  for, arriving through the HTTP cache instead of a stale file on disk.
 - **Population authority.** The client treats `population` as authoritative and
   `populationSource` as the citation for it. If the pipeline ships a figure from a
   different source, the client displays it under that source's name. It will not silently

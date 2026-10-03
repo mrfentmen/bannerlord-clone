@@ -23,6 +23,7 @@ import type {
 } from "./types.js";
 import { metresPerDegreeLat, metresPerDegreeLon, type Projection } from "./types.js";
 import { terrainBands, tokens, type TownClassName } from "../design/tokens.js";
+import { BUILD_HASH } from "../buildHash.js";
 
 /** An error the UI can show a player, with a way to recover (CONSTITUTION.md §1.3). */
 export class WorldDataError extends Error {
@@ -47,10 +48,78 @@ export class WorldDataError extends Error {
   }
 }
 
+/**
+ * The highest `wire_version` this client knows how to read.
+ *
+ * Bumped when `src/world/types.ts` changes shape - a field renamed, a nesting level
+ * added - so a redeploy of newer world data is refused rather than half-read. It is the
+ * client-side twin of `CACHE_FORMAT_VERSION` in `services/world-data`, which guards the
+ * same thing for the pipeline's own stage cache: both exist because the failure they
+ * prevent is silent. A stale route cache or an unrecognised wire revision does not
+ * throw; it produces a map with pieces quietly missing.
+ *
+ * Currently 2, the version the shipped Ohio River Valley files carry.
+ */
+export const SUPPORTED_WIRE_VERSION = 2;
+
+/**
+ * Add the build hash to a world-data URL so the browser's HTTP cache cannot serve a
+ * file from a previous deployment.
+ *
+ * The world files are static and keep their names across redeploys, so nothing about
+ * the request changes when their contents do. Without this, a player who loaded the
+ * map once and came back after a new deployment could get yesterday's `region.json`
+ * out of the cache inside today's bundle - and the failure is invisible, because the
+ * JSON is still perfectly valid, it just describes the wrong region. That is the
+ * failure `loadRegion.test.ts` was written for, arriving through the cache instead of
+ * through a stale file on disk.
+ *
+ * Keyed on the build hash rather than the clock so the 154 boot tiles and the four
+ * wire files are still cached for the length of a session - a reload does not refetch
+ * 8 MB of terrain - and are refetched exactly once per deployment.
+ *
+ * The hash is a query parameter, not a path segment: these files are served from
+ * `public/world/`, and a path that does not exist would 404 rather than serve the file.
+ */
+export function cacheBust(url: string): string {
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}b=${encodeURIComponent(BUILD_HASH)}`;
+}
+
+/**
+ * Refuse a wire file whose `wire_version` this client does not know.
+ *
+ * Only files that carry the stamp are checked. `region.json` and `boundaries.json` ship
+ * without one today, and a stamp that is absent is an honest "this file is unversioned",
+ * not a claim to be validated.
+ *
+ * A stamp from the future is the dangerous direction and is refused: the client cannot
+ * know which fields were renamed, so it cannot read the file, and reading it anyway
+ * yields a map missing whatever changed. An older stamp is refused too, for the
+ * opposite reason - the deploy tool carries this field forward across redeploys
+ * specifically so it does not silently regress, so an older number on disk means a file
+ * was replaced by something that bypassed that.
+ *
+ * CONSTITUTION.md section 1.3: loud, with a way to recover, never a silent fallback.
+ */
+function validateWireVersion(name: string, file: { wire_version?: number }): void {
+  const stamp = file.wire_version;
+  if (stamp === undefined) return;
+  if (stamp === SUPPORTED_WIRE_VERSION) return;
+  throw new WorldDataError(
+    "decode",
+    `The world survey data is a different version than this game understands, so the map cannot be drawn. Update the game, or re-fetch the world data.`,
+    `${name}.json carries wire_version ${stamp}; this client reads up to ${SUPPORTED_WIRE_VERSION}. ` +
+      `Deploy with services/world-data/tools/deploy-wire-to-client.py so the version is carried forward, ` +
+      `or bump SUPPORTED_WIRE_VERSION in src/world/load.ts if this client really does read it.`,
+    false,
+  );
+}
+
 async function getJson<T>(url: string, what: string): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(url);
+    response = await fetch(cacheBust(url));
   } catch (err) {
     // A network-level failure. Thrown by fetch before any status code exists.
     throw new WorldDataError(
@@ -91,7 +160,7 @@ async function getJson<T>(url: string, what: string): Promise<T> {
 async function getOptionalJson<T>(url: string, what: string): Promise<T | null> {
   let response: Response;
   try {
-    response = await fetch(url);
+    response = await fetch(cacheBust(url));
   } catch (err) {
     throw new WorldDataError(
       "network",
@@ -166,7 +235,7 @@ export async function loadHeightfield(
 
   let loaded = 0;
   for (const tile of tiles) {
-    const url = new URL(tile.path, new URL(baseUrl, location.href)).href;
+    const url = cacheBust(new URL(tile.path, new URL(baseUrl, location.href)).href);
     let bitmap: ImageBitmap;
     try {
       const response = await fetch(url);
@@ -499,6 +568,8 @@ export async function loadWorldData(options: LoadOptions): Promise<WorldData> {
 
   onStage?.("survey", 0, 4);
   const [region, settlementFile, network, boundaryFile] = await Promise.all([
+    // `getJson` and `getOptionalJson` add the cache-busting build hash themselves, so
+    // every world URL in this module goes through exactly one code path for it.
     getJson<RegionFile>(`${root}region.json`, "region"),
     getJson<SettlementsFile>(`${root}settlements.json`, "settlements"),
     getJson<NetworkFile>(`${root}network.json`, "road network"),
@@ -506,6 +577,14 @@ export async function loadWorldData(options: LoadOptions): Promise<WorldData> {
     // `getOptionalJson`.
     getOptionalJson<BoundariesFile>(`${root}boundaries.json`, "town outlines"),
   ]);
+
+  // Format first, then shape: a file from a newer wire revision may be shaped nothing
+  // like what the validators below expect, and reporting "broken elevation format" for
+  // a rename would send whoever is reading the log after the wrong problem entirely.
+  validateWireVersion("region", region);
+  validateWireVersion("settlements", settlementFile);
+  validateWireVersion("network", network);
+  if (boundaryFile) validateWireVersion("boundaries", boundaryFile);
 
   validateRegion(region);
   validateSettlements(settlementFile);

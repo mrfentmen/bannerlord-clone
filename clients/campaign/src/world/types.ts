@@ -13,6 +13,35 @@
 /** Real public datasets. See `public/world/DATA-MANIFEST.md`. */
 export type DataProvenance = "aws-terrarium" | "openstreetmap" | "us-census" | "agent-1-export";
 
+/**
+ * The `wire_version` stamp every wire file may carry.
+ *
+ * `services/world-data/tools/deploy-wire-to-client.py` carries this field across a
+ * redeploy rather than letting the fresh wire build drop it, because it is the one
+ * field in a wire file that describes *the shape of the rest of the file* rather than
+ * the data in it. Populations and polylines change without notice; the names and
+ * nesting they arrive under change only when the format is deliberately revised.
+ *
+ * So it is the field that says whether this client can read these files at all.
+ * `validateWireVersion` in `load.ts` checks it and refuses anything it does not
+ * recognise, because CONSTITUTION.md section 1.3 says an untrusted input gets a loud
+ * failure rather than a silent fallback - and a wire v3 that renamed a field does not
+ * fail, it renders a map with the roads missing.
+ *
+ * Optional, and deliberately so: `region.json` and `boundaries.json` ship without it
+ * today, because `build-territories.py` stamps it onto `territories.json` and nothing
+ * stamps the other two. A file with no stamp is read as an unversioned file, which is
+ * what it is. A file with a stamp this client does not know is refused.
+ *
+ * Spelled `wire_version` and not `wireVersion` because that is what the file says, the
+ * same way `travelEdgesMeta.matched_settlements` keeps its underscore. The build
+ * camel-cases most multi-word fields; these two are the exception, and renaming them
+ * here would mean the client stopped reading the field it is meant to check.
+ */
+export interface WireStamped {
+  wire_version?: number;
+}
+
 /** One elevation tile tier: a zoom, a tile size, and the tiles themselves. */
 export interface ElevationTier {
   encoding: "terrarium";
@@ -29,7 +58,7 @@ export interface ElevationTier {
  * `services/world-data` from Census TIGER/Line data and published as
  * `exports/wire/region.json`.
  */
-export interface RegionFile {
+export interface RegionFile extends WireStamped {
   name: string;
   bbox: { south: number; west: number; north: number; east: number };
   /**
@@ -130,7 +159,7 @@ export interface WorldSettlement {
   osmPopulation: number | null;
 }
 
-export interface SettlementsFile {
+export interface SettlementsFile extends WireStamped {
   source: string;
   licence: string;
   retrieved: string;
@@ -185,7 +214,7 @@ export interface TravelEdgeFile {
   method: string;
 }
 
-export interface NetworkFile {
+export interface NetworkFile extends WireStamped {
   source: string;
   licence: string;
   retrieved: string;
@@ -238,7 +267,7 @@ export interface PlaceBoundaryFile {
   polygons: [number, number][][][];
 }
 
-export interface BoundariesFile {
+export interface BoundariesFile extends WireStamped {
   source: string;
   licence: string;
   retrieved: string;
