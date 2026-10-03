@@ -371,6 +371,17 @@ export const SETTINGS_ENTRIES: CodexEntry[] = [
     ["setting-master-volume"],
   ),
   e(
+    "setting-audio-muted",
+    "Mute audio",
+    "settings",
+    "Silences all audio while keeping volume settings.",
+    [
+      "A single kill switch for every sound the game makes. When on, master/music/sfx levels are remembered but produce no output; turning it back off restores them exactly.",
+    ],
+    ["setting:audioMuted", "mute", "audio"],
+    ["setting-master-volume"],
+  ),
+  e(
     "setting-language",
     "Language",
     "settings",

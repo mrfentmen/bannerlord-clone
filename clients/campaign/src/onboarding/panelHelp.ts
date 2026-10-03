@@ -18,6 +18,7 @@ export const PANEL_HELP_MAP: Record<string, string> = {
   DifficultyPanel: "map",
   DifficultySelector: "map",
   DiplomacyPanel: "diplomacy",
+  EncounterPanel: "map",
   GameMenu: "map",
   KeybindingEditor: "map",
   LedgerPanel: "economy",
