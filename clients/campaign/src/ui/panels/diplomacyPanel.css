@@ -108,3 +108,16 @@
 .faction[data-direction="up"] .relation__fill {
   background: var(--accent-info);
 }
+
+/* Being at war is stated in words as well as the rule; the word is the signal. */
+.faction__war {
+  margin: var(--space-1) 0 0;
+  color: var(--status-critical);
+  font-size: var(--type-caption-size);
+  line-height: var(--type-caption-line);
+}
+
+.faction[data-at-war="true"] {
+  border-left: 3px solid var(--status-critical);
+  padding-left: var(--space-2);
+}

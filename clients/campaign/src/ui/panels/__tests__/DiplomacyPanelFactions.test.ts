@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { diplomacyPanel } from "../DiplomacyPanel.js";
 import { adjustRelation, relationWith } from "../../../diplomacy/relationNotifications.js";
 import { relationBand } from "../../../diplomacy/notables.js";
+import { declareWarGoal, WAR_GOAL_DESCRIPTIONS } from "../../../diplomacy/warGoals.js";
 
 beforeEach(() => {
   localStorage.clear();
@@ -161,5 +162,59 @@ describe("diplomacy relation value (task 203)", () => {
     panel([PC]);
     expect(relationWith(PC.id)).toBe(100);
     expect(fill(PC.id)).toContain("width:50%");
+  });
+});
+describe("diplomacy at-war indicator (task 204)", () => {
+  const AT_WAR = {
+    enemyId: GLU.id,
+    enemyName: GLU.name,
+    goal: "conquest",
+    weariness: 8,
+    seasonDeclared: 12,
+  } as const;
+
+  it("says nothing about war when the faction is not at war", () => {
+    panel([GLU, PC]);
+    expect(row(GLU.id).querySelector('[data-testid="faction-at-war-great-lakes-union"]')).toBeNull();
+    expect(row(GLU.id).getAttribute("data-at-war")).toBe("false");
+  });
+
+  it("states the war in words, not only in a colour", () => {
+    declareWarGoal(GLU.id, GLU.name, AT_WAR.goal, AT_WAR.seasonDeclared);
+    panel([GLU]);
+    const line = row(GLU.id).querySelector('[data-testid="faction-at-war-great-lakes-union"]')!;
+    expect(line.textContent).toContain("At war");
+    expect(line.textContent).toContain("conquest");
+  });
+
+  it("quotes the goal's own description rather than repeating the slug", () => {
+    declareWarGoal(GLU.id, GLU.name, AT_WAR.goal, AT_WAR.seasonDeclared);
+    panel([GLU]);
+    const line = row(GLU.id).querySelector('[data-testid="faction-at-war-great-lakes-union"]')!;
+    expect(line.textContent).toContain(WAR_GOAL_DESCRIPTIONS.conquest);
+  });
+
+  it("marks only the faction actually at war", () => {
+    declareWarGoal(GLU.id, GLU.name, AT_WAR.goal, AT_WAR.seasonDeclared);
+    panel([GLU, PC]);
+    expect(row(GLU.id).getAttribute("data-at-war")).toBe("true");
+    expect(row(PC.id).getAttribute("data-at-war")).toBe("false");
+  });
+
+  it("agrees with the war-goal table, because both read activeWars", () => {
+    declareWarGoal(GLU.id, GLU.name, AT_WAR.goal, AT_WAR.seasonDeclared);
+    panel([GLU, PC]);
+    const table = document.body.querySelector('[data-testid="diplomacy-wars"]')!;
+    expect(table.textContent).toContain(GLU.name);
+    expect(row(GLU.id).textContent).toContain("At war");
+    // One war declared, one row flagged: the list cannot invent a second.
+    expect(document.body.querySelectorAll('.faction[data-at-war="true"]')).toHaveLength(1);
+  });
+
+  it("keeps the relation bar readable while a war is on", () => {
+    declareWarGoal(GLU.id, GLU.name, AT_WAR.goal, AT_WAR.seasonDeclared);
+    panel([GLU]);
+    expect(row(GLU.id).querySelector('[role="meter"]')).not.toBeNull();
+    expect(row(GLU.id).querySelector(".mono")!.textContent).toContain("Neutral");
   });
 });

@@ -494,15 +494,21 @@ function factionList(factions: DiplomacyFaction[] | undefined): HTMLElement | nu
     return wrap;
   }
 
+  // Resolved once, by id, rather than per row: the war and treaty modules own those
+  // records, and this list only reports what they say.
+  const wars = new Map(activeWars().map((w) => [w.enemyId, w]));
+
   const list = h("ul", { class: "faction-list" });
   for (const faction of factions) {
     const relation = relationWith(faction.id);
     const band = relationBand(relation);
+    const war = wars.get(faction.id);
     const item = h("li", {
       class: "faction",
       "data-testid": `faction-${faction.id}`,
       "data-band": band,
       "data-direction": relation < 0 ? "down" : "up",
+      "data-at-war": String(war !== undefined),
     });
 
     const head = h("div", { class: "field-row", style: "justify-content:space-between;align-items:baseline;gap:var(--space-2)" });
@@ -515,6 +521,24 @@ function factionList(factions: DiplomacyFaction[] | undefined): HTMLElement | nu
       ),
     );
     item.appendChild(head);
+
+    // Task 204. Being at war is a fact, not a feeling, so it is stated rather than
+    // hinted at with a colour — and it is stated from `activeWars`, which is the same
+    // record the war-goal table above is built from, so the list cannot say you are at
+    // war with someone the table does not list. A declared goal is named, because the
+    // goal is the reason the war is being fought and the weariness it causes is in the
+    // table already.
+    if (war) {
+      item.appendChild(
+        h(
+          "p",
+          { class: "faction__war", "data-testid": `faction-at-war-${faction.id}` },
+          war.goal
+            ? `At war — fighting for ${war.goal}: ${WAR_GOAL_DESCRIPTIONS[war.goal]}`
+            : "At war — no goal declared.",
+        ),
+      );
+    }
 
     const half = Math.abs(relation) / 2;
     item.appendChild(
