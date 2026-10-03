@@ -11,7 +11,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi, type MockInstance } from "vitest";
 import { getAudioManager } from "../AudioManager.js";
-import { installUiSounds } from "../uiSounds.js";
+import { installUiSounds, playVerdictSound } from "../uiSounds.js";
 
 let root: HTMLElement;
 let uninstall: () => void;
@@ -79,5 +79,17 @@ describe("global UI sounds (tasks 531/535)", () => {
 
     button.click();
     expect(spy).not.toHaveBeenCalled();
+  });
+});
+
+describe("accept/refuse verdict sounds (tasks 533/534)", () => {
+  it("chimes when an action is accepted", () => {
+    playVerdictSound(true);
+    expect(spy).toHaveBeenCalledWith("confirm");
+  });
+
+  it("buzzes when an action is refused", () => {
+    playVerdictSound(false);
+    expect(spy).toHaveBeenCalledWith("error");
   });
 });

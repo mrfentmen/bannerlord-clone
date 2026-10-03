@@ -29,7 +29,7 @@ import { installPerfOverlay, setPerfStatsProvider } from "./ui/perfOverlay.js";
 import { BUILD_HASH } from "./buildHash.js";
 import { getAudioManager } from "./audio/AudioManager.js";
 import { applyAudioSettings } from "./audio/applySettings.js";
-import { installUiSounds } from "./audio/uiSounds.js";
+import { installUiSounds, playVerdictSound } from "./audio/uiSounds.js";
 
 // Task 25/26: the error boundary, console tail, and bug reporter are imported
 // here but installed after the canvas handles exist (see below).
@@ -1238,6 +1238,8 @@ function townNode(town: TownState): Node {
         quantity,
         expectedDay: snapshot.day,
       });
+      // Tasks 533/534: the recruit order answers with a chime or a buzz.
+      playVerdictSound(result.accepted);
       if (result.accepted) {
         previous = snapshot;
         snapshot = await provider.getSnapshot();
@@ -2091,6 +2093,8 @@ function marketNode(townId: string, townName: string): Node {
               `${money(result.total)}. The price here is now ${result.marketPriceAfter.toFixed(2)}.`,
           }
         : { tone: "critical", text: result.reason ?? "The trade was refused." };
+      // Tasks 533/534: the trade answers with a chime or a buzz.
+      playVerdictSound(result.accepted);
       void refreshAfterTrade(townId);
     },
     onError: (m) => console.error(m),
