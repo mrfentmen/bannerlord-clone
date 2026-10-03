@@ -28,6 +28,7 @@ import type {
   BattleXpInput,
   ConnectionStatus,
   ConstructionResult,
+  GameCharacter,
   ImproveRelationRequest,
   ImproveRelationResult,
   MarchCommitResult,
@@ -512,6 +513,40 @@ export class HttpSimulationProvider implements SimulationProvider {
       "The merge did not land.",
       () => null,
     );
+  }
+
+  async marry(charId1: string, charId2: string): Promise<void> {
+    await this.#post(
+      "/v1/dynasty/marry",
+      { charId1, charId2 },
+      "The marriage did not land.",
+      () => null,
+    );
+  }
+
+  async haveChild(parentId1: string, parentId2: string, childName: string): Promise<{ childId: string }> {
+    return this.#post<{ childId: string }>(
+      "/v1/dynasty/child",
+      { parentId1, parentId2, childName },
+      "The birth did not land.",
+    );
+  }
+
+  async killCharacter(charId: string, cause: string): Promise<void> {
+    await this.#post(
+      `/v1/dynasty/characters/${encodeURIComponent(charId)}/kill`,
+      { cause },
+      "The death did not land.",
+      () => null,
+    );
+  }
+
+  async getHeir(clanId: string): Promise<GameCharacter | null> {
+    const result = await this.#getJson(
+      `/v1/dynasty/clans/${encodeURIComponent(clanId)}/heir`,
+      "The heir query did not land.",
+    );
+    return result as GameCharacter | null;
   }
 
   async restoreSnapshot(snapshot: SimSnapshot): Promise<void> {

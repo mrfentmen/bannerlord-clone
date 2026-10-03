@@ -23,7 +23,9 @@ import { getEthnicity, getEthnicityEffects } from "../ethnicities.js";
 import type {
   BattleResult,
   CauseRow,
+  Clan,
   ConnectionStatus,
+  GameCharacter,
   GoodId,
   ImproveRelationRequest,
   ImproveRelationResult,
@@ -237,6 +239,11 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     applyPlayerDefeat: async (input) => state.applyPlayerDefeat(input),
     splitParty: async (input) => state.splitParty(input),
     mergeParty: async (partyId) => state.mergeParty(partyId),
+    marry: async (charId1, charId2) => state.marry(charId1, charId2),
+    haveChild: async (parentId1, parentId2, childName) => state.haveChild(parentId1, parentId2, childName),
+    killCharacter: async (charId, cause) => state.killCharacter(charId, cause),
+    getHeir: async (clanId) => state.getHeir(clanId),
+    debugSetClanTier: async (clanId, tier) => state.debugSetClanTier(clanId, tier),
     restoreSnapshot: async (snapshot) => state.restoreSnapshot(snapshot),
     getNearbyHostiles: async (rangeKm) => state.getNearbyHostiles(rangeKm),
     upgradeTroops: async (request) => state.upgradeTroops(request),
@@ -261,6 +268,8 @@ class FixtureState {
   #markets = new Map<string, MarketState>();
   #party!: PartyState;
   #npcParties: NpcParty[] = [];
+  #clans: Clan[] = [];
+  #characters: GameCharacter[] = [];
   #rulers: RulerState[] = [];
   #warnings: ResourceWarning[] = [];
   #notifications: Notification[] = [];
@@ -401,6 +410,36 @@ class FixtureState {
         speedKmPerDay: 25 + rand() * 10,
       };
     });
+
+    // Initialize clans and characters.
+    // Player clan: the player's dynasty.
+    const playerChar: GameCharacter = {
+      id: "char-player",
+      name: this.#player.characterName || "Player",
+      age: 30,
+      clanId: "clan-player",
+      factionId: "player-faction",
+      alive: true,
+      parentIds: [],
+      childrenIds: [],
+      role: "ruler",
+      partyId: "party-player",
+      isPlayer: true,
+    };
+    const playerClan: Clan = {
+      id: "clan-player",
+      name: "Player Clan",
+      leaderId: "char-player",
+      memberIds: ["char-player"],
+      tier: 1,
+      renown: 0,
+      wealth: 1000,
+      factionId: "player-faction",
+      fiefIds: [],
+      bannerColor: "#4a90d9",
+    };
+    this.#characters = [playerChar];
+    this.#clans = [playerClan];
 
     this.#rulers = RULER_SPECS.map((r, i) => ({
       id: `ruler-${i}`,
@@ -647,6 +686,8 @@ class FixtureState {
       markets: Object.fromEntries([...this.#markets].map(([k, v]) => [k, structuredClone(v)])),
       sides: buildFixtureSides(),
       rulers: structuredClone(this.#rulers),
+      clans: structuredClone(this.#clans),
+      characters: structuredClone(this.#characters),
       ledger: structuredClone(this.#ledger),
       warnings: structuredClone(this.#warnings),
       notifications: structuredClone(this.#notifications.slice(-40)),
@@ -1204,6 +1245,12 @@ class FixtureState {
     if (this.#month > 12) {
       this.#month = 1;
       this.#year += 1;
+      // Age characters by one year.
+      for (const char of this.#characters) {
+        if (char.alive) {
+          char.age += 1;
+        }
+      }
     }
 
     const townDeltas: Record<string, Partial<TownState>> = {};
@@ -1474,6 +1521,8 @@ class FixtureState {
       Object.entries(snapshot.markets ?? {}).map(([k, v]) => [k, structuredClone(v)])
     );
     this.#rulers = structuredClone(snapshot.rulers ?? []);
+    this.#clans = structuredClone(snapshot.clans ?? []);
+    this.#characters = structuredClone(snapshot.characters ?? []);
     this.#ledger = structuredClone(snapshot.ledger);
     // Reset transient state
     this.#notifications = [];
@@ -1834,6 +1883,16 @@ class FixtureState {
    * The detached party stays near the player and can be merged back.
    */
   async splitParty(input: { troopIds: { stackId: string; count: number }[]; name: string }): Promise<{ partyId: string }> {
+    // Enforce clan party limit: tier determines max parties.
+    const playerClan = this.#clans.find((c) => c.id === "clan-player");
+    if (playerClan) {
+      const maxParties = playerClan.tier; // Tier 1 = 1 party, Tier 2 = 2, etc.
+      const currentParties = this.#npcParties.filter((p) => p.factionId === "player-faction").length + 1; // +1 for player party
+      if (currentParties >= maxParties) {
+        throw new Error(`Clan tier ${playerClan.tier} allows ${maxParties} parties. Increase clan tier to field more.`);
+      }
+    }
+
     const partyId = `detached-${Date.now()}-${Math.round(this.#random() * 10000)}`;
     const detachedTroops: { name: string; count: number; tier: number }[] = [];
     let totalCount = 0;
@@ -1923,6 +1982,177 @@ class FixtureState {
       entityId: this.#party.id,
       field: "troops",
     });
+  }
+
+  /**
+   * Marry two characters. Both must be alive and unmarried.
+   */
+  async marry(charId1: string, charId2: string): Promise<void> {
+    const c1 = this.#characters.find((c) => c.id === charId1);
+    const c2 = this.#characters.find((c) => c.id === charId2);
+    if (!c1 || !c2) throw new Error("Character not found.");
+    if (!c1.alive || !c2.alive) throw new Error("Cannot marry a dead character.");
+    if (c1.spouseId || c2.spouseId) throw new Error("One or both characters are already married.");
+    if (c1.id === c2.id) throw new Error("Cannot marry oneself.");
+
+    c1.spouseId = c2.id;
+    c2.spouseId = c1.id;
+
+    this.#notifications.push({
+      id: `n-marry-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: `${c1.name} and ${c2.name} are married.`,
+      entityId: c1.id,
+      field: "family",
+    });
+  }
+
+  /**
+   * Record the birth of a child. The child is a new character with both parents.
+   */
+  async haveChild(parentId1: string, parentId2: string, childName: string): Promise<{ childId: string }> {
+    const p1 = this.#characters.find((c) => c.id === parentId1);
+    const p2 = this.#characters.find((c) => c.id === parentId2);
+    if (!p1 || !p2) throw new Error("Parent not found.");
+    if (!p1.alive || !p2.alive) throw new Error("Cannot have a child with a dead parent.");
+
+    const childId = `char-${Date.now()}-${Math.round(this.#random() * 10000)}`;
+    const child: GameCharacter = {
+      id: childId,
+      name: childName,
+      age: 0,
+      clanId: p1.clanId, // child joins the first parent's clan
+      factionId: p1.factionId,
+      alive: true,
+      parentIds: [p1.id, p2.id],
+      childrenIds: [],
+      role: "commoner",
+      isPlayer: false,
+    };
+    this.#characters.push(child);
+    p1.childrenIds.push(childId);
+    p2.childrenIds.push(childId);
+
+    // Add to clan
+    const clan = this.#clans.find((c) => c.id === p1.clanId);
+    if (clan && !clan.memberIds.includes(childId)) {
+      clan.memberIds.push(childId);
+    }
+
+    this.#notifications.push({
+      id: `n-birth-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: `${childName} is born to ${p1.name} and ${p2.name}.`,
+      entityId: childId,
+      field: "family",
+    });
+
+    return { childId };
+  }
+
+  /**
+   * Kill a character. Handles succession if they were a clan leader or ruler.
+   */
+  async killCharacter(charId: string, cause: string): Promise<void> {
+    const char = this.#characters.find((c) => c.id === charId);
+    if (!char) throw new Error("Character not found.");
+    if (!char.alive) throw new Error("Character is already dead.");
+
+    char.alive = false;
+    char.deathDay = this.#day;
+
+    // Remove from party leadership
+    if (char.partyId) {
+      delete char.partyId;
+    }
+
+    // Handle clan leadership succession
+    const clan = this.#clans.find((c) => c.id === char.clanId);
+    if (clan && clan.leaderId === charId) {
+      const heir = await this.getHeir(clan.id);
+      if (heir) {
+        clan.leaderId = heir.id;
+        this.#notifications.push({
+          id: `n-succession-${this.#sequence++}`,
+          day: this.#day,
+          priority: "important",
+          text: `${char.name} has died (${cause}). ${heir.name} succeeds as leader of ${clan.name}.`,
+          entityId: clan.id,
+          field: "leadership",
+        });
+      } else {
+        this.#notifications.push({
+          id: `n-succession-${this.#sequence++}`,
+          day: this.#day,
+          priority: "important",
+          text: `${char.name} has died (${cause}). ${clan.name} has no heir!`,
+          entityId: clan.id,
+          field: "leadership",
+        });
+      }
+    } else {
+      this.#notifications.push({
+        id: `n-death-${this.#sequence++}`,
+        day: this.#day,
+        priority: "informational",
+        text: `${char.name} has died (${cause}).`,
+        entityId: char.id,
+        field: "family",
+      });
+    }
+  }
+
+  /**
+   * Get the heir for a clan. Succession rule: oldest living child of the
+   * leader, then oldest living sibling, then oldest living clan member.
+   * Must be at least 16 years old to inherit.
+   */
+  async getHeir(clanId: string): Promise<GameCharacter | null> {
+    const clan = this.#clans.find((c) => c.id === clanId);
+    if (!clan) return null;
+    const leader = this.#characters.find((c) => c.id === clan.leaderId);
+    if (!leader) return null;
+
+    const eligible = (c: GameCharacter) => c.alive && c.age >= 16;
+
+    // 1. Oldest living child of the leader
+    const children = leader.childrenIds
+      .map((id) => this.#characters.find((c) => c.id === id))
+      .filter((c): c is GameCharacter => c !== undefined && eligible(c))
+      .sort((a, b) => b.age - a.age);
+    if (children.length > 0) return children[0]!;
+
+    // 2. Oldest living sibling (share a parent)
+    const siblings = this.#characters.filter(
+      (c) =>
+        c.id !== leader.id &&
+        c.clanId === clanId &&
+        eligible(c) &&
+        c.parentIds.some((p) => leader.parentIds.includes(p)) &&
+        leader.parentIds.length > 0
+    ).sort((a, b) => b.age - a.age);
+    if (siblings.length > 0) return siblings[0]!;
+
+    // 3. Oldest living clan member (not the leader)
+    const members = clan.memberIds
+      .map((id) => this.#characters.find((c) => c.id === id))
+      .filter((c): c is GameCharacter => c !== undefined && c.id !== leader.id && eligible(c))
+      .sort((a, b) => b.age - a.age);
+    if (members.length > 0) return members[0]!;
+
+    return null;
+  }
+
+  /**
+   * Test hook: set a clan's tier directly.
+   * @internal
+   */
+  async debugSetClanTier(clanId: string, tier: number): Promise<void> {
+    const clan = this.#clans.find((c) => c.id === clanId);
+    if (!clan) throw new Error("Clan not found.");
+    clan.tier = Math.max(1, Math.min(6, tier));
   }
 
   /**

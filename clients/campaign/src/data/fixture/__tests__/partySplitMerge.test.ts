@@ -4,6 +4,8 @@ import { createFixtureSimulationProvider } from "../fixtureProvider.js";
 describe("party split", () => {
   it("creates a detached party with the specified troops", async () => {
     const provider = createFixtureSimulationProvider({ seed: 42 });
+    // Clan tier 2 allows 2 parties (player + 1 detached)
+    await provider.debugSetClanTier?.("clan-player", 2);
     const before = await provider.getSnapshot();
     const stack = before.party.troops[0]!;
     const splitCount = 5;
@@ -55,6 +57,7 @@ describe("party split", () => {
 describe("party merge", () => {
   it("merges a detached party back into the player party", async () => {
     const provider = createFixtureSimulationProvider({ seed: 42 });
+    await provider.debugSetClanTier?.("clan-player", 2);
     const before = await provider.getSnapshot();
     const stack = before.party.troops[0]!;
     const splitCount = 5;

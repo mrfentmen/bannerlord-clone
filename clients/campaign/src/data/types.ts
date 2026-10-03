@@ -597,6 +597,68 @@ export interface RulerState {
   recentEvents: { day: number; text: string; causedBy?: string }[];
 }
 
+/** A clan: the fundamental dynasty unit. Clans hold fiefs, field parties, and provide succession. */
+export interface Clan {
+  /** Stable clan ID, e.g. "clan-player". */
+  id: string;
+  name: string;
+  /** Character ID of the clan leader. */
+  leaderId: string;
+  /** Character IDs of all clan members. */
+  memberIds: string[];
+  /** Clan tier 1-6. Higher tiers unlock more parties and fiefs. */
+  tier: number;
+  /** Renown: clan prestige, earned through battles and deeds. */
+  renown: number;
+  /** Clan wealth in money. */
+  wealth: number;
+  /** Faction/kingdom the clan belongs to. */
+  factionId: string;
+  /** Settlement IDs controlled by the clan. */
+  fiefIds: string[];
+  /** Banner color for UI. */
+  bannerColor: string;
+}
+
+/** A character: a named individual in the campaign world. */
+export interface GameCharacter {
+  /** Stable character ID, e.g. "char-player". */
+  id: string;
+  name: string;
+  /** Age in years. */
+  age: number;
+  /** Clan ID. */
+  clanId: string;
+  /** Faction ID. */
+  factionId: string;
+  /** Whether the character is alive. */
+  alive: boolean;
+  /** Day the character died (if dead). */
+  deathDay?: number;
+  /** Character ID of spouse, if married. */
+  spouseId?: string;
+  /** Character IDs of parents. */
+  parentIds: string[];
+  /** Character IDs of children. */
+  childrenIds: string[];
+  /** Role: ruler, lord, companion, etc. */
+  role: "ruler" | "lord" | "companion" | "commoner";
+  /** Party ID if leading a party. */
+  partyId?: string;
+  /** Whether this is the player character. */
+  isPlayer: boolean;
+}
+
+/** Marriage record. */
+export interface Marriage {
+  /** Character ID of spouse 1. */
+  spouse1Id: string;
+  /** Character ID of spouse 2. */
+  spouse2Id: string;
+  /** Day the marriage occurred. */
+  day: number;
+}
+
 /** March planner preview. `MARCH_AND_WAR.md` section 11. */
 export interface MarchRequest {
   partyId: string;
@@ -792,6 +854,10 @@ export interface SimSnapshot {
   markets: Record<string, MarketState>;
   sides: SideState[];
   rulers: RulerState[];
+  /** Clans in the campaign. */
+  clans: Clan[];
+  /** Characters in the campaign. */
+  characters: GameCharacter[];
   ledger: Ledger;
   warnings: ResourceWarning[];
   notifications: Notification[];
@@ -917,6 +983,17 @@ export interface SimulationProvider {
    * Merge a detached party back into the player party.
    */
   mergeParty(partyId: string): Promise<void>;
+  // -- Clans and dynasty ----------------------------------------------------
+  /** Create a marriage between two living unmarried characters. */
+  marry(charId1: string, charId2: string): Promise<void>;
+  /** Record the birth of a child to two parents. */
+  haveChild(parentId1: string, parentId2: string, childName: string): Promise<{ childId: string }>;
+  /** Kill a character (natural death, battle, etc.). Handles succession. */
+  killCharacter(charId: string, cause: string): Promise<void>;
+  /** Get the current heir for a clan (succession). */
+  getHeir(clanId: string): Promise<GameCharacter | null>;
+  /** Test hook: set clan tier. */
+  debugSetClanTier?(clanId: string, tier: number): Promise<void>;
   /** Restore the provider's internal state from a saved snapshot. */
   restoreSnapshot(snapshot: SimSnapshot): Promise<void>;
   /** NPC parties within rangeKm of the player party. */
