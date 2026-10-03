@@ -41,6 +41,7 @@ function partyWith(troops: TroopStack[]): PartyState {
     troops,
     roles: {},
     goods: [],
+    prisoners: [],
   } as PartyState;
 }
 

@@ -531,7 +531,6 @@ const selectionScreen = startScreen({
             startCity: character.startCity,
             difficulty: character.difficulty,
             backgroundChoices: character.backgroundChoices,
-            bonusPoints: character.bonusPoints,
             startingSkills: character.startingSkills,
             startingCash,
             biography,
@@ -925,7 +924,8 @@ function mountCampaign(): void {
         },
       },
       pollEncounters: battlePartyId >= 0,
-      onBattleEvent: (event) => {
+      onBattleEvent: (event, view) => {
+        const won = event === "victory";
         if (event === "victory") {
           haptics?.play("confirm");
           achievements.record("battle-won");
@@ -941,97 +941,86 @@ function mountCampaign(): void {
           recordHeatSite(false);
           recordLifetimeBattle({ won: false });
           lifetimeStatsRefresh?.();
-          if (won) sessionBattlesWon += 1;
-
-          // -- Battle writeback: apply the authoritative battle outcome.
-          // The battle now produces killed/wounded split, not guessed values.
-          if (view) {
-            const playerKilled = view.playerIsAttacker ? view.attackerKilled : view.defenderKilled;
-            const playerWounded = view.playerIsAttacker ? view.attackerWounded : view.defenderWounded;
-            const enemyKilled = view.playerIsAttacker ? view.defenderKilled : view.attackerKilled;
-            const enemyWounded = view.playerIsAttacker ? view.defenderWounded : view.attackerWounded;
-            const playerLosses = view.playerIsAttacker ? view.attackerLosses : view.defenderLosses;
-            const enemyLosses = view.playerIsAttacker ? view.defenderLosses : view.attackerLosses;
-
-            // Build the authoritative BattleResult from the after-action view.
-            // The view now carries killed/wounded; initial troops come from the
-            // encounter via the battle (fallback: derive from losses + survivors).
-            const playerInitial = playerLosses + (snapshot?.party.troops.reduce((a, t) => a + t.count + t.wounded, 0) ?? 0);
-            const enemyInitial = enemyLosses * 2; // fallback estimate when roster unknown
-
-            void provider
-              .applyBattleOutcome({
-                battleId: `battle-${Date.now()}`,
-                winner: view.winner,
-                attacker: {
-                  partyId: view.playerIsAttacker ? "party-player" : "npc-enemy",
-                  name: view.playerIsAttacker ? "Player Party" : "Enemy",
-                  isPlayer: view.playerIsAttacker,
-                  initialTroops: view.playerIsAttacker ? playerInitial : enemyInitial,
-                  survivingTroops: view.playerIsAttacker ? playerInitial - playerLosses : enemyInitial - enemyLosses,
-                  killed: view.playerIsAttacker ? playerKilled : enemyKilled,
-                  wounded: view.playerIsAttacker ? playerWounded : enemyWounded,
-                  prisonersTaken: 0,
-                  prisonersLost: 0,
-                  retreated: false,
-                },
-                defender: {
-                  partyId: view.playerIsAttacker ? "npc-enemy" : "party-player",
-                  name: view.playerIsAttacker ? "Enemy" : "Player Party",
-                  isPlayer: !view.playerIsAttacker,
-                  initialTroops: view.playerIsAttacker ? enemyInitial : playerInitial,
-                  survivingTroops: view.playerIsAttacker ? enemyInitial - enemyLosses : playerInitial - playerLosses,
-                  killed: view.playerIsAttacker ? enemyKilled : playerKilled,
-                  wounded: view.playerIsAttacker ? enemyWounded : playerWounded,
-                  prisonersTaken: 0,
-                  prisonersLost: 0,
-                  retreated: false,
-                },
-                loot: Math.round(view.loot),
-                ticks: view.ticks,
-              })
-              .then(() => reloadSnapshot())
-              .catch((err) => {
-                console.error("Battle writeback failed:", err);
-              });
-
-            // If the player won against an NPC party, remove the defeated party.
-            // If the player lost, apply defeat consequences: the enemy loots
-            // the player and may take prisoners; the player retreats.
-            const encounterNpc = (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
-            if (won && encounterNpc) {
-              void provider
-                .defeatNpcParty(encounterNpc.id)
-                .then(() => {
-                  delete (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
-                  return reloadSnapshot();
-                })
-                .catch((err) => {
-                  console.error("NPC defeat failed:", err);
-                });
-            } else if (!won && encounterNpc) {
-              // Player defeat: the enemy loots the player and takes prisoners.
-              // The player retreats to a safe distance.
-              void provider
-                .applyPlayerDefeat({
-                  npcPartyId: encounterNpc.id,
-                  lootTaken: Math.round(view.loot),
-                  prisonersTaken: Math.min(3, Math.round(playerWounded / 2)),
-                })
-                .then(() => {
-                  delete (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
-                  return reloadSnapshot();
-                })
-                .catch((err) => {
-                  console.error("Defeat consequences failed:", err);
-                });
-            } else if (!won) {
-              // Defeat without a specific NPC (e.g. generic battle): still clear.
-              delete (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
-            }
-          }
         } else {
           haptics?.play("order");
+          return;
+        }
+
+        // -- Battle writeback: apply the authoritative battle outcome.
+        if (view) {
+          const playerKilled = view.playerIsAttacker ? view.attackerKilled : view.defenderKilled;
+          const playerWounded = view.playerIsAttacker ? view.attackerWounded : view.defenderWounded;
+          const enemyKilled = view.playerIsAttacker ? view.defenderKilled : view.attackerKilled;
+          const enemyWounded = view.playerIsAttacker ? view.defenderWounded : view.attackerWounded;
+          const playerLosses = view.playerIsAttacker ? view.attackerLosses : view.defenderLosses;
+          const enemyLosses = view.playerIsAttacker ? view.defenderLosses : view.attackerLosses;
+          const playerInitial = playerLosses + (snapshot?.party.troops.reduce((a, t) => a + t.count + t.wounded, 0) ?? 0);
+          const enemyInitial = enemyLosses * 2;
+
+          void provider
+            .applyBattleOutcome({
+              battleId: `battle-${Date.now()}`,
+              winner: view.winner,
+              attacker: {
+                partyId: view.playerIsAttacker ? "party-player" : "npc-enemy",
+                name: view.playerIsAttacker ? "Player Party" : "Enemy",
+                isPlayer: view.playerIsAttacker,
+                initialTroops: view.playerIsAttacker ? playerInitial : enemyInitial,
+                survivingTroops: view.playerIsAttacker ? playerInitial - playerLosses : enemyInitial - enemyLosses,
+                killed: view.playerIsAttacker ? playerKilled : enemyKilled,
+                wounded: view.playerIsAttacker ? playerWounded : enemyWounded,
+                prisonersTaken: 0,
+                prisonersLost: 0,
+                retreated: false,
+              },
+              defender: {
+                partyId: view.playerIsAttacker ? "npc-enemy" : "party-player",
+                name: view.playerIsAttacker ? "Enemy" : "Player Party",
+                isPlayer: !view.playerIsAttacker,
+                initialTroops: view.playerIsAttacker ? enemyInitial : playerInitial,
+                survivingTroops: view.playerIsAttacker ? enemyInitial - enemyLosses : playerInitial - playerLosses,
+                killed: view.playerIsAttacker ? enemyKilled : playerKilled,
+                wounded: view.playerIsAttacker ? enemyWounded : playerWounded,
+                prisonersTaken: 0,
+                prisonersLost: 0,
+                retreated: false,
+              },
+              loot: Math.round(view.loot),
+              ticks: view.ticks,
+            })
+            .then(() => reloadSnapshot())
+            .catch((err) => {
+              console.error("Battle writeback failed:", err);
+            });
+
+          const encounterNpc = (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
+          if (won && encounterNpc) {
+            void provider
+              .defeatNpcParty(encounterNpc.id)
+              .then(() => {
+                delete (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
+                return reloadSnapshot();
+              })
+              .catch((err) => {
+                console.error("NPC defeat failed:", err);
+              });
+          } else if (!won && encounterNpc) {
+            void provider
+              .applyPlayerDefeat({
+                npcPartyId: encounterNpc.id,
+                lootTaken: Math.round(view.loot),
+                prisonersTaken: Math.min(3, Math.round(playerWounded / 2)),
+              })
+              .then(() => {
+                delete (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
+                return reloadSnapshot();
+              })
+              .catch((err) => {
+                console.error("Defeat consequences failed:", err);
+              });
+          } else if (!won) {
+            delete (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
+          }
         }
       },
       onDone: () => {
@@ -1074,6 +1063,9 @@ function mountCampaign(): void {
       }
       syncParty();
       paint();
+      // Encounter check: warn when hostile NPC parties get close.
+      // Throttled to every 5 ticks to avoid spam; tracks seen parties.
+      void checkForHostiles();
     },
     (status) => {
       connectionState = status.state === "connected" ? "connected" : status.state === "degraded" ? "degraded" : "reconnecting";

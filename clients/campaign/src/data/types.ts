@@ -482,6 +482,8 @@ export interface PartyState {
   troops: TroopStack[];
   roles: Partial<Record<PartyRole, string>>;
   goods: { goodId: string; name: string; quantity: number; avgPaid: number }[];
+  /** Captured enemy troops held as prisoners. */
+  prisoners: { troopId: string; name: string; count: number; tier: number }[];
 }
 
 /** The tradeable goods of ECONOMY.md, named so the market is legible. */
@@ -784,6 +786,8 @@ export interface SimSnapshot {
     renown: number;
   };
   party: PartyState;
+  /** NPC parties roaming the map (bandits, caravans, lord parties). */
+  npcParties: NpcParty[];
   towns: TownState[];
   markets: Record<string, MarketState>;
   sides: SideState[];
@@ -813,6 +817,7 @@ export interface TickUpdate {
   towns?: Record<string, Partial<TownState>>;
   markets?: Record<string, Partial<MarketState>>;
   party?: Partial<PartyState>;
+  npcParties?: NpcParty[];
   player?: Partial<SimSnapshot["player"]>;
   ledger?: Ledger;
   warnings?: ResourceWarning[];

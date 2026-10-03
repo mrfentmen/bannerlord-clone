@@ -36,6 +36,7 @@ import type {
   Notable,
   NotableType,
   Notification,
+  NpcParty,
   PartyState,
   PlayerCharacter,
   RecruitableUnit,
@@ -259,6 +260,7 @@ class FixtureState {
   #notables = new Map<string, Notable>();
   #markets = new Map<string, MarketState>();
   #party!: PartyState;
+  #npcParties: NpcParty[] = [];
   #rulers: RulerState[] = [];
   #warnings: ResourceWarning[] = [];
   #notifications: Notification[] = [];
@@ -373,7 +375,32 @@ class FixtureState {
       ],
       roles: { quartermaster: "Ivo Petran", surgeon: "Ada Renko", scout: "Bil Todd" },
       goods: [{ goodId: "grain", name: "Grain", quantity: 0, avgPaid: 0 }],
+      prisoners: [],
     };
+
+    // Spawn hostile bandit parties near the player's start.
+    // They wander and can be encountered.
+    const banditNames = ["Rust Vultures", "Highway Jackals", "Dust Runners", "Iron Howlers"];
+    this.#npcParties = banditNames.map((name, i) => {
+      const angle = (i / banditNames.length) * Math.PI * 2 + rand() * 0.5;
+      const dist = 80 + rand() * 120;
+      const count = 8 + Math.floor(rand() * 12);
+      return {
+        id: `npc-bandit-${i}`,
+        name,
+        kind: "bandit" as const,
+        factionId: "bandits",
+        position: {
+          x: Math.cos(angle) * dist,
+          z: Math.sin(angle) * dist,
+        },
+        troops: [{ name: "Bandit", count, tier: 1 }],
+        troopCount: count,
+        hostile: true,
+        destination: null,
+        speedKmPerDay: 25 + rand() * 10,
+      };
+    });
 
     this.#rulers = RULER_SPECS.map((r, i) => ({
       id: `ruler-${i}`,
@@ -615,6 +642,7 @@ class FixtureState {
       eraTier: 4,
       player: { ...this.#player, resources: { ...this.#player.resources } },
       party,
+      npcParties: structuredClone(this.#npcParties),
       towns: [...this.#towns.values()].map((t) => ({ ...t })),
       markets: Object.fromEntries([...this.#markets].map(([k, v]) => [k, structuredClone(v)])),
       sides: buildFixtureSides(),
@@ -1321,9 +1349,6 @@ class FixtureState {
 
     this.#applyDailyUpkeep();
     this.#applyTrainingXp();
-    this.#rebuildLedger();
-    this.#refreshWarnings();
-    this.#emit({ tick: this.#tick, day: this.#day, towns: townDeltas, party: structuredClone(this.#party), ledger: structuredClone(this.#ledger), warnings: structuredClone(this.#warnings) });
     this.#recoverWounded();
     this.#moveNpcParties();
     this.#rebuildLedger();
@@ -1428,6 +1453,45 @@ class FixtureState {
         stack.xp = Math.round(stack.xp + XP_PER_SOLDIER_PER_DAY * stack.count);
       }
     }
+  }
+
+  /**
+   * Restore internal state from a saved snapshot. Rebuilds towns, markets,
+   * party, rulers, player, and time from the snapshot data.
+   */
+  async restoreSnapshot(snapshot: SimSnapshot): Promise<void> {
+    this.#day = snapshot.day;
+    this.#year = snapshot.year ?? this.#year;
+    this.#party = structuredClone(snapshot.party);
+    this.#npcParties = structuredClone(snapshot.npcParties ?? []);
+    this.#player = {
+      ...this.#player,
+      ...structuredClone(snapshot.player),
+      resources: { ...structuredClone(snapshot.player.resources) },
+    };
+    this.#towns = new Map(snapshot.towns.map((t) => [t.id, structuredClone(t)]));
+    this.#markets = new Map(
+      Object.entries(snapshot.markets ?? {}).map(([k, v]) => [k, structuredClone(v)])
+    );
+    this.#rulers = structuredClone(snapshot.rulers ?? []);
+    this.#ledger = structuredClone(snapshot.ledger);
+    // Reset transient state
+    this.#notifications = [];
+    this.#warnings = [];
+    this.#sequence = 0;
+  }
+
+  /**
+   * NPC parties within rangeKm of the player party. Used by the client to
+   * trigger encounters when hostiles get close.
+   */
+  async getNearbyHostiles(rangeKm: number): Promise<NpcParty[]> {
+    const px = this.#party.position.x;
+    const pz = this.#party.position.z;
+    return this.#npcParties
+      .filter((npc) => npc.hostile && npc.troopCount > 0)
+      .filter((npc) => Math.hypot(npc.position.x - px, npc.position.z - pz) <= rangeKm)
+      .map((npc) => structuredClone(npc));
   }
 
   async awardBattleXp(input: BattleXpInput): Promise<BattleXpAward[]> {

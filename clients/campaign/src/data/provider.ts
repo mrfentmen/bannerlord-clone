@@ -33,6 +33,7 @@ import type {
   MarchCommitResult,
   MarchPlan,
   MarchRequest,
+  NpcParty,
   PlayerCharacter,
   RecruitRequest,
   RecruitResult,
