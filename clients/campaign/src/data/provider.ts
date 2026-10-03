@@ -21,6 +21,9 @@
  */
 
 import type {
+  BattleResult,
+  BattleResultInput,
+  BattleResultOutcome,
   BattleXpAward,
   BattleXpInput,
   ConnectionStatus,
@@ -445,6 +448,40 @@ export class HttpSimulationProvider implements SimulationProvider {
 
   async awardBattleXp(input: BattleXpInput): Promise<BattleXpAward[]> {
     return this.#post<BattleXpAward[]>("/v1/troops/battle-xp", input, "The XP did not land.", battleXpProblem);
+  }
+
+  async applyBattleResult(input: BattleResultInput): Promise<BattleResultOutcome> {
+    return this.#post<BattleResultOutcome>(
+      "/v1/troops/battle-result",
+      input,
+      "The battle result did not land.",
+      (v) => (typeof v === "object" && v !== null ? null : "bad battle result"),
+    );
+  }
+
+  async applyBattleOutcome(result: BattleResult): Promise<BattleResultOutcome> {
+    return this.#post<BattleResultOutcome>(
+      "/v1/troops/battle-outcome",
+      result,
+      "The battle outcome did not land.",
+      (v) => (typeof v === "object" && v !== null ? null : "bad battle outcome"),
+    );
+  }
+
+  async restoreSnapshot(snapshot: SimSnapshot): Promise<void> {
+    await this.#post<void>(
+      "/v1/snapshot/restore",
+      snapshot,
+      "The save could not be loaded.",
+      () => null,
+    );
+  }
+
+  async getNearbyHostiles(rangeKm: number): Promise<NpcParty[]> {
+    const url = `${this.#httpUrl}/v1/parties/nearby?rangeKm=${encodeURIComponent(String(rangeKm))}`;
+    const body = await this.#getJson(url, "Nearby parties could not be listed.");
+    if (!Array.isArray(body)) throw new Error("bad nearby parties");
+    return body as NpcParty[];
   }
 
   async upgradeTroops(request: UpgradeTroopsRequest): Promise<UpgradeTroopsResult> {

@@ -21,6 +21,7 @@
 import { buildFixtureSides } from "./sides.js";
 import { getEthnicity, getEthnicityEffects } from "../ethnicities.js";
 import type {
+  BattleResult,
   CauseRow,
   ConnectionStatus,
   GoodId,
@@ -228,6 +229,10 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     setEthnicity: (ethnicityId) => state.setEthnicity(ethnicityId),
     setCharacter: (character) => state.setCharacter(character),
     awardBattleXp: async (input) => state.awardBattleXp(input),
+    applyBattleResult: async (input) => state.applyBattleResult(input),
+    applyBattleOutcome: async (result) => state.applyBattleOutcome(result),
+    restoreSnapshot: async (snapshot) => state.restoreSnapshot(snapshot),
+    getNearbyHostiles: async (rangeKm) => state.getNearbyHostiles(rangeKm),
     upgradeTroops: async (request) => state.upgradeTroops(request),
     setTaxRate: async (townId, rate) => state.setTaxRate(townId, rate),
     setStateTaxRate: async (st, rate) => state.setStateTaxRate(st, rate),
@@ -253,7 +258,10 @@ class FixtureState {
   #warnings: ResourceWarning[] = [];
   #notifications: Notification[] = [];
   #ledger!: Ledger;
-  #player = { partyId: "party-player", characterName: "Wren Calloway", ethnicityId: "african", appearanceId: "", age: 30, biography: "", skills: {}, factionId: "mountain-alliance", resources: { money: 2180, gold: 340, food: 46, metal: 62, medicine: 8 }, influence: 0, renown: 0 };
+  // Typed as the snapshot's own player so the character sheet's optional
+  // fields are typed here too, rather than written through a Record<string,
+  // unknown> cast that no typechecker reads.
+  #player: SimSnapshot["player"] = { partyId: "party-player", characterName: "Wren Calloway", ethnicityId: "african", appearanceId: "", age: 30, biography: "", skills: {}, factionId: "mountain-alliance", resources: { money: 2180, gold: 340, food: 46, metal: 62, medicine: 8 }, influence: 0, renown: 0 };
   #timer: ReturnType<typeof setInterval> | null = null;
   #tickListeners: ((t: TickUpdate) => void)[] = [];
 
@@ -354,9 +362,9 @@ class FixtureState {
       wagesOwed: 0,
       speedKmPerDay: 34,
       troops: [
-        { id: "t-riflemen", name: "Riflemen", count: 18, quality: 3, tier: 3, xp: 0, wage: 0.9, morale: 0.8 },
-        { id: "t-drivers", name: "Drivers", count: 6, quality: 2, tier: 2, xp: 0, wage: 1.2, morale: 0.76 },
-        { id: "t-surgeon", name: "Field surgeon", count: 1, quality: 4, tier: 4, xp: 0, wage: 3.1, morale: 0.85 },
+        { id: "t-riflemen", name: "Riflemen", count: 18, wounded: 0, quality: 3, tier: 3, xp: 0, wage: 0.9, morale: 0.8 },
+        { id: "t-drivers", name: "Drivers", count: 6, wounded: 0, quality: 2, tier: 2, xp: 0, wage: 1.2, morale: 0.76 },
+        { id: "t-surgeon", name: "Field surgeon", count: 1, wounded: 0, quality: 4, tier: 4, xp: 0, wage: 3.1, morale: 0.85 },
       ],
       roles: { quartermaster: "Ivo Petran", surgeon: "Ada Renko", scout: "Bil Todd" },
       goods: [{ goodId: "grain", name: "Grain", quantity: 0, avgPaid: 0 }],
@@ -865,6 +873,7 @@ class FixtureState {
         id: stackId,
         name: offered.name,
         count: request.quantity,
+        wounded: 0,
         quality: offered.quality,
         tier: offered.quality,
         xp: 0,
@@ -1310,6 +1319,58 @@ class FixtureState {
     this.#rebuildLedger();
     this.#refreshWarnings();
     this.#emit({ tick: this.#tick, day: this.#day, towns: townDeltas, party: structuredClone(this.#party), ledger: structuredClone(this.#ledger), warnings: structuredClone(this.#warnings) });
+    this.#recoverWounded();
+    this.#moveNpcParties();
+    this.#rebuildLedger();
+    this.#refreshWarnings();
+    this.#emit({ tick: this.#tick, day: this.#day, towns: townDeltas, party: structuredClone(this.#party), npcParties: structuredClone(this.#npcParties), ledger: structuredClone(this.#ledger), warnings: structuredClone(this.#warnings) });
+  }
+
+  /**
+   * Wounded troops recover over campaign time. Each day, a fraction of wounded
+   * return to fighting strength. Recovery is faster with a surgeon and medicine.
+   */
+  #recoverWounded(): void {
+    const hasSurgeon = this.#party.roles.surgeon != null;
+    const medicineBonus = this.#party.medicine > 0 ? 0.1 : 0;
+    // Base 20% recover per day, +10% with surgeon, +10% with medicine.
+    const recoveryRate = 0.2 + (hasSurgeon ? 0.1 : 0) + medicineBonus;
+
+    for (const stack of this.#party.troops) {
+      if (stack.wounded > 0) {
+        const recovered = Math.min(stack.wounded, Math.max(1, Math.round(stack.wounded * recoveryRate)));
+        stack.wounded -= recovered;
+        stack.count += recovered;
+      }
+    }
+  }
+
+  /**
+   * Move NPC parties. Bandits wander; when they have no destination they pick a
+   * new random one within a bounded range. Deterministic via the seeded RNG.
+   */
+  #moveNpcParties(): void {    const rand = this.#random;
+    for (const npc of this.#npcParties) {
+      if (!npc.destination) {
+        // Pick a new wander target within ~150km.
+        const angle = rand() * Math.PI * 2;
+        const dist = 40 + rand() * 110;
+        npc.destination = {
+          x: npc.position.x + Math.cos(angle) * dist,
+          z: npc.position.z + Math.sin(angle) * dist,
+        };
+      }
+      const dx = npc.destination.x - npc.position.x;
+      const dz = npc.destination.z - npc.position.z;
+      const dist = Math.hypot(dx, dz);
+      if (dist < 1) {
+        npc.destination = null;
+        continue;
+      }
+      const step = Math.min(dist, npc.speedKmPerDay);
+      npc.position.x += (dx / dist) * step;
+      npc.position.z += (dz / dist) * step;
+    }
   }
 
   #emit(update: TickUpdate): void {
@@ -1391,6 +1452,199 @@ class FixtureState {
       field: "troops",
     });
     return awarded;
+  }
+
+  /**
+   * Apply a battle's outcome to the campaign party: casualties reduce troop
+   * counts proportionally across stacks, loot is added to money, and XP is
+   * awarded to surviving troops.
+   */
+  async applyBattleResult(input: {
+    won: boolean;
+    playerLosses: number;
+    loot: number;
+    enemyStrength: number;
+    prisonersCaptured?: { troopId: string; name: string; count: number; tier: number }[];
+  }): Promise<{
+    troopsRemaining: number;
+    money: number;
+    xpAwards: { stackId: string; xp: number }[];
+    prisoners: { troopId: string; name: string; count: number; tier: number }[];
+  }> {
+    // Apply casualties proportionally across stacks with troops.
+    const stacks = this.#party.troops.filter((t) => t.count > 0);
+    const totalTroops = stacks.reduce((a, t) => a + t.count, 0);
+
+    if (totalTroops > 0 && input.playerLosses > 0) {
+      let lossesLeft = Math.round(input.playerLosses);
+      // Distribute losses proportionally, largest stacks first for stability.
+      const sorted = [...stacks].sort((a, b) => b.count - a.count);
+      for (const stack of sorted) {
+        if (lossesLeft <= 0) break;
+        const share = Math.min(stack.count, Math.round((stack.count / totalTroops) * input.playerLosses));
+        const loss = Math.min(share, lossesLeft, stack.count);
+        stack.count -= loss;
+        lossesLeft -= loss;
+      }
+      // Mop up rounding remainder from the largest remaining stack.
+      if (lossesLeft > 0) {
+        const biggest = sorted.find((s) => s.count > 0);
+        if (biggest) biggest.count = Math.max(0, biggest.count - lossesLeft);
+      }
+    }
+
+    const troopsRemaining = this.#party.troops.reduce((a, t) => a + t.count, 0);
+
+    // Add loot to money.
+    if (input.loot > 0) {
+      this.#party.money = Math.round(this.#party.money + input.loot);
+    }
+
+    // Award XP to survivors.
+    const xpAwards = await this.awardBattleXp({
+      won: input.won,
+      enemyStrength: input.enemyStrength,
+    });
+
+    // Add prisoners to the party's prisoner list.
+    if (input.prisonersCaptured && input.prisonersCaptured.length > 0) {
+      for (const p of input.prisonersCaptured) {
+        const existing = this.#party.prisoners.find((x) => x.troopId === p.troopId);
+        if (existing) {
+          existing.count += p.count;
+        } else {
+          this.#party.prisoners.push({ ...p });
+        }
+      }
+    }
+
+    this.#notifications.push({
+      id: `n-battle-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: input.won
+        ? `Victory. Lost ${totalTroops - troopsRemaining} troops, gained ${Math.round(input.loot)} in spoils.`
+        : `Defeat. Lost ${totalTroops - troopsRemaining} troops.`,
+      entityId: this.#party.id,
+      field: "troops",
+    });
+
+    return {
+      troopsRemaining,
+      money: this.#party.money,
+      xpAwards,
+      prisoners: structuredClone(this.#party.prisoners),
+    };
+  }
+
+  /**
+   * Apply an authoritative battle result. Uses actual killed/wounded numbers
+   * from the battle, not estimates. Wounded troops move to the wounded pool
+   * and recover over campaign time.
+   */
+  async applyBattleOutcome(result: BattleResult): Promise<{
+    troopsRemaining: number;
+    money: number;
+    xpAwards: { stackId: string; xp: number }[];
+    prisoners: { troopId: string; name: string; count: number; tier: number }[];
+  }> {
+    const player = result.attacker.isPlayer ? result.attacker : result.defender;
+    const enemy = result.attacker.isPlayer ? result.defender : result.attacker;
+    const won = result.winner === "attacker" ? result.attacker.isPlayer : result.winner === "defender" ? result.defender.isPlayer : false;
+
+    // Apply killed and wounded proportionally across stacks.
+    const stacks = this.#party.troops.filter((t) => t.count > 0);
+    const totalTroops = stacks.reduce((a, t) => a + t.count, 0);
+
+    let killedLeft = Math.round(player.killed);
+    let woundedLeft = Math.round(player.wounded);
+
+    if (totalTroops > 0 && (killedLeft > 0 || woundedLeft > 0)) {
+      // Distribute killed first, then wounded, proportionally.
+      const sorted = [...stacks].sort((a, b) => b.count - a.count);
+      for (const stack of sorted) {
+        if (killedLeft <= 0 && woundedLeft <= 0) break;
+        const share = stack.count / totalTroops;
+        // Killed: permanent removal
+        if (killedLeft > 0) {
+          const killed = Math.min(stack.count, Math.round(player.killed * share));
+          const actual = Math.min(killed, killedLeft);
+          stack.count -= actual;
+          killedLeft -= actual;
+        }
+        // Wounded: move from count to wounded pool
+        if (woundedLeft > 0 && stack.count > 0) {
+          const wounded = Math.min(stack.count, Math.round(player.wounded * share));
+          const actual = Math.min(wounded, woundedLeft, stack.count);
+          stack.count -= actual;
+          stack.wounded += actual;
+          woundedLeft -= actual;
+        }
+      }
+      // Handle rounding leftovers
+      for (const stack of sorted) {
+        if (killedLeft <= 0 && woundedLeft <= 0) break;
+        if (killedLeft > 0 && stack.count > 0) {
+          stack.count -= 1;
+          killedLeft -= 1;
+        } else if (woundedLeft > 0 && stack.count > 0) {
+          stack.count -= 1;
+          stack.wounded += 1;
+          woundedLeft -= 1;
+        }
+      }
+    }
+
+    const troopsRemaining = this.#party.troops.reduce((a, t) => a + t.count, 0);
+
+    // Loot
+    this.#party.money = Math.round(this.#party.money + result.loot);
+
+    // Prisoners taken
+    if (player.prisonersTaken > 0) {
+      const existing = this.#party.prisoners.find((p) => p.troopId === "t-captive");
+      if (existing) {
+        existing.count += player.prisonersTaken;
+      } else {
+        this.#party.prisoners.push({
+          troopId: "t-captive",
+          name: "Captives",
+          count: player.prisonersTaken,
+          tier: 1,
+        });
+      }
+    }
+
+    // XP: scaled by actual enemy troops faced, not a guess.
+    const xpAwards: { stackId: string; xp: number }[] = [];
+    const xpPool = Math.round(enemy.initialTroops * 2);
+    const fighters = this.#party.troops.filter((t) => t.count > 0);
+    const totalFighters = fighters.reduce((a, t) => a + t.count, 0);
+    if (totalFighters > 0 && xpPool > 0) {
+      for (const stack of fighters) {
+        const xp = Math.round((stack.count / totalFighters) * xpPool);
+        stack.xp = Math.round(stack.xp + xp);
+        xpAwards.push({ stackId: stack.id, xp });
+      }
+    }
+
+    this.#notifications.push({
+      id: `n-battle-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: won
+        ? `Victory. ${player.killed} killed, ${player.wounded} wounded. Gained ${Math.round(result.loot)} in spoils.`
+        : `Defeat. ${player.killed} killed, ${player.wounded} wounded.`,
+      entityId: this.#party.id,
+      field: "troops",
+    });
+
+    return {
+      troopsRemaining,
+      money: this.#party.money,
+      xpAwards,
+      prisoners: structuredClone(this.#party.prisoners),
+    };
   }
 
   /**
@@ -1586,10 +1840,16 @@ class FixtureState {
   setCharacter(character: PlayerCharacter): void {
     this.#player.characterName = `${character.firstName} ${character.lastName}`;
     this.#player.ethnicityId = character.ethnicityId;
-    (this.#player as Record<string, unknown>).appearanceId = character.appearanceId;
-    (this.#player as Record<string, unknown>).age = character.age;
-    (this.#player as Record<string, unknown>).biography = character.biography;
-    (this.#player as Record<string, unknown>).skills = { ...character.startingSkills };
+    this.#player.appearanceId = character.appearanceId;
+    this.#player.age = character.age;
+    this.#player.biography = character.biography;
+    this.#player.skills = { ...character.startingSkills };
+    // The background choices used to be dropped here, so a finished campaign could
+    // show the biography a sheet had built but never what the player had picked.
+    // They ride along with the attributes and focus the sheet allocates.
+    this.#player.backgroundChoices = { ...character.backgroundChoices };
+    this.#player.attributes = { ...(character.attributes ?? {}) };
+    this.#player.skillFocus = { ...(character.skillFocus ?? {}) };
     (this.#player as Record<string, unknown>).difficulty = character.difficulty;
     (this.#player as Record<string, unknown>).startCity = character.startCity;
     this.#player.resources.money = character.startingCash;

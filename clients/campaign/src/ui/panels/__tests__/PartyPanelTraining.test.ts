@@ -10,6 +10,7 @@ function stack(overrides: Partial<TroopStack> = {}): TroopStack {
     id: "s1",
     name: "Militia",
     count: 20,
+    wounded: 0,
     quality: 2,
     tier: 2,
     xp: 0,

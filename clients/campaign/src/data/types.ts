@@ -300,6 +300,8 @@ export interface TroopStack {
   id: string;
   name: string;
   count: number;
+  /** Wounded troops in this stack. They recover over campaign time. */
+  wounded: number;
   /** 0 to 5, per `RULERS.md` and the troop quality rules in `MARCH_AND_WAR.md` §5. */
   quality: number;
   /** 1 to 5, indexes TROOP_TIERS. Kept in sync with quality on upgrade. */
@@ -374,6 +376,87 @@ export interface BattleXpInput {
 export interface BattleXpAward {
   stackId: string;
   xp: number;
+}
+
+/** A battle participant's outcome. Authoritative data from the battle, not estimates. */
+export interface BattleParticipantResult {
+  /** Party ID (player party or NPC party ID). */
+  partyId: string;
+  /** Display name. */
+  name: string;
+  /** Whether this is the player's party. */
+  isPlayer: boolean;
+  /** Troops at battle start. */
+  initialTroops: number;
+  /** Troops still fighting at battle end. */
+  survivingTroops: number;
+  /** Killed in action (permanent losses). */
+  killed: number;
+  /** Wounded (recover over campaign time). */
+  wounded: number;
+  /** Enemy troops captured by this participant. */
+  prisonersTaken: number;
+  /** Own troops captured by the enemy. */
+  prisonersLost: number;
+  /** Whether this side retreated. */
+  retreated: boolean;
+}
+
+/** Authoritative battle result. Produced by the battle, consumed by campaign writeback. */
+export interface BattleResult {
+  /** Battle ID. */
+  battleId: string;
+  /** Who won: attacker, defender, or draw. */
+  winner: "attacker" | "defender" | "draw";
+  attacker: BattleParticipantResult;
+  defender: BattleParticipantResult;
+  /** Loot value gained by the winner. */
+  loot: number;
+  /** Battle duration in ticks. */
+  ticks: number;
+}
+
+/** Input for applying a battle's outcome to the campaign party. */
+export interface BattleResultInput {
+  /** Whether the player's side won. */
+  won: boolean;
+  /** Number of player troops lost (killed/wounded). */
+  playerLosses: number;
+  /** Loot value gained (added to money). */
+  loot: number;
+  /** Total enemy combat strength, for XP scaling. */
+  enemyStrength: number;
+  /** Enemy troops captured as prisoners. */
+  prisonersCaptured?: { troopId: string; name: string; count: number; tier: number }[];
+}
+
+/** Result of applying a battle outcome. */
+export interface BattleResultOutcome {
+  /** Troops remaining after casualties. */
+  troopsRemaining: number;
+  /** Money after loot added. */
+  money: number;
+  /** XP awarded per stack. */
+  xpAwards: BattleXpAward[];
+  /** Current prisoner list. */
+  prisoners: { troopId: string; name: string; count: number; tier: number }[];
+}
+
+/** An NPC party roaming the campaign map. */
+export interface NpcParty {
+  id: string;
+  name: string;
+  kind: "bandit" | "caravan" | "lord" | "militia";
+  factionId: string;
+  position: { x: number; z: number };
+  troops: { name: string; count: number; tier: number }[];
+  /** Total troop count (denormalized for quick checks). */
+  troopCount: number;
+  /** Whether this party is hostile to the player. */
+  hostile: boolean;
+  /** Movement target, null when stationary. */
+  destination: { x: number; z: number } | null;
+  speedKmPerDay: number;
 }
 
 export interface PartyState {
@@ -680,6 +763,19 @@ export interface SimSnapshot {
     age: number;
     /** Biography assembled from background choices. */
     biography: string;
+    /**
+     * The background choices as made, category id -> option id.
+     *
+     * Optional and additive on purpose. The sheet used to survive only as its
+     * effects — skills, cash, biography — so a player could not be told later what
+     * they had picked. Adding the field is why the schema version did not have to
+     * move: an old save simply does not have it.
+     */
+    backgroundChoices?: Record<string, string> | undefined;
+    /** The six attributes as allocated, attribute id -> level. */
+    attributes?: Record<string, number> | undefined;
+    /** Focus points spent per skill id. */
+    skillFocus?: Record<string, number> | undefined;
     /** Starting skills from backgrounds + age + bonus points. */
     skills: Record<string, number>;
     factionId: string;
@@ -736,7 +832,13 @@ export interface PlayerCharacter {
   startCity: string;
   difficulty: string;
   backgroundChoices: Record<string, string>;
-  bonusPoints: Record<string, number>;
+  /**
+   * The six attributes as allocated. Optional because the simulation accepts the
+   * sheet either way and an older client omits it; the maker always sends it.
+   */
+  attributes?: Record<string, number> | undefined;
+  /** Focus points spent per skill id. Optional, for the same reason. */
+  skillFocus?: Record<string, number> | undefined;
   startingSkills: Record<string, number>;
   startingCash: number;
   biography: string;
@@ -777,6 +879,18 @@ export interface SimulationProvider {
   setCharacter(character: PlayerCharacter): void;
   /** Award battle XP to troops. Called after combat resolves. */
   awardBattleXp(input: BattleXpInput): Promise<BattleXpAward[]>;
+  /** Apply a battle's outcome (casualties, loot, XP) to the campaign party. */
+  applyBattleResult(input: BattleResultInput): Promise<BattleResultOutcome>;
+  /**
+   * Apply an authoritative battle result. The result carries actual participant
+   * rosters (killed/wounded/survivors), not estimates. Preferred over
+   * applyBattleResult when the battle produces a full BattleResult.
+   */
+  applyBattleOutcome(result: BattleResult): Promise<BattleResultOutcome>;
+  /** Restore the provider's internal state from a saved snapshot. */
+  restoreSnapshot(snapshot: SimSnapshot): Promise<void>;
+  /** NPC parties within rangeKm of the player party. */
+  getNearbyHostiles(rangeKm: number): Promise<NpcParty[]>;
   /** Promote a troop stack to the next tier, spending banked XP and gold. */
   upgradeTroops(request: UpgradeTroopsRequest): Promise<UpgradeTroopsResult>;
   /**
