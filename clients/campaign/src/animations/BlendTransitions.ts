@@ -61,7 +61,14 @@ export type BlendSeconds = number;
 /** Task 634: how long a hit reaction takes to blend back out, seconds. */
 export const RETURN_FROM_HIT_SECONDS = 0.3;
 
-/** Every transition the animation layer can be asked for. */
+/**
+ * Every transition the animation layer can be asked for.
+ *
+ * The same set `AnimationController` can play, on purpose: a blend that cannot
+ * reach a state is a state nobody can cross-fade into, and the two type names
+ * drifting apart is how a cheer ends up snapping on while everything else
+ * cross-fades. A test pins that they stay the same set.
+ */
 export type BlendState =
   | 'idle'
   | 'walk'
@@ -69,7 +76,11 @@ export type BlendState =
   | 'aim'
   | 'shoot'
   | 'hit'
-  | 'death';
+  | 'death'
+  | 'attack'
+  | 'block'
+  | 'cheer'
+  | 'salute';
 
 /** A state a hit reaction must never return to. */
 const NEVER_RETURN_TO: ReadonlySet<BlendState> = new Set<BlendState>(['hit', 'death']);

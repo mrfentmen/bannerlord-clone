@@ -19,6 +19,7 @@ import { describe, expect, it, vi } from "vitest";
 import { AnimationController, CombatAnimator } from "../AnimationController.js";
 import { clipsOf } from "./glbClips.js";
 import { resolveStateClip } from "../StateClips.js";
+import { BlendTrack, RETURN_FROM_HIT_SECONDS } from "../BlendTransitions.js";
 
 /** A controller with every state the animator can ask for. */
 function controller(): AnimationController {
@@ -122,5 +123,77 @@ describe("victory cheer (task 668)", () => {
     expect(resolveStateClip('cheer' as 'downed', clipsOf('operator-viper.glb')).gap).toBe(
       'no-clip-registered',
     );
+  });
+});
+
+describe("hit reaction and the way back out (task 669)", () => {
+  it("records what was playing before the hit, and plays the hit", () => {
+    const anim = controller();
+    const combat = new CombatAnimator(anim);
+    anim.play('walk');
+    combat.takeHit();
+    expect(anim.getCurrentState()).toBe('hit');
+    expect(combat.getHitReturnState()).toBe('walk');
+  });
+
+  it("blends in fast and back out slowly, from every state", () => {
+    // The 0.05 s in and 0.3 s out are the design numbers from the blend table.
+    for (const state of ['idle', 'walk', 'run', 'cheer'] as const) {
+      const track = new BlendTrack();
+      track.play(state);
+      for (let i = 0; i < 20; i++) track.update(1 / 60);
+      track.interrupt('hit');
+      track.update(0.05);
+      expect(track.weightOf('hit'), state).toBeCloseTo(1, 5);
+      expect(track.weightOf(state), state).toBe(0);
+
+      expect(track.playAfterHit(state)).toBe(state);
+      track.update(RETURN_FROM_HIT_SECONDS / 2);
+      // Halfway out, the reaction and the stance are equally weighted -- a
+      // straight cut to the stance is the artefact this prevents.
+      expect(track.weightOf('hit')).toBeCloseTo(0.5, 1);
+      expect(track.weightOf(state)).toBeCloseTo(0.5, 1);
+      track.update(RETURN_FROM_HIT_SECONDS / 2);
+      expect(track.weightOf(state)).toBeCloseTo(1, 5);
+    }
+  });
+
+  it("does not return into the reaction when a second hit lands", () => {
+    const anim = controller();
+    const combat = new CombatAnimator(anim);
+    anim.play('run');
+    combat.takeHit();
+    // A second hit while the first reaction is playing: the way back out is the
+    // stance before either of them, or the character flinch-loops.
+    combat.takeHit();
+    expect(combat.getHitReturnState()).toBe('hit');
+    const track = new BlendTrack();
+    track.interrupt('hit');
+    expect(track.playAfterHit(combat.getHitReturnState())).toBe('idle');
+  });
+
+  it("keeps the hit interruptible by the next hit", () => {
+    const track = new BlendTrack();
+    track.play('idle');
+    for (let i = 0; i < 20; i++) track.update(1 / 60);
+    track.interrupt('hit');
+    track.update(0.02);
+    const mid = track.weightOf('hit');
+    track.interrupt('hit'); // a second hit mid-reaction
+    expect(track.weightOf('hit')).toBe(mid);
+    track.update(0.05);
+    expect(track.weightOf('hit')).toBeCloseTo(1, 5);
+  });
+
+  it("is not a death: the reaction comes back out", () => {
+    const track = new BlendTrack();
+    track.play('idle');
+    for (let i = 0; i < 20; i++) track.update(1 / 60);
+    track.interrupt('hit');
+    track.update(0.05);
+    expect(track.isTerminal()).toBe(false);
+    track.playAfterHit('idle');
+    track.update(RETURN_FROM_HIT_SECONDS);
+    expect(track.active).toBe('idle');
   });
 });

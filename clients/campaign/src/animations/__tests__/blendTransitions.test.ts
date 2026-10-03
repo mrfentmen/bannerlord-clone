@@ -537,3 +537,35 @@ describe("BlendTrack (task 631)", () => {
     }
   });
 });
+describe("state coverage (tasks 631-638, 669)", () => {
+  it("can reach every state AnimationController can play", () => {
+    // A blend that cannot name a state cannot cross-fade into it, and a state
+    // that snaps while everything else cross-fades is the artefact this catches.
+    const controllerStates: readonly string[] = [
+      'idle',
+      'walk',
+      'run',
+      'attack',
+      'block',
+      'hit',
+      'death',
+      'cheer',
+      'salute',
+    ];
+    for (const state of controllerStates) {
+      const track = new BlendTrack();
+      track.play(state as BlendState);
+      expect(track.active, state).toBe(state);
+      // ...and it fades in rather than appearing at full weight.
+      expect(track.weightOf(state as BlendState), state).toBe(0);
+      for (let i = 0; i < 20; i++) track.update(1 / 60);
+      expect(track.weightOf(state as BlendState), state).toBeCloseTo(1, 5);
+    }
+    // The combat-only states the blend layer adds on top.
+    for (const state of ['aim', 'shoot'] as const) {
+      const track = new BlendTrack();
+      track.play(state);
+      expect(track.active, state).toBe(state);
+    }
+  });
+});
