@@ -1253,6 +1253,9 @@ class FixtureState {
       }
     }
 
+    // Party upkeep: wages, food, morale.
+    this.#partyUpkeep();
+
     const townDeltas: Record<string, Partial<TownState>> = {};
 
     for (const town of this.#towns.values()) {
@@ -1401,6 +1404,63 @@ class FixtureState {
     this.#rebuildLedger();
     this.#refreshWarnings();
     this.#emit({ tick: this.#tick, day: this.#day, towns: townDeltas, party: structuredClone(this.#party), npcParties: structuredClone(this.#npcParties), ledger: structuredClone(this.#ledger), warnings: structuredClone(this.#warnings) });
+  }
+
+  /**
+   * Daily party upkeep: wages, food consumption, and morale.
+   * - Each troop costs daily wages (tier-based). Unpaid wages accumulate and hurt morale.
+   * - Each troop consumes food. Starvation hurts morale and causes desertion.
+   * - Morale recovers when troops are fed and paid, drops when they're not.
+   */
+  #partyUpkeep(): void {
+    const troopCount = this.#party.troops.reduce((sum, t) => sum + t.count, 0);
+    if (troopCount === 0) return;
+
+    // Wages: 2 gold per tier per troop per day
+    const dailyWages = this.#party.troops.reduce((sum, t) => sum + t.count * t.tier * 2, 0);
+    const money = this.#party.money;
+    if (money >= dailyWages) {
+      this.#party.money -= dailyWages;
+    } else {
+      // Can't pay full wages: pay what we can, rest goes to wagesOwed
+      this.#party.money = 0;
+      this.#party.wagesOwed += dailyWages - money;
+      this.#party.morale = Math.max(0, this.#party.morale - 0.05);
+    }
+
+    // Food: 1 food per 5 troops per day
+    const dailyFood = Math.ceil(troopCount / 5);
+    const food = this.#party.food;
+    if (food >= dailyFood) {
+      this.#party.food -= dailyFood;
+      // Well-fed: morale recovers slightly
+      this.#party.morale = Math.min(1, this.#party.morale + 0.01);
+    } else {
+      // Starving: consume what's left, morale drops, risk desertion
+      this.#party.food = 0;
+      this.#party.morale = Math.max(0, this.#party.morale - 0.08);
+      // Desertion: if morale is very low, troops leave
+      if (this.#party.morale < 0.2 && this.#random() < 0.1) {
+        const stack = this.#party.troops[Math.floor(this.#random() * this.#party.troops.length)];
+        if (stack && stack.count > 1) {
+          const deserters = Math.max(1, Math.floor(stack.count * 0.1));
+          stack.count -= deserters;
+          this.#notifications.push({
+            id: `n-desert-${this.#sequence++}`,
+            day: this.#day,
+            priority: "important",
+            text: `${deserters} ${stack.name} deserted due to low morale and hunger!`,
+            entityId: this.#party.id,
+            field: "morale",
+          });
+        }
+      }
+    }
+
+    // Morale drift toward 0.5 when conditions are neutral
+    if (this.#party.food > 0 && this.#party.wagesOwed === 0) {
+      this.#party.morale = Math.min(1, this.#party.morale + 0.005);
+    }
   }
 
   /**
