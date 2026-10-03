@@ -80,11 +80,17 @@ describe("the elevation tiers in region.json", () => {
     }
   });
 
-  it("treats the detail list as optional, and this region ships the boot list alone", () => {
-    // The loader reads `elevation` and nothing else, so a boot-list-only file is the
-    // normal case rather than a degraded one.
-    expect(region.elevationDetail).toBeUndefined();
+  it("ships the tiered region: a small boot list plus the larger detail list", () => {
+    // The loader reads `elevation` and leaves `elevationDetail` alone, so the region
+    // ships the small zoom-10 boot list (154 tiles) for startup and the zoom-12
+    // detail list (2,236 tiles) for future on-demand streaming.
     expect(region.elevation.tiles.length).toBeGreaterThan(0);
+    expect(region.elevationDetail).toBeDefined();
+    expect(region.elevationDetail!.zoom).toBeGreaterThan(region.elevation.zoom);
+    expect(region.elevationDetail!.tiles.length).toBeGreaterThan(region.elevation.tiles.length);
+    for (const tile of region.elevationDetail!.tiles) {
+      expect(tile.z).toBe(region.elevationDetail!.zoom);
+    }
   });
 
   it("loads a tiered file from the boot list, never from the larger detail list", async () => {
