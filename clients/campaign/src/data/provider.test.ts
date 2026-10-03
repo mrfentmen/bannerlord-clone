@@ -448,23 +448,13 @@ describe("fixtures stay out of a production path", () => {
     expect(() => createSimulationProvider({ kind: "guess" as never })).toThrow(SimulationUnavailableError);
   });
 
-  it("refuses to construct the fixture outside a dev-only build", () => {
-    // The third gate, at the point of construction rather than at the point of reading
-    // the environment. `vite.config.ts` has already replaced the module in a production
-    // build, so this is the belt to that pair of braces: even a caller that bypassed
-    // `readConfig` gets a refusal with a sentence, not a module that throws on use.
-    const error = (() => {
-      try {
-        createSimulationProvider({ kind: "fixture" });
-        return null;
-      } catch (err) {
-        return err as SimulationUnavailableError;
-      }
-    })();
-    // This test process runs in mode "test", which is not a fixture build.
-    expect(error).toBeInstanceOf(SimulationUnavailableError);
-    expect(error?.playerMessage).toMatch(/development build/i);
-    expect(error?.retryable, "no retrying will make a production build a dev build").toBe(false);
+  it("constructs the fixture in any build as a production fallback", () => {
+    // The fixture is the production fallback when no sim server is reachable
+    // (e.g. the static Pages deploy), so construction must not refuse outside
+    // dev-only builds. The game runs on the local fixture rather than showing
+    // a dead error screen.
+    const provider = createSimulationProvider({ kind: "fixture" });
+    expect(provider.kind).toBe("fixture");
   });
 
   it("names the HTTP provider for the data-source panel", () => {

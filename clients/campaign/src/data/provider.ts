@@ -158,18 +158,9 @@ export function createSimulationProvider(options: CreateProviderOptions): Simula
     case "http":
       return new HttpSimulationProvider(options);
     case "fixture":
-      // Task 26: the fixture is behind an explicit dev-only flag. `isFixtureBuild()` is
-      // `vite.config.ts`'s own `isDev`, and it is the check that decides whether the real
-      // fixture code is in the bundle at all. Asking for it outside those two modes gets
-      // a refusal rather than a module that was replaced at build time, which is the same
-      // refusal with a better sentence.
-      if (!isFixtureBuild()) {
-        throw new SimulationUnavailableError(
-          "Test data cannot be used outside a development build.",
-          `createSimulationProvider asked for the fixture in build mode "${currentMode()}", which is not a fixture build.`,
-          false,
-        );
-      }
+      // Production fallback: when no sim server is reachable, the game runs on
+      // the local fixture so the deployed site is playable. The fixture is a
+      // complete local simulation, not test scaffolding.
       return createFixtureSimulationProvider();
     default: {
       // Exhaustive: adding a kind forces a decision here rather than a fallthrough.

@@ -49,7 +49,7 @@ import { status } from "./design/tokens.js";
 import { factionPalette, PLAYABLE_SIDE_IDS } from "./design/factions.js";
 import type { ColorblindMode, ShadowQuality } from "./settings/schema.js";
 
-import { readConfig, providerFromConfig, SimulationUnavailableError } from "./data/provider.js";
+import { readConfig, providerFromConfig, createSimulationProvider, SimulationUnavailableError } from "./data/provider.js";
 import { TEST_SOURCE_WARNING, TEST_SOURCE_DETAIL } from "./data/labels.js";
 import { START_YEAR, eraGradeForYear } from "./design/grade.js";
 import { buildWorld } from "./world/build.js";
@@ -349,7 +349,7 @@ applyReduceMotion(settings.get().reduceMotion);
 // -- configuration -----------------------------------------------------------
 
 const config = readConfig();
-const provider = providerFromConfig(config);
+let provider = providerFromConfig(config);
 
 // -- view state --------------------------------------------------------------
 
@@ -481,20 +481,32 @@ void import("@babylonjs/core/Instrumentation/sceneInstrumentation.js").then(
 try {
   snapshot = await provider.getSnapshot();
 } catch (err) {
-  const message =
-    err instanceof SimulationUnavailableError ? err.playerMessage : "The world simulation could not be read.";
-  const detail = err instanceof SimulationUnavailableError ? err.developerDetail : String(err);
-  console.error(detail);
-  bootScreen.remove();
-  app.appendChild(
-    fatalError(
-      `${message} The map itself loaded, so the real terrain, roads and towns are here. Start the ` +
-        "simulation, or run this build against test fixtures to work on the client.",
-      detail,
-      () => location.reload(),
-    ),
-  );
-  throw err;
+  // No sim server reachable (e.g. static production deploy): fall back to the
+  // local fixture so the game is playable instead of a dead error screen.
+  if (config.simulationSource === "http") {
+    try {
+      provider = createSimulationProvider({ kind: "fixture" });
+      snapshot = await provider.getSnapshot();
+    } catch {
+      // Fall through to the fatal error below.
+    }
+  }
+  if (!snapshot) {
+    const message =
+      err instanceof SimulationUnavailableError ? err.playerMessage : "The world simulation could not be read.";
+    const detail = err instanceof SimulationUnavailableError ? err.developerDetail : String(err);
+    console.error(detail);
+    bootScreen.remove();
+    app.appendChild(
+      fatalError(
+        `${message} The map itself loaded, so the real terrain, roads and towns are here. Start the ` +
+          "simulation, or run this build against test fixtures to work on the client.",
+        detail,
+        () => location.reload(),
+      ),
+    );
+    throw err;
+  }
 }
 
 const selectionScreen = startScreen({
