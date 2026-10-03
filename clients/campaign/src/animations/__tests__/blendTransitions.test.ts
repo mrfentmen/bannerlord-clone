@@ -16,6 +16,7 @@ import {
   BlendTrack,
   type BlendState,
   DEFAULT_BLEND_SECONDS,
+  IDLE_TO_AIM,
   IDLE_TO_WALK,
   RETURN_FROM_HIT_SECONDS,
   WALK_TO_RUN,
@@ -56,6 +57,42 @@ describe("blend timings (task 631)", () => {
 
   it("has a printable key for a transition", () => {
     expect(transitionKey('idle', 'walk')).toBe('idle->walk');
+  });
+});
+
+describe("idle to aim (task 636)", () => {
+  it("brings the weapon up over 0.15 s, the same as walk to run", () => {
+    expect(IDLE_TO_AIM).toEqual({ outS: 0.15, inS: 0.15 });
+    expect(blendTimeFor('idle', 'aim')).toBe(0.15);
+    expect(IDLE_TO_AIM.inS).toBe(WALK_TO_RUN.inS);
+    expect(IDLE_TO_AIM.inS).toBeLessThan(IDLE_TO_WALK.inS);
+  });
+
+  it("reaches full aim weight in 0.15 s, not 0.2", () => {
+    const track = new BlendTrack();
+    track.play('idle');
+    runFor(track, 0.3);
+    track.play('aim');
+
+    const early = runFor(track, 0.1);
+    expect(early.weights.aim).toBeCloseTo(0.667, 1);
+    runFor(track, 0.05);
+    expect(track.weightOf('aim')).toBeCloseTo(1, 5);
+    expect(track.weightOf('idle')).toBe(0);
+    expect(track.active).toBe('aim');
+  });
+
+  it("fades idle out at the same rate it brings aim in", () => {
+    const track = new BlendTrack();
+    track.play('idle');
+    runFor(track, 0.3);
+    track.play('aim');
+    // One update of exactly half the blend: the two curves cross together.
+    const update = track.update(0.075);
+    // NaN rather than 0 for a state the track does not hold, so a missing key
+    // fails the comparison instead of quietly comparing equal to another.
+    expect(update.weights.idle ?? Number.NaN).toBeCloseTo(update.weights.aim ?? Number.NaN, 5);
+    expect(update.weights.aim ?? Number.NaN).toBeCloseTo(0.5, 5);
   });
 });
 

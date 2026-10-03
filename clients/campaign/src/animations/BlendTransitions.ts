@@ -1,6 +1,11 @@
 /**
  * Blend transitions between animation states.
  *
+ * Task 636: bringing a weapon up from idle blends over 0.15 s -- the same length
+ * as walk to run, because raising a rifle and breaking into a run are the same
+ * kind of movement: a deliberate commitment that takes a moment but must not
+ * look like a snap.
+ *
  * Task 635: death is reached from any state in 0.1 s -- twice as long as the
  * hit interrupt, because a death animation needs room to read, but half the
  * return-from-reaction and half any locomotion blend -- and it is the one state
@@ -100,6 +105,9 @@ export const IDLE_TO_WALK: BlendTiming = { outS: 0.2, inS: 0.2 };
 /** Task 632: walk to run blends over 0.15 s. */
 export const WALK_TO_RUN: BlendTiming = { outS: 0.15, inS: 0.15 };
 
+/** Task 636: bringing the weapon up from idle blends over 0.15 s. */
+export const IDLE_TO_AIM: BlendTiming = { outS: 0.15, inS: 0.15 };
+
 /**
  * Task 633: blend length for a state reached from *any* other state, seconds.
  *
@@ -123,7 +131,7 @@ const TERMINAL_STATES: ReadonlySet<BlendState> = new Set<BlendState>(['death']);
 export const BLEND_TIMINGS: Readonly<
   Partial<Record<BlendState, Readonly<Partial<Record<BlendState, BlendTiming>>>>>
 > = {
-  idle: { walk: IDLE_TO_WALK },
+  idle: { walk: IDLE_TO_WALK, aim: IDLE_TO_AIM },
   walk: { run: WALK_TO_RUN },
 };
 
