@@ -16,6 +16,9 @@
 
 import { beforeAll, describe, expect, it } from "vitest";
 import { createFixtureSimulationProvider } from "../../data/fixture/index.js";
+import { buildEncyclopedia } from "../../data/encyclopedia.js";
+import { evaluateObjectives } from "../../data/objectives.js";
+import { syncJournal } from "../../data/journal.js";
 import { ledgerPanel } from "../panels/LedgerPanel.js";
 import { marketPanel } from "../panels/MarketPanel.js";
 import { partyPanel } from "../panels/PartyPanel.js";
@@ -24,6 +27,9 @@ import { startScreen } from "../panels/StartScreen.js";
 import { townPanel } from "../panels/TownPanel.js";
 import { whyPanel } from "../panels/WhyPanel.js";
 import { marchPlanner } from "../panels/MarchPlanner.js";
+import { encyclopediaPanel } from "../panels/EncyclopediaPanel.js";
+import { objectivesPanel } from "../panels/ObjectivesPanel.js";
+import { journalPanel } from "../panels/JournalPanel.js";
 import { createHud } from "../hud.js";
 import type { SimSnapshot, SimulationProvider } from "../../data/types.js";
 
@@ -80,6 +86,18 @@ function renderedPanels(snap: SimSnapshot): Record<string, HTMLElement> {
       onError: noop,
     }).root,
     why: whyPanel({ entityId: golden.id, field: "unrest", provider, onDrill: noop }).root,
+    encyclopedia: encyclopediaPanel({ encyclopedia: buildEncyclopedia(snap), onClose: noop }).root,
+    objectives: objectivesPanel({
+      objectives: evaluateObjectives(
+        { party: snap.party, visitedSettlementIds: new Set(), notifications: snap.notifications },
+        new Set(),
+      ),
+      onClose: noop,
+    }).root,
+    journal: journalPanel({
+      store: syncJournal({ entries: [], nextSeq: 0 }, snap.notifications, []),
+      onClose: noop,
+    }).root,
   };
 }
 
