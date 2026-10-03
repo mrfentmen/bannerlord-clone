@@ -1355,6 +1355,14 @@ function townNode(town: TownState): Node {
       rebuildContext();
       paint();
     },
+    onRecruitMilitia: async (count) => {
+      if (!snapshot) throw new Error("No snapshot to recruit militia against.");
+      await provider.recruitMilitia(town.id, count);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+    },
     onRecruit: async (unitId, quantity) => {
       if (!snapshot) throw new Error("No snapshot to recruit against.");
       const result = await provider.recruit({

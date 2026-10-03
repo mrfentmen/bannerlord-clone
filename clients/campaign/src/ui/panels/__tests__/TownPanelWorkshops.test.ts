@@ -110,3 +110,26 @@ describe("town panel workshops", () => {
     expect(onBuy).toHaveBeenCalledWith("smithy");
   });
 });
+
+describe("town panel militia", () => {
+  it("shows the hire militia controls when the caller provides a handler", () => {
+    const root = townPanel(options({ onRecruitMilitia: vi.fn() }));
+    expect(root.querySelector('[data-testid="hire-militia"]')).not.toBeNull();
+    expect(root.querySelector('#militia-qty')).not.toBeNull();
+  });
+
+  it("hides the hire controls when no handler is provided", () => {
+    const root = townPanel(options());
+    expect(root.querySelector('[data-testid="hire-militia"]')).toBeNull();
+  });
+
+  it("calls the recruit handler with the chosen count", async () => {
+    const onRecruit = vi.fn().mockResolvedValue(undefined);
+    const root = townPanel(options({ onRecruitMilitia: onRecruit }));
+    const input = root.querySelector('#militia-qty') as HTMLInputElement;
+    input.value = "25";
+    (root.querySelector('[data-testid="hire-militia"]') as HTMLButtonElement).click();
+    await Promise.resolve();
+    expect(onRecruit).toHaveBeenCalledWith(25);
+  });
+});

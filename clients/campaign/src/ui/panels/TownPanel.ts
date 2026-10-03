@@ -98,6 +98,12 @@ export interface TownPanelOptions {
    */
   onSellWorkshop?: (workshopId: string) => Promise<void>;
   /**
+   * Hire militia for the town's garrison. The panel sends the count; the
+   * simulation owns the cost and the result. Only drawn when the caller can
+   * actually send the order.
+   */
+  onRecruitMilitia?: (count: number) => Promise<void>;
+  /**
    * The survey is still being read. Renders `town-skeleton`, which mirrors this
    * panel's sections, so the context region does not change height when the town
    * lands. Drawn before the request, never after it (CONSTITUTION.md section 3.2).
@@ -342,6 +348,18 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
       }),
     ),
   );
+  // Militia recruitment: the order goes to the simulation, which owns the cost
+  // and the result. The button only appears when the caller can send the order.
+  if (options.onRecruitMilitia !== undefined) {
+    const qty = numberField("militia-qty", "Militia to hire", 10, { min: 1, max: 100 });
+    const hireBtn = h("button", { type: "button", class: "btn btn--small", "data-testid": "hire-militia" }, "Hire militia");
+    hireBtn.addEventListener("click", () => {
+      const n = Math.max(1, Math.floor(Number(qty.input.value) || 1));
+      hireBtn.setAttribute("disabled", "");
+      void options.onRecruitMilitia!(n).finally(() => hireBtn.removeAttribute("disabled"));
+    });
+    body.appendChild(h("div", { style: "margin-top:var(--space-2)" }, qty.field, hireBtn));
+  }
 
   // -- money ----------------------------------------------------------------
   body.appendChild(sectionHeader("Money", whyButton("money", () => options.onWhy("money"))));
