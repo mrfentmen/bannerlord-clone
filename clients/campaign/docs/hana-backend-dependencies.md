@@ -60,3 +60,15 @@ consume it through the same marker/hover-card patterns built for settlements.
 board state (accepted/completed counts per party). The IssueBoard is read
 per-panel via provider; a lightweight snapshot-level quest summary would unlock
 this.
+
+## Relationship visualization (§18) — BLOCKED
+
+The sim models dynasties (`Ruler.SpouseID/FatherID/MotherID/HeirID` in
+`services/simulation/internal/model/entities.go`), but the ruler payload the
+client reads exposes none of it — no spouse, parents, children, or heir fields
+in `RulerState`. A relationship graph needs:
+- `spouseId`, `fatherId`, `motherId`, `heirId` on the ruler payload (as
+  `leader-N` ids, `-1`/null when absent)
+- Children derivable client-side once parent ids are present
+
+Without these, any family tree would be invented. Not building one.
