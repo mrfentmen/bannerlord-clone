@@ -23,7 +23,6 @@ describe("encounter → battle → writeback → save/load (victory)", () => {
     expect(npcTroopsStart).toBeGreaterThan(0);
 
     // NPC MOVEMENT: advance ticks, NPC should move
-    const npcPosBefore = { ...npc.position };
     await new Promise<void>((resolve) => {
       let ticks = 0;
       const unsub = provider.subscribeTicks(

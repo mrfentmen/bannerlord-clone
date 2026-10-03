@@ -495,6 +495,24 @@ export class HttpSimulationProvider implements SimulationProvider {
     );
   }
 
+  async splitParty(input: { troopIds: { stackId: string; count: number }[]; name: string }): Promise<{ partyId: string }> {
+    return this.#post<{ partyId: string }>(
+      "/v1/parties/split",
+      input,
+      "The split did not land.",
+      (v) => (typeof v === "object" && v !== null && "partyId" in v ? null : "bad split result"),
+    );
+  }
+
+  async mergeParty(partyId: string): Promise<void> {
+    await this.#post(
+      `/v1/parties/${encodeURIComponent(partyId)}/merge`,
+      {},
+      "The merge did not land.",
+      () => null,
+    );
+  }
+
   async restoreSnapshot(snapshot: SimSnapshot): Promise<void> {
     await this.#post<void>(
       "/v1/snapshot/restore",

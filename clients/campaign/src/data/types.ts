@@ -903,6 +903,15 @@ export interface SimulationProvider {
    * its surviving troops.
    */
   applyPlayerDefeat(input: { npcPartyId: string; lootTaken: number; prisonersTaken: number }): Promise<void>;
+  /**
+   * Split the player party: move troops into a new detached party.
+   * The detached party is player-controlled and can be merged back.
+   */
+  splitParty(input: { troopIds: { stackId: string; count: number }[]; name: string }): Promise<{ partyId: string }>;
+  /**
+   * Merge a detached party back into the player party.
+   */
+  mergeParty(partyId: string): Promise<void>;
   /** Restore the provider's internal state from a saved snapshot. */
   restoreSnapshot(snapshot: SimSnapshot): Promise<void>;
   /** NPC parties within rangeKm of the player party. */

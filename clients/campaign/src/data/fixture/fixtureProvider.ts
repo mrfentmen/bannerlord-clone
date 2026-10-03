@@ -234,6 +234,8 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     defeatNpcParty: async (partyId) => state.defeatNpcParty(partyId),
     fleeFromEncounter: async (npcPartyId, newPosition) => state.fleeFromEncounter(npcPartyId, newPosition),
     applyPlayerDefeat: async (input) => state.applyPlayerDefeat(input),
+    splitParty: async (input) => state.splitParty(input),
+    mergeParty: async (partyId) => state.mergeParty(partyId),
     restoreSnapshot: async (snapshot) => state.restoreSnapshot(snapshot),
     getNearbyHostiles: async (rangeKm) => state.getNearbyHostiles(rangeKm),
     upgradeTroops: async (request) => state.upgradeTroops(request),
@@ -1703,8 +1705,7 @@ class FixtureState {
    * prisoners from the player. The player retreats away from the battle.
    * The NPC party persists (it won).
    */
-  async applyPlayerDefeat(input: { npcPartyId: string; lootTaken: number; prisonersTaken: number }): Promise<void> {
-    const npc = this.#npcParties.find((p) => p.id === input.npcPartyId);
+  async applyPlayerDefeat(input: { npcPartyId: string; lootTaken: number; prisonersTaken: number }): Promise<void> {    const npc = this.#npcParties.find((p) => p.id === input.npcPartyId);
 
     // Enemy takes loot from the player
     const lootTaken = Math.min(this.#party.money, input.lootTaken);
@@ -1759,6 +1760,102 @@ class FixtureState {
       day: this.#day,
       priority: "important",
       text: `Defeated by ${npc?.name ?? "the enemy"}. Lost ${Math.round(lootTaken)} in loot${actualPrisoners > 0 ? ` and ${actualPrisoners} troops were captured` : ""}. The party retreats.`,
+      entityId: this.#party.id,
+      field: "troops",
+    });
+  }
+
+  /**
+   * Split the player party: create a detached party with the specified troops.
+   * The detached party stays near the player and can be merged back.
+   */
+  async splitParty(input: { troopIds: { stackId: string; count: number }[]; name: string }): Promise<{ partyId: string }> {
+    const partyId = `detached-${Date.now()}-${Math.round(this.#random() * 10000)}`;
+    const detachedTroops: { name: string; count: number; tier: number }[] = [];
+    let totalCount = 0;
+
+    for (const { stackId, count } of input.troopIds) {
+      const stack = this.#party.troops.find((t) => t.id === stackId);
+      if (!stack || stack.count < count || count <= 0) {
+        throw new Error(`Cannot split ${count} from ${stackId}: insufficient troops.`);
+      }
+      if (stack.count - count < 1) {
+        throw new Error(`Cannot split all troops from ${stack.name}; keep at least one.`);
+      }
+      stack.count -= count;
+      detachedTroops.push({ name: stack.name, count, tier: stack.tier });
+      totalCount += count;
+    }
+
+    if (totalCount === 0) {
+      throw new Error("Cannot split an empty party.");
+    }
+
+    const detached: NpcParty = {
+      id: partyId,
+      name: input.name || "Detachment",
+      kind: "militia",
+      factionId: this.#party.factionId,
+      position: { ...this.#party.position },
+      troops: detachedTroops,
+      troopCount: totalCount,
+      hostile: false,
+      destination: null,
+      speedKmPerDay: this.#party.speedKmPerDay,
+    };
+    this.#npcParties.push(detached);
+
+    this.#notifications.push({
+      id: `n-split-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: `Split ${totalCount} troops into "${detached.name}".`,
+      entityId: this.#party.id,
+      field: "troops",
+    });
+
+    return { partyId };
+  }
+
+  /**
+   * Merge a detached party back into the player party.
+   */
+  async mergeParty(partyId: string): Promise<void> {
+    const idx = this.#npcParties.findIndex((p) => p.id === partyId);
+    if (idx < 0) {
+      throw new Error(`No detached party ${partyId} to merge.`);
+    }
+    const detached = this.#npcParties[idx]!;
+    if (detached.hostile) {
+      throw new Error(`Cannot merge hostile party ${detached.name}.`);
+    }
+
+    for (const dt of detached.troops) {
+      const existing = this.#party.troops.find((t) => t.name === dt.name && t.tier === dt.tier);
+      if (existing) {
+        existing.count += dt.count;
+      } else {
+        this.#party.troops.push({
+          id: `t-merged-${Date.now()}-${Math.round(this.#random() * 10000)}`,
+          name: dt.name,
+          count: dt.count,
+          wounded: 0,
+          quality: 2,
+          tier: dt.tier,
+          xp: 0,
+          wage: 1.0,
+          morale: 0.7,
+        });
+      }
+    }
+
+    this.#npcParties.splice(idx, 1);
+
+    this.#notifications.push({
+      id: `n-merge-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: `Merged "${detached.name}" (${detached.troopCount} troops) back into the party.`,
       entityId: this.#party.id,
       field: "troops",
     });
