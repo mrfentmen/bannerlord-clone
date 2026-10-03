@@ -93,4 +93,19 @@ describe("encyclopediaPanel", () => {
     expect(root.querySelectorAll(".ency__item")).toHaveLength(0);
     expect(root.textContent).toContain("No entries match.");
   });
+
+  it("keeps search focus and text when toggling kind filters", () => {
+    const root = openPanel();
+    const search = root.querySelector<HTMLInputElement>(".ency__search")!;
+    search.value = "gold";
+    search.dispatchEvent(new Event("input", { bubbles: true }));
+    search.focus();
+    const chips = [...root.querySelectorAll<HTMLButtonElement>(".ency__kinds .btn")];
+    chips[1]!.click(); // Factions off
+    // The search box is the same element, still focused, text intact.
+    expect(root.querySelector(".ency__search")).toBe(search);
+    expect(document.activeElement).toBe(search);
+    expect(search.value).toBe("gold");
+    expect(chips[1]!.getAttribute("aria-pressed")).toBe("false");
+  });
 });

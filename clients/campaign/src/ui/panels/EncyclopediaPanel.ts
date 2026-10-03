@@ -71,13 +71,12 @@ export function encyclopediaPanel(options: EncyclopediaPanelOptions): { root: HT
       "div",
       { class: "ency__kinds", role: "group", "aria-label": "Entry kinds" },
       KIND_ORDER.map((kind) => {
-        const on = kinds.has(kind);
         const chip = h(
           "button",
           {
             type: "button",
-            class: `btn ${on ? "btn--primary" : "btn--quiet"}`,
-            "aria-pressed": on ? "true" : "false",
+            class: "btn",
+            "aria-pressed": "true",
           },
           KIND_LABEL[kind],
         );
@@ -88,11 +87,25 @@ export function encyclopediaPanel(options: EncyclopediaPanelOptions): { root: HT
           } else {
             kinds.add(kind);
           }
-          render();
+          // Update in place: a full re-render would drop focus from the search box
+          // on every toggle, punishing the player for filtering.
+          paintChips();
+          renderList();
         });
         return chip;
       }),
     );
+
+    function paintChips(): void {
+      const buttons = chips.querySelectorAll("button");
+      KIND_ORDER.forEach((kind, i) => {
+        const button = buttons[i]!;
+        const on = kinds.has(kind);
+        button.className = `btn ${on ? "btn--primary" : "btn--quiet"}`;
+        button.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+    }
+    paintChips();
 
     const list = h("div", { class: "ency__list", role: "list" });
     parent.append(search, chips, list);
