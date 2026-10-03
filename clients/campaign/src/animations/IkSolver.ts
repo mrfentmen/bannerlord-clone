@@ -366,3 +366,153 @@ export function kneeBendAxis(direction: Vec3, forward?: Vec3): Vec3 {
   const projected = sub(facing, scale(dir, dot(facing, dir)));
   return length(projected) > 1e-6 ? normalize(projected) : perpendicular(dir);
 }
+
+/**
+ * Task 640: the hand holds the weapon, at the weapon's own grip point.
+ *
+ * The ten staged weapon GLBs have no rig and no named sockets -- they are a
+ * single mesh each, authored lying along +X with the stock at the origin. So the
+ * grip is derived from the geometry instead: a fraction along the weapon's
+ * length for the firing hand, a fraction for the support hand. Because it is a
+ * fraction, the same code holds an AK-74 and a P226 correctly, and the numbers
+ * come out of the real accessor bounds rather than out of a hand-tuned table.
+ *
+ * The arm is then solved to that point with the same two-bone chain the legs use.
+ */
+
+/** A weapon's bounds, as read out of its GLB. */
+export interface WeaponBounds {
+  min: Vec3;
+  max: Vec3;
+}
+
+/** Where on a weapon a hand goes. */
+export interface GripSpec {
+  /**
+   * Along the weapon's length, 0 at the muzzle end of the box and 1 at the
+   * other end. The firing hand sits back towards the stock; the support hand
+   * sits forward of it.
+   */
+  alongM: number;
+  /** Across the weapon, metres; a right-handed grip is slightly off-centre. */
+  acrossM: number;
+  /** Above the weapon's centreline, metres. */
+  aboveM: number;
+}
+
+/**
+ * A right-handed firing grip on a weapon laid out along +X: back from the front
+ * of the box, level with the bore.
+ */
+export const FIRE_GRIP: GripSpec = { alongM: 0.32, acrossM: 0.02, aboveM: 0.03 };
+
+/** A support hand further forward, under the handguard. */
+export const SUPPORT_GRIP: GripSpec = { alongM: 0.62, acrossM: 0.0, aboveM: 0.02 };
+
+/** Length of a weapon's bounds along its longest axis, metres. */
+export function weaponLength(bounds: WeaponBounds): number {
+  const dx = Math.abs(bounds.max.x - bounds.min.x);
+  const dy = Math.abs(bounds.max.y - bounds.min.y);
+  const dz = Math.abs(bounds.max.z - bounds.min.z);
+  return Math.max(dx, dy, dz);
+}
+
+/**
+ * The world-space point a hand should hold, from a grip spec and the weapon's
+ * bounds.
+ *
+ * `alongM` is measured from the *rear* of the box towards its front, which is
+ * the direction a weapon points in the staged files. A spec outside 0..1 is
+ * clamped rather than extrapolated: a grip a few centimetres off the end of a
+ * rifle is wrong, a grip half a metre off it is not a bug anyone should hit.
+ */
+export function gripPointFor(bounds: WeaponBounds, spec: GripSpec): Vec3 {
+  const length = weaponLength(bounds);
+  if (!(length > 0)) {
+    // A zero-length weapon is a collapsed mesh; the origin is the only honest
+    // answer, and the arm solve will clamp rather than invent a reach.
+    return { x: bounds.min.x, y: bounds.min.y, z: bounds.min.z };
+  }
+  const along = Math.min(1, Math.max(0, Number.isFinite(spec.alongM) ? spec.alongM : 0));
+  const across = Number.isFinite(spec.acrossM) ? spec.acrossM : 0;
+  const above = Number.isFinite(spec.aboveM) ? spec.aboveM : 0;
+  // The longest axis is the weapon's length whichever axis it happens to be;
+  // the two others are its width and height, both far smaller.
+  const extents = [
+    Math.abs(bounds.max.x - bounds.min.x),
+    Math.abs(bounds.max.y - bounds.min.y),
+    Math.abs(bounds.max.z - bounds.min.z),
+  ];
+  const longAxis = extents.indexOf(Math.max(...extents));
+  const centre: Vec3 = {
+    x: (bounds.min.x + bounds.max.x) / 2,
+    y: (bounds.min.y + bounds.max.y) / 2,
+    z: (bounds.min.z + bounds.max.z) / 2,
+  };
+  const offset = (along - 0.5) * length;
+
+  if (longAxis === 0) return vec(centre.x + offset, centre.y + above, centre.z + across);
+  if (longAxis === 1) return vec(centre.x + across, centre.y + offset, centre.z + above);
+  return vec(centre.x + above, centre.y + across, centre.z + offset);
+}
+
+/** What an arm solve produced. */
+export interface HandSolution {
+  /** Point the hand ended up at, which may not be the grip if the arm is short. */
+  hand: Vec3;
+  /** The grip it was asked for. */
+  grip: Vec3;
+  /** Shoulder angle away from the arm-to-grip line, radians. */
+  shoulderAngle: number;
+  /** Elbow interior angle, radians; pi is straight. */
+  elbowAngle: number;
+  /** True when the grip was out of the arm's reach. */
+  clamped: boolean;
+  /** Where the elbow ended up, for a scene that positions it explicitly. */
+  elbow: Vec3;
+}
+
+/** Arm lengths for a 1.8 m character. */
+export const DEFAULT_ARM: { upperArmM: number; forearmM: number } = {
+  upperArmM: 0.3,
+  forearmM: 0.28,
+};
+
+/**
+ * Task 640: solve an arm onto a grip point.
+ *
+ * `pole` is where the elbow should end up -- for a rifle hold that is out and
+ * back from the shoulder, not tucked under. Defaulting it to a point below the
+ * shoulder gives a natural elbow-down carry, which is right for a pistol at
+ * rest and wrong for a shouldered rifle, so a caller holding a rifle passes the
+ * pole explicitly.
+ */
+export function solveHandToGrip(
+  shoulder: Vec3,
+  grip: Vec3,
+  pole: Vec3 | null = null,
+  arm: { upperArmM: number; forearmM: number } = DEFAULT_ARM,
+): HandSolution {
+  const upper = Number.isFinite(arm.upperArmM) && arm.upperArmM > 0 ? arm.upperArmM : DEFAULT_ARM.upperArmM;
+  const lower = Number.isFinite(arm.forearmM) && arm.forearmM > 0 ? arm.forearmM : DEFAULT_ARM.forearmM;
+  const solution = solveTwoBone(shoulder, grip, upper, lower);
+  const direction = length(sub(grip, shoulder)) > 0 ? normalize(sub(grip, shoulder)) : { x: 0, y: -1, z: 0 };
+  const elbowTarget = pole ?? vec(shoulder.x, shoulder.y - upper, shoulder.z);
+  // Keep the elbow on the pole side of the shoulder-grip line, at arm's length
+  // from the shoulder: that is where a real elbow ends up.
+  const along = sub(elbowTarget, shoulder);
+  const projected = sub(along, scale(direction, dot(along, direction)));
+  const bend = length(projected) > 1e-6 ? normalize(projected) : perpendicular(direction);
+  const elbow = add(shoulder, scale(bend, upper));
+  const clampedGrip = solution.clamped
+    ? add(shoulder, scale(direction, upper + lower))
+    : grip;
+  return {
+    hand: clampedGrip,
+    grip,
+    shoulderAngle: solution.rootAngle,
+    elbowAngle: solution.lowerAngle,
+    clamped: solution.clamped,
+    elbow,
+  };
+}

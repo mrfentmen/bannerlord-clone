@@ -16,23 +16,30 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  DEFAULT_ARM,
   DEFAULT_FOOT_GAIT,
+  FIRE_GRIP,
   FLAT_GROUND,
   add,
   distance,
   dot,
   footTargetFor,
   footTargetsForGait,
+  gripPointFor,
   groundHeightAt,
   kneeBendAxis,
   legDirection,
   length,
   normalize,
   perpendicular,
+  solveHandToGrip,
   solveTwoBone,
   stepLengthFor,
   vec,
+  weaponLength,
+  SUPPORT_GRIP,
   type Vec3,
+  type WeaponBounds,
 } from "../IkSolver.js";
 
 /** The hip of a character standing on flat ground. */
@@ -301,5 +308,118 @@ describe("leg orientation (task 639)", () => {
     // perpendicular rather than returning nothing.
     expect(length(kneeBendAxis(vec(0, -1, 0), vec(0, -1, 0)))).toBeCloseTo(1);
     expect(length(kneeBendAxis(vec(0, 0, 0), vec(0, 0, 1)))).toBeCloseTo(1);
+  });
+});
+describe("hand to weapon grip (task 640)", () => {
+  // The real bounds of public/models/weapons/ak74.glb, read from its accessor
+  // min/max by the same code task 630 uses for the whole batch.
+  const AK74: WeaponBounds = {
+    min: { x: -0.0275, y: -0.001, z: -0.008 },
+    max: { x: 0.0275, y: 0.001, z: 0.008 },
+  };
+  const P226: WeaponBounds = {
+    min: { x: -0.009, y: -0.0015, z: -0.006 },
+    max: { x: 0.009, y: 0.0015, z: 0.006 },
+  };
+  // A shoulder 0.5 m from the weapon: the carry position, and inside a 0.58 m
+  // arm. The weapon mesh is at the origin because that is how the staged files
+  // are authored -- a character attaches it to the hand, not the other way.
+  const CARRY_GRIP = vec(-0.0115, 0.003, 0.012);
+  const SHOULDER = vec(CARRY_GRIP.x + 0.16, CARRY_GRIP.y + 0.44, CARRY_GRIP.z - 0.16);
+
+  it("measures the weapon's length from whichever axis is longest", () => {
+    expect(weaponLength(AK74)).toBeCloseTo(0.055);
+    expect(weaponLength(P226)).toBeCloseTo(0.018);
+    const tall = { min: vec(0, 0, 0), max: vec(0.2, 1.4, 0.1) };
+    expect(weaponLength(tall)).toBeCloseTo(1.4);
+  });
+
+  it("puts the firing hand on the weapon, not beside it", () => {
+    const grip = gripPointFor(AK74, FIRE_GRIP);
+    expect(grip.x).toBeGreaterThan(AK74.min.x);
+    expect(grip.x).toBeLessThan(AK74.max.x);
+    // The support hand is further along the barrel than the firing hand.
+    expect(gripPointFor(AK74, SUPPORT_GRIP).x).toBeGreaterThan(grip.x);
+  });
+
+  it("scales the grip with the weapon, so a pistol is not held at rifle reach", () => {
+    const rifle = gripPointFor(AK74, FIRE_GRIP);
+    const pistol = gripPointFor(P226, FIRE_GRIP);
+    // Same fraction of a much shorter object.
+    expect(Math.abs(pistol.x)).toBeLessThan(Math.abs(rifle.x));
+    expect(weaponLength(AK74) / weaponLength(P226)).toBeGreaterThan(2);
+  });
+
+  it("clamps a grip spec that runs off the end of the weapon", () => {
+    expect(gripPointFor(AK74, { alongM: 5, acrossM: 0, aboveM: 0 })).toEqual(
+      gripPointFor(AK74, { alongM: 1, acrossM: 0, aboveM: 0 }),
+    );
+    expect(gripPointFor(AK74, { alongM: -5, acrossM: 0, aboveM: 0 })).toEqual(
+      gripPointFor(AK74, { alongM: 0, acrossM: 0, aboveM: 0 }),
+    );
+  });
+
+  it("ignores a broken grip spec instead of producing NaN", () => {
+    const grip = gripPointFor(AK74, { alongM: Number.NaN, acrossM: Number.NaN, aboveM: Number.NaN });
+    expect(Number.isNaN(grip.x)).toBe(false);
+    expect(Number.isNaN(grip.y)).toBe(false);
+  });
+
+  it("returns the origin for a collapsed weapon rather than extrapolating", () => {
+    const flat = { min: vec(0.1, 0.2, 0.3), max: vec(0.1, 0.2, 0.3) };
+    expect(gripPointFor(flat, FIRE_GRIP)).toEqual(vec(0.1, 0.2, 0.3));
+  });
+
+  it("puts the hand on the grip when it is in reach", () => {
+    const grip = gripPointFor(AK74, FIRE_GRIP);
+    expect(distance(SHOULDER, grip)).toBeLessThan(DEFAULT_ARM.upperArmM + DEFAULT_ARM.forearmM);
+    const solution = solveHandToGrip(SHOULDER, grip);
+    expect(solution.clamped).toBe(false);
+    expect(solution.hand.x).toBeCloseTo(grip.x);
+    expect(solution.hand.y).toBeCloseTo(grip.y);
+    expect(distance(solution.hand, SHOULDER)).toBeCloseTo(distance(grip, SHOULDER), 5);
+  });
+
+  it("bends the elbow towards the pole the caller asked for", () => {
+    const grip = CARRY_GRIP;
+    const elbowDown = solveHandToGrip(SHOULDER, grip, vec(SHOULDER.x, 0, SHOULDER.z + 0.4));
+    const elbowOut = solveHandToGrip(SHOULDER, grip, vec(SHOULDER.x, SHOULDER.y, -0.5));
+    expect(elbowDown.elbow.z).toBeGreaterThan(0);
+    expect(elbowOut.elbow.z).toBeLessThan(0);
+    // The elbow is always one upper-arm length from the shoulder.
+    expect(distance(elbowDown.elbow, SHOULDER)).toBeCloseTo(DEFAULT_ARM.upperArmM);
+  });
+
+  it("clamps a grip the arm cannot reach and says so", () => {
+    const far = solveHandToGrip(SHOULDER, vec(3, 1.2, 0));
+    expect(far.clamped).toBe(true);
+    expect(distance(SHOULDER, far.hand)).toBeCloseTo(DEFAULT_ARM.upperArmM + DEFAULT_ARM.forearmM);
+    // The hand stops at the reach, but the grip it was asked for is reported.
+    expect(far.grip.x).toBe(3);
+    expect(far.hand.x).toBeLessThan(3);
+  });
+
+  it("straightens the arm for a grip at exactly its reach", () => {
+    const reach = DEFAULT_ARM.upperArmM + DEFAULT_ARM.forearmM;
+    const stretched = solveHandToGrip(SHOULDER, vec(SHOULDER.x, SHOULDER.y - reach, SHOULDER.z));
+    expect(stretched.elbowAngle).toBeCloseTo(0, 3);
+    expect(stretched.clamped).toBe(false);
+  });
+
+  it("falls back to sane arm lengths rather than dividing by zero", () => {
+    const grip = gripPointFor(AK74, FIRE_GRIP);
+    const broken = solveHandToGrip(SHOULDER, grip, null, {
+      upperArmM: 0,
+      forearmM: Number.NaN,
+    });
+    expect(Number.isNaN(broken.shoulderAngle)).toBe(false);
+    expect(Number.isNaN(broken.elbowAngle)).toBe(false);
+    expect(Number.isNaN(broken.elbow.x)).toBe(false);
+  });
+
+  it("gives the same answer twice for the same weapon and grip", () => {
+    const grip = gripPointFor(AK74, FIRE_GRIP);
+    expect(gripPointFor(AK74, FIRE_GRIP)).toEqual(grip);
+    expect(solveHandToGrip(SHOULDER, grip)).toEqual(solveHandToGrip(SHOULDER, grip));
   });
 });
