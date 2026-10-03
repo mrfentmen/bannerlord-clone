@@ -16,7 +16,7 @@ describe("campaign integration: save/load integrity", () => {
     // Army - leader must be a character ID
     const playerChar = before.characters.find((c) => c.id === "char-player") ?? before.characters[0]!;
     const { armyId } = await provider.createArmy("Test Army", playerChar.id);
-    await provider.setArmyObjective(armyId, "defend");
+    await provider.setArmyObjective(armyId, { kind: "town", townId: town.id });
 
     // Siege - skip if no valid attacker (complex preconditions)
     // The siege system is tested separately in sieges.test.ts
@@ -28,7 +28,7 @@ describe("campaign integration: save/load integrity", () => {
     }
 
     // War
-    const { warId } = await provider.declareWar("faction-player", "faction-enemy");
+    const { warId } = await provider.declareWar("faction-enemy");
 
     // Quest
     const { questId } = await provider.acceptQuest("notable-1", "Vex", "bandit-hunt");
@@ -52,7 +52,7 @@ describe("campaign integration: save/load integrity", () => {
 
     expect(restored.armies.length).toBe(1);
     expect(restored.armies[0]!.id).toBe(armyId);
-    expect(restored.armies[0]!.objective).toBe("defend");
+    expect(restored.armies[0]!.objective).toEqual({ kind: "town", townId: town.id });
 
     // Companions are characters
     const restoredCompanions = restored.characters.filter((c) => c.role === "companion" && c.clanId === "clan-player");
