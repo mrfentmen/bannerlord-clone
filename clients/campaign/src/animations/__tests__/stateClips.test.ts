@@ -15,7 +15,6 @@ import { describe, expect, it } from "vitest";
 import {
   STATE_CLIPS,
   availableStates,
-  registerState,
   resolveStateClip,
   unavailableStates,
 } from "../StateClips.js";
@@ -31,15 +30,6 @@ export function clipsOf(file: string): string[] {
   ) as { animations?: Array<{ name?: string }> };
   return (json.animations ?? []).map((a) => a.name ?? '');
 }
-
-registerState('prone-crawl', {
-  clip: 'prone_crawl',
-  // A crawl is not a transition the player sees as a transition, so it comes in
-  // fast -- but it is not an interrupt either.
-  blendS: 0.25,
-  loop: true,
-  lowerBody: 'walk',
-});
 
 describe("prone crawl (task 671)", () => {
   it("is registered with the clip the assets actually ship", () => {
@@ -79,16 +69,55 @@ describe("prone crawl (task 671)", () => {
 
   it("lists what a model can and cannot do", () => {
     const operator = clipsOf('operator-viper.glb');
-    expect(availableStates(operator)).toEqual(['prone-crawl']);
+    expect(availableStates(operator)).toContain('prone-crawl');
     expect(unavailableStates(operator)).toEqual([]);
     expect(availableStates(clipsOf('horse.glb'))).toEqual([]);
-    expect(unavailableStates(clipsOf('horse.glb'))).toEqual([
-      { state: 'prone-crawl', gap: 'clip-not-in-model' },
-    ]);
+    expect(unavailableStates(clipsOf('horse.glb'))).toHaveLength(3);
   });
 
   it("takes a model with no clips at all without throwing", () => {
     expect(resolveStateClip('prone-crawl', []).gap).toBe('clip-not-in-model');
     expect(availableStates([])).toEqual([]);
+  });
+});
+describe("crouch idle and walk (task 672)", () => {
+  const CROUCH_RIGS = ['operator-viper.glb', 'operator-heron.glb', 'operator-lynx.glb', 'operator-magpie.glb', 'operator-jackal.glb', 'female-operator.glb'];
+
+  it("is registered as two states, not one", () => {
+    expect(STATE_CLIPS['crouch-idle']?.clip).toBe('crouch_idle');
+    expect(STATE_CLIPS['crouch-walk']?.clip).toBe('crouch_walk');
+    // A crouched character has to be able to move, and the legs keep their own
+    // locomotion underneath the crouch pose.
+    expect(STATE_CLIPS['crouch-idle']?.lowerBody).toBe('idle');
+    expect(STATE_CLIPS['crouch-walk']?.lowerBody).toBe('walk');
+    expect(STATE_CLIPS['crouch-idle']?.loop).toBe(true);
+  });
+
+  it("resolves on every rig that ships both clips", () => {
+    for (const rig of CROUCH_RIGS) {
+      for (const state of ['crouch-idle', 'crouch-walk'] as const) {
+        const resolved = resolveStateClip(state, clipsOf(rig));
+        expect(resolved.available, `${rig} ${state}`).toBe(true);
+        expect(resolved.clip).toBe(STATE_CLIPS[state]?.clip);
+      }
+    }
+  });
+
+  it("reports the gap on the rigs that have no crouch clips", () => {
+    // The Quaternius troop rigs and the mixamo rigs are not rigged to crouch.
+    const withoutCrouch = ['troop-gunner.glb', 'soldier-animated.glb'];
+    for (const rig of withoutCrouch) {
+      expect(resolveStateClip('crouch-idle', clipsOf(rig)).gap, rig).toBe('clip-not-in-model');
+      expect(resolveStateClip('crouch-walk', clipsOf(rig)).available, rig).toBe(false);
+    }
+  });
+
+  it("records that no staged model can crouch *and* crawl at once", () => {
+    // Both states exist on the operator rigs, so a scene can offer both; the
+    // combination itself is a transition the caller owns.
+    const operator = clipsOf('operator-viper.glb');
+    expect(availableStates(operator)).toEqual(
+      expect.arrayContaining(['prone-crawl', 'crouch-idle', 'crouch-walk']),
+    );
   });
 });

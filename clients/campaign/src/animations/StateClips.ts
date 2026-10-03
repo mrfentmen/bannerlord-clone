@@ -49,7 +49,15 @@ export interface StateClip {
 }
 
 /** The registry. Built up as each state is specified. */
-export const STATE_CLIPS: Readonly<Partial<Record<ActionState, StateClip>>> = {};
+export const STATE_CLIPS: Readonly<Partial<Record<ActionState, StateClip>>> = {
+  // Task 671: the crawl drives the arms and torso while the legs keep walking
+  // underneath it, so the character does not stand up to crawl.
+  'prone-crawl': { clip: 'prone_crawl', blendS: 0.25, loop: true, lowerBody: 'walk' },
+  // Task 672: crouching is two states, because a character that crouches and then
+  // walks out of it has to have somewhere to walk to.
+  'crouch-idle': { clip: 'crouch_idle', blendS: 0.2, loop: true, lowerBody: 'idle' },
+  'crouch-walk': { clip: 'crouch_walk', blendS: 0.2, loop: true, lowerBody: 'walk' },
+};
 
 /** Why a state cannot play. */
 export type StateGap =
@@ -68,11 +76,6 @@ export interface ResolvedClip {
   gap: StateGap | null;
   /** The full entry, when one is registered. */
   entry: StateClip | null;
-}
-
-/** Merges a new state into the registry. */
-export function registerState(state: ActionState, entry: StateClip): void {
-  (STATE_CLIPS as Record<ActionState, StateClip>)[state] = entry;
 }
 
 /**
