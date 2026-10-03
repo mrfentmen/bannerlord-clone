@@ -196,6 +196,8 @@ export function partySkeletonBody(): HTMLElement {
   root.appendChild(section([tableStub(3, 2)]));
   // Goods: a header row and two goods rows of three columns.
   root.appendChild(section([tableStub(3, 2)]));
+  // Split party: the name field, stack checkboxes and the confirm button.
+  root.appendChild(section([...rows(3), block(STUB)]));
   return root;
 }
 
