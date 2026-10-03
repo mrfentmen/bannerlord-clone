@@ -58,6 +58,7 @@ import { findRoute, shortestPath } from "./scene/network.js";
 import { createHud, dataSourcePanel, fatalError, type HudPanel, type HudState } from "./ui/hud.js";
 import { MapTooltip, buildSettlementHoverCard } from "./ui/mapTooltip.js";
 import { MapLabels } from "./ui/mapLabels.js";
+import { Toast } from "./ui/toast.js";
 import { TutorialBanner } from "./ui/tutorialBanner.js";
 import { currentHint, loadTutorialStore, saveTutorialStore } from "./data/tutorial.js";
 import { settlementFogView } from "./data/fogView.js";
@@ -239,6 +240,7 @@ publishWorld({
 setBootNote("Starting the renderer.");
 const mapTooltip = new MapTooltip(app);
 const mapLabels = new MapLabels(app);
+const toast = new Toast(app);
 const tutorialBanner = new TutorialBanner(app, {
   onDismiss: (hintId) => {
     tutorialStore.dismissed.add(hintId);
@@ -1418,8 +1420,8 @@ function rumourNode(): Node {
  * Runs on every paint (every tick), so a completion earned while the panel is closed
  * is still recorded — opening the panel later must not be able to un-complete it.
  */
-function syncObjectives(): Objective[] {
-  if (!snapshot) return [];
+function syncObjectives(): { objectives: Objective[]; newlyCompleted: Objective[] } {
+  if (!snapshot) return { objectives: [], newlyCompleted: [] };
   const objectives = evaluateObjectives(
     {
       party: snapshot.party,
@@ -1428,21 +1430,29 @@ function syncObjectives(): Objective[] {
     },
     objectiveStore.completed,
   );
-  let changed = false;
+  const newlyCompleted: Objective[] = [];
   for (const o of objectives) {
     if (o.completed && !objectiveStore.completed.has(o.id)) {
       objectiveStore.completed.add(o.id);
-      changed = true;
+      newlyCompleted.push(o);
     }
   }
-  if (changed) saveObjectiveStore(objectiveStore);
-  return objectives;
+  if (newlyCompleted.length > 0) {
+    saveObjectiveStore(objectiveStore);
+    // Completion feedback (mandate §19): a sound and a toast, so finishing a goal
+    // feels like something happened rather than a checkbox changing somewhere.
+    for (const o of newlyCompleted) {
+      audio.playSfx("quest-complete", { volume: 0.6 });
+      toast.show("Objective complete", o.title);
+    }
+  }
+  return { objectives, newlyCompleted };
 }
 
 function objectivesNode(): Node {
   if (!snapshot) return noSimulationRecordNode("No campaign to measure");
   return objectivesPanel({
-    objectives: syncObjectives(),
+    objectives: syncObjectives().objectives,
     onClose: () => openPanel("none"),
   }).root;
 }
@@ -1687,7 +1697,7 @@ function paint(): void {
   syncEventMarkers();
   // Objective completions are sticky and persisted, so they are evaluated on every
   // paint (every tick), not only when the panel is open.
-  const objectives = syncObjectives();
+  const { objectives } = syncObjectives();
   // The journal records the world's events and the player's milestones every tick,
   // so history survives even when the journal is never opened.
   const journaled = syncJournal(
