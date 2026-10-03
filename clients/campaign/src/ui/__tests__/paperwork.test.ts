@@ -1286,6 +1286,18 @@ describe("the ruler roster and card (RULERS.md section 9)", () => {
     const css = uiCss();
     expect(css).toMatch(/\.table--stack td::before\s*\{\s*content: attr\(data-label\)/);
   });
+
+  it("offers the encyclopedia entry for the ruler, and only when wired", () => {
+    let opened = 0;
+    const wired = rulerCard({ ruler, onOpenEncyclopedia: () => (opened += 1) });
+    const btn = wired.querySelector<HTMLButtonElement>("[data-testid='open-encyclopedia-from-ruler']")!;
+    expect(btn.textContent).toBe("Encyclopedia");
+    btn.click();
+    expect(opened).toBe(1);
+    // A card standing alone offers no dead button.
+    const bare = rulerCard({ ruler });
+    expect(bare.querySelector("[data-testid='open-encyclopedia-from-ruler']")).toBeNull();
+  });
 });
 
 // =============================================================================

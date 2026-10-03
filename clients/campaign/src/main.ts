@@ -966,6 +966,7 @@ function townNode(town: TownState): Node {
     onOpenMarket: () => openPanel("market"),
     onMarchHere: () => openPanel("march"),
     onRoster: () => openPanel("roster"),
+    onOpenEncyclopedia: () => openEncyclopedia(town.id),
     purse: snapshot?.player.resources.money ?? 0,
     day: snapshot?.day ?? 0,
     onRecruit: async (unitId, quantity) => {
@@ -1137,8 +1138,11 @@ function rebuildContext(): void {
       return;
     case "encyclopedia":
       // No town needed: the index is built from the whole snapshot, and entries link
-      // to each other rather than to the map selection.
-      contextNode = encyclopediaNode();
+      // to each other rather than to the map selection. A deep link from a town or
+      // ruler panel opens the matching entry; it is consumed here so a later rebuild
+      // does not reopen it.
+      contextNode = encyclopediaNode(pendingEncyclopediaEntry);
+      pendingEncyclopediaEntry = null;
       return;
     case "objectives":
       // No town needed: objectives are measured from the party and the world.
@@ -1189,6 +1193,7 @@ function rebuildContext(): void {
         contextNode = rulerCard({
           ruler,
           onWhy: () => openWhy(ruler.id, "loyalty_to_leader"),
+          onOpenEncyclopedia: () => openEncyclopedia(ruler.id),
           onClose: () => {
             selectedRuler = null;
             rebuildContext();
@@ -1494,14 +1499,22 @@ function notificationsNode(): Node {
   }).root;
 }
 
-function encyclopediaNode(): Node {
+function encyclopediaNode(entryId?: string | null): Node {
   if (!snapshot) return noSimulationRecordNode("No world to read");
   // Built fresh on every open: rulers change sides, towns change hands, and an index
   // cached here would already be stale.
   return encyclopediaPanel({
     encyclopedia: buildEncyclopedia(snapshot),
+    ...(entryId ? { initialEntryId: entryId } : {}),
     onClose: () => openPanel("none"),
   }).root;
+}
+
+/** Opens the encyclopedia, optionally on one entry (a town, ruler or side id). */
+let pendingEncyclopediaEntry: string | null = null;
+function openEncyclopedia(entryId?: string): void {
+  pendingEncyclopediaEntry = entryId ?? null;
+  openPanel("encyclopedia");
 }
 
 function radioNode(): Node {

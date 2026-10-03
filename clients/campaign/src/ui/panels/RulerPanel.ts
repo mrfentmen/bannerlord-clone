@@ -274,6 +274,8 @@ export interface RulerCardOptions {
   onClose?: () => void;
   /** Opens the Why panel on one of this ruler's fields. */
   onWhy?: (field: string) => void;
+  /** Opens this ruler's encyclopedia entry. Absent when the card stands alone. */
+  onOpenEncyclopedia?: () => void;
   loading?: boolean;
   testId?: string;
 }
@@ -306,6 +308,15 @@ export function rulerCard(options: RulerCardOptions): HTMLElement {
       statusChip(standing(r.relationToPlayer), standingText(r.relationToPlayer), { testId: "ruler-standing" }),
     ),
   );
+  if (options.onOpenEncyclopedia) {
+    const encyBtn = h(
+      "button",
+      { type: "button", class: "btn btn--quiet", "data-testid": "open-encyclopedia-from-ruler" },
+      "Encyclopedia",
+    );
+    encyBtn.addEventListener("click", () => options.onOpenEncyclopedia?.());
+    body.appendChild(h("div", { class: "field-row", style: "margin-bottom:var(--space-3)" }, encyBtn));
+  }
 
   // -- traits ---------------------------------------------------------------
   body.appendChild(sectionHeader("Traits"));

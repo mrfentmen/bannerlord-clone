@@ -394,6 +394,25 @@ describe("the town panel", () => {
       expect(["up", "down", "flat"]).toContain(a.getAttribute("data-trend"));
     }
   });
+
+  it("offers the encyclopedia entry for the town, and only when wired", () => {
+    let opened = 0;
+    const wired = townPanel({
+      town: golden,
+      previous: null,
+      onWhy: noop,
+      onOpenMarket: noop,
+      onMarchHere: noop,
+      onRoster: noop,
+      onOpenEncyclopedia: () => (opened += 1),
+    });
+    const btn = wired.querySelector<HTMLButtonElement>("[data-testid='open-encyclopedia-from-town']")!;
+    expect(btn.textContent).toBe("Encyclopedia");
+    btn.click();
+    expect(opened).toBe(1);
+    // A panel standing alone offers no dead button.
+    expect(town().querySelector("[data-testid='open-encyclopedia-from-town']")).toBeNull();
+  });
 });
 
 // -- the market panel ---------------------------------------------------------

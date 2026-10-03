@@ -38,6 +38,8 @@ export interface TownPanelOptions {
   onOpenMarket: () => void;
   onMarchHere: () => void;
   onRoster: () => void;
+  /** Opens this town's encyclopedia entry. Absent when the panel stands alone. */
+  onOpenEncyclopedia?: () => void;
   /**
    * Hire soldiers. The panel sends the order; the simulation decides if it happens.
    * Resolves with the simulation's answer so the panel can show the reason verbatim.
@@ -320,6 +322,11 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
   const rosterBtn = h("button", { type: "button", class: "btn", "data-testid": "open-roster" }, "Rulers");
   rosterBtn.addEventListener("click", () => options.onRoster());
   actions.append(marketBtn, marchBtn, rosterBtn);
+  if (options.onOpenEncyclopedia) {
+    const encyBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-encyclopedia-from-town" }, "Encyclopedia");
+    encyBtn.addEventListener("click", () => options.onOpenEncyclopedia?.());
+    actions.append(encyBtn);
+  }
   body.appendChild(actions);
 
   // -- recruit ----------------------------------------------------------------

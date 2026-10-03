@@ -108,4 +108,21 @@ describe("encyclopediaPanel", () => {
     expect(search.value).toBe("gold");
     expect(chips[1]!.getAttribute("aria-pressed")).toBe("false");
   });
+
+  it("opens directly on a deep-linked entry", () => {
+    const town = snapshot.towns[0]!;
+    const { root } = encyclopediaPanel({ encyclopedia, initialEntryId: town.id, onClose: () => {} });
+    document.body.replaceChildren(root);
+    // The detail view, not the search list: the title is the town's name and there
+    // is no search box on screen.
+    expect(root.querySelector(".ency__title")!.textContent).toBe(town.name);
+    expect(root.querySelector(".ency__search")).toBeNull();
+  });
+
+  it("falls back to search for an unknown deep-link id", () => {
+    const { root } = encyclopediaPanel({ encyclopedia, initialEntryId: "no-such-entry", onClose: () => {} });
+    document.body.replaceChildren(root);
+    expect(root.querySelector(".ency__search")).not.toBeNull();
+    expect(root.querySelector(".ency__title")).toBeNull();
+  });
 });

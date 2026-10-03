@@ -22,6 +22,8 @@ import { searchEncyclopedia } from "../../data/encyclopedia.js";
 
 export interface EncyclopediaPanelOptions {
   encyclopedia: Encyclopedia;
+  /** Entry to open directly (a town, ruler or side id). Ignored when unknown. */
+  initialEntryId?: string;
   onClose: () => void;
 }
 
@@ -41,7 +43,12 @@ export function encyclopediaPanel(options: EncyclopediaPanelOptions): { root: HT
 
   let query = "";
   let kinds: Set<EncyclopediaKind> = new Set(KIND_ORDER);
-  let selectedId: string | null = null;
+  // A deep link opens the entry directly; an unknown id falls back to search rather
+  // than to an empty detail, so a stale link is never a dead end.
+  let selectedId: string | null =
+    options.initialEntryId && options.encyclopedia.byId.has(options.initialEntryId)
+      ? options.initialEntryId
+      : null;
   // The trail back through link clicks, so Back walks the player's reading path.
   let trail: string[] = [];
 
