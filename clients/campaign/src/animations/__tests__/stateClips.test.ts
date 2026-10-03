@@ -219,3 +219,38 @@ describe("melee swing (task 675)", () => {
     expect(rogue).not.toContain('melee');
   });
 });
+
+describe("grenade toss (task 676)", () => {
+  it("is registered as a whole-body throw, not an overlay", () => {
+    expect(STATE_CLIPS.throw?.clip).toBe('throw');
+    expect(STATE_CLIPS.throw?.loop).toBe(false);
+    // A toss takes the whole body: the arm, the twist and the step all go in it,
+    // so nothing else may drive the lower body at the same time.
+    expect(STATE_CLIPS.throw?.lowerBody).toBe('idle');
+    expect(STATE_CLIPS.throw?.blendS ?? 0).toBeGreaterThan(STATE_CLIPS.melee?.blendS ?? 1);
+  });
+
+  it("resolves on the operator rigs and not on the medic", () => {
+    for (const rig of ['operator-viper.glb', 'operator-heron.glb', 'operator-lynx.glb', 'operator-magpie.glb', 'operator-jackal.glb']) {
+      expect(resolveStateClip('throw', clipsOf(rig)).available, rig).toBe(true);
+    }
+    expect(resolveStateClip('throw', clipsOf('female-operator.glb')).gap).toBe('clip-not-in-model');
+  });
+
+  it("has a different clip name on the rogue rig, and this registry says so", () => {
+    // kaykit-rogue.glb calls it `Throw` with a capital T: the same action, a
+    // different pack, and a table that hard-coded one spelling would break on it.
+    const rogue = clipsOf('kaykit-rogue.glb');
+    expect(rogue).toContain('Throw');
+    expect(rogue).not.toContain('throw');
+    expect(resolveStateClip('throw', rogue).gap).toBe('clip-not-in-model');
+  });
+
+  it("throws while crouched as well as standing", () => {
+    // Both clips exist on the same rig, so a crouched character can throw; the
+    // clip is chosen by the caller from what the model has.
+    const operator = clipsOf('operator-viper.glb');
+    expect(resolveStateClip('throw', operator).available).toBe(true);
+    expect(resolveStateClip('crouch-idle', operator).available).toBe(true);
+  });
+});

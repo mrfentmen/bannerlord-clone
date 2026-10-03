@@ -26,6 +26,7 @@ export type ActionState =
   | 'slide-exit'
   | 'melee'
   | 'throw'
+  | 'grenade'
   | 'interact'
   | 'heal'
   | 'revive'
@@ -40,6 +41,7 @@ export type ActionState =
   | 'slide'
   | 'melee'
   | 'throw'
+  | 'grenade'
   | 'interact'
   | 'heal'
   | 'revive'
@@ -87,6 +89,10 @@ export const STATE_CLIPS: Readonly<Partial<Record<ActionState, StateClip>>> = {
   // Task 675: a melee swing. Fast in -- it has to connect with the moment the
   // player pressed the button -- and it does not loop.
   melee: { clip: 'melee', blendS: 0.08, loop: false, lowerBody: 'idle' },
+  // Task 676: the toss. The hand has to be empty when the grenade leaves, and
+  // the clip is where that is decided, so it is a whole-body state rather than
+  // an overlay.
+  throw: { clip: 'throw', blendS: 0.12, loop: false, lowerBody: 'idle' },
 };
 
 /** Why a state cannot play. */
