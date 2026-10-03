@@ -664,6 +664,23 @@ export class HttpSimulationProvider implements SimulationProvider {
     );
   }
 
+  async acceptQuest(giverId: string, giverName: string, templateId: string): Promise<{ questId: string }> {
+    return this.#post<{ questId: string }>(
+      "/v1/quests",
+      { giverId, giverName, templateId },
+      "The quest was not accepted.",
+    );
+  }
+
+  async abandonQuest(questId: string): Promise<void> {
+    await this.#post(
+      `/v1/quests/${encodeURIComponent(questId)}/abandon`,
+      {},
+      "The quest was not abandoned.",
+      () => null,
+    );
+  }
+
   async getPartyCapacity(): Promise<number> {
     const snap = await this.getSnapshot();
     const clan = snap.clans.find((c) => c.id === "clan-player");

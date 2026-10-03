@@ -62,6 +62,8 @@ import type {
   Army,
   Siege,
   War,
+  Quest,
+  QuestObjective,
   TaxOrderResult,
   TimeScaleResult,
   WhyChain,
@@ -260,6 +262,8 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     assignPartyRole: async (charId, role) => state.assignPartyRole(charId, role),
     declareWar: async (targetFactionId) => state.declareWar(targetFactionId),
     makePeace: async (warId) => state.makePeace(warId),
+    acceptQuest: async (giverId, giverName, templateId) => state.acceptQuest(giverId, giverName, templateId),
+    abandonQuest: async (questId) => state.abandonQuest(questId),
     getPartyCapacity: async () => state.partyCapacity(),
     getPartySpeed: async () => state.partySpeed(),
     marry: async (charId1, charId2) => state.marry(charId1, charId2),
@@ -298,6 +302,7 @@ class FixtureState {
   #armies: Army[] = [];
   #sieges: Siege[] = [];
   #wars: War[] = [];
+  #quests: Quest[] = [];
   #rulers: RulerState[] = [];
   #warnings: ResourceWarning[] = [];
   #notifications: Notification[] = [];
@@ -769,6 +774,7 @@ class FixtureState {
       armies: structuredClone(this.#armies),
       sieges: structuredClone(this.#sieges),
       wars: structuredClone(this.#wars),
+      quests: structuredClone(this.#quests),
       ledger: structuredClone(this.#ledger),
       warnings: structuredClone(this.#warnings),
       notifications: structuredClone(this.#notifications.slice(-40)),
@@ -1078,6 +1084,9 @@ class FixtureState {
     this.#refreshWarnings();
     this.#emit({ tick: this.#tick, day: this.#day, party: structuredClone(this.#party), ledger: structuredClone(this.#ledger), warnings: structuredClone(this.#warnings) });
 
+    // Quest progress: recruiting troops
+    this.trackQuestProgress("recruit_troops", request.quantity);
+
     return {
       accepted: true,
       unitName: offered.name,
@@ -1355,6 +1364,7 @@ class FixtureState {
     this.#partyUpkeep();
     this.#siegeTick();
     this.#warTick();
+    this.#questTick();
 
     // Workshop income: each workshop generates daily income based on town prosperity.
     for (const workshop of this.#workshops) {
@@ -1820,6 +1830,7 @@ class FixtureState {
     this.#armies = structuredClone(snapshot.armies ?? []);
     this.#sieges = structuredClone(snapshot.sieges ?? []);
     this.#wars = structuredClone(snapshot.wars ?? []);
+    this.#quests = structuredClone(snapshot.quests ?? []);
     this.#ledger = structuredClone(snapshot.ledger);
     // Reset transient state
     this.#notifications = [];
@@ -2840,6 +2851,158 @@ class FixtureState {
       entityId: war.id,
       field: "war",
     });
+  }
+
+  /**
+   * Quest templates. Data-driven: new quests are added here, not in code branches.
+   */
+  static readonly QUEST_TEMPLATES = [
+    {
+      id: "bandit-hunt",
+      title: "Bandit Hunt",
+      description: "Clear out the bandits troubling the roads.",
+      objectives: [{ kind: "kill_bandits" as const, target: 10, progress: 0 }],
+      rewardMoney: 500,
+      rewardRenown: 5,
+      deadlineDays: 30,
+    },
+    {
+      id: "grain-run",
+      title: "Grain Run",
+      description: "Deliver grain to a hungry town.",
+      objectives: [{ kind: "deliver_goods" as const, target: 50, progress: 0, goodId: "grain" }],
+      rewardMoney: 800,
+      rewardRenown: 3,
+      deadlineDays: 20,
+    },
+    {
+      id: "raise-militia",
+      title: "Raise the Militia",
+      description: "Recruit troops for the coming war.",
+      objectives: [{ kind: "recruit_troops" as const, target: 20, progress: 0 }],
+      rewardMoney: 300,
+      rewardRenown: 8,
+      deadlineDays: 25,
+    },
+  ];
+
+  /**
+   * Accept a quest from a giver.
+   */
+  async acceptQuest(giverId: string, giverName: string, templateId: string): Promise<{ questId: string }> {
+    const template = (FixtureState.QUEST_TEMPLATES as any[]).find((t) => t.id === templateId);
+    if (!template) throw new Error(`Unknown quest template: ${templateId}`);
+
+    // Can't accept the same quest twice while active
+    if (this.#quests.some((q) => q.giverId === giverId && q.title === template.title && q.status === "active")) {
+      throw new Error("You already have this quest active.");
+    }
+
+    const quest: Quest = {
+      id: `quest-${this.#sequence++}`,
+      title: template.title,
+      description: template.description,
+      giverId,
+      giverName,
+      objectives: template.objectives.map((o: any) => ({ ...o })),
+      rewardMoney: template.rewardMoney,
+      rewardRenown: template.rewardRenown,
+      deadlineDay: template.deadlineDays ? this.#day + template.deadlineDays : null,
+      acceptedDay: this.#day,
+      status: "active",
+    };
+    this.#quests.push(quest);
+
+    this.#notifications.push({
+      id: `n-quest-accept-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: `Quest accepted: ${quest.title}`,
+      entityId: quest.id,
+      field: "quest",
+    });
+
+    return { questId: quest.id };
+  }
+
+  /**
+   * Abandon an active quest.
+   */
+  async abandonQuest(questId: string): Promise<void> {
+    const quest = this.#quests.find((q) => q.id === questId);
+    if (!quest) throw new Error("Quest not found.");
+    if (quest.status !== "active") throw new Error("Quest is not active.");
+
+    quest.status = "failed";
+
+    this.#notifications.push({
+      id: `n-quest-abandon-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: `Quest abandoned: ${quest.title}`,
+      entityId: quest.id,
+      field: "quest",
+    });
+  }
+
+  /**
+   * Track quest progress. Called when relevant events happen.
+   */
+  trackQuestProgress(kind: QuestObjective["kind"], amount: number = 1): void {
+    for (const quest of this.#quests) {
+      if (quest.status !== "active") continue;
+      let allComplete = true;
+      for (const obj of quest.objectives) {
+        if (obj.kind === kind && obj.progress < obj.target) {
+          obj.progress = Math.min(obj.target, obj.progress + amount);
+        }
+        if (obj.progress < obj.target) allComplete = false;
+      }
+      if (allComplete) {
+        this.#completeQuest(quest);
+      }
+    }
+  }
+
+  #completeQuest(quest: Quest): void {
+    quest.status = "completed";
+    this.#party.money += quest.rewardMoney;
+    // Renown goes to player character
+    const player = this.#characters.find((c) => c.id === "char-player");
+    if (player) {
+      // Renown is tracked on clan
+      const clan = this.#clans.find((c) => c.id === "clan-player");
+      if (clan) clan.renown += quest.rewardRenown;
+    }
+
+    this.#notifications.push({
+      id: `n-quest-complete-${this.#sequence++}`,
+      day: this.#day,
+      priority: "important",
+      text: `Quest completed: ${quest.title}! +${quest.rewardMoney} gold, +${quest.rewardRenown} renown.`,
+      entityId: quest.id,
+      field: "quest",
+    });
+  }
+
+  /**
+   * Daily quest tick: check deadlines.
+   */
+  #questTick(): void {
+    for (const quest of this.#quests) {
+      if (quest.status !== "active") continue;
+      if (quest.deadlineDay !== null && this.#day > quest.deadlineDay) {
+        quest.status = "failed";
+        this.#notifications.push({
+          id: `n-quest-fail-${this.#sequence++}`,
+          day: this.#day,
+          priority: "informational",
+          text: `Quest failed (deadline passed): ${quest.title}`,
+          entityId: quest.id,
+          field: "quest",
+        });
+      }
+    }
   }
 
   /**

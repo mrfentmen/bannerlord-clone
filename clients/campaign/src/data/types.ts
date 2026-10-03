@@ -538,6 +538,39 @@ export interface War {
   defenderScore: number;
 }
 
+/** A quest objective. */
+export interface QuestObjective {
+  kind: "kill_bandits" | "deliver_goods" | "recruit_troops" | "win_battles";
+  /** Target count. */
+  target: number;
+  /** Current progress. */
+  progress: number;
+  /** For deliver_goods: which good. */
+  goodId?: string;
+  /** For deliver_goods: which town. */
+  townId?: string;
+}
+
+/** A quest. Data-driven; objectives tracked by the simulation. */
+export interface Quest {
+  id: string;
+  title: string;
+  description: string;
+  /** Character or notable ID who gave the quest. */
+  giverId: string;
+  giverName: string;
+  objectives: QuestObjective[];
+  /** Money reward on completion. */
+  rewardMoney: number;
+  /** Renown reward on completion. */
+  rewardRenown: number;
+  /** Day the quest expires (null = no deadline). */
+  deadlineDay: number | null;
+  /** Day the quest was accepted. */
+  acceptedDay: number;
+  status: "active" | "completed" | "failed";
+}
+
 /** A siege in progress. Simulation entity, not art. */
 export interface Siege {
   id: string;
@@ -976,6 +1009,8 @@ export interface SimSnapshot {
   sieges: Siege[];
   /** Active wars between factions. */
   wars: War[];
+  /** Active and completed quests. */
+  quests: Quest[];
   ledger: Ledger;
   warnings: ResourceWarning[];
   notifications: Notification[];
@@ -1146,6 +1181,10 @@ export interface SimulationProvider {
   declareWar(targetFactionId: string): Promise<{ warId: string }>;
   /** Make peace, ending a war. */
   makePeace(warId: string): Promise<void>;
+  /** Accept a quest from a giver. */
+  acceptQuest(giverId: string, giverName: string, templateId: string): Promise<{ questId: string }>;
+  /** Abandon an active quest. */
+  abandonQuest(questId: string): Promise<void>;
   /** Maximum troops the player party can hold (from clan tier). */
   getPartyCapacity(): Promise<number>;
   /** Current party speed in km/day (from troop composition). */
