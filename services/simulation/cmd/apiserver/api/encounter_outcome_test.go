@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
+	"strconv"
 	"testing"
 
 	"mbclone/simulation/cmd/apiserver/api"
@@ -135,6 +136,64 @@ func TestNearbyPartiesCarriesAPosition(t *testing.T) {
 				t.Fatalf("party %q has a position with no numeric %q: %v", name, axis, pos)
 			}
 		}
+	}
+}
+
+// TestNearbyPartyIDIsOneTheServerAccepts pins the id this route hands out to the
+// ids the rest of the battle surface takes.
+//
+// The client reads a force off this route and then does three things with its
+// id: it puts it in POST /v1/encounters, which takes numeric party ids, and it
+// passes it to fleeing and to defeat, which resolve a force by reference. If
+// the id were a name, all three would be looking up a party that does not
+// exist, and the encounter panel would raise a fight the server refuses with
+// "attacker party 0 not found" before the player had chosen anything.
+//
+// So this reads the route and spends what it gave: the id goes straight back
+// into the two routes that resolve a force, and each must find it rather than
+// report that no such party exists.
+func TestNearbyPartyIDIsOneTheServerAccepts(t *testing.T) {
+	serve := newServer(t)
+
+	req := httptest.NewRequest(http.MethodGet, "/v1/parties/nearby?rangeKm=1000000", nil)
+	rec := httptest.NewRecorder()
+	serve.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /v1/parties/nearby answered %d: %s", rec.Code, rec.Body.String())
+	}
+	var list []wire.NearbyParty
+	if err := json.Unmarshal(rec.Body.Bytes(), &list); err != nil {
+		t.Fatalf("the reply is not a list: %s", rec.Body.String())
+	}
+	if len(list) == 0 {
+		t.Skip("this seed's world lists no parties besides the player's")
+	}
+
+	for _, row := range list {
+		t.Run(row.Name, func(t *testing.T) {
+			// The encounter request is the strict one: it reads a number and
+			// 400s on a party that is not in the world, so a name here fails
+			// loudly rather than quietly.
+			n, err := strconv.Atoi(row.ID)
+			if err != nil {
+				t.Fatalf("party %q is listed with id %q, which is not a party id: %v",
+					row.Name, row.ID, err)
+			}
+			status, body := post(t, serve, "/v1/encounters/flee", map[string]any{
+				"npcPartyId":  row.ID,
+				"newPosition": map[string]float64{"x": 1, "z": 2},
+			})
+			if status == http.StatusNotFound {
+				t.Fatalf("party %q was listed with id %q, and fleeing from that id reports there is no such party: %v",
+					row.Name, row.ID, body)
+			}
+			if status != http.StatusOK {
+				t.Fatalf("fleeing from the listed id %q answered %d: %v", row.ID, status, body)
+			}
+			if n < 1 {
+				t.Fatalf("party %q is listed with id %d, and no party has that id: ids start at 1", row.Name, n)
+			}
+		})
 	}
 }
 

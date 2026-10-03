@@ -22,6 +22,7 @@ import {
   improveRelationResultProblem,
   marchCommitProblem,
   marchPlanProblem,
+  nearbyForceListProblem,
   recruitRequestProblem,
   recruitResultProblem,
   schemaVersionProblem,
@@ -475,5 +476,76 @@ describe("a cause chain is checked before the Why panel walks it", () => {
 
   it("refuses a broken related row too, which the panel prints under its own heading", () => {
     expect(whyChainProblem({ entityId: "x", field: "y", rows: [row], related: [{ ...row, system: 7 }] })).toMatch(/related row 0/);
+  });
+});
+describe("a force in encounter range is checked before the panel is raised from it", () => {
+  // Exactly what GET /v1/parties/nearby sends: the server tracks a party it is
+  // not simulating as a count and a morale, so it sends no composition, and
+  // `troops` is genuinely absent rather than filled in with a stand-in.
+  const serverRow = {
+    id: "7",
+    name: "Yorver's company",
+    troopCount: 84,
+    hostile: true,
+    distanceKm: 3.5,
+    position: { x: 12.5, z: -4.25 },
+  };
+
+  it("accepts a row carrying the fields the encounter flow reads", () => {
+    expect(nearbyForceListProblem([serverRow])).toBeNull();
+  });
+
+  it("accepts the fixture's richer rows, which carry a composition and an id that is not a number", () => {
+    expect(
+      nearbyForceListProblem([
+        {
+          ...serverRow,
+          id: "bandit-1",
+          kind: "bandit",
+          factionId: "side-2",
+          troops: [{ name: "Bandit", count: 40, tier: 2 }],
+          destination: null,
+          speedKmPerDay: 0,
+        },
+      ]),
+    ).toBeNull();
+  });
+
+  it("refuses a reply that is not a list, rather than iterating its fields", () => {
+    expect(nearbyForceListProblem({ forces: [serverRow] })).toMatch(/not a list of forces/);
+  });
+
+  it("names the force and the field when the row cannot be read", () => {
+    expect(nearbyForceListProblem([{ ...serverRow, id: undefined }])).toMatch(/force 0 has no id/);
+  });
+
+  // An empty id is a missing one wearing a disguise: it would go into the
+  // encounter request as a party the server cannot find.
+  it("refuses an empty id, which is how a missing id usually arrives", () => {
+    expect(nearbyForceListProblem([{ ...serverRow, id: "" }])).toMatch(/has no id/);
+  });
+
+  it("refuses a headcount that is not a number, which would print as NaN fighters", () => {
+    expect(nearbyForceListProblem([{ ...serverRow, troopCount: null }])).toMatch(/has no troopCount/);
+  });
+
+  // The flee path subtracts this position from the player's own, so a missing
+  // axis is a NaN direction arriving at the server rather than an error.
+  it("refuses a position with no x or no z, which is where the flee vector comes from", () => {
+    expect(nearbyForceListProblem([{ ...serverRow, position: { x: 1 } }])).toMatch(/position has no z/);
+    expect(nearbyForceListProblem([{ ...serverRow, position: { z: 1 } }])).toMatch(/position has no x/);
+  });
+
+  it("refuses a hostile flag that is not a boolean, so a force is not read as neutral by accident", () => {
+    expect(nearbyForceListProblem([{ ...serverRow, hostile: "yes" }])).toMatch(/has no hostile/);
+  });
+
+  it("allows a distance to be absent, because nothing in the encounter flow reads it", () => {
+    const { distanceKm: _omitted, ...withoutDistance } = serverRow;
+    expect(nearbyForceListProblem([withoutDistance])).toBeNull();
+  });
+
+  it("refuses a distance that is present and not a number", () => {
+    expect(nearbyForceListProblem([{ ...serverRow, distanceKm: "3.5" }])).toMatch(/distanceKm/);
   });
 });

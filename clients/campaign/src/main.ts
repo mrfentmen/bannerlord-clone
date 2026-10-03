@@ -2336,11 +2336,16 @@ async function checkForHostiles(): Promise<void> {
     // fails its check and a connection that is simply down all look the same
     // from inside a `catch {}`, and all of them mean the player walks past a
     // hostile force with no panel and no explanation.
-    const problem = err instanceof Error ? err.message : String(err);
+    const problem =
+      err instanceof SimulationUnavailableError
+        ? err.playerMessage
+        : err instanceof Error
+          ? err.message
+          : String(err);
     if (problem === hostileCheckProblem) return;
     hostileCheckProblem = problem;
     console.error("[encounter] Could not look for hostiles:", err);
-    toast("Hostiles could not be looked for. The map is going on without them.", 6000);
+    toast(`${problem} Hostiles will be missed until it comes back.`, 6000);
   }
 }
 

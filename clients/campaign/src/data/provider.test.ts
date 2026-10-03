@@ -738,3 +738,65 @@ describe("the tick subscription reports instead of dropping frames silently", ()
     });
   });
 });
+
+describe("a force in encounter range is refused rather than half-read", () => {
+  // What the campaign sends for a party it is not simulating: no composition,
+  // because model.Party is a count and a morale rather than stacks.
+  const serverRow = {
+    id: "7",
+    name: "Yorver's company",
+    troopCount: 84,
+    hostile: true,
+    distanceKm: 3.5,
+    position: { x: 12.5, z: -4.25 },
+  };
+
+  it("passes a row through with the id the server gave it, so it can be fought", async () => {
+    // The id is the whole point: this is the value that goes into
+    // POST /v1/encounters and into fleeing and defeat. A rewrite here would be
+    // invisible in the panel and fatal in the request.
+    const fetchImpl = vi.fn(async () => jsonResponse([serverRow]));
+    await expect(providerWith(fetchImpl as unknown as typeof fetch).getNearbyHostiles(50)).resolves.toEqual([
+      serverRow,
+    ]);
+  });
+
+  it("asks for the range it was given", async () => {
+    const urls: string[] = [];
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      urls.push(String(input));
+      return jsonResponse([]);
+    });
+    await providerWith(fetchImpl as unknown as typeof fetch).getNearbyHostiles(50);
+    expect(urls).toEqual(["http://sim.invalid/v1/parties/nearby?rangeKm=50"]);
+  });
+
+  it("names the field a row is missing, instead of handing the panel an undefined headcount", async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse([{ ...serverRow, position: { x: 1 } }]));
+    await expect(providerWith(fetchImpl as unknown as typeof fetch).getNearbyHostiles(50)).rejects.toThrow(
+      /force 0 position has no z/,
+    );
+  });
+
+  it("refuses a reply that is not a list, rather than iterating a payload's own fields", async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ forces: [serverRow] }));
+    await expect(providerWith(fetchImpl as unknown as typeof fetch).getNearbyHostiles(50)).rejects.toThrow(
+      /not a list of forces/,
+    );
+  });
+
+  it("lets the route's own failure through, with the sentence the sweep shows the player", async () => {
+    // The sweep reports `playerMessage` when it is there and the raw message
+    // otherwise, so what reaches the toast is the one the provider wrote for a
+    // player rather than a URL with a status code on it.
+    const fetchImpl = vi.fn(async () => jsonResponse("that path is not part of the campaign API", 404));
+    const failure = await fastProviderWith(fetchImpl as unknown as typeof fetch)
+      .getNearbyHostiles(50)
+      .then(
+        () => null,
+        (err: unknown) => err,
+      );
+    expect(failure, "a 404 from the nearby route is not swallowed").toBeInstanceOf(SimulationUnavailableError);
+    expect((failure as SimulationUnavailableError).playerMessage).toMatch(/Nearby parties could not be listed/);
+  });
+});

@@ -138,6 +138,11 @@ func (c *Campaign) townByRef(ref string) (*model.Town, bool) {
 }
 
 // partyByRef resolves a party from an id or a name slug.
+//
+// A bare integer is accepted as a simulation id. GET /v1/parties/nearby sends
+// one, because the encounter request that follows it takes numeric party ids, so
+// a client that reads a force off that route and then flees from it names the
+// force the way the route gave it.
 func (c *Campaign) partyByRef(ref string) (*model.Party, bool) {
 	ref = strings.TrimSpace(ref)
 	if ref == "" {
@@ -146,6 +151,12 @@ func (c *Campaign) partyByRef(ref string) (*model.Party, bool) {
 	if kind, id, ok := ParseEntityID(ref); ok && kind == model.KindParty {
 		p, exists := c.state.Parties[id]
 		return p, exists && p != nil
+	}
+	if n, err := strconv.Atoi(ref); err == nil {
+		p, exists := c.state.Parties[n]
+		if exists && p != nil {
+			return p, true
+		}
 	}
 	slug := Slug(ref)
 	for _, id := range c.state.PartyIDs() {

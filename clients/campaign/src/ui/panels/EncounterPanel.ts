@@ -1,16 +1,22 @@
-import type { NpcParty } from "../../data/types.js";
+import type { NearbyForce } from "../../data/types.js";
 
 export interface EncounterChoice {
   action: "fight" | "flee" | "dismiss";
-  npcParty: NpcParty;
+  npcParty: NearbyForce;
 }
 
 /**
  * Encounter panel: shown when the player party comes within encounter range
- * of a hostile NPC party. The player chooses to fight, flee, or dismiss.
+ * of a hostile force. The player chooses to fight, flee, or dismiss.
+ *
+ * The force is whatever `getNearbyHostiles` returned, not a snapshot row looked
+ * up by name: the campaign server sends no npcParties in the snapshot at all, so
+ * a panel that waited for one would never open against a live server. It reads
+ * a name, a headcount, whether the force is hostile, and an id, and takes
+ * {@link NearbyForce} because that is the whole of what it uses.
  */
 export function encounterPanel(opts: {
-  npc: NpcParty;
+  npc: NearbyForce;
   playerTroops: number;
   onChoice: (choice: EncounterChoice) => void;
 }): HTMLElement {

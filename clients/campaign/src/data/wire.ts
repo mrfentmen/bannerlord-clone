@@ -21,6 +21,7 @@
  */
 
 import {
+  fieldsProblem,
   isArray,
   isBoolean,
   isFiniteNumber,
@@ -38,6 +39,7 @@ import type {
   ImproveRelationRequest,
   ImproveRelationResult,
   MarchPlan,
+  NearbyForce,
   RecruitRequest,
   RecruitResult,
   SimSnapshot,
@@ -542,6 +544,41 @@ export function tickFrameProblem(raw: unknown): string | null {
   return null;
 }
 
+// -- GET /v1/parties/nearby --------------------------------------------------
+
+/**
+ * One row of `GET /v1/parties/nearby`, the force the encounter panel is built from.
+ *
+ * `position` is required because the flee path subtracts it from the player's own
+ * position to get a direction, and an undefined there is a `NaN` in the retreat
+ * order. `id` is required and is not just a label: it goes into the encounter
+ * request and into fleeing and defeat, all of which look the party up by it.
+ *
+ * `troops` is deliberately not required. The server tracks a party it is not
+ * simulating as a headcount and a morale rather than as stacks, so it sends no
+ * composition and there is nothing to check; the fixture, which does simulate
+ * them, sends one and it is read when present.
+ */
+function nearbyForceProblem(raw: unknown): string | null {
+  if (!isRecord(raw)) return "is not a JSON object";
+  const problem = fieldsProblem([
+    ["id", isString(raw.id)],
+    ["name", isString(raw.name)],
+    ["troopCount", isFiniteNumber(raw.troopCount)],
+    ["hostile", isBoolean(raw.hostile)],
+  ]);
+  if (problem) return `has no ${problem}`;
+  const position = pointProblem(raw.position);
+  if (position) return `position ${position}`;
+  if (raw.distanceKm !== undefined && !isFiniteNumber(raw.distanceKm)) return "has a distanceKm that is not a number";
+  return null;
+}
+
+export function nearbyForceListProblem(raw: unknown): string | null {
+  if (!isArray(raw)) return "the reply is not a list of forces";
+  return listProblem(raw, nearbyForceProblem, (i) => `force ${i}`);
+}
+
 // -- compile-time tie between the checks and the types they guard ------------
 //
 // A validator is only worth having if the type it guards is the type the client
@@ -563,7 +600,9 @@ const _construction: (raw: unknown) => ConstructionResult | null = (raw) =>
   constructionResultProblem(raw) === null ? (raw as ConstructionResult) : null;
 const _plan: (raw: unknown) => MarchPlan | null = (raw) => (marchPlanProblem(raw) === null ? (raw as MarchPlan) : null);
 const _chain: (raw: unknown) => WhyChain | null = (raw) => (whyChainProblem(raw) === null ? (raw as WhyChain) : null);
-void [_snapshot, _trade, _recruit, _talk, _relation, _awards, _upgrade, _construction, _plan, _chain];
+const _forces: (raw: unknown) => NearbyForce[] | null = (raw) =>
+  nearbyForceListProblem(raw) === null ? (raw as NearbyForce[]) : null;
+void [_snapshot, _trade, _recruit, _talk, _relation, _awards, _upgrade, _construction, _plan, _chain, _forces];
 
 /** Re-exported so a payload with a `{ x, z }` shape is checked the same way everywhere. */
 export { pointProblem };

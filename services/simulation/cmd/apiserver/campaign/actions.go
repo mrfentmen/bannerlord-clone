@@ -3,6 +3,7 @@ package campaign
 import (
 	"context"
 	"fmt"
+	"strconv"
 
 	"mbclone/simulation/cmd/apiserver/wire"
 	"mbclone/simulation/internal/cause"
@@ -453,10 +454,19 @@ func (c *Campaign) NearbyParties(ctx context.Context, rangeKm float64) (any, err
 		dist := sqrt(dx*dx + dy*dy)
 		if dist <= rangeKm {
 			result = append(result, wire.NearbyParty{
-				ID:         p.Name, // use name as ID for now
+				// The party's simulation id, because this is the id the rest of
+				// the battle surface takes: POST /v1/encounters is given numeric
+				// party ids, and fleeing and defeat name the force by this same id.
+				// It used to be the party's name, which meant the client had no id
+				// it could put in an encounter request and had to invent one.
+				ID:         strconv.Itoa(p.ID),
 				Name:       p.Name,
 				TroopCount: p.Troops,
-				Hostile:    true, // TODO: determine from faction relations
+				// The same test the encounter auto-trigger uses, so what this
+				// route calls hostile is exactly what would raise an encounter
+				// between the two. Calling a passing caravan hostile would put a
+				// "fight or flee" panel in front of the player over a merchant.
+				Hostile:    c.state.AtWar(player.SideID, p.SideID) || p.IsRaider,
 				DistanceKm: dist,
 				Position:   wire.Point{X: round2(p.X), Z: round2(p.Y)},
 			})

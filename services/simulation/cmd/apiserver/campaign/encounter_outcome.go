@@ -168,8 +168,8 @@ func (c *Campaign) ApplyPlayerDefeat(ctx context.Context, req wire.PlayerDefeatR
 // outcomePartiesLocked resolves the two sides of an outcome: the player's party
 // and the force being fled from or defeated.
 //
-// The enemy arrives as a name, because GET /v1/parties/nearby sends party names
-// as ids, and partyByRef reads a name or an entity id either way.
+// The enemy arrives as the id GET /v1/parties/nearby gave it, and partyByRef
+// reads a name or an entity id or a bare simulation id either way.
 func (c *Campaign) outcomePartiesLocked(ref string) (*model.Party, *model.Party, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
