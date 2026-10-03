@@ -71,7 +71,7 @@ export interface PartyPanelOptions {
    * party's name; the simulation owns whether the split happens. Only drawn
    * when the caller can actually send the order.
    */
-  onSplitParty?: (input: { troopIds: { stackId: string; count: number }[]; name: string }) => Promise<{ partyId: string }>;
+  onSplitParty?: ((input: { troopIds: { stackId: string; count: number }[]; name: string }) => Promise<{ partyId: string }>) | undefined;
   /** The party roll is still being read. `party-skeleton` goes up first. */
   loading?: boolean;
   testId?: string;

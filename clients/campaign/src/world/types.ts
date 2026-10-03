@@ -60,6 +60,12 @@ export interface ElevationTier {
  */
 export interface RegionFile extends WireStamped {
   name: string;
+  /**
+   * The region's id in `public/world/regions.json`'s index (e.g. "nyc-metro").
+   * Present in multi-region wire builds; the legacy default region's file
+   * predates the index and carries no id.
+   */
+  regionId?: string;
   bbox: { south: number; west: number; north: number; east: number };
   /**
    * The boot tier: every tile the loader fetches before it draws anything.

@@ -226,6 +226,10 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
   return {
     kind: "fixture",
     label: `${FIXTURE_MARKER} · Ohio River Valley`,
+    // The fixture implements every order the client knows, so no control is
+    // ever withheld when it is the provider (it is the deployed build's
+    // fallback when no simulation server answers).
+    servesOrder: () => true,
     getSnapshot: async () => state.snapshot(),
     trade: async (request) => state.trade(request),
     recruit: async (request) => state.recruit(request),

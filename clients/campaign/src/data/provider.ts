@@ -51,6 +51,7 @@ import type {
   UpgradeTroopsResult,
   WhyChain,
 } from "./types.js";
+import { servesOrder as serverServesOrder, type UnservedOrder } from "./unserved.js";
 import { createFixtureSimulationProvider } from "./fixture/index.js";
 import {
   battleXpProblem,
@@ -355,6 +356,15 @@ export class HttpSimulationProvider implements SimulationProvider {
     this.#fetch = options.fetchImpl ?? globalThis.fetch.bind(globalThis);
     this.#openSocket = options.socketFactory ?? ((url: string) => new WebSocket(url) as unknown as WebSocketLike);
     this.#timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
+  }
+
+  /**
+   * Whether the campaign server can carry an order out. Answered from
+   * unserved.ts's table: an order the server mounts no route for 404s, so the
+   * panels withhold its control instead of offering a button that can only fail.
+   */
+  servesOrder(order: UnservedOrder): boolean {
+    return serverServesOrder(order);
   }
 
   async getSnapshot(): Promise<SimSnapshot> {

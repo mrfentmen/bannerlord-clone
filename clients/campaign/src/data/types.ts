@@ -17,6 +17,7 @@
  */
 
 import type { TownClassName } from "../design/tokens.js";
+import type { UnservedOrder } from "./unserved.js";
 
 /** The four core resources of ECONOMY.md section 1, plus medicine from CAUSE_EFFECT.md §2. */
 export type ResourceId = "money" | "gold" | "food" | "metal" | "medicine";
@@ -1219,6 +1220,14 @@ export interface SimulationProvider {
   startConstruction(townId: string, buildingId: string): Promise<ConstructionResult>;
   why(entityId: string, field: string): Promise<WhyChain>;
   subscribeTicks(onTick: (tick: TickUpdate) => void, onStatus: (status: ConnectionStatus) => void): () => void;
+  /**
+   * Whether the connected backend can carry an order out. The fixture implements
+   * every order the client knows, so it always answers true; the campaign server
+   * mounts no route for the orders in unserved.ts's table, so the HTTP provider
+   * answers from that table. Panels ask this before drawing a control for an
+   * order, because a button that can only 404 is worse than no button.
+   */
+  servesOrder(order: UnservedOrder): boolean;
 }
 
 export type ConnectionState = "connected" | "connecting" | "reconnecting" | "degraded" | "offline";

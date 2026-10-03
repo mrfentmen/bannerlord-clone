@@ -86,23 +86,23 @@ export interface TownPanelOptions {
    * The player's workshops in this town. Omitted, the section is not drawn —
    * a workshop list the player cannot act on is worse than no list.
    */
-  workshops?: Workshop[];
+  workshops?: Workshop[] | undefined;
   /**
    * Buy a workshop of the given type in this town. The panel sends the type;
    * the simulation owns the price and the result.
    */
-  onBuyWorkshop?: (type: string) => Promise<{ workshopId: string }>;
+  onBuyWorkshop?: ((type: string) => Promise<{ workshopId: string }>) | undefined;
   /**
    * Sell a workshop by id. The panel sends the id; the simulation owns the
    * price and the result.
    */
-  onSellWorkshop?: (workshopId: string) => Promise<void>;
+  onSellWorkshop?: ((workshopId: string) => Promise<void>) | undefined;
   /**
    * Hire militia for the town's garrison. The panel sends the count; the
    * simulation owns the cost and the result. Only drawn when the caller can
    * actually send the order.
    */
-  onRecruitMilitia?: (count: number) => Promise<void>;
+  onRecruitMilitia?: ((count: number) => Promise<void>) | undefined;
   /**
    * The survey is still being read. Renders `town-skeleton`, which mirrors this
    * panel's sections, so the context region does not change height when the town
