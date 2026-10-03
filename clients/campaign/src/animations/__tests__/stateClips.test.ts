@@ -269,8 +269,14 @@ describe("generic interact (task 677)", () => {
     expect(resolveStateClip('interact', clipsOf('female-operator.glb')).gap).toBe('clip-not-in-model');
   });
 
-  it("is also available on the rogue rig, under the same name", () => {
-    expect(resolveStateClip('interact', clipsOf('kaykit-rogue.glb')).available).toBe(true);
+  it("records that the rogue rig spells the same action 'Interact'", () => {
+    // kaykit-rogue.glb has `Interact` with a capital I, so this table -- which
+    // names the operator rigs' `interact` -- does not match it. The gap is
+    // reported rather than guessed around.
+    const rogue = clipsOf('kaykit-rogue.glb');
+    expect(rogue).toContain('Interact');
+    expect(rogue).not.toContain('interact');
+    expect(resolveStateClip('interact', rogue).gap).toBe('clip-not-in-model');
   });
 
   it("keeps the legs available to locomotion while the arms are busy", () => {
