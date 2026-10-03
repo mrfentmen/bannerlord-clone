@@ -132,3 +132,119 @@ function clamp01(v: number): number {
 export function materialNamesOf(bytes: Uint8Array): GlbMaterial[] {
   return readMaterialNames(bytes);
 }
+
+/**
+ * Task 723: clothing colours per faction.
+ *
+ * Same mechanism as the skin tone and for the same reason -- the operator rigs
+ * name their uniform materials, so a faction colour can be written on the jacket
+ * without touching the skin, the hair or the webbing. Two rules keep it honest:
+ *
+ * - The faction colour is a *tint*, not a replacement. A faction that wears grey
+ *   webbing keeps grey webbing; only the materials a faction actually claims are
+ *   written. A replacement would recolour everything the model has.
+ * - A model with no named materials gets no faction colour at all, and says so,
+ *   for the same reason task 721 refuses one.
+ */
+
+/** Materials a faction colour is allowed to claim. */
+export const FACTION_MATERIAL_PATTERNS: readonly string[] = [
+  'swat',
+  'body',
+  'cloth',
+  'jacket',
+  'shirt',
+  'uniform',
+];
+
+/** A faction and the colour it wears. */
+export interface FactionColours {
+  factionId: string;
+  /** Tint on the claimed materials, RGB 0..1. */
+  tint: { r: number; g: number; b: number };
+}
+
+/**
+ * The factions in this game, by the colour they wear.
+ *
+ * Plain numbers rather than CSS strings: these reach a 3D material, where the
+ * design tokens do not, and the same reason the model's own colours are read
+ * rather than assumed.
+ */
+export const FACTION_COLOURS: readonly FactionColours[] = [
+  { factionId: 'vaylen', tint: { r: 0.29, g: 0.36, b: 0.45 } },
+  { factionId: 'sable', tint: { r: 0.42, g: 0.24, b: 0.2 } },
+  { factionId: 'marrow', tint: { r: 0.35, g: 0.4, b: 0.32 } },
+  { factionId: 'neutral', tint: { r: 0.45, g: 0.45, b: 0.46 } },
+];
+
+/** A faction's colours, or null for one nobody has defined. */
+export function factionColours(factionId: string): FactionColours | null {
+  return FACTION_COLOURS.find((f) => f.factionId === factionId) ?? null;
+}
+
+/**
+ * Material indices a faction colour may be written to.
+ *
+ * Hair and skin never appear in the result, whatever the faction: a faction does
+ * not dye a character's hair, and a uniform colour that reached the face would be
+ * the obvious mistake here.
+ */
+export function factionMaterialIndices(materials: readonly GlbMaterial[]): number[] {
+  const named = materials.filter((m) => m.name.length > 0);
+  if (named.length === 0) return [];
+  const out: number[] = [];
+  for (const pattern of FACTION_MATERIAL_PATTERNS) {
+    const index = findMaterial(named, pattern);
+    if (index >= 0 && !out.includes(index)) out.push(index);
+  }
+  return out.sort((a, b) => a - b);
+}
+
+/** What to write, and on which materials. */
+export interface FactionVariant {
+  factionId: string;
+  /** Materials to write, by index; empty when the model has no uniform. */
+  materialIndices: number[];
+  /** Tint to write, or null when the faction has no colours defined. */
+  tint: { r: number; g: number; b: number } | null;
+  /** Why nothing was written. */
+  gap: 'no-named-materials' | 'no-uniform-materials' | 'unknown-faction' | null;
+}
+
+/** Task 723: what a faction's colour means for one model. */
+export function factionVariantFor(
+  materials: readonly GlbMaterial[],
+  factionId: string,
+): FactionVariant {
+  const colours = factionColours(factionId);
+  const indices = factionMaterialIndices(materials);
+  if (materials.every((m) => m.name.length === 0)) {
+    return { factionId, materialIndices: indices, tint: colours?.tint ?? null, gap: 'no-named-materials' };
+  }
+  if (indices.length === 0) {
+    return { factionId, materialIndices: [], tint: colours?.tint ?? null, gap: 'no-uniform-materials' };
+  }
+  if (!colours) {
+    return { factionId, materialIndices: indices, tint: null, gap: 'unknown-faction' };
+  }
+  return { factionId, materialIndices: indices, tint: colours.tint, gap: null };
+}
+
+/**
+ * Blends a material towards the faction tint.
+ *
+ * `strength` is 0..1: a faction colour at full strength repaints the uniform, and
+ * a lower one is how a worn or faded uniform is expressed without a second asset.
+ */
+export function applyFactionTint(material: SkinMaterial, tint: { r: number; g: number; b: number }, strength = 1): Color3 {
+  const amount = Number.isFinite(strength) ? Math.min(1, Math.max(0, strength)) : 1;
+  const base = material.diffuseColor;
+  const next = new Color3(
+    clamp01(base.r + (clamp01(tint.r) - base.r) * amount),
+    clamp01(base.g + (clamp01(tint.g) - base.g) * amount),
+    clamp01(base.b + (clamp01(tint.b) - base.b) * amount),
+  );
+  material.diffuseColor = next;
+  return next;
+}

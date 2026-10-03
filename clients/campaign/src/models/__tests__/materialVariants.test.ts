@@ -23,7 +23,11 @@ import { Scene } from "@babylonjs/core/scene.js";
 import { readMaterialNames, type GlbMaterial } from "../GlbFormat.js";
 import {
   SKIN_TONES,
+  applyFactionTint,
   applySkinTone,
+  factionColours,
+  factionMaterialIndices,
+  factionVariantFor,
   skinMaterialFor,
   skinTone,
   skinVariantFor,
@@ -145,5 +149,76 @@ describe("applying a tone (task 721)", () => {
     expect(skinIndex).toBeGreaterThanOrEqual(0);
     expect(hairIndex).toBeGreaterThanOrEqual(0);
     expect(skinIndex).not.toBe(hairIndex);
+  });
+});
+describe("faction clothing colours (task 723)", () => {
+  const operator = materialsOf('operator-viper.glb');
+
+  it("claims the uniform materials and never the skin or hair", () => {
+    const indices = factionMaterialIndices(operator);
+    expect(indices.length).toBeGreaterThan(0);
+    const names = indices.map((i) => (operator[i] as GlbMaterial).name.toLowerCase());
+    expect(names.some((n) => n.includes('skin'))).toBe(false);
+    expect(names.some((n) => n.includes('hair'))).toBe(false);
+    expect(names.some((n) => n.includes('swat') || n.includes('body'))).toBe(true);
+  });
+
+  it("writes a tint onto a model that has a uniform", () => {
+    const variant = factionVariantFor(operator, 'vaylen');
+    expect(variant.gap).toBeNull();
+    expect(variant.materialIndices.length).toBeGreaterThan(0);
+    expect(variant.tint).not.toBeNull();
+  });
+
+  it("refuses the models with one unnamed material", () => {
+    for (const file of ['civilian.glb', 'troop-gunner.glb']) {
+      const variant = factionVariantFor(materialsOf(file), 'vaylen');
+      expect(variant.gap, file).toBe('no-named-materials');
+      expect(variant.materialIndices, file).toEqual([]);
+    }
+  });
+
+  it("names a faction nobody has colours for", () => {
+    const variant = factionVariantFor(operator, 'the-undeclared-conspiracy');
+    expect(variant.gap).toBe('unknown-faction');
+    expect(variant.tint).toBeNull();
+    expect(factionColours('the-undeclared-conspiracy')).toBeNull();
+  });
+
+  it("tints towards the colour rather than replacing it", () => {
+    const scene = new Scene(new NullEngine());
+    const mat = new StandardMaterial('uniform', scene);
+    mat.diffuseColor = new Color3(0.1, 0.1, 0.1);
+    const vaylen = factionColours('vaylen') as { tint: { r: number; g: number; b: number } };
+    applyFactionTint(mat, vaylen.tint, 0.5);
+    // Halfway: still darker than the faction colour, and it moved.
+    expect(mat.diffuseColor.r).toBeGreaterThan(0.1);
+    expect(mat.diffuseColor.r).toBeLessThan(vaylen.tint.r);
+    applyFactionTint(mat, vaylen.tint, 1);
+    expect(mat.diffuseColor.r).toBeCloseTo(vaylen.tint.r, 5);
+  });
+
+  it("keeps a faded uniform faded", () => {
+    const scene = new Scene(new NullEngine());
+    const mat = new StandardMaterial('worn', scene);
+    mat.diffuseColor = new Color3(0.5, 0.5, 0.5);
+    const vaylen = factionColours('vaylen') as { tint: { r: number; g: number; b: number } };
+    applyFactionTint(mat, vaylen.tint, 0.2);
+    // A low strength lands between the pack's own colour and the faction colour
+    // and stops short of it, which is how wear is expressed without a second asset.
+    expect(mat.diffuseColor.r).toBeLessThan(0.5);
+    expect(mat.diffuseColor.r).toBeGreaterThan(vaylen.tint.r);
+  });
+
+  it("clamps a broken strength and a broken colour", () => {
+    const scene = new Scene(new NullEngine());
+    const mat = new StandardMaterial('m', scene);
+    mat.diffuseColor = new Color3(0.5, 0.5, 0.5);
+    applyFactionTint(mat, { r: 5, g: -2, b: Number.NaN }, 2);
+    for (const channel of [mat.diffuseColor.r, mat.diffuseColor.g, mat.diffuseColor.b]) {
+      expect(channel).toBeGreaterThanOrEqual(0);
+      expect(channel).toBeLessThanOrEqual(1);
+    }
+    expect(mat.diffuseColor.r).toBe(1);
   });
 });
