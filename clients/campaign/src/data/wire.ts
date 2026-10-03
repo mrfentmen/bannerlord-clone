@@ -28,6 +28,7 @@ import {
   isOneOf,
   isRecord,
   isString,
+  isText,
   listProblem,
   pointProblem,
   polylineProblem,
@@ -274,7 +275,11 @@ export function tradeResultProblem(raw: unknown): string | null {
   if (!isFiniteNumber(raw.total)) return "total is not a number";
   if (!isFiniteNumber(raw.partyQuantity)) return "partyQuantity is not a number";
   if (!isFiniteNumber(raw.marketPriceAfter)) return "marketPriceAfter is not a number";
-  if (!isString(raw.causedBy)) return "causedBy is missing";
+  // A row id when the trade wrote one, and "" when it did not. `finishTrade` only looks
+  // up a cause row for an accepted trade, and the field has no `omitempty` on the server,
+  // so a refusal arrives with the key present and empty. `isText` rather than `isString`
+  // for that reason; see checks.ts.
+  if (!isText(raw.causedBy)) return "causedBy is missing";
   // A refusal is the simulation's right answer, so a reason is required on it and the
   // panel prints it verbatim. An acceptance with no reason is fine.
   if (!raw.accepted && !isString(raw.reason)) return "a refusal carries no reason";
@@ -301,7 +306,10 @@ export function recruitResultProblem(raw: unknown): string | null {
   if (!isFiniteNumber(raw.quantity)) return "quantity is not a number";
   if (!isFiniteNumber(raw.totalCost)) return "totalCost is not a number";
   if (!isFiniteNumber(raw.newCount)) return "newCount is not a number";
-  if (!isString(raw.causedBy)) return "causedBy is missing";
+  // A row id when the hire wrote one, "" when it did not: `recruit.go` only looks up a
+  // cause row for an accepted order, and the field has no `omitempty`, so a refusal
+  // arrives present and empty. `isText`, not `isString`; see checks.ts.
+  if (!isText(raw.causedBy)) return "causedBy is missing";
   if (!raw.accepted && !isString(raw.reason)) return "a refusal carries no reason";
   return null;
 }
@@ -358,7 +366,9 @@ export function improveRelationResultProblem(raw: unknown): string | null {
   if (!isFiniteNumber(raw.relationBefore)) return "relationBefore is not a number";
   if (!isFiniteNumber(raw.relationAfter)) return "relationAfter is not a number";
   if (!isString(raw.summary)) return "summary is missing";
-  if (!isString(raw.causedBy)) return "causedBy is missing";
+  // As in trade and recruit: set only for an accepted order, sent always, and empty on a
+  // refusal. `isText`, not `isString`; see checks.ts.
+  if (!isText(raw.causedBy)) return "causedBy is missing";
   if (!raw.accepted && !isString(raw.reason)) return "a refusal carries no reason";
   return null;
 }
@@ -431,7 +441,9 @@ export function upgradeResultProblem(raw: unknown): string | null {
   if (!isFiniteNumber(raw.toTier)) return "toTier is not a number";
   if (!isFiniteNumber(raw.xpSpent)) return "xpSpent is not a number";
   if (!isFiniteNumber(raw.goldSpent)) return "goldSpent is not a number";
-  if (!isString(raw.causedBy)) return "causedBy is missing";
+  // Set only on a successful promotion, sent always, and empty on a refusal, so a refusal
+  // must be allowed to carry it empty. `isText`, not `isString`; see checks.ts.
+  if (!isText(raw.causedBy)) return "causedBy is missing";
   if (raw.upgraded && raw.toTier <= raw.fromTier) return "an upgrade does not raise a tier";
   if (!raw.upgraded && !isString(raw.reason)) return "a refusal carries no reason";
   return null;

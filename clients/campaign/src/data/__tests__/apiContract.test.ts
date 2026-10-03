@@ -21,12 +21,16 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
+import { UNSERVED } from "../unserved.js";
 
 /** The route table. Every handler the server mounts is registered here. */
 const SERVER_ROUTES = new URL(
   "../../../../../services/simulation/cmd/apiserver/api/api.go",
   import.meta.url,
 );
+
+/** The module that constructs every panel, and so hands out every order callback. */
+const APP_SHELL = new URL("../../main.ts", import.meta.url);
 
 /**
  * The two places that actually talk to the simulation.
@@ -44,39 +48,22 @@ const CLIENT_CALLERS = [
 /**
  * Paths the client asks for that the server does not mount, with the reason.
  *
- * Every entry is a debt someone has to pay; the day the server mounts the route,
- * delete the line. That is what keeps this test honest rather than a list that
- * grows until somebody switches it off.
+ * Read from `unserved.ts` rather than restated here. It used to be a second copy of
+ * the table in this file, on the understanding that the two were kept in step by hand.
+ * They were, and would have stayed that way right up to the moment somebody added a
+ * row to `unserved.ts` — where it gates the control at runtime — and forgot this copy,
+ * where it only gates a test. That drift is invisible from inside this repository: the
+ * test passes, the gate in the deployed build starts withholding a working control, and
+ * nothing reports it. One table, imported, is the only version of this fact that cannot
+ * disagree with itself.
  *
- * None of these are called by the running game yet — they are provider methods
- * added ahead of their server side, which is the order this repository works in.
- * The test that says so is below, because a list that quietly covers a *live*
- * panel would be the bug this file was written to find, restated.
+ * None of these are called by the running game without a gate — they are provider
+ * methods added ahead of their server side, which is the order this repository works
+ * in. The test that says so is below, and it derives the set rather than listing it.
  */
-const DECLARED_BUT_UNSERVED: Record<string, string> = {
-  "/v1/parties/split": "party split/merge is implemented in the client's fixture, with no server side yet",
-  "/v1/parties/{}/merge": "party split/merge is implemented in the client's fixture, with no server side yet",
-  "/v1/towns/{}/militia": "militia recruitment is implemented in the client's fixture, with no server side yet",
-  "/v1/towns/{}/workshops": "workshop purchase is implemented in the client's fixture, with no server side yet",
-  "/v1/workshops/{}/sell": "workshop sale is implemented in the client's fixture, with no server side yet",
-  "/v1/dynasty/marry": "the dynasty foundation landed client-side first; the server side is not written",
-  "/v1/dynasty/child": "the dynasty foundation landed client-side first; the server side is not written",
-  "/v1/dynasty/characters/{}/kill": "the dynasty foundation landed client-side first; the server side is not written",
-  "/v1/dynasty/clans/{}/heir": "the dynasty foundation landed client-side first; the server side is not written",
-  "/v1/armies": "armies are implemented in the client's fixture, with no server side yet",
-  "/v1/armies/{}/join": "armies are implemented in the client's fixture, with no server side yet",
-  "/v1/armies/{}/leave": "armies are implemented in the client's fixture, with no server side yet",
-  "/v1/armies/{}/disband": "armies are implemented in the client's fixture, with no server side yet",
-  "/v1/armies/{}/objective": "armies are implemented in the client's fixture, with no server side yet",
-  "/v1/towns/{}/siege": "sieges are implemented in the client's fixture, with no server side yet",
-  "/v1/companions/{}/recruit": "companions are implemented in the client's fixture, with no server side yet",
-  "/v1/wars": "wars are implemented in the client's fixture, with no server side yet",
-  "/v1/wars/{}/peace": "wars are implemented in the client's fixture, with no server side yet",
-  "/v1/quests": "quests are implemented in the client's fixture, with no server side yet",
-  "/v1/quests/{}/abandon": "quests are implemented in the client's fixture, with no server side yet",
-  "/v1/towns/{}/crime": "crime is implemented in the client's fixture, with no server side yet",
-  "/v1/towns/{}/fine": "crime is implemented in the client's fixture, with no server side yet",
-};
+const DECLARED_BUT_UNSERVED: Record<string, string> = Object.fromEntries(
+  Object.entries(UNSERVED).map(([path, entry]) => [path, entry.reason]),
+);
 
 function read(url: URL): string {
   return readFileSync(fileURLToPath(url), "utf8");
@@ -196,24 +183,185 @@ describe("the client's API contract", () => {
   });
 
   it("keeps an unmounted path out of the allow-list once a panel reaches for it", () => {
-    // The allow-list above is only honest while everything in it is unreachable.
-    // If a panel starts calling one of those provider methods, the 404 is real to
-    // a player, so this fails and the path has to be mounted instead of excused.
-    const reachable = REACHED_BY_THE_GAME;
-    const excusedButLive = reachable.filter((path) => path in DECLARED_BUT_UNSERVED);
+    // The allow-list above is only honest while everything in it is unreachable, either
+    // because nothing calls it or because the call is behind a gate that consults
+    // `servesOrder`. `gatedCalls` is derived from the app shell, so a panel that starts
+    // calling one of these methods without that gate fails here, and a fifth such call
+    // does not need anybody to remember to add it to a list.
+    //
+    // Fleeing and losing are not in `UNSERVED` at all — both routes are mounted now —
+    // so they are asserted outright by the test above. This one is about the orders the
+    // table excuses.
+    const ungated = reachableUnservedCalls()
+      .filter((call) => call.gate === null)
+      .map((call) => `${call.method} at ${call.where} (${call.path})`);
     expect(
-      excusedButLive,
-      "The running game calls these, and the server does not serve them. Mount the routes rather than excusing them.",
+      ungated,
+      [
+        "The running game calls these without asking servesOrder whether the connected backend can",
+        "carry them out, so against the campaign server each one is a 404 reaching the player as a",
+        "failure with no stated cause. Wrap the call in order(provider, \"<order>\", ...) — unserved.ts",
+        "records which provider method each order name refers to — or mount the route.",
+      ].join("\n"),
+    ).toEqual([]);
+  });
+
+  it("finds the unserved orders the running game reaches for, so the check above is not vacuous", () => {
+    // The test above passes trivially if the scan finds nothing: a pattern that matches
+    // no source file, or a renamed helper, would silence the one check meant to catch a
+    // button that can only fail. So the derived set is asserted to be the one it is
+    // today, which makes a silent no-op a failure rather than a green tick.
+    const found = reachableUnservedCalls().map((call) => `${call.method} -> ${call.order}`).sort();
+    expect(found).toEqual([
+      "buyWorkshop -> buyWorkshop",
+      "recruitMilitia -> recruitMilitia",
+      "sellWorkshop -> sellWorkshop",
+      "splitParty -> splitParty",
+    ]);
+  });
+
+  it("has a gate that names the order whose method it guards", () => {
+    // `order()` takes an order *name* and its body calls a provider *method*, and for
+    // five entries in the table those are not the same string: `listArmies` is sent by
+    // `createArmy`, `listWars` by `declareWar`, `listQuests` by `acceptQuest`,
+    // `besiegeTown` by `startSiege`, `setClanHeir` by `getHeir`. TypeScript cannot
+    // connect the two, so `order(provider, "listArmies", () => provider.createArmy(…))`
+    // compiles and withholds nothing — the gate consulted the table, found an entry it
+    // liked, and returned the callback, and the call 404s against a real server anyway.
+    //
+    // So every gate in the app shell is checked against the method its body actually
+    // calls, using the `method` field the table records for that purpose.
+    const mismatched = reachableUnservedCalls()
+      .filter((call) => call.gate !== null && call.gate !== call.order)
+      .map((call) => {
+        const guards = methodForOrder(call.gate ?? "");
+        const actual = guards ? `which guards provider.${guards}(…)` : "which is not an order in the table";
+        return `${call.method} at ${call.where} is gated by order("${call.gate}"), ${actual}`;
+      });
+    expect(
+      mismatched,
+      "A gate withholds the control by consulting the table for its order name. Naming the wrong order withholds nothing.",
     ).toEqual([]);
   });
 });
 
 /**
- * The endpoints the running game actually reaches for, by provider method.
+ * The provider method an order name refers to, or undefined if the name is not one.
  *
- * This is the set that matters to a player. Everything else in the provider is a
- * method waiting for a panel to call it, and a 404 on a method nothing calls is
- * not yet a bug a player can see. Fleeing and losing are in here because
- * `handleFlee` and the battle writeback call them, and they were not mounted.
+ * The lookup is by `order` and not by `method`, which is the direction that catches a
+ * gate naming the wrong order: the gate says which order it thinks it is withholding,
+ * and this answers which call that order actually governs.
  */
-const REACHED_BY_THE_GAME = ["/v1/encounters/flee", "/v1/encounters/defeat"];
+function methodForOrder(order: string): string | undefined {
+  for (const entry of Object.values(UNSERVED)) {
+    if (entry.order === order) return entry.method;
+  }
+  return undefined;
+}
+
+/** One `order(provider, "<name>", …)` gate in the app shell, and the body it guards. */
+interface Gate {
+  /** The order name the gate consults the table with. */
+  order: string;
+  /** Character offset of the gate's opening. */
+  start: number;
+  /** Character offset of the `{` that opens the callback body. */
+  bodyStart: number;
+  /** Character offset just past the callback body's closing brace. */
+  end: number;
+}
+
+/**
+ * The offset of the `}` that closes the brace opened at `from`.
+ *
+ * Comments are expected to be gone already. Quoted strings are skipped so a brace inside
+ * one does not move the count, and a template literal is skipped whole, which is sound
+ * because an interpolation's own braces are balanced within it: `${…}` contributes one
+ * `{` and one `}` and the contents between them are counted on their own terms.
+ */
+function closingBrace(source: string, from: number): number {
+  let depth = 0;
+  for (let i = from; i < source.length; i++) {
+    const c = source[i]!;
+    if (c === '"' || c === "'" || c === "`") {
+      for (i++; i < source.length && source[i] !== c; i++) {
+        if (source[i] === "\\") i++;
+      }
+      continue;
+    }
+    if (c === "{") depth++;
+    else if (c === "}" && --depth === 0) return i;
+  }
+  throw new Error(`no closing brace for the one at ${from}`);
+}
+
+/**
+ * Every gate in the app shell, with the span of the body it guards.
+ *
+ * The span is found by walking to the callback's arrow and brace-matching from there,
+ * rather than by taking the text up to the next gate. That distinction is the whole
+ * point: deleting a gate must not hand its body to its neighbour. With the up-to-next-gate
+ * rule, removing the `recruitMilitia` gate left `provider.recruitMilitia(…)` inside the
+ * span of the `sellWorkshop` gate before it, so the ungated call was attributed to a gate
+ * that guards a different order and the check passed — reporting a control as withheld
+ * that the game would have sent, which is precisely the bug it exists to catch.
+ */
+function gatesIn(source: string): Gate[] {
+  return [...source.matchAll(/order\(\s*provider\s*,\s*"([A-Za-z]+)"/g)].flatMap((match) => {
+    const start = match.index ?? 0;
+    const arrow = source.indexOf("=>", start);
+    if (arrow === -1) throw new Error(`the gate at ${start} has no callback body`);
+    const bodyStart = source.indexOf("{", arrow);
+    if (bodyStart === -1) throw new Error(`the gate at ${start} has no callback body`);
+    return [{ order: match[1]!, start, bodyStart, end: closingBrace(source, bodyStart) }];
+  });
+}
+
+/** One call the running game makes to a provider method the server mounts no route for. */
+interface UnservedCall {
+  /** The `SimulationProvider` method, as the table records it. */
+  method: string;
+  /** The table's order name for that method. */
+  order: string;
+  /** The path the server mounts no route for. */
+  path: string;
+  /** Where the call is, in a form a reader can act on. */
+  where: string;
+  /** The order the enclosing gate names, or null when the call is not inside one. */
+  gate: string | null;
+}
+
+/**
+ * Every call the app shell makes to a provider method in the unserved table.
+ *
+ * Only the app shell is scanned, and that is a fact about the build rather than an
+ * assumption: `main.ts` is the module that constructs the panels, so it is the only
+ * place an order callback can be handed to one. Comments are stripped first, because a
+ * doc comment that names `provider.buyWorkshop(…)` while explaining why the gate exists
+ * is not a call, and counting one would put a phantom entry in every list below.
+ */
+function reachableUnservedCalls(): UnservedCall[] {
+  const source = withoutComments(read(APP_SHELL));
+  const gates = gatesIn(source);
+
+  // Offset of the start of each line, so a match can be turned into a line number
+  // without re-summing the file for every hit.
+  const lineStarts: number[] = [0];
+  for (const match of source.matchAll(/\n/g)) lineStarts.push(match.index + 1);
+
+  const out: UnservedCall[] = [];
+  for (const [path, entry] of Object.entries(UNSERVED)) {
+    for (const match of source.matchAll(new RegExp(`provider\\.${entry.method}\\s*\\(`, "g"))) {
+      const offset = match.index ?? 0;
+      const enclosing = gates.find((gate) => offset > gate.bodyStart && offset < gate.end);
+      out.push({
+        method: entry.method,
+        order: entry.order,
+        path,
+        where: `main.ts:${lineStarts.filter((start) => start <= offset).length}`,
+        gate: enclosing?.order ?? null,
+      });
+    }
+  }
+  return out;
+}

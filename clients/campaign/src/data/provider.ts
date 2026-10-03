@@ -845,7 +845,10 @@ export class HttpSimulationProvider implements SimulationProvider {
       throw this.#transportError(playerMessage, `GET ${url} threw`, err);
     }
     if (!response.ok) {
-      throw new SimulationUnavailableError(playerMessage, `GET ${url} -> HTTP ${response.status} ${response.statusText}`);
+      throw new SimulationUnavailableError(
+        (await this.#playerReason(response)) ?? playerMessage,
+        `GET ${url} -> HTTP ${response.status} ${response.statusText}`,
+      );
     }
     try {
       return await response.json();
@@ -906,7 +909,10 @@ export class HttpSimulationProvider implements SimulationProvider {
       );
     }
     if (!response.ok) {
-      throw new SimulationUnavailableError(playerMessage, `POST ${url} -> HTTP ${response.status}`);
+      throw new SimulationUnavailableError(
+        await this.#playerReason(response) ?? playerMessage,
+        `POST ${url} -> HTTP ${response.status}`,
+      );
     }
     let reply: unknown;
     try {
@@ -964,6 +970,37 @@ export class HttpSimulationProvider implements SimulationProvider {
       );
     }
     return new SimulationUnavailableError(playerMessage, `${what}: ${String(err)}`);
+  }
+
+  /**
+   * The sentence the simulation wrote for the player, if it sent one.
+   *
+   * Every failure the campaign server reports is an `api.ErrorBody`, which carries two
+   * strings: `error.message`, written for whoever is debugging, and `reason`, written for
+   * whoever is playing. `reason` is the one to show, and it is not decoration — the server
+   * writes a specific sentence for each case, down to "That path is not part of the
+   * campaign API" for an unmounted route and "Golden has 480 to sell, not 5000" for a
+   * refused order.
+   *
+   * Until now only the 409 branch read it, so every other status threw the sentence away
+   * and substituted one generic line per endpoint. A player whose order hit an unmounted
+   * path was told the trade did not go through, which is true and useless; the actual
+   * cause was in the reply and was discarded.
+   *
+   * Returns undefined when there is no readable reason — an unreadable body, a body that
+   * is not an object, or a `reason` that is absent or empty — so the caller falls back to
+   * its own sentence rather than showing the player nothing at all.
+   */
+  async #playerReason(response: Response): Promise<string | undefined> {
+    try {
+      const reason = ((await response.json()) as { reason?: unknown }).reason;
+      return typeof reason === "string" && reason.length > 0 ? reason : undefined;
+    } catch {
+      // A failure whose body could not be read is still a failure; the caller's own
+      // sentence covers it, and this is the one place an unread body is not recorded
+      // because the developer-facing detail beside it already names the status.
+      return undefined;
+    }
   }
 
   /**

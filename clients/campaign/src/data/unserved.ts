@@ -65,6 +65,24 @@ export type UnservedOrder =
 export interface UnservedPath {
   /** The client order that asks for this path. */
   readonly order: UnservedOrder;
+  /**
+   * The `SimulationProvider` method that sends this path.
+   *
+   * Recorded separately from `order` because the two names are not the same for five of
+   * the twenty-two entries: `listArmies` is sent by `createArmy`, `listWars` by
+   * `declareWar`, `listQuests` by `acceptQuest`, `besiegeTown` by `startSiege`, and
+   * `setClanHeir` by `getHeir`. Those names describe the order a player would give; the
+   * method names describe the call the client actually makes.
+   *
+   * It is written down here rather than left to be remembered because the gate that
+   * withholds a control takes the order name and the body of that gate calls the method,
+   * and TypeScript cannot connect the two. `order(provider, "listArmies", () =>
+   * provider.createArmy(...))` type-checks perfectly well and 404s against a real
+   * server, because the gate consulted the table for `listArmies` and decided, wrongly,
+   * that it was withholding a call to `createArmy`. `apiContract.test.ts` now reads this
+   * field and fails on any gate whose body calls some other method.
+   */
+  readonly method: string;
   /** Why the campaign server mounts no route for it. */
   readonly reason: string;
 }
@@ -82,91 +100,113 @@ export interface UnservedPath {
 export const UNSERVED: Readonly<Record<string, UnservedPath>> = {
   "/v1/parties/split": {
     order: "splitParty",
+    method: "splitParty",
     reason: "party split/merge is implemented in the client's fixture, with no server side yet",
   },
   "/v1/parties/{}/merge": {
     order: "mergeParty",
+    method: "mergeParty",
     reason: "party split/merge is implemented in the client's fixture, with no server side yet",
   },
   "/v1/towns/{}/militia": {
     order: "recruitMilitia",
+    method: "recruitMilitia",
     reason:
       "the server raises a town's militia into a party through POST /v1/recruit, and has no model for buying garrison troops, so there is no garrison order to send",
   },
   "/v1/towns/{}/workshops": {
     order: "buyWorkshop",
+    method: "buyWorkshop",
     reason: "workshop purchase is implemented in the client's fixture, with no server side yet",
   },
   "/v1/workshops/{}/sell": {
     order: "sellWorkshop",
+    method: "sellWorkshop",
     reason: "workshop sale is implemented in the client's fixture, with no server side yet",
   },
   "/v1/armies": {
     order: "listArmies",
+    method: "createArmy",
     reason: "armies are implemented in the client's fixture, with no server side yet",
   },
   "/v1/armies/{}/join": {
     order: "joinArmy",
+    method: "joinArmy",
     reason: "armies are implemented in the client's fixture, with no server side yet",
   },
   "/v1/armies/{}/leave": {
     order: "leaveArmy",
+    method: "leaveArmy",
     reason: "armies are implemented in the client's fixture, with no server side yet",
   },
   "/v1/armies/{}/disband": {
     order: "disbandArmy",
+    method: "disbandArmy",
     reason: "armies are implemented in the client's fixture, with no server side yet",
   },
   "/v1/armies/{}/objective": {
     order: "setArmyObjective",
+    method: "setArmyObjective",
     reason: "armies are implemented in the client's fixture, with no server side yet",
   },
   "/v1/towns/{}/siege": {
     order: "besiegeTown",
+    method: "startSiege",
     reason: "sieges are implemented in the client's fixture, with no server side yet",
   },
   "/v1/companions/{}/recruit": {
     order: "recruitCompanion",
+    method: "recruitCompanion",
     reason: "companions are implemented in the client's fixture, with no server side yet",
   },
   "/v1/wars": {
     order: "listWars",
+    method: "declareWar",
     reason: "wars are implemented in the client's fixture, with no server side yet",
   },
   "/v1/wars/{}/peace": {
     order: "makePeace",
+    method: "makePeace",
     reason: "wars are implemented in the client's fixture, with no server side yet",
   },
   "/v1/quests": {
     order: "listQuests",
+    method: "acceptQuest",
     reason: "quests are implemented in the client's fixture, with no server side yet",
   },
   "/v1/quests/{}/abandon": {
     order: "abandonQuest",
+    method: "abandonQuest",
     reason: "quests are implemented in the client's fixture, with no server side yet",
   },
   "/v1/towns/{}/crime": {
     order: "commitCrime",
+    method: "commitCrime",
     reason: "crime is implemented in the client's fixture, with no server side yet",
   },
   "/v1/towns/{}/fine": {
     order: "payFine",
+    method: "payFine",
     reason: "crime is implemented in the client's fixture, with no server side yet",
   },
   "/v1/dynasty/marry": {
     order: "marry",
+    method: "marry",
     reason: "the dynasty foundation landed client-side first; the server side is not written",
   },
   "/v1/dynasty/child": {
     order: "haveChild",
+    method: "haveChild",
     reason: "the dynasty foundation landed client-side first; the server side is not written",
   },
   "/v1/dynasty/characters/{}/kill": {
     order: "killCharacter",
+    method: "killCharacter",
     reason: "the dynasty foundation landed client-side first; the server side is not written",
   },
   "/v1/dynasty/clans/{}/heir": {
     order: "setClanHeir",
+    method: "getHeir",
     reason: "the dynasty foundation landed client-side first; the server side is not written",
   },
 };

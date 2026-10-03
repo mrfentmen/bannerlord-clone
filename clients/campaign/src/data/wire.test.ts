@@ -180,6 +180,108 @@ describe("a trade is checked on the way out and on the way back", () => {
   });
 });
 
+/**
+ * `causedBy` is set only for an order the simulation carried out.
+ *
+ * `TradeResult.CausedBy`, `RecruitResult.CausedBy`, `ImproveRelationResult.CausedBy` and
+ * `UpgradeTroopsResult.CausedBy` all carry no `omitempty`, and every one of them is
+ * assigned inside an `if accepted` in the campaign layer. So a refusal sends the key
+ * present and empty, and a refusal is the one reply of the four that carries the sentence
+ * the player needs.
+ *
+ * These all failed once. Validated with the non-empty-string check used everywhere else in
+ * this file, the empty `causedBy` made each refusal unreadable, and the player's screen
+ * said the simulation had sent an answer this client cannot read — discarding the reason
+ * and reporting a transport problem where the simulation had answered perfectly well.
+ * That is the failure `apiContract.test.ts` exists to prevent, arriving through a field
+ * rather than a route: nothing 404s, every test that uses the fixture passes, and the
+ * game still cannot show a single refusal.
+ *
+ * No test caught it because the fixture never sends the empty string the server sends. A
+ * refused trade comes back from `fixtureProvider` tagged `"trade-rejected"`, a refused
+ * hire `"recruit-rejected"`, a refused promotion `"upgrade-rejected"` — the fixture
+ * invents a marker row, so `causedBy` is always populated and the check always passed.
+ * The refusals below are written the way the server writes them, which is the only way
+ * the difference shows up.
+ */
+describe("a refused order carries an empty causedBy, which is an answer and not a fault", () => {
+  it("accepts a refused trade", () => {
+    expect(
+      tradeResultProblem({
+        accepted: false,
+        side: "buy",
+        unitPrice: 12.5,
+        quantity: 10,
+        total: 125,
+        partyQuantity: 0,
+        marketPriceAfter: 1,
+        reason: "Golden has 480 to sell, not 5000.",
+        causedBy: "",
+      }),
+    ).toBeNull();
+  });
+
+  it("accepts a refused hire", () => {
+    expect(
+      recruitResultProblem({
+        accepted: false,
+        unitName: "Militia",
+        quantity: 5,
+        totalCost: 500,
+        newCount: 0,
+        reason: "That unit cannot be raised here.",
+        causedBy: "",
+      }),
+    ).toBeNull();
+  });
+
+  it("accepts a refused gift", () => {
+    expect(
+      improveRelationResultProblem({
+        accepted: false,
+        notableId: "ruler1",
+        name: "Lady Wray",
+        relationBefore: 10,
+        relationAfter: 10,
+        summary: "Nothing changed.",
+        reason: "She will not accept that.",
+        causedBy: "",
+      }),
+    ).toBeNull();
+  });
+
+  it("accepts a refused promotion", () => {
+    expect(
+      upgradeResultProblem({
+        upgraded: false,
+        stackId: "s1",
+        fromTier: 1,
+        toTier: 1,
+        xpSpent: 0,
+        goldSpent: 0,
+        reason: "No experience to spend.",
+        causedBy: "",
+      }),
+    ).toBeNull();
+  });
+
+  it("still refuses a reply with no causedBy key at all", () => {
+    // The fix is `isText`, which allows an empty string but not a missing key. A reply
+    // from something that is not the campaign server has no business answering for it.
+    const { causedBy: _dropped, ...withoutRow } = {
+      accepted: true,
+      side: "buy",
+      unitPrice: 12.5,
+      quantity: 10,
+      total: 125,
+      partyQuantity: 10,
+      marketPriceAfter: 13,
+      causedBy: "c-1",
+    };
+    expect(tradeResultProblem(withoutRow)).toMatch(/causedBy/);
+  });
+});
+
 describe("a hire is checked on the way out and on the way back", () => {
   const request = { partyId: "p1", townId: "t1", unitId: "militia", quantity: 5, expectedDay: 4 };
 
