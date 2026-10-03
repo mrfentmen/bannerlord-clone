@@ -1,6 +1,10 @@
 /**
  * Blend transitions between animation states.
  *
+ * Task 632: a character speeding up from a walk to a run blends over 0.15 s --
+ * a fifth shorter than a walk change, because a walk-to-run cross-fade that
+ * takes as long as the idle-to-walk one reads as the character hesitating.
+ *
  * Task 631: a character changing from standing to walking must not snap. The
  * blend has a fixed length, and this module owns those lengths: what a caller
  * asks is "how long does this cross-fade take", and {@link BlendTrack} is what
@@ -54,6 +58,9 @@ export const BLEND_EPSILON = 1e-4;
 /** Task 631: idle to walk blends over 0.2 s. */
 export const IDLE_TO_WALK: BlendTiming = { outS: 0.2, inS: 0.2 };
 
+/** Task 632: walk to run blends over 0.15 s. */
+export const WALK_TO_RUN: BlendTiming = { outS: 0.15, inS: 0.15 };
+
 /**
  * The transition table. Every row is a design number from the animation brief,
  * not a guess: a locomotion change wants to be barely noticeable, a combat
@@ -63,6 +70,7 @@ export const BLEND_TIMINGS: Readonly<
   Partial<Record<BlendState, Readonly<Partial<Record<BlendState, BlendTiming>>>>>
 > = {
   idle: { walk: IDLE_TO_WALK },
+  walk: { run: WALK_TO_RUN },
 };
 
 /** A transition key, as a string a caller can log. */

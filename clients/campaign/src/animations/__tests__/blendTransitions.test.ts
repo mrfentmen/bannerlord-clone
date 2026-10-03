@@ -15,6 +15,7 @@ import {
   BlendTrack,
   DEFAULT_BLEND_SECONDS,
   IDLE_TO_WALK,
+  WALK_TO_RUN,
   blendTimeFor,
   transitionKey,
 } from "../BlendTransitions.js";
@@ -40,13 +41,52 @@ describe("blend timings (task 631)", () => {
   });
 
   it("falls back to the default for a transition it does not name", () => {
-    expect(blendTimeFor('walk', 'run')).toBe(DEFAULT_BLEND_SECONDS);
+    // walk->run is named by task 632, so the unnamed pairs are the ones that
+    // have to survive the fallback.
+    expect(blendTimeFor('run', 'idle')).toBe(DEFAULT_BLEND_SECONDS);
     expect(blendTimeFor('hit', 'idle')).toBe(DEFAULT_BLEND_SECONDS);
+    expect(blendTimeFor('death', 'idle')).toBe(DEFAULT_BLEND_SECONDS);
     expect(DEFAULT_BLEND_SECONDS).toBe(0.2);
   });
 
   it("has a printable key for a transition", () => {
     expect(transitionKey('idle', 'walk')).toBe('idle->walk');
+  });
+});
+
+describe("walk to run (task 632)", () => {
+  it("blends over 0.15 s, a fifth faster than a walk change", () => {
+    expect(WALK_TO_RUN).toEqual({ outS: 0.15, inS: 0.15 });
+    expect(blendTimeFor('walk', 'run')).toBe(0.15);
+    expect(WALK_TO_RUN.inS).toBeLessThan(IDLE_TO_WALK.inS);
+  });
+
+  it("reaches full run weight in 0.15 s and not before", () => {
+    const track = new BlendTrack();
+    track.play('walk');
+    runFor(track, 0.3);
+    track.play('run');
+
+    const early = runFor(track, 0.1); // 2/3 of the way through
+    expect(early.weights.run).toBeCloseTo(0.667, 1);
+    expect(early.weights.run).toBeLessThan(1);
+
+    runFor(track, 0.05);
+    expect(track.weightOf('run')).toBeCloseTo(1, 5);
+    expect(track.weightOf('walk')).toBe(0);
+    expect(track.active).toBe('run');
+  });
+
+  it("uses the walk row, not the idle row, when coming out of a walk", () => {
+    const track = new BlendTrack();
+    track.play('idle');
+    runFor(track, 0.3);
+    track.play('walk');
+    runFor(track, 0.3); // the walk is actually playing before the run starts
+    track.play('run');
+    runFor(track, 0.15);
+    expect(track.weightOf('run')).toBeCloseTo(1, 5);
+    expect(track.weightOf('walk')).toBe(0);
   });
 });
 
