@@ -39,8 +39,11 @@ import {
   length,
   normalize,
   perpendicular,
+  STIRRUP_DROP_FRACTION,
   solveHandToGrip,
   solveTwoBone,
+  stirrupFor,
+  stirrupsFor,
   stepLengthFor,
   vec,
   weaponLength,
@@ -537,5 +540,66 @@ describe("HeadLookTracker (task 641)", () => {
     expect(still.turning).toBe(false);
     const negative = tracker.step(HEAD, vec(5, 1.55, 0), FORWARD, -1);
     expect(negative.yaw).toBe(0);
+  });
+});
+
+describe("rider legs to stirrups (task 642)", () => {
+  // public/models/horse.glb accessor bounds, before the manifest's 2.4 m scale.
+  const HORSE = { min: vec(-0.007, -0.0285, -0.024), max: vec(0.007, 0.0285, 0.024) };
+  const SEAT = vec(0, 0.9, 0);
+
+  it("hangs the stirrup from the horse's barrel, not from a constant", () => {
+    const small = stirrupFor(HORSE, SEAT);
+    const big = stirrupFor({ min: vec(0, 0, 0), max: vec(1, 3, 1) }, SEAT);
+    expect(small.dropM).toBeCloseTo(0.057 * STIRRUP_DROP_FRACTION);
+    expect(big.dropM).toBeCloseTo(3 * STIRRUP_DROP_FRACTION);
+    expect(big.dropM).toBeGreaterThan(small.dropM);
+  });
+
+  it("puts the foot below and beside the seat", () => {
+    const stirrup = stirrupFor(HORSE, SEAT);
+    expect(stirrup.position.y).toBeLessThan(SEAT.y);
+    expect(stirrup.position.z).toBeGreaterThan(SEAT.z);
+  });
+
+  it("solves the leg onto the stirrup", () => {
+    const stirrup = stirrupFor(HORSE, SEAT);
+    // The stirrup hangs `dropM` below the seat and is set slightly outboard, so
+    // the straight-line reach is a little more than the drop.
+    expect(SEAT.y - stirrup.position.y).toBeCloseTo(stirrup.dropM);
+    expect(distance(SEAT, stirrup.position)).toBeGreaterThan(stirrup.dropM);
+    expect(Number.isNaN(stirrup.solution.lowerAngle)).toBe(false);
+  });
+
+  it("says when the leg is over-stretched, so the rider can be raised", () => {
+    // A horse scaled up brings its stirrup with it, and a rider's leg does not
+    // get longer. That gap is the signal to raise the seat instead of stretching.
+    const normal = stirrupFor(HORSE, SEAT);
+    expect(normal.overReaching).toBe(false);
+    const huge = stirrupFor({ min: vec(0, 0, 0), max: vec(3, 20, 2) }, SEAT);
+    expect(huge.overReaching).toBe(true);
+    expect(huge.solution.clamped).toBe(true);
+  });
+
+  it("hangs one stirrup on each side of the horse", () => {
+    const [left, right] = stirrupsFor(HORSE, SEAT);
+    expect(left.position.x).toBeLessThan(SEAT.x);
+    expect(right.position.x).toBeGreaterThan(SEAT.x);
+    expect(right.position.x - left.position.x).toBeCloseTo(0.56);
+    // Both are the same height: a rider sits level.
+    expect(left.position.y).toBeCloseTo(right.position.y);
+  });
+
+  it("handles a collapsed horse and a broken side offset", () => {
+    const flat = { min: vec(0, 1, 0), max: vec(0, 1, 0) };
+    expect(stirrupFor(flat, SEAT).dropM).toBeCloseTo(0.35);
+    const [left, right] = stirrupsFor(HORSE, SEAT, Number.NaN);
+    expect(left.position.x).toBeCloseTo(right.position.x);
+  });
+
+  it("falls back to a real leg when the caller gives a broken one", () => {
+    const stirrup = stirrupFor(HORSE, SEAT, { thighM: 0, shinM: Number.NaN });
+    expect(Number.isNaN(stirrup.solution.lowerAngle)).toBe(false);
+    expect(stirrup.solution.lowerAngle).toBeGreaterThan(0);
   });
 });

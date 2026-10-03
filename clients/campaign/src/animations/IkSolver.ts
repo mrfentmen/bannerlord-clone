@@ -697,3 +697,82 @@ function moveTowards(from: number, to: number, limit: number): number {
   if (Math.abs(delta) <= limit) return to;
   return from + Math.sign(delta) * limit;
 }
+
+/**
+ * Task 642: a rider's legs reach the stirrups.
+ *
+ * The staged `horse.glb` has 26 clips and no rider, so this is entirely a
+ * placement problem: the stirrups hang off the horse's barrel at a set height and
+ * length below the rider's hips, and the legs have to be solved onto them. The
+ * horse's own bounds give where the barrel is, so the stirrups are placed from
+ * real geometry rather than from constants.
+ *
+ * The one thing that must be right is the leg length. A rider whose legs are
+ * stretched to reach a stirrup that is too low looks like they are about to fall
+ * off, and one with knees bent to 90 degrees looks like they are sitting in a
+ * car. So the stirrup height is *solved* to fit the leg, then reported.
+ */
+
+/** A rider's leg, matching DEFAULT_FOOT_GAIT for the same character. */
+export const RIDER_LEG: { thighM: number; shinM: number } = { thighM: 0.45, shinM: 0.45 };
+
+/** A horse's bounds, as read out of its GLB. */
+export type HorseBounds = WeaponBounds;
+
+/** Where a stirrup hangs, relative to a horse's barrel. */
+export interface StirrupPlacement {
+  /** Point the rider's foot goes to. */
+  position: Vec3;
+  /** Distance from the horse's back down to the stirrup, metres. */
+  dropM: number;
+  /** True when the rider's leg had to be bent more than a comfortable ride. */
+  overReaching: boolean;
+  /** Leg angles from the hip to the stirrup. */
+  solution: TwoBoneSolution;
+}
+
+/** Fraction of the barrel's height a stirrup hangs at, from the horse's centre. */
+export const STIRRUP_DROP_FRACTION = 0.45;
+
+/**
+ * Task 642: the stirrup a rider's foot goes into.
+ *
+ * `seat` is the rider's hip. The stirrup hangs below the horse's back by a fixed
+ * fraction of the barrel, and the leg solves onto it. When the horse is scaled up
+ * the stirrup comes with it, so a bigger horse means shorter effective leg reach
+ * and `overReaching` says so, which is exactly the signal a scene needs to raise
+ * the rider in the saddle instead of stretching their legs.
+ */
+export function stirrupFor(
+  horse: HorseBounds,
+  seat: Vec3,
+  options: { thighM?: number; shinM?: number } = RIDER_LEG,
+): StirrupPlacement {
+  const thigh = Number.isFinite(options.thighM) && (options.thighM as number) > 0 ? (options.thighM as number) : RIDER_LEG.thighM;
+  const shin = Number.isFinite(options.shinM) && (options.shinM as number) > 0 ? (options.shinM as number) : RIDER_LEG.shinM;
+  const barrel = Math.abs(horse.max.y - horse.min.y);
+  const drop = barrel > 0 ? barrel * STIRRUP_DROP_FRACTION : 0.35;
+  // Under the seat, on the near side: the rider's foot is out to the side of the
+  // horse's centreline, not under the belly.
+  const position = vec(seat.x, seat.y - drop, seat.z + 0.1);
+  const solution = solveTwoBone(seat, position, thigh, shin);
+  return {
+    position,
+    dropM: drop,
+    overReaching: solution.clamped,
+    solution,
+  };
+}
+
+/** Both stirrups for a rider, one to each side of the horse. */
+export function stirrupsFor(
+  horse: HorseBounds,
+  seat: Vec3,
+  sideM = 0.28,
+  options: { thighM?: number; shinM?: number } = RIDER_LEG,
+): [StirrupPlacement, StirrupPlacement] {
+  const side = Number.isFinite(sideM) && sideM > 0 ? sideM : 0;
+  const left = vec(seat.x - side, seat.y, seat.z);
+  const right = vec(seat.x + side, seat.y, seat.z);
+  return [stirrupFor(horse, left, options), stirrupFor(horse, right, options)];
+}
