@@ -85,8 +85,11 @@ test("the objectives panel shows live progress for every objective", async ({ pa
   for (const id of ["muster", "war-chest", "scout-region", "first-blood"]) {
     await expect(panel.getByTestId(`objective-${id}`)).toBeVisible();
   }
-  // Progress is measured, not placeholder: the muster gauge shows a real count.
-  await expect(panel.getByTestId("objective-gauge-muster")).toContainText("/");
+  // Progress is measured, not placeholder: the fixture party starts above the
+  // muster target, so muster is genuinely complete, while scouting shows a real
+  // 1-of-3 count from the auto-opened town.
+  await expect(panel.getByTestId("objective-muster")).toContainText("✓ Complete");
+  await expect(panel.getByTestId("objective-gauge-scout-region")).toContainText("/");
 });
 
 test("the journal opens and records the campaign", async ({ page }) => {
