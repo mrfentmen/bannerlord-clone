@@ -93,6 +93,9 @@ export const STATE_CLIPS: Readonly<Partial<Record<ActionState, StateClip>>> = {
   // the clip is where that is decided, so it is a whole-body state rather than
   // an overlay.
   throw: { clip: 'throw', blendS: 0.12, loop: false, lowerBody: 'idle' },
+  // Task 677: the generic interact. Loops, because the player holds the button
+  // and the action's length is a gameplay decision, not an animation's.
+  interact: { clip: 'interact', blendS: 0.15, loop: true, lowerBody: 'idle' },
 };
 
 /** Why a state cannot play. */

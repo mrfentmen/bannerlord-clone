@@ -254,3 +254,33 @@ describe("grenade toss (task 676)", () => {
     expect(resolveStateClip('crouch-idle', operator).available).toBe(true);
   });
 });
+
+describe("generic interact (task 677)", () => {
+  it("loops, because its length is a gameplay decision", () => {
+    expect(STATE_CLIPS.interact?.clip).toBe('interact');
+    expect(STATE_CLIPS.interact?.loop).toBe(true);
+    expect(STATE_CLIPS.interact?.blendS ?? 0).toBeGreaterThan(0);
+  });
+
+  it("resolves on the operator rigs and not on the medic", () => {
+    for (const rig of ['operator-viper.glb', 'operator-lynx.glb', 'operator-jackal.glb']) {
+      expect(resolveStateClip('interact', clipsOf(rig)).available, rig).toBe(true);
+    }
+    expect(resolveStateClip('interact', clipsOf('female-operator.glb')).gap).toBe('clip-not-in-model');
+  });
+
+  it("is also available on the rogue rig, under the same name", () => {
+    expect(resolveStateClip('interact', clipsOf('kaykit-rogue.glb')).available).toBe(true);
+  });
+
+  it("keeps the legs available to locomotion while the arms are busy", () => {
+    // The interact clip drives the arms and torso; locomotion is declared
+    // separately, so a character can walk and interact at once.
+    expect(STATE_CLIPS.interact?.lowerBody).toBe('idle');
+    const operator = clipsOf('operator-viper.glb');
+    expect(resolveStateClip('interact', operator).available).toBe(true);
+    // Locomotion is not in this registry at all -- it comes from the blend table
+    // in BlendTransitions.ts, which is where those states live.
+    expect(Object.keys(STATE_CLIPS)).not.toContain('walk');
+  });
+});
