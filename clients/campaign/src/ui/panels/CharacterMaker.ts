@@ -45,8 +45,10 @@ export const BONUS_POINTS_TOTAL = FOCUS_POINTS_TOTAL;
 
 export function characterMaker(options: CharacterMakerOptions): HTMLElement {
   let step: MakerStep = 0;
-  let firstName = "";
-  let lastName = "";
+  // The canon protagonist pre-fills the maker: Sam "Rook" Reyes. The player can
+  // rename freely; the default is our character.
+  let firstName = "Sam";
+  let lastName = "Reyes";
   let gender: "male" | "female" = "male";
   let appearanceId = appearancesForEthnicity(ETHNICITIES[0]!.id)[0]?.id ?? "";
   let ethnicityId = ETHNICITIES[0]!.id;
