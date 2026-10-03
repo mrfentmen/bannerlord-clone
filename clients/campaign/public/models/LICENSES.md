@@ -1,7 +1,12 @@
 # Asset Licenses — clients/campaign/public/models/
 
-All third-party 3D models in this directory are CC0 1.0 Universal (public domain).
-No attribution is required; creator credit is retained below as a courtesy.
+Third-party 3D models in this directory come under two licenses.
+The pre-existing curated sets (Quaternius etc.) are CC0 1.0 Universal
+(public domain). The `vendor/` packs pulled 2026-10-03 from the
+awesome-ai-games sweep are mixed CC0 / MIT — see the vendor table
+below for per-pack licensing. No attribution is legally required for
+CC0; MIT packs require the copyright notice to be retained
+(see notes below).
 "All usage goes into this game" per project directive — assets listed here are
 cleared for unrestricted commercial use in the bannerlord-clone.
 
