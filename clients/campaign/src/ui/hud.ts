@@ -65,6 +65,7 @@ export type HudPanel =
   | "roster"
   | "radio"
   | "why"
+  | "encyclopedia"
   | "none";
 
 /** Which detent of the time dial is live. Used by the pointer and the tick scale. */
@@ -449,6 +450,7 @@ export function createHud(options: HudOptions): HudHandle {
       ["barter", "Barter", "open-barter"],
       ["ledger", "Ledger", "open-ledger"],
       ["roster", "Rulers", "open-roster"],
+      ["encyclopedia", "Encyclopedia", "open-encyclopedia"],
     ] as [HudPanel, string, string][]) {
       const btn = h("button", { type: "button", class: "btn", "data-testid": testId }, label);
       btn.addEventListener("click", () => options.onSelectPanel(id));

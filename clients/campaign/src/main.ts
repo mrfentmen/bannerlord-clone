@@ -64,6 +64,8 @@ import { barterPanel } from "./ui/panels/BarterPanel.js";
 import { partyPanel } from "./ui/panels/PartyPanel.js";
 import { marchPlanner } from "./ui/panels/MarchPlanner.js";
 import { questPanel } from "./ui/panels/QuestPanel.js";
+import { encyclopediaPanel } from "./ui/panels/EncyclopediaPanel.js";
+import { buildEncyclopedia } from "./data/encyclopedia.js";
 import { rumourFeedPanel } from "./ui/panels/RumourFeed.js";
 import { radioPanel } from "./ui/panels/RadioPanel.js";
 import { ledgerPanel } from "./ui/panels/LedgerPanel.js";
@@ -1059,6 +1061,11 @@ function rebuildContext(): void {
       // the feed is a read of every market in the world rather than of the selection.
       contextNode = rumourNode();
       return;
+    case "encyclopedia":
+      // No town needed: the index is built from the whole snapshot, and entries link
+      // to each other rather than to the map selection.
+      contextNode = encyclopediaNode();
+      return;
     case "radio":
       // The bulletins are generated from the live snapshot, so the news is
       // always about the world as it is right now.
@@ -1332,6 +1339,16 @@ function rumourNode(): Node {
     provider,
     day: snapshot.day,
     onError: (m) => console.error(m),
+  }).root;
+}
+
+function encyclopediaNode(): Node {
+  if (!snapshot) return noSimulationRecordNode("No world to read");
+  // Built fresh on every open: rulers change sides, towns change hands, and an index
+  // cached here would already be stale.
+  return encyclopediaPanel({
+    encyclopedia: buildEncyclopedia(snapshot),
+    onClose: () => openPanel("none"),
   }).root;
 }
 
