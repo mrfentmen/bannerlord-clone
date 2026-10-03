@@ -43,6 +43,13 @@ type State struct {
 	// before it is broken.
 	Oaths map[int]Oath
 
+	// Events is the append-only record of campaign events: wars declared and
+	// ended, settlements captured, rulers dead, rebellions, famines. The
+	// events system writes it; the director reads it. Because events are never
+	// modified after creation, they are plain structs rather than a tracked
+	// entity family.
+	Events []*Event
+
 	// Cached sorted key slices for the two relation maps, so a caller needing
 	// to iterate every pair in a fixed order does not rebuild and re-sort a
 	// quarter of a million keys on every tick. They are shared with the clone
@@ -104,6 +111,7 @@ func NewState() *State {
 		Relations:     map[Pair]float64{},
 		SideRelations: map[Pair]float64{},
 		Oaths:         map[int]Oath{},
+		Events:        []*Event{},
 	}
 }
 
@@ -157,6 +165,7 @@ func (s *State) Clone() *State {
 		Relations:     make(map[Pair]float64, len(s.Relations)),
 		SideRelations: make(map[Pair]float64, len(s.SideRelations)),
 		Oaths:         make(map[int]Oath, len(s.Oaths)),
+		Events:        make([]*Event, 0, len(s.Events)),
 		rulerPairs:    s.rulerPairs,
 		sidePairs:     s.sidePairs,
 	}
@@ -203,6 +212,10 @@ func (s *State) Clone() *State {
 	}
 	for k, v := range s.Oaths {
 		out.Oaths[k] = v
+	}
+	for _, e := range s.Events {
+		c := *e
+		out.Events = append(out.Events, &c)
 	}
 	return out
 }

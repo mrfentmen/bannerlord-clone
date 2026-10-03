@@ -500,8 +500,15 @@ func generateParties(cfg *config.Config, r *rng.Rng, st *model.State) {
 	// A few independent raider bands, which are the standing threat on unsafe
 	// roads even when nobody is at war.
 	raiderCount := int(r.Range(cfg.World.MinRaiderBands, cfg.World.MaxRaiderBands))
+	// NOTE (worldai lane, 2026-10-03): this used to read
+	// st.Towns[r.Intn(len(st.TownIDs()))], which indexes the town map by
+	// position rather than by id. Town ids are 1-based, so drawing 0 returned
+	// nil and crashed on t.X. Indexing the sorted id list instead draws a
+	// uniform random town exactly as intended. Smallest possible fix; behavior
+	// is otherwise unchanged.
+	townIDs := st.TownIDs()
 	for i := 0; i < raiderCount; i++ {
-		t := st.Towns[r.Intn(len(st.TownIDs()))]
+		t := st.Towns[townIDs[r.Intn(len(townIDs))]]
 		p := &model.Party{
 			Name:          "Raiders",
 			SideID:        -1,

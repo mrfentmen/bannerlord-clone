@@ -437,3 +437,58 @@ const (
 	WarEndVassalage  = "vassalage"
 	WarEndOngoing    = "ongoing"
 )
+
+// EventKind names what happened in the world. The campaign event framework
+// (systems/events) records these; the director and the player read them.
+type EventKind int
+
+const (
+	// EventWarDeclared fires when a side's intent becomes war: the strategic
+	// decision the faction AI took now exists as a fact the world can react to.
+	EventWarDeclared EventKind = iota
+	// EventWarEnded fires when a war's end tick is set.
+	EventWarEnded
+	// EventSettlementCaptured fires when a town's holder changes to a ruler of
+	// another side.
+	EventSettlementCaptured
+	// EventRulerDied fires when a ruler's alive flag clears.
+	EventRulerDied
+	// EventRebellion fires when a town's loyalty collapses into open revolt.
+	EventRebellion
+	// EventRebellionQuelled fires when a rebellion's town is back under control.
+	EventRebellionQuelled
+	// EventFamineBegan fires when a town starts starving.
+	EventFamineBegan
+	// EventFamineEnded fires when a starving town can feed itself again.
+	EventFamineEnded
+)
+
+// Event is a recorded campaign event: something happened that the director,
+// other systems, and the player can react to next tick.
+//
+// Events are append-only history. They are never modified after creation,
+// which is why they are plain structs on the state rather than a tracked
+// entity family: there is nothing to write to them, so they need no fields in
+// the registry and no write path through the engine.
+type Event struct {
+	ID   int
+	Kind EventKind
+	// Tick and Year say when the event fired, in simulation time.
+	Tick int
+	Year float64
+	// Participants, interpreted per kind:
+	//   war declared/ended: SideA and SideB are the warring sides.
+	//   settlement captured: Actor is the capturing party, Target the town.
+	//   ruler died: Actor is the ruler.
+	//   rebellion quelled/began, famine began/ended: Target is the town,
+	//   SideA is the side that held it.
+	SideA int
+	SideB int
+	Actor int
+	Target int
+	// Magnitude is a kind-specific measure: tribute paid, troops in the rebel
+	// band, days of food shortfall. Zero when the kind has no measure.
+	Magnitude float64
+	// Note is a short human description for the log and the inspector.
+	Note string
+}

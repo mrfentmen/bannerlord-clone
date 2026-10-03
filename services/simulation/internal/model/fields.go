@@ -359,7 +359,13 @@ func init() {
 	register(Field{"distance", KindParty, ValueFloat, "leagues", false, 0, inf, nil, 0})
 	register(Field{"days_food", KindParty, ValueFloat, "days", false, 0, inf, nil, 0})
 	register(Field{"party_starving", KindParty, ValueFlag, "boolean", true, zero, one, nil, 0})
-	register(Field{"supply_distance", KindParty, ValueFloat, "leagues", false, inf, inf, nil, 0})
+	// NOTE (worldai lane, 2026-10-03): Min was inf (1e12), which clamped every
+	// committed write to exactly 1e12: the engine raises any value below Min
+	// up to Min. That made attrition's supply drag binary (0 for parties the
+	// supply system never processed, maximum for all others) instead of
+	// distance-based. A distance is bounded below by 0 like every other
+	// distance field in this registry.
+	register(Field{"supply_distance", KindParty, ValueFloat, "leagues", false, 0, inf, nil, 0})
 	register(Field{"is_raider", KindParty, ValueFlag, "boolean", true, zero, one, nil, 0})
 	register(Field{"is_mercenary", KindParty, ValueFlag, "boolean", true, zero, one, nil, 0})
 	register(Field{"is_caravan", KindParty, ValueFlag, "boolean", true, zero, one, nil, 0})
