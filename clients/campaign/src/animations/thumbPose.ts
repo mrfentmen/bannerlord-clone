@@ -11,7 +11,9 @@
  * This is a mitigation, not a fix — the real fix is higher-fidelity
  * models with full finger rigs.
  */
-import { Skeleton } from "@babylonjs/core";
+import { Quaternion, Vector3 } from "@babylonjs/core/Maths/math.vector.js";
+import type { Bone } from "@babylonjs/core/Bones/bone.js";
+import type { Skeleton } from "@babylonjs/core/Bones/skeleton.js";
 
 /**
  * Natural thumb resting rotations (local space, radians).
@@ -28,11 +30,21 @@ const THUMB_POSE: Record<string, { x: number; y: number; z: number }> = {
  * Finds thumb bones by name (handles mixamorig: prefix) and sets
  * their local rotation to the resting pose.
  *
+ * Task 652: which representation the rotation is written through depends on the
+ * bone. A Babylon 8 bone carries a `rotationQuaternion` -- an identity quaternion
+ * is present from construction -- so writing `bone.rotation` is silently ignored
+ * and every thumb stayed exactly where the animation left it. A bone with no
+ * quaternion, on the other hand, needs the Euler path. Both are handled here,
+ * and the quaternion is slerped rather than lerped component-wise, because a
+ * component-wise lerp of two quaternions is not on the unit sphere and the bone
+ * ends up in a pose neither author intended.
+ *
  * @param skeleton The model's skeleton
  * @param blend 0-1, how strongly to apply (1 = full override)
  */
 export function applyThumbPose(skeleton: Skeleton, blend = 1): void {
-  for (const bone of skeleton.bones) {
+  const amount = Number.isFinite(blend) ? Math.min(1, Math.max(0, blend)) : 1;
+  for (const bone of skeleton.bones as Bone[]) {
     const name = bone.name;
     if (!name.toLowerCase().includes("thumb")) continue;
 
@@ -42,12 +54,36 @@ export function applyThumbPose(skeleton: Skeleton, blend = 1): void {
     const pose = THUMB_POSE[`Thumb${match[1]}`];
     if (!pose) continue;
 
+    if (bone.rotationQuaternion) {
+      const target = Quaternion.RotationYawPitchRoll(pose.y, pose.x, pose.z);
+      // A fresh instance every time, never written through in place: Babylon
+      // bones can share one default rotationQuaternion, and mutating it moves
+      // every bone that happens to point at it -- including the hands that were
+      // left alone on purpose.
+      bone.rotationQuaternion =
+        amount >= 1
+          ? target
+          : Quaternion.Slerp(bone.rotationQuaternion.clone(), target, amount);
+      continue;
+    }
+
     // Blend current rotation toward target pose
     // (simple lerp on euler angles; good enough for small corrections)
-    bone.rotation.x += (pose.x - bone.rotation.x) * blend;
-    bone.rotation.y += (pose.y - bone.rotation.y) * blend;
-    bone.rotation.z += (pose.z - bone.rotation.z) * blend;
+    bone.rotation.x += (pose.x - bone.rotation.x) * amount;
+    bone.rotation.y += (pose.y - bone.rotation.y) * amount;
+    bone.rotation.z += (pose.z - bone.rotation.z) * amount;
   }
+}
+
+/**
+ * The Euler angles a bone is actually going to use, whichever representation it
+ * holds them in. A caller that reads `bone.rotation` on a quaternion-backed bone
+ * gets an identity and concludes the correction did nothing.
+ */
+export function thumbEulerAngles(bone: Bone): Vector3 {
+  return bone.rotationQuaternion
+    ? bone.rotationQuaternion.toEulerAngles()
+    : new Vector3(bone.rotation.x, bone.rotation.y, bone.rotation.z);
 }
 
 /**
