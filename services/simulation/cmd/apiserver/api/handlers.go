@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 
 	"mbclone/simulation/cmd/apiserver/campaign"
@@ -191,6 +192,22 @@ func (s *Server) postBattleOutcome(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.order(w, r, func() (any, error) { return s.camp.ApplyBattleOutcome(r.Context(), in) })
+}
+
+func (s *Server) getNearbyParties(w http.ResponseWriter, r *http.Request) {
+	rangeKm := 50.0
+	if v := r.URL.Query().Get("rangeKm"); v != "" {
+		var parsed float64
+		if _, err := fmt.Sscanf(v, "%f", &parsed); err == nil && parsed > 0 {
+			rangeKm = parsed
+		}
+	}
+	s.order(w, r, func() (any, error) { return s.camp.NearbyParties(r.Context(), rangeKm) })
+}
+
+func (s *Server) postDefeatParty(w http.ResponseWriter, r *http.Request) {
+	partyID := r.PathValue("id")
+	s.order(w, r, func() (any, error) { return s.camp.DefeatParty(r.Context(), partyID) })
 }
 
 func (s *Server) postUpgrade(w http.ResponseWriter, r *http.Request) {

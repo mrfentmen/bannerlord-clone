@@ -289,3 +289,12 @@ type PrisonerState struct {
 	Count   float64 `json:"count"`
 	Tier    float64 `json:"tier"`
 }
+
+// NearbyParty is an NPC party within encounter range.
+type NearbyParty struct {
+	ID         string  `json:"id"`
+	Name       string  `json:"name"`
+	TroopCount float64 `json:"troopCount"`
+	Hostile    bool    `json:"hostile"`
+	DistanceKm float64 `json:"distanceKm"`
+}
