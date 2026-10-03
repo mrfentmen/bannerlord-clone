@@ -147,7 +147,6 @@ export const UNSERVED: Readonly<Record<string, UnservedPath>> = {
     method: "setArmyObjective",
     reason: "armies are implemented in the client's fixture, with no server side yet",
   },
-  
   "/v1/wars": {
     order: "listWars",
     method: "declareWar",
