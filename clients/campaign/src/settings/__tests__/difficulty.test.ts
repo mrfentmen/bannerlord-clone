@@ -124,10 +124,10 @@ describe("preset helpers", () => {
 });
 
 describe("difficulty in the settings schema", () => {
-  it("is version 3 and defaults v1 blobs to normal difficulty", () => {
-    expect(SETTINGS_VERSION).toBe(3);
+  it("is version 4 and defaults v1 blobs to normal difficulty", () => {
+    expect(SETTINGS_VERSION).toBe(4);
     const s = migrateSettings({ raw: { version: 1, renderScale: 1.5 }, readLegacy: () => null });
-    expect(s.version).toBe(3);
+    expect(s.version).toBe(4);
     expect(s.difficulty).toEqual(DEFAULT_DIFFICULTY);
     expect(s.renderScale).toBe(1.5); // the rest of the v1 blob survives
     expect(s.lookPreset).toBe("standard"); // v3 fields default on old blobs

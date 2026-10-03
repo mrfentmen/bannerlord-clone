@@ -204,6 +204,12 @@ const CONTROLS: ControlDef[] = [
     kind: { type: "toggle" },
   },
   {
+    key: "audioMuted", tab: "audio", label: "Mute all audio",
+    hint: "Silence music, effects, and ambience without changing their levels.",
+    keywords: ["mute", "muted", "silence", "audio"],
+    kind: { type: "toggle" },
+  },
+  {
     key: "masterVolume", tab: "audio", label: "Master volume",
     hint: "Overall loudness.", keywords: ["volume", "master", "loud"],
     kind: { type: "slider", min: 0, max: 1, step: 0.05, format: pct },

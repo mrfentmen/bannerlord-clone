@@ -29,7 +29,7 @@ const GRAPHICS_KEYS = [
   "damageVignetteEnabled",
   "ragdollEnabled",
 ];
-const AUDIO_KEYS = ["masterVolume", "musicVolume", "sfxVolume"];
+const AUDIO_KEYS = ["audioMuted", "masterVolume", "musicVolume", "sfxVolume"];
 const GAMEPLAY_KEYS = [
   "cameraSpeed",
   "mouseSensitivity",
@@ -182,6 +182,15 @@ describe("settingsPanel", () => {
     expect(settings.get().renderScale).toBe(DEFAULT_SETTINGS.renderScale);
     expect(settings.get().invertMouseX).toBe(false);
     expect(closed()).toBe(true);
+  });
+
+  it("task 562: audio mute switch writes through and cancel restores it", () => {
+    const { root } = open();
+    tab(root, "audio");
+    setToggle(root, "audioMuted", true);
+    expect(settings.get().audioMuted).toBe(true);
+    (root.querySelector('[data-testid="settings-cancel"]') as HTMLButtonElement).click();
+    expect(settings.get().audioMuted).toBe(DEFAULT_SETTINGS.audioMuted);
   });
 
   it("save keeps live-applied changes and closes", () => {

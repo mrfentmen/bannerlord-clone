@@ -15,6 +15,7 @@ import type { AudioManager } from "./AudioManager.js";
 
 /** The three volume fields the mixer reads; the settings `Settings` satisfies it. */
 export interface AudioVolumeSettings {
+  audioMuted: boolean;
   masterVolume: number;
   musicVolume: number;
   sfxVolume: number;
@@ -22,6 +23,7 @@ export interface AudioVolumeSettings {
 
 /** Applies the player's volume sliders to the mixer's buses. */
 export function applyAudioSettings(audio: AudioManager, settings: AudioVolumeSettings): void {
+  audio.setMuted(settings.audioMuted);
   audio.setMasterVolume(settings.masterVolume);
   audio.setVolume("music", settings.musicVolume);
   audio.setVolume("sfx", settings.sfxVolume);

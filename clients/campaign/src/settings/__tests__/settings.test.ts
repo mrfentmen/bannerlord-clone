@@ -59,6 +59,7 @@ describe("settings schema", () => {
     expect(s.graphicsQuality).toBe(DEFAULT_SETTINGS.graphicsQuality);
     expect(s.uiScale).toBe(DEFAULT_SETTINGS.uiScale);
     expect(s.cameraSpeed).toBe(DEFAULT_SETTINGS.cameraSpeed);
+    expect(s.audioMuted).toBe(false); // strict boolean; garbage defaults to false
     expect(s.masterVolume).toBe(1); // clamped, not defaulted
     expect(s.musicVolume).toBe(0); // clamped, not defaulted
     expect(s.language).toBe("en");
@@ -126,6 +127,13 @@ describe("settings schema", () => {
     expect(s.autoQualityDone).toBe(false);
   });
 
+  it("validates the task-562 audio mute toggle strictly", () => {
+    expect(parseSettings({ audioMuted: true }).audioMuted).toBe(true);
+    expect(parseSettings({ audioMuted: false }).audioMuted).toBe(false);
+    expect(parseSettings({ audioMuted: 1 }).audioMuted).toBe(false);
+    expect(parseSettings({ audioMuted: "true" }).audioMuted).toBe(false);
+  });
+
   it("validates the task-146 post-processing toggles", () => {
     const s = parseSettings({
       bloomEnabled: true,
@@ -140,7 +148,7 @@ describe("settings schema", () => {
   });
 
   it("defaults the task-146 toggles when missing from the blob", () => {
-    const s = parseSettings({ version: 3 });
+    const s = parseSettings({ version: 4 });
     expect(s.bloomEnabled).toBe(false);
     expect(s.vignetteEnabled).toBe(true);
     expect(s.depthOfFieldEnabled).toBe(false);
@@ -207,13 +215,25 @@ describe("settings migration", () => {
     expect(s).toEqual({ ...DEFAULT_SETTINGS });
   });
 
+  it("v3 blobs gain the mute toggle without losing their volume levels", () => {
+    const fromV3 = migrateSettings({
+      raw: { version: 3, masterVolume: 0.4, musicVolume: 0.3, sfxVolume: 0.2 },
+      readLegacy: () => null,
+    });
+    expect(fromV3.version).toBe(4);
+    expect(fromV3.audioMuted).toBe(false);
+    expect(fromV3.masterVolume).toBe(0.4);
+    expect(fromV3.musicVolume).toBe(0.3);
+    expect(fromV3.sfxVolume).toBe(0.2);
+  });
+
   it("defaults the v3 look fields on older blobs and keeps valid ones", () => {
     const fromV2 = migrateSettings({ raw: { version: 2, uiScale: 90 }, readLegacy: () => null });
-    expect(fromV2.version).toBe(3);
+    expect(fromV2.version).toBe(4);
     expect(fromV2.lookPreset).toBe("standard");
     expect(fromV2.grainIntensity).toBe(DEFAULT_SETTINGS.grainIntensity);
     const kept = migrateSettings({
-      raw: { version: 3, lookPreset: "noir", grainIntensity: 0.9 },
+      raw: { version: 4, lookPreset: "noir", grainIntensity: 0.9 },
       readLegacy: () => null,
     });
     expect(kept.lookPreset).toBe("noir");

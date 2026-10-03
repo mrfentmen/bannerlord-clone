@@ -26,7 +26,7 @@ import {
 import { PARTICLE_DENSITY_DEFAULT, clampParticleDensity } from "../design/particles.js";
 import { VIEW_DISTANCE_DEFAULT, clampViewDistance } from "../design/viewDistance.js";
 
-export const SETTINGS_VERSION = 3;
+export const SETTINGS_VERSION = 4;
 
 /** The UI-scale steps the HUD offers (task 17: 80–150%). Anything else is clamped to the nearest. */
 export const UI_SCALE_STEPS = [80, 90, 100, 115, 130, 150] as const;
@@ -121,6 +121,7 @@ export interface Settings {
   /** Camera pan speed multiplier. Read at dispatch time, so it applies live. */
   cameraSpeed: number;
   /** 0..1. Stored and validated here; the audio pipeline (Hana's lane) applies them. */
+  audioMuted: boolean;
   masterVolume: number;
   musicVolume: number;
   sfxVolume: number;
@@ -174,6 +175,7 @@ export const DEFAULT_SETTINGS: Settings = {
   subtitleBackground: "translucent",
   holdToggles: false,
   cameraSpeed: 1,
+  audioMuted: false,
   masterVolume: 0.8,
   musicVolume: 0.6,
   sfxVolume: 0.8,
@@ -269,6 +271,7 @@ export function parseSettings(raw: unknown): Settings {
     subtitleBackground: pickEnum(v.subtitleBackground, SUBTITLE_BACKGROUNDS, DEFAULT_SETTINGS.subtitleBackground),
     holdToggles: v.holdToggles === true,
     cameraSpeed: pickNumber(v.cameraSpeed, 0.25, 3, DEFAULT_SETTINGS.cameraSpeed),
+    audioMuted: v.audioMuted === true,
     masterVolume: pickNumber(v.masterVolume, 0, 1, DEFAULT_SETTINGS.masterVolume),
     musicVolume: pickNumber(v.musicVolume, 0, 1, DEFAULT_SETTINGS.musicVolume),
     sfxVolume: pickNumber(v.sfxVolume, 0, 1, DEFAULT_SETTINGS.sfxVolume),
@@ -301,8 +304,8 @@ export interface MigrationInput {
 /**
  * Bring any stored blob up to the current schema. Version upgrades chain here:
  * v0 (unversioned) -> v1 absorbed the legacy uiScale key; v1 -> v2 added the
- * difficulty sliders; v2 -> v3 added the look preset + grain intensity
- * (parseSettings defaults them for older blobs).
+ * difficulty sliders; v2 -> v3 added the look preset + grain intensity; v3 ->
+ * v4 added the audio mute toggle (parseSettings defaults both for older blobs).
  * Unknown future versions fall back to defaults rather than pretending to
  * understand them.
  */

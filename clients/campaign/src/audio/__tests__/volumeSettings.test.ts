@@ -126,7 +126,7 @@ describe("volume slider wiring (task 561)", () => {
     const audio = new AudioManager();
     // The settings store loads synchronously while the audio boot is async, so
     // the levels must survive being set before `init()`.
-    applyAudioSettings(audio, { masterVolume: 0.5, musicVolume: 0.25, sfxVolume: 0.75 });
+    applyAudioSettings(audio, { audioMuted: false, masterVolume: 0.5, musicVolume: 0.25, sfxVolume: 0.75 });
     await audio.init();
 
     expect(bus(MASTER).gain.value).toBe(0.5);
@@ -139,7 +139,7 @@ describe("volume slider wiring (task 561)", () => {
     const audio = new AudioManager();
     await audio.init();
 
-    applyAudioSettings(audio, { masterVolume: 0.2, musicVolume: 0.4, sfxVolume: 0.9 });
+    applyAudioSettings(audio, { audioMuted: false, masterVolume: 0.2, musicVolume: 0.4, sfxVolume: 0.9 });
 
     expect(bus(MASTER).gain.value).toBe(0.2);
     expect(bus(MUSIC).gain.value).toBe(0.4);
@@ -151,10 +151,10 @@ describe("volume slider wiring (task 561)", () => {
     const audio = new AudioManager();
     await audio.init();
 
-    applyAudioSettings(audio, { masterVolume: 1, musicVolume: 0.3, sfxVolume: 1 });
+    applyAudioSettings(audio, { audioMuted: false, masterVolume: 1, musicVolume: 0.3, sfxVolume: 1 });
     expect(bus(AMBIENT).gain.value).toBe(0.3);
 
-    applyAudioSettings(audio, { masterVolume: 1, musicVolume: 0, sfxVolume: 1 });
+    applyAudioSettings(audio, { audioMuted: false, masterVolume: 1, musicVolume: 0, sfxVolume: 1 });
     expect(bus(AMBIENT).gain.value).toBe(0);
   });
 
@@ -162,17 +162,32 @@ describe("volume slider wiring (task 561)", () => {
     const audio = new AudioManager();
     await audio.init();
 
-    applyAudioSettings(audio, { masterVolume: 1.5, musicVolume: -2, sfxVolume: NaN });
+    applyAudioSettings(audio, { audioMuted: false, masterVolume: 1.5, musicVolume: -2, sfxVolume: NaN });
 
     expect(bus(MASTER).gain.value).toBe(1);
     expect(bus(MUSIC).gain.value).toBe(0);
     expect(bus(SFX).gain.value).toBe(0);
   });
 
+  it("the settings mute switch silences all buses without changing their slider values", async () => {
+    const audio = new AudioManager();
+    await audio.init();
+
+    applyAudioSettings(audio, { audioMuted: true, masterVolume: 0.4, musicVolume: 0.5, sfxVolume: 0.6 });
+
+    expect(bus(MASTER).gain.value).toBe(0);
+    expect(bus(MUSIC).gain.value).toBe(0.5);
+    expect(bus(SFX).gain.value).toBe(0.6);
+    expect(bus(AMBIENT).gain.value).toBe(0.5);
+
+    applyAudioSettings(audio, { audioMuted: false, masterVolume: 0.4, musicVolume: 0.5, sfxVolume: 0.6 });
+    expect(bus(MASTER).gain.value).toBe(0.4);
+  });
+
   it("unmuting restores the master slider, not full volume", async () => {
     const audio = new AudioManager();
     await audio.init();
-    applyAudioSettings(audio, { masterVolume: 0.4, musicVolume: 0.5, sfxVolume: 0.5 });
+    applyAudioSettings(audio, { audioMuted: false, masterVolume: 0.4, musicVolume: 0.5, sfxVolume: 0.5 });
 
     audio.setMuted(true);
     expect(bus(MASTER).gain.value).toBe(0);
@@ -186,7 +201,7 @@ describe("volume slider wiring (task 561)", () => {
     await audio.init();
 
     audio.setMuted(true);
-    applyAudioSettings(audio, { masterVolume: 0.9, musicVolume: 0.9, sfxVolume: 0.9 });
+    applyAudioSettings(audio, { audioMuted: true, masterVolume: 0.9, musicVolume: 0.9, sfxVolume: 0.9 });
 
     expect(bus(MASTER).gain.value).toBe(0);
     expect(bus(MUSIC).gain.value).toBe(0.9);
@@ -196,7 +211,7 @@ describe("volume slider wiring (task 561)", () => {
   it("ducks only the post-slider music gain while dialogue is visible", async () => {
     const audio = new AudioManager();
     await audio.init();
-    applyAudioSettings(audio, { masterVolume: 0.8, musicVolume: 0.6, sfxVolume: 0.8 });
+    applyAudioSettings(audio, { audioMuted: false, masterVolume: 0.8, musicVolume: 0.6, sfxVolume: 0.8 });
     ctx.currentTime = 12;
 
     audio.setDialogueDucked(true);
