@@ -72,7 +72,10 @@ describe("prone crawl (task 671)", () => {
     expect(availableStates(operator)).toContain('prone-crawl');
     expect(unavailableStates(operator)).toEqual([]);
     expect(availableStates(clipsOf('horse.glb'))).toEqual([]);
-    expect(unavailableStates(clipsOf('horse.glb'))).toHaveLength(3);
+    // A horse cannot do any of the human states: every one is reported by name.
+    const gaps = unavailableStates(clipsOf('horse.glb'));
+    expect(gaps.length).toBe(Object.keys(STATE_CLIPS).length);
+    expect(gaps.every((g) => g.gap === 'clip-not-in-model')).toBe(true);
   });
 
   it("takes a model with no clips at all without throwing", () => {
@@ -119,5 +122,39 @@ describe("crouch idle and walk (task 672)", () => {
     expect(availableStates(operator)).toEqual(
       expect.arrayContaining(['prone-crawl', 'crouch-idle', 'crouch-walk']),
     );
+  });
+});
+
+describe("jump start, loop and land (task 673)", () => {
+  it("registers three phases, and only the middle one loops", () => {
+    expect(STATE_CLIPS['jump-start']?.clip).toBe('jump_start');
+    expect(STATE_CLIPS['jump-loop']?.clip).toBe('jump_loop');
+    expect(STATE_CLIPS['jump-land']?.clip).toBe('jump_land');
+    expect(STATE_CLIPS['jump-start']?.loop).toBe(false);
+    expect(STATE_CLIPS['jump-loop']?.loop).toBe(true);
+    expect(STATE_CLIPS['jump-land']?.loop).toBe(false);
+  });
+
+  it("resolves all three on every operator rig", () => {
+    for (const rig of ['operator-viper.glb', 'operator-heron.glb', 'operator-lynx.glb', 'operator-magpie.glb', 'operator-jackal.glb']) {
+      const clips = clipsOf(rig);
+      for (const state of ['jump-start', 'jump-loop', 'jump-land'] as const) {
+        expect(resolveStateClip(state, clips).available, `${rig} ${state}`).toBe(true);
+      }
+    }
+  });
+
+  it("has no jump on the medic rig, and says so", () => {
+    // female-operator.glb ships prone and crouch but no jump: it is a medic
+    // set, and the rig does not include one.
+    const clips = clipsOf('female-operator.glb');
+    expect(resolveStateClip('jump-start', clips).gap).toBe('clip-not-in-model');
+    expect(resolveStateClip('jump-start', clips).clip).toBe('jump_start');
+    expect(availableStates(clips)).not.toContain('jump-start');
+  });
+
+  it("comes in faster than a stance change, because a jump is an impulse", () => {
+    expect(STATE_CLIPS['jump-start']?.blendS ?? 1).toBeLessThan(STATE_CLIPS['crouch-idle']?.blendS ?? 0);
+    expect(STATE_CLIPS['jump-land']?.blendS ?? 1).toBeLessThan(STATE_CLIPS['crouch-idle']?.blendS ?? 0);
   });
 });

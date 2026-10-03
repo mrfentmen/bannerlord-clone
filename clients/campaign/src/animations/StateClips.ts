@@ -21,6 +21,9 @@ import type { BlendState } from './BlendTransitions.js';
 
 /** The states this registry covers. */
 export type ActionState =
+  | 'jump-start'
+  | 'jump-loop'
+  | 'jump-land'
   | 'prone-crawl'
   | 'crouch-idle'
   | 'crouch-walk'
@@ -57,6 +60,15 @@ export const STATE_CLIPS: Readonly<Partial<Record<ActionState, StateClip>>> = {
   // walks out of it has to have somewhere to walk to.
   'crouch-idle': { clip: 'crouch_idle', blendS: 0.2, loop: true, lowerBody: 'idle' },
   'crouch-walk': { clip: 'crouch_walk', blendS: 0.2, loop: true, lowerBody: 'walk' },
+  // Task 673: a jump is three phases and only the middle one loops. Registering
+  // it as one looping clip is how a character ends up hanging in the air forever
+  // when the landing never fires.
+  // Task 673: start, loop and land are separate clips, because the middle one
+  // loops and the other two must not. A jump registered as a single clip hangs
+  // in the air whenever the landing is missed.
+  'jump-start': { clip: 'jump_start', blendS: 0.1, loop: false, lowerBody: 'idle' },
+  'jump-loop': { clip: 'jump_loop', blendS: 0.1, loop: true, lowerBody: 'idle' },
+  'jump-land': { clip: 'jump_land', blendS: 0.12, loop: false, lowerBody: 'idle' },
 };
 
 /** Why a state cannot play. */
