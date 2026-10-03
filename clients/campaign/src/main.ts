@@ -76,6 +76,7 @@ import { townPanel } from "./ui/panels/TownPanel.js";
 import { whyPanel } from "./ui/panels/WhyPanel.js";
 import type {
   GoodId,
+  NpcParty,
   SettlementOption,
   SimSnapshot,
   TickUpdate,
@@ -2235,6 +2236,77 @@ function destinationsFor(): SettlementOption[] {
  * the real road nodes so the marker follows the road rather than flying across country.
  * It never invents arrival or cost; those come from the March and Supply systems.
  */
+/** Track hostile parties we've already warned about, to avoid spam. */
+const warnedHostiles = new Set<string>();
+const activeEncounters = new Set<string>();
+let hostileCheckTick = 0;
+
+/**
+ * Check for hostile NPC parties near the player. Shows a notification when
+ * a new hostile enters range. Called on tick, throttled to every 5 ticks.
+ */
+async function checkForHostiles(): Promise<void> {
+  if (!snapshot || !provider) return;
+  hostileCheckTick++;
+  if (hostileCheckTick % 5 !== 0) return;
+
+  try {
+    const hostiles = await provider.getNearbyHostiles(50); // 50km encounter range
+    for (const h of hostiles) {
+      if (!warnedHostiles.has(h.id) && !activeEncounters.has(h.id)) {
+        warnedHostiles.add(h.id);
+        activeEncounters.add(h.id);
+        // Show the encounter panel: fight, flee, or dismiss.
+        const playerTroops = snapshot.party.troops.reduce((n, s) => n + s.count, 0);
+        // Get the full NPC party data for the encounter.
+        const npcParties = snapshot.npcParties ?? [];
+        const npc = npcParties.find((p) => p.id === h.id);
+        if (npc) {
+          const { encounterPanel } = await import("./ui/panels/EncounterPanel.js");
+          const panel = encounterPanel({
+            npc,
+            playerTroops,
+            onChoice: (choice) => {
+              activeEncounters.delete(h.id);
+              handleEncounterChoice(choice);
+            },
+          });
+          document.body.appendChild(panel);
+        }
+      }
+    }
+    // Clean up warnings for parties that are no longer near
+    const nearIds = new Set(hostiles.map((h) => h.id));
+    for (const id of warnedHostiles) {
+      if (!nearIds.has(id)) warnedHostiles.delete(id);
+    }
+  } catch {
+    // Silently ignore - the provider may not support this yet
+  }
+}
+
+/** Handle the player's encounter choice: fight, flee, or dismiss. */
+async function handleEncounterChoice(choice: { action: "fight" | "flee" | "dismiss"; npcParty: NpcParty }): Promise<void> {
+  const { npcParty } = choice;
+  if (choice.action === "fight") {
+    // Start a battle with the actual NPC party.
+    // The battle UI's describeEncounter needs to know about this NPC.
+    console.log(`[encounter] Fighting ${npcParty.name} (${npcParty.troopCount} troops)`);
+    // TODO: wire to battleUi.attack with the NPC party's actual data
+    // For now, trigger via the existing battle flow with NPC context.
+    if (battleUi) {
+      // Store the NPC for the battle's describeEncounter to use.
+      (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc = npcParty;
+      // The battle UI will pick this up via the encounter poller or manual trigger.
+    }
+  } else if (choice.action === "flee") {
+    console.log(`[encounter] Fled from ${npcParty.name}`);
+    // Move the player party away from the NPC (simple: mark as warned so it doesn't retrigger immediately)
+  } else {
+    console.log(`[encounter] Dismissed encounter with ${npcParty.name}`);
+  }
+}
+
 function syncParty(): void {
   if (!scene || !snapshot || !world) return;
 
