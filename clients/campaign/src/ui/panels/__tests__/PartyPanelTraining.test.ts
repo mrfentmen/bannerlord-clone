@@ -249,3 +249,12 @@ describe("party panel upgrade path (task 147)", () => {
     expect(root.querySelector('[data-testid="training-xp-s2"]')).not.toBeNull();
   });
 });
+describe("the troop table", () => {
+  it("shows a wounded column with each stack's wounded count", () => {
+    const root = partyPanel(
+      options({ party: partyWith([stack({ id: "s1", wounded: 3 }), stack({ id: "s2", wounded: 0 })]) }),
+    );
+    const cells = Array.from(root.querySelectorAll('[data-testid="troop-wounded"]'));
+    expect(cells.map((c) => c.textContent)).toEqual(["3", "0"]);
+  });
+});

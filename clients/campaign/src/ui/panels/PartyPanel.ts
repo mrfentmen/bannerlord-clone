@@ -241,6 +241,7 @@ export function partyPanel(options: PartyPanelOptions): HTMLElement {
     const columns: Column<TroopStack>[] = [
       { header: "Unit", render: (t) => h("span", { class: "label" }, t.name) },
       { header: "Count", numeric: true, testId: "troop-count", render: (t) => String(t.count) },
+      { header: "Wounded", numeric: true, testId: "troop-wounded", render: (t) => String(t.wounded) },
       { header: "Quality", numeric: true, testId: "troop-quality", render: (t) => `${t.quality}/5` },
       { header: "Morale", numeric: true, testId: "troop-morale", render: (t) => t.morale.toFixed(2) },
       { header: "Wage a day", numeric: true, testId: "troop-wage", render: (t) => rate(t.count * t.wage) },
