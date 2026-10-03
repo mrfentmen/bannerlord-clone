@@ -1,7 +1,7 @@
 {
-  "source": "OpenStreetMap via Overpass API",
+  "source": "OpenStreetMap via Overpass API + U.S. Census Bureau estimates (Midwest/East expansion 2026-10-03)",
   "licence": "ODbL 1.0",
-  "retrieved": "2026-09-30",
+  "retrieved": "2026-10-03",
   "settlements": [
     {
       "osmId": "node/151465650",
@@ -770,6 +770,906 @@
       "wikidata": "Q2193151",
       "state": null,
       "stateCode": null
+    },
+    {
+      "name": "Atlanta",
+      "place": "city",
+      "lat": 33.74889,
+      "lon": -84.39,
+      "population": 529110,
+      "state": "Georgia",
+      "stateCode": "GA"
+    },
+    {
+      "name": "Augusta",
+      "place": "city",
+      "lat": 33.47,
+      "lon": -81.975,
+      "population": 201999,
+      "state": "Georgia",
+      "stateCode": "GA"
+    },
+    {
+      "name": "Columbus",
+      "place": "city",
+      "lat": 32.49222,
+      "lon": -84.94028,
+      "population": 201830,
+      "state": "Georgia",
+      "stateCode": "GA"
+    },
+    {
+      "name": "Savannah",
+      "place": "city",
+      "lat": 32.08111,
+      "lon": -81.09111,
+      "population": 149440,
+      "state": "Georgia",
+      "stateCode": "GA"
+    },
+    {
+      "name": "Athens",
+      "place": "city",
+      "lat": 33.95,
+      "lon": -83.383,
+      "population": 128612,
+      "state": "Georgia",
+      "stateCode": "GA"
+    },
+    {
+      "name": "Macon",
+      "place": "city",
+      "lat": 32.834839,
+      "lon": -83.651672,
+      "population": 157056,
+      "state": "Georgia",
+      "stateCode": "GA"
+    },
+    {
+      "name": "Nashville",
+      "place": "city",
+      "lat": 36.1622,
+      "lon": -86.7744,
+      "population": 687788,
+      "state": "Tennessee",
+      "stateCode": "TN"
+    },
+    {
+      "name": "Memphis",
+      "place": "city",
+      "lat": 35.1461,
+      "lon": -90.0519,
+      "population": 618639,
+      "state": "Tennessee",
+      "stateCode": "TN"
+    },
+    {
+      "name": "Knoxville",
+      "place": "city",
+      "lat": 35.9617,
+      "lon": -83.9232,
+      "population": 198162,
+      "state": "Tennessee",
+      "stateCode": "TN"
+    },
+    {
+      "name": "Chattanooga",
+      "place": "city",
+      "lat": 35.066,
+      "lon": -85.2484,
+      "population": 187030,
+      "state": "Tennessee",
+      "stateCode": "TN"
+    },
+    {
+      "name": "Charlotte",
+      "place": "city",
+      "lat": 35.22722,
+      "lon": -80.84306,
+      "population": 943476,
+      "state": "North Carolina",
+      "stateCode": "NC"
+    },
+    {
+      "name": "Raleigh",
+      "place": "city",
+      "lat": 35.85417,
+      "lon": -78.76194,
+      "population": 499825,
+      "state": "North Carolina",
+      "stateCode": "NC"
+    },
+    {
+      "name": "Greensboro",
+      "place": "city",
+      "lat": 36.0725,
+      "lon": -79.79028,
+      "population": 307381,
+      "state": "North Carolina",
+      "stateCode": "NC"
+    },
+    {
+      "name": "Durham",
+      "place": "city",
+      "lat": 35.97861,
+      "lon": -78.9,
+      "population": 301870,
+      "state": "North Carolina",
+      "stateCode": "NC"
+    },
+    {
+      "name": "Winston-Salem",
+      "place": "city",
+      "lat": 36.10278,
+      "lon": -80.26083,
+      "population": 255769,
+      "state": "North Carolina",
+      "stateCode": "NC"
+    },
+    {
+      "name": "Fayetteville",
+      "place": "city",
+      "lat": 35.0525,
+      "lon": -78.87833,
+      "population": 209496,
+      "state": "North Carolina",
+      "stateCode": "NC"
+    },
+    {
+      "name": "Columbia",
+      "place": "city",
+      "lat": 34.00056,
+      "lon": -81.03472,
+      "population": 144788,
+      "state": "South Carolina",
+      "stateCode": "SC"
+    },
+    {
+      "name": "Charleston",
+      "place": "city",
+      "lat": 32.81389,
+      "lon": -79.93194,
+      "population": 157665,
+      "state": "South Carolina",
+      "stateCode": "SC"
+    },
+    {
+      "name": "Greenville",
+      "place": "city",
+      "lat": 34.84444,
+      "lon": -82.38556,
+      "population": 74371,
+      "state": "South Carolina",
+      "stateCode": "SC"
+    },
+    {
+      "name": "Birmingham",
+      "place": "city",
+      "lat": 33.5175,
+      "lon": -86.80944,
+      "population": 196357,
+      "state": "Alabama",
+      "stateCode": "AL"
+    },
+    {
+      "name": "Montgomery",
+      "place": "city",
+      "lat": 32.3675,
+      "lon": -86.3,
+      "population": 195818,
+      "state": "Alabama",
+      "stateCode": "AL"
+    },
+    {
+      "name": "Huntsville",
+      "place": "city",
+      "lat": 34.69333,
+      "lon": -86.56083,
+      "population": 233627,
+      "state": "Alabama",
+      "stateCode": "AL"
+    },
+    {
+      "name": "Mobile",
+      "place": "city",
+      "lat": 30.69444,
+      "lon": -88.04306,
+      "population": 200824,
+      "state": "Alabama",
+      "stateCode": "AL"
+    },
+    {
+      "name": "Jackson",
+      "place": "city",
+      "lat": 32.29889,
+      "lon": -90.18472,
+      "population": 141196,
+      "state": "Mississippi",
+      "stateCode": "MS"
+    },
+    {
+      "name": "Louisville",
+      "place": "city",
+      "lat": 38.2561,
+      "lon": -85.7514,
+      "population": 622981,
+      "state": "Kentucky",
+      "stateCode": "KY"
+    },
+    {
+      "name": "Lexington",
+      "place": "city",
+      "lat": 38.0464,
+      "lon": -84.4969,
+      "population": 320154,
+      "state": "Kentucky",
+      "stateCode": "KY"
+    },
+    {
+      "name": "Wichita",
+      "place": "city",
+      "lat": 37.68889,
+      "lon": -97.33611,
+      "population": 400991,
+      "state": "Kansas",
+      "stateCode": "KS"
+    },
+    {
+      "name": "Overland Park",
+      "place": "city",
+      "lat": 38.88694,
+      "lon": -94.68694,
+      "population": 202893,
+      "state": "Kansas",
+      "stateCode": "KS"
+    },
+    {
+      "name": "Kansas City",
+      "place": "city",
+      "lat": 39.10667,
+      "lon": -94.67639,
+      "population": 156752,
+      "state": "Kansas",
+      "stateCode": "KS"
+    },
+    {
+      "name": "Olathe",
+      "place": "city",
+      "lat": 38.88278,
+      "lon": -94.82028,
+      "population": 149035,
+      "state": "Kansas",
+      "stateCode": "KS"
+    },
+    {
+      "name": "Topeka",
+      "place": "city",
+      "lat": 39.03472,
+      "lon": -95.69556,
+      "population": 125467,
+      "state": "Kansas",
+      "stateCode": "KS"
+    },
+    {
+      "name": "Kansas City",
+      "place": "city",
+      "lat": 39.09972,
+      "lon": -94.57833,
+      "population": 516032,
+      "state": "Missouri",
+      "stateCode": "MO"
+    },
+    {
+      "name": "St. Louis",
+      "place": "city",
+      "lat": 38.62722,
+      "lon": -90.19778,
+      "population": 279695,
+      "state": "Missouri",
+      "stateCode": "MO"
+    },
+    {
+      "name": "Springfield",
+      "place": "city",
+      "lat": 37.21528,
+      "lon": -93.29833,
+      "population": 170596,
+      "state": "Missouri",
+      "stateCode": "MO"
+    },
+    {
+      "name": "Columbia",
+      "place": "city",
+      "lat": 38.9475,
+      "lon": -92.32667,
+      "population": 130900,
+      "state": "Missouri",
+      "stateCode": "MO"
+    },
+    {
+      "name": "Independence",
+      "place": "city",
+      "lat": 39.0925,
+      "lon": -94.41389,
+      "population": 121629,
+      "state": "Missouri",
+      "stateCode": "MO"
+    },
+    {
+      "name": "Des Moines",
+      "place": "city",
+      "lat": 41.59083,
+      "lon": -93.62083,
+      "population": 213096,
+      "state": "Iowa",
+      "stateCode": "IA"
+    },
+    {
+      "name": "Cedar Rapids",
+      "place": "city",
+      "lat": 41.96419,
+      "lon": -91.67917,
+      "population": 137904,
+      "state": "Iowa",
+      "stateCode": "IA"
+    },
+    {
+      "name": "Davenport",
+      "place": "city",
+      "lat": 41.55682,
+      "lon": -90.60395,
+      "population": 100938,
+      "state": "Iowa",
+      "stateCode": "IA"
+    },
+    {
+      "name": "Sioux City",
+      "place": "city",
+      "lat": 42.49538,
+      "lon": -96.3895,
+      "population": 86875,
+      "state": "Iowa",
+      "stateCode": "IA"
+    },
+    {
+      "name": "Omaha",
+      "place": "city",
+      "lat": 41.25861,
+      "lon": -95.9375,
+      "population": 489265,
+      "state": "Nebraska",
+      "stateCode": "NE"
+    },
+    {
+      "name": "Lincoln",
+      "place": "city",
+      "lat": 40.81028,
+      "lon": -96.67472,
+      "population": 300619,
+      "state": "Nebraska",
+      "stateCode": "NE"
+    },
+    {
+      "name": "Oklahoma City",
+      "place": "city",
+      "lat": 35.46861,
+      "lon": -97.52139,
+      "population": 712919,
+      "state": "Oklahoma",
+      "stateCode": "OK"
+    },
+    {
+      "name": "Tulsa",
+      "place": "city",
+      "lat": 36.13139,
+      "lon": -95.93722,
+      "population": 415154,
+      "state": "Oklahoma",
+      "stateCode": "OK"
+    },
+    {
+      "name": "Norman",
+      "place": "city",
+      "lat": 35.22083,
+      "lon": -97.44361,
+      "population": 131010,
+      "state": "Oklahoma",
+      "stateCode": "OK"
+    },
+    {
+      "name": "Broken Arrow",
+      "place": "city",
+      "lat": 36.0525,
+      "lon": -95.79083,
+      "population": 122756,
+      "state": "Oklahoma",
+      "stateCode": "OK"
+    },
+    {
+      "name": "Little Rock",
+      "place": "city",
+      "lat": 34.7444,
+      "lon": -92.2881,
+      "population": 204774,
+      "state": "Arkansas",
+      "stateCode": "AR"
+    },
+    {
+      "name": "Fayetteville",
+      "place": "city",
+      "lat": 36.0625,
+      "lon": -94.1575,
+      "population": 103134,
+      "state": "Arkansas",
+      "stateCode": "AR"
+    },
+    {
+      "name": "Fort Smith",
+      "place": "city",
+      "lat": 35.37972,
+      "lon": -94.38194,
+      "population": 90507,
+      "state": "Arkansas",
+      "stateCode": "AR"
+    },
+    {
+      "name": "Chicago",
+      "place": "city",
+      "lat": 41.88194,
+      "lon": -87.62778,
+      "population": 2721308,
+      "state": "Illinois",
+      "stateCode": "IL"
+    },
+    {
+      "name": "Aurora",
+      "place": "city",
+      "lat": 41.7606,
+      "lon": -88.3201,
+      "population": 180710,
+      "state": "Illinois",
+      "stateCode": "IL"
+    },
+    {
+      "name": "Joliet",
+      "place": "city",
+      "lat": 41.525,
+      "lon": -88.0817,
+      "population": 151837,
+      "state": "Illinois",
+      "stateCode": "IL"
+    },
+    {
+      "name": "Naperville",
+      "place": "city",
+      "lat": 41.7508,
+      "lon": -88.1536,
+      "population": 153124,
+      "state": "Illinois",
+      "stateCode": "IL"
+    },
+    {
+      "name": "Rockford",
+      "place": "city",
+      "lat": 42.2711,
+      "lon": -89.094,
+      "population": 147486,
+      "state": "Illinois",
+      "stateCode": "IL"
+    },
+    {
+      "name": "Springfield",
+      "place": "city",
+      "lat": 39.7817,
+      "lon": -89.6501,
+      "population": 112949,
+      "state": "Illinois",
+      "stateCode": "IL"
+    },
+    {
+      "name": "Indianapolis",
+      "place": "city",
+      "lat": 39.76861,
+      "lon": -86.15806,
+      "population": 891484,
+      "state": "Indiana",
+      "stateCode": "IN"
+    },
+    {
+      "name": "Fort Wayne",
+      "place": "city",
+      "lat": 41.0793,
+      "lon": -85.1394,
+      "population": 273203,
+      "state": "Indiana",
+      "stateCode": "IN"
+    },
+    {
+      "name": "Evansville",
+      "place": "city",
+      "lat": 37.9716,
+      "lon": -87.5711,
+      "population": 115395,
+      "state": "Indiana",
+      "stateCode": "IN"
+    },
+    {
+      "name": "South Bend",
+      "place": "city",
+      "lat": 41.6764,
+      "lon": -86.252,
+      "population": 103713,
+      "state": "Indiana",
+      "stateCode": "IN"
+    },
+    {
+      "name": "Columbus",
+      "place": "city",
+      "lat": 39.9612,
+      "lon": -82.9988,
+      "population": 933263,
+      "state": "Ohio",
+      "stateCode": "OH"
+    },
+    {
+      "name": "Cleveland",
+      "place": "city",
+      "lat": 41.4995,
+      "lon": -81.6954,
+      "population": 365379,
+      "state": "Ohio",
+      "stateCode": "OH"
+    },
+    {
+      "name": "Cincinnati",
+      "place": "city",
+      "lat": 39.1031,
+      "lon": -84.512,
+      "population": 314915,
+      "state": "Ohio",
+      "stateCode": "OH"
+    },
+    {
+      "name": "Toledo",
+      "place": "city",
+      "lat": 41.6528,
+      "lon": -83.5379,
+      "population": 265638,
+      "state": "Ohio",
+      "stateCode": "OH"
+    },
+    {
+      "name": "Akron",
+      "place": "city",
+      "lat": 41.0814,
+      "lon": -81.519,
+      "population": 189332,
+      "state": "Ohio",
+      "stateCode": "OH"
+    },
+    {
+      "name": "Dayton",
+      "place": "city",
+      "lat": 39.7589,
+      "lon": -84.1916,
+      "population": 136346,
+      "state": "Ohio",
+      "stateCode": "OH"
+    },
+    {
+      "name": "Detroit",
+      "place": "city",
+      "lat": 42.33167,
+      "lon": -83.04583,
+      "population": 645705,
+      "state": "Michigan",
+      "stateCode": "MI"
+    },
+    {
+      "name": "Grand Rapids",
+      "place": "city",
+      "lat": 42.9634,
+      "lon": -85.6681,
+      "population": 200117,
+      "state": "Michigan",
+      "stateCode": "MI"
+    },
+    {
+      "name": "Warren",
+      "place": "city",
+      "lat": 42.4775,
+      "lon": -83.0279,
+      "population": 137686,
+      "state": "Michigan",
+      "stateCode": "MI"
+    },
+    {
+      "name": "Sterling Heights",
+      "place": "city",
+      "lat": 42.5803,
+      "lon": -83.0302,
+      "population": 134342,
+      "state": "Michigan",
+      "stateCode": "MI"
+    },
+    {
+      "name": "Ann Arbor",
+      "place": "city",
+      "lat": 42.2808,
+      "lon": -83.743,
+      "population": 122925,
+      "state": "Michigan",
+      "stateCode": "MI"
+    },
+    {
+      "name": "Milwaukee",
+      "place": "city",
+      "lat": 43.03876,
+      "lon": -87.90653,
+      "population": 563531,
+      "state": "Wisconsin",
+      "stateCode": "WI"
+    },
+    {
+      "name": "Madison",
+      "place": "city",
+      "lat": 43.0731,
+      "lon": -89.4012,
+      "population": 285300,
+      "state": "Wisconsin",
+      "stateCode": "WI"
+    },
+    {
+      "name": "Green Bay",
+      "place": "city",
+      "lat": 44.5133,
+      "lon": -88.0158,
+      "population": 106311,
+      "state": "Wisconsin",
+      "stateCode": "WI"
+    },
+    {
+      "name": "Minneapolis",
+      "place": "city",
+      "lat": 44.9778,
+      "lon": -93.265,
+      "population": 428579,
+      "state": "Minnesota",
+      "stateCode": "MN"
+    },
+    {
+      "name": "St. Paul",
+      "place": "city",
+      "lat": 44.9537,
+      "lon": -93.09,
+      "population": 307465,
+      "state": "Minnesota",
+      "stateCode": "MN"
+    },
+    {
+      "name": "Rochester",
+      "place": "city",
+      "lat": 44.0121,
+      "lon": -92.4802,
+      "population": 123624,
+      "state": "Minnesota",
+      "stateCode": "MN"
+    },
+    {
+      "name": "Washington",
+      "place": "city",
+      "lat": 38.90472,
+      "lon": -77.01639,
+      "population": 702250,
+      "state": "District of Columbia",
+      "stateCode": "DC"
+    },
+    {
+      "name": "Virginia Beach",
+      "place": "city",
+      "lat": 36.85,
+      "lon": -75.97778,
+      "population": 454808,
+      "state": "Virginia",
+      "stateCode": "VA"
+    },
+    {
+      "name": "Norfolk",
+      "place": "city",
+      "lat": 36.85077,
+      "lon": -76.28587,
+      "population": 231105,
+      "state": "Virginia",
+      "stateCode": "VA"
+    },
+    {
+      "name": "Chesapeake",
+      "place": "city",
+      "lat": 36.68765,
+      "lon": -76.31216,
+      "population": 254997,
+      "state": "Virginia",
+      "stateCode": "VA"
+    },
+    {
+      "name": "Richmond",
+      "place": "city",
+      "lat": 37.54083,
+      "lon": -77.43667,
+      "population": 233655,
+      "state": "Virginia",
+      "stateCode": "VA"
+    },
+    {
+      "name": "Newport News",
+      "place": "city",
+      "lat": 37.0692,
+      "lon": -76.484,
+      "population": 183056,
+      "state": "Virginia",
+      "stateCode": "VA"
+    },
+    {
+      "name": "Alexandria",
+      "place": "city",
+      "lat": 38.82028,
+      "lon": -77.05028,
+      "population": 159102,
+      "state": "Virginia",
+      "stateCode": "VA"
+    },
+    {
+      "name": "Arlington",
+      "place": "city",
+      "lat": 38.88028,
+      "lon": -77.10833,
+      "population": 239807,
+      "state": "Virginia",
+      "stateCode": "VA"
+    },
+    {
+      "name": "Baltimore",
+      "place": "city",
+      "lat": 39.29038,
+      "lon": -76.61219,
+      "population": 568271,
+      "state": "Maryland",
+      "stateCode": "MD"
+    },
+    {
+      "name": "Columbia",
+      "place": "town",
+      "lat": 39.20361,
+      "lon": -76.85694,
+      "population": 104681,
+      "state": "Maryland",
+      "stateCode": "MD"
+    },
+    {
+      "name": "Germantown",
+      "place": "town",
+      "lat": 39.18333,
+      "lon": -77.26667,
+      "population": 91249,
+      "state": "Maryland",
+      "stateCode": "MD"
+    },
+    {
+      "name": "Silver Spring",
+      "place": "town",
+      "lat": 38.99611,
+      "lon": -77.02806,
+      "population": 81015,
+      "state": "Maryland",
+      "stateCode": "MD"
+    },
+    {
+      "name": "Philadelphia",
+      "place": "city",
+      "lat": 39.9528,
+      "lon": -75.1636,
+      "population": 1573916,
+      "state": "Pennsylvania",
+      "stateCode": "PA"
+    },
+    {
+      "name": "Pittsburgh",
+      "place": "city",
+      "lat": 40.43972,
+      "lon": -79.97639,
+      "population": 307668,
+      "state": "Pennsylvania",
+      "stateCode": "PA"
+    },
+    {
+      "name": "Allentown",
+      "place": "city",
+      "lat": 40.60167,
+      "lon": -75.47722,
+      "population": 127138,
+      "state": "Pennsylvania",
+      "stateCode": "PA"
+    },
+    {
+      "name": "Erie",
+      "place": "town",
+      "lat": 42.12944,
+      "lon": -80.085,
+      "population": 92940,
+      "state": "Pennsylvania",
+      "stateCode": "PA"
+    },
+    {
+      "name": "Reading",
+      "place": "town",
+      "lat": 40.33565,
+      "lon": -75.92687,
+      "population": 96000,
+      "state": "Pennsylvania",
+      "stateCode": "PA"
+    },
+    {
+      "name": "Wilmington",
+      "place": "town",
+      "lat": 39.746,
+      "lon": -75.5466,
+      "population": 73176,
+      "state": "Delaware",
+      "stateCode": "DE"
+    },
+    {
+      "name": "Dover",
+      "place": "town",
+      "lat": 39.15817,
+      "lon": -75.52437,
+      "population": 40191,
+      "state": "Delaware",
+      "stateCode": "DE"
+    },
+    {
+      "name": "Charleston",
+      "place": "town",
+      "lat": 38.3498,
+      "lon": -81.6326,
+      "population": 46482,
+      "state": "West Virginia",
+      "stateCode": "WV"
+    },
+    {
+      "name": "Huntington",
+      "place": "town",
+      "lat": 38.4192,
+      "lon": -82.4452,
+      "population": 44942,
+      "state": "West Virginia",
+      "stateCode": "WV"
+    },
+    {
+      "name": "Newark",
+      "place": "city",
+      "lat": 40.7356,
+      "lon": -74.1722,
+      "population": 317303,
+      "state": "New Jersey",
+      "stateCode": "NJ"
+    },
+    {
+      "name": "Jersey City",
+      "place": "city",
+      "lat": 40.71,
+      "lon": -74.06,
+      "population": 302824,
+      "state": "New Jersey",
+      "stateCode": "NJ"
+    },
+    {
+      "name": "Paterson",
+      "place": "city",
+      "lat": 40.9168,
+      "lon": -74.1718,
+      "population": 160463,
+      "state": "New Jersey",
+      "stateCode": "NJ"
     }
   ]
 }
