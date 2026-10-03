@@ -260,6 +260,8 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     assignPartyRole: async (charId, role) => state.assignPartyRole(charId, role),
     declareWar: async (targetFactionId) => state.declareWar(targetFactionId),
     makePeace: async (warId) => state.makePeace(warId),
+    getPartyCapacity: async () => state.partyCapacity(),
+    getPartySpeed: async () => state.partySpeed(),
     marry: async (charId1, charId2) => state.marry(charId1, charId2),
     haveChild: async (parentId1, parentId2, childName) => state.haveChild(parentId1, parentId2, childName),
     killCharacter: async (charId, cause) => state.killCharacter(charId, cause),
@@ -986,6 +988,21 @@ class FixtureState {
       };
     }
 
+    // Party capacity: clan tier limits how many troops you can field.
+    const currentTroops = this.#party.troops.reduce((s, t) => s + t.count, 0);
+    const capacity = this.partyCapacity();
+    if (currentTroops + request.quantity > capacity) {
+      return {
+        accepted: false,
+        unitName: offered.name,
+        quantity: request.quantity,
+        totalCost,
+        newCount: this.#party.troops.find((t) => t.id === `t-${offered.unitId}`)?.count ?? 0,
+        reason: `Party is at capacity (${currentTroops}/${capacity}). Raise your clan tier to field more troops.`,
+        causedBy: "recruit-rejected",
+      };
+    }
+
     this.#player.resources.money = round2(this.#player.resources.money - totalCost);
     offered.available -= request.quantity;
     const stackId = `t-${offered.unitId}`;
@@ -1293,6 +1310,8 @@ class FixtureState {
   #step(): void {
     this.#tick += 1;
     this.#day += 1;
+    // Recompute party speed from composition every day.
+    this.#party.speedKmPerDay = this.partySpeed();
     if (this.#day > 28) {
       this.#day = 1;
       this.#month += 1;
@@ -1555,6 +1574,52 @@ class FixtureState {
    * Wounded troops recover over campaign time. Each day, a fraction of wounded
    * return to fighting strength. Recovery is faster with a surgeon and medicine.
    */
+  /**
+   * Maximum troops the player party can hold. Grows with clan tier:
+   * 25 base + 25 per tier. Tier 1 = 50, tier 6 = 175.
+   */
+  partyCapacity(): number {
+    const clan = this.#clans.find((c) => c.id === "clan-player");
+    const tier = clan?.tier ?? 1;
+    return 25 + tier * 25;
+  }
+
+  /**
+   * Current party speed in km/day, from troop composition.
+   * Mounted troops are faster; wounded and prisoners slow the column;
+   * a scout companion speeds it up.
+   */
+  partySpeed(): number {
+    const base = 34;
+    const troops = this.#party.troops;
+    const total = troops.reduce((s, t) => s + t.count, 0);
+    if (total === 0) return base;
+
+    const mounted = troops.reduce((s, t) => s + (t.mounted ? t.count : 0), 0);
+    const wounded = troops.reduce((s, t) => s + (t.wounded ?? 0), 0);
+    const prisoners = this.#party.prisoners.reduce((s, p) => s + p.count, 0);
+
+    const mountedFrac = mounted / total;
+    let speed = base * (0.85 + 0.35 * mountedFrac);
+
+    // Wounded: -1% per 5% wounded, max -20%
+    const woundedFrac = wounded / total;
+    speed *= 1 - Math.min(0.2, woundedFrac * 0.2);
+
+    // Prisoners: -5% per 10 prisoners, max -25%
+    speed *= 1 - Math.min(0.25, Math.floor(prisoners / 10) * 0.05);
+
+    // Scout: +3% per scouting skill point, max +15%
+    const scoutId = this.#party.roles.scout;
+    if (scoutId) {
+      const scout = this.#characters.find((c) => c.id === scoutId);
+      const skill = scout?.skills?.scouting ?? 0;
+      speed *= 1 + Math.min(0.15, skill * 0.03);
+    }
+
+    return Math.max(10, Math.round(speed * 10) / 10);
+  }
+
   #recoverWounded(): void {
     const surgeonId = this.#party.roles.surgeon;
     let surgeonBonus = 0;

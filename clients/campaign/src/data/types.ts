@@ -324,6 +324,8 @@ export interface TroopStack {
   /** Money per day per soldier. */
   wage: number;
   morale: number;
+  /** Whether this stack is mounted (cavalry). Mounted troops move faster. */
+  mounted?: boolean;
 }
 
 /**
@@ -1140,6 +1142,10 @@ export interface SimulationProvider {
   declareWar(targetFactionId: string): Promise<{ warId: string }>;
   /** Make peace, ending a war. */
   makePeace(warId: string): Promise<void>;
+  /** Maximum troops the player party can hold (from clan tier). */
+  getPartyCapacity(): Promise<number>;
+  /** Current party speed in km/day (from troop composition). */
+  getPartySpeed(): Promise<number>;
   /** Set an army's objective. */
   setArmyObjective(armyId: string, objective: Army["objective"]): Promise<void>;
   /** Restore the provider's internal state from a saved snapshot. */

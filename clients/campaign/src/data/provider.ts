@@ -664,6 +664,17 @@ export class HttpSimulationProvider implements SimulationProvider {
     );
   }
 
+  async getPartyCapacity(): Promise<number> {
+    const snap = await this.getSnapshot();
+    const clan = snap.clans.find((c) => c.id === "clan-player");
+    return 25 + (clan?.tier ?? 1) * 25;
+  }
+
+  async getPartySpeed(): Promise<number> {
+    const snap = await this.getSnapshot();
+    return snap.party.speedKmPerDay;
+  }
+
   async marry(charId1: string, charId2: string): Promise<void> {
     await this.#post(
       "/v1/dynasty/marry",
