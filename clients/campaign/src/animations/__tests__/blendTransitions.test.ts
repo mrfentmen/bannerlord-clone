@@ -59,6 +59,84 @@ describe("blend timings (task 631)", () => {
   });
 });
 
+describe("any to death (task 635)", () => {
+  const STATES: BlendState[] = ['idle', 'walk', 'run', 'aim', 'shoot', 'hit'];
+
+  it("reaches death in 0.1 s from every state", () => {
+    expect(ANY_SOURCE_TIMINGS.death).toBe(0.1);
+    for (const from of STATES) {
+      expect(blendTimeFor(from, 'death'), from).toBe(0.1);
+      const track = new BlendTrack();
+      track.play(from);
+      runFor(track, 0.3);
+      expect(track.playDeath()).toBe(true);
+      runFor(track, 0.1);
+      expect(track.weightOf('death'), from).toBeCloseTo(1, 5);
+      expect(track.weightOf(from), from).toBe(0);
+    }
+  });
+
+  it("is slower than the hit interrupt and faster than anything else", () => {
+    // A death needs room to read, so it is longer than a flinch -- but it is
+    // half the return from a reaction and half a locomotion blend.
+    expect(blendTimeFor('walk', 'death')).toBeGreaterThan(interruptTimeFor('hit'));
+    expect(blendTimeFor('walk', 'death')).toBeLessThan(RETURN_FROM_HIT_SECONDS);
+    expect(blendTimeFor('walk', 'death')).toBeLessThan(IDLE_TO_WALK.inS);
+  });
+
+  it("cannot be interrupted once started", () => {
+    const track = new BlendTrack();
+    track.play('run');
+    runFor(track, 0.3);
+    track.playDeath();
+    expect(track.isTerminal()).toBe(true);
+    expect(track.terminalState).toBe('death');
+
+    track.interrupt('hit');
+    track.play('walk');
+    runFor(track, 0.2);
+    expect(track.weightOf('death')).toBeCloseTo(1, 5);
+    expect(track.weightOf('hit')).toBe(0);
+    expect(track.weightOf('walk')).toBe(0);
+    expect(track.active).toBe('death');
+  });
+
+  it("does not restart on a second lethal hit", () => {
+    const track = new BlendTrack();
+    track.play('idle');
+    runFor(track, 0.3);
+    expect(track.playDeath()).toBe(true);
+    runFor(track, 0.05);
+    const weight = track.weightOf('death');
+    expect(track.playDeath()).toBe(false);
+    runFor(track, 0.02);
+    // The fall kept going rather than snapping back to the start.
+    expect(track.weightOf('death')).toBeGreaterThan(weight);
+    expect(track.weightOf('death')).toBeLessThanOrEqual(1);
+  });
+
+  it("releases the latch when the track is cleared for a respawn", () => {
+    const track = new BlendTrack();
+    track.play('idle');
+    runFor(track, 0.3);
+    track.playDeath();
+    expect(track.isTerminal()).toBe(true);
+    track.clear();
+    expect(track.isTerminal()).toBe(false);
+    track.play('walk');
+    runFor(track, 0.3);
+    expect(track.active).toBe('walk');
+  });
+
+  it("reports no terminal state while a reaction is still running", () => {
+    const track = new BlendTrack();
+    expect(track.isTerminal()).toBe(false);
+    expect(track.terminalState).toBeNull();
+    track.interrupt('hit');
+    expect(track.isTerminal()).toBe(false);
+  });
+});
+
 describe("hit back to previous (task 634)", () => {
   it("blends out of the reaction over 0.3 s", () => {
     expect(RETURN_FROM_HIT_SECONDS).toBe(0.3);

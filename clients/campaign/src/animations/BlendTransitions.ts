@@ -1,6 +1,14 @@
 /**
  * Blend transitions between animation states.
  *
+ * Task 635: death is reached from any state in 0.1 s -- twice as long as the
+ * hit interrupt, because a death animation needs room to read, but half the
+ * return-from-reaction and half any locomotion blend -- and it is the one state
+ * that cannot be interrupted. A corpse that flinches when it is shot again, or
+ * that leaves its death animation to play a hit, is worse than no death at all,
+ * so {@link BlendTrack} latches: once `death` starts, `play` and `interrupt`
+ * are refused.
+ *
  * Task 634: once the reaction is over the character goes back to what it was
  * doing, over 0.3 s -- the longest blend in the table. A reaction that snaps back
  * into a run looks like a cut, and a cut in the middle of a firefight is the
@@ -100,7 +108,12 @@ export const WALK_TO_RUN: BlendTiming = { outS: 0.15, inS: 0.15 };
  */
 export const ANY_SOURCE_TIMINGS: Readonly<Partial<Record<BlendState, BlendSeconds>>> = {
   hit: 0.05,
+  // Task 635: a death has to land, and it has to land now.
+  death: 0.1,
 };
+
+/** Task 635: states that latch once started -- nothing interrupts a death. */
+const TERMINAL_STATES: ReadonlySet<BlendState> = new Set<BlendState>(['death']);
 
 /**
  * The transition table. Every row is a design number from the animation brief,
@@ -169,6 +182,7 @@ export interface BlendUpdate {
  */
 export class BlendTrack {
   private readonly entries = new Map<BlendState, TrackEntry>();
+  private latched: BlendState | null = null;
 
   /** The state with the highest weight, or null when the track is empty. */
   get active(): BlendState | null {
@@ -196,6 +210,7 @@ export class BlendTrack {
    * blend every frame.
    */
   play(to: BlendState, from?: BlendState, force = false): void {
+    if (this.isTerminal() && !TERMINAL_STATES.has(to)) return;
     const current = from ?? this.active;
     if (current === to && !force) return;
     if (current !== null) {
@@ -218,6 +233,7 @@ export class BlendTrack {
    * from a standing start.
    */
   interrupt(to: BlendState): void {
+    if (this.isTerminal() && !TERMINAL_STATES.has(to)) return;
     const current = this.active;
     if (current !== null && current !== to) {
       const out = this.ensure(current);
@@ -227,6 +243,39 @@ export class BlendTrack {
     const next = this.ensure(to);
     next.target = 1;
     next.blendS = interruptTimeFor(to);
+  }
+
+  /**
+   * Task 635: start the death. Latches, so nothing after this can take the
+   * character out of it, and returns false if a death was already running --
+   * a second lethal hit on a corpse must not restart the fall.
+   */
+  playDeath(from?: BlendState): boolean {
+    if (this.latched === 'death') return false;
+    const current = from ?? this.active;
+    if (current !== null && current !== 'death') {
+      const out = this.ensure(current);
+      out.target = 0;
+      out.blendS = blendTimeFor(current, 'death');
+    }
+    const next = this.ensure('death');
+    next.target = 1;
+    next.blendS = blendTimeFor(current ?? 'death', 'death');
+    this.latched = 'death';
+    return true;
+  }
+
+  /**
+   * Task 635: true once a terminal state has started. A scene uses this to stop
+   * routing orders to a unit that is already dying.
+   */
+  isTerminal(): boolean {
+    return this.latched !== null && this.latched !== undefined;
+  }
+
+  /** The latched state, or null while the track is still open. */
+  get terminalState(): BlendState | null {
+    return this.latched ?? null;
   }
 
   /**
@@ -276,9 +325,10 @@ export class BlendTrack {
     return { weights, blending };
   }
 
-  /** Forgets every state, for a fresh character or a respawn. */
+  /** Forgets every state, and the latch, for a fresh character or a respawn. */
   clear(): void {
     this.entries.clear();
+    this.latched = null;
   }
 
   private ensure(state: BlendState): TrackEntry {
