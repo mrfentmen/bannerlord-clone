@@ -22,7 +22,7 @@ import { button, h, numberField, row, sectionHeader } from "../dom.js";
 import { emptyState, errorState, gauge, panel, statusChip, type StatusKind } from "../kit.js";
 import { townSkeleton } from "./skeletons.js";
 import { asBottomSheet } from "./narrow.js";
-import type { BuildingInfo, ConstructionResult, RecruitableUnit, RecruitResult, TownState } from "../../data/types.js";
+import type { BuildingInfo, ConstructionResult, RecruitableUnit, RecruitResult, TownState, Workshop } from "../../data/types.js";
 import { SimulationUnavailableError } from "../../data/provider.js";
 import { simulateTaxPolicy } from "../../economy/taxSimulator.js";
 import { answerProposal, proposeTradeDeal } from "../../economy/tradeDeals.js";
@@ -82,6 +82,21 @@ export interface TownPanelOptions {
   holderFaction?: string;
   /** The day the player is looking at, sent with the hire order. */
   day?: number;
+  /**
+   * The player's workshops in this town. Omitted, the section is not drawn —
+   * a workshop list the player cannot act on is worse than no list.
+   */
+  workshops?: Workshop[];
+  /**
+   * Buy a workshop of the given type in this town. The panel sends the type;
+   * the simulation owns the price and the result.
+   */
+  onBuyWorkshop?: (type: string) => Promise<{ workshopId: string }>;
+  /**
+   * Sell a workshop by id. The panel sends the id; the simulation owns the
+   * price and the result.
+   */
+  onSellWorkshop?: (workshopId: string) => Promise<void>;
   /**
    * The survey is still being read. Renders `town-skeleton`, which mirrors this
    * panel's sections, so the context region does not change height when the town
@@ -339,6 +354,56 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
       row("Metal", `${Math.round(town.metal).toLocaleString("en-US")}`, { mono: true, testId: "town-metal" }),
     ),
   );
+
+  // -- workshops ------------------------------------------------------------
+  // Player-owned businesses in this town. The list and the buy/sell orders come
+  // from the caller; a workshop section the player cannot act on is worse than
+  // no section, because it tells them they own businesses they cannot touch.
+  if (options.workshops !== undefined || options.onBuyWorkshop !== undefined) {
+    body.appendChild(sectionHeader("Workshops"));
+    const owned = (options.workshops ?? []).filter((w) => w.townId === town.id);
+    if (owned.length === 0) {
+      body.appendChild(emptyState("No workshops here.", "Buy a business to earn daily income from this town."));
+    } else {
+      const list = h("div", { class: "ledger__list" });
+      for (const w of owned) {
+        const sellBtn =
+          options.onSellWorkshop !== undefined
+            ? (() => {
+                const btn = h("button", { type: "button", class: "btn btn--small", "data-testid": `sell-workshop-${w.id}` }, "Sell");
+                btn.addEventListener("click", () => {
+                  btn.setAttribute("disabled", "");
+                  void options.onSellWorkshop!(w.id).finally(() => btn.removeAttribute("disabled"));
+                });
+                return btn;
+              })()
+            : null;
+        list.appendChild(
+          row(
+            w.name,
+            h(
+              "span",
+              { class: "data" },
+              `$${Math.round(w.dailyIncome).toLocaleString("en-US")}/day`,
+              sellBtn ? h("span", { style: "margin-left:var(--space-2)" }, sellBtn) : null,
+            ),
+            { testId: `workshop-${w.id}` },
+          ),
+        );
+      }
+      body.appendChild(list);
+    }
+    if (options.onBuyWorkshop !== undefined) {
+      const buyBtn = h("button", { type: "button", class: "btn", "data-testid": "buy-workshop" }, "Buy a workshop");
+      buyBtn.addEventListener("click", () => {
+        // The type picker is a follow-up; the first cut buys the default smithy
+        // so the order path is live and testable end to end.
+        buyBtn.setAttribute("disabled", "");
+        void options.onBuyWorkshop!("smithy").finally(() => buyBtn.removeAttribute("disabled"));
+      });
+      body.appendChild(h("div", { style: "margin-top:var(--space-2)" }, buyBtn));
+    }
+  }
 
   // -- trade agreement (solo task 76): propose a deal, the town answers ---
   body.appendChild(sectionHeader("Trade agreement"));

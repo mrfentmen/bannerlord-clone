@@ -1337,6 +1337,24 @@ function townNode(town: TownState): Node {
     onRoster: () => openPanel("roster"),
     purse: snapshot?.player.resources.money ?? 0,
     day: snapshot?.day ?? 0,
+    workshops: snapshot?.workshops ?? [],
+    onBuyWorkshop: async (type) => {
+      if (!snapshot) throw new Error("No snapshot to buy a workshop against.");
+      const result = await provider.buyWorkshop(town.id, type);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+      return result;
+    },
+    onSellWorkshop: async (workshopId) => {
+      if (!snapshot) throw new Error("No snapshot to sell a workshop against.");
+      await provider.sellWorkshop(workshopId);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+    },
     onRecruit: async (unitId, quantity) => {
       if (!snapshot) throw new Error("No snapshot to recruit against.");
       const result = await provider.recruit({
