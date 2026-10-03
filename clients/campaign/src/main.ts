@@ -2205,6 +2205,7 @@ function rebuildContext(): void {
           skills: p.skills,
           influence: p.influence,
           renown: p.renown,
+          factionId: p.factionId,
         },
       });
       return;

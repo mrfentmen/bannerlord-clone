@@ -18,6 +18,7 @@ export interface CharacterSheetData {
   skills: Record<string, number>;
   influence: number;
   renown: number;
+  factionId: string;
 }
 
 export interface CharacterPanelOptions {
@@ -46,6 +47,7 @@ export function characterPanel(options: CharacterPanelOptions): HTMLElement {
       row("Name", c.characterName, { testId: "char-name" }),
       row("Age", String(c.age), { mono: true, testId: "char-age" }),
       row("Culture", c.ethnicityId, { testId: "char-ethnicity" }),
+      row("Faction", c.factionId, { testId: "char-faction" }),
       row("Renown", String(Math.round(c.renown)), { mono: true, testId: "char-renown" }),
       row("Influence", String(Math.round(c.influence)), { mono: true, testId: "char-influence" }),
     ),

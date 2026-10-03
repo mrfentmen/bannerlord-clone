@@ -13,6 +13,7 @@ const character = {
   skills: { leadership: 3, tactics: 2 },
   influence: 100,
   renown: 250,
+  factionId: "f1",
 };
 
 describe("character panel", () => {
@@ -21,6 +22,7 @@ describe("character panel", () => {
     expect(root.querySelector('[data-testid="char-name"]')!.textContent).toBe("Del");
     expect(root.querySelector('[data-testid="char-age"]')!.textContent).toBe("35");
     expect(root.querySelector('[data-testid="char-ethnicity"]')!.textContent).toBe("american");
+    expect(root.querySelector('[data-testid="char-faction"]')!.textContent).toBe("f1");
   });
 
   it("shows renown and influence", () => {
