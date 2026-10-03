@@ -1824,3 +1824,12 @@
 .obj__title { margin: 0; color: var(--ink-900); font-size: var(--type-body-size); }
 .obj__desc { color: var(--ink-700); margin: var(--space-1) 0 var(--space-2); }
 .obj__done { color: var(--status-good); font-weight: bold; margin: 0; }
+
+/* Journal panel (src/ui/panels/JournalPanel.ts). */
+.journal__list { list-style: none; margin: 0; padding: 0; display: grid; gap: var(--space-2); }
+.journal__entry { border-bottom: 1px solid var(--paper-200); padding-bottom: var(--space-2); }
+.journal__entry:last-child { border-bottom: none; }
+.journal__head { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-1); }
+.journal__day { color: var(--ink-500); font-size: var(--type-small-size); }
+.journal__day--none { font-style: italic; }
+.journal__text { margin: 0; color: var(--ink-900); }

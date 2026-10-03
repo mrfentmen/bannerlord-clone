@@ -66,7 +66,9 @@ import { marchPlanner } from "./ui/panels/MarchPlanner.js";
 import { questPanel } from "./ui/panels/QuestPanel.js";
 import { encyclopediaPanel } from "./ui/panels/EncyclopediaPanel.js";
 import { objectivesPanel } from "./ui/panels/ObjectivesPanel.js";
+import { journalPanel } from "./ui/panels/JournalPanel.js";
 import { buildEncyclopedia } from "./data/encyclopedia.js";
+import { loadJournalStore, saveJournalStore, syncJournal } from "./data/journal.js";
 import {
   evaluateObjectives,
   loadObjectiveStore,
@@ -141,6 +143,8 @@ let lastWhy: { entityId: string; field: string } | null = null;
 // Objective state (mandate §12): visited settlements and sticky completions, persisted
 // across sessions. Progress itself is always re-read from the live snapshot.
 let objectiveStore = loadObjectiveStore();
+// Journal state (mandate §8): the campaign's history, persisted across sessions.
+let journalStore = loadJournalStore();
 let connectionState: "connected" | "reconnecting" | "degraded" = "connected";
 /** The route the party is on, and the in-game day it left. */
 interface Travel {
@@ -1085,6 +1089,10 @@ function rebuildContext(): void {
       // No town needed: objectives are measured from the party and the world.
       contextNode = objectivesNode();
       return;
+    case "journal":
+      // No town needed: the journal is the campaign's history, not the selection's.
+      contextNode = journalNode();
+      return;
     case "radio":
       // The bulletins are generated from the live snapshot, so the news is
       // always about the world as it is right now.
@@ -1396,6 +1404,13 @@ function objectivesNode(): Node {
   }).root;
 }
 
+function journalNode(): Node {
+  return journalPanel({
+    store: journalStore,
+    onClose: () => openPanel("none"),
+  }).root;
+}
+
 function encyclopediaNode(): Node {
   if (!snapshot) return noSimulationRecordNode("No world to read");
   // Built fresh on every open: rulers change sides, towns change hands, and an index
@@ -1629,7 +1644,18 @@ function paint(): void {
   syncEventMarkers();
   // Objective completions are sticky and persisted, so they are evaluated on every
   // paint (every tick), not only when the panel is open.
-  syncObjectives();
+  const objectives = syncObjectives();
+  // The journal records the world's events and the player's milestones every tick,
+  // so history survives even when the journal is never opened.
+  const journaled = syncJournal(
+    journalStore,
+    snapshot.notifications,
+    objectives.filter((o) => o.completed).map((o) => ({ id: o.id, title: o.title })),
+  );
+  if (journaled !== journalStore) {
+    journalStore = journaled;
+    saveJournalStore(journalStore);
+  }
   const headcount = snapshot.party.troops.reduce((a, t) => a + t.count, 0);
   const dailyFood = headcount * 0.85;
   const state: HudState = {
