@@ -154,3 +154,15 @@ describe("town panel notable residents (task 129)", () => {
     expect(root.querySelector('[data-testid="town-notables"]')).not.toBeNull();
   });
 });
+describe("town panel notables against a payload that predates the field (task 129)", () => {
+  it("shows the empty state rather than throwing when the roster key is absent", () => {
+    // `notables` is non-optional on TownState, but a town record from a simulation
+    // that predates the field arrives without it, and the panel used to throw.
+    const town: Partial<TownState> = townWith([notable()]);
+    delete town.notables;
+    const root = townPanel(options({ town: town as TownState }));
+    const section = root.querySelector('[data-testid="town-notables"]')!;
+    expect(section.querySelector('[data-testid="empty-state"]')).not.toBeNull();
+    expect(section.textContent).toContain("No notable residents");
+  });
+});

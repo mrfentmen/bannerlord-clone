@@ -502,7 +502,14 @@ function notablesSection(town: TownState): HTMLElement {
   const wrap = h("section", { "data-testid": "town-notables" });
   wrap.appendChild(sectionHeader("Notable residents"));
 
-  if (town.notables.length === 0) {
+  // `notables` is non-optional on `TownState`, but it is not in every payload the
+  // client is handed: a town record from a simulation that predates the field
+  // arrives without the key. A missing roster and an empty roster make the same
+  // claim — nobody here — so both take the empty state rather than throwing on
+  // `undefined.length`.
+  const notables = town.notables ?? [];
+
+  if (notables.length === 0) {
     wrap.appendChild(
       emptyState(
         "Nobody here is worth knowing yet.",
@@ -513,7 +520,7 @@ function notablesSection(town: TownState): HTMLElement {
   }
 
   const list = h("ul", { class: "notable-list" });
-  for (const notable of town.notables) {
+  for (const notable of notables) {
     const band = relationBand(notable.relation);
     const item = h("li", {
       class: "notable",
