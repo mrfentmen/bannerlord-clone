@@ -29,7 +29,8 @@ export type ActionState =
   | 'grenade'
   | 'interact'
   | 'heal'
-  | 'revive'
+  | 'revive-kneel'
+  | 'revive-stand'
   | 'downed'
   | 'jump-start'
   | 'jump-loop'
@@ -44,7 +45,8 @@ export type ActionState =
   | 'grenade'
   | 'interact'
   | 'heal'
-  | 'revive'
+  | 'revive-kneel'
+  | 'revive-stand'
   | 'downed'
   | 'surrender'
   | 'cheer'
@@ -99,6 +101,12 @@ export const STATE_CLIPS: Readonly<Partial<Record<ActionState, StateClip>>> = {
   // Task 678: healing. It loops, because a field dressing takes as long as it
   // takes and the player should see progress rather than a frozen frame.
   heal: { clip: 'heal', blendS: 0.25, loop: true, lowerBody: 'idle' },
+  // Task 679: a revive is two clips, because the second half is the medic
+  // standing up. Registering it as one clip means the character stays kneeling
+  // for as long as the wounded body needs, which is wrong in the other
+  // direction: the revive ends when the body does.
+  'revive-kneel': { clip: 'revive_kneel', blendS: 0.25, loop: false, lowerBody: 'idle' },
+  'revive-stand': { clip: 'revived', blendS: 0.3, loop: false, lowerBody: 'idle' },
 };
 
 /** Why a state cannot play. */

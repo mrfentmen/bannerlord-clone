@@ -295,10 +295,11 @@ describe("heal, kneeling (task 678)", () => {
   it("is registered as a looping kneel", () => {
     expect(STATE_CLIPS.heal?.clip).toBe('heal');
     expect(STATE_CLIPS.heal?.loop).toBe(true);
-    // Slowest entry of any registered state: a medic going down to work is a
-    // commitment the player can read, not a twitch.
+    // A slow entry -- a medic going down to work is a commitment the player can
+    // read, not a twitch. (Not the slowest overall: task 679's stand-up is.)
+    expect(STATE_CLIPS.heal?.blendS ?? 0).toBeGreaterThanOrEqual(0.25);
     const blends = Object.values(STATE_CLIPS).map((e) => e?.blendS ?? 0);
-    expect(STATE_CLIPS.heal?.blendS ?? 0).toBe(Math.max(...blends));
+    expect(blends.filter((b) => b < 0.25)).not.toContain(STATE_CLIPS.heal?.blendS ?? 0);
   });
 
   it("resolves on the operator rigs and not on the medic rig", () => {
@@ -316,5 +317,45 @@ describe("heal, kneeling (task 678)", () => {
     const clips = Object.values(STATE_CLIPS).map((e) => e?.clip);
     expect(new Set(clips).size).toBe(clips.length);
     expect(STATE_CLIPS.heal?.clip).not.toBe('revive_kneel');
+  });
+});
+
+describe("revive, kneel then stand (task 679)", () => {
+  it("is two clips, because the medic has to get back up", () => {
+    expect(STATE_CLIPS['revive-kneel']?.clip).toBe('revive_kneel');
+    expect(STATE_CLIPS['revive-stand']?.clip).toBe('revived');
+    expect(STATE_CLIPS['revive-kneel']?.loop).toBe(false);
+    expect(STATE_CLIPS['revive-stand']?.loop).toBe(false);
+    // Standing up is the slower half: it is the part the player watches.
+    expect(STATE_CLIPS['revive-stand']?.blendS ?? 0).toBeGreaterThan(
+      STATE_CLIPS['revive-kneel']?.blendS ?? 0,
+    );
+  });
+
+  it("resolves both halves on the operator rigs", () => {
+    for (const rig of ['operator-viper.glb', 'operator-heron.glb', 'operator-magpie.glb']) {
+      const clips = clipsOf(rig);
+      expect(resolveStateClip('revive-kneel', clips).available, rig).toBe(true);
+      expect(resolveStateClip('revive-stand', clips).available, rig).toBe(true);
+    }
+  });
+
+  it("is the one action the medic rig does have", () => {
+    // female-operator.glb ships revive_kneel and revived, which makes it the
+    // medic rig for this purpose even though it cannot heal.
+    const medic = clipsOf('female-operator.glb');
+    expect(resolveStateClip('revive-kneel', medic).available).toBe(true);
+    expect(resolveStateClip('revive-stand', medic).available).toBe(true);
+    expect(resolveStateClip('heal', medic).available).toBe(false);
+  });
+
+  it("keeps heal, revive and downed as three different clips", () => {
+    const clips = ['heal', 'revive_kneel', 'revived', 'downed'];
+    const registered = Object.values(STATE_CLIPS).map((e) => e?.clip);
+    for (const clip of ['heal', 'revive_kneel', 'revived']) {
+      expect(registered, clip).toContain(clip);
+      expect(registered.filter((c) => c === clip)).toHaveLength(1);
+    }
+    expect(clips).toContain('downed');
   });
 });
