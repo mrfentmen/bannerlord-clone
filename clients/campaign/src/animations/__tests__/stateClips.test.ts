@@ -8,9 +8,7 @@
  * model lacks the clip: a named gap, not a silent no-op.
  */
 
-import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
   STATE_CLIPS,
@@ -18,21 +16,10 @@ import {
   resolveStateClip,
   unavailableStates,
 } from "../StateClips.js";
+import { MODELS_DIR, clipsOf } from "./glbClips.js";
 
-const publicDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "public");
-const modelsDir = join(publicDir, "models");
-const animsDir = join(publicDir, "anims");
+const modelsDir = MODELS_DIR;
 
-/** Clip names in a staged GLB, by file name. */
-export function clipsOf(file: string): string[] {
-  const inModels = existsSync(join(modelsDir, file));
-  const bytes = readFileSync(join(inModels ? modelsDir : animsDir, file));
-  const chunkLength = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(12, true);
-  const json = JSON.parse(
-    new TextDecoder().decode(bytes.subarray(20, 20 + chunkLength)),
-  ) as { animations?: Array<{ name?: string }> };
-  return (json.animations ?? []).map((a) => a.name ?? '');
-}
 
 describe("prone crawl (task 671)", () => {
   it("is registered with the clip the assets actually ship", () => {
