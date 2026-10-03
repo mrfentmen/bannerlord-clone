@@ -149,6 +149,8 @@ export interface TownState {
    * loyalty penalties. See docs/bannerlord-gap-analysis.md item #7.
    */
   security: number;
+  /** 0-1: criminal activity level. High crime lowers security and prosperity. */
+  crimeRating: number;
   /**
    * The settlement's culture (fixed per settlement in the fixture). Used for
    * loyalty: owner culture mismatch drains loyalty daily.
@@ -1011,6 +1013,8 @@ export interface SimSnapshot {
   wars: War[];
   /** Active and completed quests. */
   quests: Quest[];
+  /** Outstanding fines per town ID. */
+  fines: Record<string, number>;
   ledger: Ledger;
   warnings: ResourceWarning[];
   notifications: Notification[];
@@ -1185,6 +1189,10 @@ export interface SimulationProvider {
   acceptQuest(giverId: string, giverName: string, templateId: string): Promise<{ questId: string }>;
   /** Abandon an active quest. */
   abandonQuest(questId: string): Promise<void>;
+  /** Commit a crime in a town. Increases crime rating, lowers relations. */
+  commitCrime(townId: string, kind: "theft" | "assault" | "smuggling"): Promise<{ fine: number }>;
+  /** Pay off criminal fines in a town. */
+  payFine(townId: string): Promise<{ paid: number }>;
   /** Maximum troops the player party can hold (from clan tier). */
   getPartyCapacity(): Promise<number>;
   /** Current party speed in km/day (from troop composition). */

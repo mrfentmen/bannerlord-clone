@@ -681,6 +681,22 @@ export class HttpSimulationProvider implements SimulationProvider {
     );
   }
 
+  async commitCrime(townId: string, kind: "theft" | "assault" | "smuggling"): Promise<{ fine: number }> {
+    return this.#post<{ fine: number }>(
+      `/v1/towns/${encodeURIComponent(townId)}/crime`,
+      { kind },
+      "The crime did not happen.",
+    );
+  }
+
+  async payFine(townId: string): Promise<{ paid: number }> {
+    return this.#post<{ paid: number }>(
+      `/v1/towns/${encodeURIComponent(townId)}/fine`,
+      {},
+      "The fine was not paid.",
+    );
+  }
+
   async getPartyCapacity(): Promise<number> {
     const snap = await this.getSnapshot();
     const clan = snap.clans.find((c) => c.id === "clan-player");

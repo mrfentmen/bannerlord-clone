@@ -74,6 +74,8 @@ const DECLARED_BUT_UNSERVED: Record<string, string> = {
   "/v1/wars/{}/peace": "wars are implemented in the client's fixture, with no server side yet",
   "/v1/quests": "quests are implemented in the client's fixture, with no server side yet",
   "/v1/quests/{}/abandon": "quests are implemented in the client's fixture, with no server side yet",
+  "/v1/towns/{}/crime": "crime is implemented in the client's fixture, with no server side yet",
+  "/v1/towns/{}/fine": "crime is implemented in the client's fixture, with no server side yet",
 };
 
 function read(url: URL): string {

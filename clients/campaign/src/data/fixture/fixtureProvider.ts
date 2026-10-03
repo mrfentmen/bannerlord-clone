@@ -264,6 +264,8 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     makePeace: async (warId) => state.makePeace(warId),
     acceptQuest: async (giverId, giverName, templateId) => state.acceptQuest(giverId, giverName, templateId),
     abandonQuest: async (questId) => state.abandonQuest(questId),
+    commitCrime: async (townId, kind) => state.commitCrime(townId, kind),
+    payFine: async (townId) => state.payFine(townId),
     getPartyCapacity: async () => state.partyCapacity(),
     getPartySpeed: async () => state.partySpeed(),
     marry: async (charId1, charId2) => state.marry(charId1, charId2),
@@ -303,6 +305,8 @@ class FixtureState {
   #sieges: Siege[] = [];
   #wars: War[] = [];
   #quests: Quest[] = [];
+  /** Outstanding fines per town ID. */
+  #fines: Map<string, number> = new Map();
   #rulers: RulerState[] = [];
   #warnings: ResourceWarning[] = [];
   #notifications: Notification[] = [];
@@ -353,6 +357,7 @@ class FixtureState {
         unrest: spec.unrest,
         loyalty: spec.loyalty,
         security: spec.security ?? 0.55,
+        crimeRating: 0.1 + rand() * 0.2,
         culture: spec.culture,
         holderCulture: spec.holderCulture ?? spec.culture,
         rebellious: false,
@@ -775,6 +780,7 @@ class FixtureState {
       sieges: structuredClone(this.#sieges),
       wars: structuredClone(this.#wars),
       quests: structuredClone(this.#quests),
+      fines: Object.fromEntries(this.#fines),
       ledger: structuredClone(this.#ledger),
       warnings: structuredClone(this.#warnings),
       notifications: structuredClone(this.#notifications.slice(-40)),
@@ -1831,6 +1837,7 @@ class FixtureState {
     this.#sieges = structuredClone(snapshot.sieges ?? []);
     this.#wars = structuredClone(snapshot.wars ?? []);
     this.#quests = structuredClone(snapshot.quests ?? []);
+    this.#fines = new Map(Object.entries(snapshot.fines ?? {}).map(([k, v]) => [k, v as number]));
     this.#ledger = structuredClone(snapshot.ledger);
     // Reset transient state
     this.#notifications = [];
@@ -2943,6 +2950,83 @@ class FixtureState {
       entityId: quest.id,
       field: "quest",
     });
+  }
+
+  /**
+   * Commit a crime in a town. Raises the town's crime rating, lowers security,
+   * damages relations with the holder, and adds to your fine.
+   * Returns the fine amount.
+   */
+  async commitCrime(townId: string, kind: "theft" | "assault" | "smuggling"): Promise<{ fine: number }> {
+    const town = this.#towns.get(townId);
+    if (!town) throw new Error("Town not found.");
+
+    const crimeValues = { theft: 0.15, assault: 0.25, smuggling: 0.1 };
+    const fineValues = { theft: 200, assault: 500, smuggling: 350 };
+    const crimeAmount = crimeValues[kind];
+    const fine = fineValues[kind];
+
+    town.crimeRating = Math.min(1, town.crimeRating + crimeAmount);
+    town.security = Math.max(0, town.security - crimeAmount * 0.5);
+    // Crime hurts prosperity
+    town.prosperity = Math.max(0, town.prosperity - crimeAmount * 0.2);
+
+    const currentFine = this.#fines.get(townId) ?? 0;
+    this.#fines.set(townId, currentFine + fine);
+
+    // Relation damage with holder
+    if (town.holderId) {
+      const ruler = this.#rulers.find((r) => r.id === town.holderId);
+      if (ruler) {
+        ruler.relationToPlayer = Math.max(-100, ruler.relationToPlayer - 10);
+      }
+    }
+
+    // Renown damage for the clan
+    const clan = this.#clans.find((c) => c.id === "clan-player");
+    if (clan) clan.renown = Math.max(0, clan.renown - 2);
+
+    this.#notifications.push({
+      id: `n-crime-${this.#sequence++}`,
+      day: this.#day,
+      priority: "important",
+      text: `${kind} in ${town.name}! Fine: ${fine} gold. The authorities are watching.`,
+      entityId: town.id,
+      field: "crime",
+    });
+
+    return { fine };
+  }
+
+  /**
+   * Pay off outstanding fines in a town.
+   */
+  async payFine(townId: string): Promise<{ paid: number }> {
+    const town = this.#towns.get(townId);
+    if (!town) throw new Error("Town not found.");
+
+    const fine = this.#fines.get(townId) ?? 0;
+    if (fine === 0) throw new Error("No outstanding fine in this town.");
+    if (this.#party.money < fine) {
+      throw new Error(`Cannot afford the ${fine} gold fine.`);
+    }
+
+    this.#party.money -= fine;
+    this.#fines.delete(townId);
+
+    // Paying fines reduces crime heat slightly
+    town.crimeRating = Math.max(0, town.crimeRating - 0.1);
+
+    this.#notifications.push({
+      id: `n-fine-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: `Paid ${fine} gold fine in ${town.name}.`,
+      entityId: town.id,
+      field: "crime",
+    });
+
+    return { paid: fine };
   }
 
   /**

@@ -27,6 +27,7 @@ function town(): TownState {
     unrest: 0.1,
     loyalty: 0.7,
     security: 0.5,
+    crimeRating: 0.15,
     culture: "american",
     holderCulture: "american",
     rebellious: false,
