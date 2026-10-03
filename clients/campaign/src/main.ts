@@ -774,6 +774,11 @@ function announceSightings(): void {
     .join(", ");
   const more = sighted.length > 4 ? ` and ${sighted.length - 4} more` : "";
   hud.announcer.textContent = `Newly in sight: ${names}${more}.`;
+  // The announcer is for screen readers; sighted players get the same news as a toast.
+  toast.show(
+    sighted.length === 1 ? "Settlement discovered" : `${sighted.length} settlements discovered`,
+    names + more,
+  );
 }
 
 /**
