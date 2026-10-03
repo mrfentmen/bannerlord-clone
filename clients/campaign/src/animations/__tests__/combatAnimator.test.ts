@@ -20,6 +20,7 @@ import { AnimationController, CombatAnimator } from "../AnimationController.js";
 import { clipsOf } from "./glbClips.js";
 import { resolveStateClip } from "../StateClips.js";
 import { BlendTrack, RETURN_FROM_HIT_SECONDS } from "../BlendTransitions.js";
+import { IkGate, RecoveringIkGate } from "../IkSolver.js";
 
 /** A controller with every state the animator can ask for. */
 function controller(): AnimationController {
@@ -195,5 +196,80 @@ describe("hit reaction and the way back out (task 669)", () => {
     track.playAfterHit('idle');
     track.update(RETURN_FROM_HIT_SECONDS);
     expect(track.active).toBe('idle');
+  });
+});
+
+describe("death, and the handoff to physics (task 670)", () => {
+  it("plays the death state and latches it", () => {
+    const anim = controller();
+    const combat = new CombatAnimator(anim);
+    anim.play('run');
+    combat.die();
+    expect(anim.getCurrentState()).toBe('death');
+
+    const track = new BlendTrack();
+    track.play('run');
+    for (let i = 0; i < 20; i++) track.update(1 / 60);
+    expect(track.playDeath()).toBe(true);
+    expect(track.isTerminal()).toBe(true);
+  });
+
+  it("falls before the ragdoll takes over, and the handoff is an event", () => {
+    // The death blends in over 0.1 s and the body is handed to physics while
+    // the fall is still going: replacing the whole animation at once is what
+    // pops, and doing it only at the end leaves the corpse twitching.
+    const track = new BlendTrack();
+    track.play('walk');
+    for (let i = 0; i < 20; i++) track.update(1 / 60);
+    track.playDeath();
+    const gate = new IkGate();
+    gate.setRagdoll({ active: true, phase: 'falling' });
+
+    // Mid-fall the fall is still running...
+    track.update(0.05);
+    expect(track.weightOf('death')).toBeLessThan(1);
+    expect(track.isTerminal()).toBe(true);
+    // ...but IK is already off, because physics owns the joints.
+    expect(gate.enabled('feet')).toBe(false);
+    expect(gate.enabled('hand')).toBe(false);
+
+    // The fall completes and the body stays down, still not interruptible.
+    track.update(0.1);
+    expect(track.weightOf('death')).toBeCloseTo(1, 5);
+    expect(track.isTerminal()).toBe(true);
+    expect(gate.enabled('feet')).toBe(false);
+  });
+
+  it("has a death clip on the rigs that were rigged for one", () => {
+    for (const rig of ['operator-viper.glb', 'female-operator.glb']) {
+      expect(clipsOf(rig), rig).toContain('death');
+    }
+    // The mixamo and Quaternius troop rigs have no death clip at all.
+    for (const rig of ['soldier-animated.glb', 'troop-gunner.glb']) {
+      expect(clipsOf(rig).filter((c) => c === 'death'), rig).toEqual([]);
+    }
+  });
+
+  it("goes to death from any state, including out of another death", () => {
+    const track = new BlendTrack();
+    track.play('idle');
+    for (let i = 0; i < 20; i++) track.update(1 / 60);
+    expect(track.playDeath()).toBe(true);
+    // A second lethal hit does not restart the fall...
+    expect(track.playDeath()).toBe(false);
+    // ...and a hit reaction cannot pull the body back out of it.
+    track.interrupt('hit');
+    track.update(0.1);
+    expect(track.active).toBe('death');
+  });
+
+  it("hands the body back to IK once the ragdoll has settled", () => {
+    const gate = new RecoveringIkGate();
+    gate.setRagdoll({ active: true, phase: 'falling' });
+    expect(gate.enabled('feet')).toBe(false);
+    gate.setRagdoll({ active: false, phase: 'settled' });
+    expect(gate.enabled('feet')).toBe(false); // the recovery wait
+    for (let i = 0; i < 40; i++) gate.advance(1 / 60);
+    expect(gate.enabled('feet')).toBe(true);
   });
 });
