@@ -272,7 +272,21 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
         thresholds: { criticalBelow: 0.2, warningBelow: 0.35, goodAbove: 0.6 },
         testId: "town-loyalty-gauge",
       }),
-      row("Prosperity", town.prosperity.toFixed(2), { mono: true, testId: "town-prosperity" }),
+      // Task 103: prosperity as a gauge, not a bare number — the same 0-1 scale the
+      // thresholds and `taxSimulator` use, and the same trend/verdict treatment every
+      // other town stat gets, so a shrinking town reads at a glance.
+      gauge({
+        label: "Prosperity",
+        value: town.prosperity,
+        format: () => town.prosperity.toFixed(2),
+        trend: previous ? trendOf(town.prosperity, previous.prosperity) : "flat",
+        note:
+          town.prosperity < 0.35
+            ? "Trade is thin. Tax income scales with prosperity, so a poor town also pays for less."
+            : "Trade is holding. Tax income scales with prosperity.",
+        thresholds: { criticalBelow: 0.3, warningBelow: 0.5, goodAbove: 0.7 },
+        testId: "town-prosperity",
+      }),
     ),
   );
 
