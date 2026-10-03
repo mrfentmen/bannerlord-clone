@@ -1,661 +1,661 @@
 [
   {
-    "file": "vincent/lights-out-1.mp3",
+    "file": "vincent/last-stand-1.mp3",
     "voice": "vincent",
-    "category": "lights-out",
+    "category": "last-stand",
     "variant": 1,
-    "line": "Lights out! Douse the torches!",
-    "duration_s": 3.12,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "vincent/lights-out-2.mp3",
-    "voice": "vincent",
-    "category": "lights-out",
-    "variant": 2,
-    "line": "Kill the lights. Now.",
-    "duration_s": 2.57,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "vincent/lights-out-3.mp3",
-    "voice": "vincent",
-    "category": "lights-out",
-    "variant": 3,
-    "line": "Lights out. Silent and dark.",
-    "duration_s": 2.95,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "briggs/lights-out-1.mp3",
-    "voice": "briggs",
-    "category": "lights-out",
-    "variant": 1,
-    "line": "Lights out! Douse the torches!",
-    "duration_s": 2.35,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "briggs/lights-out-2.mp3",
-    "voice": "briggs",
-    "category": "lights-out",
-    "variant": 2,
-    "line": "Kill the lights. Now.",
-    "duration_s": 1.75,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "briggs/lights-out-3.mp3",
-    "voice": "briggs",
-    "category": "lights-out",
-    "variant": 3,
-    "line": "Lights out. Silent and dark.",
-    "duration_s": 2.81,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "paloma/lights-out-1.mp3",
-    "voice": "paloma",
-    "category": "lights-out",
-    "variant": 1,
-    "line": "Lights out! Douse the torches!",
-    "duration_s": 4.01,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "paloma/lights-out-2.mp3",
-    "voice": "paloma",
-    "category": "lights-out",
-    "variant": 2,
-    "line": "Kill the lights. Now.",
-    "duration_s": 3.0,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "paloma/lights-out-3.mp3",
-    "voice": "paloma",
-    "category": "lights-out",
-    "variant": 3,
-    "line": "Lights out. Silent and dark.",
-    "duration_s": 3.53,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "vincent/silent-approach-1.mp3",
-    "voice": "vincent",
-    "category": "silent-approach",
-    "variant": 1,
-    "line": "Silent approach. No noise.",
-    "duration_s": 3.17,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "vincent/silent-approach-2.mp3",
-    "voice": "vincent",
-    "category": "silent-approach",
-    "variant": 2,
-    "line": "Creep forward. Stay low.",
-    "duration_s": 1.97,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "vincent/silent-approach-3.mp3",
-    "voice": "vincent",
-    "category": "silent-approach",
-    "variant": 3,
-    "line": "Quiet steps. We advance.",
-    "duration_s": 2.47,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "briggs/silent-approach-1.mp3",
-    "voice": "briggs",
-    "category": "silent-approach",
-    "variant": 1,
-    "line": "Silent approach. No noise.",
-    "duration_s": 3.31,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "briggs/silent-approach-2.mp3",
-    "voice": "briggs",
-    "category": "silent-approach",
-    "variant": 2,
-    "line": "Creep forward. Stay low.",
-    "duration_s": 1.87,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "briggs/silent-approach-3.mp3",
-    "voice": "briggs",
-    "category": "silent-approach",
-    "variant": 3,
-    "line": "Quiet steps. We advance.",
-    "duration_s": 3.29,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "paloma/silent-approach-1.mp3",
-    "voice": "paloma",
-    "category": "silent-approach",
-    "variant": 1,
-    "line": "Silent approach. No noise.",
-    "duration_s": 2.76,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "paloma/silent-approach-2.mp3",
-    "voice": "paloma",
-    "category": "silent-approach",
-    "variant": 2,
-    "line": "Creep forward. Stay low.",
-    "duration_s": 2.09,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "paloma/silent-approach-3.mp3",
-    "voice": "paloma",
-    "category": "silent-approach",
-    "variant": 3,
-    "line": "Quiet steps. We advance.",
-    "duration_s": 2.59,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "vincent/take-the-sentry-1.mp3",
-    "voice": "vincent",
-    "category": "take-the-sentry",
-    "variant": 1,
-    "line": "Take the sentry. Quietly.",
-    "duration_s": 2.45,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "vincent/take-the-sentry-2.mp3",
-    "voice": "vincent",
-    "category": "take-the-sentry",
-    "variant": 2,
-    "line": "The sentry. Take him down.",
-    "duration_s": 1.97,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "vincent/take-the-sentry-3.mp3",
-    "voice": "vincent",
-    "category": "take-the-sentry",
-    "variant": 3,
-    "line": "Silence that watchman. Go.",
-    "duration_s": 2.35,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "briggs/take-the-sentry-1.mp3",
-    "voice": "briggs",
-    "category": "take-the-sentry",
-    "variant": 1,
-    "line": "Take the sentry. Quietly.",
-    "duration_s": 2.47,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "briggs/take-the-sentry-2.mp3",
-    "voice": "briggs",
-    "category": "take-the-sentry",
-    "variant": 2,
-    "line": "The sentry. Take him down.",
-    "duration_s": 2.69,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "briggs/take-the-sentry-3.mp3",
-    "voice": "briggs",
-    "category": "take-the-sentry",
-    "variant": 3,
-    "line": "Silence that watchman. Go.",
-    "duration_s": 2.88,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "paloma/take-the-sentry-1.mp3",
-    "voice": "paloma",
-    "category": "take-the-sentry",
-    "variant": 1,
-    "line": "Take the sentry. Quietly.",
-    "duration_s": 1.85,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "paloma/take-the-sentry-2.mp3",
-    "voice": "paloma",
-    "category": "take-the-sentry",
-    "variant": 2,
-    "line": "The sentry. Take him down.",
+    "line": "Hold the line! No retreat!",
     "duration_s": 2.23,
     "ok": true,
     "error": ""
   },
   {
-    "file": "paloma/take-the-sentry-3.mp3",
-    "voice": "paloma",
-    "category": "take-the-sentry",
-    "variant": 3,
-    "line": "Silence that watchman. Go.",
-    "duration_s": 3.07,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "vincent/no-torches-1.mp3",
+    "file": "vincent/last-stand-2.mp3",
     "voice": "vincent",
-    "category": "no-torches",
-    "variant": 1,
-    "line": "No torches. Stay unseen.",
-    "duration_s": 3.43,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "vincent/no-torches-2.mp3",
-    "voice": "vincent",
-    "category": "no-torches",
+    "category": "last-stand",
     "variant": 2,
-    "line": "Ditch the torches. Move.",
-    "duration_s": 2.21,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "vincent/no-torches-3.mp3",
-    "voice": "vincent",
-    "category": "no-torches",
-    "variant": 3,
-    "line": "Torches out. We go dark.",
-    "duration_s": 2.21,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "briggs/no-torches-1.mp3",
-    "voice": "briggs",
-    "category": "no-torches",
-    "variant": 1,
-    "line": "No torches. Stay unseen.",
-    "duration_s": 2.59,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "briggs/no-torches-2.mp3",
-    "voice": "briggs",
-    "category": "no-torches",
-    "variant": 2,
-    "line": "Ditch the torches. Move.",
-    "duration_s": 2.04,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "briggs/no-torches-3.mp3",
-    "voice": "briggs",
-    "category": "no-torches",
-    "variant": 3,
-    "line": "Torches out. We go dark.",
-    "duration_s": 1.87,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "paloma/no-torches-1.mp3",
-    "voice": "paloma",
-    "category": "no-torches",
-    "variant": 1,
-    "line": "No torches. Stay unseen.",
-    "duration_s": 2.81,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "paloma/no-torches-2.mp3",
-    "voice": "paloma",
-    "category": "no-torches",
-    "variant": 2,
-    "line": "Ditch the torches. Move.",
-    "duration_s": 2.52,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "paloma/no-torches-3.mp3",
-    "voice": "paloma",
-    "category": "no-torches",
-    "variant": 3,
-    "line": "Torches out. We go dark.",
-    "duration_s": 2.45,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "vincent/shadows-move-1.mp3",
-    "voice": "vincent",
-    "category": "shadows-move",
-    "variant": 1,
-    "line": "Shadows move. Stay sharp.",
-    "duration_s": 2.47,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "vincent/shadows-move-2.mp3",
-    "voice": "vincent",
-    "category": "shadows-move",
-    "variant": 2,
-    "line": "The shadows move. Watch.",
-    "duration_s": 3.29,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "vincent/shadows-move-3.mp3",
-    "voice": "vincent",
-    "category": "shadows-move",
-    "variant": 3,
-    "line": "Into the shadows. Go.",
-    "duration_s": 2.16,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "briggs/shadows-move-1.mp3",
-    "voice": "briggs",
-    "category": "shadows-move",
-    "variant": 1,
-    "line": "Shadows move. Stay sharp.",
-    "duration_s": 2.4,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "briggs/shadows-move-2.mp3",
-    "voice": "briggs",
-    "category": "shadows-move",
-    "variant": 2,
-    "line": "The shadows move. Watch.",
-    "duration_s": 2.93,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "briggs/shadows-move-3.mp3",
-    "voice": "briggs",
-    "category": "shadows-move",
-    "variant": 3,
-    "line": "Into the shadows. Go.",
-    "duration_s": 2.28,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "paloma/shadows-move-1.mp3",
-    "voice": "paloma",
-    "category": "shadows-move",
-    "variant": 1,
-    "line": "Shadows move. Stay sharp.",
-    "duration_s": 2.69,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "paloma/shadows-move-2.mp3",
-    "voice": "paloma",
-    "category": "shadows-move",
-    "variant": 2,
-    "line": "The shadows move. Watch.",
-    "duration_s": 3.89,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "paloma/shadows-move-3.mp3",
-    "voice": "paloma",
-    "category": "shadows-move",
-    "variant": 3,
-    "line": "Into the shadows. Go.",
-    "duration_s": 2.69,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "vincent/dawn-attack-1.mp3",
-    "voice": "vincent",
-    "category": "dawn-attack",
-    "variant": 1,
-    "line": "Dawn attack. Be ready.",
-    "duration_s": 2.33,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "vincent/dawn-attack-2.mp3",
-    "voice": "vincent",
-    "category": "dawn-attack",
-    "variant": 2,
-    "line": "We strike at dawn.",
-    "duration_s": 1.63,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "vincent/dawn-attack-3.mp3",
-    "voice": "vincent",
-    "category": "dawn-attack",
-    "variant": 3,
-    "line": "At first light, attack!",
-    "duration_s": 2.09,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "briggs/dawn-attack-1.mp3",
-    "voice": "briggs",
-    "category": "dawn-attack",
-    "variant": 1,
-    "line": "Dawn attack. Be ready.",
-    "duration_s": 2.16,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "briggs/dawn-attack-2.mp3",
-    "voice": "briggs",
-    "category": "dawn-attack",
-    "variant": 2,
-    "line": "We strike at dawn.",
-    "duration_s": 1.85,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "briggs/dawn-attack-3.mp3",
-    "voice": "briggs",
-    "category": "dawn-attack",
-    "variant": 3,
-    "line": "At first light, attack!",
-    "duration_s": 2.16,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "paloma/dawn-attack-1.mp3",
-    "voice": "paloma",
-    "category": "dawn-attack",
-    "variant": 1,
-    "line": "Dawn attack. Be ready.",
-    "duration_s": 2.81,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "paloma/dawn-attack-2.mp3",
-    "voice": "paloma",
-    "category": "dawn-attack",
-    "variant": 2,
-    "line": "We strike at dawn.",
-    "duration_s": 1.63,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "paloma/dawn-attack-3.mp3",
-    "voice": "paloma",
-    "category": "dawn-attack",
-    "variant": 3,
-    "line": "At first light, attack!",
-    "duration_s": 2.11,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "paloma/spy-1.mp3",
-    "voice": "paloma",
-    "category": "spy",
-    "variant": 1,
-    "line": "The east gate is unguarded tonight.",
+    "line": "We die here. Together.",
     "duration_s": 3.12,
     "ok": true,
     "error": ""
   },
   {
-    "file": "paloma/spy-2.mp3",
-    "voice": "paloma",
-    "category": "spy",
-    "variant": 2,
-    "line": "I heard what I heard. Pay up.",
-    "duration_s": 2.21,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "paloma/spy-3.mp3",
-    "voice": "paloma",
-    "category": "spy",
-    "variant": 3,
-    "line": "Walls have ears, friend.",
-    "duration_s": 3.05,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "briggs/diplomat-1.mp3",
-    "voice": "briggs",
-    "category": "diplomat",
-    "variant": 1,
-    "line": "My lord proposes a truce.",
-    "duration_s": 2.4,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "briggs/diplomat-2.mp3",
-    "voice": "briggs",
-    "category": "diplomat",
-    "variant": 2,
-    "line": "These terms are... acceptable.",
-    "duration_s": 2.09,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "briggs/diplomat-3.mp3",
-    "voice": "briggs",
-    "category": "diplomat",
-    "variant": 3,
-    "line": "War profits no one, friend.",
-    "duration_s": 2.76,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "briggs/fisherman-1.mp3",
-    "voice": "briggs",
-    "category": "fisherman",
-    "variant": 1,
-    "line": "The river gives, the river takes.",
-    "duration_s": 2.57,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "briggs/fisherman-2.mp3",
-    "voice": "briggs",
-    "category": "fisherman",
-    "variant": 2,
-    "line": "Storm's coming. I feel it.",
-    "duration_s": 1.97,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "briggs/fisherman-3.mp3",
-    "voice": "briggs",
-    "category": "fisherman",
-    "variant": 3,
-    "line": "Best catch in years, friend.",
-    "duration_s": 2.33,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "vincent/miner-1.mp3",
+    "file": "vincent/last-stand-3.mp3",
     "voice": "vincent",
-    "category": "miner",
-    "variant": 1,
-    "line": "The deep veins run rich.",
-    "duration_s": 2.16,
-    "ok": true,
-    "error": ""
-  },
-  {
-    "file": "vincent/miner-2.mp3",
-    "voice": "vincent",
-    "category": "miner",
-    "variant": 2,
-    "line": "Cave-in last week. We dug through.",
+    "category": "last-stand",
+    "variant": 3,
+    "line": "Last stand. Make it count.",
     "duration_s": 2.69,
     "ok": true,
     "error": ""
   },
   {
-    "file": "vincent/miner-3.mp3",
-    "voice": "vincent",
-    "category": "miner",
+    "file": "briggs/last-stand-1.mp3",
+    "voice": "briggs",
+    "category": "last-stand",
+    "variant": 1,
+    "line": "Hold the line! No retreat!",
+    "duration_s": 2.52,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "briggs/last-stand-2.mp3",
+    "voice": "briggs",
+    "category": "last-stand",
+    "variant": 2,
+    "line": "We die here. Together.",
+    "duration_s": 2.88,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "briggs/last-stand-3.mp3",
+    "voice": "briggs",
+    "category": "last-stand",
     "variant": 3,
-    "line": "Iron for the war effort.",
+    "line": "Last stand. Make it count.",
+    "duration_s": 1.99,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "paloma/last-stand-1.mp3",
+    "voice": "paloma",
+    "category": "last-stand",
+    "variant": 1,
+    "line": "Hold the line! No retreat!",
+    "duration_s": 3.65,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "paloma/last-stand-2.mp3",
+    "voice": "paloma",
+    "category": "last-stand",
+    "variant": 2,
+    "line": "We die here. Together.",
+    "duration_s": 2.88,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "paloma/last-stand-3.mp3",
+    "voice": "paloma",
+    "category": "last-stand",
+    "variant": 3,
+    "line": "Last stand. Make it count.",
+    "duration_s": 2.16,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "vincent/no-retreat-1.mp3",
+    "voice": "vincent",
+    "category": "no-retreat",
+    "variant": 1,
+    "line": "No retreat! Stand firm!",
+    "duration_s": 2.69,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "vincent/no-retreat-2.mp3",
+    "voice": "vincent",
+    "category": "no-retreat",
+    "variant": 2,
+    "line": "Nobody runs. Nobody yields.",
+    "duration_s": 3.41,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "vincent/no-retreat-3.mp3",
+    "voice": "vincent",
+    "category": "no-retreat",
+    "variant": 3,
+    "line": "We hold or we fall.",
+    "duration_s": 1.99,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "briggs/no-retreat-1.mp3",
+    "voice": "briggs",
+    "category": "no-retreat",
+    "variant": 1,
+    "line": "No retreat! Stand firm!",
+    "duration_s": 2.33,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "briggs/no-retreat-2.mp3",
+    "voice": "briggs",
+    "category": "no-retreat",
+    "variant": 2,
+    "line": "Nobody runs. Nobody yields.",
+    "duration_s": 3.29,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "briggs/no-retreat-3.mp3",
+    "voice": "briggs",
+    "category": "no-retreat",
+    "variant": 3,
+    "line": "We hold or we fall.",
+    "duration_s": 1.85,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "paloma/no-retreat-1.mp3",
+    "voice": "paloma",
+    "category": "no-retreat",
+    "variant": 1,
+    "line": "No retreat! Stand firm!",
+    "duration_s": 2.21,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "paloma/no-retreat-2.mp3",
+    "voice": "paloma",
+    "category": "no-retreat",
+    "variant": 2,
+    "line": "Nobody runs. Nobody yields.",
+    "duration_s": 3.19,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "paloma/no-retreat-3.mp3",
+    "voice": "paloma",
+    "category": "no-retreat",
+    "variant": 3,
+    "line": "We hold or we fall.",
+    "duration_s": 2.57,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "vincent/protect-the-flank-1.mp3",
+    "voice": "vincent",
+    "category": "protect-the-flank",
+    "variant": 1,
+    "line": "Protect the flank! Move!",
+    "duration_s": 2.23,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "vincent/protect-the-flank-2.mp3",
+    "voice": "vincent",
+    "category": "protect-the-flank",
+    "variant": 2,
+    "line": "Cover the flank. Now.",
+    "duration_s": 3.31,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "vincent/protect-the-flank-3.mp3",
+    "voice": "vincent",
+    "category": "protect-the-flank",
+    "variant": 3,
+    "line": "Flank exposed! Get there!",
+    "duration_s": 2.69,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "briggs/protect-the-flank-1.mp3",
+    "voice": "briggs",
+    "category": "protect-the-flank",
+    "variant": 1,
+    "line": "Protect the flank! Move!",
+    "duration_s": 1.87,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "briggs/protect-the-flank-2.mp3",
+    "voice": "briggs",
+    "category": "protect-the-flank",
+    "variant": 2,
+    "line": "Cover the flank. Now.",
     "duration_s": 1.92,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "briggs/protect-the-flank-3.mp3",
+    "voice": "briggs",
+    "category": "protect-the-flank",
+    "variant": 3,
+    "line": "Flank exposed! Get there!",
+    "duration_s": 2.52,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "paloma/protect-the-flank-1.mp3",
+    "voice": "paloma",
+    "category": "protect-the-flank",
+    "variant": 1,
+    "line": "Protect the flank! Move!",
+    "duration_s": 2.21,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "paloma/protect-the-flank-2.mp3",
+    "voice": "paloma",
+    "category": "protect-the-flank",
+    "variant": 2,
+    "line": "Cover the flank. Now.",
+    "duration_s": 2.04,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "paloma/protect-the-flank-3.mp3",
+    "voice": "paloma",
+    "category": "protect-the-flank",
+    "variant": 3,
+    "line": "Flank exposed! Get there!",
+    "duration_s": 2.81,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "vincent/arrows-incoming-1.mp3",
+    "voice": "vincent",
+    "category": "arrows-incoming",
+    "variant": 1,
+    "line": "Arrows incoming! Shields up!",
+    "duration_s": 2.59,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "vincent/arrows-incoming-2.mp3",
+    "voice": "vincent",
+    "category": "arrows-incoming",
+    "variant": 2,
+    "line": "Take cover! Arrows inbound!",
+    "duration_s": 2.71,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "vincent/arrows-incoming-3.mp3",
+    "voice": "vincent",
+    "category": "arrows-incoming",
+    "variant": 3,
+    "line": "Shields! Arrows from above!",
+    "duration_s": 2.35,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "briggs/arrows-incoming-1.mp3",
+    "voice": "briggs",
+    "category": "arrows-incoming",
+    "variant": 1,
+    "line": "Arrows incoming! Shields up!",
+    "duration_s": 2.16,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "briggs/arrows-incoming-2.mp3",
+    "voice": "briggs",
+    "category": "arrows-incoming",
+    "variant": 2,
+    "line": "Take cover! Arrows inbound!",
+    "duration_s": 2.52,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "briggs/arrows-incoming-3.mp3",
+    "voice": "briggs",
+    "category": "arrows-incoming",
+    "variant": 3,
+    "line": "Shields! Arrows from above!",
+    "duration_s": 2.11,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "paloma/arrows-incoming-1.mp3",
+    "voice": "paloma",
+    "category": "arrows-incoming",
+    "variant": 1,
+    "line": "Arrows incoming! Shields up!",
+    "duration_s": 3.19,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "paloma/arrows-incoming-2.mp3",
+    "voice": "paloma",
+    "category": "arrows-incoming",
+    "variant": 2,
+    "line": "Take cover! Arrows inbound!",
+    "duration_s": 2.95,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "paloma/arrows-incoming-3.mp3",
+    "voice": "paloma",
+    "category": "arrows-incoming",
+    "variant": 3,
+    "line": "Shields! Arrows from above!",
+    "duration_s": 2.83,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "vincent/brace-impact-1.mp3",
+    "voice": "vincent",
+    "category": "brace-impact",
+    "variant": 1,
+    "line": "Brace for impact!",
+    "duration_s": 1.61,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "vincent/brace-impact-2.mp3",
+    "voice": "vincent",
+    "category": "brace-impact",
+    "variant": 2,
+    "line": "Brace! They're hitting us!",
+    "duration_s": 2.57,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "vincent/brace-impact-3.mp3",
+    "voice": "vincent",
+    "category": "brace-impact",
+    "variant": 3,
+    "line": "Hold formation. Brace!",
+    "duration_s": 2.81,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "briggs/brace-impact-1.mp3",
+    "voice": "briggs",
+    "category": "brace-impact",
+    "variant": 1,
+    "line": "Brace for impact!",
+    "duration_s": 1.49,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "briggs/brace-impact-2.mp3",
+    "voice": "briggs",
+    "category": "brace-impact",
+    "variant": 2,
+    "line": "Brace! They're hitting us!",
+    "duration_s": 1.8,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "briggs/brace-impact-3.mp3",
+    "voice": "briggs",
+    "category": "brace-impact",
+    "variant": 3,
+    "line": "Hold formation. Brace!",
+    "duration_s": 2.11,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "paloma/brace-impact-1.mp3",
+    "voice": "paloma",
+    "category": "brace-impact",
+    "variant": 1,
+    "line": "Brace for impact!",
+    "duration_s": 1.92,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "paloma/brace-impact-2.mp3",
+    "voice": "paloma",
+    "category": "brace-impact",
+    "variant": 2,
+    "line": "Brace! They're hitting us!",
+    "duration_s": 2.59,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "paloma/brace-impact-3.mp3",
+    "voice": "paloma",
+    "category": "brace-impact",
+    "variant": 3,
+    "line": "Hold formation. Brace!",
+    "duration_s": 2.45,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "vincent/for-honor-1.mp3",
+    "voice": "vincent",
+    "category": "for-honor",
+    "variant": 1,
+    "line": "For honor! For glory!",
+    "duration_s": 2.4,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "vincent/for-honor-2.mp3",
+    "voice": "vincent",
+    "category": "for-honor",
+    "variant": 2,
+    "line": "For honor! Attack!",
+    "duration_s": 2.23,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "vincent/for-honor-3.mp3",
+    "voice": "vincent",
+    "category": "for-honor",
+    "variant": 3,
+    "line": "Honor demands we stand!",
+    "duration_s": 2.71,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "briggs/for-honor-1.mp3",
+    "voice": "briggs",
+    "category": "for-honor",
+    "variant": 1,
+    "line": "For honor! For glory!",
+    "duration_s": 2.04,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "briggs/for-honor-2.mp3",
+    "voice": "briggs",
+    "category": "for-honor",
+    "variant": 2,
+    "line": "For honor! Attack!",
+    "duration_s": 2.28,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "briggs/for-honor-3.mp3",
+    "voice": "briggs",
+    "category": "for-honor",
+    "variant": 3,
+    "line": "Honor demands we stand!",
+    "duration_s": 2.21,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "paloma/for-honor-1.mp3",
+    "voice": "paloma",
+    "category": "for-honor",
+    "variant": 1,
+    "line": "For honor! For glory!",
+    "duration_s": 2.57,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "paloma/for-honor-2.mp3",
+    "voice": "paloma",
+    "category": "for-honor",
+    "variant": 2,
+    "line": "For honor! Attack!",
+    "duration_s": 2.16,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "paloma/for-honor-3.mp3",
+    "voice": "paloma",
+    "category": "for-honor",
+    "variant": 3,
+    "line": "Honor demands we stand!",
+    "duration_s": 2.35,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "paloma/scholar-1.mp3",
+    "voice": "paloma",
+    "category": "scholar",
+    "variant": 1,
+    "line": "The old maps show a pass here.",
+    "duration_s": 2.35,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "paloma/scholar-2.mp3",
+    "voice": "paloma",
+    "category": "scholar",
+    "variant": 2,
+    "line": "History repeats, if you let it.",
+    "duration_s": 3.31,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "paloma/scholar-3.mp3",
+    "voice": "paloma",
+    "category": "scholar",
+    "variant": 3,
+    "line": "I translate. I do not judge.",
+    "duration_s": 3.55,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "vincent/mercenary-1.mp3",
+    "voice": "vincent",
+    "category": "mercenary",
+    "variant": 1,
+    "line": "My sword is for hire.",
+    "duration_s": 1.87,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "vincent/mercenary-2.mp3",
+    "voice": "vincent",
+    "category": "mercenary",
+    "variant": 2,
+    "line": "Coin first. Questions later.",
+    "duration_s": 2.69,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "vincent/mercenary-3.mp3",
+    "voice": "vincent",
+    "category": "mercenary",
+    "variant": 3,
+    "line": "I've fought for worse causes.",
+    "duration_s": 2.33,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "briggs/innkeeper-1.mp3",
+    "voice": "briggs",
+    "category": "innkeeper",
+    "variant": 1,
+    "line": "Rooms upstairs, stables round back.",
+    "duration_s": 2.69,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "briggs/innkeeper-2.mp3",
+    "voice": "briggs",
+    "category": "innkeeper",
+    "variant": 2,
+    "line": "Ale's fresh, stew's hot.",
+    "duration_s": 2.28,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "briggs/innkeeper-3.mp3",
+    "voice": "briggs",
+    "category": "innkeeper",
+    "variant": 3,
+    "line": "Trouble stays outside my door.",
+    "duration_s": 2.11,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "vincent/herald-1.mp3",
+    "voice": "vincent",
+    "category": "herald",
+    "variant": 1,
+    "line": "Hear ye! Hear ye!",
+    "duration_s": 2.09,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "vincent/herald-2.mp3",
+    "voice": "vincent",
+    "category": "herald",
+    "variant": 2,
+    "line": "By decree of the council!",
+    "duration_s": 1.92,
+    "ok": true,
+    "error": ""
+  },
+  {
+    "file": "vincent/herald-3.mp3",
+    "voice": "vincent",
+    "category": "herald",
+    "variant": 3,
+    "line": "All able fighters report!",
+    "duration_s": 2.16,
     "ok": true,
     "error": ""
   }
