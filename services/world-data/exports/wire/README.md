@@ -25,6 +25,35 @@ It always fetches the Northern Colorado Front Range, so running it over a deploy
 region replaces Ohio data with Colorado data. The region is chosen in
 `config/world_data.toml` under `[v1]`, not by that script.
 
+## `network.json` carries one thing the wire build does not produce
+
+`worlddata wire` writes `roads` and `rail`, which are *render* geometry: real TIGER/Line
+polylines the client draws as they are. It does not write `travelEdges`, the
+settlement-to-settlement weighted edge list the client actually pathfinds on, because the
+wire build has no travel graph to take them from. `tools/build-wire-travel-edges.py` adds
+them, from `dist/travel-graph.json`:
+
+```bash
+python tools/build-travel-graph.py       # dist/routes.jsonl.gz -> dist/travel-graph.json
+python tools/build-wire-travel-edges.py  # -> exports/wire/network.json
+python tools/deploy-wire-to-client.py    # copies it across like any other field
+```
+
+The travel graph merges `dist/connectors.jsonl.gz` when that file exists, and those
+connector edges are the only thing giving a settlement with no road of its own any edges at
+all. `dist/` is not committed, so on a checkout without it the graph has no connectors in
+it: 474 edges with 150 of the 487 settlements unreachable, against the 590 and 84 that are
+deployed. **An edge count that went down is the signature of a missing connector file, not
+of a better map** — `tests/test_wire_deploy.py` pins the deployed edges' soundness and will
+not catch a rebuild that quietly dropped 116 of them.
+
+Until that file is in the wire build, `deploy.CARRIED` carries `travelEdges` and
+`travelEdgesMeta` across a redeploy from the client's copy. That works, and
+`tests/test_wire_deploy.py` pins it both ways — a deploy that stopped carrying them, and a
+wire build that started producing them — so the arrangement cannot change unnoticed. The
+field shapes are documented for the client in
+`clients/campaign/public/world/DATA-MANIFEST.md` section 5.
+
 ## `boundaries.json` is built separately
 
 `worlddata wire` cannot produce it. The pipeline's `place_boundaries` table has 32,037

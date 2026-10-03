@@ -316,6 +316,46 @@ exist in any real form yet. See section 1.
   after the wire build, and `tools/deploy-wire-to-client.py` preserves them rather than
   dropping them. It also refuses to carry a `retrieved` date from a *different* region,
   which is how the Colorado date would otherwise have been stamped onto Ohio data.
+- **`travelEdges` is the only pathfinding data in the bundle, and it is not in the wire
+  build.** `network.json` carries two kinds of thing: `roads` and `rail`, which are
+  *render* geometry — real TIGER/Line polylines, drawn as-is — and `travelEdges`, a
+  settlement-to-settlement edge list with a weight in minutes per edge. The client must
+  pathfind on the second and draw the first; there is no pathfinder over 5,092 polylines,
+  and one over the geometry would produce a route no road actually follows.
+
+  The shape, as `NetworkFile` declares it:
+
+  | Field | Meaning |
+  |---|---|
+  | `from`, `to` | `osmId` values from `settlements.json`. Both ends must resolve through the settlement index. |
+  | `length_km`, `minutes` | Distance and travel time. `minutes` comes from the pipeline's per-segment travel hours; a zero here means a missing value defaulted, not a free road. |
+  | `road_class`, `kind` | `motorway`/`trunk`/`primary`/`secondary` or `rail`, and whether the edge is a road or rail line. |
+  | `method` | `snap` for a real route between two settlements, `connector` for a stub added to reach a settlement no road touches. Render and label these differently: a connector is an admission, not a road. |
+
+  `travelEdgesMeta.count` must equal the array length, and
+  `travelEdgesMeta.matched_settlements` must equal the number of settlements in
+  `settlements.json`. Both are asserted in `services/world-data/tests/test_wire_deploy.py`,
+  along with the checks that no edge names a settlement that is not shipped and no edge
+  is free or zero-length.
+
+  **Known gap: the wire build does not produce them.** `python -m worlddata wire` writes
+  `region.json`, `settlements.json` and `network.json` without the edges, so the only copy
+  in the repository is the deployed one and the deploy tool has to carry it forward. The
+  full sequence, which needs `dist/travel-graph.json` from a pipeline run:
+
+  ```bash
+  cd services/world-data
+  python tools/build-travel-graph.py            # needs dist/routes.jsonl.gz
+  python tools/build-wire-travel-edges.py       # writes exports/wire/network.json
+  python tools/deploy-wire-to-client.py
+  ```
+
+  `build-travel-graph.py` merges `dist/connectors.jsonl.gz` when it is there, and those
+  connector edges are what give a settlement with no road of its own any edges at all.
+  `dist/` is not committed, so a run without that file produces a graph with no connectors
+  in it — 474 edges and 150 settlements with no route at all, against the 590 and 84 that
+  are deployed. The count going *down* is the signal that connectors are missing, not that
+  the map improved. Do not deploy a rebuild that lost them.
 - **`wire_version` is the one field that describes the shape of the rest of the file, so
   the client reads it.** The other three describe data: populations and polylines change
   every run, but the names and nesting they arrive under change only when the format is
@@ -364,6 +404,16 @@ exist in any real form yet. See section 1.
   Without this, a player who loaded the map once and returned after a deploy got valid
   JSON describing the wrong region: the same failure `src/world/loadRegion.test.ts` exists
   for, arriving through the HTTP cache instead of a stale file on disk.
+
+  The service worker buckets on the same token, so the two stay in step by construction:
+  `public/sw.js` names its world-data cache `campaign-world-<b>`, drops every other world
+  cache as soon as a response arrives for a new one, and leaves `campaign-shell-v1` alone.
+  Two consequences worth knowing before changing either side. A world request that carries
+  no token — `src/scene/cityDemo.ts` fetches `world/cities/<slug>.json` without one — lands
+  in `campaign-world-unversioned`, which the next build's bucket clears, so it does not
+  survive a deploy; and a world request that fails with nothing cached fails rather than
+  falling back to `/index.html`, so the loader's retryable `WorldDataError` is what a player
+  is shown instead of "the world survey is damaged".
 - **Population authority.** The client treats `population` as authoritative and
   `populationSource` as the citation for it. If the pipeline ships a figure from a
   different source, the client displays it under that source's name. It will not silently

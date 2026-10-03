@@ -401,3 +401,107 @@ def test_a_cache_written_by_another_stage_is_not_reused(tmp_path):
     path.write_bytes(pickle.dumps({"stamp": "stamp-1", "stage": "routes", "result": ["wrong"]}))
     result, note = stage_cache.cached(cache_dir, "boundaries", "stamp-1", lambda: ["right"], reuse=True)
     assert result == ["right"]
+
+
+# --------------------------------------------------------------------------
+# Granularity. The two cached stages are expensive independently, so they have to
+# be invalidated independently too.
+# --------------------------------------------------------------------------
+
+def test_the_two_cached_stages_do_not_share_a_fingerprint(tmp_path):
+    """The stage name has to reach the stamp, at the level of the real call sites.
+
+    `fingerprint` mixes the stage name in through `extra`, and the pipeline passes it
+    separately for each stage. Hold both to the same sources and the same instant and the
+    stamps must still differ - otherwise caching either stage treats the other as changed
+    on every run, which is correct and throws away the entire point of caching the two
+    expensive stages separately.
+    """
+    from worlddata import pipeline
+
+    config = tmp_path / "world_data.toml"
+    config.write_text("census_year = 2020\n")
+    found = sources(tmp_path)
+    stamps = {
+        stage: stage_cache.fingerprint(config, found, stage, code=pipeline._stage_code(stage))
+        for stage in ("boundaries", "routes")
+    }
+    assert stamps["boundaries"] != stamps["routes"], (
+        "the two cached stages fingerprint identically, so caching either one "
+        "invalidates the other on every run"
+    )
+
+
+def test_the_two_cached_stages_declare_different_code():
+    """The shipped lists, checked against the claim made about them.
+
+    `_CACHED_STAGE_CODE` is per-stage "because a change that invalidates one does not
+    have to invalidate the other", with the example that a change to
+    `cross_check_against_natural_earth` has no business making the pipeline reread
+    137,000 polylines. That only holds while the two lists are not the same list. If
+    they ever converge, editing either stage's module misses both caches, which is
+    still correct - the stages are just no longer cached independently, which is the
+    expensive part, and it would be a silent change rather than a failure.
+    """
+    from worlddata import pipeline
+
+    boundaries = set(pipeline._stage_code("boundaries"))
+    routes = set(pipeline._stage_code("routes"))
+    assert boundaries and routes, "a cached stage declares no code, so it can never be invalidated"
+    assert boundaries != routes, (
+        "the two cached stages declare identical code, so caching either one invalidates "
+        "the other and every run pays for both"
+    )
+    assert boundaries - routes, (
+        "every module the boundaries stage depends on is also in the routes stage's list, "
+        "so nothing the boundaries stage reads can be changed without also rereading all "
+        "137,000 polylines. routes-only: "
+        f"{sorted(path.name for path in routes - boundaries)}"
+    )
+    assert routes - boundaries, (
+        "every module the routes stage depends on is also in the boundaries stage's list, "
+        "so a change to the route geometry has to re-read 32,000 place polygons too. "
+        f"boundaries-only: {sorted(path.name for path in boundaries - routes)}"
+    )
+
+
+def test_editing_one_stages_code_leaves_the_other_stage_cached(tmp_path, monkeypatch):
+    """The mechanism behind that claim, with one module's bytes under this test's control.
+
+    `fingerprint` takes a per-stage list of code and hashes it, so the two stages'
+    stamps move independently exactly when their lists are different. The lists really
+    being different is `test_the_two_cached_stages_declare_different_code`; this shows
+    what the difference buys, which is the half that is expensive to get wrong:
+    editing the boundaries stage must not make the routes stage reread 137,000 polylines.
+    """
+    from worlddata import pipeline
+
+    config = tmp_path / "world_data.toml"
+    config.write_text("census_year = 2020\n")
+    found = sources(tmp_path)
+
+    # `routes` keeps its shipped list untouched, which is the point: it is left holding
+    # the real module paths while `boundaries` gets an edited stand-in.
+    real = {stage: pipeline._stage_code(stage) for stage in ("boundaries", "routes")}
+    edited = list(real["boundaries"])
+    edited[0] = transform_module(tmp_path, "edited_boundaries.py", "V2\n")
+    monkeypatch.setattr(
+        pipeline, "_stage_code", lambda stage: tuple(edited if stage == "boundaries" else real[stage])
+    )
+
+    def stamp(stage: str) -> str:
+        return stage_cache.fingerprint(config, found, stage, code=pipeline._stage_code(stage))
+
+    before_boundaries, before_routes = stamp("boundaries"), stamp("routes")
+    assert before_boundaries != before_routes
+
+    # Edit only the boundaries stage's own module.
+    (tmp_path / "edited_boundaries.py").write_text("V3\n")
+
+    assert stamp("boundaries") != before_boundaries, (
+        "editing the boundaries stage's own module must miss its cache"
+    )
+    assert stamp("routes") == before_routes, (
+        "editing the boundaries stage's code invalidated the routes cache too, so the "
+        "per-stage code lists are no longer being read per stage"
+    )
