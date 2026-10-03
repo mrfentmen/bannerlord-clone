@@ -1,6 +1,11 @@
 /**
  * Blend transitions between animation states.
  *
+ * Task 638: after the shot the weapon settles back to aim over 0.2 s. Four times
+ * longer than the shot itself, and that asymmetry is the whole design: the shot
+ * snaps out, the recovery eases back, so a burst of automatic fire reads as a
+ * burst rather than as a stutter.
+ *
  * Task 637: aim to shoot blends over 0.05 s. This is the only pair in the table
  * that is as sharp as an interrupt, and it is deliberate: the shot has to leave
  * with the trigger pull, and a weapon that eases into fire looks broken.
@@ -115,6 +120,9 @@ export const IDLE_TO_AIM: BlendTiming = { outS: 0.15, inS: 0.15 };
 /** Task 637: the shot leaving the barrel blends over 0.05 s. */
 export const AIM_TO_SHOOT: BlendTiming = { outS: 0.05, inS: 0.05 };
 
+/** Task 638: the weapon settling back into aim blends over 0.2 s. */
+export const SHOOT_TO_AIM: BlendTiming = { outS: 0.2, inS: 0.2 };
+
 /**
  * Task 633: blend length for a state reached from *any* other state, seconds.
  *
@@ -141,6 +149,7 @@ export const BLEND_TIMINGS: Readonly<
   idle: { walk: IDLE_TO_WALK, aim: IDLE_TO_AIM },
   walk: { run: WALK_TO_RUN },
   aim: { shoot: AIM_TO_SHOOT },
+  shoot: { aim: SHOOT_TO_AIM },
 };
 
 /** A transition key, as a string a caller can log. */
@@ -259,6 +268,26 @@ export class BlendTrack {
     const next = this.ensure(to);
     next.target = 1;
     next.blendS = interruptTimeFor(to);
+  }
+
+  /**
+   * Task 638: end the shot and ease back into aim.
+   *
+   * The recovery is the mirror of {@link BlendTrack.interrupt} for the weapon
+   * and is four times longer, so automatic fire reads as a burst instead of a
+   * stutter. It is a named method rather than a `play` because a fire loop calls
+   * it on a timer and must not depend on which state the track thinks is active.
+   */
+  playAfterShot(): void {
+    const current = this.active;
+    if (current !== null && current !== 'aim') {
+      const out = this.ensure(current);
+      out.target = 0;
+      out.blendS = SHOOT_TO_AIM.outS;
+    }
+    const aim = this.ensure('aim');
+    aim.target = 1;
+    aim.blendS = SHOOT_TO_AIM.inS;
   }
 
   /**

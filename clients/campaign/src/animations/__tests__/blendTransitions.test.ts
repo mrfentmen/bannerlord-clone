@@ -20,6 +20,7 @@ import {
   IDLE_TO_AIM,
   IDLE_TO_WALK,
   RETURN_FROM_HIT_SECONDS,
+  SHOOT_TO_AIM,
   WALK_TO_RUN,
   blendTimeFor,
   interruptTimeFor,
@@ -61,6 +62,46 @@ describe("blend timings (task 631)", () => {
   });
 });
 
+describe("shoot back to aim (task 638)", () => {
+  it("settles back over 0.2 s, four times the shot's own blend", () => {
+    expect(SHOOT_TO_AIM).toEqual({ outS: 0.2, inS: 0.2 });
+    expect(blendTimeFor('shoot', 'aim')).toBe(0.2);
+    expect(SHOOT_TO_AIM.inS / AIM_TO_SHOOT.inS).toBe(4);
+    expect(SHOOT_TO_AIM.inS).toBe(IDLE_TO_WALK.inS);
+  });
+
+  it("is four frames of snap out and twelve frames of ease back", () => {
+    const track = new BlendTrack();
+    track.play('aim');
+    runFor(track, 0.3);
+    track.play('shoot');
+    runFor(track, 0.05);
+    expect(track.weightOf('shoot')).toBeCloseTo(1, 5);
+
+    track.playAfterShot(); // the recovery the fire loop calls
+    runFor(track, 0.1);
+    expect(track.weightOf('aim')).toBeCloseTo(0.5, 1);
+    runFor(track, 0.1);
+    expect(track.weightOf('aim')).toBeCloseTo(1, 5);
+    expect(track.weightOf('shoot')).toBe(0);
+    expect(track.active).toBe('aim');
+  });
+
+  it("can be fired again without re-blending the weapon up", () => {
+    const track = new BlendTrack();
+    track.play('aim');
+    runFor(track, 0.3);
+    for (let round = 0; round < 3; round++) {
+      track.play('shoot');
+      runFor(track, 0.05);
+      expect(track.weightOf('shoot'), `round ${round}`).toBeCloseTo(1, 5);
+      track.playAfterShot();
+      runFor(track, 0.2);
+      expect(track.weightOf('aim'), `round ${round}`).toBeCloseTo(1, 5);
+    }
+  });
+});
+
 describe("aim to shoot (task 637)", () => {
   it("leaves the barrel in 0.05 s, as sharp as an interrupt", () => {
     expect(AIM_TO_SHOOT).toEqual({ outS: 0.05, inS: 0.05 });
@@ -95,6 +136,10 @@ describe("aim to shoot (task 637)", () => {
     expect(track.active).toBe('shoot');
     // The aim track is still in the blend map, so the return is available.
     expect(track.weightOf('aim')).toBe(0);
+  });
+
+  it("has a recovery the fire loop can call", () => {
+    expect(AIM_TO_SHOOT.inS).toBeLessThan(SHOOT_TO_AIM.inS);
   });
 });
 
