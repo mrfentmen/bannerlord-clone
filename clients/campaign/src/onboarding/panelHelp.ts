@@ -12,6 +12,8 @@ import { helpFor, type HelpTopic } from "./help.js";
 export const PANEL_HELP_MAP: Record<string, string> = {
   Achievements: "map",
   CharacterMaker: "clan",
+  CharacterPanel: "clan",
+  ClanPanel: "clan",
   Codex: "map",
   DifficultyPanel: "map",
   DifficultySelector: "map",
