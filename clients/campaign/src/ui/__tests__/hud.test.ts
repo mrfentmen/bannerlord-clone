@@ -471,6 +471,41 @@ describe("the party rail", () => {
     }
   });
 
+  it("shows wounded troops summed across stacks", () => {
+    const withWounded: SimSnapshot = {
+      ...snapshot,
+      party: {
+        ...snapshot.party,
+        troops: snapshot.party.troops.map((t, i) => ({ ...t, wounded: i === 0 ? 3 : i === 1 ? 2 : 0 })),
+      },
+    };
+    const rail = hudAt({ snapshot: withWounded }).querySelector("[data-testid='party-rail']")!;
+    const wounded = rail.querySelector("[data-testid='rail-wounded']")!;
+    expect(wounded.textContent).toBe("5");
+  });
+
+  it("shows prisoners summed across captured stacks", () => {
+    const withPrisoners: SimSnapshot = {
+      ...snapshot,
+      party: {
+        ...snapshot.party,
+        prisoners: [
+          { troopId: "t-bandit", name: "Bandit", count: 4, tier: 1 },
+          { troopId: "t-raider", name: "Raider", count: 7, tier: 2 },
+        ],
+      },
+    };
+    const rail = hudAt({ snapshot: withPrisoners }).querySelector("[data-testid='party-rail']")!;
+    const prisoners = rail.querySelector("[data-testid='rail-prisoners']")!;
+    expect(prisoners.textContent).toBe("11");
+  });
+
+  it("shows zero wounded and zero prisoners when there are none", () => {
+    const rail = hudAt().querySelector("[data-testid='party-rail']")!;
+    expect(rail.querySelector("[data-testid='rail-wounded']")!.textContent).toBe("0");
+    expect(rail.querySelector("[data-testid='rail-prisoners']")!.textContent).toBe("0");
+  });
+
   it("gives every rail control an accessible name", () => {
     const hud = createHud({
       onSelectPanel: () => {},

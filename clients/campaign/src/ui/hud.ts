@@ -432,6 +432,8 @@ export function createHud(options: HudOptions): HudHandle {
   function renderLeft(state: HudState): HTMLElement {
     const { snapshot } = state;
     const headcount = snapshot.party.troops.reduce((a: number, t: { count: number }) => a + t.count, 0);
+    const wounded = snapshot.party.troops.reduce((a: number, t: { wounded: number }) => a + t.wounded, 0);
+    const prisonerCount = snapshot.party.prisoners.reduce((a: number, p: { count: number }) => a + p.count, 0);
     const rail = h("div", { class: "rail" });
 
     const card = h("div", { class: "sheet rail__card", "data-testid": "party-rail" });
@@ -442,6 +444,8 @@ export function createHud(options: HudOptions): HudHandle {
         "div",
         {},
         h("div", { class: "row" }, h("span", { class: "row__label label" }, "Troops"), h("span", { class: "row__value data" }, String(headcount))),
+        h("div", { class: "row" }, h("span", { class: "row__label label" }, "Wounded"), h("span", { class: "row__value data", "data-testid": "rail-wounded" }, String(wounded))),
+        h("div", { class: "row" }, h("span", { class: "row__label label" }, "Prisoners"), h("span", { class: "row__value data", "data-testid": "rail-prisoners" }, String(prisonerCount))),
         h("div", { class: "row" }, h("span", { class: "row__label label" }, "Grain"), h("span", { class: "row__value data", "data-testid": "rail-food" }, `${state.partyDaysOfFood.toFixed(1)} d`)),
         h("div", { class: "row" }, h("span", { class: "row__label label" }, "Morale"), h("span", { class: "row__value data" }, snapshot.party.morale.toFixed(2))),
         h("div", { class: "row" }, h("span", { class: "row__label label" }, "Ammo"), h("span", { class: "row__value data" }, String(Math.round(snapshot.party.metal)))),
