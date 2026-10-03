@@ -135,10 +135,11 @@ describe("family wiring into stats and scenarios", () => {
   });
 
   it("wires the new family triggers onto real option ids", () => {
-    // NOTE: several pre-existing triggers ("dropout", "small-business",
-    // "college", "church", "organizer", "farmhand") predate the current
-    // background set and never match; they are left for the design owner.
-    // This pins the family triggers this change adds.
+    // NOTE: the pre-existing dead triggers ("dropout", "small-business",
+    // "college", "church", "organizer", "farmhand") were removed 2026-10-03:
+    // they predated the current background set and never matched, and every
+    // scenario still fires on its remaining valid triggers. The test below
+    // pins that no dead trigger can be reintroduced.
     const optionIds = new Set(
       CHARACTER_STAGES.flatMap((c) => c.options.map((o) => o.id)),
     );
@@ -146,6 +147,21 @@ describe("family wiring into stats and scenarios", () => {
       expect(optionIds.has(familyId), `${familyId} is a real option`).toBe(true);
       const wired = STARTING_SCENARIOS.some((s) => s.triggers.includes(familyId));
       expect(wired, `${familyId} triggers a scenario`).toBe(true);
+    }
+  });
+
+  it("every scenario trigger resolves to a real background option id", () => {
+    const optionIds = new Set(
+      CHARACTER_STAGES.flatMap((c) => c.options.map((o) => o.id)),
+    );
+    for (const scenario of STARTING_SCENARIOS) {
+      expect(scenario.triggers.length, `${scenario.id} has a trigger`).toBeGreaterThan(0);
+      for (const trigger of scenario.triggers) {
+        expect(
+          optionIds.has(trigger),
+          `${scenario.id} trigger "${trigger}" is a real option`,
+        ).toBe(true);
+      }
     }
   });
 

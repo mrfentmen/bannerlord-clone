@@ -51,6 +51,7 @@ import type { ColorblindMode, ShadowQuality } from "./settings/schema.js";
 
 import { readConfig, providerFromConfig, createSimulationProvider, SimulationUnavailableError } from "./data/provider.js";
 import { TEST_SOURCE_WARNING, TEST_SOURCE_DETAIL } from "./data/labels.js";
+import { attributesWithFamilyBonus } from "./data/families.js";
 import { START_YEAR, eraGradeForYear } from "./design/grade.js";
 import { buildWorld } from "./world/build.js";
 import { publishWorld } from "./world/context.js";
@@ -80,9 +81,11 @@ import type {
   NearbyForce,
   SettlementOption,
   SimSnapshot,
+  SimulationProvider,
   TickUpdate,
   TownState,
 } from "./data/types.js";
+import type { UnservedOrder } from "./data/unserved.js";
 import type { EncounterChoice } from "./ui/panels/EncounterPanel.js";
 import { input } from "./input/index.js";
 import { keybindingEditor } from "./ui/panels/KeybindingEditor.js";
@@ -1341,6 +1344,28 @@ function noSimulationRecordNode(name: string): Node {
   return box;
 }
 
+/**
+ * An order callback for a panel, or undefined when the connected backend cannot carry
+ * that order out.
+ *
+ * A panel decides what to draw from the presence of the callback and nothing else, so
+ * this is where the answer to "can this order be sent?" has to be. The campaign server
+ * mounts a route for most orders and not for the rest, and a call to one of those is a
+ * 404 that reaches the player as a failure with no stated cause. Handing the panel
+ * `undefined` instead withdraws the control, which is the same rule the panels already
+ * apply to data they cannot act on: a button that can only fail is worse than no button.
+ *
+ * The fixture is live in the deployed build and implements every order, so nothing is
+ * withheld there.
+ */
+function order<A, T>(
+  provider: SimulationProvider,
+  name: UnservedOrder,
+  run: (arg: A) => Promise<T>,
+): ((arg: A) => Promise<T>) | undefined {
+  return provider.servesOrder(name) ? run : undefined;
+}
+
 function townNode(town: TownState): Node {
   return townPanel({
     town,
@@ -1351,8 +1376,8 @@ function townNode(town: TownState): Node {
     onRoster: () => openPanel("roster"),
     purse: snapshot?.player.resources.money ?? 0,
     day: snapshot?.day ?? 0,
-    workshops: snapshot?.workshops ?? [],
-    onBuyWorkshop: async (type) => {
+    workshops: snapshot?.workshops,
+    onBuyWorkshop: order(provider, "buyWorkshop", async (type: string) => {
       if (!snapshot) throw new Error("No snapshot to buy a workshop against.");
       const result = await provider.buyWorkshop(town.id, type);
       playVerdictSound(true);
@@ -1361,8 +1386,8 @@ function townNode(town: TownState): Node {
       rebuildContext();
       paint();
       return result;
-    },
-    onSellWorkshop: async (workshopId) => {
+    }),
+    onSellWorkshop: order(provider, "sellWorkshop", async (workshopId: string) => {
       if (!snapshot) throw new Error("No snapshot to sell a workshop against.");
       await provider.sellWorkshop(workshopId);
       playVerdictSound(true);
@@ -1370,8 +1395,8 @@ function townNode(town: TownState): Node {
       snapshot = await provider.getSnapshot();
       rebuildContext();
       paint();
-    },
-    onRecruitMilitia: async (count) => {
+    }),
+    onRecruitMilitia: order(provider, "recruitMilitia", async (count: number) => {
       if (!snapshot) throw new Error("No snapshot to recruit militia against.");
       await provider.recruitMilitia(town.id, count);
       playVerdictSound(true);
@@ -1379,7 +1404,7 @@ function townNode(town: TownState): Node {
       snapshot = await provider.getSnapshot();
       rebuildContext();
       paint();
-    },
+    }),
     onRecruit: async (unitId, quantity) => {
       if (!snapshot) throw new Error("No snapshot to recruit against.");
       const result = await provider.recruit({
@@ -2155,14 +2180,14 @@ function rebuildContext(): void {
           rebuildContext();
           paint();
         },
-        onSplitParty: async (input) => {
+        onSplitParty: order(provider, "splitParty", async (input: { troopIds: { stackId: string; count: number }[]; name: string }) => {
           const result = await provider.splitParty(input);
           playVerdictSound(true);
           await reloadSnapshot();
           rebuildContext();
           paint();
           return result;
-        },
+        }),
       });
       return;
     case "march":
@@ -2214,13 +2239,19 @@ function rebuildContext(): void {
     }
     case "character": {
       const p = snap.player;
+      // The family +1 bonus applies at derivation time (Rowan's note on
+      // b4eaf82): the stored attributes stay a pure 30-point buy, so the
+      // review step and the campaign sheet agree on the bonus-applied values.
+      const sheetAttributes = p.attributes
+        ? attributesWithFamilyBonus(p.attributes, p.backgroundChoices?.["family"])
+        : undefined;
       contextNode = characterPanel({
         character: {
           characterName: p.characterName,
           age: p.age,
           ethnicityId: p.ethnicityId,
           biography: p.biography,
-          attributes: p.attributes,
+          attributes: sheetAttributes,
           skills: p.skills,
           influence: p.influence,
           renown: p.renown,
