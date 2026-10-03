@@ -35,6 +35,11 @@
  * disposed when the model lands. The scene owner decides what the stand-in
  * looks like through `createPlaceholder` (default: a 1 m Babylon box).
  *
+ * Task 630 (base URL): `baseUrl` prefixes the directory part of a manifest path,
+ * so an asset in a subdirectory -- the ten weapons under models/weapons/ -- is
+ * reachable from a server that is not the document root. Unset, the old
+ * resolve-relative-to-the-page behaviour is unchanged.
+ *
  * Task 607: when the load finally fails, the placeholder is swapped for a red
  * fallback box rather than leaving a stand-in that looks like a real model or
  * a hole where a unit should be. The box is named `<id>__error` so it is never
@@ -129,6 +134,14 @@ export interface ModelLoaderOptions {
    * so retry behaviour is observable without a scene (task 601).
    */
   load?: (info: ModelInfo, report: ProgressReporter) => Promise<unknown>;
+  /**
+   * Prefix for `info.path`, e.g. `/models/`. Set it when the manifest's paths
+   * are relative and the app serves the assets from somewhere other than the
+   * document root -- task 630 loads the whole staged batch against a loopback
+   * server this way. Unset, the path is split into a root and a file name and
+   * resolved relative to the page, which is what the client does.
+   */
+  baseUrl?: string;
 }
 
 export class ModelLoader {
@@ -143,6 +156,7 @@ export class ModelLoader {
   private createPlaceholder: (id: string) => unknown | Promise<unknown>;
   private createErrorBox: (id: string) => unknown | Promise<unknown>;
   private loadImpl: (info: ModelInfo, report: ProgressReporter) => Promise<unknown>;
+  private baseUrl: string;
 
   constructor(scene: any, options: ModelLoaderOptions = {}) {
     this.scene = scene;
@@ -154,6 +168,7 @@ export class ModelLoader {
       options.createPlaceholder ?? ((id) => this.defaultPlaceholder(id));
     this.createErrorBox = options.createErrorBox ?? ((id) => this.defaultErrorBox(id));
     this.loadImpl = options.load ?? ((info, report) => this.loadModel(info, report));
+    this.baseUrl = options.baseUrl ?? '';
   }
 
   /**
@@ -352,9 +367,16 @@ export class ModelLoader {
     await import('@babylonjs/loaders/glTF');
 
     return new Promise((resolve, reject) => {
+      // Babylon's ImportMesh takes a root URL and a file name separately, so
+      // the path is split either way. With a base URL the directory part of the
+      // manifest path is appended to it -- that is what keeps the weapons under
+      // models/weapons/ reachable from a server that is not the document root.
       const pathParts = info.path.split('/');
       const fileName = pathParts.pop()!;
-      const rootUrl = pathParts.join('/') + '/';
+      const dir = pathParts.join('/');
+      const rootUrl = this.baseUrl
+        ? this.baseUrl + (dir ? dir + '/' : '')
+        : dir + '/';
 
       SceneLoader.ImportMesh(
         '',
