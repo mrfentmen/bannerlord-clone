@@ -445,7 +445,15 @@ describe("the market panel", () => {
     expect(buy.getAttribute("aria-label")).toMatch(/^Buy 40 /);
     // The same node is still in the document, so the field keeps the keyboard focus.
     expect(handle.root.contains(input)).toBe(true);
-    expect(buy.getAttribute("aria-label")).toMatch(/\$[\d,]+/);
+    // The label names the price as the multiplier it is. It carries no coin total
+    // because unitCost is server config (`market.base_price`,
+    // `campaign.medicine_unit_price`) that the snapshot never sends, so the client
+    // cannot multiply its way to the cost of an order; the simulation says so when
+    // the trade lands. `marketPanel.test.ts` pins the same rule from the other side.
+    const label = buy.getAttribute("aria-label") ?? "";
+    expect(label).toMatch(/^Buy 40 Grain at a price of [\d.]+ each/);
+    expect(label).not.toMatch(/\$/);
+    expect(label).toMatch(/simulation sets the coin cost/i);
   });
 
   it("gives every cell the heading of its column, so the narrow layout can stack it", () => {
