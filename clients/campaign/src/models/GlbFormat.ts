@@ -435,3 +435,50 @@ export function ktx2Report(bytes: Uint8Array): Ktx2Report {
     reason,
   };
 }
+
+/** One material as the GLB declares it. */
+export interface GlbMaterial {
+  /** Index in the file's `materials` array. */
+  index: number;
+  /** The name the pack gave it, or '' when it named none. */
+  name: string;
+}
+
+/**
+ * The materials a file declares, with the names the pack gave them.
+ *
+ * The names are what make per-material work possible at all: the Quaternius
+ * operator packs ship ten materials called `Viper_Skin`, `Viper_Hair_Brown`,
+ * `Viper_Swat` and so on, so a skin tone can be changed without touching the
+ * hair or the clothes. A file with one unnamed material has none of that, and
+ * pretending otherwise is how a character's clothes change colour when you meant
+ * to change their skin.
+ */
+export function readMaterialNames(bytes: Uint8Array): GlbMaterial[] {
+  const chunk = jsonChunkRange(bytes);
+  if (!chunk) return [];
+  try {
+    const json = JSON.parse(
+      new TextDecoder().decode(bytes.subarray(chunk.start, chunk.start + chunk.length)),
+    ) as { materials?: Array<{ name?: string }> };
+    return (json.materials ?? []).map((material, index) => ({
+      index,
+      name: typeof material.name === 'string' ? material.name : '',
+    }));
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Index of the material whose name matches `pattern`, case-insensitively.
+ * Returns -1 when there is none -- which is the answer a caller needs, because
+ * a file with a single unnamed material has no skin and no jacket to find.
+ */
+export function findMaterial(materials: readonly GlbMaterial[], pattern: string): number {
+  const needle = pattern.toLowerCase();
+  for (const material of materials) {
+    if (material.name.toLowerCase().includes(needle)) return material.index;
+  }
+  return -1;
+}
