@@ -24,6 +24,12 @@ export type ActionState =
   | 'slide-start'
   | 'slide-loop'
   | 'slide-exit'
+  | 'melee'
+  | 'throw'
+  | 'interact'
+  | 'heal'
+  | 'revive'
+  | 'downed'
   | 'jump-start'
   | 'jump-loop'
   | 'jump-land'
@@ -78,6 +84,9 @@ export const STATE_CLIPS: Readonly<Partial<Record<ActionState, StateClip>>> = {
   'slide-start': { clip: 'slide_start', blendS: 0.12, loop: false, lowerBody: 'idle' },
   'slide-loop': { clip: 'slide_loop', blendS: 0.15, loop: true, lowerBody: 'idle' },
   'slide-exit': { clip: 'slide_exit', blendS: 0.2, loop: false, lowerBody: 'idle' },
+  // Task 675: a melee swing. Fast in -- it has to connect with the moment the
+  // player pressed the button -- and it does not loop.
+  melee: { clip: 'melee', blendS: 0.08, loop: false, lowerBody: 'idle' },
 };
 
 /** Why a state cannot play. */

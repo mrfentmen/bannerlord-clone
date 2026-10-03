@@ -8,7 +8,7 @@
  * model lacks the clip: a named gap, not a silent no-op.
  */
 
-import { readFileSync, readdirSync } from "node:fs";
+import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
@@ -19,11 +19,14 @@ import {
   unavailableStates,
 } from "../StateClips.js";
 
-const modelsDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "public", "models");
+const publicDir = join(dirname(fileURLToPath(import.meta.url)), "..", "..", "..", "public");
+const modelsDir = join(publicDir, "models");
+const animsDir = join(publicDir, "anims");
 
-/** Clip names in a staged GLB. */
+/** Clip names in a staged GLB, by file name. */
 export function clipsOf(file: string): string[] {
-  const bytes = readFileSync(join(modelsDir, file));
+  const inModels = existsSync(join(modelsDir, file));
+  const bytes = readFileSync(join(inModels ? modelsDir : animsDir, file));
   const chunkLength = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(12, true);
   const json = JSON.parse(
     new TextDecoder().decode(bytes.subarray(20, 20 + chunkLength)),
@@ -187,5 +190,32 @@ describe("slide start, loop and exit (task 674)", () => {
   it("takes longer to get out of than to get into", () => {
     // The exit blends back into a stance the player has to see the end of.
     expect(STATE_CLIPS['slide-exit']?.blendS ?? 0).toBeGreaterThan(STATE_CLIPS['slide-start']?.blendS ?? 0);
+  });
+});
+
+describe("melee swing (task 675)", () => {
+  it("is registered as a fast, non-looping swing", () => {
+    expect(STATE_CLIPS.melee?.clip).toBe('melee');
+    expect(STATE_CLIPS.melee?.loop).toBe(false);
+    // Sharper than a stance change: the swing has to land on the input.
+    expect(STATE_CLIPS.melee?.blendS ?? 1).toBeLessThan(STATE_CLIPS['crouch-idle']?.blendS ?? 0);
+    // ...but not as sharp as a hit reaction, which must pre-empt everything.
+    expect(STATE_CLIPS.melee?.blendS ?? 0).toBeGreaterThan(0.05);
+  });
+
+  it("resolves on the operator rigs, and not on the medic", () => {
+    for (const rig of ['operator-viper.glb', 'operator-lynx.glb', 'operator-jackal.glb']) {
+      expect(resolveStateClip('melee', clipsOf(rig)).available, rig).toBe(true);
+    }
+    expect(resolveStateClip('melee', clipsOf('female-operator.glb')).gap).toBe('clip-not-in-model');
+  });
+
+  it("also exists as a set of swings on the rogue rig, which this state does not name", () => {
+    // kaykit-rogue.glb has seven distinct melee attacks and no single `melee`
+    // clip, so this registry deliberately does not claim it: a scene that wants
+    // those picks them by name rather than getting one arbitrary swing.
+    const rogue = clipsOf('kaykit-rogue.glb');
+    expect(rogue.filter((c) => c.startsWith('1H_Melee_Attack')).length).toBeGreaterThan(1);
+    expect(rogue).not.toContain('melee');
   });
 });
