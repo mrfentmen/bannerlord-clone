@@ -58,6 +58,7 @@ import type {
   UpgradeTroopsRequest,
   UpgradeTroopsResult,
   ConstructionResult,
+  Workshop,
   TaxOrderResult,
   TimeScaleResult,
   WhyChain,
@@ -240,6 +241,8 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     splitParty: async (input) => state.splitParty(input),
     mergeParty: async (partyId) => state.mergeParty(partyId),
     recruitMilitia: async (townId, count) => state.recruitMilitia(townId, count),
+    buyWorkshop: async (townId, type) => state.buyWorkshop(townId, type),
+    sellWorkshop: async (workshopId) => state.sellWorkshop(workshopId),
     marry: async (charId1, charId2) => state.marry(charId1, charId2),
     haveChild: async (parentId1, parentId2, childName) => state.haveChild(parentId1, parentId2, childName),
     killCharacter: async (charId, cause) => state.killCharacter(charId, cause),
@@ -271,6 +274,7 @@ class FixtureState {
   #npcParties: NpcParty[] = [];
   #clans: Clan[] = [];
   #characters: GameCharacter[] = [];
+  #workshops: Workshop[] = [];
   #rulers: RulerState[] = [];
   #warnings: ResourceWarning[] = [];
   #notifications: Notification[] = [];
@@ -689,6 +693,7 @@ class FixtureState {
       rulers: structuredClone(this.#rulers),
       clans: structuredClone(this.#clans),
       characters: structuredClone(this.#characters),
+      workshops: structuredClone(this.#workshops),
       ledger: structuredClone(this.#ledger),
       warnings: structuredClone(this.#warnings),
       notifications: structuredClone(this.#notifications.slice(-40)),
@@ -1257,6 +1262,17 @@ class FixtureState {
     // Party upkeep: wages, food, morale.
     this.#partyUpkeep();
 
+    // Workshop income: each workshop generates daily income based on town prosperity.
+    for (const workshop of this.#workshops) {
+      const town = this.#towns.get(workshop.townId);
+      if (!town) continue;
+      workshop.ageDays += 1;
+      // Income scales with prosperity (0.5 to 1.5x base)
+      const prosperityFactor = 0.5 + (town.prosperity / 100);
+      const income = Math.round(workshop.dailyIncome * prosperityFactor);
+      this.#party.money += income;
+    }
+
     const townDeltas: Record<string, Partial<TownState>> = {};
 
     for (const town of this.#towns.values()) {
@@ -1597,6 +1613,7 @@ class FixtureState {
     this.#rulers = structuredClone(snapshot.rulers ?? []);
     this.#clans = structuredClone(snapshot.clans ?? []);
     this.#characters = structuredClone(snapshot.characters ?? []);
+    this.#workshops = structuredClone(snapshot.workshops ?? []);
     this.#ledger = structuredClone(snapshot.ledger);
     // Reset transient state
     this.#notifications = [];
@@ -2082,6 +2099,85 @@ class FixtureState {
       text: `Recruited ${count} militia for ${town.name} (${cost} gold). Garrison: ${town.garrison}.`,
       entityId: town.id,
       field: "garrison",
+    });
+  }
+
+  /**
+   * Buy a workshop in a town. Costs 2000 gold.
+   * Workshops generate daily income based on town prosperity.
+   */
+  async buyWorkshop(townId: string, type: string): Promise<{ workshopId: string }> {
+    const town = this.#towns.get(townId);
+    if (!town) throw new Error("Town not found.");
+    
+    const validTypes = ["smithy", "brewery", "weavery", "tannery", "press"];
+    if (!validTypes.includes(type)) {
+      throw new Error(`Invalid workshop type. Must be one of: ${validTypes.join(", ")}.`);
+    }
+    
+    // Max 1 workshop per town (for now)
+    if (this.#workshops.some((w) => w.townId === townId)) {
+      throw new Error("You already own a workshop in this town.");
+    }
+    
+    const cost = 2000;
+    if (this.#party.money < cost) {
+      throw new Error(`A workshop costs ${cost} gold.`);
+    }
+    
+    this.#party.money -= cost;
+    
+    const typeNames: Record<string, string> = {
+      smithy: "Smithy",
+      brewery: "Brewery",
+      weavery: "Weavery",
+      tannery: "Tannery",
+      press: "Print Press",
+    };
+    
+    const workshop: Workshop = {
+      id: `ws-${this.#sequence++}`,
+      townId,
+      type,
+      name: `${typeNames[type]} of ${town.name}`,
+      dailyIncome: 50, // Base, modified by prosperity in tick
+      ageDays: 0,
+    };
+    
+    this.#workshops.push(workshop);
+    
+    this.#notifications.push({
+      id: `n-ws-buy-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: `Purchased ${workshop.name} for ${cost} gold.`,
+      entityId: town.id,
+      field: "workshop",
+    });
+    
+    return { workshopId: workshop.id };
+  }
+
+  /**
+   * Sell a workshop. Returns 50% of the purchase price.
+   */
+  async sellWorkshop(workshopId: string): Promise<void> {
+    const idx = this.#workshops.findIndex((w) => w.id === workshopId);
+    if (idx === -1) throw new Error("Workshop not found.");
+    
+    const workshop = this.#workshops[idx]!;
+    const salePrice = 1000; // 50% of 2000
+    
+    this.#party.money += salePrice;
+    this.#workshops.splice(idx, 1);
+    
+    this.#notifications.push({
+      id: `n-ws-sell-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: `Sold ${workshop.name} for ${salePrice} gold.`,
+      entityId: workshop.townId,
+      field: "workshop",
     });
   }
 

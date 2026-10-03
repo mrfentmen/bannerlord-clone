@@ -89,6 +89,19 @@ export interface BuildingInfo {
   nextDays: number;
 }
 
+/** A player-owned workshop in a town. Produces daily income. */
+export interface Workshop {
+  id: string;
+  townId: string;
+  /** Type: "smithy" | "brewery" | "weavery" | "tannery" | "press". */
+  type: string;
+  name: string;
+  /** Daily income in gold. */
+  dailyIncome: number;
+  /** Days since purchased. */
+  ageDays: number;
+}
+
 /**
  * The answer to a construction order.
  *
@@ -858,6 +871,8 @@ export interface SimSnapshot {
   clans: Clan[];
   /** Characters in the campaign. */
   characters: GameCharacter[];
+  /** Player-owned workshops. */
+  workshops: Workshop[];
   ledger: Ledger;
   warnings: ResourceWarning[];
   notifications: Notification[];
@@ -996,6 +1011,10 @@ export interface SimulationProvider {
   getHeir(clanId: string): Promise<GameCharacter | null>;
   /** Test hook: set clan tier. */
   debugSetClanTier?(clanId: string, tier: number): Promise<void>;
+  /** Buy a workshop in a town. */
+  buyWorkshop(townId: string, type: string): Promise<{ workshopId: string }>;
+  /** Sell a workshop. */
+  sellWorkshop(workshopId: string): Promise<void>;
   /** Restore the provider's internal state from a saved snapshot. */
   restoreSnapshot(snapshot: SimSnapshot): Promise<void>;
   /** NPC parties within rangeKm of the player party. */
