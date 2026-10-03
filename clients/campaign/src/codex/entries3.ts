@@ -87,7 +87,7 @@ export const WORLD_ENTRIES: CodexEntry[] = [
       "Everything you become in this game is earned on the ledger of relations and the ledger of money. The codex can explain the mechanics. The rest is up to you.",
     ],
     ["lore", "player", "captain", "character"],
-    ["lore-the-world", "lore-protagonist", "mechanic-party", "mechanic-ledger"],
+    ["lore-the-world", "lore-rook-reyes", "lore-origins", "mechanic-party", "mechanic-ledger"],
   ),
   e(
     "lore-the-codex",

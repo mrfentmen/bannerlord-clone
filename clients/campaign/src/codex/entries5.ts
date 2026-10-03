@@ -1,12 +1,18 @@
 /**
- * Codex corpus (MASTER_PLAN task 123). Part 5: the canon protagonist and deep lore.
+ * Codex corpus (MASTER_PLAN task 123). Part 5: deep lore.
  *
- * This is the game's story bible, wired into the client: the protagonist Sam
- * "Rook" Reyes (whose name pre-fills the character maker), the Unraveling that
+ * This is the game's story bible, wired into the client: the Unraveling that
  * broke the country, the Front Range the client loads, all six factions as
- * lore, and the figures who shape the map. Every entry is written against the
- * real data: faction entries mirror `data/sides.ts` SIDE_DEFINITIONS, and the
- * Front Range entry mirrors the region the client actually loads.
+ * lore, the figures who shape the map \u2014 including Rook Reyes, the NPC
+ * company captain \u2014 and the life-path origins the player chooses in the
+ * character maker (mirroring `data/backgrounds.ts`). Every entry is written
+ * against the real data: faction entries mirror `data/sides.ts`
+ * SIDE_DEFINITIONS, and the Front Range entry mirrors the region the client
+ * actually loads.
+ *
+ * Note: there is no canon player character. The player is whoever they make
+ * in the character maker \u2014 any name, any origin. Rook is a leader on the
+ * map, not the player.
  */
 
 import type { CodexEntry } from "./types.js";
@@ -25,30 +31,43 @@ function e(
 
 export const LORE_ENTRIES: CodexEntry[] = [
   e(
-    "lore-protagonist",
-    "Sam \u201cRook\u201d Reyes",
+    "lore-origins",
+    "Where you come from",
     "world",
-    "The canon captain: a former Guard logistics officer who kept the trucks running when the country stopped.",
+    "Your past is yours to choose: childhood, youth, training, and profession.",
+    [
+      "Nobody in this country is born to anything anymore \u2014 which means everyone is the author of their own beginning. In the character maker you choose four chapters of your life, and each one leaves its mark on your skills and your starting purse.",
+      "Childhood is where you grew up: the housing projects, the suburbs, a small town, or the foster system. Youth is what you did as a teenager: athletics, hustling, studying, or running with a crew. Training is how you learned to handle yourself: the military, the boxing gym, the street, or your own hard schooling. Profession is what you did before all this: turning wrenches, patching people up, moving product, or wearing a badge.",
+      "None of these are destiny. A foster kid who became a medic commands the same respect as a suburban athlete who learned logistics \u2014 what matters is what you do with the company once the campaign starts. But people will read your past in your bearing, and the map remembers where everyone started.",
+    ],
+    ["lore", "origins", "background", "character", "family", "backstory"],
+    ["lore-who-you-are", "lore-the-world", "lore-front-range"],
+  ),
+  e(
+    "lore-rook-reyes",
+    "Rook Reyes",
+    "world",
+    "Captain of the Rook Company. Pays on time. Remembers everything.",
     [
       "Sam Reyes ran transportation for the Colorado National Guard out of Fort Carson \u2014 fuel, spare parts, convoy schedules, the unglamorous arithmetic that keeps an army moving. When the Unraveling dissolved the chain of command, Reyes held the Pueblo depot for eleven months on paperwork, promises, and stubbornness, feeding whoever showed up with a truck and a useful skill.",
       "When the depot finally emptied, Reyes walked out with forty drivers, twelve working rigs, and a ledger of every favor owed in three counties. That ledger became the Rook Company. The callsign comes from the chess piece: not the strongest on the board, but the one that moves straight and hits hard along the lines everyone else forgets to watch.",
-      "Reyes is in their late thirties, pragmatic to the bone, and famous for two things: paying on time, and remembering \u2014 exactly \u2014 who did not. Every faction on the map has tried to hire, buy, or bury the Rook Company. None of them have managed it yet.",
+      "Reyes is in their late thirties, pragmatic to the bone, and famous for two things: paying on time, and remembering \u2014 exactly \u2014 who did not. Every faction on the map has tried to hire, buy, or bury the Rook Company. None of them have managed it yet. Cross Reyes on a contract and you will find out why.",
     ],
-    ["lore", "protagonist", "rook", "reyes", "captain", "character"],
+    ["lore", "rook", "reyes", "npc", "captain", "character"],
     ["lore-the-company", "lore-the-unraveling", "lore-front-range", "lore-who-you-are"],
   ),
   e(
     "lore-the-company",
     "The Rook Company",
     "world",
-    "Your company: forty drivers, twelve rigs, and a ledger of favors. For now.",
+    "Forty drivers, twelve rigs, and a ledger of favors. Currently your competition.",
     [
       "The Rook Company started as a convoy outfit \u2014 guarding grain up I-25, running medicine through the passes, hauling fuel where the pipelines went quiet. It survived because Reyes understood something the warlords did not: in a broken country, logistics is a superpower. Anyone can seize a town. Few can keep it fed through winter.",
       "The company takes contracts from anyone whose money is good and whose cause does not require atrocities. That rule has cost Reyes work and earned something rarer: a reputation for keeping its word, which in the current market trades above gold.",
-      "You begin the campaign at the head of this company. Forty people who expect to be paid, twelve rigs that expect fuel, and a map full of people with problems. Everything the company becomes \u2014 a clan, a banner, a power \u2014 is earned from here.",
+      "If you run convoys in the Front Range, you will cross the Rook Company \u2014 as a client, a rival, or an employer. Reyes does not hold grudges over honest competition. Dishonest competition is another matter, and the ledger remembers.",
     ],
-    ["lore", "company", "rook company", "faction"],
-    ["lore-protagonist", "lore-front-range", "mechanic-party", "mechanic-ledger"],
+    ["lore", "company", "rook company", "faction", "npc"],
+    ["lore-rook-reyes", "lore-front-range", "mechanic-party", "mechanic-ledger"],
   ),
   e(
     "lore-the-unraveling",
@@ -73,10 +92,10 @@ export const LORE_ENTRIES: CodexEntry[] = [
       "The Quiet Winter \u2014 the winter the supply chains stopped recovering. Shelves empty in February and stay empty. States activate their guards and stop waiting for Washington.",
       "The Compact Era \u2014 the interstate compacts, written for disaster relief, become governments in fact. Six of them survive the decade. The rest are absorbed or dissolve.",
       "The Ledger Peace \u2014 no treaty, no surrender, just exhaustion. The factions stop trying to reunite the country and start trying to outlast each other. Caravan guards become companies. Companies become powers.",
-      "Today \u2014 you take command of the Rook Company in the Front Range, with forty drivers, twelve rigs, and every faction on the map deciding what you are worth to them.",
+      "Today \u2014 a new captain takes the field in the Front Range with a company to feed and a reputation to build. The map is full of people with problems, and every faction is hiring. What happens next is yours to write.",
     ],
     ["lore", "timeline", "history", "unraveling"],
-    ["lore-the-unraveling", "lore-the-world", "lore-protagonist"],
+    ["lore-the-unraveling", "lore-the-world", "lore-origins"],
   ),
   e(
     "lore-front-range",
@@ -86,10 +105,10 @@ export const LORE_ENTRIES: CodexEntry[] = [
     [
       "The Front Range is the urban corridor along Colorado's eastern slope \u2014 Fort Collins to Pueblo, with Denver and Colorado Springs in between \u2014 backed against high-country mines and thin cropland. This client loads that region: its cities, its passes, its problems.",
       "It matters for three reasons. First, the I-25 corridor is the only reliable north-south artery between the plains and the mountains, which makes every depot on it a toll booth. Second, the high country holds gold and metal mines that never stopped producing. Third, the water comes off the Rockies, and whoever controls the headwaters negotiates from strength in every dry year.",
-      "The ghosts are military: Fort Carson, the old NORAD complex, a dozen Guard armories. The weapons mostly walked away years ago. What remained \u2014 the motor pools, the fuel farms, the people who know how logistics works \u2014 is worth more than the guns ever were. That is why Reyes is here, and why everyone else is watching.",
+      "The ghosts are military: Fort Carson, the old NORAD complex, a dozen Guard armories. The weapons mostly walked away years ago. What remained \u2014 the motor pools, the fuel farms, the people who know how logistics works \u2014 is worth more than the guns ever were. That is why the Rook Company is here, and why everyone else is watching.",
     ],
     ["lore", "front range", "colorado", "region", "setting"],
-    ["lore-the-world", "lore-protagonist", "lore-faction-mountain-alliance"],
+    ["lore-the-world", "lore-rook-reyes", "lore-faction-mountain-alliance"],
   ),
   e(
     "lore-faction-pacific-compact",
@@ -112,7 +131,7 @@ export const LORE_ENTRIES: CodexEntry[] = [
     [
       "Montana, Idaho, Wyoming, Utah, Colorado, Nevada, Arizona, New Mexico. The Alliance holds the hardest ground on the map: attackers lose speed and men in the passes, and the high-country mines pour out gold and metal to pay for mercenaries and equipment.",
       "The price is people. The Alliance has the smallest population of any faction \u2014 armies are small, losses are irreplaceable, and the settlements are far apart across hungry land. Its rulers are fiercely independent, which makes the Alliance nearly impossible to conquer piecemeal and painfully slow to unite behind anything.",
-      "This is your neighborhood. The Front Range sits in Alliance territory, which means the passes are your shield and the empty miles are your tax. Hold the high ground and nobody takes it from you. Try to project power past it and the mountains charge by the mile.",
+      "The Front Range sits in Alliance territory, which means the passes are your shield and the empty miles are your tax. Hold the high ground and nobody takes it from you. Try to project power past it and the mountains charge by the mile.",
     ],
     ["lore", "faction", "mountain alliance", "mountain", "setting"],
     ["lore-the-world", "lore-front-range", "lore-the-unraveling"],
@@ -175,11 +194,11 @@ export const LORE_ENTRIES: CodexEntry[] = [
     "world",
     "Three names you will hear in every depot between Pueblo and Fort Collins.",
     [
-      "Marshal June Okafor holds the Alliance's southern passes and does not forgive trespass. She commanded engineers before the Unraveling, which means she thinks in bridges, chokepoints, and winters \u2014 and she has decided the Rook Company is either an asset or a problem, and has not yet decided which.",
-      "Silas Vane is the Corridor's factor in the region: a banker with a smile and a ledger full of other people's debts. He has offered Reyes money three times. The offers get bigger and the terms get worse, and Reyes keeps a copy of each one framed in the company office as a reminder.",
-      "Deke Marsh runs the Marsh Jackals, a rival company that undercuts Rook on every contract and blames Rook for every failure. Marsh is cheaper, faster, and utterly without the rule about atrocities. The Jackals are the reason the Rook Company sleeps with its boots on.",
+      "Marshal June Okafor holds the Alliance's southern passes and does not forgive trespass. She commanded engineers before the Unraveling, which means she thinks in bridges, chokepoints, and winters \u2014 and she has decided every new company in her territory is either an asset or a problem, and judges each one herself.",
+      "Silas Vane is the Corridor's factor in the region: a banker with a smile and a ledger full of other people's debts. He has offered Rook Reyes money three times. The offers get bigger and the terms get worse, and Reyes keeps a copy of each one framed in the company office as a reminder.",
+      "Deke Marsh runs the Marsh Jackals, a rival company that undercuts everyone on every contract and blames everyone else for every failure. Marsh is cheaper, faster, and utterly without the rule about atrocities. The Jackals are the reason every honest company in the Front Range sleeps with its boots on.",
     ],
     ["lore", "characters", "npc", "okafor", "vane", "marsh"],
-    ["lore-protagonist", "lore-the-company", "lore-faction-mountain-alliance", "lore-faction-atlantic-corridor"],
+    ["lore-rook-reyes", "lore-the-company", "lore-faction-mountain-alliance", "lore-faction-atlantic-corridor"],
   ),
 ];

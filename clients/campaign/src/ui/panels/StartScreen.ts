@@ -129,11 +129,10 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
         ),
         h(
           "p",
-          { class: "lede start__lede" },
-          "Twenty years after the Unraveling, you are Sam \u201cRook\u201d Reyes \u2014 a former Guard " +
-            "logistics officer turned company captain, running convoys out of Colorado Springs with forty drivers, " +
-            "twelve rigs, and a ledger of favors. Six factions divide the country. Every one of them is deciding " +
-            "what you are worth. Take a side. Then live with it.",
+          { class: "lede start__prologue" },
+          "Twenty years after the Unraveling, six factions divide the country and every road has a toll. " +
+            "You are a captain with a company, a past of your own choosing, and bills to pay. The Rook Company " +
+            "runs the Front Range convoys \u2014 for now, they are the competition.",
         ),
       ),
     );
