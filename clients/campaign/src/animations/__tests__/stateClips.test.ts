@@ -158,3 +158,34 @@ describe("jump start, loop and land (task 673)", () => {
     expect(STATE_CLIPS['jump-land']?.blendS ?? 1).toBeLessThan(STATE_CLIPS['crouch-idle']?.blendS ?? 0);
   });
 });
+
+describe("slide start, loop and exit (task 674)", () => {
+  it("registers three phases, only the middle one looping", () => {
+    expect(STATE_CLIPS['slide-start']?.clip).toBe('slide_start');
+    expect(STATE_CLIPS['slide-loop']?.clip).toBe('slide_loop');
+    expect(STATE_CLIPS['slide-exit']?.clip).toBe('slide_exit');
+    expect(STATE_CLIPS['slide-start']?.loop).toBe(false);
+    expect(STATE_CLIPS['slide-loop']?.loop).toBe(true);
+    expect(STATE_CLIPS['slide-exit']?.loop).toBe(false);
+  });
+
+  it("resolves all three on every operator rig", () => {
+    for (const rig of ['operator-viper.glb', 'operator-heron.glb', 'operator-lynx.glb', 'operator-magpie.glb', 'operator-jackal.glb']) {
+      const clips = clipsOf(rig);
+      for (const state of ['slide-start', 'slide-loop', 'slide-exit'] as const) {
+        expect(resolveStateClip(state, clips).available, `${rig} ${state}`).toBe(true);
+      }
+    }
+  });
+
+  it("has no slide on the medic rig", () => {
+    const clips = clipsOf('female-operator.glb');
+    expect(resolveStateClip('slide-exit', clips).gap).toBe('clip-not-in-model');
+    expect(availableStates(clips)).not.toContain('slide-exit');
+  });
+
+  it("takes longer to get out of than to get into", () => {
+    // The exit blends back into a stance the player has to see the end of.
+    expect(STATE_CLIPS['slide-exit']?.blendS ?? 0).toBeGreaterThan(STATE_CLIPS['slide-start']?.blendS ?? 0);
+  });
+});

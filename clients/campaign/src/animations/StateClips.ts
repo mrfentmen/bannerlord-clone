@@ -21,6 +21,9 @@ import type { BlendState } from './BlendTransitions.js';
 
 /** The states this registry covers. */
 export type ActionState =
+  | 'slide-start'
+  | 'slide-loop'
+  | 'slide-exit'
   | 'jump-start'
   | 'jump-loop'
   | 'jump-land'
@@ -69,6 +72,12 @@ export const STATE_CLIPS: Readonly<Partial<Record<ActionState, StateClip>>> = {
   'jump-start': { clip: 'jump_start', blendS: 0.1, loop: false, lowerBody: 'idle' },
   'jump-loop': { clip: 'jump_loop', blendS: 0.1, loop: true, lowerBody: 'idle' },
   'jump-land': { clip: 'jump_land', blendS: 0.12, loop: false, lowerBody: 'idle' },
+  // Task 674: a slide is three phases too, and the exit is the one that matters
+  // most -- it is the phase that puts the character back on their feet, and a
+  // slide with no exit leaves them on the ground.
+  'slide-start': { clip: 'slide_start', blendS: 0.12, loop: false, lowerBody: 'idle' },
+  'slide-loop': { clip: 'slide_loop', blendS: 0.15, loop: true, lowerBody: 'idle' },
+  'slide-exit': { clip: 'slide_exit', blendS: 0.2, loop: false, lowerBody: 'idle' },
 };
 
 /** Why a state cannot play. */
