@@ -30,6 +30,7 @@ import type {
 } from "./types";
 import { BattleApiError, type BattleApi } from "./api";
 import { getAudioManager } from "../audio/AudioManager.js";
+import { BATTLEFIELD_BED } from "../audio/ambientBeds.js";
 import { appraiseLoot, appraisalSummary } from "./loot.js";
 import {
   compareBattles,
@@ -41,6 +42,21 @@ import { isMemorable, recordWarStory, type TaleFacts } from "./warStories.js";
 
 export type FlowPhase = "idle" | "prebattle" | "live" | "afteraction";
 export type FlowMode = "server" | "local";
+
+/**
+ * The combat bed's floor (task 563): a live battle always keeps at least the
+ * first stem, so holding still sounds like a standoff rather than nothing.
+ */
+export const COMBAT_BASE_INTENSITY = 0.2;
+
+/** Maps an order's advance (0..1) onto the combat bed's intensity (task 563). */
+export function combatIntensityFor(advance: number | undefined): number {
+  const push =
+    typeof advance === "number" && Number.isFinite(advance)
+      ? Math.min(1, Math.max(0, advance))
+      : 0;
+  return COMBAT_BASE_INTENSITY + (1 - COMBAT_BASE_INTENSITY) * push;
+}
 
 /**
  * Describes the two forces when the server cannot. The app implements
@@ -310,8 +326,13 @@ export class BattleFlow {
       this.#battle = this.#localStartBattle(encounter);
     }
     this.#phase = "live";
-    // Battle music: driving theme for the live battle phase.
-    void getAudioManager().playMusic("battle-theme").catch(() => {});
+    // Battle audio (tasks 521/563/577): the layered combat bed takes over the
+    // music bus and the distant battlefield rumble fills the ambient bus. The
+    // bed starts at its floor; `orders()` raises it with the push.
+    const audio = getAudioManager();
+    void audio.startCombatMusic().catch(() => {});
+    void audio.playAmbient(BATTLEFIELD_BED).catch(() => {});
+    audio.setCombatIntensity(COMBAT_BASE_INTENSITY);
   }
 
   /** Re-read the live battle state (server mode only; local is instant). */
@@ -342,6 +363,9 @@ export class BattleFlow {
     } else {
       this.#battle = this.#localTick(battle, orders);
     }
+    // The combat bed follows the push: holding keeps the drums, a full advance
+    // brings in every stem (task 563).
+    getAudioManager().setCombatIntensity(combatIntensityFor(orders.advance));
     if (this.#battle.status === "ended") this.#phase = "afteraction";
   }
 
@@ -364,9 +388,14 @@ export class BattleFlow {
     }
     this.#phase = "afteraction";
     this.#aftermath = this.#recordAftermath();
-    // Victory/defeat stinger, then back to ambient exploration music.
+    // The battle is over: silence the combat bed and the battlefield rumble
+    // before the victory/defeat stinger (tasks 521/563).
+    const audio = getAudioManager();
+    audio.stopCombatMusic();
+    audio.stopAmbient();
     const won = reason === "victory";
-    void getAudioManager().playSfx(won ? "victory-fanfare" : "defeat").catch(() => {});
+    void audio.playSfx(won ? "victory-fanfare" : "defeat").catch(() => {});
+    // Then back to ambient exploration music.
     setTimeout(() => {
       void getAudioManager().playMusic("ambient-exploration").catch(() => {});
     }, 3000);
