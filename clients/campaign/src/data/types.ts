@@ -470,6 +470,27 @@ export interface NpcParty {
   /** Movement target, null when stationary. */
   destination: { x: number; z: number } | null;
   speedKmPerDay: number;
+  /** Army this party belongs to, if any. */
+  armyId?: string;
+}
+
+/** A multi-party army. Parties move as a coordinated group under a leader. */
+export interface Army {
+  id: string;
+  name: string;
+  /** Character ID of the army leader. */
+  leaderId: string;
+  factionId: string;
+  /** Party IDs in the army (including the leader's party). */
+  partyIds: string[];
+  /** Current objective: town ID, party ID, or coordinates. */
+  objective: { kind: "town"; townId: string } | { kind: "party"; partyId: string } | { kind: "position"; x: number; z: number } | null;
+  /** Total troops across all member parties (denormalized). */
+  totalTroops: number;
+  /** Whether the army is currently engaged in a siege. */
+  besiegingTownId?: string;
+  /** Day the army was formed. */
+  formedDay: number;
 }
 
 export interface PartyState {
@@ -873,6 +894,8 @@ export interface SimSnapshot {
   characters: GameCharacter[];
   /** Player-owned workshops. */
   workshops: Workshop[];
+  /** Armies in the campaign. */
+  armies: Army[];
   ledger: Ledger;
   warnings: ResourceWarning[];
   notifications: Notification[];
@@ -1021,6 +1044,16 @@ export interface SimulationProvider {
   recruitPrisoners(troopId: string, count: number): Promise<void>;
   /** Ransom prisoners for gold. */
   ransomPrisoners(troopId: string, count: number): Promise<{ gold: number }>;
+  /** Create an army led by a character. Returns the army ID. */
+  createArmy(name: string, leaderId: string): Promise<{ armyId: string }>;
+  /** Add a party to an army. */
+  joinArmy(armyId: string, partyId: string): Promise<void>;
+  /** Remove a party from an army. */
+  leaveArmy(armyId: string, partyId: string): Promise<void>;
+  /** Disband an army. Parties become independent. */
+  disbandArmy(armyId: string): Promise<void>;
+  /** Set an army's objective. */
+  setArmyObjective(armyId: string, objective: Army["objective"]): Promise<void>;
   /** Restore the provider's internal state from a saved snapshot. */
   restoreSnapshot(snapshot: SimSnapshot): Promise<void>;
   /** NPC parties within rangeKm of the player party. */

@@ -63,6 +63,11 @@ const DECLARED_BUT_UNSERVED: Record<string, string> = {
   "/v1/dynasty/child": "the dynasty foundation landed client-side first; the server side is not written",
   "/v1/dynasty/characters/{}/kill": "the dynasty foundation landed client-side first; the server side is not written",
   "/v1/dynasty/clans/{}/heir": "the dynasty foundation landed client-side first; the server side is not written",
+  "/v1/armies": "armies are implemented in the client's fixture, with no server side yet",
+  "/v1/armies/{}/join": "armies are implemented in the client's fixture, with no server side yet",
+  "/v1/armies/{}/leave": "armies are implemented in the client's fixture, with no server side yet",
+  "/v1/armies/{}/disband": "armies are implemented in the client's fixture, with no server side yet",
+  "/v1/armies/{}/objective": "armies are implemented in the client's fixture, with no server side yet",
 };
 
 function read(url: URL): string {

@@ -59,6 +59,7 @@ import type {
   UpgradeTroopsResult,
   ConstructionResult,
   Workshop,
+  Army,
   TaxOrderResult,
   TimeScaleResult,
   WhyChain,
@@ -245,6 +246,11 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     sellWorkshop: async (workshopId) => state.sellWorkshop(workshopId),
     recruitPrisoners: async (troopId, count) => state.recruitPrisoners(troopId, count),
     ransomPrisoners: async (troopId, count) => state.ransomPrisoners(troopId, count),
+    createArmy: async (name, leaderId) => state.createArmy(name, leaderId),
+    joinArmy: async (armyId, partyId) => state.joinArmy(armyId, partyId),
+    leaveArmy: async (armyId, partyId) => state.leaveArmy(armyId, partyId),
+    disbandArmy: async (armyId) => state.disbandArmy(armyId),
+    setArmyObjective: async (armyId, objective) => state.setArmyObjective(armyId, objective),
     marry: async (charId1, charId2) => state.marry(charId1, charId2),
     haveChild: async (parentId1, parentId2, childName) => state.haveChild(parentId1, parentId2, childName),
     killCharacter: async (charId, cause) => state.killCharacter(charId, cause),
@@ -278,6 +284,7 @@ class FixtureState {
   #clans: Clan[] = [];
   #characters: GameCharacter[] = [];
   #workshops: Workshop[] = [];
+  #armies: Army[] = [];
   #rulers: RulerState[] = [];
   #warnings: ResourceWarning[] = [];
   #notifications: Notification[] = [];
@@ -426,7 +433,7 @@ class FixtureState {
       name: this.#player.characterName || "Player",
       age: 30,
       clanId: "clan-player",
-      factionId: "player-faction",
+      factionId: this.#player.factionId,
       alive: true,
       parentIds: [],
       childrenIds: [],
@@ -442,7 +449,7 @@ class FixtureState {
       tier: 1,
       renown: 0,
       wealth: 1000,
-      factionId: "player-faction",
+      factionId: this.#player.factionId,
       fiefIds: [],
       bannerColor: "#4a90d9",
     };
@@ -697,6 +704,7 @@ class FixtureState {
       clans: structuredClone(this.#clans),
       characters: structuredClone(this.#characters),
       workshops: structuredClone(this.#workshops),
+      armies: structuredClone(this.#armies),
       ledger: structuredClone(this.#ledger),
       warnings: structuredClone(this.#warnings),
       notifications: structuredClone(this.#notifications.slice(-40)),
@@ -1617,6 +1625,7 @@ class FixtureState {
     this.#clans = structuredClone(snapshot.clans ?? []);
     this.#characters = structuredClone(snapshot.characters ?? []);
     this.#workshops = structuredClone(snapshot.workshops ?? []);
+    this.#armies = structuredClone(snapshot.armies ?? []);
     this.#ledger = structuredClone(snapshot.ledger);
     // Reset transient state
     this.#notifications = [];
@@ -1981,7 +1990,7 @@ class FixtureState {
     const playerClan = this.#clans.find((c) => c.id === "clan-player");
     if (playerClan) {
       const maxParties = playerClan.tier; // Tier 1 = 1 party, Tier 2 = 2, etc.
-      const currentParties = this.#npcParties.filter((p) => p.factionId === "player-faction").length + 1; // +1 for player party
+      const currentParties = this.#npcParties.filter((p) => p.factionId === this.#player.factionId).length + 1; // +1 for player party
       if (currentParties >= maxParties) {
         throw new Error(`Clan tier ${playerClan.tier} allows ${maxParties} parties. Increase clan tier to field more.`);
       }
@@ -2264,6 +2273,172 @@ class FixtureState {
     });
     
     return { gold };
+  }
+
+  /**
+   * Create an army led by a character. The leader must be alive and belong to
+   * a clan. The army starts empty; parties join via joinArmy.
+   */
+  async createArmy(name: string, leaderId: string): Promise<{ armyId: string }> {
+    const leader = this.#characters.find((c) => c.id === leaderId);
+    if (!leader) throw new Error("Leader character not found.");
+    if (!leader.alive) throw new Error("Cannot lead an army while dead.");
+    if (!name.trim()) throw new Error("Army name is required.");
+
+    const army: Army = {
+      id: `army-${this.#sequence++}`,
+      name: name.trim(),
+      leaderId,
+      factionId: leader.factionId,
+      partyIds: [],
+      objective: null,
+      totalTroops: 0,
+      formedDay: this.#day,
+    };
+    this.#armies.push(army);
+
+    this.#notifications.push({
+      id: `n-army-create-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: `${leader.name} formed the army "${army.name}".`,
+      entityId: army.id,
+      field: "army",
+    });
+
+    return { armyId: army.id };
+  }
+
+  /**
+   * Add a party to an army. The party must belong to the same faction as the
+   * army (or be the player's party joining a player-faction army).
+   */
+  async joinArmy(armyId: string, partyId: string): Promise<void> {
+    const army = this.#armies.find((a) => a.id === armyId);
+    if (!army) throw new Error("Army not found.");
+
+    // Find the party (player party or NPC party)
+    let party: { id: string; factionId: string; troopCount: number; name: string } | null = null;
+    let isPlayerParty = false;
+    if (this.#party.id === partyId) {
+      party = { id: this.#party.id, factionId: this.#player.factionId, troopCount: this.#party.troops.reduce((s, t) => s + t.count, 0), name: "Player party" };
+      isPlayerParty = true;
+    } else {
+      const npc = this.#npcParties.find((p) => p.id === partyId);
+      if (npc) party = { id: npc.id, factionId: npc.factionId, troopCount: npc.troopCount, name: npc.name };
+    }
+    if (!party) throw new Error("Party not found.");
+    if (army.partyIds.includes(partyId)) throw new Error("Party is already in this army.");
+    if (party.factionId !== army.factionId) throw new Error("Party faction does not match army faction.");
+
+    // A party can only be in one army
+    for (const a of this.#armies) {
+      if (a.partyIds.includes(partyId)) throw new Error("Party is already in another army.");
+    }
+
+    army.partyIds.push(partyId);
+    army.totalTroops += party.troopCount;
+    if (!isPlayerParty) {
+      const npc = this.#npcParties.find((p) => p.id === partyId)!;
+      npc.armyId = armyId;
+    }
+
+    this.#notifications.push({
+      id: `n-army-join-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: `"${party.name}" joined the army "${army.name}".`,
+      entityId: army.id,
+      field: "army",
+    });
+  }
+
+  /**
+   * Remove a party from an army. If the leader's party leaves and no parties
+   * remain, the army disbands.
+   */
+  async leaveArmy(armyId: string, partyId: string): Promise<void> {
+    const army = this.#armies.find((a) => a.id === armyId);
+    if (!army) throw new Error("Army not found.");
+    const idx = army.partyIds.indexOf(partyId);
+    if (idx === -1) throw new Error("Party is not in this army.");
+
+    let troopCount = 0;
+    let partyName = partyId;
+    if (this.#party.id === partyId) {
+      troopCount = this.#party.troops.reduce((s, t) => s + t.count, 0);
+      partyName = "Player party";
+    } else {
+      const npc = this.#npcParties.find((p) => p.id === partyId);
+      if (npc) {
+        troopCount = npc.troopCount;
+        partyName = npc.name;
+        delete npc.armyId;
+      }
+    }
+
+    army.partyIds.splice(idx, 1);
+    army.totalTroops = Math.max(0, army.totalTroops - troopCount);
+
+    this.#notifications.push({
+      id: `n-army-leave-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: `"${partyName}" left the army "${army.name}".`,
+      entityId: army.id,
+      field: "army",
+    });
+
+    // Disband if empty
+    if (army.partyIds.length === 0) {
+      await this.disbandArmy(armyId);
+    }
+  }
+
+  /**
+   * Disband an army. Member parties become independent.
+   */
+  async disbandArmy(armyId: string): Promise<void> {
+    const idx = this.#armies.findIndex((a) => a.id === armyId);
+    if (idx === -1) throw new Error("Army not found.");
+    const army = this.#armies[idx]!;
+
+    for (const pid of army.partyIds) {
+      const npc = this.#npcParties.find((p) => p.id === pid);
+      if (npc) delete npc.armyId;
+    }
+    this.#armies.splice(idx, 1);
+
+    this.#notifications.push({
+      id: `n-army-disband-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: `The army "${army.name}" disbanded.`,
+      entityId: army.id,
+      field: "army",
+    });
+  }
+
+  /**
+   * Set an army's objective. Member parties move toward it as a group.
+   */
+  async setArmyObjective(armyId: string, objective: Army["objective"]): Promise<void> {
+    const army = this.#armies.find((a) => a.id === armyId);
+    if (!army) throw new Error("Army not found.");
+    army.objective = objective ? structuredClone(objective) : null;
+
+    const desc = !objective ? "no objective"
+      : objective.kind === "town" ? `town ${objective.townId}`
+      : objective.kind === "party" ? `party ${objective.partyId}`
+      : `position (${objective.x}, ${objective.z})`;
+    this.#notifications.push({
+      id: `n-army-obj-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: `The army "${army.name}" marches on ${desc}.`,
+      entityId: army.id,
+      field: "army",
+    });
   }
 
   /**

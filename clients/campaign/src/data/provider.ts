@@ -21,6 +21,7 @@
  */
 
 import type {
+  Army,
   BattleResult,
   BattleResultInput,
   BattleResultOutcome,
@@ -555,6 +556,50 @@ export class HttpSimulationProvider implements SimulationProvider {
       `/v1/prisoners/${encodeURIComponent(troopId)}/ransom`,
       { count },
       "The ransom did not land.",
+    );
+  }
+
+  async createArmy(name: string, leaderId: string): Promise<{ armyId: string }> {
+    return this.#post<{ armyId: string }>(
+      "/v1/armies",
+      { name, leaderId },
+      "The army was not formed.",
+    );
+  }
+
+  async joinArmy(armyId: string, partyId: string): Promise<void> {
+    await this.#post(
+      `/v1/armies/${encodeURIComponent(armyId)}/join`,
+      { partyId },
+      "The party did not join the army.",
+      () => null,
+    );
+  }
+
+  async leaveArmy(armyId: string, partyId: string): Promise<void> {
+    await this.#post(
+      `/v1/armies/${encodeURIComponent(armyId)}/leave`,
+      { partyId },
+      "The party did not leave the army.",
+      () => null,
+    );
+  }
+
+  async disbandArmy(armyId: string): Promise<void> {
+    await this.#post(
+      `/v1/armies/${encodeURIComponent(armyId)}/disband`,
+      {},
+      "The army was not disbanded.",
+      () => null,
+    );
+  }
+
+  async setArmyObjective(armyId: string, objective: Army["objective"]): Promise<void> {
+    await this.#post(
+      `/v1/armies/${encodeURIComponent(armyId)}/objective`,
+      { objective },
+      "The objective was not set.",
+      () => null,
     );
   }
 
