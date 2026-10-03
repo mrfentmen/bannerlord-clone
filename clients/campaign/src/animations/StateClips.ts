@@ -96,6 +96,9 @@ export const STATE_CLIPS: Readonly<Partial<Record<ActionState, StateClip>>> = {
   // Task 677: the generic interact. Loops, because the player holds the button
   // and the action's length is a gameplay decision, not an animation's.
   interact: { clip: 'interact', blendS: 0.15, loop: true, lowerBody: 'idle' },
+  // Task 678: healing. It loops, because a field dressing takes as long as it
+  // takes and the player should see progress rather than a frozen frame.
+  heal: { clip: 'heal', blendS: 0.25, loop: true, lowerBody: 'idle' },
 };
 
 /** Why a state cannot play. */

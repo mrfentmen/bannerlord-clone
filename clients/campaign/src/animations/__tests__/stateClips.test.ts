@@ -290,3 +290,31 @@ describe("generic interact (task 677)", () => {
     expect(Object.keys(STATE_CLIPS)).not.toContain('walk');
   });
 });
+
+describe("heal, kneeling (task 678)", () => {
+  it("is registered as a looping kneel", () => {
+    expect(STATE_CLIPS.heal?.clip).toBe('heal');
+    expect(STATE_CLIPS.heal?.loop).toBe(true);
+    // Slowest entry of any registered state: a medic going down to work is a
+    // commitment the player can read, not a twitch.
+    const blends = Object.values(STATE_CLIPS).map((e) => e?.blendS ?? 0);
+    expect(STATE_CLIPS.heal?.blendS ?? 0).toBe(Math.max(...blends));
+  });
+
+  it("resolves on the operator rigs and not on the medic rig", () => {
+    for (const rig of ['operator-viper.glb', 'operator-heron.glb', 'operator-lynx.glb']) {
+      expect(resolveStateClip('heal', clipsOf(rig)).available, rig).toBe(true);
+    }
+    // The medic rig has revive_kneel and revived but no `heal` clip: it is
+    // pinned rather than healing on the spot.
+    expect(resolveStateClip('heal', clipsOf('female-operator.glb')).gap).toBe('clip-not-in-model');
+  });
+
+  it("is a state of its own, not a rename of another", () => {
+    // A heal and a revive share a kneeling pose but not a purpose, and a scene
+    // has to be able to tell them apart.
+    const clips = Object.values(STATE_CLIPS).map((e) => e?.clip);
+    expect(new Set(clips).size).toBe(clips.length);
+    expect(STATE_CLIPS.heal?.clip).not.toBe('revive_kneel');
+  });
+});
