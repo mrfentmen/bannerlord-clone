@@ -51,6 +51,7 @@ import type { TreatyTerm } from "../../diplomacy/treaties.js";
 import { relationBand } from "../../diplomacy/notables.js";
 import { allianceAcceptOdds, negotiateRound } from "../../diplomacy/negotiation.js";
 import type { AllianceOffer } from "../../diplomacy/types.js";
+import { sendGift, type GiftResult } from "../../diplomacy/statecraft.js";
 import { markHintShown, shouldShowHint } from "../../onboarding/hintCooldown.js";
 import "./diplomacyPanel.css";
 
@@ -243,6 +244,10 @@ function buildDiplomacyPanel(options: DiplomacyPanelOptions, notice: string | nu
   // -- alliance (tasks 210 and 211) -------------------------------------------
   const alliance = allianceBlock(options);
   if (alliance) body.appendChild(alliance);
+
+  // -- gifts (tasks 216 and 217) ----------------------------------------------
+  const gifts = giftBlock(options, rerender);
+  if (gifts) body.appendChild(gifts);
 
   // -- tribute (task 214) -----------------------------------------------------
   // `suggestTribute` reads the power differential and says who should pay and how
@@ -797,4 +802,105 @@ function allianceBlock(options: DiplomacyPanelOptions): HTMLElement | null {
 /** An accept probability as a whole percentage. */
 function percent(odds: number): string {
   return `${Math.round(odds * 100)}%`;
+}
+
+/**
+ * Sending a gift. Tasks 216 and 217.
+ *
+ * The gain is `sendGift` from `src/diplomacy/statecraft.ts`, which scales the gift
+ * against the recipient's wealth and takes diminishing returns on how much they
+ * already like you. The panel supplies those inputs and prints what came back; it
+ * does not price a gift itself.
+ *
+ * Unlike the alliance and tribute sections, this one *does* change something, and
+ * deliberately so: it records the gain through `adjustRelation` with the reason
+ * spelled out — "gift: $400" — which is the same path the border-incident answers in
+ * this panel already take, and the same requirement `adjustRelation` enforces that a
+ * relation change must carry a cause. The relation change feed below therefore shows
+ * a gift as a logged event with a reason, like every other change, rather than a
+ * number that moved for no stated cause.
+ *
+ * The standing passed to the calculator is the -100..100 value `relationWith` returns
+ * unchanged. The module's "room" is 100 minus that figure, so a faction that dislikes
+ * you simply has more headroom for a gift to move — which is the behaviour the module
+ * describes, rather than one this panel would have to invent a mapping for.
+ */
+function giftBlock(
+  options: DiplomacyPanelOptions,
+  /** Rebuild the panel carrying a notice — the same path the incident answers take. */
+  onSent: (notice: string) => void,
+): HTMLElement | null {
+  if (options.factions === undefined) return null;
+  const wrap = h("section", { "data-testid": "diplomacy-gifts" });
+  wrap.appendChild(sectionHeader("Gifts"));
+
+  if (options.factions.length === 0) {
+    wrap.appendChild(
+      emptyState("Nobody to send a gift to", "A faction has to be known before it can be courted."),
+    );
+    return wrap;
+  }
+
+  const target = h(
+    "select",
+    { "aria-label": "Gift recipient", "data-testid": "gift-faction" },
+    ...options.factions.map((f) => h("option", { value: f.id }, f.name)),
+  ) as HTMLSelectElement;
+
+  const value = numberField("gift-value", "Value of the gift", 100, { min: 1 });
+  const wealth = numberField("gift-wealth", "Their wealth", 1000, { min: 0 });
+  const outcome = h("p", {
+    class: "caption",
+    "data-testid": "gift-outcome",
+    role: "status",
+  }, "Nothing sent yet. A gift is recorded in the relation feed below with its value as the reason.");
+
+  wrap.appendChild(h("div", { class: "form-row" }, target, value.field, wealth.field));
+  wrap.appendChild(
+    button("Send the gift", () => {
+      const amount = Number(value.input.value);
+      const theirWealth = Number(wealth.input.value);
+      const factionId = target.value;
+      const factionName = options.factions!.find((f) => f.id === factionId)?.name ?? factionId;
+      if (!Number.isFinite(amount) || amount <= 0) {
+        outcome.textContent = "A gift has to be worth something.";
+        return;
+      }
+      if (!Number.isFinite(theirWealth) || theirWealth < 0) {
+        outcome.textContent = "Wealth cannot be negative.";
+        return;
+      }
+      let result: GiftResult;
+      try {
+        result = sendGift(amount, factionName, theirWealth, relationWith(factionId));
+      } catch (e) {
+        outcome.textContent = e instanceof Error ? e.message : "The gift did not go through.";
+        return;
+      }
+      // Logged with its cause, like every other relation change in this panel.
+      const logged = adjustRelation(
+        factionId,
+        factionName,
+        result.relationGain,
+        `gift: $${Math.round(amount).toLocaleString("en-US")}`,
+        options.currentSeason,
+      );
+      // The panel is rebuilt so the relation feed below actually shows the change.
+      // Reporting a logged event into a table that still reads "No changes recorded"
+      // is the panel claiming something the screen does not say.
+      onSent(
+        `Sent $${Math.round(amount).toLocaleString("en-US")} to ${factionName}. Standing moved ` +
+          `${logged.delta >= 0 ? "+" : ""}${Math.round(logged.delta)} to ${signedRelation(logged.newValue)}.`,
+      );
+    }, { testId: "gift-send" }),
+  );
+  wrap.appendChild(outcome);
+  wrap.appendChild(
+    h(
+      "p",
+      { class: "annotation", style: "font-size:var(--type-caption-size)" },
+      "A gift buys standing, not a treaty. It is logged in the relation feed below with its value as the reason.",
+    ),
+  );
+  return wrap;
 }
