@@ -17,6 +17,12 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_ARM,
+  DEFAULT_HEAD_TURN_RATE,
+  EYE_HEIGHT,
+  HEAD_PIVOT,
+  HeadLookTracker,
+  MAX_HEAD_PITCH,
+  MAX_HEAD_YAW,
   DEFAULT_FOOT_GAIT,
   FIRE_GRIP,
   FLAT_GROUND,
@@ -27,6 +33,7 @@ import {
   footTargetsForGait,
   gripPointFor,
   groundHeightAt,
+  headLookAt,
   kneeBendAxis,
   legDirection,
   length,
@@ -421,5 +428,114 @@ describe("hand to weapon grip (task 640)", () => {
     const grip = gripPointFor(AK74, FIRE_GRIP);
     expect(gripPointFor(AK74, FIRE_GRIP)).toEqual(grip);
     expect(solveHandToGrip(SHOULDER, grip)).toEqual(solveHandToGrip(SHOULDER, grip));
+  });
+});
+
+describe("head look at (task 641)", () => {
+  const HEAD = vec(0, 1.55, 0);
+  const FORWARD = vec(0, 0, 1);
+
+  it("uses the staged character's neck and eye heights", () => {
+    expect(HEAD_PIVOT.y).toBeCloseTo(1.55);
+    expect(EYE_HEIGHT).toBeGreaterThan(0);
+    expect(HEAD_PIVOT.y + EYE_HEIGHT).toBeLessThan(1.8);
+    expect(DEFAULT_HEAD_TURN_RATE).toBeGreaterThan(0);
+  });
+
+  it("looks straight ahead at something in front of it", () => {
+    const look = headLookAt(HEAD, vec(0, 1.55, 5), FORWARD);
+    expect(look.yaw).toBeCloseTo(0, 5);
+    expect(look.pitch).toBeCloseTo(0, 5);
+    expect(look.clamped).toBe(false);
+    expect(look.distanceM).toBeCloseTo(5);
+  });
+
+  it("turns towards a target to its side, within the cone", () => {
+    const look = headLookAt(HEAD, vec(2, 1.55, 2), FORWARD);
+    expect(Math.abs(look.yaw)).toBeGreaterThan(0.5);
+    expect(Math.abs(look.yaw)).toBeLessThanOrEqual(MAX_HEAD_YAW);
+    expect(look.clamped).toBe(false);
+  });
+
+  it("clamps a target behind it instead of snapping the neck round", () => {
+    const behind = headLookAt(HEAD, vec(0, 1.55, -5), FORWARD);
+    expect(Math.abs(behind.yaw)).toBeLessThanOrEqual(MAX_HEAD_YAW + 1e-9);
+    expect(behind.clamped).toBe(true);
+  });
+
+  it("tips up and down inside a smaller vertical cone", () => {
+    const up = headLookAt(HEAD, vec(0, 1.55 + 20, 5), FORWARD);
+    const down = headLookAt(HEAD, vec(0, 1.55 - 20, 5), FORWARD);
+    expect(up.pitch).toBeCloseTo(MAX_HEAD_PITCH);
+    expect(down.pitch).toBeCloseTo(-MAX_HEAD_PITCH);
+    expect(up.clamped).toBe(true);
+    // A head can turn further than it can tip: that asymmetry is the point.
+    expect(MAX_HEAD_PITCH).toBeLessThan(MAX_HEAD_YAW);
+  });
+
+  it("honours a tighter cone when the caller gives one", () => {
+    const tight = headLookAt(HEAD, vec(2, 1.55, 2), FORWARD, 0.3, 0.1);
+    expect(Math.abs(tight.yaw)).toBeLessThanOrEqual(0.3 + 1e-9);
+    expect(tight.clamped).toBe(true);
+  });
+
+  it("reports nothing to look at when the target is the head", () => {
+    const look = headLookAt(HEAD, HEAD, FORWARD);
+    expect(look.distanceM).toBe(0);
+    expect(look.yaw).toBe(0);
+    expect(look.pitch).toBe(0);
+  });
+
+  it("survives a target that cannot be placed", () => {
+    const look = headLookAt(HEAD, vec(Number.NaN, 1.5, 5), FORWARD);
+    expect(Number.isNaN(look.yaw)).toBe(false);
+    expect(Number.isNaN(look.pitch)).toBe(false);
+  });
+});
+
+describe("HeadLookTracker (task 641)", () => {
+  const HEAD = vec(0, 1.55, 0);
+  const FORWARD = vec(0, 0, 1);
+
+  it("turns at a fixed rate rather than snapping", () => {
+    const tracker = new HeadLookTracker(2.2);
+    // Facing +Z, a target at +X is to the character's right, so the yaw is
+    // negative: positive is left.
+    const target = vec(5, 1.55, 0.5);
+    const first = tracker.step(HEAD, target, FORWARD, 1 / 60);
+    expect(first.turning).toBe(true);
+    expect(Math.abs(first.yaw)).toBeLessThanOrEqual(2.2 / 60 + 1e-9);
+    expect(Math.abs(first.yaw)).toBeGreaterThan(0);
+
+    // A long frame moves it further, and it never exceeds the cone.
+    for (let i = 0; i < 120; i++) tracker.step(HEAD, target, FORWARD, 1 / 60);
+    expect(tracker.state.yaw).toBeCloseTo(-MAX_HEAD_YAW);
+    expect(tracker.state.turning).toBe(false);
+  });
+
+  it("returns to facing forward when the target goes away", () => {
+    const tracker = new HeadLookTracker(4);
+    for (let i = 0; i < 30; i++) tracker.step(HEAD, vec(5, 1.55, 0), FORWARD, 1 / 60);
+    expect(Math.abs(tracker.state.yaw)).toBeGreaterThan(0);
+
+    for (let i = 0; i < 30; i++) tracker.step(HEAD, null, FORWARD, 1 / 60);
+    expect(tracker.state.yaw).toBeCloseTo(0);
+  });
+
+  it("snaps on demand for a cutscene", () => {
+    const tracker = new HeadLookTracker(0.5);
+    const snapped = tracker.snap(HEAD, vec(5, 1.55, 0), FORWARD);
+    expect(snapped.turning).toBe(true);
+    expect(Math.abs(snapped.yaw)).toBeCloseTo(MAX_HEAD_YAW);
+    expect(tracker.state.yaw).toBeCloseTo(-MAX_HEAD_YAW);
+  });
+
+  it("ignores a broken frame time and a broken rate", () => {
+    const tracker = new HeadLookTracker(Number.NaN);
+    const still = tracker.step(HEAD, vec(5, 1.55, 0), FORWARD, Number.NaN);
+    expect(still.yaw).toBe(0);
+    expect(still.turning).toBe(false);
+    const negative = tracker.step(HEAD, vec(5, 1.55, 0), FORWARD, -1);
+    expect(negative.yaw).toBe(0);
   });
 });

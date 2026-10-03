@@ -71,6 +71,21 @@ export function normalize(v: Vec3): Vec3 {
 
 const ZERO: Vec3 = { x: 0, y: 0, z: 0 };
 
+/**
+ * The horizontal direction 90 degrees from `v`, for yaw maths.
+ *
+ * {@link perpendicular} may hand back a vertical vector, which is right for a
+ * bend axis and wrong for a heading: a head that turns to look at something beside
+ * it would compute no turn at all. This one is flat on the ground, and falls back
+ * to +Z when the direction it is given is vertical.
+ */
+export function horizontalPerpendicular(v: Vec3): Vec3 {
+  const flat = normalize(vec(v.x, 0, v.z));
+  if (length(flat) <= 0) return { x: 0, y: 0, z: 1 };
+  // Cross with +Y: for a flat direction that gives the left-hand side.
+  return normalize(vec(-flat.z, 0, flat.x));
+}
+
 /** A unit vector pointing along +X, used when a direction cannot be resolved. */
 const FALLBACK_AXIS: Vec3 = { x: 1, y: 0, z: 0 };
 
@@ -515,4 +530,170 @@ export function solveHandToGrip(
     clamped: solution.clamped,
     elbow,
   };
+}
+
+/**
+ * Task 641: the head looks at something.
+ *
+ * A character with no facial rig can still turn its head, and a head that turns
+ * freely is worse than one that does not move at all: it snaps to a target
+ * behind the character and the neck visibly bends the wrong way. So the look is
+ * clamped twice -- horizontally to a cone the neck can reach, and vertically to a
+ * smaller one, because a head can turn further left than it can tip up.
+ *
+ * The angle is also rate-limited per frame in {@link HeadLookTracker}. An
+ * instant snap reads as a glitch; a head that turns at a fixed rate reads as
+ * attention moving.
+ */
+
+/** How far the head may turn to either side, radians. */
+export const MAX_HEAD_YAW = 0.9;
+
+/** How far the head may tip up or down, radians. Slightly less than the yaw. */
+export const MAX_HEAD_PITCH = 0.45;
+
+/** Eye position on a 1.8 m character, and the head's pivot at the neck. */
+export const HEAD_PIVOT = vec(0, 1.55, 0);
+
+/** Default eye offset above the neck. */
+export const EYE_HEIGHT = 0.1;
+
+/** The look a head should adopt. */
+export interface HeadLook {
+  /** Radians, positive turning to the character's left. */
+  yaw: number;
+  /** Radians, positive looking up. */
+  pitch: number;
+  /** True when the target was outside the cone and the angle was clipped. */
+  clamped: boolean;
+  /** Distance to what it is looking at, metres. */
+  distanceM: number;
+}
+
+/**
+ * Where the head should look to see `target`, given where the body faces.
+ *
+ * `facing` is the direction the character's body points. The result is the
+ * *additional* rotation the head needs, so a scene can add it to whatever the
+ * body animation already applied rather than replacing it.
+ */
+export function headLookAt(
+  head: Vec3,
+  target: Vec3,
+  facing: Vec3,
+  maxYaw = MAX_HEAD_YAW,
+  maxPitch = MAX_HEAD_PITCH,
+): HeadLook {
+  const toTarget = sub(target, head);
+  const distanceM = length(toTarget);
+  const bodyDir = length(facing) > 0 ? normalize(facing) : { x: 0, y: 0, z: 1 };
+  if (distanceM <= 0 || !Number.isFinite(distanceM)) {
+    return { yaw: 0, pitch: 0, clamped: false, distanceM: 0 };
+  }
+  const aim = normalize(toTarget);
+
+  // The body's own heading, flattened: a character facing slightly downhill still
+  // has a heading, and taking the yaw against the flattened one keeps the head
+  // level while the body leans.
+  // The flattened body heading, falling back to +Z for a character that is
+  // looking straight up or down and therefore has no heading at all.
+  const flat = normalize(vec(bodyDir.x, 0, bodyDir.z));
+  const heading = length(flat) > 0 ? flat : vec(0, 0, 1);
+  const left = horizontalPerpendicular(heading);
+  const forwardComponent = dot(aim, heading);
+  const leftComponent = dot(aim, left);
+  const yaw = Math.atan2(leftComponent, forwardComponent);
+  // Pitch: how far the aim is above or below that heading's horizon.
+  const horizontal = Math.sqrt(forwardComponent * forwardComponent + leftComponent * leftComponent);
+  const pitch = Math.atan2(aim.y, horizontal);
+
+  const limitYaw = Math.abs(maxYaw) > 0 ? maxYaw : MAX_HEAD_YAW;
+  const limitPitch = Math.abs(maxPitch) > 0 ? maxPitch : MAX_HEAD_PITCH;
+  const yawClamped = Math.max(-limitYaw, Math.min(limitYaw, yaw));
+  const pitchClamped = Math.max(-limitPitch, Math.min(limitPitch, pitch));
+  return {
+    yaw: yawClamped,
+    pitch: pitchClamped,
+    clamped: yawClamped !== yaw || pitchClamped !== pitch,
+    distanceM,
+  };
+}
+
+/** How fast a head may turn, radians per second. */
+export const DEFAULT_HEAD_TURN_RATE = 2.2;
+
+/** Head look with the turn rate applied over time. */
+export interface HeadLookState {
+  yaw: number;
+  pitch: number;
+  /** True while the head is still turning towards where it wants to look. */
+  turning: boolean;
+}
+
+/**
+ * Task 641: the head's current look, rate-limited towards a target.
+ *
+ * `step` moves the head at most `rate` radians per second towards the clamped
+ * target. That is what turns a snap into attention moving, and it is why a
+ * character that is tracking a fast target lags behind it slightly.
+ */
+export class HeadLookTracker {
+  private yaw = 0;
+  private pitch = 0;
+
+  constructor(
+    private readonly rate = DEFAULT_HEAD_TURN_RATE,
+    private readonly maxYaw = MAX_HEAD_YAW,
+    private readonly maxPitch = MAX_HEAD_PITCH,
+  ) {}
+
+  /** The head's current angles. */
+  get state(): HeadLookState {
+    return { yaw: this.yaw, pitch: this.pitch, turning: false };
+  }
+
+  /**
+   * Moves the head towards `target` and returns where it ended up. A `null`
+   * target means "look forward again", which is the idle case.
+   */
+  step(head: Vec3, target: Vec3 | null, facing: Vec3, deltaS: number): HeadLookState {
+    const wanted: HeadLook =
+      target === null
+        ? { yaw: 0, pitch: 0, clamped: false, distanceM: 0 }
+        : headLookAt(head, target, facing, this.maxYaw, this.maxPitch);
+    const step = Number.isFinite(deltaS) ? Math.max(0, deltaS) : 0;
+    const limit = (Number.isFinite(this.rate) && this.rate > 0 ? this.rate : DEFAULT_HEAD_TURN_RATE) * step;
+    const before = { yaw: this.yaw, pitch: this.pitch };
+    this.yaw = moveTowards(this.yaw, wanted.yaw, limit);
+    this.pitch = moveTowards(this.pitch, wanted.pitch, limit);
+    return {
+      yaw: this.yaw,
+      pitch: this.pitch,
+      turning: this.yaw !== before.yaw || this.pitch !== before.pitch,
+    };
+  }
+
+  /** Snaps the head to a look, for a cutscene or a respawn. */
+  snap(head: Vec3, target: Vec3 | null, facing: Vec3): HeadLookState {
+    const wanted: HeadLook =
+      target === null
+        ? { yaw: 0, pitch: 0, clamped: false, distanceM: 0 }
+        : headLookAt(head, target, facing, this.maxYaw, this.maxPitch);
+    this.yaw = wanted.yaw;
+    this.pitch = wanted.pitch;
+    return { yaw: this.yaw, pitch: this.pitch, turning: true };
+  }
+}
+
+/**
+ * Moves `from` towards `to` by at most `limit`.
+ *
+ * A limit of zero means no time passed, so nothing moves -- snapping to the
+ * target would turn a dropped frame into a head snap.
+ */
+function moveTowards(from: number, to: number, limit: number): number {
+  if (limit <= 0 || !Number.isFinite(limit)) return from;
+  const delta = to - from;
+  if (Math.abs(delta) <= limit) return to;
+  return from + Math.sign(delta) * limit;
 }
