@@ -30,6 +30,7 @@ import { BUILD_HASH } from "./buildHash.js";
 import { getAudioManager } from "./audio/AudioManager.js";
 import { applyAudioSettings } from "./audio/applySettings.js";
 import { installUiSounds, playVerdictSound } from "./audio/uiSounds.js";
+import { playNoticeCue } from "./audio/noticePop.js";
 
 // Task 25/26: the error boundary, console tail, and bug reporter are imported
 // here but installed after the canvas handles exist (see below).
@@ -956,6 +957,8 @@ function mountCampaign(): void {
       if (!snapshot) return;
       previous = snapshot;
       snapshot = applyTick(snapshot, update);
+      // Tasks 545/546: a notice that just landed pops; a critical one alerts.
+      playNoticeCue(previous.notifications, snapshot.notifications);
       if (currentPanel === "town" || currentPanel === "party" || currentPanel === "ledger") {
         rebuildContext();
       }
