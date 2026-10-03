@@ -458,6 +458,7 @@ func (c *Campaign) NearbyParties(ctx context.Context, rangeKm float64) (any, err
 				TroopCount: p.Troops,
 				Hostile:    true, // TODO: determine from faction relations
 				DistanceKm: dist,
+				Position:   wire.Point{X: round2(p.X), Z: round2(p.Y)},
 			})
 		}
 	}

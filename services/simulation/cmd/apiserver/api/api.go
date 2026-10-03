@@ -86,6 +86,8 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/encounters", s.listEncounters)
 	s.mux.HandleFunc("GET /v1/encounters/{id}", s.getEncounter)
 	s.mux.HandleFunc("POST /v1/encounters/{id}/resolve", s.postEncounterResolve)
+	s.mux.HandleFunc("POST /v1/encounters/flee", s.postEncounterFlee)
+	s.mux.HandleFunc("POST /v1/encounters/defeat", s.postEncounterDefeat)
 	s.mux.HandleFunc("POST /v1/battles", s.postBattle)
 	s.mux.HandleFunc("GET /v1/battles/{id}", s.getBattle)
 	s.mux.HandleFunc("POST /v1/battles/{id}/orders", s.postBattleOrders)

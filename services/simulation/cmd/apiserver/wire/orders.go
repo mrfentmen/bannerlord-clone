@@ -291,10 +291,23 @@ type PrisonerState struct {
 }
 
 // NearbyParty is an NPC party within encounter range.
+//
+// The client's NpcParty interface has position as a required field, and the
+// encounter flow reads it: it draws the force on the map and works out which
+// way to run. A route that left position off would have the client computing a
+// direction out of undefined, which is a NaN carried into the flee order rather
+// than an error the player could see. So it is here, and always.
+//
+// Destination and SpeedKmPerDay are declared as null/absent rather than zero,
+// because a stationary party and a party whose route has not been worked out are
+// different facts and the client's type says so.
 type NearbyParty struct {
 	ID         string  `json:"id"`
 	Name       string  `json:"name"`
 	TroopCount float64 `json:"troopCount"`
 	Hostile    bool    `json:"hostile"`
 	DistanceKm float64 `json:"distanceKm"`
+	// Position is where the party is now, in the same map units as the
+	// player's own position.
+	Position Point `json:"position"`
 }

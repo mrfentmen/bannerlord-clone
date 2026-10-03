@@ -54,6 +54,59 @@ type ResolveRequest struct {
 	// encounter's forces. Reserved for future resolve options.
 }
 
+// -- leaving an encounter --------------------------------------------------
+
+// FleeRequest breaks off an encounter without fighting it.
+//
+// The client used to send the position it wanted to escape to. It still does,
+// and that field is deliberately ignored: where a party ends up after running
+// away is a consequence of the world, and a client that may name its own
+// position may put itself anywhere on the map. The simulation works the retreat
+// out from the two parties' real positions instead.
+type FleeRequest struct {
+	// NpcPartyID names the force being fled from, as a party id or a name
+	// slug, matching every other party reference on the wire.
+	NpcPartyID string `json:"npcPartyId"`
+	// NewPosition is the client's guess at an escape point. Accepted for
+	// compatibility and not read. See the type comment.
+	NewPosition *Point `json:"newPosition,omitempty"`
+}
+
+// PlayerDefeatRequest records the consequences of losing an encounter.
+//
+// LootTaken and PrisonersTaken are what the client's battle view asked for.
+// They are ceilings, not decisions: the campaign takes what the player
+// actually has, up to these figures, because the number a client asks for is
+// not a number the world can honour.
+type PlayerDefeatRequest struct {
+	// NpcPartyID is the victorious force.
+	NpcPartyID string `json:"npcPartyId"`
+	// LootTaken is the most the winner may take, in the campaign's currency.
+	LootTaken int `json:"lootTaken"`
+	// PrisonersTaken is the most the winner may take prisoner.
+	PrisonersTaken int `json:"prisonersTaken"`
+}
+
+// EncounterOutcomeResult is what leaving an encounter by flight or defeat
+// actually cost. Every figure is measured after the tick committed, so the
+// numbers here are the world's, not a prediction of them.
+type EncounterOutcomeResult struct {
+	// Outcome is "fled" or "defeated".
+	Outcome string `json:"outcome"`
+	// EnemyName is the force left behind, for the notification.
+	EnemyName string `json:"enemyName"`
+	// LootTaken is money the winner took from the player. Zero when fleeing.
+	LootTaken int `json:"lootTaken"`
+	// PrisonersTaken is how many of the player's soldiers were captured.
+	PrisonersTaken int `json:"prisonersTaken"`
+	// PlayerMorale is the party's morale after the outcome.
+	PlayerMorale float64 `json:"playerMorale"`
+	// EncounterIDs are the pending encounters this outcome closed. A party
+	// that runs or loses is no longer meeting that force, so leaving them
+	// pending would have the encounter poller raise the same fight again.
+	EncounterIDs []string `json:"encounterIds"`
+}
+
 // -- battles ---------------------------------------------------------------
 
 // BattleRequest escalates an encounter into a real-time battle session.
