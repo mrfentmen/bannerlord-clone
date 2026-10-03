@@ -447,6 +447,9 @@ func (l *loader) load(c *Config) {
 
 	// --- ruler ai ---
 	c.RulerAI.AttackWeight = l.f64("ruler_ai.attack_weight")
+	c.RulerAI.WarDutyBonus = l.f64("ruler_ai.war_duty_bonus")
+	c.RulerAI.PartyFundDays = l.f64("ruler_ai.party_fund_days")
+	c.RulerAI.MaxTownFundShare = l.f64("ruler_ai.max_town_fund_share")
 	c.RulerAI.TargetWeaknessWeight = l.f64("ruler_ai.target_weakness_weight")
 	c.RulerAI.DefendWeight = l.f64("ruler_ai.defend_weight")
 	c.RulerAI.RaidWeight = l.f64("ruler_ai.raid_weight")
@@ -597,6 +600,20 @@ func (l *loader) load(c *Config) {
 	c.Campaign.MedicineUnitPrice = l.f64("campaign.medicine_unit_price")
 	c.Campaign.FortifyMetalPerLevel = l.f64("campaign.fortify_metal_per_level")
 	c.Campaign.FortifyMoraleBonus = l.f64("campaign.fortify_morale_bonus")
+
+	// --- events ---
+	// The campaign event framework's magnitudes. Data, not script: the
+	// framework fires from state and never decides that something happens.
+	c.Events.WarDeclareRelationHit = l.f64("events.war_declare_relation_hit")
+	c.Events.CaptureRelationHit = l.f64("events.capture_relation_hit")
+	c.Events.CaptureRenown = l.f64("events.capture_renown")
+	c.Events.RulerDeathStabilityHit = l.f64("events.ruler_death_stability_hit")
+	c.Events.RebellionUnrest = l.f64("events.rebellion_unrest")
+	c.Events.RebellionLoyalty = l.f64("events.rebellion_loyalty")
+	c.Events.RebellionDays = l.f64("events.rebellion_days")
+	c.Events.RebellionMilitiaShare = l.f64("events.rebellion_militia_share")
+	c.Events.RebellionMinTroops = l.f64("events.rebellion_min_troops")
+	c.Events.RebellionCooldownDays = l.f64("events.rebellion_cooldown_days")
 
 	// --- battle ---
 	// Battle size is a knob. MaxUnitsPerSide is a validation limit the battle

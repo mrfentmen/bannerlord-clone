@@ -43,6 +43,10 @@ func run(v *sim.View, w *sim.WriteSet) {
 		// because something more attractive came up, which no one in history
 		// has managed.
 		if p := v.State.Parties[r.PartyID]; p != nil && p.Troops > 0 {
+			// The holding pays its troops every day, not on the decision
+			// stagger: wages come due daily, and a gap in funding is what
+			// breaks morale. This runs even for a committed (marching) party.
+			fundParty(v, w, p)
 			switch p.Activity {
 			case model.ActMarching, model.ActSieging, model.ActRaiding, model.ActResupplying:
 				continue
@@ -94,6 +98,50 @@ func run(v *sim.View, w *sim.WriteSet) {
 		// scripted, it is arithmetic.
 		setTax(v, w, r)
 	}
+}
+
+// fundParty is the holding paying its troops. It is a ruler's decision in the
+// same sense as the tax policy below: the lord is responsible for their
+// retinue's wages, and the money comes from the holding that supports them.
+// Without this, a party's purse only ever drains (wages, march costs), so
+// every army in the world inevitably goes broke, morale collapses, and the
+// supply check in decide() permanently disqualifies the army from acting.
+// The transfer is deterministic and uses only existing town and party money.
+func fundParty(v *sim.View, w *sim.WriteSet, p *model.Party) {
+	c := v.Cfg
+	if p.IsCaravan || p.IsRaider {
+		return
+	}
+	if p.HomeTown < 0 {
+		return
+	}
+	t := v.State.Towns[p.HomeTown]
+	if t == nil || t.Money <= 0 {
+		return
+	}
+	payroll := p.Troops * c.Currency.WagesPerTroop
+	if p.IsMercenary {
+		payroll = p.Troops * c.Currency.MercenaryWage / c.Currency.MercenaryTroopScale
+	}
+	if payroll <= 0 {
+		return
+	}
+	target := payroll * c.RulerAI.PartyFundDays
+	if p.Money >= target {
+		return
+	}
+	need := target - p.Money
+	give := need
+	if cap := t.Money * c.RulerAI.MaxTownFundShare; give > cap {
+		give = cap
+	}
+	if give <= 0 {
+		return
+	}
+	w.Add(model.KindParty, p.ID, "party_money", give,
+		shared.PairF("payroll", payroll), nil, "holding pays its troops")
+	w.Add(model.KindTown, t.ID, "money", -give,
+		shared.PairF("to_party", float64(p.ID)), nil, "paid the garrison")
 }
 
 // decide scores every option and returns the best. The jitter is bounded so it
@@ -193,6 +241,15 @@ func decide(v *sim.View, r *model.Ruler) (model.Intention, model.Reason, float64
 		attackScore *= armyUsable
 		// And it is not worth leaving home undefended.
 		attackScore *= 1 - c.RulerAI.AttackBlockedByHomeThreat*homeThreat
+		// A side at war expects its rulers to fight it. bestTarget only
+		// returns towns of sides this ruler is at war with, so reaching here
+		// means there is a war to prosecute. The duty is additive, not
+		// multiplicative: it motivates marching even at a strong target,
+		// which is what turns a declared war into armies in the field rather
+		// than a flag waiting for exhaustion to end it. (worldai lane,
+		// 2026-10-03: before this term, no ruler in a full simulated year
+		// ever chose any intention but waiting.)
+		attackScore += c.RulerAI.WarDutyBonus * armyUsable
 	}
 
 	// --- option: raid ---

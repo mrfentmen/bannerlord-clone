@@ -425,9 +425,35 @@ func generateParties(cfg *config.Config, r *rng.Rng, st *model.State) {
 			continue
 		}
 		var x, y float64
+		homeTown := ru.TownID
 		if ru.TownID >= 0 {
 			if t := st.Towns[ru.TownID]; t != nil {
 				x, y = t.X, t.Y
+			}
+		} else {
+			// NOTE (worldai lane, 2026-10-03): a landless ruler used to get a
+			// party spawned at the map origin (0,0) with HomeTown -1. Such a
+			// party can never resupply, so it starves where it stands, its
+			// morale collapses, and the ruler AI's supply check permanently
+			// disqualifies it from acting: 97 of ~280 parties in the test
+			// world were dead in this way, which is why no ruler ever chose
+			// any intention in a full simulated year. A landless ruler's
+			// company bases itself at a town of its side instead, which is
+			// what a retainer or mercenary company would actually do. If the
+			// side holds no towns at all there is nowhere to base, and the
+			// ruler fields no party. Smallest possible fix; landed rulers are
+			// untouched.
+			based := false
+			for _, tid := range st.TownIDs() {
+				if t := st.Towns[tid]; t != nil && t.HolderSide == ru.SideID && ru.SideID >= 0 {
+					x, y = t.X, t.Y
+					homeTown = tid
+					based = true
+					break
+				}
+			}
+			if !based {
+				continue
 			}
 		}
 		// Not every ruler keeps a party: a poor minor lord is a name on a
@@ -464,8 +490,8 @@ func generateParties(cfg *config.Config, r *rng.Rng, st *model.State) {
 			Fatigue:        0,
 			Activity:       model.ActIdle,
 			Intention:      model.IntentNone,
-			HomeTown:       ru.TownID,
-			DestTown:       ru.TownID,
+			HomeTown:       homeTown,
+			DestTown:       homeTown,
 			DestRuler:      -1,
 			DestTownParty:  -1,
 			SupplyDistance: 0,
@@ -487,7 +513,7 @@ func generateParties(cfg *config.Config, r *rng.Rng, st *model.State) {
 				IsCaravan:     true,
 				Activity:      model.ActTrading,
 				Morale:        0.8,
-				HomeTown:      ru.TownID,
+				HomeTown:      homeTown,
 				DestTown:      -1,
 				DestTownParty: -1,
 				Food:          cfg.Logistic.CaravanFoodNeed * cfg.Logistic.CaravanFoodDays,

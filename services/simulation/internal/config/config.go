@@ -41,6 +41,7 @@ type Config struct {
 	Cause     Cause
 	Audit     Audit
 	Campaign  Campaign
+	Events    Events
 	Ruler     Ruler
 	Battle    Battle
 	Formation Formation
@@ -1147,6 +1148,24 @@ type Relation struct {
 type RulerAI struct {
 	// AttackWeight is the attraction of attacking a weak neighbour.
 	AttackWeight float64
+	// WarDutyBonus is the added attraction of attacking while the ruler's
+	// side is at war with the target's side. Without it, a declared war is a
+	// flag in the faction AI and nothing more: the scoring only rewards
+	// attacking the weak, so no ruler ever feels any duty to prosecute a
+	// war and the world never mobilizes. The bonus is additive, not
+	// multiplicative, so it motivates action even against a strong target.
+	WarDutyBonus float64
+	// PartyFundDays is how many days of wages a ruler's party should hold.
+	// The holding pays its troops: a party that cannot be paid loses morale
+	// and deserts (upkeep), so without this transfer every army in the world
+	// inevitably goes broke, its morale collapses, and the ruler AI's supply
+	// check permanently disqualifies it from acting. This is the economic
+	// baseline that keeps armies usable; the interesting decisions happen on
+	// top of it. It uses only existing town and party money, no new economy.
+	PartyFundDays float64
+	// MaxTownFundShare caps how much of a town's money can go to its lord's
+	// party in one day, so a town cannot bankrupt itself funding an army.
+	MaxTownFundShare float64
 	// TargetWeaknessWeight is how much a starved, unhappy target attracts.
 	TargetWeaknessWeight float64
 	// DefendWeight is the attraction of returning to defend home.
@@ -1476,6 +1495,39 @@ type Campaign struct {
 	// FortifyMoraleBonus is the morale a town gains from being fortified, which
 	// is small and real: walls make a garrison feel safer.
 	FortifyMoraleBonus float64
+}
+
+// Events tunes the campaign event framework: what the world records as
+// having happened, and what each happening costs or grants. Every constant
+// here is a magnitude, never a script: the framework fires events from state,
+// it never decides that something should happen.
+type Events struct {
+	// WarDeclareRelationHit is how much a declaration of war damages the
+	// side-to-side relation, on top of what the faction AI already does.
+	WarDeclareRelationHit float64
+	// CaptureRelationHit is the grudge between a deposed holder and the ruler
+	// who took their town.
+	CaptureRelationHit float64
+	// CaptureRenown is the renown a ruler gains for taking a town.
+	CaptureRenown float64
+	// RulerDeathStabilityHit is the stability a side loses when one of its
+	// rulers dies.
+	RulerDeathStabilityHit float64
+	// RebellionUnrest is the unrest at or above which a town can rebel.
+	RebellionUnrest float64
+	// RebellionLoyalty is the loyalty at or below which a town can rebel.
+	RebellionLoyalty float64
+	// RebellionDays is how many days a town must sit below the loyalty line
+	// before the revolt breaks out.
+	RebellionDays float64
+	// RebellionMilitiaShare is the share of a rebelling town's militia that
+	// deserts to the rebel band.
+	RebellionMilitiaShare float64
+	// RebellionMinTroops is the smallest rebel band worth spawning.
+	RebellionMinTroops float64
+	// RebellionCooldownDays is how long after a quelled rebellion before the
+	// same town can rebel again.
+	RebellionCooldownDays float64
 }
 
 // Battle configures the headless field battle, which is internal/battle.

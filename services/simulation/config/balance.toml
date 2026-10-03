@@ -558,6 +558,9 @@ allied_relation_bonus = 0.25      # how much forming an alliance improves relati
 
 [ruler_ai]
 attack_weight = 1.00            # attraction of attacking a weak neighbour. Range 0.2-3.0.
+war_duty_bonus = 0.55           # added attraction of attacking while at war with the target's side. Range 0-2.0. Without it no ruler ever prosecutes a declared war.
+party_fund_days = 14.0          # days of wages a party should hold; the home town tops it up. Range 7-30. Without funding every army goes broke and the AI dies.
+max_town_fund_share = 0.20      # max share of a town's money that can fund its lord's party in one day. Range 0.05-0.5.
 target_weakness_weight = 1.35   # how much a starved, unhappy target attracts. Range 0.2-4.0.
 defend_weight = 0.85            # attraction of returning to defend home. Range 0.1-2.0.
 raid_weight = 0.45              # attraction of raiding. Range 0.05-1.5.
@@ -688,6 +691,18 @@ aid_order_share = 0.55           # share of a party's larder loaded for a player
 medicine_unit_price = 0.9        # cost of one dose at a price of one. Range 0.1-10.0. Times the town's medicine price, so scarcity is priced.
 fortify_metal_per_level = 40.0   # metal one level of fortification costs. Range 5-500.
 fortify_morale_bonus = 0.03      # morale a town gains from being fortified. Range 0-0.2. Small and real.
+
+[events]
+war_declare_relation_hit = 0.15   # side relation damage when war is declared. Range 0-1. On top of the faction AI's own war bookkeeping.
+capture_relation_hit = 0.35       # grudge between deposed holder and capturing ruler. Range 0-1. Conquest makes enemies.
+capture_renown = 8.0              # renown a ruler gains for taking a town. Range 0-100.
+ruler_death_stability_hit = 0.06  # stability a side loses when a ruler dies. Range 0-1.
+rebellion_unrest = 0.75           # unrest at or above which a town can rebel. Range 0-1.
+rebellion_loyalty = 0.30          # loyalty at or below which a town can rebel. Range 0-1.
+rebellion_days = 14.0             # days below the loyalty line before revolt. Range 1-120.
+rebellion_militia_share = 0.45    # share of a rebelling town's militia that deserts to the rebels. Range 0-1.
+rebellion_min_troops = 60.0       # smallest rebel band worth spawning. Range 1-1000.
+rebellion_cooldown_days = 90.0    # quiet period after a quelled rebellion before the town can rebel again. Range 30-730.
 
 [cause]
 # A row per float operation would be unreadable; a chain that cannot be

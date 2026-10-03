@@ -26,6 +26,7 @@ import (
 	"mbclone/simulation/internal/systems/currency"
 	"mbclone/simulation/internal/systems/demography"
 	"mbclone/simulation/internal/systems/disease"
+	"mbclone/simulation/internal/systems/events"
 	"mbclone/simulation/internal/systems/factionai"
 	"mbclone/simulation/internal/systems/food"
 	"mbclone/simulation/internal/systems/influence"
@@ -94,6 +95,13 @@ func Systems() []sim.System {
 		// --- last, so it aggregates the deaths and movement every other
 		// system staged this tick ---
 		demography.System(),
+
+		// --- world AI: the event framework reads the committed transitions
+		// (and the previous tick's log rows) and records them as history with
+		// consequences. It runs last because it observes what the tick did,
+		// not because its output depends on position: like every system it
+		// reads committed state and stages writes.
+		events.System(),
 	}
 }
 
