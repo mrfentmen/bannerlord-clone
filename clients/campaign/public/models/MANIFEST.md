@@ -58,7 +58,7 @@ Orientation note: troop-officer.glb geometry lies flat along Z; apply rotationX 
 - food-cart.glb — target 3m (cart with striped umbrella)
 - skyscraper.glb — target 120m (marginal detail; fine at map scale)
 
-## Blender builds (11) — 2026-10-02/03
+## Blender builds (14) — 2026-10-02/03
 Built from scratch in Blender 4.2 via the Blender MCP (bpy scripting, Cycles
 CPU renders verified). All-original geometry, no stock assets.
 Standard treatment (treatment.py): procedural PBR materials, HDRI studio
@@ -74,6 +74,9 @@ lighting, detail pass (bolts, seams, ridges).
 - brownstone-a.glb — target 11m (classic 3-story, 3 bays, stoop + iron railings)
 - brownstone-b.glb — target 14m (4-story, darker facade, projecting bay windows)
 - brownstone-c.glb — target 11m (narrow 2-bay, double door)
+- empire-state.glb — target 92m (art deco setbacks, window strips, mooring mast)
+- flatiron.glb — target 43m (triangular wedge, rounded prow, limestone)
+- chrysler.glb — target 77m (white shaft, terraced crown, needle spire)
 
 ## Batch 8: image-to-3D (6) — 2026-10-02Concept art generated locally (Pollinations, free), then turned into 3D via
 three.ws Forge image-to-3D (POST /api/forge, image_urls, tier=draft). All
