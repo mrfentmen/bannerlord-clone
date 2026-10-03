@@ -704,6 +704,10 @@ rebellion_militia_share = 0.45    # share of a rebelling town's militia that des
 rebellion_min_troops = 60.0       # smallest rebel band worth spawning. Range 1-1000.
 rebellion_cooldown_days = 90.0    # quiet period after a quelled rebellion before the town can rebel again. Range 30-730.
 
+[director]
+assess_every_days = 7.0           # how often the director records a world assessment. Range 1-30.
+stagnation_assessments = 4        # consecutive quiet assessments before a stagnation alert. Range 2-12.
+
 [cause]
 # A row per float operation would be unreadable; a chain that cannot be
 # explained is worse. These thresholds are small, and every crossing is a real

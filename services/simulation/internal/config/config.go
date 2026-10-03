@@ -42,6 +42,7 @@ type Config struct {
 	Audit     Audit
 	Campaign  Campaign
 	Events    Events
+	Director  Director
 	Ruler     Ruler
 	Battle    Battle
 	Formation Formation
@@ -1528,6 +1529,15 @@ type Events struct {
 	// RebellionCooldownDays is how long after a quelled rebellion before the
 	// same town can rebel again.
 	RebellionCooldownDays float64
+}
+
+// Director configures the world director's monitoring cadence.
+type Director struct {
+	// AssessEveryDays is how often the director records a world assessment.
+	AssessEveryDays float64
+	// StagnationAssessments is how many consecutive quiet assessments trigger
+	// a stagnation alert.
+	StagnationAssessments float64
 }
 
 // Battle configures the headless field battle, which is internal/battle.

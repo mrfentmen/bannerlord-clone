@@ -615,6 +615,10 @@ func (l *loader) load(c *Config) {
 	c.Events.RebellionMinTroops = l.f64("events.rebellion_min_troops")
 	c.Events.RebellionCooldownDays = l.f64("events.rebellion_cooldown_days")
 
+	// --- director ---
+	c.Director.AssessEveryDays = l.f64("director.assess_every_days")
+	c.Director.StagnationAssessments = l.f64("director.stagnation_assessments")
+
 	// --- battle ---
 	// Battle size is a knob. MaxUnitsPerSide is a validation limit the battle
 	// engine errors on, never an allocation size: the engine sizes every array

@@ -25,6 +25,7 @@ import (
 	"mbclone/simulation/internal/systems/council"
 	"mbclone/simulation/internal/systems/currency"
 	"mbclone/simulation/internal/systems/demography"
+	"mbclone/simulation/internal/systems/director"
 	"mbclone/simulation/internal/systems/disease"
 	"mbclone/simulation/internal/systems/events"
 	"mbclone/simulation/internal/systems/factionai"
@@ -102,6 +103,9 @@ func Systems() []sim.System {
 		// not because its output depends on position: like every system it
 		// reads committed state and stages writes.
 		events.System(),
+		// The director monitors vital signs and reports on world health. It
+		// runs after events so its assessments see the tick's happenings.
+		director.System(),
 	}
 }
 

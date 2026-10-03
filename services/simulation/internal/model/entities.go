@@ -461,6 +461,15 @@ const (
 	EventFamineBegan
 	// EventFamineEnded fires when a starving town can feed itself again.
 	EventFamineEnded
+	// EventWorldAssessment is the director's periodic vital-signs report. It
+	// is not a happening but a reading: how alive the world is, what is
+	// stagnant, what is in crisis. The player UI and observability read these
+	// to show what is happening in the world.
+	EventWorldAssessment
+	// EventStagnationAlert fires when the director detects the world has been
+	// inactive for too long: no wars, no mobilization, no trade. It is a
+	// diagnostic, not a happening.
+	EventStagnationAlert
 )
 
 // Event is a recorded campaign event: something happened that the director,
