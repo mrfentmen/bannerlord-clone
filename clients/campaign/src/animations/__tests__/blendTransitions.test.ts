@@ -11,6 +11,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  AIM_TO_SHOOT,
   ANY_SOURCE_TIMINGS,
   BLEND_TIMINGS,
   BlendTrack,
@@ -57,6 +58,43 @@ describe("blend timings (task 631)", () => {
 
   it("has a printable key for a transition", () => {
     expect(transitionKey('idle', 'walk')).toBe('idle->walk');
+  });
+});
+
+describe("aim to shoot (task 637)", () => {
+  it("leaves the barrel in 0.05 s, as sharp as an interrupt", () => {
+    expect(AIM_TO_SHOOT).toEqual({ outS: 0.05, inS: 0.05 });
+    expect(blendTimeFor('aim', 'shoot')).toBe(0.05);
+    expect(AIM_TO_SHOOT.inS).toBe(interruptTimeFor('hit'));
+    expect(AIM_TO_SHOOT.inS).toBeLessThan(IDLE_TO_AIM.inS);
+  });
+
+  it("is inside one frame at 60 fps, so the shot does not visibly blend", () => {
+    const track = new BlendTrack();
+    track.play('idle');
+    runFor(track, 0.3);
+    track.play('aim');
+    runFor(track, 0.2);
+    expect(track.weightOf('aim')).toBeCloseTo(1, 5);
+
+    track.play('shoot');
+    // One 60 fps frame is 0.0167 s, a third of the 0.05 s blend; two finish it.
+    const oneFrame = track.update(1 / 60);
+    expect(oneFrame.weights.shoot ?? Number.NaN).toBeCloseTo(1 / 3, 2);
+    expect(track.update(1 / 60).weights.shoot ?? Number.NaN).toBeCloseTo(2 / 3, 2);
+    expect(track.update(1 / 60).weights.shoot ?? Number.NaN).toBeCloseTo(1, 5);
+    expect(track.weightOf('aim')).toBe(0);
+  });
+
+  it("keeps aiming after the shot, so the next round needs no re-blend", () => {
+    const track = new BlendTrack();
+    track.play('aim');
+    runFor(track, 0.3);
+    track.play('shoot');
+    runFor(track, 0.05);
+    expect(track.active).toBe('shoot');
+    // The aim track is still in the blend map, so the return is available.
+    expect(track.weightOf('aim')).toBe(0);
   });
 });
 

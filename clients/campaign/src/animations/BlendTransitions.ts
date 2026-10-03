@@ -1,6 +1,10 @@
 /**
  * Blend transitions between animation states.
  *
+ * Task 637: aim to shoot blends over 0.05 s. This is the only pair in the table
+ * that is as sharp as an interrupt, and it is deliberate: the shot has to leave
+ * with the trigger pull, and a weapon that eases into fire looks broken.
+ *
  * Task 636: bringing a weapon up from idle blends over 0.15 s -- the same length
  * as walk to run, because raising a rifle and breaking into a run are the same
  * kind of movement: a deliberate commitment that takes a moment but must not
@@ -108,6 +112,9 @@ export const WALK_TO_RUN: BlendTiming = { outS: 0.15, inS: 0.15 };
 /** Task 636: bringing the weapon up from idle blends over 0.15 s. */
 export const IDLE_TO_AIM: BlendTiming = { outS: 0.15, inS: 0.15 };
 
+/** Task 637: the shot leaving the barrel blends over 0.05 s. */
+export const AIM_TO_SHOOT: BlendTiming = { outS: 0.05, inS: 0.05 };
+
 /**
  * Task 633: blend length for a state reached from *any* other state, seconds.
  *
@@ -133,6 +140,7 @@ export const BLEND_TIMINGS: Readonly<
 > = {
   idle: { walk: IDLE_TO_WALK, aim: IDLE_TO_AIM },
   walk: { run: WALK_TO_RUN },
+  aim: { shoot: AIM_TO_SHOOT },
 };
 
 /** A transition key, as a string a caller can log. */
