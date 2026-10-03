@@ -11,12 +11,15 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  ANY_SOURCE_TIMINGS,
   BLEND_TIMINGS,
   BlendTrack,
+  type BlendState,
   DEFAULT_BLEND_SECONDS,
   IDLE_TO_WALK,
   WALK_TO_RUN,
   blendTimeFor,
+  interruptTimeFor,
   transitionKey,
 } from "../BlendTransitions.js";
 
@@ -51,6 +54,64 @@ describe("blend timings (task 631)", () => {
 
   it("has a printable key for a transition", () => {
     expect(transitionKey('idle', 'walk')).toBe('idle->walk');
+  });
+});
+
+describe("any to hit (task 633)", () => {
+  const STATES: BlendState[] = ['idle', 'walk', 'run', 'aim', 'shoot'];
+
+  it("blends a hit in over 0.05 s from every state", () => {
+    expect(ANY_SOURCE_TIMINGS.hit).toBe(0.05);
+    for (const from of STATES) {
+      expect(blendTimeFor(from, 'hit'), from).toBe(0.05);
+      expect(interruptTimeFor('hit')).toBe(0.05);
+    }
+  });
+
+  it("is the shortest blend in the table", () => {
+    expect(interruptTimeFor('hit')).toBeLessThan(WALK_TO_RUN.inS);
+    expect(interruptTimeFor('hit')).toBeLessThan(IDLE_TO_WALK.inS);
+    expect(interruptTimeFor('idle')).toBe(DEFAULT_BLEND_SECONDS);
+  });
+
+  it("takes over mid-blend without restarting it", () => {
+    for (const from of STATES) {
+      const track = new BlendTrack();
+      track.play(from);
+      runFor(track, 0.3);
+      track.interrupt('hit');
+
+      // 0.05 s later the reaction has arrived, whatever state it came from.
+      runFor(track, 0.05);
+      expect(track.weightOf('hit'), from).toBeCloseTo(1, 5);
+      expect(track.weightOf(from), from).toBe(0);
+      expect(track.active).toBe('hit');
+    }
+  });
+
+  it("interrupts even when the state it is replacing is already dominant", () => {
+    const track = new BlendTrack();
+    track.play('hit');
+    runFor(track, 0.3);
+    track.interrupt('hit');
+    // Nothing changed, so nothing was written; it must not restart the blend.
+    runFor(track, 0.02);
+    expect(track.weightOf('hit')).toBe(1);
+  });
+
+  it("interrupts from a state that is only half blended in", () => {
+    const track = new BlendTrack();
+    track.play('idle');
+    runFor(track, 0.3);
+    track.play('walk');
+    runFor(track, 0.1);
+    const walkWeight = track.weightOf('walk');
+    expect(walkWeight).toBeGreaterThan(0);
+
+    track.interrupt('hit');
+    expect(track.weightOf('walk')).toBe(walkWeight);
+    runFor(track, 0.05);
+    expect(track.weightOf('hit')).toBeCloseTo(1, 5);
   });
 });
 

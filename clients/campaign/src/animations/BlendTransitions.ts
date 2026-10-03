@@ -1,6 +1,12 @@
 /**
  * Blend transitions between animation states.
  *
+ * Task 633: a hit reaction interrupts whatever is playing, from any state, in
+ * 0.05 s. That is the shortest blend in the game and it is deliberate: a hit
+ * that takes a fifth of a second to appear reads as the game ignoring the shot.
+ * The timing is held per destination state rather than per pair, because a hit
+ * has to be equally sharp out of a walk, out of a run and out of a reload.
+ *
  * Task 632: a character speeding up from a walk to a run blends over 0.15 s --
  * a fifth shorter than a walk change, because a walk-to-run cross-fade that
  * takes as long as the idle-to-walk one reads as the character hesitating.
@@ -62,6 +68,16 @@ export const IDLE_TO_WALK: BlendTiming = { outS: 0.2, inS: 0.2 };
 export const WALK_TO_RUN: BlendTiming = { outS: 0.15, inS: 0.15 };
 
 /**
+ * Task 633: blend length for a state reached from *any* other state, seconds.
+ *
+ * A hit reaction has to be as fast out of a walk as out of an aim: the player
+ * is reading the reaction, not the transition.
+ */
+export const ANY_SOURCE_TIMINGS: Readonly<Partial<Record<BlendState, BlendSeconds>>> = {
+  hit: 0.05,
+};
+
+/**
  * The transition table. Every row is a design number from the animation brief,
  * not a guess: a locomotion change wants to be barely noticeable, a combat
  * change wants to be sharp.
@@ -88,7 +104,15 @@ export function transitionKey(from: BlendState, to: BlendState): string {
 export function blendTimeFor(from: BlendState, to: BlendState): BlendSeconds {
   const row = BLEND_TIMINGS[from];
   const timing = row?.[to];
-  return timing ? timing.inS : DEFAULT_BLEND_SECONDS;
+  if (timing) return timing.inS;
+  // A destination that has to be equally fast from everywhere wins over the
+  // default, which is the point of task 633.
+  return ANY_SOURCE_TIMINGS[to] ?? DEFAULT_BLEND_SECONDS;
+}
+
+/** Task 633: the blend length for an interrupt, from any state. */
+export function interruptTimeFor(to: BlendState): BlendSeconds {
+  return ANY_SOURCE_TIMINGS[to] ?? blendTimeFor(to, to);
 }
 
 /** One state's weight in a blend, and where it is heading. */
@@ -160,6 +184,26 @@ export class BlendTrack {
     next.target = 1;
   }
 
+  /**
+   * Task 633: interrupt whatever is playing with `to`, at its interrupt speed.
+   *
+   * Unlike {@link play} this always takes effect, because the whole point is
+   * that it pre-empts an animation that may still be blending. The weights that
+   * exist now are kept: the reaction starts from where the character is, not
+   * from a standing start.
+   */
+  interrupt(to: BlendState): void {
+    const current = this.active;
+    if (current !== null && current !== to) {
+      const out = this.ensure(current);
+      out.target = 0;
+      out.blendS = interruptTimeFor(to);
+    }
+    const next = this.ensure(to);
+    next.target = 1;
+    next.blendS = interruptTimeFor(to);
+  }
+
   /** Advances every weight by `deltaS`. */
   update(deltaS: number): BlendUpdate {
     const step = Number.isFinite(deltaS) ? Math.max(0, deltaS) : 0;
@@ -207,6 +251,9 @@ export class BlendTrack {
 
   private outTimeFor(from: BlendState, to: BlendState): BlendSeconds {
     const row = BLEND_TIMINGS[from]?.[to];
-    return row ? row.outS : DEFAULT_BLEND_SECONDS;
+    if (row) return row.outS;
+    // The state being left fades at the same rate the reaction arrives, so the
+    // two do not cross at different speeds and the character appears to split.
+    return ANY_SOURCE_TIMINGS[to] ?? DEFAULT_BLEND_SECONDS;
   }
 }
