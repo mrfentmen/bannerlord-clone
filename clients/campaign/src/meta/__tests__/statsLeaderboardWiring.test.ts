@@ -48,6 +48,10 @@ function attackerVictory(): AfterActionView {
     playerIsAttacker: true,
     attackerLosses: 6, // the player's own losses
     defenderLosses: 23, // the enemy's losses == kills
+    attackerKilled: 2,
+    attackerWounded: 4,
+    defenderKilled: 9,
+    defenderWounded: 14,
     loot: 420,
     ticks: 40,
     summary: "Victory.",

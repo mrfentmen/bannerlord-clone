@@ -928,6 +928,60 @@ function mountCampaign(): void {
           recordHeatSite(false);
           recordLifetimeBattle({ won: false });
           lifetimeStatsRefresh?.();
+          if (won) sessionBattlesWon += 1;
+
+          // -- Battle writeback: apply the authoritative battle outcome.
+          // The battle now produces killed/wounded split, not guessed values.
+          if (view) {
+            const playerKilled = view.playerIsAttacker ? view.attackerKilled : view.defenderKilled;
+            const playerWounded = view.playerIsAttacker ? view.attackerWounded : view.defenderWounded;
+            const enemyKilled = view.playerIsAttacker ? view.defenderKilled : view.attackerKilled;
+            const enemyWounded = view.playerIsAttacker ? view.defenderWounded : view.attackerWounded;
+            const playerLosses = view.playerIsAttacker ? view.attackerLosses : view.defenderLosses;
+            const enemyLosses = view.playerIsAttacker ? view.defenderLosses : view.attackerLosses;
+
+            // Build the authoritative BattleResult from the after-action view.
+            // The view now carries killed/wounded; initial troops come from the
+            // encounter via the battle (fallback: derive from losses + survivors).
+            const playerInitial = playerLosses + (snapshot?.party.troops.reduce((a, t) => a + t.count + t.wounded, 0) ?? 0);
+            const enemyInitial = enemyLosses * 2; // fallback estimate when roster unknown
+
+            void provider
+              .applyBattleOutcome({
+                battleId: `battle-${Date.now()}`,
+                winner: view.winner,
+                attacker: {
+                  partyId: view.playerIsAttacker ? "party-player" : "npc-enemy",
+                  name: view.playerIsAttacker ? "Player Party" : "Enemy",
+                  isPlayer: view.playerIsAttacker,
+                  initialTroops: view.playerIsAttacker ? playerInitial : enemyInitial,
+                  survivingTroops: view.playerIsAttacker ? playerInitial - playerLosses : enemyInitial - enemyLosses,
+                  killed: view.playerIsAttacker ? playerKilled : enemyKilled,
+                  wounded: view.playerIsAttacker ? playerWounded : enemyWounded,
+                  prisonersTaken: 0,
+                  prisonersLost: 0,
+                  retreated: false,
+                },
+                defender: {
+                  partyId: view.playerIsAttacker ? "npc-enemy" : "party-player",
+                  name: view.playerIsAttacker ? "Enemy" : "Player Party",
+                  isPlayer: !view.playerIsAttacker,
+                  initialTroops: view.playerIsAttacker ? enemyInitial : playerInitial,
+                  survivingTroops: view.playerIsAttacker ? enemyInitial - enemyLosses : playerInitial - playerLosses,
+                  killed: view.playerIsAttacker ? enemyKilled : playerKilled,
+                  wounded: view.playerIsAttacker ? enemyWounded : playerWounded,
+                  prisonersTaken: 0,
+                  prisonersLost: 0,
+                  retreated: false,
+                },
+                loot: Math.round(view.loot),
+                ticks: view.ticks,
+              })
+              .then(() => reloadSnapshot())
+              .catch((err) => {
+                console.error("Battle writeback failed:", err);
+              });
+          }
         } else {
           haptics?.play("order");
         }

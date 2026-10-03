@@ -119,6 +119,14 @@ export interface AfterActionView {
   playerIsAttacker: boolean;
   attackerLosses: number;
   defenderLosses: number;
+  /** Killed (permanent) on the attacker side. */
+  attackerKilled: number;
+  /** Wounded (recoverable) on the attacker side. */
+  attackerWounded: number;
+  /** Killed (permanent) on the defender side. */
+  defenderKilled: number;
+  /** Wounded (recoverable) on the defender side. */
+  defenderWounded: number;
   loot: number;
   ticks: number;
   summary: string;
@@ -584,6 +592,11 @@ export class BattleFlow {
         playerIsAttacker: this.#playerIsAttacker,
         attackerLosses: r.attackerLosses,
         defenderLosses: r.defenderLosses,
+        // Split losses: 40% killed, 60% wounded (Bannerlord-like ratio).
+        attackerKilled: Math.round(r.attackerLosses * 0.4),
+        attackerWounded: r.attackerLosses - Math.round(r.attackerLosses * 0.4),
+        defenderKilled: Math.round(r.defenderLosses * 0.4),
+        defenderWounded: r.defenderLosses - Math.round(r.defenderLosses * 0.4),
         loot: r.loot,
         ticks: 0,
         summary: playerWon
@@ -608,13 +621,19 @@ export class BattleFlow {
         attackerTroops: battle.attacker.troops,
         defenderTroops: battle.defender.troops,
       };
+      const attackerLosses = Math.max(0, initial.attackerTroops - battle.attacker.troops);
+      const defenderLosses = Math.max(0, initial.defenderTroops - battle.defender.troops);
       return {
         mode: this.#mode,
         winner,
         playerWon,
         playerIsAttacker: this.#playerIsAttacker,
-        attackerLosses: Math.max(0, initial.attackerTroops - battle.attacker.troops),
-        defenderLosses: Math.max(0, initial.defenderTroops - battle.defender.troops),
+        attackerLosses,
+        defenderLosses,
+        attackerKilled: Math.round(attackerLosses * 0.4),
+        attackerWounded: attackerLosses - Math.round(attackerLosses * 0.4),
+        defenderKilled: Math.round(defenderLosses * 0.4),
+        defenderWounded: defenderLosses - Math.round(defenderLosses * 0.4),
         loot: 0,
         ticks: battle.tick,
         summary: playerWon
