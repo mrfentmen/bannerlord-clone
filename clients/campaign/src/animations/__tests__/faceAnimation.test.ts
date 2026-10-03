@@ -16,6 +16,7 @@ import {
   BlinkScheduler,
   BlinkSet,
   MAX_BLINK_INTERVAL_S,
+  SpeakerAttention,
   MIN_BLINK_INTERVAL_S,
   makeRandom,
 } from "../FaceAnimation.js";
@@ -184,5 +185,94 @@ describe("BlinkSet (task 644)", () => {
     const a = set.forCharacter('a');
     const b = set.forCharacter('b');
     expect(Math.abs(a.nextInS - b.nextInS)).toBeGreaterThan(0.01);
+  });
+});
+describe("SpeakerAttention (task 645)", () => {
+  const LISTENER = { x: 0, y: 1.55, z: 0 };
+  const FORWARD = { x: 0, y: 0, z: 1 };
+
+  it("looks at a speaker in front of it", () => {
+    const attention = new SpeakerAttention('listener');
+    attention.hearFrom({ id: 'npc', position: { x: 0.5, y: 1.5, z: 3 } });
+    const decision = attention.decide(LISTENER, FORWARD, 1 / 60);
+    expect(decision.speakerId).toBe('npc');
+    expect(decision.state).toBe('turning');
+    expect(decision.target?.z).toBeCloseTo(3);
+    expect(decision.distanceM).toBeCloseTo(Math.hypot(0.5, 3));
+    expect(decision.outOfView).toBe(false);
+  });
+
+  it("stops watching once the conversation pauses", () => {
+    const attention = new SpeakerAttention('listener', 12, 2);
+    attention.hearFrom({ id: 'npc', position: { x: 0, y: 1.5, z: 3 } }, 0);
+    expect(attention.watching).toBe('npc');
+    // 130 frames, not 120: 120 steps of 1/60 s come to 1.9999999999999998, and
+    // the attention hold ends at two seconds.
+    for (let i = 0; i < 130; i++) attention.decide(LISTENER, FORWARD, 1 / 60);
+    expect(attention.watching).toBeNull();
+    expect(attention.decide(LISTENER, FORWARD, 1 / 60).state).toBe('none');
+  });
+
+  it("ignores a speaker it cannot hear from", () => {
+    const attention = new SpeakerAttention('listener', 12, 10);
+    attention.hearFrom({ id: 'far', position: { x: 0, y: 0, z: 40 } });
+    const decision = attention.decide(LISTENER, FORWARD, 1 / 60);
+    expect(decision.state).toBe('none');
+    expect(decision.outOfView).toBe(true);
+    expect(decision.distanceM).toBeCloseTo(40);
+  });
+
+  it("does not track a speaker behind it, however close", () => {
+    const attention = new SpeakerAttention('listener');
+    attention.hearFrom({ id: 'behind', position: { x: 0, y: 1.5, z: -2 } });
+    const decision = attention.decide(LISTENER, FORWARD, 1 / 60);
+    expect(decision.state).toBe('none');
+    expect(decision.outOfView).toBe(true);
+  });
+
+  it("follows a speaker round to the edge of the cone and no further", () => {
+    const attention = new SpeakerAttention('listener');
+    // 45 degrees off to the side: inside a 0.9 rad (51 degree) cone.
+    attention.hearFrom({ id: 'side', position: { x: 3, y: 1.5, z: 3 } });
+    expect(attention.decide(LISTENER, FORWARD, 1 / 60).state).not.toBe('none');
+
+    const behind = new SpeakerAttention('listener');
+    behind.hearFrom({ id: 'side', position: { x: 8, y: 1.5, z: 1 } });
+    expect(behind.decide(LISTENER, FORWARD, 1 / 60).outOfView).toBe(true);
+  });
+
+  it("can be told to stop", () => {
+    const attention = new SpeakerAttention('listener');
+    attention.hearFrom({ id: 'npc', position: { x: 0, y: 1.5, z: 3 } });
+    attention.stop();
+    expect(attention.watching).toBeNull();
+    expect(attention.decide(LISTENER, FORWARD, 1 / 60).target).toBeNull();
+  });
+
+  it("takes the newest speaker, not the first", () => {
+    const attention = new SpeakerAttention('listener');
+    attention.hearFrom({ id: 'first', position: { x: 0, y: 1.5, z: 3 } });
+    attention.hearFrom({ id: 'second', position: { x: 2, y: 1.5, z: 2 } });
+    expect(attention.decide(LISTENER, FORWARD, 1 / 60).speakerId).toBe('second');
+  });
+
+  it("calls it watching when the speaker is right in front", () => {
+    const attention = new SpeakerAttention('listener');
+    attention.hearFrom({ id: 'close', position: { x: 0, y: 1.5, z: 0.2 } });
+    expect(attention.decide(LISTENER, FORWARD, 1 / 60).state).toBe('watching');
+  });
+
+  it("ignores a malformed utterance and a broken position", () => {
+    const attention = new SpeakerAttention('listener');
+    attention.hearFrom({ id: '', position: { x: 0, y: 0, z: 0 } });
+    expect(attention.watching).toBeNull();
+    attention.hearFrom({ id: 'x', position: { x: Number.NaN, y: 0, z: 1 } });
+    expect(attention.decide(LISTENER, FORWARD, 1 / 60).outOfView).toBe(true);
+  });
+
+  it("falls back to the default range for a broken one", () => {
+    const attention = new SpeakerAttention('listener', Number.NaN, Number.NaN);
+    attention.hearFrom({ id: 'npc', position: { x: 0, y: 0, z: 8 } });
+    expect(attention.decide(LISTENER, FORWARD, 1 / 60).state).not.toBe('none');
   });
 });

@@ -205,3 +205,150 @@ export class BlinkSet {
     return this.schedulers.size;
   }
 }
+
+/**
+ * Task 645: a character looks at whoever is speaking.
+ *
+ * Turning every head in a conversation towards whoever has the floor is what
+ * makes a dialogue scene read as a conversation. It also has two failure modes
+ * that are worse than not looking at all:
+ *
+ * - Tracking a speaker who is behind the listener produces constant yaw clamping
+ *   at the cone's edge. {@link SpeakerAttention} therefore only tracks somebody it
+ *   can actually see: within range and not further round than the head can turn.
+ * - Attention that never lets go looks mechanical, so it decays after a while
+ *   without a new utterance.
+ */
+
+/** How far a character will notice a speaker, metres. */
+export const SPEAKER_RANGE_M = 12;
+
+/** Seconds a character keeps looking after the last utterance. */
+export const SPEAKER_ATTENTION_S = 4;
+
+/** Someone who is talking. */
+export interface Speaker {
+  id: string;
+  position: { x: number; y: number; z: number };
+}
+
+/** What a listener is doing about the current speaker. */
+export type AttentionState = 'none' | 'turning' | 'watching' | 'losing';
+
+/** What the attention policy decided. */
+export interface AttentionDecision {
+  state: AttentionState;
+  /** The speaker being watched, or null. */
+  speakerId: string | null;
+  /** Where to look, or null to look forward. */
+  target: { x: number; y: number; z: number } | null;
+  /** Distance to the speaker, metres; Infinity when there is none. */
+  distanceM: number;
+  /** True when the speaker was dropped for being out of range or out of view. */
+  outOfView: boolean;
+}
+
+/** Nothing is being watched. */
+const NO_ATTENTION: AttentionDecision = {
+  state: 'none',
+  speakerId: null,
+  target: null,
+  distanceM: Number.POSITIVE_INFINITY,
+  outOfView: false,
+};
+
+/**
+ * Task 645: who this character is watching.
+ *
+ * The listener does not decide for itself; it is told who started speaking and
+ * when, and works out whether to follow. Keeping the clock here rather than in
+ * the caller means the decay behaves the same whether the caller remembers to
+ * update it every frame or only on an utterance.
+ */
+export class SpeakerAttention {
+  private speakerId: string | null = null;
+  private speakerAt: { x: number; y: number; z: number } | null = null;
+  private sinceUtteranceS = 0;
+
+  constructor(
+    readonly listenerId: string,
+    private readonly rangeM: number = SPEAKER_RANGE_M,
+    private readonly attentionS: number = SPEAKER_ATTENTION_S,
+  ) {}
+
+  /** Records that `speaker` started talking. */
+  hearFrom(speaker: Speaker, nowS = 0): void {
+    if (!speaker || typeof speaker.id !== 'string' || speaker.id.length === 0) return;
+    this.speakerId = speaker.id;
+    this.speakerAt = { ...speaker.position };
+    this.sinceUtteranceS = Number.isFinite(nowS) ? Math.max(0, nowS) : 0;
+  }
+
+  /** Stops watching, e.g. when the conversation ends. */
+  stop(): void {
+    this.speakerId = null;
+    this.speakerAt = null;
+    this.sinceUtteranceS = 0;
+  }
+
+  /** The speaker currently being watched, or null. */
+  get watching(): string | null {
+    return this.speakerId;
+  }
+
+  /**
+   * Decides where to look, given where the listener is and which way it faces.
+   *
+   * `faceToward` is used to decide whether the speaker is in view: the head can
+   * turn so far, and a speaker past that is out of view however close they are.
+   */
+  decide(
+    listenerAt: { x: number; y: number; z: number },
+    facing: { x: number; y: number; z: number },
+    deltaS = 0,
+    maxYaw = 0.9,
+  ): AttentionDecision {
+    const step = Number.isFinite(deltaS) ? Math.max(0, deltaS) : 0;
+    this.sinceUtteranceS += step;
+    if (this.speakerId === null || this.speakerAt === null) return { ...NO_ATTENTION };
+
+    const dx = this.speakerAt.x - listenerAt.x;
+    const dz = this.speakerAt.z - listenerAt.z;
+    const distanceM = Math.hypot(dx, dz);
+    const range = Number.isFinite(this.rangeM) && this.rangeM > 0 ? this.rangeM : SPEAKER_RANGE_M;
+    if (!Number.isFinite(distanceM) || distanceM > range) {
+      return {
+        state: 'none',
+        speakerId: null,
+        target: null,
+        distanceM,
+        outOfView: true,
+      };
+    }
+
+    // In view when the speaker is inside the cone the head can turn through.
+    const flat = Math.hypot(facing.x, facing.z);
+    const cosAngle = flat > 0 ? (dx * facing.x + dz * facing.z) / (flat * distanceM) : 1;
+    const angle = Math.acos(Math.min(1, Math.max(-1, cosAngle)));
+    const cone = Number.isFinite(maxYaw) && maxYaw > 0 ? maxYaw : 0.9;
+    if (angle > cone) {
+      return { state: 'none', speakerId: null, target: null, distanceM, outOfView: true };
+    }
+
+    const hold = Number.isFinite(this.attentionS) && this.attentionS > 0 ? this.attentionS : SPEAKER_ATTENTION_S;
+    // `>=`, so attention ends exactly at the end of the hold rather than one
+    // frame after it.
+    if (this.sinceUtteranceS >= hold) {
+      // Nobody has spoken for a while: stop looking, but remember nothing.
+      this.stop();
+      return { ...NO_ATTENTION, outOfView: false };
+    }
+    return {
+      state: distanceM < 0.5 ? 'watching' : 'turning',
+      speakerId: this.speakerId,
+      target: { ...this.speakerAt },
+      distanceM,
+      outOfView: false,
+    };
+  }
+}
