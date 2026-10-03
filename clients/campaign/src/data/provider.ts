@@ -35,7 +35,7 @@ import type {
   MarchCommitResult,
   MarchPlan,
   MarchRequest,
-  NpcParty,
+  NearbyForce,
   PlayerCharacter,
   RecruitRequest,
   RecruitResult,
@@ -59,6 +59,7 @@ import {
   improveRelationResultProblem,
   marchCommitProblem,
   marchPlanProblem,
+  nearbyForceListProblem,
   recruitRequestProblem,
   recruitResultProblem,
   schemaVersionProblem,
@@ -603,6 +604,31 @@ export class HttpSimulationProvider implements SimulationProvider {
     );
   }
 
+  async startSiege(townId: string, attackerPartyIds: string[], armyId?: string): Promise<{ siegeId: string }> {
+    return this.#post<{ siegeId: string }>(
+      `/v1/towns/${encodeURIComponent(townId)}/siege`,
+      { attackerPartyIds, armyId },
+      "The siege did not begin.",
+    );
+  }
+
+  async assaultSiege(siegeId: string): Promise<{ victory: boolean; casualties: number }> {
+    return this.#post<{ victory: boolean; casualties: number }>(
+      `/v1/sieges/${encodeURIComponent(siegeId)}/assault`,
+      {},
+      "The assault did not land.",
+    );
+  }
+
+  async liftSiege(siegeId: string): Promise<void> {
+    await this.#post(
+      `/v1/sieges/${encodeURIComponent(siegeId)}/lift`,
+      {},
+      "The siege was not lifted.",
+      () => null,
+    );
+  }
+
   async marry(charId1: string, charId2: string): Promise<void> {
     await this.#post(
       "/v1/dynasty/marry",
@@ -646,11 +672,17 @@ export class HttpSimulationProvider implements SimulationProvider {
     );
   }
 
-  async getNearbyHostiles(rangeKm: number): Promise<NpcParty[]> {
+  async getNearbyHostiles(rangeKm: number): Promise<NearbyForce[]> {
     const url = `${this.#httpUrl}/v1/parties/nearby?rangeKm=${encodeURIComponent(String(rangeKm))}`;
     const body = await this.#getJson(url, "Nearby parties could not be listed.");
-    if (!Array.isArray(body)) throw new Error("bad nearby parties");
-    return body as NpcParty[];
+    // The rows are checked at the boundary rather than cast: the server and the
+    // fixture do not send the same shape, and a cast would declare a field the
+    // payload does not carry. A row the encounter flow cannot read is refused
+    // here, where the reason is visible, rather than in the panel, where it
+    // would be an undefined headcount.
+    const problem = nearbyForceListProblem(body);
+    if (problem) throw new Error(problem);
+    return body as NearbyForce[];
   }
 
   async upgradeTroops(request: UpgradeTroopsRequest): Promise<UpgradeTroopsResult> {

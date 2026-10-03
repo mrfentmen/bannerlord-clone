@@ -474,6 +474,30 @@ export interface NpcParty {
   armyId?: string;
 }
 
+/**
+ * A force in the player's encounter range, as the encounter flow is given it.
+ *
+ * This is the whole of what `getNearbyHostiles` promises, and it is a narrower
+ * thing than {@link NpcParty}. The fixture answers that call with whole
+ * npcParties rows, which satisfy this. The campaign server answers it with the
+ * facts it holds about a party: a name, a headcount, whether it is hostile, and
+ * where it is. It has no composition for a party it is not simulating --
+ * `model.Party` is a count and a morale, not stacks -- so `troops` is optional
+ * and absent from the server's rows rather than invented to fill the shape.
+ *
+ * `id` is the party's simulation id. That is what POST /v1/encounters wants as a
+ * target.
+ */
+export interface NearbyForce {
+  id: string;
+  name: string;
+  troopCount: number;
+  hostile: boolean;
+  position: { x: number; z: number };
+  distanceKm?: number;
+  troops?: { name: string; count: number; tier: number }[];
+}
+
 /** A multi-party army. Parties move as a coordinated group under a leader. */
 export interface Army {
   id: string;
@@ -491,6 +515,35 @@ export interface Army {
   besiegingTownId?: string;
   /** Day the army was formed. */
   formedDay: number;
+}
+
+/** A siege in progress. Simulation entity, not art. */
+export interface Siege {
+  id: string;
+  townId: string;
+  townName: string;
+  /** Faction ID of the attackers. */
+  attackerFactionId: string;
+  /** Army ID leading the siege, if any. */
+  armyId?: string;
+  /** Party IDs of attackers (for non-army sieges). */
+  attackerPartyIds: string[];
+  /** Day the siege began. */
+  startDay: number;
+  /** 0-1: siege preparation progress. 1 = ready to assault. */
+  preparation: number;
+  /** 0-1: wall integrity. 0 = breached. */
+  wallIntegrity: number;
+  /** Whether the walls are breached. */
+  breached: boolean;
+  /** Days of food remaining for defenders. */
+  defenderFoodDays: number;
+  /** Attacker casualties so far. */
+  attackerCasualties: number;
+  /** Defender casualties so far. */
+  defenderCasualties: number;
+  /** Number of siege engines built. */
+  siegeEngines: number;
 }
 
 export interface PartyState {
@@ -896,6 +949,8 @@ export interface SimSnapshot {
   workshops: Workshop[];
   /** Armies in the campaign. */
   armies: Army[];
+  /** Active sieges. */
+  sieges: Siege[];
   ledger: Ledger;
   warnings: ResourceWarning[];
   notifications: Notification[];
@@ -1052,12 +1107,18 @@ export interface SimulationProvider {
   leaveArmy(armyId: string, partyId: string): Promise<void>;
   /** Disband an army. Parties become independent. */
   disbandArmy(armyId: string): Promise<void>;
+  /** Begin a siege on a town. Attackers must be at the town. */
+  startSiege(townId: string, attackerPartyIds: string[], armyId?: string): Promise<{ siegeId: string }>;
+  /** Launch an assault on a besieged town. Requires breach or high preparation. */
+  assaultSiege(siegeId: string): Promise<{ victory: boolean; casualties: number }>;
+  /** Lift a siege (attackers withdraw). */
+  liftSiege(siegeId: string): Promise<void>;
   /** Set an army's objective. */
   setArmyObjective(armyId: string, objective: Army["objective"]): Promise<void>;
   /** Restore the provider's internal state from a saved snapshot. */
   restoreSnapshot(snapshot: SimSnapshot): Promise<void>;
-  /** NPC parties within rangeKm of the player party. */
-  getNearbyHostiles(rangeKm: number): Promise<NpcParty[]>;
+  /** Forces within rangeKm of the player party. */
+  getNearbyHostiles(rangeKm: number): Promise<NearbyForce[]>;
   /** Promote a troop stack to the next tier, spending banked XP and gold. */
   upgradeTroops(request: UpgradeTroopsRequest): Promise<UpgradeTroopsResult>;
   /**

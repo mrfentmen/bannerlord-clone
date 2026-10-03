@@ -60,6 +60,7 @@ import type {
   ConstructionResult,
   Workshop,
   Army,
+  Siege,
   TaxOrderResult,
   TimeScaleResult,
   WhyChain,
@@ -251,6 +252,9 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     leaveArmy: async (armyId, partyId) => state.leaveArmy(armyId, partyId),
     disbandArmy: async (armyId) => state.disbandArmy(armyId),
     setArmyObjective: async (armyId, objective) => state.setArmyObjective(armyId, objective),
+    startSiege: async (townId, attackerPartyIds, armyId) => state.startSiege(townId, attackerPartyIds, armyId),
+    assaultSiege: async (siegeId) => state.assaultSiege(siegeId),
+    liftSiege: async (siegeId) => state.liftSiege(siegeId),
     marry: async (charId1, charId2) => state.marry(charId1, charId2),
     haveChild: async (parentId1, parentId2, childName) => state.haveChild(parentId1, parentId2, childName),
     killCharacter: async (charId, cause) => state.killCharacter(charId, cause),
@@ -285,6 +289,7 @@ class FixtureState {
   #characters: GameCharacter[] = [];
   #workshops: Workshop[] = [];
   #armies: Army[] = [];
+  #sieges: Siege[] = [];
   #rulers: RulerState[] = [];
   #warnings: ResourceWarning[] = [];
   #notifications: Notification[] = [];
@@ -705,6 +710,7 @@ class FixtureState {
       characters: structuredClone(this.#characters),
       workshops: structuredClone(this.#workshops),
       armies: structuredClone(this.#armies),
+      sieges: structuredClone(this.#sieges),
       ledger: structuredClone(this.#ledger),
       warnings: structuredClone(this.#warnings),
       notifications: structuredClone(this.#notifications.slice(-40)),
@@ -1272,6 +1278,7 @@ class FixtureState {
 
     // Party upkeep: wages, food, morale.
     this.#partyUpkeep();
+    this.#siegeTick();
 
     // Workshop income: each workshop generates daily income based on town prosperity.
     for (const workshop of this.#workshops) {
@@ -1626,6 +1633,7 @@ class FixtureState {
     this.#characters = structuredClone(snapshot.characters ?? []);
     this.#workshops = structuredClone(snapshot.workshops ?? []);
     this.#armies = structuredClone(snapshot.armies ?? []);
+    this.#sieges = structuredClone(snapshot.sieges ?? []);
     this.#ledger = structuredClone(snapshot.ledger);
     // Reset transient state
     this.#notifications = [];
@@ -2351,6 +2359,294 @@ class FixtureState {
       entityId: army.id,
       field: "army",
     });
+  }
+
+  /**
+   * Begin a siege on a town. The town must not already be besieged.
+   * Attackers should be at the town (not enforced in fixture).
+   */
+  async startSiege(townId: string, attackerPartyIds: string[], armyId?: string): Promise<{ siegeId: string }> {
+    const town = this.#towns.get(townId);
+    if (!town) throw new Error("Town not found.");
+    if (this.#sieges.some((s) => s.townId === townId)) {
+      throw new Error(`${town.name} is already under siege.`);
+    }
+    if (attackerPartyIds.length === 0) throw new Error("At least one attacker party is required.");
+
+    // Determine attacker faction from first party
+    let attackerFactionId = "";
+    for (const pid of attackerPartyIds) {
+      if (this.#party.id === pid) {
+        attackerFactionId = this.#player.factionId;
+        break;
+      }
+      const npc = this.#npcParties.find((p) => p.id === pid);
+      if (npc) {
+        attackerFactionId = npc.factionId;
+        break;
+      }
+    }
+    if (!attackerFactionId) throw new Error("Attacker parties not found.");
+
+    const siegeBase = {
+      id: `siege-${this.#sequence++}`,
+      townId,
+      townName: town.name,
+      attackerFactionId,
+      attackerPartyIds: [...attackerPartyIds],
+      startDay: this.#day,
+      preparation: 0,
+      wallIntegrity: 1,
+      breached: false,
+      defenderFoodDays: Math.max(3, Math.floor(town.foodStock / Math.max(1, town.population ?? 1000) * 30)),
+      attackerCasualties: 0,
+      defenderCasualties: 0,
+      siegeEngines: 0,
+    };
+    const siege: Siege = armyId ? { ...siegeBase, armyId } : siegeBase;
+    this.#sieges.push(siege);
+    town.underSiege = true;
+
+    if (armyId) {
+      const army = this.#armies.find((a) => a.id === armyId);
+      if (army) army.besiegingTownId = townId;
+    }
+
+    this.#notifications.push({
+      id: `n-siege-start-${this.#sequence++}`,
+      day: this.#day,
+      priority: "important",
+      text: `The siege of ${town.name} has begun!`,
+      entityId: town.id,
+      field: "siege",
+    });
+
+    return { siegeId: siege.id };
+  }
+
+  /**
+   * Launch an assault on a besieged town. Requires breached walls or
+   * preparation >= 0.8. Resolves the siege immediately.
+   */
+  async assaultSiege(siegeId: string): Promise<{ victory: boolean; casualties: number }> {
+    const siege = this.#sieges.find((s) => s.id === siegeId);
+    if (!siege) throw new Error("Siege not found.");
+    const town = this.#towns.get(siege.townId);
+    if (!town) throw new Error("Town not found.");
+
+    if (!siege.breached && siege.preparation < 0.8) {
+      throw new Error("Walls are intact and preparations incomplete. Bombard first or wait.");
+    }
+
+    // Calculate strengths
+    let attackerTroops = 0;
+    for (const pid of siege.attackerPartyIds) {
+      if (this.#party.id === pid) {
+        attackerTroops += this.#party.troops.reduce((s, t) => s + t.count, 0);
+      } else {
+        const npc = this.#npcParties.find((p) => p.id === pid);
+        if (npc) attackerTroops += npc.troopCount;
+      }
+    }
+    const defenderTroops = town.garrison;
+
+    // Assault resolution: attackers need 2:1 odds vs intact walls, 1.2:1 vs breach
+    const requiredRatio = siege.breached ? 1.2 : 2.0;
+    const ratio = defenderTroops > 0 ? attackerTroops / defenderTroops : 99;
+    const victory = ratio >= requiredRatio;
+
+    // Casualties: 15% of attackers, 25% of defenders on victory; worse on defeat
+    const attackerLoss = Math.floor(attackerTroops * (victory ? 0.15 : 0.3));
+    const defenderLoss = Math.floor(defenderTroops * (victory ? 0.6 : 0.25));
+
+    siege.attackerCasualties += attackerLoss;
+    siege.defenderCasualties += defenderLoss;
+
+    if (victory) {
+      // Capture the town: transfer holder to attacker faction's leader
+      town.garrison = Math.max(0, town.garrison - defenderLoss);
+      town.underSiege = false;
+      town.loyalty = Math.max(0.1, town.loyalty - 0.3); // Conquered populace is unhappy
+
+      // Apply attacker casualties to parties
+      this.#applySiegeCasualties(siege.attackerPartyIds, attackerLoss);
+
+      this.#notifications.push({
+        id: `n-siege-capture-${this.#sequence++}`,
+        day: this.#day,
+        priority: "important",
+        text: `${siege.townName} has fallen to the ${siege.attackerFactionId}!`,
+        entityId: town.id,
+        field: "siege",
+      });
+    } else {
+      // Failed assault: attackers lose more, siege continues
+      this.#applySiegeCasualties(siege.attackerPartyIds, attackerLoss);
+      town.garrison = Math.max(0, town.garrison - defenderLoss);
+
+      this.#notifications.push({
+        id: `n-siege-repulse-${this.#sequence++}`,
+        day: this.#day,
+        priority: "important",
+        text: `The assault on ${siege.townName} was repulsed!`,
+        entityId: town.id,
+        field: "siege",
+      });
+    }
+
+    // Remove the siege (resolved by assault)
+    this.#sieges = this.#sieges.filter((s) => s.id !== siegeId);
+    if (siege.armyId) {
+      const army = this.#armies.find((a) => a.id === siege.armyId);
+      if (army) delete army.besiegingTownId;
+    }
+
+    return { victory, casualties: attackerLoss };
+  }
+
+  /**
+   * Lift a siege (attackers withdraw).
+   */
+  async liftSiege(siegeId: string): Promise<void> {
+    const idx = this.#sieges.findIndex((s) => s.id === siegeId);
+    if (idx === -1) throw new Error("Siege not found.");
+    const siege = this.#sieges[idx]!;
+    const town = this.#towns.get(siege.townId);
+    if (town) town.underSiege = false;
+    if (siege.armyId) {
+      const army = this.#armies.find((a) => a.id === siege.armyId);
+      if (army) delete army.besiegingTownId;
+    }
+    this.#sieges.splice(idx, 1);
+
+    this.#notifications.push({
+      id: `n-siege-lift-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: `The siege of ${siege.townName} was lifted.`,
+      entityId: siege.townId,
+      field: "siege",
+    });
+  }
+
+  /**
+   * Apply casualties proportionally across attacker parties.
+   */
+  #applySiegeCasualties(partyIds: string[], totalLoss: number): void {
+    let remaining = totalLoss;
+    for (const pid of partyIds) {
+      if (remaining <= 0) break;
+      if (this.#party.id === pid) {
+        // Player party: remove from stacks proportionally
+        const total = this.#party.troops.reduce((s, t) => s + t.count, 0);
+        if (total === 0) continue;
+        for (const stack of this.#party.troops) {
+          const loss = Math.min(stack.count, Math.floor((stack.count / total) * totalLoss));
+          stack.count -= loss;
+          remaining -= loss;
+        }
+        this.#party.troops = this.#party.troops.filter((t) => t.count > 0);
+      } else {
+        const npc = this.#npcParties.find((p) => p.id === pid);
+        if (npc) {
+          const loss = Math.min(npc.troopCount, Math.floor(totalLoss / partyIds.length));
+          npc.troopCount -= loss;
+          remaining -= loss;
+        }
+      }
+    }
+  }
+
+  /**
+   * Daily siege tick: preparation, bombardment, starvation, surrender checks.
+   * Called from #step.
+   */
+  #siegeTick(): void {
+    for (const siege of [...this.#sieges]) {
+      const town = this.#towns.get(siege.townId);
+      if (!town) {
+        this.#sieges = this.#sieges.filter((s) => s.id !== siege.id);
+        continue;
+      }
+
+      // Preparation advances
+      siege.preparation = Math.min(1, siege.preparation + 0.1);
+
+      // Build siege engines (1 per 3 days after preparation starts)
+      if (siege.preparation > 0.3 && this.#day % 3 === 0) {
+        siege.siegeEngines += 1;
+      }
+
+      // Bombardment damages walls (faster with more engines)
+      if (siege.siegeEngines > 0 && !siege.breached) {
+        const damage = 0.05 * siege.siegeEngines;
+        siege.wallIntegrity = Math.max(0, siege.wallIntegrity - damage);
+        if (siege.wallIntegrity <= 0) {
+          siege.breached = true;
+          this.#notifications.push({
+            id: `n-siege-breach-${this.#sequence++}`,
+            day: this.#day,
+            priority: "important",
+            text: `The walls of ${siege.townName} have been breached!`,
+            entityId: town.id,
+            field: "siege",
+          });
+        }
+      }
+
+      // Defenders consume food
+      siege.defenderFoodDays -= 1;
+      if (siege.defenderFoodDays <= 0) {
+        // Starvation: town surrenders
+        town.underSiege = false;
+        town.loyalty = Math.max(0.1, town.loyalty - 0.2);
+        town.garrison = Math.floor(town.garrison * 0.5); // Half deserted/starved
+
+        this.#notifications.push({
+          id: `n-siege-starve-${this.#sequence++}`,
+          day: this.#day,
+          priority: "important",
+          text: `${siege.townName} surrendered from starvation!`,
+          entityId: town.id,
+          field: "siege",
+        });
+
+        this.#sieges = this.#sieges.filter((s) => s.id !== siege.id);
+        if (siege.armyId) {
+          const army = this.#armies.find((a) => a.id === siege.armyId);
+          if (army) delete army.besiegingTownId;
+        }
+        continue;
+      }
+
+      // Surrender check: low morale + breach + low food
+      if (siege.breached && siege.defenderFoodDays < 5 && town.loyalty < 0.3) {
+        if (this.#random() < 0.3) {
+          town.underSiege = false;
+          this.#notifications.push({
+            id: `n-siege-surrender-${this.#sequence++}`,
+            day: this.#day,
+            priority: "important",
+            text: `${siege.townName} surrendered!`,
+            entityId: town.id,
+            field: "siege",
+          });
+          this.#sieges = this.#sieges.filter((s) => s.id !== siege.id);
+          if (siege.armyId) {
+            const army = this.#armies.find((a) => a.id === siege.armyId);
+            if (army) delete army.besiegingTownId;
+          }
+          continue;
+        }
+      }
+
+      // Attrition: both sides lose a few troops daily
+      const attackerAttrition = Math.floor(siege.attackerPartyIds.length * 0.5);
+      const defenderAttrition = 1;
+      siege.attackerCasualties += attackerAttrition;
+      siege.defenderCasualties += defenderAttrition;
+      town.garrison = Math.max(0, town.garrison - defenderAttrition);
+    }
   }
 
   /**
