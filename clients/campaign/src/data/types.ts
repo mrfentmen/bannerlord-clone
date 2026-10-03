@@ -892,6 +892,17 @@ export interface SimulationProvider {
    * the player wins a battle against that party.
    */
   defeatNpcParty(partyId: string): Promise<void>;
+  /**
+   * Flee from an encounter: move the player to a new position away from the
+   * hostile party. Applies morale/fatigue consequences.
+   */
+  fleeFromEncounter(npcPartyId: string, newPosition: { x: number; z: number }): Promise<void>;
+  /**
+   * Apply player defeat consequences: the victorious NPC loots the player,
+   * takes prisoners, and the player retreats. The NPC party persists with
+   * its surviving troops.
+   */
+  applyPlayerDefeat(input: { npcPartyId: string; lootTaken: number; prisonersTaken: number }): Promise<void>;
   /** Restore the provider's internal state from a saved snapshot. */
   restoreSnapshot(snapshot: SimSnapshot): Promise<void>;
   /** NPC parties within rangeKm of the player party. */

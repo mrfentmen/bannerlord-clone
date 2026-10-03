@@ -477,6 +477,24 @@ export class HttpSimulationProvider implements SimulationProvider {
     );
   }
 
+  async fleeFromEncounter(npcPartyId: string, newPosition: { x: number; z: number }): Promise<void> {
+    await this.#post(
+      "/v1/encounters/flee",
+      { npcPartyId, newPosition },
+      "The flee did not land.",
+      () => null,
+    );
+  }
+
+  async applyPlayerDefeat(input: { npcPartyId: string; lootTaken: number; prisonersTaken: number }): Promise<void> {
+    await this.#post(
+      "/v1/encounters/defeat",
+      input,
+      "The defeat did not land.",
+      () => null,
+    );
+  }
+
   async restoreSnapshot(snapshot: SimSnapshot): Promise<void> {
     await this.#post<void>(
       "/v1/snapshot/restore",

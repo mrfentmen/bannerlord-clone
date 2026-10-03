@@ -897,20 +897,32 @@ function mountCampaign(): void {
       apiBaseUrl: config.simulationHttpUrl,
       playerPartyId: battlePartyId,
       local: {
-        describeEncounter: (attackerId, defenderId) => ({
-          attacker: {
-            partyId: attackerId,
-            name: party.name,
-            troops: troopCount,
-            power: troopPower,
-          },
-          defender: {
-            partyId: defenderId,
-            name: "Raider band",
-            troops: Math.max(10, Math.round(troopCount * 0.8)),
-            power: Math.max(10, Math.round(troopPower * 0.8)),
-          },
-        }),
+        describeEncounter: (attackerId, defenderId) => {
+          // Use the actual encountered NPC party if available.
+          const encounterNpc = (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
+          const defender = encounterNpc
+            ? {
+                partyId: defenderId,
+                name: encounterNpc.name,
+                troops: encounterNpc.troopCount,
+                power: encounterNpc.troops.reduce((n, t) => n + t.count * t.tier, 0),
+              }
+            : {
+                partyId: defenderId,
+                name: "Raider band",
+                troops: Math.max(10, Math.round(troopCount * 0.8)),
+                power: Math.max(10, Math.round(troopPower * 0.8)),
+              };
+          return {
+            attacker: {
+              partyId: attackerId,
+              name: party.name,
+              troops: troopCount,
+              power: troopPower,
+            },
+            defender,
+          };
+        },
       },
       pollEncounters: battlePartyId >= 0,
       onBattleEvent: (event) => {
@@ -984,6 +996,8 @@ function mountCampaign(): void {
               });
 
             // If the player won against an NPC party, remove the defeated party.
+            // If the player lost, apply defeat consequences: the enemy loots
+            // the player and may take prisoners; the player retreats.
             const encounterNpc = (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
             if (won && encounterNpc) {
               void provider
@@ -995,6 +1009,25 @@ function mountCampaign(): void {
                 .catch((err) => {
                   console.error("NPC defeat failed:", err);
                 });
+            } else if (!won && encounterNpc) {
+              // Player defeat: the enemy loots the player and takes prisoners.
+              // The player retreats to a safe distance.
+              void provider
+                .applyPlayerDefeat({
+                  npcPartyId: encounterNpc.id,
+                  lootTaken: Math.round(view.loot),
+                  prisonersTaken: Math.min(3, Math.round(playerWounded / 2)),
+                })
+                .then(() => {
+                  delete (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
+                  return reloadSnapshot();
+                })
+                .catch((err) => {
+                  console.error("Defeat consequences failed:", err);
+                });
+            } else if (!won) {
+              // Defeat without a specific NPC (e.g. generic battle): still clear.
+              delete (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
             }
           }
         } else {
@@ -2303,21 +2336,58 @@ async function checkForHostiles(): Promise<void> {
 async function handleEncounterChoice(choice: { action: "fight" | "flee" | "dismiss"; npcParty: NpcParty }): Promise<void> {
   const { npcParty } = choice;
   if (choice.action === "fight") {
-    // Start a battle with the actual NPC party.
-    // The battle UI's describeEncounter needs to know about this NPC.
+    // Store the NPC for the battle's describeEncounter to use.
+    (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc = npcParty;
     console.log(`[encounter] Fighting ${npcParty.name} (${npcParty.troopCount} troops)`);
-    // TODO: wire to battleUi.attack with the NPC party's actual data
-    // For now, trigger via the existing battle flow with NPC context.
-    if (battleUi) {
-      // Store the NPC for the battle's describeEncounter to use.
-      (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc = npcParty;
-      // The battle UI will pick this up via the encounter poller or manual trigger.
+    // Start the battle: player (attacker) vs the NPC party (defender).
+    // The defender party ID is a hash of the NPC ID since battleflow uses numbers.
+    if (battleUi && snapshot) {
+      const defenderId = hashNpcId(npcParty.id);
+      try {
+        await battleUi.attack(0, defenderId); // 0 = player party
+      } catch (err) {
+        console.error("Failed to start battle:", err);
+        delete (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
+      }
     }
   } else if (choice.action === "flee") {
-    console.log(`[encounter] Fled from ${npcParty.name}`);
-    // Move the player party away from the NPC (simple: mark as warned so it doesn't retrigger immediately)
+    await handleFlee(npcParty);
   } else {
     console.log(`[encounter] Dismissed encounter with ${npcParty.name}`);
+  }
+}
+
+/** Hash an NPC string ID to a numeric battle party ID. */
+function hashNpcId(id: string): number {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash) + 1000; // offset to avoid colliding with player ID 0
+}
+
+/** Handle fleeing from an encounter: move the player away, apply consequences. */
+async function handleFlee(npcParty: NpcParty): Promise<void> {
+  if (!snapshot || !provider) return;
+  console.log(`[encounter] Fled from ${npcParty.name}`);
+
+  // Move the player away from the NPC: displace along the vector from NPC to player.
+  // Use a deterministic 60km escape (beyond the 50km encounter range).
+  const player = snapshot.party;
+  const dx = player.position.x - npcParty.position.x;
+  const dz = player.position.z - npcParty.position.z;
+  const dist = Math.sqrt(dx * dx + dz * dz) || 1;
+  const escapeDist = 60; // km, beyond encounter range
+  const newX = player.position.x + (dx / dist) * escapeDist;
+  const newZ = player.position.z + (dz / dist) * escapeDist;
+
+  // Update player position via the provider (moveParty if available, else direct).
+  // For the fixture, we update through a dedicated method.
+  try {
+    await provider.fleeFromEncounter(npcParty.id, { x: newX, z: newZ });
+    await reloadSnapshot();
+  } catch (err) {
+    console.error("Flee failed:", err);
   }
 }
 

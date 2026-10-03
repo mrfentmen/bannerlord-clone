@@ -232,6 +232,8 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     applyBattleResult: async (input) => state.applyBattleResult(input),
     applyBattleOutcome: async (result) => state.applyBattleOutcome(result),
     defeatNpcParty: async (partyId) => state.defeatNpcParty(partyId),
+    fleeFromEncounter: async (npcPartyId, newPosition) => state.fleeFromEncounter(npcPartyId, newPosition),
+    applyPlayerDefeat: async (input) => state.applyPlayerDefeat(input),
     restoreSnapshot: async (snapshot) => state.restoreSnapshot(snapshot),
     getNearbyHostiles: async (rangeKm) => state.getNearbyHostiles(rangeKm),
     upgradeTroops: async (request) => state.upgradeTroops(request),
@@ -1666,6 +1668,100 @@ class FixtureState {
         field: "party",
       });
     }
+  }
+
+  /**
+   * Flee from an encounter. Moves the player to the escape position, reduces
+   * morale slightly (retreat is demoralizing), and adds fatigue.
+   */
+  async fleeFromEncounter(npcPartyId: string, newPosition: { x: number; z: number }): Promise<void> {
+    const npc = this.#npcParties.find((p) => p.id === npcPartyId);
+    const npcName = npc?.name ?? "the enemy";
+
+    // Move the player
+    this.#party.position = { x: newPosition.x, z: newPosition.z };
+
+    // Morale hit: fleeing is demoralizing
+    for (const stack of this.#party.troops) {
+      stack.morale = Math.round((stack.morale - 0.05) * 100) / 100;
+      if (stack.morale < 0) stack.morale = 0;
+    }
+    this.#party.morale = Math.max(0, Math.round((this.#party.morale - 0.05) * 100) / 100);
+
+    this.#notifications.push({
+      id: `n-flee-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: `Fled from ${npcName}. The party's morale suffers.`,
+      entityId: this.#party.id,
+      field: "position",
+    });
+  }
+
+  /**
+   * Apply player defeat consequences. The victorious NPC takes loot and
+   * prisoners from the player. The player retreats away from the battle.
+   * The NPC party persists (it won).
+   */
+  async applyPlayerDefeat(input: { npcPartyId: string; lootTaken: number; prisonersTaken: number }): Promise<void> {
+    const npc = this.#npcParties.find((p) => p.id === input.npcPartyId);
+
+    // Enemy takes loot from the player
+    const lootTaken = Math.min(this.#party.money, input.lootTaken);
+    this.#party.money = Math.round(this.#party.money - lootTaken);
+
+    // Enemy takes prisoners from the player's wounded/survivors
+    let prisonersTaken = input.prisonersTaken;
+    if (prisonersTaken > 0) {
+      // Take from wounded first (they can't run), then from healthy
+      const stacks = [...this.#party.troops].sort((a, b) => b.wounded - a.wounded);
+      for (const stack of stacks) {
+        if (prisonersTaken <= 0) break;
+        // Take from wounded
+        const fromWounded = Math.min(stack.wounded, prisonersTaken);
+        stack.wounded -= fromWounded;
+        prisonersTaken -= fromWounded;
+        // Take from healthy if still needed
+        if (prisonersTaken > 0 && stack.count > 0) {
+          const fromHealthy = Math.min(stack.count, prisonersTaken);
+          stack.count -= fromHealthy;
+          prisonersTaken -= fromHealthy;
+        }
+      }
+      const actualTaken = input.prisonersTaken - prisonersTaken;
+      if (actualTaken > 0 && npc) {
+        // The NPC gains prisoners (tracked loosely as increased troop count for now)
+        npc.troopCount += actualTaken;
+      }
+    }
+
+    // Player retreats: move away from the NPC
+    if (npc) {
+      const dx = this.#party.position.x - npc.position.x;
+      const dz = this.#party.position.z - npc.position.z;
+      const dist = Math.sqrt(dx * dx + dz * dz) || 1;
+      const retreatDist = 60;
+      this.#party.position = {
+        x: this.#party.position.x + (dx / dist) * retreatDist,
+        z: this.#party.position.z + (dz / dist) * retreatDist,
+      };
+    }
+
+    // Morale hit from defeat
+    for (const stack of this.#party.troops) {
+      stack.morale = Math.max(0, Math.round((stack.morale - 0.1) * 100) / 100);
+    }
+    this.#party.morale = Math.max(0, Math.round((this.#party.morale - 0.1) * 100) / 100);
+
+    const actualPrisoners = input.prisonersTaken - prisonersTaken;
+    this.#notifications.push({
+      id: `n-defeat-${this.#sequence++}`,
+      day: this.#day,
+      priority: "important",
+      text: `Defeated by ${npc?.name ?? "the enemy"}. Lost ${Math.round(lootTaken)} in loot${actualPrisoners > 0 ? ` and ${actualPrisoners} troops were captured` : ""}. The party retreats.`,
+      entityId: this.#party.id,
+      field: "troops",
+    });
   }
 
   /**
