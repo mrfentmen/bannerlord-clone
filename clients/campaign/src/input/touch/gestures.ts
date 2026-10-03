@@ -26,6 +26,8 @@ export interface GestureCamera {
   panByWorld(dx: number, dz: number): void;
   /** Multiply the camera radius by factor (<1 zooms in). */
   zoomBy(factor: number): void;
+  /** Called after a non-zero zoom delta, for a zoom tick or other feedback. */
+  onZoomInput?(): void;
   /**
    * Rotate the camera azimuth by radians. Positive dAlpha is a clockwise
    * finger twist (screen space, y down); the ground follows the fingers.
@@ -92,7 +94,13 @@ export function attachMapGestures(element: HTMLElement, camera: GestureCamera): 
       if (!a || !b) return;
       // Pinch zoom and two-finger rotate compose in one move.
       const dist = Math.hypot(a.x - b.x, a.y - b.y);
-      if (dist > 0 && pinchDist > 0) camera.zoomBy(pinchDist / dist);
+      if (dist > 0 && pinchDist > 0) {
+        const factor = pinchDist / dist;
+        if (factor !== 1) {
+          camera.zoomBy(factor);
+          camera.onZoomInput?.();
+        }
+      }
       const angle = Math.atan2(b.y - a.y, b.x - a.x);
       camera.rotateBy(angleDelta(pinchAngle, angle));
       pinchDist = dist;

@@ -8,18 +8,23 @@ function fakeCamera(): GestureCamera & {
   pans: { dx: number; dz: number }[];
   zooms: number[];
   rotations: number[];
+  zoomInputs: number;
 } {
   // 10 world units per pixel, screen x -> world x, screen y -> world z.
   return {
     pans: [],
     zooms: [],
     rotations: [],
+    zoomInputs: 0,
     screenToWorld: (dxPx, dyPx) => ({ dx: dxPx * 10, dz: dyPx * 10 }),
     panByWorld(dx, dz) {
       this.pans.push({ dx, dz });
     },
     zoomBy(factor) {
       this.zooms.push(factor);
+    },
+    onZoomInput() {
+      this.zoomInputs++;
     },
     rotateBy(dAlpha) {
       this.rotations.push(dAlpha);
@@ -58,8 +63,18 @@ describe("map touch gestures (task 4)", () => {
     gestures.pointerMove(2, 300, 100); // dist 200: spread -> zoom in
     expect(camera.zooms).toHaveLength(1);
     expect(camera.zooms[0]).toBeCloseTo(0.5, 9);
+    expect(camera.zoomInputs).toBe(1);
     gestures.pointerMove(2, 150, 100); // dist 50: pinch -> zoom out
     expect(camera.zooms[1]).toBeCloseTo(200 / 50, 9);
+    expect(camera.zoomInputs).toBe(2);
+  });
+
+  it("does not report zoom when only the pinch rotation changes", () => {
+    gestures.pointerDown(1, 100, 100);
+    gestures.pointerDown(2, 200, 100);
+    gestures.pointerMove(2, 100, 200); // same distance, different angle
+    expect(camera.zooms).toEqual([]);
+    expect(camera.zoomInputs).toBe(0);
   });
 
   it("two-finger twist rotates the camera (clockwise reads positive)", () => {

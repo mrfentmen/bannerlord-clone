@@ -38,6 +38,8 @@ import { TownLodController } from "./townLod.js";
 import { shadowConfigFor } from "../design/shadows.js";
 import { AmbientParticles, ParticleDensityManager } from "./particles.js";
 import { PARTICLE_DENSITY_DEFAULT } from "../design/particles.js";
+import { getAudioManager } from "../audio/AudioManager.js";
+import { ZoomTick } from "../audio/zoomTick.js";
 import { mapColor, tokens } from "../design/tokens.js";
 import { attachMapGestures } from "../input/touch/gestures.js";
 import { applyMouseCameraBindings, loadMouseCameraBindings } from "../input/mouseBindings.js";
@@ -227,6 +229,13 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
   camera.lowerBetaLimit = 0.2;
   camera.wheelDeltaPercentage = 0.02;
   camera.panningSensibility = 28;
+  const zoomTick = new ZoomTick(() => getAudioManager().playUiSound("hover"));
+  // The wheel changes `camera.radius` inside Babylon, so observe its input on
+  // the canvas. The touch gesture calls the same cooldown after pinch zoom.
+  const onWheel = (event: WheelEvent): void => {
+    if (event.deltaY !== 0) zoomTick.input();
+  };
+  canvas.addEventListener("wheel", onWheel, { passive: true });
   camera.inertia = 0.82;
   camera.minZ = 20;
   camera.maxZ = 260_000;
@@ -265,6 +274,9 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       const lo = camera.lowerRadiusLimit ?? 900;
       const hi = camera.upperRadiusLimit ?? 95_000;
       camera.radius = Math.min(hi, Math.max(lo, camera.radius * factor));
+    },
+    onZoomInput() {
+      zoomTick.input();
     },
     rotateBy(dAlpha) {
       // Increasing alpha orbits the camera clockwise (viewed from above),
@@ -488,6 +500,7 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
     towns,
     dispose() {
       window.removeEventListener("resize", onResize);
+      canvas.removeEventListener("wheel", onWheel);
       engine.stopRenderLoop();
       mapGestures.dispose();
       shadowGen?.dispose();
