@@ -647,6 +647,23 @@ export class HttpSimulationProvider implements SimulationProvider {
     );
   }
 
+  async declareWar(targetFactionId: string): Promise<{ warId: string }> {
+    return this.#post<{ warId: string }>(
+      "/v1/wars",
+      { targetFactionId },
+      "The war declaration did not land.",
+    );
+  }
+
+  async makePeace(warId: string): Promise<void> {
+    await this.#post(
+      `/v1/wars/${encodeURIComponent(warId)}/peace`,
+      {},
+      "The peace did not land.",
+      () => null,
+    );
+  }
+
   async marry(charId1: string, charId2: string): Promise<void> {
     await this.#post(
       "/v1/dynasty/marry",

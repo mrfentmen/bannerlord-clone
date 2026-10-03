@@ -517,6 +517,21 @@ export interface Army {
   formedDay: number;
 }
 
+/** A war between two factions. */
+export interface War {
+  id: string;
+  attackerFactionId: string;
+  defenderFactionId: string;
+  /** Day the war began. */
+  startDay: number;
+  /** 0-100: war exhaustion. High exhaustion pushes toward peace. */
+  exhaustion: number;
+  /** Attacker war score (battles won, towns taken). */
+  attackerScore: number;
+  /** Defender war score. */
+  defenderScore: number;
+}
+
 /** A siege in progress. Simulation entity, not art. */
 export interface Siege {
   id: string;
@@ -953,6 +968,8 @@ export interface SimSnapshot {
   armies: Army[];
   /** Active sieges. */
   sieges: Siege[];
+  /** Active wars between factions. */
+  wars: War[];
   ledger: Ledger;
   warnings: ResourceWarning[];
   notifications: Notification[];
@@ -1119,6 +1136,10 @@ export interface SimulationProvider {
   recruitCompanion(charId: string): Promise<void>;
   /** Assign a companion to a party role. */
   assignPartyRole(charId: string, role: "quartermaster" | "scout" | "surgeon" | "engineer" | null): Promise<void>;
+  /** Declare war on another faction. */
+  declareWar(targetFactionId: string): Promise<{ warId: string }>;
+  /** Make peace, ending a war. */
+  makePeace(warId: string): Promise<void>;
   /** Set an army's objective. */
   setArmyObjective(armyId: string, objective: Army["objective"]): Promise<void>;
   /** Restore the provider's internal state from a saved snapshot. */

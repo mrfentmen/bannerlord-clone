@@ -61,6 +61,7 @@ import type {
   Workshop,
   Army,
   Siege,
+  War,
   TaxOrderResult,
   TimeScaleResult,
   WhyChain,
@@ -257,6 +258,8 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     liftSiege: async (siegeId) => state.liftSiege(siegeId),
     recruitCompanion: async (charId) => state.recruitCompanion(charId),
     assignPartyRole: async (charId, role) => state.assignPartyRole(charId, role),
+    declareWar: async (targetFactionId) => state.declareWar(targetFactionId),
+    makePeace: async (warId) => state.makePeace(warId),
     marry: async (charId1, charId2) => state.marry(charId1, charId2),
     haveChild: async (parentId1, parentId2, childName) => state.haveChild(parentId1, parentId2, childName),
     killCharacter: async (charId, cause) => state.killCharacter(charId, cause),
@@ -292,6 +295,7 @@ class FixtureState {
   #workshops: Workshop[] = [];
   #armies: Army[] = [];
   #sieges: Siege[] = [];
+  #wars: War[] = [];
   #rulers: RulerState[] = [];
   #warnings: ResourceWarning[] = [];
   #notifications: Notification[] = [];
@@ -738,6 +742,7 @@ class FixtureState {
       workshops: structuredClone(this.#workshops),
       armies: structuredClone(this.#armies),
       sieges: structuredClone(this.#sieges),
+      wars: structuredClone(this.#wars),
       ledger: structuredClone(this.#ledger),
       warnings: structuredClone(this.#warnings),
       notifications: structuredClone(this.#notifications.slice(-40)),
@@ -1306,6 +1311,7 @@ class FixtureState {
     // Party upkeep: wages, food, morale.
     this.#partyUpkeep();
     this.#siegeTick();
+    this.#warTick();
 
     // Workshop income: each workshop generates daily income based on town prosperity.
     for (const workshop of this.#workshops) {
@@ -1677,6 +1683,7 @@ class FixtureState {
     this.#workshops = structuredClone(snapshot.workshops ?? []);
     this.#armies = structuredClone(snapshot.armies ?? []);
     this.#sieges = structuredClone(snapshot.sieges ?? []);
+    this.#wars = structuredClone(snapshot.wars ?? []);
     this.#ledger = structuredClone(snapshot.ledger);
     // Reset transient state
     this.#notifications = [];
@@ -2637,6 +2644,92 @@ class FixtureState {
       entityId: char.id,
       field: "role",
     });
+  }
+
+  /**
+   * Declare war on another faction. Cannot declare war on your own faction
+   * or on a faction you're already at war with.
+   */
+  async declareWar(targetFactionId: string): Promise<{ warId: string }> {
+    const myFaction = this.#player.factionId;
+    if (targetFactionId === myFaction) {
+      throw new Error("Cannot declare war on your own faction.");
+    }
+    if (this.#wars.some((w) =>
+      (w.attackerFactionId === myFaction && w.defenderFactionId === targetFactionId) ||
+      (w.attackerFactionId === targetFactionId && w.defenderFactionId === myFaction)
+    )) {
+      throw new Error("Already at war with this faction.");
+    }
+
+    const war: War = {
+      id: `war-${this.#sequence++}`,
+      attackerFactionId: myFaction,
+      defenderFactionId: targetFactionId,
+      startDay: this.#day,
+      exhaustion: 0,
+      attackerScore: 0,
+      defenderScore: 0,
+    };
+    this.#wars.push(war);
+
+    this.#notifications.push({
+      id: `n-war-declare-${this.#sequence++}`,
+      day: this.#day,
+      priority: "important",
+      text: `War declared on ${targetFactionId}!`,
+      entityId: war.id,
+      field: "war",
+    });
+
+    return { warId: war.id };
+  }
+
+  /**
+   * Make peace, ending a war. High exhaustion makes peace more likely
+   * (but the player can always force it).
+   */
+  async makePeace(warId: string): Promise<void> {
+    const idx = this.#wars.findIndex((w) => w.id === warId);
+    if (idx === -1) throw new Error("War not found.");
+    const war = this.#wars[idx]!;
+
+    this.#wars.splice(idx, 1);
+
+    this.#notifications.push({
+      id: `n-war-peace-${this.#sequence++}`,
+      day: this.#day,
+      priority: "important",
+      text: `Peace with ${war.attackerFactionId === this.#player.factionId ? war.defenderFactionId : war.attackerFactionId}.`,
+      entityId: war.id,
+      field: "war",
+    });
+  }
+
+  /**
+   * Daily war tick: exhaustion grows, high exhaustion triggers peace offers.
+   */
+  #warTick(): void {
+    for (const war of [...this.#wars]) {
+      // Exhaustion grows 1 per day, faster if losing
+      war.exhaustion = Math.min(100, war.exhaustion + 1);
+
+      // At 100 exhaustion, the losing side sues for peace (AI wars only)
+      // Player wars never auto-resolve — the player decides.
+      const playerInvolved = war.attackerFactionId === this.#player.factionId ||
+        war.defenderFactionId === this.#player.factionId;
+      if (!playerInvolved && war.exhaustion >= 100) {
+        this.#wars = this.#wars.filter((w) => w.id !== war.id);
+        this.#notifications.push({
+          id: `n-war-autopeace-${this.#sequence++}`,
+          day: this.#day,
+          priority: "informational",
+          text: `${war.attackerFactionId} and ${war.defenderFactionId} made peace from exhaustion.`,
+          entityId: war.id,
+          field: "war",
+        });
+      }
+    }
   }
 
   /**
