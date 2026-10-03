@@ -47,6 +47,7 @@ import {
 import { EMPTY_PEACE_TERMS, negotiatePeace } from "../../diplomacy/peaceConcessions.js";
 import { suggestTribute } from "../../diplomacy/tributeCalculator.js";
 import { rankGreatPowers, type ClanPower, type PowerRank } from "../../diplomacy/greatPowers.js";
+import type { TreatyTerm } from "../../diplomacy/treaties.js";
 import { relationBand } from "../../diplomacy/notables.js";
 import { markHintShown, shouldShowHint } from "../../onboarding/hintCooldown.js";
 import "./diplomacyPanel.css";
@@ -227,6 +228,14 @@ function buildDiplomacyPanel(options: DiplomacyPanelOptions, notice: string | nu
       },
     ];
     body.appendChild(dataTable("Treaties", columns, treaties, "diplomacy-treaties"));
+    // Task 228. The table gives a count of broken terms; this is the list of terms
+    // themselves, because "2 broken" is a number a player cannot act on and "you
+    // broke the border clause" is a decision they can. Every value is read off the
+    // treaty record: who owes it, whether it is kept, and how many seasons it has
+    // stood. Nothing is inferred from the treaty's name.
+    for (const status of treaties) {
+      body.appendChild(treatyTerms(status));
+    }
   }
 
   // -- tribute (task 214) -----------------------------------------------------
@@ -611,3 +620,56 @@ const RELATION_BAND_WORD: Record<ReturnType<typeof relationBand>, string> = {
 function signedRelation(value: number): string {
   return value > 0 ? `+${Math.round(value)}` : String(Math.round(value));
 }
+
+/**
+ * One treaty's terms, item by item. Task 228.
+ *
+ * `TermStatus` is "kept" | "broken" | "pending", and the three are different claims:
+ * a term nobody has reported on yet is not a term that is being honoured. Each is
+ * therefore printed as its own word, with the glyph the status chips use across the
+ * client so a strained treaty reads the same here as it does in the table above.
+ *
+ * A party of "us" is written as your own obligation and "them" as theirs, because
+ * "party: them" is a storage detail and not a thing a player can act on.
+ */
+function treatyTerms(status: TreatyStatus): HTMLElement {
+  const card = h("details", {
+    class: "treaty-terms",
+    "data-testid": `treaty-terms-${status.treaty.id}`,
+    "data-under-strain": String(status.underStrain),
+  });
+  card.appendChild(
+    h(
+      "summary",
+      { class: "label" },
+      `${status.treaty.name} — ${status.underStrain ? `${status.brokenTerms} term${status.brokenTerms === 1 ? "" : "s"} broken` : "all terms honoured"}`,
+    ),
+  );
+  const list = h("ul", { class: "treaty-terms__list" });
+  for (const term of status.treaty.terms) {
+    const item = h("li", {
+      class: "treaty-terms__row",
+      "data-testid": `treaty-term-${term.id}`,
+      "data-term-status": term.status,
+    });
+    item.append(
+      h("span", { class: "label" }, term.text),
+      h(
+        "span",
+        { class: "caption" },
+        `${term.party === "us" ? "Your obligation" : "Theirs"} · ${TERM_STATUS_WORD[term.status]}` +
+          (term.seasonsKept > 0 ? ` · kept ${term.seasonsKept} season${term.seasonsKept === 1 ? "" : "s"}` : ""),
+      ),
+    );
+    list.appendChild(item);
+  }
+  card.appendChild(list);
+  return card;
+}
+
+/** Each term status in a word, because "pending" is not "kept". */
+const TERM_STATUS_WORD: Record<TreatyTerm["status"], string> = {
+  kept: "Kept",
+  broken: "Broken",
+  pending: "Not yet reported",
+};

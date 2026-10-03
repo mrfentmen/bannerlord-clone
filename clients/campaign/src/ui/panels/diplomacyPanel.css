@@ -128,3 +128,42 @@
   font-size: var(--type-caption-size);
   line-height: var(--type-caption-line);
 }
+
+/* -- treaty terms (task 228) ---------------------------------------------- */
+
+.treaty-terms {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2) 0;
+  border-bottom: 1px solid var(--paper-200);
+}
+
+.treaty-terms > summary {
+  cursor: pointer;
+}
+
+.treaty-terms__list {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.treaty-terms__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-1) 0;
+  border-left: 3px solid var(--paper-300);
+  padding-left: var(--space-2);
+}
+
+/* The word "Broken" is the signal; the rule is the second signal. */
+.treaty-terms__row[data-term-status="broken"] {
+  border-left-color: var(--status-critical);
+}
+
+.treaty-terms__row[data-term-status="kept"] {
+  border-left-color: var(--status-good);
+}
