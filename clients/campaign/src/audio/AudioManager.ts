@@ -147,6 +147,13 @@ export class AudioManager {
   private manifest = new Map<string, AudioAsset>();
 
   private currentVoice: Voice | null = null;
+  private musicPreview: {
+    token: number;
+    track: string;
+    activeTrack: string | null;
+    previousTrack: string | null;
+  } | null = null;
+  private musicPreviewToken = 0;
   private currentAmbient: Voice | null = null;
   /** The combat bed's stems, keyed by id (task 563). */
   private combatVoices = new Map<SfxId, Voice>();
@@ -239,6 +246,12 @@ export class AudioManager {
    * is not loaded yet never silences the one that is.
    */
   async playMusic(track: string): Promise<void> {
+    // Any non-preview track change takes ownership away from a settings
+    // preview. Closing the settings panel must not later restore stale music.
+    if (this.musicPreview) {
+      this.musicPreview = null;
+      this.musicPreviewToken++;
+    }
     if (!this.ctx) await this.init();
     if (!this.ctx || !this.musicGain) return;
     if (this.currentVoice?.id === track) return;
@@ -252,6 +265,65 @@ export class AudioManager {
     const previous = this.currentVoice;
     if (previous) this.fadeOutVoice(previous, MUSIC_CROSSFADE_SECONDS);
     this.currentVoice = this.startVoice(track, buffer, MUSIC_CROSSFADE_SECONDS, this.musicGain);
+  }
+
+  /**
+   * Task 570: preview a real music track, retaining the track that was playing
+   * so the Settings panel can restore it. Returns false when the asset cannot
+   * be loaded. A later preview or stop invalidates an in-flight load so it
+   * cannot start after the panel has closed.
+   */
+  async previewMusic(track: string): Promise<boolean> {
+    const priorPreview = this.musicPreview;
+    const token = ++this.musicPreviewToken;
+    const previousTrack = priorPreview ? priorPreview.previousTrack : this.currentVoice?.id ?? null;
+    const activeTrack = priorPreview?.activeTrack ?? null;
+    this.musicPreview = { token, track, activeTrack, previousTrack };
+
+    try {
+      if (!this.ctx) await this.init();
+      if (this.musicPreview?.token !== token) return false;
+      if (!this.ctx || !this.musicGain) {
+        this.musicPreview = null;
+        return false;
+      }
+      if (!this.buffers.has(track)) await this.preload([track]);
+
+      if (this.musicPreview?.token !== token) return false;
+      const buffer = this.buffers.get(track);
+      if (!buffer) {
+        this.musicPreview = null;
+        return false;
+      }
+
+      // Start synchronously after the final token check. Calling playMusic here
+      // would add another await; the panel could close during that gap and leave
+      // preview audio playing after stopMusicPreview had already run.
+      if (this.currentVoice?.id !== track) {
+        if (this.currentVoice) this.fadeOutVoice(this.currentVoice, MUSIC_CROSSFADE_SECONDS);
+        this.currentVoice = this.startVoice(track, buffer, MUSIC_CROSSFADE_SECONDS, this.musicGain);
+      }
+      if (this.musicPreview?.token === token) this.musicPreview.activeTrack = track;
+      return this.musicPreview?.token === token && this.currentVoice?.id === track;
+    } catch (error) {
+      if (this.musicPreview?.token === token) this.musicPreview = null;
+      throw error;
+    }
+  }
+
+  /** Stops the settings preview and restores the prior track only if it still owns playback. */
+  stopMusicPreview(): void {
+    const preview = this.musicPreview;
+    if (!preview) return;
+    this.musicPreview = null;
+    this.musicPreviewToken++;
+    if (this.currentVoice?.id !== preview.track && this.currentVoice?.id !== preview.activeTrack) return;
+    if (preview.previousTrack === this.currentVoice?.id) return;
+    if (preview.previousTrack) {
+      void this.playMusic(preview.previousTrack).catch(() => {});
+    } else {
+      this.stopMusic();
+    }
   }
 
   /**
@@ -318,6 +390,8 @@ export class AudioManager {
    * bed still plays.
    */
   async startCombatMusic(): Promise<void> {
+    this.musicPreview = null;
+    this.musicPreviewToken++;
     if (!this.ctx) await this.init();
     if (!this.ctx || !this.musicGain) return;
     if (this.combatVoices.size > 0) return;
@@ -371,6 +445,8 @@ export class AudioManager {
 
   /** Stops the music with its own short fade; there is nothing to cross into. */
   stopMusic(): void {
+    this.musicPreview = null;
+    this.musicPreviewToken++;
     if (!this.ctx || !this.musicGain) return;
     const voice = this.currentVoice;
     this.currentVoice = null;

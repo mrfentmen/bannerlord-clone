@@ -170,4 +170,77 @@ describe("music crossfade (task 554)", () => {
     expect(ctx.sources[0]!.stoppedAt).toBeCloseTo(5.6, 5);
     expect(voiceGain(0).gain.events.at(-1)).toEqual({ kind: "ramp", value: 0, time: 5.5 });
   });
+
+  it("previews a track, then restores the music that was playing", async () => {
+    const audio = await readyAudio();
+    await audio.playMusic("battle-theme");
+
+    expect(await audio.previewMusic("menu-theme")).toBe(true);
+    expect(ctx.sources).toHaveLength(2);
+    expect(ctx.sources[0]!.stoppedAt).not.toBeNull();
+
+    audio.stopMusicPreview();
+    await Promise.resolve();
+    expect(ctx.sources).toHaveLength(3);
+    expect(ctx.sources[2]!.started).toBe(true);
+    // The old track is replaced, and closing preview returns to battle-theme.
+    expect(ctx.sources[1]!.stoppedAt).not.toBeNull();
+  });
+
+  it("restores no music if preview started while the bus was silent", async () => {
+    const audio = await readyAudio();
+    expect(await audio.previewMusic("menu-theme")).toBe(true);
+    audio.stopMusicPreview();
+    expect(ctx.sources[0]!.stoppedAt).not.toBeNull();
+    expect(ctx.sources).toHaveLength(1);
+  });
+
+  it("does not restore over music that took ownership during preview", async () => {
+    const audio = await readyAudio();
+    await audio.playMusic("battle-theme");
+    await audio.previewMusic("menu-theme");
+    await audio.playMusic("battle-theme");
+    const count = ctx.sources.length;
+
+    audio.stopMusicPreview();
+    expect(ctx.sources).toHaveLength(count);
+    expect(ctx.sources[count - 1]!.stoppedAt).toBeNull();
+  });
+
+  it("does not start a preview whose asset is unavailable", async () => {
+    const audio = await readyAudio();
+    await audio.playMusic("battle-theme");
+    expect(await audio.previewMusic("not-in-the-manifest")).toBe(false);
+    expect(ctx.sources).toHaveLength(1);
+    expect(ctx.sources[0]!.stoppedAt).toBeNull();
+  });
+
+  it("cancels a preview that is still loading when stopped", async () => {
+    const audio = await readyAudio();
+    const originalPreload = audio.preload.bind(audio);
+    let release!: () => void;
+    vi.spyOn(audio, "preload").mockImplementation(async (ids) => {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      await originalPreload(ids);
+    });
+
+    const preview = audio.previewMusic("menu-theme");
+    await Promise.resolve();
+    audio.stopMusicPreview();
+    release();
+    expect(await preview).toBe(false);
+    expect(ctx.sources).toHaveLength(0);
+  });
+
+  it("a newer preview supersedes an older preview still loading", async () => {
+    const audio = await readyAudio();
+    const first = audio.previewMusic("menu-theme");
+    const second = audio.previewMusic("battle-theme");
+
+    expect(await first).toBe(false);
+    expect(await second).toBe(true);
+    expect(ctx.sources).toHaveLength(1);
+  });
 });

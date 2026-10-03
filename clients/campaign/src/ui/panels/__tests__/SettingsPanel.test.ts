@@ -6,7 +6,8 @@
  * live-apply with cancel-revert, search, and confirmed reset.
  */
 
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import { getAudioManager } from "../../../audio/AudioManager.js";
 import { settings, DEFAULT_SETTINGS } from "../../../settings/index.js";
 import { settingsPanel } from "../SettingsPanel.js";
 
@@ -182,6 +183,52 @@ describe("settingsPanel", () => {
     expect(settings.get().renderScale).toBe(DEFAULT_SETTINGS.renderScale);
     expect(settings.get().invertMouseX).toBe(false);
     expect(closed()).toBe(true);
+  });
+
+  it("task 570: the audio tab previews menu music and restores it on close", async () => {
+    const audio = getAudioManager();
+    const preview = vi.spyOn(audio, "previewMusic").mockResolvedValue(true);
+    const stop = vi.spyOn(audio, "stopMusicPreview").mockImplementation(() => {});
+    const { root, closed } = open();
+    tab(root, "audio");
+    const button = root.querySelector('[data-testid="settings-music-preview"]') as HTMLButtonElement;
+    expect(button.textContent).toBe("Preview menu music");
+    button.click();
+    await Promise.resolve();
+    expect(preview).toHaveBeenCalledWith("menu-theme");
+    expect(root.querySelector('[data-testid="settings-music-preview"]')?.textContent).toBe("Stop music preview");
+
+    (root.querySelector('[data-testid="settings-save"]') as HTMLButtonElement).click();
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(closed()).toBe(true);
+    preview.mockRestore();
+    stop.mockRestore();
+  });
+
+  it("task 570: a failed preview does not leave a stop state behind", async () => {
+    const preview = vi.spyOn(getAudioManager(), "previewMusic").mockResolvedValue(false);
+    const { root } = open();
+    tab(root, "audio");
+    (root.querySelector('[data-testid="settings-music-preview"]') as HTMLButtonElement).click();
+    await Promise.resolve();
+    expect(root.querySelector('[data-testid="settings-music-preview"]')?.textContent).toBe("Preview menu music");
+    preview.mockRestore();
+  });
+
+  it("task 570: leaving the Audio tab stops an active preview", async () => {
+    const audio = getAudioManager();
+    const preview = vi.spyOn(audio, "previewMusic").mockResolvedValue(true);
+    const stop = vi.spyOn(audio, "stopMusicPreview").mockImplementation(() => {});
+    const { root } = open();
+    tab(root, "audio");
+    (root.querySelector('[data-testid="settings-music-preview"]') as HTMLButtonElement).click();
+    await Promise.resolve();
+    expect(root.querySelector('[data-testid="settings-music-preview"]')?.textContent).toBe("Stop music preview");
+
+    tab(root, "graphics");
+    expect(stop).toHaveBeenCalledTimes(1);
+    preview.mockRestore();
+    stop.mockRestore();
   });
 
   it("task 562: audio mute switch writes through and cancel restores it", () => {
