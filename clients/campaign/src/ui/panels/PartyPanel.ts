@@ -29,6 +29,7 @@ import type {
   UpgradeTroopsResult,
 } from "../../data/types.js";
 import { troopTier, TROOP_TIERS } from "../../data/types.js";
+import { SimulationUnavailableError } from "../../data/provider.js";
 
 /** The empty-wagon copy, verbatim from ART_DIRECTION.md section 10.2. */
 const NOTHING_TO_HAUL = "Caravan holds no goods. Buy something in a market before hauling.";
@@ -65,6 +66,12 @@ export interface PartyPanelOptions {
    * actually send the order.
    */
   onRecruitPrisoners?: (troopId: string, count: number) => Promise<void>;
+  /**
+   * Split troops off into a new party. The panel sends the stacks and the new
+   * party's name; the simulation owns whether the split happens. Only drawn
+   * when the caller can actually send the order.
+   */
+  onSplitParty?: (input: { troopIds: { stackId: string; count: number }[]; name: string }) => Promise<{ partyId: string }>;
   /** The party roll is still being read. `party-skeleton` goes up first. */
   loading?: boolean;
   testId?: string;
@@ -319,6 +326,65 @@ export function partyPanel(options: PartyPanelOptions): HTMLElement {
       });
     }
     body.appendChild(stackable(dataTable("Prisoners held", prisonerColumns, party.prisoners, "party-prisoners")));
+  }
+
+  // -- split party ------------------------------------------------------------
+  // Send troops off under a new banner. The form collects which stacks go and
+  // the new party's name; the simulation owns whether the split happens.
+  // Only drawn when the caller can actually send the order.
+  if (options.onSplitParty && party.troops.length > 0) {
+    body.appendChild(sectionHeader("Split party"));
+    const nameInput = h("input", {
+      type: "text",
+      class: "field__input",
+      placeholder: "New party name",
+      "data-testid": "split-party-name",
+      "aria-label": "New party name",
+    });
+    const checks: { stackId: string; input: HTMLInputElement }[] = [];
+    const list = h("div", { class: "stack" });
+    for (const stack of party.troops) {
+      const check = h("input", {
+        type: "checkbox",
+        "data-testid": `split-${stack.id}`,
+        "aria-label": `Send ${stack.count} ${stack.name} to the new party`,
+      }) as HTMLInputElement;
+      checks.push({ stackId: stack.id, input: check });
+      list.appendChild(
+        h("label", { class: "row" },
+          check,
+          h("span", { class: "label" }, `${stack.count} ${stack.name}`),
+        ),
+      );
+    }
+    const splitBtn = h("button", { type: "button", class: "btn", "data-testid": "split-party-confirm" }, "Split off new party");
+    const message = h("p", { class: "caption", role: "status", style: "display:none" });
+    splitBtn.addEventListener("click", () => {
+      const chosen = checks.filter((c) => c.input.checked).map((c) => {
+        const stack = party.troops.find((s) => s.id === c.stackId)!;
+        return { stackId: c.stackId, count: stack.count };
+      });
+      const name = (nameInput as HTMLInputElement).value.trim();
+      if (chosen.length === 0 || name.length === 0) {
+        message.style.display = "";
+        message.textContent = "Choose at least one stack and name the new party.";
+        return;
+      }
+      splitBtn.setAttribute("disabled", "");
+      void options.onSplitParty!({ troopIds: chosen, name }).then(
+        () => {
+          splitBtn.removeAttribute("disabled");
+          message.style.display = "";
+          message.textContent = `${name} marches under its own banner now.`;
+        },
+        (err) => {
+          splitBtn.removeAttribute("disabled");
+          message.style.display = "";
+          message.textContent = err instanceof SimulationUnavailableError ? err.playerMessage : "The split did not go through.";
+        },
+      );
+    });
+    body.appendChild(h("div", { class: "stack" }, nameInput, list, splitBtn, message));
   }
 
   // -- goods -----------------------------------------------------------------

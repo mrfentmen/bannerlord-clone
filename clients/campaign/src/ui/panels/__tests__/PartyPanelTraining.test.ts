@@ -312,3 +312,47 @@ describe("prisoner actions", () => {
     expect(onRansom).toHaveBeenCalledWith("t-bandit", 4);
   });
 });
+
+describe("party panel split", () => {
+  function partyWithTroops() {
+    return partyWith([
+      stack({ id: "s1", name: "Militia", count: 10 }),
+      stack({ id: "s2", name: "Archers", count: 5, wounded: 1 }),
+    ]);
+  }
+
+  it("shows the split form when the caller provides a handler", () => {
+    const root = partyPanel({ party: partyWithTroops(), onSplitParty: vi.fn() } as never);
+    expect(root.querySelector('[data-testid="split-party-name"]')).not.toBeNull();
+    expect(root.querySelector('[data-testid="split-s1"]')).not.toBeNull();
+    expect(root.querySelector('[data-testid="split-party-confirm"]')).not.toBeNull();
+  });
+
+  it("hides the split form when no handler is provided", () => {
+    const root = partyPanel({ party: partyWithTroops() } as never);
+    expect(root.querySelector('[data-testid="split-party-confirm"]')).toBeNull();
+  });
+
+  it("calls the split handler with chosen stacks and the new name", async () => {
+    const onSplit = vi.fn().mockResolvedValue({ partyId: "p-new" });
+    const root = partyPanel({ party: partyWithTroops(), onSplitParty: onSplit } as never);
+    (root.querySelector('[data-testid="split-s1"]') as HTMLInputElement).checked = true;
+    (root.querySelector('[data-testid="split-party-name"]') as HTMLInputElement).value = "Scouts";
+    (root.querySelector('[data-testid="split-party-confirm"]') as HTMLButtonElement).click();
+    await Promise.resolve();
+    expect(onSplit).toHaveBeenCalledWith({
+      troopIds: [{ stackId: "s1", count: 10 }],
+      name: "Scouts",
+    });
+  });
+
+  it("refuses to split with no stacks chosen", async () => {
+    const onSplit = vi.fn().mockResolvedValue({ partyId: "p-new" });
+    const root = partyPanel({ party: partyWithTroops(), onSplitParty: onSplit } as never);
+    (root.querySelector('[data-testid="split-party-name"]') as HTMLInputElement).value = "Scouts";
+    (root.querySelector('[data-testid="split-party-confirm"]') as HTMLButtonElement).click();
+    await Promise.resolve();
+    expect(onSplit).not.toHaveBeenCalled();
+    expect(root.textContent).toContain("Choose at least one stack");
+  });
+});
