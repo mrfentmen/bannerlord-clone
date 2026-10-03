@@ -58,7 +58,7 @@ Orientation note: troop-officer.glb geometry lies flat along Z; apply rotationX 
 - food-cart.glb — target 3m (cart with striped umbrella)
 - skyscraper.glb — target 120m (marginal detail; fine at map scale)
 
-## Blender builds (42) — 2026-10-02/03
+## Blender builds (54) — 2026-10-02/03
 Built from scratch in Blender 4.2 via the Blender MCP (bpy scripting, Cycles
 CPU renders verified). All-original geometry, no stock assets.
 Standard treatment (treatment.py): procedural PBR materials, HDRI studio
@@ -105,6 +105,18 @@ lighting, detail pass (bolts, seams, ridges).
 - planter.glb — target 1.2m (concrete, bushes)
 - hotdog-cart.glb — target 3m (umbrella, wheels)
 - sidewalk-shed.glb — target 2.6m (construction scaffolding)
+- subway-entrance.glb — target 3.5m (green railing, stairs down, sign pylon)
+- water-tower.glb — target 6m (wooden tank, bands, legs)
+- crowd-barrier.glb — target 1.1m (metal police barricade)
+- traffic-barrel.glb — target 1m (orange barrel, reflective bands)
+- garbage-bags.glb — target 1m (pile of trash bags)
+- chainlink-fence.glb — target 1.8m (posts, mesh panel)
+- floodlight.glb — target 4.5m (tripod, 2 lamp heads)
+- pallet.glb — target 0.2m (wooden pallet)
+- oil-drum.glb — target 0.9m (55-gal drum, ribs)
+- newsstand.glb — target 2.5m (kiosk, awning, racks)
+- street-sign.glb — target 4.2m (pole, 2 green signs)
+- porta-potty.glb — target 2.3m (blue, door, vent)
 
 ## Batch 8: image-to-3D (6) — 2026-10-02Concept art generated locally (Pollinations, free), then turned into 3D via
 three.ws Forge image-to-3D (POST /api/forge, image_urls, tier=draft). All
