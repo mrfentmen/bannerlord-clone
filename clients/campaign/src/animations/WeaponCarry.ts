@@ -1,8 +1,9 @@
 /**
  * Where a weapon is carried.
  *
- * Task 647: an idle character carries its weapon slung across its back, with the
- * muzzle up and clear of its head. Task 648 adds the two-handed combat hold. Nothing about the weapon changes -- only the attach point it is
+ * Tasks 647 and 648: the same weapon is in a different place depending on what
+ * the character is doing. Idle, it is slung across the back; in combat, it is in
+ * both hands. Nothing about the weapon changes -- only the attach point it is
  * parented to and the orientation it is given -- so this module is a registry of
  * carry poses plus the rule for choosing between them.
  *
@@ -49,6 +50,29 @@ export interface CarryPose {
 }
 
 /**
+ * Task 648: a rifle held in both hands, muzzle forward.
+ *
+ * The muzzle points along the anchor's +Z, which is forward for a character
+ * authored facing +Z -- the convention the staged operator GLBs use.
+ */
+export const HANDS_READY: CarryPose = {
+  anchor: 'left-hand',
+  offset: { x: 0.04, y: -0.02, z: 0.18 },
+  rotation: { x: 0, y: 0, z: 0 },
+  muzzleDir: { x: 0, y: 0, z: 1 },
+  rightHanded: true,
+};
+
+/** Task 648: a pistol, one hand, muzzle forward and slightly down. */
+export const PISTOL_READY: CarryPose = {
+  anchor: 'right-hand',
+  offset: { x: 0.02, y: -0.04, z: 0.12 },
+  rotation: { x: -0.12, y: 0, z: 0 },
+  muzzleDir: { x: 0, y: -0.12, z: 0.99 },
+  rightHanded: true,
+};
+
+/**
  * Task 647: slung across the back.
  *
  * The muzzle points up and to the character's left, over the shoulder and clear
@@ -89,16 +113,11 @@ export type Stance = 'idle' | 'moving' | 'combat' | 'downed';
 /** Seconds a carry change takes. Long enough to hide a swap, short enough to read. */
 export const CARRY_BLEND_S = 0.25;
 
-/**
- * The pose per stance.
- *
- * Built up as each stance is specified. A stance with no entry yet falls back to
- * the back sling, which is the correct default: a weapon nobody has asked to be
- * held stays where it was.
- */
-export const POSE_BY_STANCE: Readonly<Partial<Record<Stance, CarryPose>>> = {
+/** The pose per stance. Combat takes a weapon out of both hands. */
+export const POSE_BY_STANCE: Readonly<Record<Stance, CarryPose>> = {
   idle: BACK_SLUNG,
   moving: LOW_READY,
+  combat: HANDS_READY,
   downed: STOWED,
 };
 
@@ -143,7 +162,7 @@ export class CarryStateTracker {
     const blend = duration > 0 ? this.elapsedS / duration : 1;
     return {
       stance: this.current,
-      pose: POSE_BY_STANCE[this.current] ?? BACK_SLUNG,
+      pose: POSE_BY_STANCE[this.current],
       blend,
       moving: blend < 1,
     };
@@ -153,12 +172,7 @@ export class CarryStateTracker {
   get state(): CarryState {
     const duration = Number.isFinite(this.blendS) && this.blendS > 0 ? this.blendS : CARRY_BLEND_S;
     const blend = Math.min(1, this.elapsedS / duration);
-    return {
-      stance: this.current,
-      pose: POSE_BY_STANCE[this.current] ?? BACK_SLUNG,
-      blend,
-      moving: blend < 1,
-    };
+    return { stance: this.current, pose: POSE_BY_STANCE[this.current], blend, moving: blend < 1 };
   }
 }
 
@@ -176,9 +190,9 @@ export interface WeaponCarry {
 
 /** The pose a weapon uses in a stance, honouring its own overrides. */
 export function poseFor(weapon: WeaponCarry, stance: Stance): CarryPose {
-  if (stance === 'combat') return weapon.combatPose ?? POSE_BY_STANCE.combat ?? weapon.idlePose ?? BACK_SLUNG;
-  if (stance === 'idle') return weapon.idlePose ?? POSE_BY_STANCE.idle ?? BACK_SLUNG;
-  return POSE_BY_STANCE[stance] ?? weapon.idlePose ?? BACK_SLUNG;
+  if (stance === 'combat') return weapon.combatPose ?? POSE_BY_STANCE.combat;
+  if (stance === 'idle') return weapon.idlePose ?? POSE_BY_STANCE.idle;
+  return POSE_BY_STANCE[stance];
 }
 
 /**
