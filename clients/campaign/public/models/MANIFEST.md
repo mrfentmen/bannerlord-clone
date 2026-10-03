@@ -1,7 +1,7 @@
 # GLB manifest for Rowan — Milo's 3D model staging
 
 Per Pax's lane ruling: Milo's agents are out of clients/campaign scene wiring.
-The 50 GLB files below are staged as files only. Wire them however fits the client.
+The 54 GLB files below are staged as files only. Wire them however fits the client.
 
 All files are valid glTF 2.0. Target lengths are longest-axis metres for auto-scale.
 Orientation note: troop-officer.glb geometry lies flat along Z; apply rotationX = -PI/2 to stand it up.
@@ -58,11 +58,15 @@ Orientation note: troop-officer.glb geometry lies flat along Z; apply rotationX 
 - food-cart.glb — target 3m (cart with striped umbrella)
 - skyscraper.glb — target 120m (marginal detail; fine at map scale)
 
-## Blender builds (2) — 2026-10-03
+## Blender builds (6) — 2026-10-02/03
 Built from scratch in Blender 4.2 via the Blender MCP (bpy scripting, Cycles
 CPU renders verified). All-original geometry, no stock assets.
 - wooden-crate.glb — target 2m (beveled dark-wood frame, plank panels, diagonal brace)
 - traffic-cone.glb — target 1m (tapered body, reflective white stripes, square base)
+- fire-hydrant-blender.glb — target 1m (dome top, side + front nozzles, base flange)
+- mailbox.glb — target 1.2m (USPS-style collection box, rounded top, pedestal legs)
+- parking-meter.glb — target 1.5m (pole, twin domes, coin slot, glass window)
+- trash-can.glb — target 1m (tapered steel body, rim, lid, side handles)
 
 ## Batch 8: image-to-3D (6) — 2026-10-02Concept art generated locally (Pollinations, free), then turned into 3D via
 three.ws Forge image-to-3D (POST /api/forge, image_urls, tier=draft). All
