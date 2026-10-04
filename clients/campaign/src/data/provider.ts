@@ -731,6 +731,32 @@ export class HttpSimulationProvider implements SimulationProvider {
     return snap.party.speedKmPerDay;
   }
 
+  // Proposal: the server has no party-speed systems yet (forced march,
+  // smithing). These throw until the routes land; the fixture implements them.
+  async setForcedMarch(_active: boolean): Promise<void> {
+    throw new Error("Forced march is not available on the live simulation yet.");
+  }
+
+  async getForcedMarch(): Promise<boolean> {
+    return false;
+  }
+
+  async smeltArms(_quantity: number): Promise<{ metal: number }> {
+    throw new Error("Smithing is not available on the live simulation yet.");
+  }
+
+  async forgeItem(_recipeId: string): Promise<{ name: string }> {
+    throw new Error("Smithing is not available on the live simulation yet.");
+  }
+
+  async getSmithingRecipes(): Promise<{ id: string; name: string; metal: number; fuel: number; result: string }[]> {
+    throw new Error("Smithing is not available on the live simulation yet.");
+  }
+
+  async attemptPrisonBreak(_holderId: string, _teamSize: number): Promise<{ success: boolean; freed: number; wounded: number; caught: boolean }> {
+    throw new Error("Prison breaks are not available on the live simulation yet.");
+  }
+
   async marry(charId1: string, charId2: string): Promise<void> {
     await this.#post(
       "/v1/dynasty/marry",

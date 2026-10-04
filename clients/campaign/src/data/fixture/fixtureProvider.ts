@@ -95,6 +95,13 @@ import {
   foodVarietyMoraleDelta,
 } from "../../campaign/fieldSystems.js";
 import { rollAnnualDeath } from "../../campaign/mortality.js";
+import { simulateNpcBattle } from "../../battleflow/npcBattle.js";
+import {
+  SMITHING_RECIPES,
+  canForge,
+  resolvePrisonBreak,
+  type PrisonBreakResult,
+} from "../../campaign/fieldSystems.js";
 
 /** Marker strings. `tools/check-no-fixtures.mjs` greps the production bundle for
  *  these, so this module cannot be smuggled into a shipped build unnoticed. */
@@ -297,6 +304,13 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     payFine: async (townId) => state.payFine(townId),
     getPartyCapacity: async () => state.partyCapacity(),
     getPartySpeed: async () => state.partySpeed(),
+    setForcedMarch: async (active: boolean) => state.setForcedMarch(active),
+    getForcedMarch: async () => state.getForcedMarch(),
+    smeltArms: async (quantity: number) => state.smeltArms(quantity),
+    forgeItem: async (recipeId: string) => state.forgeItem(recipeId),
+    getSmithingRecipes: async () => SMITHING_RECIPES.map((r) => ({ ...r })),
+    attemptPrisonBreak: async (holderId: string, teamSize: number) =>
+      state.attemptPrisonBreak(holderId, teamSize),
     marry: async (charId1, charId2) => state.marry(charId1, charId2),
     haveChild: async (parentId1, parentId2, childName) => state.haveChild(parentId1, parentId2, childName),
     killCharacter: async (charId, cause) => state.killCharacter(charId, cause),
@@ -1671,6 +1685,7 @@ class FixtureState {
     this.#applyTrainingXp();
     this.#recoverWounded();
     this.#moveNpcParties();
+    this.#resolveNpcBattles();
     this.#rebuildLedger();
     this.#refreshWarnings();
     this.#emit({ tick: this.#tick, day: this.#day, towns: townDeltas, party: structuredClone(this.#party), npcParties: structuredClone(this.#npcParties), ledger: structuredClone(this.#ledger), warnings: structuredClone(this.#warnings) });
@@ -1821,6 +1836,95 @@ class FixtureState {
     this.#party.speedKmPerDay = this.partySpeed();
   }
 
+  getForcedMarch(): boolean {
+    return this.#party.forcedMarch ?? false;
+  }
+
+  /**
+   * Smithing: smelt captured arms into metal (1 arms = 2 metal).
+   * Bannerlord's smelting rewards looting.
+   */
+  smeltArms(quantity: number): { metal: number } {
+    const arms = this.#party.goods.find((g) => g.goodId === "arms");
+    const available = arms?.quantity ?? 0;
+    const take = Math.max(0, Math.min(quantity, available));
+    if (take <= 0) throw new Error("No arms to smelt.");
+    arms!.quantity -= take;
+    const metal = take * 2;
+    this.#party.metal += metal;
+    return { metal };
+  }
+
+  /**
+   * Smithing: forge a recipe from the bench. Spends metal and fuel,
+   * adds the finished piece to the crafted stockpile.
+   */
+  forgeItem(recipeId: string): { name: string } {
+    const recipe = SMITHING_RECIPES.find((r) => r.id === recipeId);
+    if (!recipe) throw new Error(`Unknown recipe: ${recipeId}`);
+    const fuel = this.#party.goods.find((g) => g.goodId === "fuel");
+    const check = canForge(recipe, this.#party.metal, fuel?.quantity ?? 0);
+    if (!check.ok) throw new Error(`Cannot forge ${recipe.name}: ${check.reason}.`);
+    this.#party.metal -= recipe.metal;
+    fuel!.quantity -= recipe.fuel;
+    const stock = (this.#party.crafted ??= []);
+    const existing = stock.find((c) => c.recipeId === recipeId);
+    if (existing) existing.count += 1;
+    else stock.push({ recipeId, name: recipe.name, count: 1 });
+    return { name: recipe.name };
+  }
+
+  /**
+   * Prison break (roguery): attempt to free imprisoned troops from a holder.
+   * Uses the fieldSystems odds; success returns them to the party as a
+   * wounded-light troop stack, failure wounds the team and angers the holder.
+   */
+  attemptPrisonBreak(holderId: string, teamSize: number): PrisonBreakResult & { freedName?: string } {
+    const held = this.#party.imprisoned ?? [];
+    const entry = held.find((h) => h.holderId === holderId);
+    if (!entry || entry.count <= 0) throw new Error("No prisoners held there.");
+    const player = this.#player;
+    const roguery = player.skills?.["roguery"] ?? 0;
+    const holder = this.#npcParties.find((p) => p.id === holderId);
+    const garrison = holder?.troopCount ?? 20;
+    const result = resolvePrisonBreak(
+      { roguery, teamSize: Math.max(1, Math.min(teamSize, 20)), garrison, prisonersHeld: entry.count },
+      this.#random,
+    );
+    if (result.success) {
+      // Freed troops rejoin as a fresh stack.
+      this.#party.troops.push({
+        id: `t-freed-${Date.now()}`,
+        name: "Freed captives",
+        count: entry.count,
+        wounded: 0,
+        quality: 1,
+        tier: 1,
+        xp: 0,
+        wage: 0.5,
+        morale: 0.9,
+      });
+      this.#party.imprisoned = held.filter((h) => h.holderId !== holderId);
+      if (holder) holder.troopCount = Math.max(0, holder.troopCount - entry.count);
+    } else {
+      // The team took wounds; getting caught turns the holder hostile.
+      const stack = this.#party.troops[0];
+      if (stack) stack.wounded = Math.min(stack.count, stack.wounded + result.wounded);
+      if (result.caught && holder) holder.hostile = true;
+    }
+    this.#notifications.push({
+      id: `n-break-${this.#sequence++}`,
+      day: this.#day,
+      priority: "important",
+      text: result.success
+        ? `Prison break succeeded! ${entry.count} troops freed from ${entry.holderName}.`
+        : `Prison break failed at ${entry.holderName}.${result.caught ? " They know it was you." : ""}`,
+      entityId: this.#party.id,
+      field: "prisoners",
+    });
+    return result.success ? { ...result, freedName: entry.holderName } : result;
+  }
+
   #recoverWounded(): void {
     const surgeonId = this.#party.roles.surgeon;
     let surgeonBonus = 0;
@@ -1845,6 +1949,76 @@ class FixtureState {
     }
   }
 
+  /**
+   * NPC vs NPC battles (Bannerlord's autocombat). When two hostile NPC
+   * parties end the day within 5 km of each other, they fight: the
+   * battleflow/npcBattle sim resolves it, casualties come off the stacks,
+   * and a wiped party is removed. Caravans are fought by bandits; lords
+   * fight bandits and enemy factions.
+   */
+  #resolveNpcBattles(): void {
+    const BATTLE_RANGE_KM = 5;
+    const fought = new Set<string>();
+    for (let i = 0; i < this.#npcParties.length; i++) {
+      for (let j = i + 1; j < this.#npcParties.length; j++) {
+        const a = this.#npcParties[i]!;
+        const b = this.#npcParties[j]!;
+        if (fought.has(a.id) || fought.has(b.id)) continue;
+        if (!this.#npcHostile(a, b)) continue;
+        const dist = Math.hypot(a.position.x - b.position.x, a.position.z - b.position.z);
+        if (dist > BATTLE_RANGE_KM) continue;
+        fought.add(a.id);
+        fought.add(b.id);
+
+        const toSide = (p: NpcParty) => ({
+          troops: p.troopCount,
+          avgLevel: p.troops.length > 0
+            ? p.troops.reduce((s, t) => s + t.tier * 6 * t.count, 0) / Math.max(1, p.troopCount)
+            : 6,
+          morale: 0.5,
+        });
+        const result = simulateNpcBattle(toSide(a), toSide(b), this.#random);
+        this.#applyNpcCasualties(a, result.killed[0] + result.wounded[0]);
+        this.#applyNpcCasualties(b, result.killed[1] + result.wounded[1]);
+
+        const winner = result.winner === 0 ? a : b;
+        const loser = result.winner === 0 ? b : a;
+        const loserGone = loser.troopCount <= 0;
+        this.#notifications.push({
+          id: `n-npcbattle-${this.#sequence++}`,
+          day: this.#day,
+          priority: "informational",
+          text: `${winner.name} defeated ${loser.name} (${result.killed[0] + result.killed[1]} killed, ${result.rounds} rounds)${loserGone ? ` -- ${loser.name} was wiped out.` : ""}`,
+          entityId: winner.id,
+          field: "battle",
+        });
+        if (loserGone) {
+          this.#npcParties = this.#npcParties.filter((p) => p.id !== loser.id);
+        }
+      }
+    }
+  }
+
+  /** Two NPC parties fight when bandits meet non-bandits, or hostile factions meet. */
+  #npcHostile(a: NpcParty, b: NpcParty): boolean {
+    if (a.kind === "bandit" && b.kind !== "bandit") return true;
+    if (b.kind === "bandit" && a.kind !== "bandit") return true;
+    return a.factionId !== b.factionId && (a.hostile || b.hostile);
+  }
+
+  /** Remove casualties proportionally across an NPC party's stacks. */
+  #applyNpcCasualties(p: NpcParty, losses: number): void {
+    let remaining = Math.min(losses, p.troopCount);
+    for (const stack of p.troops) {
+      if (remaining <= 0) break;
+      const take = Math.min(stack.count, Math.ceil((stack.count / Math.max(1, p.troopCount)) * losses));
+      const actual = Math.min(take, remaining);
+      stack.count -= actual;
+      remaining -= actual;
+    }
+    p.troops = p.troops.filter((t) => t.count > 0);
+    p.troopCount = p.troops.reduce((s, t) => s + t.count, 0);
+  }
   /**
    * Move NPC parties. Bandits wander; when they have no destination they pick a
    * new random one within a bounded range. Deterministic via the seeded RNG.
@@ -2352,6 +2526,11 @@ class FixtureState {
       if (actualTaken > 0 && npc) {
         // The NPC gains prisoners (tracked loosely as increased troop count for now)
         npc.troopCount += actualTaken;
+        // Track them as imprisoned so prison breaks can free them.
+        const held = (this.#party.imprisoned ??= []);
+        const existing = held.find((h) => h.holderId === npc.id);
+        if (existing) existing.count += actualTaken;
+        else held.push({ name: "Captured troops", count: actualTaken, holderId: npc.id, holderName: npc.name });
       }
     }
 

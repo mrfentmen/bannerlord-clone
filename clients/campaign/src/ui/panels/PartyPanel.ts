@@ -30,6 +30,7 @@ import type {
 } from "../../data/types.js";
 import { troopTier, TROOP_TIERS } from "../../data/types.js";
 import { SimulationUnavailableError } from "../../data/provider.js";
+import { SMITHING_RECIPES } from "../../campaign/fieldSystems.js";
 
 /** The empty-wagon copy, verbatim from ART_DIRECTION.md section 10.2. */
 const NOTHING_TO_HAUL = "Caravan holds no goods. Buy something in a market before hauling.";
@@ -54,6 +55,24 @@ export interface PartyPanelOptions {
    * was refused — is printed verbatim.
    */
   onUpgradeTroops?: (stackId: string) => Promise<UpgradeTroopsResult>;
+  /**
+   * Toggle forced march (+30% speed, daily morale/food cost). Only drawn when
+   * the caller can actually send the order.
+   */
+  onToggleForcedMarch?: (active: boolean) => Promise<void>;
+  /**
+   * Smelt captured arms into metal. Only drawn when the caller can send it.
+   */
+  onSmeltArms?: (quantity: number) => Promise<{ metal: number }>;
+  /**
+   * Forge a bench recipe. Only drawn when the caller can send it.
+   */
+  onForgeItem?: (recipeId: string) => Promise<{ name: string }>;
+  /**
+   * Attempt a prison break against a holder. Only drawn when the caller can
+   * send it and the party has imprisoned troops.
+   */
+  onPrisonBreak?: (holderId: string, teamSize: number) => Promise<{ success: boolean; freed: number; wounded: number; caught: boolean }>;
   /**
    * Ransom prisoners for gold. The panel sends the troop id and count; the
    * simulation owns the price and the result. Only drawn when the caller can
@@ -225,6 +244,32 @@ export function partyPanel(options: PartyPanelOptions): HTMLElement {
       row("Daily rations", `${dailyFood.toFixed(1)} person-days`, { mono: true, testId: "party-daily-rations" }),
       row("Purse", money(party.money), { mono: true, testId: "party-purse" }),
       row("March speed", `${party.speedKmPerDay.toFixed(0)} km/day`, { mono: true, testId: "party-speed" }),
+      // Forced march toggle: Bannerlord's push-harder button.
+      ...(options.onToggleForcedMarch
+        ? [
+            h(
+              "div",
+              { class: "row", "data-testid": "party-forced-march-row" },
+              h("span", { class: "row__label label" }, "Forced march"),
+              h(
+                "span",
+                { class: "row__value" },
+                h(
+                  "button",
+                  {
+                    class: "btn",
+                    "data-testid": "party-forced-march-toggle",
+                    "aria-pressed": String(party.forcedMarch ?? false),
+                    onclick: async () => {
+                      await options.onToggleForcedMarch?.(!(party.forcedMarch ?? false));
+                    },
+                  },
+                  party.forcedMarch ? "On (+30%, costs morale)" : "Off",
+                ),
+              ),
+            ),
+          ]
+        : []),
       // Bannerlord-style speed breakdown: each factor that moved the number,
       // with the reason. Only rendered when the provider supplies it.
       ...(party.speedFactors && party.speedFactors.length > 0
@@ -249,6 +294,121 @@ export function partyPanel(options: PartyPanelOptions): HTMLElement {
         : []),
     ),
   );
+
+  // -- smithing ---------------------------------------------------------------
+  // Bannerlord's workshop bench: smelt captured arms for metal, forge recipes.
+  if (options.onSmeltArms || options.onForgeItem) {
+    body.appendChild(sectionHeader("Workshop bench"));
+    const bench = h("div", { class: "ledger__list" });
+    const arms = party.goods.find((g) => g.goodId === "arms");
+    bench.appendChild(
+      row(
+        "Arms stock",
+        `${arms?.quantity ?? 0} (${party.metal} metal)`,
+        { mono: true, testId: "party-arms-stock" },
+      ),
+    );
+    if (options.onSmeltArms && (arms?.quantity ?? 0) > 0) {
+      bench.appendChild(
+        h(
+          "div",
+          { class: "row" },
+          h("span", { class: "row__label label" }, "Smelt"),
+          h(
+            "span",
+            { class: "row__value" },
+            h(
+              "button",
+              {
+                class: "btn",
+                "data-testid": "party-smelt-arms",
+                onclick: async () => {
+                  await options.onSmeltArms?.(Math.min(10, arms?.quantity ?? 0));
+                },
+              },
+              `Smelt 10 arms → 20 metal`,
+            ),
+          ),
+        ),
+      );
+    }
+    for (const recipe of SMITHING_RECIPES) {
+      const canAfford =
+        party.metal >= recipe.metal &&
+        (party.goods.find((g) => g.goodId === "fuel")?.quantity ?? 0) >= recipe.fuel;
+      bench.appendChild(
+        h(
+          "div",
+          { class: "row" },
+          h("span", { class: "row__label label" }, recipe.name),
+          h(
+            "span",
+            { class: "row__value" },
+            options.onForgeItem
+              ? h(
+                  "button",
+                  {
+                    class: "btn",
+                    "data-testid": `party-forge-${recipe.id}`,
+                    disabled: canAfford ? undefined : "disabled",
+                    title: `${recipe.metal} metal, ${recipe.fuel} fuel`,
+                    onclick: async () => {
+                      await options.onForgeItem?.(recipe.id);
+                    },
+                  },
+                  `Forge (${recipe.metal}M ${recipe.fuel}F)`,
+                )
+              : h("span", { class: "data" }, `${recipe.metal} metal, ${recipe.fuel} fuel`),
+          ),
+        ),
+      );
+    }
+    if ((party.crafted ?? []).length > 0) {
+      bench.appendChild(
+        row(
+          "Stockpile",
+          party.crafted!.map((c) => `${c.name} ×${c.count}`).join(", "),
+          { testId: "party-crafted" },
+        ),
+      );
+    }
+    body.appendChild(bench);
+  }
+
+  // -- imprisoned --------------------------------------------------------------
+  // Bannerlord's roguery: troops captured by enemies can be broken out.
+  if ((party.imprisoned ?? []).length > 0) {
+    body.appendChild(sectionHeader("Imprisoned"));
+    const held = h("div", { class: "ledger__list" });
+    for (const entry of party.imprisoned!) {
+      held.appendChild(
+        h(
+          "div",
+          { class: "row" },
+          h("span", { class: "row__label label" }, `${entry.count} held by ${entry.holderName}`),
+          h(
+            "span",
+            { class: "row__value" },
+            options.onPrisonBreak
+              ? h(
+                  "button",
+                  {
+                    class: "btn",
+                    "data-testid": `party-break-${entry.holderId}`,
+                    title: "Roguery: sneak a team in. Small teams are sneakier.",
+                    onclick: async () => {
+                      await options.onPrisonBreak?.(entry.holderId, 4);
+                    },
+                  },
+                  "Break them out",
+                )
+              : h("span", { class: "caption" }, "No team available."),
+          ),
+        ),
+      );
+    }
+    body.appendChild(held);
+  }
 
   // -- roles -----------------------------------------------------------------
   body.appendChild(sectionHeader("Roles"));

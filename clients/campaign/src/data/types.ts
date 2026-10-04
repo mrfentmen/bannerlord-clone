@@ -646,6 +646,29 @@ export interface PartyState {
   goods: { goodId: string; name: string; quantity: number; avgPaid: number }[];
   /** Captured enemy troops held as prisoners. */
   prisoners: { troopId: string; name: string; count: number; tier: number }[];
+  /**
+   * Spare riding horses by breed (see campaign/partySpeed.ts). These mount
+   * footmen on the march -- one horse per footman is the optimum.
+   */
+  horses?: { breed: 'quarter' | 'mustang' | 'draft' | 'thoroughbred'; count: number }[];
+  /** Mules. Carry capacity, no speed. */
+  packAnimals?: number;
+  /** Motorized haulers. Huge capacity, road-bound, need fuel. */
+  trucks?: number;
+  /**
+   * Bannerlord-style speed breakdown, refreshed on every daily tick. The
+   * party panel renders this under the march-speed row.
+   */
+  speedFactors?: { name: string; mult: number; detail: string }[];
+  /** Forced march: +30% speed at daily morale/food cost. */
+  forcedMarch?: boolean;
+  /** Workshop bench output: forged weapons and mods awaiting sale or issue. */
+  crafted?: { recipeId: string; name: string; count: number }[];
+  /**
+   * Player troops held captive by enemies. Prison breaks (roguery) free them;
+   * see campaign/fieldSystems.ts.
+   */
+  imprisoned?: { name: string; count: number; holderId: string; holderName: string }[];
 }
 
 /** The tradeable goods of ECONOMY.md, named so the market is legible. */
@@ -1218,6 +1241,12 @@ export interface SimulationProvider {
   getPartyCapacity(): Promise<number>;
   /** Current party speed in km/day (from troop composition). */
   getPartySpeed(): Promise<number>;
+  setForcedMarch(active: boolean): Promise<void>;
+  getForcedMarch(): Promise<boolean>;
+  smeltArms(quantity: number): Promise<{ metal: number }>;
+  forgeItem(recipeId: string): Promise<{ name: string }>;
+  getSmithingRecipes(): Promise<{ id: string; name: string; metal: number; fuel: number; result: string }[]>;
+  attemptPrisonBreak(holderId: string, teamSize: number): Promise<{ success: boolean; freed: number; wounded: number; caught: boolean }>;
   /** Set an army's objective. */
   setArmyObjective(armyId: string, objective: Army["objective"]): Promise<void>;
   /** Restore the provider's internal state from a saved snapshot. */
