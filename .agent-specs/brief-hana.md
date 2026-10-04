@@ -1,5 +1,7 @@
 # Brief — Hana (world data / audio / art wiring)
 
+Read `.agent-specs/brief-megabuild.md` first — it supersedes the numbered list below. Work that list until the game is fully built.
+
 Read `.agent-specs/MISSION-4H.md` and `.agent-specs/divvy.md` first. You own:
 `services/world-data/**`, `clients/campaign/public/{world,audio,textures,models,art}/**`,
 `clients/campaign/src/audio/**`, `assets/audio/**`, `tools/**`.

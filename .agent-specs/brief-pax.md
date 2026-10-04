@@ -1,5 +1,7 @@
 # Brief — Pax (scene / 3D / action)
 
+Read `.agent-specs/brief-megabuild.md` first — it supersedes the numbered list below. Work that list until the game is fully built.
+
 Read `.agent-specs/MISSION-4H.md` and `.agent-specs/divvy.md` first. You own:
 `clients/campaign/src/scene/**`, `src/input/**`, `src/physics/**`, battle UI.
 
