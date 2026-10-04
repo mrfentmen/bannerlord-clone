@@ -468,16 +468,16 @@
 404. [x] [Hana] Settlement: prosperity calculation
 405. [x] [Hana] Settlement: food production
 406. [x] [Hana] Settlement: garrison size by importance
-407. Settlement: market goods based on region
-408. Settlement: construction projects
+407. [x] [milo] Settlement: market goods based on region
+408. [x] [milo] Settlement: construction projects
 409. [x] [Hana] Settlement: tax income calculation
 410. [x] [Hana] Settlement: loyalty to owner faction
-411. Settlement: rebellion risk when loyalty low
-412. Settlement: wall level (defense bonus)
-413. Settlement: granary level (food storage)
-414. Settlement: barracks level (recruit quality)
-415. Settlement: market level (trade volume)
-416. Settlement: upgrade building (cost + time)
+411. [x] [milo] Settlement: rebellion risk when loyalty low
+412. [x] [milo] Settlement: wall level (defense bonus)
+413. [x] [milo] Settlement: granary level (food storage)
+414. [x] [milo] Settlement: barracks level (recruit quality)
+415. [x] [milo] Settlement: market level (trade volume)
+416. [x] [milo] Settlement: upgrade building (cost + time)
 417. Settlement: visual: town icon on map
 418. Settlement: visual: faction banner color
 419. Settlement: visual: siege icon when attacked
@@ -488,8 +488,8 @@
 424. Settlement: "track" button (quest marker)
 425. Settlement: raid option (if hostile)
 426. Settlement: siege option (if at war)
-427. Settlement: prosperity change over time
-428. Settlement: population growth/decline
+427. [x] [milo] Settlement: prosperity change over time
+428. [x] [milo] Settlement: population growth/decline
 429. Settlement: food shortage warning
 430. [x] [Hana] Settlement: notable NPCs spawn
 
@@ -521,22 +521,22 @@
 453. Territory: visual: colored overlay
 454. Faction: capital designation
 455. Faction: strength calculation
-456. Faction AI: expand when strong
-457. Faction AI: defend when weak
-458. Faction AI: seek alliances when threatened
-459. Faction AI: declare war
-460. Faction AI: sue for peace when losing
-461. Faction AI: raid enemy villages
-462. Faction AI: besiege enemy towns
-463. Faction AI: recruit troops
-464. Faction AI: move armies
-465. Faction AI: avoid stronger enemies
-466. War: track active wars
-467. War: war score calculation
-468. War: peace treaty terms
-469. War: tribute for peace
-470. War: territory cession
-471. War: truce duration
+456. [x] [milo] Faction AI: expand when strong
+457. [x] [milo] Faction AI: defend when weak
+458. [x] [milo] Faction AI: seek alliances when threatened
+459. [x] [milo] Faction AI: declare war
+460. [x] [milo] Faction AI: sue for peace when losing
+461. [x] [milo] Faction AI: raid enemy villages
+462. [x] [milo] Faction AI: besiege enemy towns
+463. [x] [milo] Faction AI: recruit troops
+464. [x] [milo] Faction AI: move armies
+465. [x] [milo] Faction AI: avoid stronger enemies
+466. [x] [milo] War: track active wars
+467. [x] [milo] War: war score calculation
+468. [x] [milo] War: peace treaty terms
+469. [x] [milo] War: tribute for peace
+470. [x] [milo] War: territory cession
+471. [x] [milo] War: truce duration
 472. Faction: relation decay over time
 473. Faction: relation improvement via gifts
 474. Faction: casus belli system
