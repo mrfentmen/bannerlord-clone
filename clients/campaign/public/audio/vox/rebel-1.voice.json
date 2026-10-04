@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "id": "rebel-1",
+  "kind": "batch",
+  "file": "rebel-1.mp3",
+  "voice_id": "avocado_v2:vdc_NOID29",
+  "character": "Cranky Sandpaper",
+  "class": "rebel",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 37.01,
+  "loudness_lufs": -32.1,
+  "lines": [
+    {
+      "index": 0,
+      "text": "They taxed the road, they taxed the well, and now they want to tax the air we breathe.",
+      "emotion": "angry",
+      "context_tags": [
+        "threat",
+        "idle"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "I did not pick up a rifle because I hate them. I picked it up because they stopped listening.",
+      "emotion": "angry",
+      "context_tags": [
+        "threat",
+        "idle"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "Every town between here and the river is asking the same question. We are the answer.",
+      "emotion": "angry",
+      "context_tags": [
+        "threat",
+        "idle"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "You want to know what rebellion looks like? It looks like your neighbors, and it is already here.",
+      "emotion": "angry",
+      "context_tags": [
+        "threat",
+        "idle"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "They call it treason when we meet. They call it order when they burn a farm.",
+      "emotion": "angry",
+      "context_tags": [
+        "threat",
+        "idle"
+      ]
+    },
+    {
+      "index": 5,
+      "text": "Bring your brother, bring your truck, bring whatever you have got. We march at dawn.",
+      "emotion": "angry",
+      "context_tags": [
+        "threat",
+        "idle"
+      ]
+    },
+    {
+      "index": 6,
+      "text": "No more petitions. Petitions are what you file before you learn how the game works.",
+      "emotion": "angry",
+      "context_tags": [
+        "threat",
+        "idle"
+      ]
+    }
+  ]
+}

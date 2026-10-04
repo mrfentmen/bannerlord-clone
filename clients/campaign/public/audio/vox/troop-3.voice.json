@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "id": "troop-3",
+  "kind": "batch",
+  "file": "troop-3.mp3",
+  "voice_id": "avocado_v2:chip",
+  "character": "Warm Pebble",
+  "class": "troop",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 38.81,
+  "loudness_lufs": -24.8,
+  "lines": [
+    {
+      "index": 0,
+      "text": "Forward is open. Forward, we can go forward.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "Give them the ground, we will take it back with interest.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "Their ammunition outlasts ours, that is not courage, that is math.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "We are out of time and everybody in this ditch knows it.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "I counted their trucks. I did not like the number.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat"
+      ]
+    },
+    {
+      "index": 5,
+      "text": "Two of ours in the last minute and I am getting jumpy.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat"
+      ]
+    },
+    {
+      "index": 6,
+      "text": "We are pulling back and I do not want to talk about why.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat"
+      ]
+    },
+    {
+      "index": 7,
+      "text": "Somebody get a message to the captain, we cannot hold this lane.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat"
+      ]
+    },
+    {
+      "index": 8,
+      "text": "One more time, together, on the word.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat"
+      ]
+    },
+    {
+      "index": 9,
+      "text": "I can see the ammunition truck. Put your eyes on the truck.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat"
+      ]
+    }
+  ]
+}

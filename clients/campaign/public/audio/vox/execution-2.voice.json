@@ -1,0 +1,64 @@
+{
+  "schema_version": 1,
+  "id": "execution-2",
+  "kind": "batch",
+  "file": "execution-2.mp3",
+  "voice_id": "unknown",
+  "character": "Execution",
+  "class": "execution",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 19.51,
+  "loudness_lufs": -18.0,
+  "lines": [
+    {
+      "index": 0,
+      "text": "The sentence is read. It does not get read twice.",
+      "emotion": "solemn",
+      "context_tags": [
+        "threat"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "You made your choices. I am here because of them.",
+      "emotion": "solemn",
+      "context_tags": [
+        "threat"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "No prayers on my account. Pray for the people you left.",
+      "emotion": "solemn",
+      "context_tags": [
+        "threat"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "I have done this eleven times. It does not get lighter.",
+      "emotion": "solemn",
+      "context_tags": [
+        "threat"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "Stand straight. Give them that much.",
+      "emotion": "solemn",
+      "context_tags": [
+        "threat"
+      ]
+    },
+    {
+      "index": 5,
+      "text": "When it is done, we do not talk about it. We drink.",
+      "emotion": "solemn",
+      "context_tags": [
+        "threat"
+      ]
+    }
+  ]
+}

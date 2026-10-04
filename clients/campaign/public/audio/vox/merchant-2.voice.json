@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "id": "merchant-2",
+  "kind": "batch",
+  "file": "merchant-2.mp3",
+  "voice_id": "unknown",
+  "character": "Merchant",
+  "class": "merchant",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 32.11,
+  "loudness_lufs": -26.5,
+  "lines": [
+    {
+      "index": 0,
+      "text": "Morning. Touch it, lift it, smell it if you want. Everything here is honest.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "That price is already me being nice. Do not make me be nicer, it hurts.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "I take cash, trade, or a story good enough to repeat. Cash is fastest.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "You break it, you bought it, and I watched you break it, so do not argue.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "Come back Thursday. Thursday is when the truck comes, and the truck decides everything.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 5,
+      "text": "I have sold to all six factions and every one of them thinks I like them best.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 6,
+      "text": "No refunds on rope, fuel, or anything that goes bang. Store policy.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    }
+  ]
+}

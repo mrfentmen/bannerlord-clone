@@ -1,0 +1,34 @@
+{
+  "schema_version": 1,
+  "id": "medic-3",
+  "kind": "batch",
+  "file": "medic-3.mp3",
+  "voice_id": "avocado_v2:vdc_2561",
+  "character": "Tender Cushion",
+  "class": "medic",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 8.83,
+  "loudness_lufs": -26.5,
+  "lines": [
+    {
+      "index": 0,
+      "text": "If you find somebody face down, check before you move them. I mean check.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat",
+        "casualty"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "It is worse than the one in the ditch, go to the one in the ditch first.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat",
+        "casualty"
+      ]
+    }
+  ]
+}

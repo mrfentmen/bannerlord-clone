@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "id": "persuade-2",
+  "kind": "batch",
+  "file": "persuade-2.mp3",
+  "voice_id": "unknown",
+  "character": "Persuade",
+  "class": "persuade",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 24.91,
+  "loudness_lufs": -23.2,
+  "lines": [
+    {
+      "index": 0,
+      "text": "Let me tell you what I see from my side of the table, and it is not a threat.",
+      "emotion": "warm",
+      "context_tags": [
+        "bargain",
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "You have got the men, I have got the map. Neither of us wins with only half.",
+      "emotion": "warm",
+      "context_tags": [
+        "bargain",
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "Think about Tuesday. Now think about Tuesday with this deal in it.",
+      "emotion": "warm",
+      "context_tags": [
+        "bargain",
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "Nobody walks away from my table feeling robbed. That is bad for business.",
+      "emotion": "warm",
+      "context_tags": [
+        "bargain",
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "Say yes to the small part today and the big part sells itself tomorrow.",
+      "emotion": "warm",
+      "context_tags": [
+        "bargain",
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 5,
+      "text": "I am not asking you to move first. I am asking you to let me show you how.",
+      "emotion": "warm",
+      "context_tags": [
+        "bargain",
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 6,
+      "text": "Shake my hand and we both get to tell the story our way.",
+      "emotion": "warm",
+      "context_tags": [
+        "bargain",
+        "quest_offer"
+      ]
+    }
+  ]
+}

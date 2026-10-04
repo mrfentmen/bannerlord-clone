@@ -1,0 +1,43 @@
+{
+  "schema_version": 1,
+  "id": "scout-3",
+  "kind": "batch",
+  "file": "scout-3.mp3",
+  "voice_id": "avocado_v2:Twenty",
+  "character": "Bold Flag",
+  "class": "scout",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 12.55,
+  "loudness_lufs": -25.6,
+  "lines": [
+    {
+      "index": 0,
+      "text": "If we are doing this I need to know now, I am not spending another hour out here.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat",
+        "contact"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "I can see the driver. I am not going to do anything about it yet, I am telling you.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat",
+        "contact"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "Ground between here and them is bare. Nothing to move behind.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat",
+        "contact"
+      ]
+    }
+  ]
+}

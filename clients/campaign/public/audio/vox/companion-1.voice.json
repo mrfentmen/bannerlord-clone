@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "id": "companion-1",
+  "kind": "batch",
+  "file": "companion-1.mp3",
+  "voice_id": "avocado_v2:miles",
+  "character": "Satiny Moon",
+  "class": "companion",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 12.07,
+  "loudness_lufs": -23.0,
+  "lines": [
+    {
+      "index": 0,
+      "text": "Finish the job. Do not come back for me, finish the job.",
+      "emotion": "solemn",
+      "context_tags": [
+        "idle"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "This was a good crew. Tell somebody that too.",
+      "emotion": "solemn",
+      "context_tags": [
+        "idle"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "It is all right. It is all right. Keep moving.",
+      "emotion": "solemn",
+      "context_tags": [
+        "idle"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "I am not angry. I want you to know I am not angry.",
+      "emotion": "solemn",
+      "context_tags": [
+        "idle"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "Give my rifle to the next man who asks for it.",
+      "emotion": "solemn",
+      "context_tags": [
+        "idle"
+      ]
+    }
+  ]
+}

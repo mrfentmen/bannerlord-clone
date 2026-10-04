@@ -1,0 +1,80 @@
+{
+  "schema_version": 1,
+  "id": "siege-defender-1",
+  "kind": "batch",
+  "file": "siege-defender-1.mp3",
+  "voice_id": "unknown",
+  "character": "Siege Defender",
+  "class": "siege-defender",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 24.96,
+  "loudness_lufs": -28.9,
+  "lines": [
+    {
+      "index": 0,
+      "text": "The gate is down, it is open, everything is coming in.",
+      "emotion": "determined",
+      "context_tags": [
+        "combat"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "Back up, back up, back to the school, everybody back up.",
+      "emotion": "determined",
+      "context_tags": [
+        "combat"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "They are in the street, they are in the street already.",
+      "emotion": "determined",
+      "context_tags": [
+        "combat"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "Get the clinic off the north side, move it, move it now.",
+      "emotion": "determined",
+      "context_tags": [
+        "combat"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "The officers are down, there is nobody giving orders in this street.",
+      "emotion": "determined",
+      "context_tags": [
+        "combat"
+      ]
+    },
+    {
+      "index": 5,
+      "text": "Do not run, do not run, I cannot find you if you run.",
+      "emotion": "determined",
+      "context_tags": [
+        "combat"
+      ]
+    },
+    {
+      "index": 6,
+      "text": "Water break is open, go to the water break, do not go out past it.",
+      "emotion": "determined",
+      "context_tags": [
+        "combat"
+      ]
+    },
+    {
+      "index": 7,
+      "text": "Everything we built is on one road and they are on that road.",
+      "emotion": "determined",
+      "context_tags": [
+        "combat"
+      ]
+    }
+  ]
+}

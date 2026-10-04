@@ -1,0 +1,4 @@
+{
+  "text": "{\"error_format_version\":1,\"error\":{\"code\":\"mango_error\",\"retryable\":true,\"detail\":\"The media service returned an error. Please retry.\",\"downstream_status\":503}}",
+  "attachments": []
+}

@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "id": "mexican-1",
+  "kind": "batch",
+  "file": "mexican-1.mp3",
+  "voice_id": "avocado_v2:vd2_bold_sled",
+  "character": "Stubborn Sled",
+  "class": "mexican",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 17.83,
+  "loudness_lufs": -25.3,
+  "lines": [
+    {
+      "index": 0,
+      "text": "For my family, for my street, for every one of us. Forward.",
+      "emotion": "determined",
+      "context_tags": [
+        "rally"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "We work harder than anyone. Today we fight harder too.",
+      "emotion": "determined",
+      "context_tags": [
+        "rally"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "My father taught me to finish what I start. Watch me.",
+      "emotion": "determined",
+      "context_tags": [
+        "rally"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "No retreat. Not today. Not ever.",
+      "emotion": "determined",
+      "context_tags": [
+        "rally"
+      ]
+    }
+  ]
+}

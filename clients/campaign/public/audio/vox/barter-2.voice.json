@@ -1,0 +1,79 @@
+{
+  "schema_version": 1,
+  "id": "barter-2",
+  "kind": "batch",
+  "file": "barter-2.mp3",
+  "voice_id": "unknown",
+  "character": "Barter",
+  "class": "barter",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 25.03,
+  "loudness_lufs": -23.8,
+  "lines": [
+    {
+      "index": 0,
+      "text": "That price includes my rent, my license, and the light bill. It is real.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "You want a discount, bring me a trade I can move by Friday.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "I will match their price and throw in the strap. That is the ceiling.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "Do not tell me what you paid elsewhere. I am not elsewhere.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "Three percent off for cash today. That is the whole promotion.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 5,
+      "text": "Take it now or take your chances at the fair. Both are prices.",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    },
+    {
+      "index": 6,
+      "text": "I will not go lower, but I will make it worth your walk. Done?",
+      "emotion": "warm",
+      "context_tags": [
+        "town",
+        "bargain"
+      ]
+    }
+  ]
+}
