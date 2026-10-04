@@ -181,3 +181,40 @@ No smithing/crafting system. No pull found in the sweep — this one
 needs a design, not a repo. Bannerlord's smithing (smelt → refine →
 forge → sell) ports naturally to a modern setting (chop shop /
 gunsmithing).
+
+## 16. Main storyline / campaign questline (VERIFIED missing)
+
+Quest tracking exists (`questTracker/`), the sim has quest templates —
+but there is no campaign questline, no main story threading the
+sandbox together. Bannerlord's campaign mode is what turns the
+sandbox into a game.
+
+- `docs/code-pulls/dialogue-graph/` (notes only) — quest
+  conversations as data.
+- `docs/code-pulls/strategy-core/` (MIT) — `events.rs`/`incidents.rs`:
+  how a strategy game fires story events off world state.
+- This is mostly content + design, not a code pull. Needs a writer's
+  room, not a repo.
+
+## 17. Day/night cycle (VERIFIED missing entirely)
+
+No time-of-day system. The art for it is already pulled and waiting:
+
+- `clients/campaign/public/textures/vendor/hdris/` (CC0, in repo):
+  12 skies — clear day, dawn, sunset, night, overcast, storm.
+- Wire the campaign clock to crossfade/swap HDRIs; PBR materials
+  (`vendor/pbr/`) respond to the IBL automatically. Streetlights at
+  night not included — that's a follow-up.
+
+## 18. Mounted / motorcycle combat (VERIFIED missing mechanics)
+
+Horse gait animations and death/ragdoll handoff exist
+(`animations/HorseGaits.ts`), plus `Horse.fbx` (KayKit, staged) —
+but there are no riding mechanics: no mount/dismount, no mounted
+movement or combat. In modern America this is motorcycles.
+
+- `docs/code-pulls/vehicle-physics/` (MIT) — adapt `kart.js`:
+  two-wheel handling (lean into turns instead of drift), wheelie/
+  stoppie optional.
+- Rider uses the FPS/TPS controller (section 1); bike is the vehicle
+  (section 2). Mount/dismount is an interaction + animation blend.
