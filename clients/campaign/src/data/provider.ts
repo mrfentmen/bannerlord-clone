@@ -873,6 +873,45 @@ export class HttpSimulationProvider implements SimulationProvider {
     );
   }
 
+  async startCourtship(targetId: string): Promise<{ line: string }> {
+    return this.#post<{ line: string }>(
+      "/v1/courtship/start",
+      { targetId },
+      "The courtship did not land.",
+    );
+  }
+
+  async performCourtAction(action: "gift" | "visit" | "deed" | "poem"): Promise<{ line: string; affection: number }> {
+    return this.#post<{ line: string; affection: number }>(
+      "/v1/courtship/action",
+      { action },
+      "The gesture did not land.",
+    );
+  }
+
+  async proposeMarriage(): Promise<{ accepted: boolean; line: string }> {
+    return this.#post<{ accepted: boolean; line: string }>(
+      "/v1/courtship/propose",
+      {},
+      "The proposal did not land.",
+    );
+  }
+
+  async getCourtships(): Promise<{ targetName: string; affection: number; stage: string }[]> {
+    return this.#getJson<{ targetName: string; affection: number; stage: string }[]>(
+      "/v1/courtship",
+      "The courtships did not load.",
+    );
+  }
+
+  async sellPrisonersToBroker(townId: string, troopId: string, count: number): Promise<{ gold: number; line: string }> {
+    return this.#post<{ gold: number; line: string }>(
+      `/v1/towns/${encodeURIComponent(townId)}/broker/sell`,
+      { troopId, count },
+      "The broker deal did not land.",
+    );
+  }
+
   async killCharacter(charId: string, cause: string): Promise<void> {
     await this.#post(
       `/v1/dynasty/characters/${encodeURIComponent(charId)}/kill`,

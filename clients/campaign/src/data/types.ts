@@ -459,7 +459,7 @@ export interface BattleResultOutcome {
   /** XP awarded per stack. */
   xpAwards: BattleXpAward[];
   /** Current prisoner list. */
-  prisoners: { troopId: string; name: string; count: number; tier: number }[];
+  prisoners: { troopId: string; name: string; count: number; tier: number; conformity?: number }[];
 }
 
 /** An NPC party roaming the campaign map. */
@@ -651,7 +651,7 @@ export interface PartyState {
   roles: Partial<Record<PartyRole, string>>;
   goods: { goodId: string; name: string; quantity: number; avgPaid: number }[];
   /** Captured enemy troops held as prisoners. */
-  prisoners: { troopId: string; name: string; count: number; tier: number }[];
+  prisoners: { troopId: string; name: string; count: number; tier: number; conformity?: number }[];
   /**
    * Spare riding horses by breed (see campaign/partySpeed.ts). These mount
    * footmen on the march -- one horse per footman is the optimum.
@@ -1067,6 +1067,10 @@ export interface SimSnapshot {
   wars: War[];
   /** Enemy lords held prisoner by the player clan. */
   heldLords: { name: string; factionId: string; clanName: string; capturedDay: number }[];
+  /** Active pregnancies (persisted so births survive save/load). */
+  pregnancies: { motherId: string; fatherId: string; startDay: number; dueDay: number }[];
+  /** Active courtships (persisted so wooing survives save/load). */
+  courtships: { suitorId: string; targetId: string; stage: string; affection: number; startedDay: number; rejections: number }[];
   /** Active and completed quests. */
   quests: Quest[];
   /** Outstanding fines per town ID. */
@@ -1209,6 +1213,16 @@ export interface SimulationProvider {
   getHeir(clanId: string): Promise<GameCharacter | null>;
   /** Test hook: set clan tier. */
   debugSetClanTier?(clanId: string, tier: number): Promise<void>;
+  /** Begin courting an unmarried character (the suitor is the player). */
+  startCourtship(targetId: string): Promise<{ line: string }>;
+  /** Perform a courting action (gift, visit, deed, poem). */
+  performCourtAction(action: "gift" | "visit" | "deed" | "poem"): Promise<{ line: string; affection: number }>;
+  /** Propose marriage to the current courtship target. */
+  proposeMarriage(): Promise<{ accepted: boolean; line: string }>;
+  /** List active courtships. */
+  getCourtships(): Promise<{ targetName: string; affection: number; stage: string }[]>;
+  /** Sell prisoners to a town's ransom broker at a discount. */
+  sellPrisonersToBroker(townId: string, troopId: string, count: number): Promise<{ gold: number; line: string }>;
   /** Test hook: add prisoners. */
   debugAddPrisoners?(troopId: string, name: string, count: number, tier: number): Promise<void>;
   /** Buy a workshop in a town. */

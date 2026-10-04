@@ -63,7 +63,12 @@ export type UnservedOrder =
   | "releaseHeldLord"
   | "executeHeldLord"
   | "getClanTier"
-  | "foundKingdom";
+  | "foundKingdom"
+  | "startCourtship"
+  | "performCourtAction"
+  | "proposeMarriage"
+  | "getCourtships"
+  | "sellPrisonersToBroker";
 
 /** What the table records about one unserved path. */
 export interface UnservedPath {
@@ -202,6 +207,31 @@ export const UNSERVED: Readonly<Record<string, UnservedPath>> = {
     order: "setClanHeir",
     method: "getHeir",
     reason: "the dynasty foundation landed client-side first; the server side is not written",
+  },
+  "/v1/courtship": {
+    order: "getCourtships",
+    method: "getCourtships",
+    reason: "courtship landed client-side first; the server side is not written",
+  },
+  "/v1/courtship/start": {
+    order: "startCourtship",
+    method: "startCourtship",
+    reason: "courtship landed client-side first; the server side is not written",
+  },
+  "/v1/courtship/action": {
+    order: "performCourtAction",
+    method: "performCourtAction",
+    reason: "courtship landed client-side first; the server side is not written",
+  },
+  "/v1/courtship/propose": {
+    order: "proposeMarriage",
+    method: "proposeMarriage",
+    reason: "courtship landed client-side first; the server side is not written",
+  },
+  "/v1/towns/{}/broker/sell": {
+    order: "sellPrisonersToBroker",
+    method: "sellPrisonersToBroker",
+    reason: "ransom brokers landed client-side first; the server side is not written",
   },
   "/v1/lords": {
     order: "getHeldLords",

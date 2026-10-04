@@ -23,6 +23,10 @@ import { getEthnicity, getEthnicityEffects } from "../ethnicities.js";
 import { advanceTier, canHoldFief, tierName, renownToNextTier, maxFiefsForTier, companionSlotsForTier, partyCapacityForTier } from "../../clan/tiers.js";
 import { foundKingdom as proclaimKingdom } from "../../court/foundKingdom.js";
 import { executionConsequences } from "../../afteraction/prisoners.js";
+import { tickConformity, checkConformity, recruitmentMoraleCost } from "../../afteraction/conformity.js";
+import { startPregnancy, conceptionChance, pregnancyStatus, resolveBirth, type Pregnancy } from "../../clan/pregnancy.js";
+import { expressInterest, courtAction, propose, type Courtship, type CourtAction } from "../../clan/courtship.js";
+import { sellToBroker } from "../../economy/brokers.js";
 import type {
   BattleResult,
   CauseRow,
@@ -364,6 +368,11 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
       state.defectClan(clanId, joinFactionId),
     marry: async (charId1, charId2) => state.marry(charId1, charId2),
     haveChild: async (parentId1, parentId2, childName) => state.haveChild(parentId1, parentId2, childName),
+    startCourtship: async (targetId) => state.startCourtship(targetId),
+    performCourtAction: async (action) => state.performCourtAction(action),
+    proposeMarriage: async () => state.proposeMarriage(),
+    getCourtships: async () => state.getCourtships(),
+    sellPrisonersToBroker: async (townId, troopId, count) => state.sellPrisonersToBroker(townId, troopId, count),
     killCharacter: async (charId, cause) => state.killCharacter(charId, cause),
     getHeir: async (clanId) => state.getHeir(clanId),
     debugSetClanTier: async (clanId, tier) => state.debugSetClanTier(clanId, tier),
@@ -424,6 +433,10 @@ class FixtureState {
   #heldLords: { name: string; factionId: string; clanName: string; capturedDay: number }[] = [];
   /** Player-founded factions (kingdoms), appended to the fixture sides. */
   #extraSides: SideState[] = [];
+  /** Active pregnancies (motherId -> pregnancy). */
+  #pregnancies: Pregnancy[] = [];
+  /** Active courtships. */
+  #courtships: Courtship[] = [];
   /** Outstanding fines per town ID. */
   #fines: Map<string, number> = new Map();
   #rulers: RulerState[] = [];
@@ -937,6 +950,8 @@ class FixtureState {
       sieges: structuredClone(this.#sieges),
       wars: structuredClone(this.#wars),
       heldLords: structuredClone(this.#heldLords),
+      pregnancies: structuredClone(this.#pregnancies),
+      courtships: structuredClone(this.#courtships),
       quests: structuredClone(this.#quests),
       fines: Object.fromEntries(this.#fines),
       ledger: structuredClone(this.#ledger),
@@ -1588,6 +1603,9 @@ class FixtureState {
     // Dynasty: clan tier follows renown; lord parties ride for factions at war.
     this.#clanTierTick();
     this.#lordPartyTick();
+    // Family: conceptions, pregnancies, births. Prisoners: conformity builds.
+    this.#pregnancyTick();
+    this.#conformityTick();
 
     // Workshop income: each workshop generates daily income based on town prosperity.
     for (const workshop of this.#workshops) {
@@ -2464,6 +2482,11 @@ class FixtureState {
     this.#wars = structuredClone(snapshot.wars ?? []);
     this.#quests = structuredClone(snapshot.quests ?? []);
     this.#heldLords = structuredClone(snapshot.heldLords ?? []);
+    this.#pregnancies = structuredClone(snapshot.pregnancies ?? []);
+    this.#courtships = structuredClone(snapshot.courtships ?? []).map((c) => ({
+      ...c,
+      stage: c.stage as Courtship["stage"],
+    }));
     // Player-founded kingdoms persist: re-derive from the side list.
     this.#extraSides = structuredClone(
       (snapshot.sides ?? []).filter((s) => s.id.startsWith("kingdom-")),
@@ -3114,17 +3137,23 @@ class FixtureState {
     if (count <= 0 || count > prisoner.count) {
       throw new Error(`Cannot recruit ${count} (have ${prisoner.count}).`);
     }
-    
+
+    // Conformity: only broken-in prisoners will enlist.
+    const check = checkConformity(prisoner.tier, prisoner.conformity ?? 0);
+    if (!check.willing) throw new Error(check.reason);
+
     const cost = count * 20;
     if (this.#party.money < cost) {
       throw new Error(`Recruiting ${count} prisoners costs ${cost} gold.`);
     }
-    
+
     this.#party.money -= cost;
     prisoner.count -= count;
     if (prisoner.count === 0) {
       this.#party.prisoners = this.#party.prisoners.filter((p) => p.troopId !== troopId);
     }
+    // The old hands resent fighting beside yesterday's enemy.
+    this.#party.morale = Math.max(0, this.#party.morale - recruitmentMoraleCost(count));
     
     // Add to troops (merge with existing stack of same type if present)
     const existing = this.#party.troops.find((t) => t.id === troopId);
@@ -4109,6 +4138,65 @@ class FixtureState {
   }
 
   /**
+   * Family tick: married couples may conceive; pregnancies advance to birth.
+   * Birth uses the existing haveChild flow; the mother may not survive it.
+   */
+  #pregnancyTick(): void {
+    // Conception: every married couple where both are alive rolls daily.
+    for (const char of this.#characters) {
+      if (!char.alive || !char.spouseId) continue;
+      // Only roll once per couple (the lower id rolls).
+      if (char.id > char.spouseId) continue;
+      const spouse = this.#characters.find((c) => c.id === char.spouseId);
+      if (!spouse || !spouse.alive) continue;
+      if (this.#pregnancies.some((p) => p.motherId === char.id || p.motherId === spouse.id)) continue;
+      // The younger spouse carries the pregnancy.
+      const younger = char.age <= spouse.age ? char : spouse;
+      const older = younger === char ? spouse : char;
+      if (this.#random() < conceptionChance(younger.age, older.age)) {
+        this.#pregnancies.push(startPregnancy(younger.id, older.id, this.#day));
+      }
+    }
+    // Advance: births on the due day.
+    for (const preg of [...this.#pregnancies]) {
+      const status = pregnancyStatus(preg, this.#day);
+      if (status !== "due" && status !== "overdue") continue;
+      this.#pregnancies = this.#pregnancies.filter((p) => p !== preg);
+      const mother = this.#characters.find((c) => c.id === preg.motherId);
+      const father = this.#characters.find((c) => c.id === preg.fatherId);
+      if (!mother || !father || !mother.alive || !father.alive) continue;
+      const birth = resolveBirth(mother.age, this.#random);
+      // The child arrives through the normal flow (unnamed = pool decides).
+      void this.haveChild(preg.motherId, preg.fatherId, "");
+      if (!birth.motherSurvives) {
+        mother.alive = false;
+        mother.deathDay = this.#day;
+        this.#notifications.push({
+          id: `n-childbirth-death-${this.#sequence++}`,
+          day: this.#day,
+          priority: "important",
+          text: `${mother.name} died in childbirth.`,
+          entityId: mother.id,
+          field: "family",
+        });
+      }
+    }
+  }
+
+  /**
+   * Prisoner tick: conformity builds daily toward each stack's need.
+   * Leadership comes from the party leader's skill, if any.
+   */
+  #conformityTick(): void {
+    const player = this.#characters.find((c) => c.isPlayer);
+    const leadership = player?.skills?.["leadership"] ?? 0;
+    for (const stack of this.#party.prisoners) {
+      const current = stack.conformity ?? 0;
+      stack.conformity = tickConformity({ tier: stack.tier, conformity: current, leadership });
+    }
+  }
+
+  /**
    * Apply casualties proportionally across attacker parties.
    */
   #applySiegeCasualties(partyIds: string[], totalLoss: number): void {
@@ -4396,6 +4484,109 @@ class FixtureState {
     });
 
     return { childId };
+  }
+
+  /**
+   * Begin courting an unmarried character. The player is the suitor; the
+   * first impression mixes relation and charm (player's charm skill).
+   */
+  async startCourtship(targetId: string): Promise<{ line: string }> {
+    const player = this.#characters.find((c) => c.isPlayer);
+    const target = this.#characters.find((c) => c.id === targetId);
+    if (!player || !target) throw new Error("Character not found.");
+    if (!player.alive || !target.alive) throw new Error("Courtship with the dead is not a thing.");
+    if (player.spouseId) throw new Error("You are already married.");
+    if (target.spouseId) throw new Error(`${target.name} is already married.`);
+    if (this.#courtships.some((c) => c.targetId === targetId && c.stage === "courting")) {
+      throw new Error(`You are already courting ${target.name}.`);
+    }
+    const charm = player.skills?.["charm"] ?? 0;
+    const approachRoll = Math.min(100, this.#random() * 100 * 0.7 + charm * 0.3);
+    // First impression: charm plus how the target's faction feels about you.
+    const ruler = this.#rulers.find((r) => r.factionId === target.factionId);
+    const relation = ruler?.relationToPlayer ?? 0;
+    const result = expressInterest({
+      suitorId: player.id,
+      targetId: target.id,
+      suitorName: player.name,
+      targetName: target.name,
+      relation,
+      approachRoll,
+      day: this.#day,
+    });
+    if (!result.ok) throw new Error(result.reason);
+    this.#courtships.push(result.courtship);
+    return { line: result.line };
+  }
+
+  /** Perform a courting action toward the active courtship target. */
+  async performCourtAction(action: CourtAction): Promise<{ line: string; affection: number }> {
+    const courtship = this.#courtships.find((c) => c.stage === "courting");
+    if (!courtship) throw new Error("You are not courting anyone.");
+    const target = this.#characters.find((c) => c.id === courtship.targetId);
+    const updated = courtAction(courtship, action, this.#random);
+    const idx = this.#courtships.indexOf(courtship);
+    this.#courtships[idx] = updated;
+    return {
+      affection: updated.affection,
+      line: `You ${action === "deed" ? "perform a deed of valor" : action === "poem" ? "recite a poem" : action === "gift" ? "send a gift" : "pay a visit"} for ${target?.name ?? "your beloved"}. Affection: ${Math.round(updated.affection)}.`,
+    };
+  }
+
+  /** Propose marriage. On acceptance the couple marries immediately. */
+  async proposeMarriage(): Promise<{ accepted: boolean; line: string }> {
+    const idx = this.#courtships.findIndex((c) => c.stage === "courting");
+    if (idx < 0) throw new Error("You are not courting anyone.");
+    const courtship = this.#courtships[idx]!;
+    const suitor = this.#characters.find((c) => c.id === courtship.suitorId);
+    const target = this.#characters.find((c) => c.id === courtship.targetId);
+    const result = propose(courtship, suitor?.name ?? "You", target?.name ?? "they");
+    this.#courtships[idx] = result.courtship;
+    if (result.accepted && suitor && target) {
+      await this.marry(suitor.id, target.id);
+    }
+    return { accepted: result.accepted, line: result.line };
+  }
+
+  /** Active courtships for display. */
+  async getCourtships(): Promise<{ targetName: string; affection: number; stage: string }[]> {
+    return this.#courtships.map((c) => {
+      const target = this.#characters.find((t) => t.id === c.targetId);
+      return { targetName: target?.name ?? c.targetId, affection: Math.round(c.affection), stage: c.stage };
+    });
+  }
+
+  /**
+   * Sell prisoners to a town's ransom broker. Instant gold at a discount —
+   * fast now beats full later.
+   */
+  async sellPrisonersToBroker(townId: string, troopId: string, count: number): Promise<{ gold: number; line: string }> {
+    const town = this.#towns.get(townId);
+    if (!town) throw new Error("Town not found.");
+    const prisoner = this.#party.prisoners.find((p) => p.troopId === troopId);
+    if (!prisoner) throw new Error("No such prisoners held.");
+    if (count <= 0 || count > prisoner.count) {
+      throw new Error(`Cannot sell ${count} (have ${prisoner.count}).`);
+    }
+    const ransomValue = count * prisoner.tier * 30;
+    const deal = sellToBroker(town.name, `${count} ${prisoner.name}`, {
+      ransomValue,
+      townProsperity: town.prosperity ?? 50,
+    });
+    prisoner.count -= count;
+    if (prisoner.count === 0) {
+      this.#party.prisoners = this.#party.prisoners.filter((p) => p.troopId !== troopId);
+    }
+    this.#party.money += deal.gold;
+    this.#notifications.push({
+      id: `n-broker-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: deal.line,
+      entityId: this.#party.id,
+      field: "prisoners",
+    });
+    return { gold: deal.gold, line: deal.line };
   }
 
   /**
