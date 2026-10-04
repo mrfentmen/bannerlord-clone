@@ -26,6 +26,7 @@ import {
 } from "@babylonjs/core";
 import { buildCityBlocks, type BuildingFootprint } from "./buildings.js";
 import { spawnPedestrians } from "./pedestrians.js";
+import { spawnTraffic } from "./traffic.js";
 import { makeProjection } from "../world/load.js";
 import type { Heightfield, RegionFile } from "../world/types.js";
 import { mapColor, paper, ink } from "../design/tokens.js";
@@ -186,6 +187,12 @@ export async function runCityDemo(canvas: HTMLCanvasElement, slug: string): Prom
   // Fire-and-forget: the demo works fine if the GLB fails to load.
   // Density is adjustable via `?crowd=<n>` (0–150, default 24).
   void spawnPedestrians(scene, city.streets, projection.toWorld, crowd);
+
+  // Road traffic on the same street network (procedural cars, no assets).
+  // Scales with the crowd setting so an empty demo stays empty.
+  spawnTraffic(scene, city.streets, projection.toWorld, {
+    count: Math.round(crowd / 2),
+  });
 
   engine.runRenderLoop(() => scene.render());
   window.addEventListener("resize", () => engine.resize());
