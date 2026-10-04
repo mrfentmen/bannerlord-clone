@@ -497,23 +497,23 @@
 431. [x] [Hana] Road: generate between nearby settlements
 432. [x] [Hana] Road: quality (highway/dirt/path)
 433. Road: travel speed modifier
-434. Road: bandit ambush chance
+434. [x] [milo] Road: bandit ambush chance
 435. Road: visual: line on map
 436. Pathfinding: A* on road network
 437. Pathfinding: prefer roads over off-road
-438. Travel: calculate time for route
-439. Travel: consume food per day
-440. Travel: random encounters on road
-441. Travel: weather slows travel
+438. [x] [milo] Travel: calculate time for route
+439. [x] [milo] Travel: consume food per day
+440. [x] [milo] Travel: random encounters on road
+441. [x] [milo] Travel: weather slows travel
 442. Travel: forced march (faster, morale hit)
-443. Travel: arrival event trigger
+443. [x] [milo] Travel: arrival event trigger
 444. Travel: interrupt on enemy contact
 445. Road: patrol encounters (friendly)
 446. Road: toll booths (pay or fight)
 447. Road: bridge crossings (chokepoint)
 448. Road: ferry crossings (cost + time)
 449. Travel: night travel slower
-450. Travel: rest to recover
+450. [x] [milo] Travel: rest to recover
 
 ### Factions & Territory (451–475)
 451. Territory: assign settlements to factions
@@ -537,7 +537,7 @@
 469. [x] [milo] War: tribute for peace
 470. [x] [milo] War: territory cession
 471. [x] [milo] War: truce duration
-472. Faction: relation decay over time
+472. [x] [milo] Faction: relation decay over time
 473. Faction: relation improvement via gifts
 474. Faction: casus belli system
 475. Faction: war exhaustion
