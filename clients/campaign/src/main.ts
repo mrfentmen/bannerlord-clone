@@ -153,7 +153,6 @@ import {
   type SettlementChoice,
 } from "./economy/routePanel.js";
 import { saveLoadPanel } from "./saves/mount.js";
-import { SaveUiError } from "./saves/screens.js";
 import { ALL_CODEX_ENTRIES, CODEX_CATEGORIES } from "./codex/index.js";
 import { toast } from "./ui/kit.js";
 import { settings, type Settings } from "./settings/index.js";
@@ -1738,10 +1737,16 @@ function openSaveLoad(): void {
       if (!snapshot) throw new Error("No snapshot to save yet.");
       return snapshot;
     },
-    onLoad: () => {
-      // No provider-level snapshot restore exists yet (PAX's data lane);
-      // fail in plain language rather than faking a load.
-      throw new SaveUiError("Loading a save back into the running game is not supported yet.");
+    onLoad: async () => {
+      // The saves layer has already restored the world on the server
+      // (POST /v1/load); this is the after-hook. Drop the cached snapshot,
+      // pull the restored world, and repaint from it.
+      if (!provider) return;
+      const restored = await provider.getSnapshot();
+      previous = snapshot;
+      snapshot = restored;
+      rebuildContext();
+      paint();
     },
     onClose: () => {
       currentPanel = "none";

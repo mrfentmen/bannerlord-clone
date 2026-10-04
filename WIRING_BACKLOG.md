@@ -47,7 +47,6 @@ caller at all — need provider methods + wire validators + UI, not just a butto
 - Prisoner per-troop ops: POST /v1/prisoners/{id}/{ransom,recruit,release,execute} — DONE, all four wired (release/execute as party-panel buttons, task 153)
 - Held-lord ops: POST /v1/lords/{name}/{ransom,release,execute}, GET heir
 - Siege engine park: GET/POST /v1/sieges/{id}/engines/*, assault, lift, town siege start
-- Save/load over HTTP: POST /v1/save, POST /v1/load (client saves are local-only)
 - Tavern dice: POST /v1/towns/{id}/tavern/dice (UI now exists via the pipeline; provider still fixture-only)
 - Party template refit route; companion role assignment; character kill
 - Pause/resume, step-days, health check
@@ -109,7 +108,7 @@ W = wired, M = made but unwired (see sections 1-3), N = needs making.
 | Held lords: ransom/release/execute | M | routes mounted live |
 | Armies (create/join/objective) | M | provider only |
 | Sieges (start/assault/lift) + engine park | M | siege routes mounted; engines fixture-only |
-| Save/load over HTTP | M | client saves local; server save/load mounted, unused |
+| Save/load over HTTP | ~~M~~ DONE 2026-10-04 | saves lane was always live (POST /v1/save, /v1/load); the panel's load hook now repaints the app from the restored world instead of throwing "not supported" |
 | Bandits list/camps | M | provider methods exist (getBandits/getBanditCamps); camps UI has no surface and the fixture serves none — waiting on a map layer |
 | Castles as a fief type | N | klass is city/town/village only |
 | Fief ownership by the player/vassals (landed titles, ownership transfer after siege) | N | towns have holders but no player-owns-fief loop, no award vote |
