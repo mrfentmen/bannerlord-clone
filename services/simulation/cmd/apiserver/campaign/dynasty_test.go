@@ -481,3 +481,39 @@ func TestPureLogic(t *testing.T) {
 		t.Error("stamina must grow with crafting")
 	}
 }
+
+func TestDynastyAdvancesOnDayTick(t *testing.T) {
+	c := newTestWorld(t)
+
+	// Build dynasty state with a pregnancy due in 3 days, then let the
+	// world clock (not an HTTP route) carry it to term.
+	c.mu.Lock()
+	d := c.ensureDynasty()
+	mother := d.characters["char-player"]
+	mother.Age = 25
+	d.characters["char-2"] = &DynCharacter{ID: "char-2", Name: "Alex", Age: 28, ClanID: "clan-player", Alive: true, Skills: map[string]int{}}
+	d.pregnancies = append(d.pregnancies, &Pregnancy{
+		MotherID: "char-player", FatherID: "char-2",
+		DueDay: d.lastTick + 3,
+	})
+	before := len(d.characters)
+	c.mu.Unlock()
+
+	if _, err := c.StepDays(10); err != nil {
+		t.Fatalf("stepDays: %v", err)
+	}
+
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	if d.lastTick < c.state.Tick {
+		t.Fatalf("dynasty lastTick %d behind world tick %d", d.lastTick, c.state.Tick)
+	}
+	if len(d.pregnancies) != 0 {
+		t.Fatal("pregnancy should have resolved on the day tick")
+	}
+	// Either the child was born or the mother died in childbirth; the tick
+	// must have done one of the two.
+	if len(d.characters) == before && mother.Alive {
+		t.Fatal("day tick resolved nothing: no birth and mother alive")
+	}
+}

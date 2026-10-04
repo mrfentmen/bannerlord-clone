@@ -352,6 +352,7 @@ func (c *Campaign) StepDays(n int) (int, error) {
 			return 0, fmt.Errorf("step-days: tick %d failed: %w", c.state.Tick, err)
 		}
 		c.ticksRun++
+		c.tickDynastyIfBuiltLocked()
 	}
 	c.checkEncountersLocked()
 	snapshot := c.snapshotPending
@@ -609,6 +610,7 @@ func (c *Campaign) pass(ctx context.Context, elapsed float64) {
 			return
 		}
 		c.ticksRun++
+		c.tickDynastyIfBuiltLocked()
 	}
 	// After ticks, check for hostile parties in proximity and auto-create
 	// encounters. The game generates fights on its own; the player doesn't

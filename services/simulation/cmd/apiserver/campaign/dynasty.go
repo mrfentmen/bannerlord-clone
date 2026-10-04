@@ -227,6 +227,19 @@ func (c *Campaign) tickDynastyLocked() {
 	}
 }
 
+// tickDynastyIfBuiltLocked advances the dynasty day-simulation from the
+// campaign day tick (pass and StepDays), so pregnancies, workshop profits,
+// and siege-engine construction move with the world clock rather than only
+// when an HTTP route happens to touch dynasty state. It no-ops until the
+// dynasty domain is first built, so players who never open the clan panel
+// pay nothing for it. Call only with c.mu held.
+func (c *Campaign) tickDynastyIfBuiltLocked() {
+	if c.dynasty == nil {
+		return
+	}
+	c.tickDynastyLocked()
+}
+
 func (c *Campaign) dynastyDayLocked(d *dynastyState, day int) {
 	// Conceptions.
 	for _, ch := range d.characters {
