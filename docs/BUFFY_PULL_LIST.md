@@ -218,3 +218,49 @@ movement or combat. In modern America this is motorcycles.
   stoppie optional.
 - Rider uses the FPS/TPS controller (section 1); bike is the vehicle
   (section 2). Mount/dismount is an interaction + animation blend.
+
+## 19. Army system (VERIFIED missing entirely)
+
+No multi-party armies. Bannerlord lets you call vassals to your
+banner and lead an army; here every party acts alone. `court/vassals.ts`
+exists, but nothing musters them.
+
+- `docs/code-pulls/strategy-core/` (MIT) — `model.rs` already has
+  `army_movements: Vec<ArmyMovement>`: the data shape for armies on
+  the campaign map. `commands.rs` batch resolution fits army orders.
+- `docs/code-pulls/rts-battle/` (MIT) — multi-unit command and
+  control once the army reaches the field.
+
+## 20. Fiefs (VERIFIED missing entirely)
+
+No land ownership. Bannerlord's core reward loop — get granted a
+fief, manage it, defend it — doesn't exist. Towns exist but nobody
+owns them.
+
+- `docs/code-pulls/strategy-core/` (MIT) — `city.rs` with ownership,
+  facilities, and upgrade costs; the fief model with the serial
+  numbers filed off.
+- `docs/code-pulls/city-sim/` (notes only) — what ownership does to
+  a settlement's economy (tax, growth, garrison cost).
+
+## 21. Mercenary contracts (VERIFIED missing entirely)
+
+No way to sign on as a mercenary for a faction — a whole Bannerlord
+career path (and the natural on-ramp for new players) is absent.
+
+- Mostly design + sim work: contract terms, pay per battle, relation
+  effects, defection. `docs/code-pulls/strategy-core/` diplomacy
+  model covers the relation side.
+
+## 22. Taverns (VERIFIED missing entirely)
+
+No tavern locations. In Bannerlord the tavern is where you recruit
+troops, find companions, hear rumors, and play board games —
+the social hub of every town.
+
+- `docs/code-pulls/dialogue-graph/` (notes only) — tavern keeper
+  and patron conversations as data.
+- `docs/code-pulls/roguelike/` (MIT) — interior generation for the
+  tavern space itself.
+- `espionage/rumors.ts` exists — rumors have a home; they need a
+  place to be heard.
