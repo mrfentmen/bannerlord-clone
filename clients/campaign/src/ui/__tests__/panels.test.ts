@@ -125,6 +125,8 @@ function town(opts: { loading?: boolean; town?: TownState | null } = {}): HTMLEl
     prisoners: [{ troopId: "troop-test", name: "Bandits", count: 1, tier: 1 }],
     onSellPrisonersToBroker: async () => ({ gold: 0, line: "" }),
     onWorldChanged: () => undefined,
+    onGetBounties: async () => [],
+    onClaimBounty: async () => ({ claimed: true as const, reward: 0 }),
   });
 }
 

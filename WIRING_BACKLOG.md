@@ -76,7 +76,7 @@ Hana's cue map is complete; the game never calls the rest of it. Biggest cluster
 6. [DONE this commit] Diplomacy re-wire (sim wars + declare/peace + defection + mercenary contracts restored to DiplomacyPanel; refusal text no longer swallowed)
 7. [MOSTLY DONE this commit] Economy/crime cluster — crime/fines + governor + ransom broker wired as town sections. Still unwired, on purpose: `barterDeal` (the sim never supplies a demand to barter against — a caller-invented demand would be a fake negotiation) and `persuade` (a bare charm roll with no scenario attached; wire it when a sim feature needs talking your way past something)
 8. Troops verification, sound events (spread across all of the above)
-9. Bandits/bounties (needs contract work, not just UI)
+9. [DONE this commit] Bandits/bounties client contract — getBounties/claimBounty/getBanditCamps/getBandits on the provider (live server already served the routes), bounty board as a town section, fixture loop refuse-on-live/defeat/claim-pays
 
 Rule of engagement: sections pipeline (`ui/panels/townSections.ts`) for town
 facilities; panel-option handlers elsewhere; the simulation owns every number

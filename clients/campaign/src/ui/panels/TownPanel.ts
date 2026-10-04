@@ -253,6 +253,10 @@ export interface TownPanelOptions {
   onSellPrisonersToBroker?: (troopId: string, count: number) => Promise<{ gold: number; line: string }>;
   /** Called after an economy order changed the world, so the caller repaints. */
   onWorldChanged?: () => void;
+  /** Open bounties on the town's board (bandits/bounties contract). */
+  onGetBounties?: () => Promise<import("../../data/types.js").BountyOffer[]>;
+  /** Claim a bounty; the sim pays only when the target party is destroyed. */
+  onClaimBounty?: (bountyId: string) => Promise<{ claimed: true; reward: number }>;
   /**
    * The survey is still being read. Renders `town-skeleton`, which mirrors this
    * panel's sections, so the context region does not change height when the town

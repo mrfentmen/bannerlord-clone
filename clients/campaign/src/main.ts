@@ -1560,6 +1560,15 @@ function townNode(town: TownState): Node {
     onWorldChanged: () => {
       void refreshAfterSimOrder();
     },
+    // Bounty board (bandits/bounties contract): the sim pays only when the
+    // party is destroyed; a live target refuses verbatim.
+    onGetBounties: () => provider.getBounties(),
+    onClaimBounty: (bountyId) =>
+      provider.claimBounty(bountyId).then((r) => {
+        playVerdictSound(true);
+        void refreshAfterSimOrder();
+        return r;
+      }),
     onRecruitMilitia: async (count) => {
       if (!snapshot) throw new Error("No snapshot to recruit militia against.");
       await provider.recruitMilitia(town.id, count);

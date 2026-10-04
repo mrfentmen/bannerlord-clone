@@ -80,6 +80,9 @@ import type {
   War,
   Quest,
   QuestObjective,
+  BanditCampInfo,
+  BanditPartyInfo,
+  BountyOffer,
   QuestOffer,
   TaxOrderResult,
   TimeScaleResult,
@@ -359,6 +362,10 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     abandonQuest: async (questId) => state.abandonQuest(questId),
     getQuestOffers: async (giverId, giverName) => state.getQuestOffers(giverId, giverName),
     commitCrime: async (townId, kind) => state.commitCrime(townId, kind),
+    getBounties: async () => state.getBounties(),
+    claimBounty: async (bountyId) => state.claimBounty(bountyId),
+    getBanditCamps: async () => state.getBanditCamps(),
+    getBandits: async () => state.getBandits(),
     payFine: async (townId) => state.payFine(townId),
     getPartyCapacity: async () => state.partyCapacity(),
     getPartySpeed: async () => state.partySpeed(),
@@ -441,6 +448,8 @@ class FixtureState {
   #markets = new Map<string, MarketState>();
   #party!: PartyState;
   #npcParties: NpcParty[] = [];
+  #bounties: BountyOffer[] = [];
+  #paidBounties = new Set<string>();
   #clans: Clan[] = [];
   /** Active mercenary contract, if the player serves a faction. */
   #contract: MercenaryContract | null = null;
@@ -615,6 +624,25 @@ class FixtureState {
         speedKmPerDay: 25 + rand() * 10,
       };
     });
+
+    // Bounties: towns post rewards on the bandit parties. The claim rule is
+    // the server's own: the bounty pays only when the party is destroyed.
+    const townArray = [...this.#towns.values()];
+    this.#bounties = this.#npcParties
+      .filter((p) => p.kind === "bandit")
+      .map((p, i) => {
+        const town = townArray[i % townArray.length];
+        return {
+          id: `bounty-${i}`,
+          partyId: p.id,
+          townId: town?.id ?? `town-${i}`,
+          reward: 150 * p.troopCount + 400,
+          strengthEstimate: p.troopCount,
+          lastKnown: { x: p.position.x, y: p.position.z },
+          banditName: p.name,
+          banditType: "Bandits",
+        };
+      });
 
     // Trade caravans: travel between towns, buying low and selling high.
     // They move goods through the economy, affecting supply and prices.
@@ -2806,6 +2834,58 @@ class FixtureState {
       xpAwards,
       prisoners: structuredClone(this.#party.prisoners),
     };
+  }
+
+  /** Open bounties: the towns' posted rewards, minus paid ones. */
+  async getBounties(): Promise<BountyOffer[]> {
+    return structuredClone(this.#bounties);
+  }
+
+  /**
+   * Claim a bounty. The server's rule, mirrored honestly: the reward pays
+   * only when the target party is destroyed (removed from the world). A live
+   * target refuses with its own sentence.
+   */
+  async claimBounty(bountyId: string): Promise<{ claimed: true; reward: number }> {
+    const bounty = this.#bounties.find((b) => b.id === bountyId);
+    if (!bounty) throw new Error("No such bounty.");
+    if (this.#paidBounties.has(bountyId)) throw new Error("Already claimed.");
+    const party = this.#npcParties.find((p) => p.id === bounty.partyId);
+    if (party && party.troopCount > 0) {
+      throw new Error(`${bounty.banditName} still ride. Destroy the party to claim.`);
+    }
+    this.#paidBounties.add(bountyId);
+    this.#party.money += bounty.reward;
+    this.#bounties = this.#bounties.filter((b) => b.id !== bountyId);
+    this.#notifications.push({
+      id: `n-bounty-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: `The bounty on ${bounty.banditName} is paid: ${Math.round(bounty.reward)} gold.`,
+      entityId: null,
+      field: "party",
+    });
+    return { claimed: true, reward: bounty.reward };
+  }
+
+  /** Bandit camps: the fixture runs none yet; an empty list is the honest read. */
+  async getBanditCamps(): Promise<BanditCampInfo[]> {
+    return [];
+  }
+
+  /** Active bandit parties, for the map layer. */
+  async getBandits(): Promise<BanditPartyInfo[]> {
+    return this.#npcParties
+      .filter((p) => p.kind === "bandit" && p.troopCount > 0)
+      .map((p) => ({
+        id: p.id,
+        name: p.name,
+        type: "Bandits",
+        x: p.position.x,
+        y: p.position.z,
+        strength: p.troopCount * 10,
+        troops: p.troopCount,
+      }));
   }
 
   /**

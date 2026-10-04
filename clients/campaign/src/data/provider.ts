@@ -37,6 +37,9 @@ import type {
   MarchRequest,
   NearbyForce,
   PlayerCharacter,
+  BanditCampInfo,
+  BanditPartyInfo,
+  BountyOffer,
   QuestOffer,
   RecruitRequest,
   RecruitResult,
@@ -808,6 +811,66 @@ export class HttpSimulationProvider implements SimulationProvider {
 
   async getQuestOffers(_giverId: string, _giverName: string): Promise<QuestOffer[]> {
     throw new Error("Quest offers are not available on the live simulation yet.");
+  }
+
+  async getBounties(): Promise<BountyOffer[]> {
+    const raw = await this.#getJson<Record<string, unknown>[]>(
+      "/v1/bounties",
+      "The bounty board could not be read.",
+    );
+    return raw.map((b) => ({
+      id: String(b["id"]),
+      partyId: String(b["party_id"]),
+      townId: String(b["town_id"]),
+      reward: Number(b["reward"] ?? 0),
+      strengthEstimate: Number(b["strength_estimate"] ?? 0),
+      lastKnown: { x: Number(b["last_known_x"] ?? 0), y: Number(b["last_known_y"] ?? 0) },
+      banditName: String(b["bandit_name"] ?? "Bandits"),
+      banditType: String(b["bandit_type"] ?? "Bandits"),
+    }));
+  }
+
+  async claimBounty(bountyId: string): Promise<{ claimed: true; reward: number }> {
+    return this.#post<{ claimed: true; reward: number }>(
+      `/v1/bounties/${encodeURIComponent(bountyId)}/claim`,
+      {},
+      "The bounty could not be claimed.",
+      undefined,
+      "bounty not claimable (already claimed or target still alive)",
+    );
+  }
+
+  async getBanditCamps(): Promise<BanditCampInfo[]> {
+    const raw = await this.#getJson<Record<string, unknown>[]>(
+      "/v1/bandits/camps",
+      "The bandit camps could not be read.",
+    );
+    return raw.map((c) => ({
+      id: String(c["id"]),
+      x: Number(c["x"] ?? 0),
+      y: Number(c["y"] ?? 0),
+      type: String(c["type"] ?? "Unknown"),
+      lootFood: Number(c["loot_food"] ?? 0),
+      lootGold: Number(c["loot_gold"] ?? 0),
+      lootMetal: Number(c["loot_metal"] ?? 0),
+      parties: Number(c["parties"] ?? 0),
+    }));
+  }
+
+  async getBandits(): Promise<BanditPartyInfo[]> {
+    const raw = await this.#getJson<Record<string, unknown>[]>(
+      "/v1/bandits",
+      "The bandit parties could not be read.",
+    );
+    return raw.map((b) => ({
+      id: String(b["id"]),
+      name: String(b["name"] ?? "Bandits"),
+      type: String(b["type"] ?? "Bandits"),
+      x: Number(b["x"] ?? 0),
+      y: Number(b["y"] ?? 0),
+      strength: Number(b["strength"] ?? 0),
+      troops: Number(b["troops"] ?? 0),
+    }));
   }
 
   async forgeItem(_recipeId: string): Promise<{ name: string }> {

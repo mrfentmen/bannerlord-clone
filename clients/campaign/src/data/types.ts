@@ -272,6 +272,47 @@ export interface RecruitResult {
   causedBy: string;
 }
 
+/** A town-posted reward for destroying a bandit party. The live server
+ *  serves these on GET /v1/bounties (snake_case); the client contract is
+ *  camelCase and the HTTP provider maps it. */
+export interface BountyOffer {
+  id: string;
+  /** The bandit party the bounty is on. */
+  partyId: string;
+  /** The town that posted it. */
+  townId: string;
+  reward: number;
+  /** How strong the party reads, as the sim estimates it. */
+  strengthEstimate: number;
+  /** Where the party was last seen. */
+  lastKnown: { x: number; y: number };
+  banditName: string;
+  banditType: string;
+}
+
+/** A bandit camp the player has discovered. */
+export interface BanditCampInfo {
+  id: string;
+  x: number;
+  y: number;
+  type: string;
+  lootFood: number;
+  lootGold: number;
+  lootMetal: number;
+  parties: number;
+}
+
+/** An active bandit party, for the map layer. */
+export interface BanditPartyInfo {
+  id: string;
+  name: string;
+  type: string;
+  x: number;
+  y: number;
+  strength: number;
+  troops: number;
+}
+
 /** A named notable NPC in a settlement. Wiki gap item #39: notables have Power
  *  and per-notable relations that gate recruitment and hand out issues. */
 export type NotableType = "merchant" | "gang-leader" | "veteran" | "community-leader";
@@ -1377,6 +1418,18 @@ export interface SimulationProvider {
   abandonQuest(questId: string): Promise<void>;
   /** Work a notable has posted near this town (tasks 125-126). */
   getQuestOffers(giverId: string, giverName: string): Promise<QuestOffer[]>;
+  /** Open bounties towns have posted on bandit parties. */
+  getBounties(): Promise<BountyOffer[]>;
+  /**
+   * Claim a bounty. The simulation pays only when the target party is
+   * destroyed; a live target is a refusal (409 on the wire) with its own
+   * reason, never a payout.
+   */
+  claimBounty(bountyId: string): Promise<{ claimed: true; reward: number }>;
+  /** Bandit camps the player has discovered (scouting). */
+  getBanditCamps(): Promise<BanditCampInfo[]>;
+  /** Active bandit parties, for the map layer. */
+  getBandits(): Promise<BanditPartyInfo[]>;
   /** Commit a crime in a town. Increases crime rating, lowers relations. */
   commitCrime(townId: string, kind: "theft" | "assault" | "smuggling"): Promise<{ fine: number }>;
   /** Pay off criminal fines in a town. */

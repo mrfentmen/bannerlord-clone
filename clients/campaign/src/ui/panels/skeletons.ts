@@ -90,7 +90,7 @@ function tableStub(columns: number, rows: number): HTMLElement {
 // -- town ---------------------------------------------------------------------
 
 /** The sections of the town panel, plus the header block and the three actions. */
-export const TOWN_SECTIONS = 23;
+export const TOWN_SECTIONS = 24;
 
 /**
  * `town-skeleton`. Food, health, sanitation and housing, unrest and loyalty, taxes,
@@ -143,6 +143,8 @@ export function townSkeletonBody(): HTMLElement {
   // Governor: who governs here, and the appointment.
   root.appendChild(section(rows(2)));
   // Ransom broker: the party's prisoners, priced by the broker.
+  root.appendChild(section(rows(2)));
+  // Bounty board: the towns' posted rewards on bandit parties.
   root.appendChild(section(rows(2)));
   // Building owners (Rowan): the named proprietors.
   root.appendChild(section(rows(2)));
