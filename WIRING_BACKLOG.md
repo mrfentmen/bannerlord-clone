@@ -13,8 +13,8 @@ route. UI is the only missing half.
 
 | Bucket | Methods | Home | Sim/fixture source |
 |---|---|---|---|
-| Party ops | setForcedMarch, getForcedMarch, attemptPrisonBreak, mergeParty, assignPartyRole, getPartyCapacity, getPartySpeed | PartyPanel | b5c08b0f claimed forced march + prison break wired; lost in the 9fb5b0d4 restore |
-| Party templates | savePartyTemplate, getPartyTemplates, refitPartyToward | PartyPanel | Pax systems batch 6b7229ff |
+| Party ops | ~~setForcedMarch, attemptPrisonBreak, mergeParty, assignPartyRole~~ DONE 2026-10-04 (re-wired; getForcedMarch/getPartyCapacity/getPartySpeed are read-models the panel derives from the snapshot) | PartyPanel | b5c08b0f claimed forced march + prison break wired; lost in the 9fb5b0d4 restore |
+| Party templates | ~~savePartyTemplate, getPartyTemplates, refitPartyToward~~ DONE 2026-10-04 | PartyPanel | Pax systems batch 6b7229ff |
 | Quests | acceptQuest, abandonQuest (+ journal from snapshot.quests) | TownPanel quests tab (tasks 125-126) + quest journal | campaign/quests.ts |
 | Dynasty | marry, haveChild, killCharacter, getHeir, startCourtship, performCourtAction, proposeMarriage, getCourtships | New dynasty/clan panel | 310c96d5, 4bea7fc8 |
 | Clan power | getClanTier, foundKingdom, getHeldLords, ransomHeldLord, releaseHeldLord, executeHeldLord | RulerPanel | 7002ecb4 |

@@ -90,7 +90,7 @@ function tableStub(columns: number, rows: number): HTMLElement {
 // -- town ---------------------------------------------------------------------
 
 /** The sections of the town panel, plus the header block and the three actions. */
-export const TOWN_SECTIONS = 12;
+export const TOWN_SECTIONS = 17;
 
 /**
  * `town-skeleton`. Food, health, sanitation and housing, unrest and loyalty, taxes,
@@ -126,6 +126,14 @@ export function townSkeletonBody(): HTMLElement {
   root.appendChild(section([...rows(3), block(STUB)]));
   // Recent events: the event list.
   root.appendChild(section(rows(3)));
+  // Notable residents: the roster the town knows.
+  root.appendChild(section(rows(3)));
+  // Establishments: tavern, dice, smithy — the simulated facilities.
+  root.appendChild(section(rows(2)));
+  root.appendChild(section(rows(2)));
+  root.appendChild(section(rows(3)));
+  // Building owners (Rowan): the named proprietors.
+  root.appendChild(section(rows(2)));
   // The three actions, in the order the real panel puts them in.
   root.appendChild(
     h(

@@ -355,6 +355,9 @@ const provider = providerFromConfig(config);
 let snapshot: SimSnapshot | null = null;
 let previous: SimSnapshot | null = null;
 let scene: SceneHandle | null = null;
+// Saved party templates (bucket 1): the panel reads this list; the cache
+// refreshes with every snapshot reload so a freshly saved template appears.
+let partyTemplatesCache: { id: string; name: string; summary: string }[] = [];
 // -- New Game+ (MASTER_PLAN task 142) ----------------------------------------
 // The banked legacy, read once at boot. Applied to the heir's character when
 // a New Game+ campaign mounts, then consumed — a cancelled character maker
@@ -2146,6 +2149,15 @@ async function reloadSnapshot(): Promise<void> {
   try {
     previous = snapshot;
     snapshot = await provider.getSnapshot();
+    // Keep the party-template list fresh for the party panel's cache read.
+    void provider
+      .getPartyTemplates()
+      .then((templates) => {
+        partyTemplatesCache = templates;
+      })
+      .catch(() => {
+        /* templates stay as they were; the panel still renders */
+      });
     currentPanel = "none";
     contextNode = null;
     paint();
@@ -2221,6 +2233,59 @@ function rebuildContext(): void {
           await reloadSnapshot();
           rebuildContext();
           paint();
+          return result;
+        },
+        // Forced march (re-wire; the original wiring was lost in the 9fb5b0d4 restore).
+        onToggleForcedMarch: async (active) => {
+          await provider.setForcedMarch(active);
+          await reloadSnapshot();
+          rebuildContext();
+          paint();
+        },
+        // Prison breaks: roguery against the holder, sim owns the odds.
+        onPrisonBreak: async (holderId, teamSize) => {
+          const result = await provider.attemptPrisonBreak(holderId, teamSize);
+          playVerdictSound(result.success);
+          await reloadSnapshot();
+          rebuildContext();
+          paint();
+          return result;
+        },
+        // Merge a detached party back into the main one.
+        onMergeParty: async (partyId) => {
+          await provider.mergeParty(partyId);
+          playVerdictSound(true);
+          await reloadSnapshot();
+          rebuildContext();
+          paint();
+        },
+        detachedParties: snap.npcParties
+          ?.filter((p) => p.kind === "militia" && p.factionId === snap.player.factionId && p.id.startsWith("detached-"))
+          .map((p) => ({ id: p.id, name: p.name, troopCount: p.troopCount })),
+        // Companion role assignment; the sim validates the skill fit.
+        onAssignRole: async (charId, role) => {
+          await provider.assignPartyRole(charId, role);
+          playVerdictSound(true);
+          await reloadSnapshot();
+          rebuildContext();
+          paint();
+        },
+        companionCandidates: snap.characters
+          .filter((c) => c.role === "companion" && c.clanId === "clan-player" && c.alive)
+          .map((c) => ({ id: c.id, name: c.name, skills: c.skills ?? {} })),
+        // Party templates: save the current composition, refit toward a saved one.
+        onSaveTemplate: async (name) => {
+          const result = await provider.savePartyTemplate(name);
+          playVerdictSound(true);
+          await reloadSnapshot();
+          rebuildContext();
+          paint();
+          return result;
+        },
+        partyTemplates: partyTemplatesCache,
+        onRefitTemplate: async (templateId) => {
+          const result = await provider.refitPartyToward(templateId);
+          playVerdictSound(true);
           return result;
         },
       });

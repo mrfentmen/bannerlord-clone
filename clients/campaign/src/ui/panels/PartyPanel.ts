@@ -23,6 +23,7 @@ import { emptyState, errorState, gauge, panel, stamp, statusChip, dataTable, typ
 import { partySkeleton } from "./skeletons.js";
 import { asBottomSheet, stackable } from "./narrow.js";
 import type {
+  PartyRole,
   PartyState,
   ResourceWarning,
   TroopStack,
@@ -102,6 +103,26 @@ export interface PartyPanelOptions {
    * when the caller can actually send the order.
    */
   onSplitParty?: ((input: { troopIds: { stackId: string; count: number }[]; name: string }) => Promise<{ partyId: string }>) | undefined;
+  /**
+   * Merge a detached party back into this one. Only drawn when the caller can
+   * send it and the party lists detached parties.
+   */
+  onMergeParty?: (partyId: string) => Promise<void>;
+  /** Parties the player detached via split and can merge back. */
+  detachedParties?: { id: string; name: string; troopCount: number }[];
+  /**
+   * Assign a companion to a party role (or clear the role with null). Rejects
+   * with the simulation's own reason.
+   */
+  onAssignRole?: (charId: string, role: PartyRole | null) => Promise<void>;
+  /** Companion candidates for role assignment. */
+  companionCandidates?: { id: string; name: string; skills: Record<string, number> }[];
+  /** Save the party's current composition as a named template. */
+  onSaveTemplate?: (name: string) => Promise<{ templateId: string; summary: string }>;
+  /** Saved templates. Only drawn with the pair of handlers. */
+  partyTemplates?: { id: string; name: string; summary: string }[];
+  /** Ask the simulation what a refit toward a template would order. */
+  onRefitTemplate?: (templateId: string) => Promise<{ orders: { action: string; tier: number; branch: string | null; count: number }[] }>;
   /** The party roll is still being read. `party-skeleton` goes up first. */
   loading?: boolean;
   testId?: string;
@@ -479,6 +500,138 @@ export function partyPanel(options: PartyPanelOptions): HTMLElement {
     );
   }
   body.appendChild(roles);
+
+  // -- detached parties (merge back) -----------------------------------------
+  if (options.onMergeParty && (options.detachedParties ?? []).length > 0) {
+    body.appendChild(sectionHeader("Detached parties"));
+    const list = h("div", { class: "ledger__list" });
+    for (const dp of options.detachedParties!) {
+      const mergeBtn = h(
+        "button",
+        { class: "btn", "data-testid": `party-merge-${dp.id}`, "aria-label": `Merge ${dp.name} back into the party` },
+        "Merge back",
+      );
+      mergeBtn.addEventListener("click", () => {
+        mergeBtn.disabled = true;
+        void options.onMergeParty!(dp.id).catch((err: unknown) => {
+          mergeBtn.disabled = false;
+          console.error(err instanceof Error ? err.message : "The merge refused.");
+        });
+      });
+      list.appendChild(
+        row(`${dp.name} — ${dp.troopCount} troops`, mergeBtn),
+      );
+    }
+    body.appendChild(list);
+  }
+
+  // -- role assignment -------------------------------------------------------
+  if (options.onAssignRole && (options.companionCandidates ?? []).length > 0) {
+    body.appendChild(sectionHeader("Assign roles"));
+    const assign = h("div", { class: "ledger__list", "data-testid": "party-assign-roles" });
+    const ROLES: { role: PartyRole; label: string; skill: string }[] = [
+      { role: "quartermaster", label: "Quartermaster", skill: "steward" },
+      { role: "surgeon", label: "Surgeon", skill: "medicine" },
+      { role: "scout", label: "Scout", skill: "scouting" },
+      { role: "engineer", label: "Engineer", skill: "engineering" },
+    ];
+    for (const { role, label, skill } of ROLES) {
+      const select = h(
+        "select",
+        { class: "btn", "data-testid": `party-role-${role}`, "aria-label": `${label}: choose a companion` },
+        h("option", { value: "" }, "Nobody"),
+        ...options.companionCandidates!.map((c) => h("option", { value: c.id }, `${c.name} (${skill} ${Math.round(c.skills[skill] ?? 0)})`)),
+      );
+      select.value = party.roles[role] ?? "";
+      select.addEventListener("change", () => {
+        const selected = select.value;
+        const current = party.roles[role];
+        // Clearing sends the currently-assigned companion with a null role;
+        // picking sends the chosen companion with the role.
+        const p = selected === "" && current ? options.onAssignRole!(current, null) : options.onAssignRole!(selected, role);
+        void p.catch((err: unknown) => {
+          console.error(err instanceof Error ? err.message : "The assignment refused.");
+        });
+      });
+      assign.appendChild(row(`${label} (${skill})`, select));
+    }
+    body.appendChild(assign);
+  }
+
+  // -- templates -------------------------------------------------------------
+  if (options.onSaveTemplate && options.onRefitTemplate) {
+    body.appendChild(sectionHeader("Party templates"));
+    const nameInput = h("input", {
+      class: "caption",
+      "data-testid": "party-template-name",
+      type: "text",
+      placeholder: "Name this template...",
+      "aria-label": "Template name",
+      style: "margin-right:var(--space-2)",
+    });
+    const templateMsg = h("p", { class: "caption", "data-testid": "party-template-message", role: "status", style: "margin:0 0 var(--space-3)" });
+    templateMsg.style.display = "none";
+    const saveBtn = h("button", { class: "btn", "data-testid": "party-template-save" }, "Save current as template");
+    saveBtn.addEventListener("click", () => {
+      const name = (nameInput as HTMLInputElement).value.trim() || `Template ${new Date().toLocaleDateString("en-US")}`;
+      saveBtn.disabled = true;
+      void options.onSaveTemplate!(name)
+        .then((t) => {
+          saveBtn.disabled = false;
+          (nameInput as HTMLInputElement).value = "";
+          templateMsg.style.display = "";
+          templateMsg.textContent = `Saved. ${t.summary}`;
+        })
+        .catch((err: unknown) => {
+          saveBtn.disabled = false;
+          templateMsg.style.display = "";
+          templateMsg.textContent = err instanceof Error ? err.message : "The template refused.";
+        });
+    });
+    body.appendChild(h("div", { class: "field-row", style: "margin-bottom:var(--space-3)" }, nameInput, saveBtn));
+    body.appendChild(templateMsg);
+
+    if ((options.partyTemplates ?? []).length > 0) {
+      const list = h("div", { class: "ledger__list" });
+      for (const t of options.partyTemplates!) {
+        const refitBtn = h(
+          "button",
+          { class: "btn", "data-testid": `party-refit-${t.id}`, "aria-label": `Refit the party toward ${t.name}` },
+          "Refit toward",
+        );
+        refitBtn.addEventListener("click", () => {
+          refitBtn.disabled = true;
+          void options.onRefitTemplate!(t.id)
+            .then((r) => {
+              refitBtn.disabled = false;
+              const buys = r.orders.filter((o) => o.action === "recruit").reduce((n, o) => n + o.count, 0);
+              const dismiss = r.orders.filter((o) => o.action === "dismiss").reduce((n, o) => n + o.count, 0);
+              templateMsg.style.display = "";
+              templateMsg.textContent = `${t.name}: recruit ${buys} and dismiss ${dismiss} to match.`;
+            })
+            .catch((err: unknown) => {
+              refitBtn.disabled = false;
+              templateMsg.style.display = "";
+              templateMsg.textContent = err instanceof Error ? err.message : "The refit refused.";
+            });
+        });
+        list.appendChild(
+          row(
+            t.name,
+            h(
+              "div",
+              { style: "display:flex;align-items:center;gap:var(--space-2)" },
+              h("span", { class: "caption" }, t.summary),
+              refitBtn,
+            ),
+          ),
+        );
+      }
+      body.appendChild(list);
+    } else {
+      body.appendChild(h("p", { class: "caption", style: "margin:0" }, "No templates saved yet."));
+    }
+  }
 
   // -- troops ----------------------------------------------------------------
   body.appendChild(sectionHeader("Troops"));

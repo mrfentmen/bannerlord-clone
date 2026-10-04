@@ -81,6 +81,15 @@ function town(opts: { loading?: boolean; town?: TownState | null } = {}): HTMLEl
     onRoster: noop,
     workshops: [],
     onBuyWorkshop: async () => ({ workshopId: "w-test" }),
+    // The real app wires these (tasks 115-121); the skeleton mirrors the
+    // live panel, so the harness passes the same handlers.
+    onLoadTavern: async () => [],
+    onHireCompanion: async () => undefined,
+    onLoadSmithy: async () => ({ recipes: [], orders: [], stamina: { stamina: 100, max: 100 } }),
+    onForgeItem: async () => ({ name: "test" }),
+    onSmeltArms: async () => ({ metal: 2 }),
+    onFulfillOrder: async () => ({ reward: 0, line: "" }),
+    onPlayDice: async () => ({ won: false, payout: 0, line: "" }),
   });
 }
 
