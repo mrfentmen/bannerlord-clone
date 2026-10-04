@@ -1,5 +1,12 @@
 # Missing systems — pull list for Buffy
 
+**Setting: modern-day America.** This is a Mount & Blade-style game,
+not medieval Calradia. Every section below is framed for the modern
+setting: gangs not bandits, motorcycles not horses, syndicates not
+kingdoms, bars not taverns, contractors not mercenaries, turf and
+fronts not fiefs. When a reference repo is medieval/fantasy, the
+notes say how the mechanic maps.
+
 Status of each item verified against the repo on 2026-10-03 unless
 noted. "In repo" means the code is already pulled and waiting —
 wire it in. "Pull from GitHub" means clone it yourself; the exact
@@ -126,11 +133,13 @@ conversation system.
 - Side-select/start flow — fix claimed, never verified on the boss's device.
 - Market trading, party management, march planning — untested end to end.
 
-## 11. Siege gameplay (VERIFIED missing client-side)
+## 11. Compound assaults (sieges, modernized) (VERIFIED missing client-side)
 
 The Go sim has `services/simulation/cmd/apiserver/campaign/siege.go`,
-but the client has zero siege files — no siege scene, no wall assault,
-no siege engines. Bannerlord's signature feature is absent.
+but the client has zero siege files. Modernized: assaulting fortified
+gang compounds, cartel mansions, guarded warehouses — breaching,
+room clearing, and siege engines become battering rams / breaching
+charges / armored vehicles.
 
 - `docs/code-pulls/siege-combat/` (notes only) — ranged combat spec:
   cooldowns, projectiles, AoE, knockback, wall blocking.
@@ -153,21 +162,25 @@ have hideouts to clear (`clan/hideout.ts` exists for the player side).
   room-distributed spawning) is the pattern for gang hideout
   population.
 
-## 13. Villages (VERIFIED missing entirely)
+## 13. Small towns / rural communities (villages, modernized) (VERIFIED missing entirely)
 
-Towns exist (`ui/panels/TownPanel.ts`, `scene/townLod.ts`). Villages —
-Bannerlord's food/recruit-producing settlements that get raided —
-do not exist anywhere.
+Towns exist (`ui/panels/TownPanel.ts`, `scene/townLod.ts`). The smaller
+settlements — Bannerlord's food/recruit-producing villages that get
+raided — do not exist anywhere. Modernized: suburbs, exurbs, truck
+stops, rural towns.
 
 - `docs/code-pulls/city-sim/` (notes only) — tile economy: production,
   growth, and raiding effects on output.
 - `docs/code-pulls/strategy-core/` (MIT) — `city.rs`: city data model
   with facilities and upgrade costs; adapt down for villages.
 
-## 14. Kingdom management (VERIFIED missing entirely)
+## 14. Syndicate management (kingdoms, modernized) (VERIFIED missing entirely)
 
-Seven factions exist, but there is no kingdom layer: no policies,
-no council voting, no succession, no rebellions/civil wars.
+Seven factions exist, but there is no organization layer: no policies,
+no lieutenant council, no succession, no internal splits. Modernized:
+you run a syndicate/crew, not a kingdom — lieutenants instead of
+vassals, sit-downs instead of councils, power struggles instead of
+civil wars.
 
 - `docs/code-pulls/strategy-core/` (MIT) — `model.rs` has factions,
   diplomacy relations, and pending diplomacy orders; the closest
@@ -219,11 +232,12 @@ movement or combat. In modern America this is motorcycles.
 - Rider uses the FPS/TPS controller (section 1); bike is the vehicle
   (section 2). Mount/dismount is an interaction + animation blend.
 
-## 19. Army system (VERIFIED missing entirely)
+## 19. Crew mustering (armies, modernized) (VERIFIED missing entirely)
 
-No multi-party armies. Bannerlord lets you call vassals to your
-banner and lead an army; here every party acts alone. `court/vassals.ts`
-exists, but nothing musters them.
+No multi-party crews. Bannerlord lets you call vassals to your
+banner and lead an army; here every party acts alone.
+`court/vassals.ts` exists, but nothing musters them. Modernized:
+call your lieutenants and allied crews for a big hit.
 
 - `docs/code-pulls/strategy-core/` (MIT) — `model.rs` already has
   `army_movements: Vec<ArmyMovement>`: the data shape for armies on
@@ -231,11 +245,12 @@ exists, but nothing musters them.
 - `docs/code-pulls/rts-battle/` (MIT) — multi-unit command and
   control once the army reaches the field.
 
-## 20. Fiefs (VERIFIED missing entirely)
+## 20. Turf & fronts (fiefs, modernized) (VERIFIED missing entirely)
 
-No land ownership. Bannerlord's core reward loop — get granted a
-fief, manage it, defend it — doesn't exist. Towns exist but nobody
-owns them.
+No ownership. Bannerlord's core reward loop — get granted a fief,
+manage it, defend it — doesn't exist. Towns exist but nobody owns
+them. Modernized: gang turf, legitimate business fronts (car wash,
+bar, garage) that launder money and can be attacked.
 
 - `docs/code-pulls/strategy-core/` (MIT) — `city.rs` with ownership,
   facilities, and upgrade costs; the fief model with the serial
@@ -243,20 +258,22 @@ owns them.
 - `docs/code-pulls/city-sim/` (notes only) — what ownership does to
   a settlement's economy (tax, growth, garrison cost).
 
-## 21. Mercenary contracts (VERIFIED missing entirely)
+## 21. Private contractor work (mercenaries, modernized) (VERIFIED missing entirely)
 
-No way to sign on as a mercenary for a faction — a whole Bannerlord
+No way to sign on as hired muscle for a faction — a whole Bannerlord
 career path (and the natural on-ramp for new players) is absent.
+Modernized: private military contractor / hired-gun gigs.
 
 - Mostly design + sim work: contract terms, pay per battle, relation
   effects, defection. `docs/code-pulls/strategy-core/` diplomacy
   model covers the relation side.
 
-## 22. Taverns (VERIFIED missing entirely)
+## 22. Bars & clubs (taverns, modernized) (VERIFIED missing entirely)
 
-No tavern locations. In Bannerlord the tavern is where you recruit
-troops, find companions, hear rumors, and play board games —
-the social hub of every town.
+No social hubs. In Bannerlord the tavern is where you recruit
+troops, find companions, hear rumors, and play board games.
+Modernized: bars, clubs, and diners — recruit muscle, meet fixers,
+hear street rumors, run poker games.
 
 - `docs/code-pulls/dialogue-graph/` (notes only) — tavern keeper
   and patron conversations as data.
