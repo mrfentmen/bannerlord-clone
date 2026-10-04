@@ -18,7 +18,15 @@
 
 import { Vector3 } from "@babylonjs/core";
 
-export type UnitState = "idle" | "moving" | "attacking" | "attack_moving" | "engaging" | "dead";
+export type UnitState =
+  | "idle"
+  | "moving"
+  | "attacking"
+  | "attack_moving"
+  | "engaging"
+  | "dead"
+  | "routing"
+  | "surrendered";
 
 /** Minimal entity surface the brain needs. BattleSoldier matches structurally. */
 export interface SoldierLike {
@@ -65,6 +73,13 @@ const STUCK_SIDESTEP_M = 2;
 /** Charge speed multiplier (task 257): a charge is a sprint, not a walk. */
 const CHARGE_SPEED_MULT = 1.6;
 
+/** Below this morale a fighting brain wavers (task 351). */
+const WAVER_THRESHOLD = 0.25;
+/** Morale a rallied brain steadies at (task 356). */
+const RALLY_MORALE = 0.3;
+/** Striking a router or a surrendered unit: the pursuit bonus (task 354). */
+const PURSUIT_MULT = 1.5;
+
 /**
  * Idle look-around (task 251): bounds for the pause between glances and how
  * far the head turns. Purely cosmetic — an idle soldier that never moves its
@@ -95,6 +110,21 @@ export class UnitBrain {
   /** Idle look-around timer: seconds until the next glance. */
   private lookTimer = LOOK_PAUSE_MIN_S + Math.random() * (LOOK_PAUSE_MAX_S - LOOK_PAUSE_MIN_S);
 
+  /**
+   * Morale 0..1 (tasks 341-351). Starts at 1; the morale system moves it and
+   * calls `startRout` at 0. Kept on the brain because the state machine reads
+   * it every tick — routing and surrendering are states, not overlays.
+   */
+  morale = 1;
+  /** Where this brain runs when it routs; set by `startRout`. */
+  private routTarget: Vector3 | null = null;
+  /**
+   * Reached the map edge while routing: out of the fight, not dead. The loop
+   * hides the soldier and stops counting the brain; casualties don't include
+   * the fled.
+   */
+  hasFled = false;
+
   private moveTarget: Vector3 | null = null;
   private target: UnitBrain | null = null;
   private cooldown = 0;
@@ -120,6 +150,7 @@ export class UnitBrain {
 
   /** Plain move order: walk to the point, then idle. */
   commandMoveTo(target: Vector3): void {
+    if (this.isRouting || this.isSurrendered) return;
     this.clearTargets();
     this.holding = false;
     this.charging = false;
@@ -133,6 +164,7 @@ export class UnitBrain {
    * the first blow, so a charge that reaches empty ground just stops.
    */
   commandCharge(target: Vector3): void {
+    if (this.isRouting || this.isSurrendered) return;
     this.clearTargets();
     this.holding = false;
     this.charging = true;
@@ -145,8 +177,58 @@ export class UnitBrain {
     return this.charging;
   }
 
+  /** Morale broke: fleeing, not fighting (tasks 350, 353). */
+  get isRouting(): boolean {
+    return this.state === "routing";
+  }
+
+  /** Gave up: standing still, waiting to be taken (task 355). */
+  get isSurrendered(): boolean {
+    return this.state === "surrendered";
+  }
+
+  /** Below 25% and still fighting: the waver warning shows (task 351). */
+  get isWavering(): boolean {
+    return this.alive && !this.isRouting && !this.isSurrendered && this.morale < WAVER_THRESHOLD;
+  }
+
+  /**
+   * Break (task 350): drop everything and run for `point`. A routing brain
+   * never acquires, never strikes — routers don't fight back (task 353).
+   */
+  startRout(point: Vector3): void {
+    if (!this.alive || this.isRouting) return;
+    this.clearTargets();
+    this.holding = false;
+    this.charging = false;
+    this.routTarget = point.clone();
+    this.state = "routing";
+  }
+
+  /** Stand down and wait to be taken prisoner (task 355). */
+  surrender(): void {
+    if (!this.alive || this.isSurrendered) return;
+    this.clearTargets();
+    this.holding = false;
+    this.charging = false;
+    this.state = "surrendered";
+  }
+
+  /**
+   * Rally (task 356): the panic passes, morale steadies at 0.3, the brain
+   * rejoins the fight. Only the morale system calls this — a brain never
+   * rallies itself mid-rout.
+   */
+  rally(): void {
+    if (!this.alive || !this.isRouting) return;
+    this.morale = Math.max(this.morale, RALLY_MORALE);
+    this.routTarget = null;
+    this.state = "idle";
+  }
+
   /** Attack-move: advance, engaging anything acquired on the way. */
   commandAttackMove(target: Vector3): void {
+    if (this.isRouting || this.isSurrendered) return;
     this.clearTargets();
     this.holding = false;
     this.charging = false;
@@ -156,6 +238,7 @@ export class UnitBrain {
 
   /** Direct engagement order against one enemy. */
   commandEngage(enemy: UnitBrain): void {
+    if (this.isRouting || this.isSurrendered) return;
     this.clearTargets();
     this.holding = false;
     this.charging = false;
@@ -165,6 +248,7 @@ export class UnitBrain {
 
   /** Hold: stand ground, fight enemies in range, never chase. */
   commandHold(): void {
+    if (this.isRouting || this.isSurrendered) return;
     this.clearTargets();
     this.holding = true;
     this.charging = false;
@@ -372,9 +456,11 @@ export class UnitBrain {
           const dir = t.position.subtract(this.position);
           dir.y = 0;
           const wasAlive = t.alive;
-          // Flanking (task 289) and the charge both shape this blow: a charge
-          // ends with its first strike, win or lose.
-          const amount = this.stats.damage * this.flankMultiplier(t);
+          // Flanking (task 289), pursuit (task 354), and the charge all shape
+          // this blow: routers and the surrendered are struck down at 1.5x,
+          // and a charge ends with its first strike, win or lose.
+          let amount = this.stats.damage * this.flankMultiplier(t);
+          if (t.isRouting || t.isSurrendered) amount *= PURSUIT_MULT;
           t.soldier.damage(amount, dir);
           this.charging = false;
           this.onStrike?.(this, t, amount, wasAlive && !t.alive);
@@ -383,6 +469,19 @@ export class UnitBrain {
       }
 
       case "dead":
+        break;
+
+      case "routing": {
+        // Flee: no acquiring, no striking, no orders taken. Reaching the rout
+        // point leaves the field — the brain is out of the fight, not dead.
+        if (this.routTarget !== null && this.moveToward(this.routTarget, dt)) {
+          this.hasFled = true;
+        }
+        break;
+      }
+
+      case "surrendered":
+        // Waiting to be taken. Nothing to do.
         break;
     }
   }

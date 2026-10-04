@@ -394,22 +394,22 @@
 340. Explosive: crater (terrain decal)
 
 ### Morale & Routing (341–360)
-341. Morale: base value per unit tier
+341. Morale: base value per unit tier ✓
 342. Morale: leader proximity bonus
-343. Morale: winning bonus (we're killing more)
-344. Morale: losing penalty (we're dying more)
-345. Morale: outnumbered penalty
-346. Morale: flanked penalty
+343. Morale: winning bonus (we're killing more) ✓
+344. Morale: losing penalty (we're dying more) ✓
+345. Morale: outnumbered penalty ✓
+346. Morale: flanked penalty ✓
 347. Morale: general died penalty (big)
-348. Morale: ally routed penalty (contagion)
-349. Morale: check every 5 seconds
-350. Morale: rout threshold (break at 0)
-351. Morale: waver warning (at 25%, UI indicator)
+348. Morale: ally routed penalty (contagion) ✓
+349. Morale: check every 5 seconds ✓
+350. Morale: rout threshold (break at 0) ✓
+351. Morale: waver warning (at 25%, UI indicator) ✓
 352. Rout: units drop weapons and flee
-353. Rout: routers don't fight back
-354. Rout: pursuing routers gives bonus damage
-355. Rout: routers can be captured
-356. Rally: routers may stop if far from enemy
+353. Rout: routers don't fight back ✓
+354. Rout: pursuing routers gives bonus damage ✓
+355. Rout: routers can be captured ✓
+356. Rally: routers may stop if far from enemy ✓
 357. Rally: leader can rally nearby routers (cooldown)
 358. Morale: low ammo penalty (ranged)
 359. Morale: night penalty (unless trained)

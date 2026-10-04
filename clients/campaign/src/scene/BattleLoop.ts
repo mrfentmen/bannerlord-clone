@@ -17,6 +17,7 @@ import type { BattleScene } from "./BattleScene.js";
 import { BattleSoldier } from "./BattleSoldier.js";
 import { INFANTRY_STATS, UnitBrain } from "./battleUnit.js";
 import { CombatEventBus } from "./combatEvents.js";
+import { MoraleSystem } from "./unitMorale.js";
 
 export interface BattleResult {
   /** True when every enemy is dead and at least one player soldier stands. */
@@ -54,6 +55,7 @@ export class BattleLoop {
    * invented.
    */
   readonly combatEvents = new CombatEventBus();
+  private morale: MoraleSystem | null = null;
   private readonly cullDistance: number;
   private tickCount = 0;
   private elapsed = 0;
@@ -102,6 +104,13 @@ export class BattleLoop {
 
     const loop = new BattleLoop(battle, soldiers, brains, options);
 
+    // Morale: routers flee for their own edge, the same edge "retreat" uses.
+    // The system is created after the brains so its alive-set diff starts true.
+    loop.morale = new MoraleSystem(brains, {
+      routPointFor: (team) =>
+        new Vector3(0, 0, team === 0 ? -(half - margin) : half - margin),
+    });
+
     // Every strike becomes a combat event: the HUD's kill feed, hit marker,
     // damage direction and combo counter all read this bus, so they can only
     // ever show what actually happened on the field.
@@ -141,6 +150,7 @@ export class BattleLoop {
     if (this.ended || this.disposed) return;
     this.elapsed += dt;
     this.tickCount++;
+    this.morale?.update(dt);
     // Distance LOD (task 296): far brains think every third tick. The camera
     // pose is read once per frame, not per brain.
     const camPos = this.cullDistance === Infinity
@@ -158,8 +168,16 @@ export class BattleLoop {
       }
       brain.update(dt, this.brains);
     }
-    const playerAlive = this.brains.some((b) => b.team === 0 && b.alive);
-    const enemyAlive = this.brains.some((b) => b.team === 1 && b.alive);
+    // The fled are gone: hide their soldiers the first frame they leave.
+    for (let i = 0; i < this.brains.length; i++) {
+      const brain = this.brains[i];
+      const soldier = this.soldiers[i];
+      if (brain?.hasFled && soldier && soldier.root.isEnabled()) {
+        soldier.root.setEnabled(false);
+      }
+    }
+    const playerAlive = this.brains.some((b) => b.team === 0 && b.alive && !b.hasFled);
+    const enemyAlive = this.brains.some((b) => b.team === 1 && b.alive && !b.hasFled);
     if (!playerAlive || !enemyAlive) {
       this.ended = true;
       const playerDead = this.brains.filter((b) => b.team === 0 && !b.alive).length;
@@ -179,14 +197,14 @@ export class BattleLoop {
 
   get livingCount(): { player: number; enemy: number } {
     return {
-      player: this.brains.filter((b) => b.team === 0 && b.alive).length,
-      enemy: this.brains.filter((b) => b.team === 1 && b.alive).length,
+      player: this.brains.filter((b) => b.team === 0 && b.alive && !b.hasFled).length,
+      enemy: this.brains.filter((b) => b.team === 1 && b.alive && !b.hasFled).length,
     };
   }
 
   /** Living brains on the player's team — the orders UI commands these. */
   get playerBrains(): UnitBrain[] {
-    return this.brains.filter((b) => b.team === 0);
+    return this.brains.filter((b) => b.team === 0 && b.alive && !b.hasFled);
   }
 
   /** Seconds since the loop started. */
@@ -222,6 +240,8 @@ export class BattleLoop {
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
+    this.morale?.destroy();
+    this.morale = null;
     for (const soldier of this.soldiers) soldier.dispose();
     this.brains.length = 0;
     this.soldiers.length = 0;
