@@ -1418,6 +1418,17 @@ function townNode(town: TownState): Node {
       paint();
       return result;
     },
+    // Tavern dice: the simulation owns the odds, the purse, and the telling.
+    onPlayDice: async (stake) => {
+      if (!snapshot) throw new Error("No snapshot to play dice against.");
+      const result = await provider.playTavernDice(town.id, stake);
+      playVerdictSound(result.won);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+      return result;
+    },
     onRecruitMilitia: async (count) => {
       if (!snapshot) throw new Error("No snapshot to recruit militia against.");
       await provider.recruitMilitia(town.id, count);

@@ -33,6 +33,8 @@ import { BANNER_COLORS } from "../../clan/bannerPalette.js";
 import type { ColorblindMode } from "../../settings/schema.js";
 import { notablesForCity } from "../../data/notables/index.js";
 import { buildingOwnersForCity } from "../../data/buildingOwners.js";
+import { townSectionFromSpec } from "./townSections.js";
+import { TOWN_SECTIONS } from "./sections/index.js";
 import { greetNpc, voiceForNpc } from "../../audio/greetDialogue.js";
 import "./townPanel.css";
 
@@ -194,6 +196,12 @@ export interface TownPanelOptions {
   onSmeltArms?: (quantity: number) => Promise<{ metal: number }>;
   /** Deliver a forged piece against a noble order. Rejects with the simulation's own reason. */
   onFulfillOrder?: (orderId: string) => Promise<{ reward: number; line: string }>;
+  /**
+   * Play tavern dice (task block 6b7229ff): stake gold, best of three takes
+   * the pot. Rejects with the simulation's own reason (short purse, no game
+   * tonight).
+   */
+  onPlayDice?: (stake: number) => Promise<{ won: boolean; payout: number; line: string }>;
   /**
    * The survey is still being read. Renders `town-skeleton`, which mirrors this
    * panel's sections, so the context region does not change height when the town
@@ -622,13 +630,14 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
     body.appendChild(buildingOwnersSection(buildingOwners));
   }
 
-  // -- the tavern (tasks 115–117) ----------------------------------------------
-  const tavern = tavernSection(options);
-  if (tavern) body.appendChild(tavern);
-
-  // -- the smithy (tasks 119–121) ----------------------------------------------
-  const smithy = smithySection(options);
-  if (smithy) body.appendChild(smithy);
+  // -- simulated town facilities (tavern, dice, smithy, ...) --------------------
+  // The town-sections pipeline: each registered spec renders itself when the
+  // caller passed the handlers that make it real. A new facility is a spec
+  // file in sections/ plus a handler here — the panel needs nothing else.
+  for (const spec of TOWN_SECTIONS) {
+    const section = townSectionFromSpec(spec, options);
+    if (section) body.appendChild(section);
+  }
 
   // -- what happened here (task 138) ------------------------------------------
   const events = eventsSection(town, options);
@@ -1107,296 +1116,6 @@ function recruitRow(
  * no matter how often it repaints. Task 118 (rumors) is not drawn: the
  * simulation publishes no rumor field, and the panel does not invent one.
  */
-function tavernSection(options: TownPanelOptions): HTMLElement | null {
-  if (!options.onLoadTavern || !options.onHireCompanion) return null;
-
-  const wrap = h("section", { "data-testid": "tavern-section" });
-  wrap.appendChild(sectionHeader("Tavern"));
-
-  const message = h("p", { class: "caption", "data-testid": "tavern-message", role: "status", style: "margin:0 0 var(--space-3)" });
-  message.style.display = "none";
-  const list = h("div", { "data-testid": "tavern-list" });
-
-  const enter = h("button", { type: "button", class: "btn", "data-testid": "tavern-enter", "aria-label": "Step inside the tavern" }, "Step inside");
-  enter.addEventListener("click", () => {
-    enter.disabled = true;
-    message.style.display = "";
-    message.textContent = "Reading the room...";
-    reload();
-  });
-
-  function renderRoster(roster: TavernCompanion[]): void {
-    list.replaceChildren();
-    if (roster.length === 0) {
-      const empty = emptyState("The benches are empty.", "Nobody in this tavern is looking for work tonight.");
-      empty.setAttribute("data-testid", "tavern-empty");
-      list.appendChild(empty);
-      return;
-    }
-    for (const comp of roster) list.appendChild(tavernRow(comp, options, message, reload));
-  }
-
-  function reload(): void {
-    void options.onLoadTavern!().then(
-      (roster) => {
-        enter.remove();
-        message.style.display = "none";
-        renderRoster(roster);
-      },
-      (err: unknown) => {
-        // The door stays on the card: a failed read is a retry, not a dead end.
-        enter.disabled = false;
-        message.style.display = "";
-        message.textContent = err instanceof Error && err.message ? err.message : "The tavern roster could not be read.";
-      },
-    );
-  }
-
-  wrap.append(enter, message, list);
-  return wrap;
-}
-
-/** What the companion wants before joining, in the simulation's own terms. */
-function tavernWant(comp: TavernCompanion): string {
-  const value = Math.round(comp.recruitValue).toLocaleString("en-US");
-  if (comp.recruitKind === "gold") return `$${value} up front`;
-  if (comp.recruitKind === "reputation") return `renown ${value}`;
-  return `${value} battle win${comp.recruitValue === 1 ? "" : "s"}`;
-}
-
-function tavernRow(
-  comp: TavernCompanion,
-  options: TownPanelOptions,
-  message: HTMLElement,
-  reload: () => void,
-): HTMLElement {
-  const card = h("div", { class: "field-row", "data-testid": `tavern-companion-${comp.id}`, style: "margin-bottom:var(--space-3)" });
-
-  const head = h("div");
-  const name = h("strong", {}, comp.name);
-  const wage = h("span", { class: "caption", style: "margin-left:var(--space-2)" }, `$${Math.round(comp.wageDaily).toLocaleString("en-US")}/day`);
-  head.append(name, wage);
-
-  const facts: string[] = [];
-  if (comp.traits.length > 0) facts.push(comp.traits.join(", "));
-  const skills = Object.entries(comp.skills)
-    .map(([skill, level]) => `${skill.charAt(0).toUpperCase()}${skill.slice(1)} ${Math.round(level)}`)
-    .join(" · ");
-  if (skills) facts.push(skills);
-  const detail = h("p", { class: "caption", style: "margin:0" }, facts.join(" — "));
-
-  const story = h("p", { class: "caption", style: "margin:0" }, comp.backstory);
-
-  const want = tavernWant(comp);
-  const hire = h(
-    "button",
-    { type: "button", class: "btn", "data-testid": `tavern-hire-${comp.id}`, "aria-label": `Hire ${comp.name} for ${want}` },
-    `Hire ${comp.name} — ${want}`,
-  );
-  hire.disabled = !comp.available;
-  hire.addEventListener("click", () => {
-    hire.disabled = true;
-    void options.onHireCompanion!(comp.id).then(
-      () => {
-        message.style.display = "";
-        message.textContent = `${comp.name} signed on. $${Math.round(comp.wageDaily).toLocaleString("en-US")} joins the daily bill.`;
-        reload();
-      },
-      (err: unknown) => {
-        hire.disabled = false;
-        message.style.display = "";
-        // The simulation's own refusal is the message: a short purse, a name
-        // not yet known, a fight not yet won. Shown verbatim, not paraphrased.
-        message.textContent = err instanceof Error && err.message ? err.message : "They declined.";
-      },
-    );
-  });
-
-  card.append(head, detail, story, hire);
-  return card;
-}
-
-/**
- * The smithy (tasks 119–121). Same flow as the tavern: the bench is fetched when
- * the player steps inside, not on every render. The simulation owns the recipes,
- * the stamina, the orders, and every refusal; this section only shows them.
- */
-function smithySection(options: TownPanelOptions): HTMLElement | null {
-  if (!options.onLoadSmithy || !options.onForgeItem || !options.onSmeltArms || !options.onFulfillOrder) {
-    return null;
-  }
-
-  const wrap = h("section", { "data-testid": "smithy-section" });
-  wrap.appendChild(sectionHeader("Smithy"));
-
-  const message = h("p", { class: "caption", "data-testid": "smithy-message", role: "status", style: "margin:0 0 var(--space-3)" });
-  message.style.display = "none";
-  const list = h("div", { "data-testid": "smithy-list" });
-
-  const enter = h("button", { type: "button", class: "btn", "data-testid": "smithy-enter", "aria-label": "Step inside the smithy" }, "Enter the smithy");
-  enter.addEventListener("click", () => {
-    enter.disabled = true;
-    message.style.display = "";
-    message.textContent = "Lighting the forge...";
-    reload();
-  });
-
-  function renderBench(view: SmithyView): void {
-    list.replaceChildren();
-
-    const stamina = h(
-      "p",
-      { class: "caption", "data-testid": "smithy-stamina", style: "margin:0 0 var(--space-3)" },
-      `Stamina ${Math.round(view.stamina.stamina)}/${Math.round(view.stamina.max)} — forging and smelting spend it; it refills at dawn.`,
-    );
-    list.appendChild(stamina);
-
-    for (const recipe of view.recipes) {
-      list.appendChild(smithyBenchRow(recipe, options, message, reload));
-    }
-
-    const smelt = h("div", { class: "field-row", "data-testid": "smithy-smelt-row", style: "margin-bottom:var(--space-3)" });
-    const smeltText = h("p", { class: "caption", style: "margin:0" }, "Break finished arms back down at the crucible.");
-    const smeltBtn = h(
-      "button",
-      { type: "button", class: "btn", "data-testid": "smithy-smelt", "aria-label": "Smelt one arms into metal" },
-      "Smelt 1 arms",
-    );
-    smeltBtn.addEventListener("click", () => {
-      smeltBtn.disabled = true;
-      void options.onSmeltArms!(1).then(
-        (result) => {
-          message.style.display = "";
-          message.textContent = `Smelted 1 arms into ${Math.round(result.metal)} metal.`;
-          reload();
-        },
-        (err: unknown) => {
-          smeltBtn.disabled = false;
-          message.style.display = "";
-          message.textContent = err instanceof Error && err.message ? err.message : "The crucible refused.";
-        },
-      );
-    });
-    smelt.append(smeltText, smeltBtn);
-    list.appendChild(smelt);
-
-    const ordersHead = h("p", { class: "caption", style: "margin:var(--space-3) 0 var(--space-2)" }, "Open orders");
-    list.appendChild(ordersHead);
-    if (view.orders.length === 0) {
-      const none = h("p", { class: "caption", "data-testid": "smithy-orders-empty", style: "margin:0" }, "No open orders at the smithy tonight.");
-      list.appendChild(none);
-    }
-    for (const order of view.orders) {
-      list.appendChild(smithyOrderRow(order, options, message, reload));
-    }
-  }
-
-  function reload(): void {
-    void options.onLoadSmithy!().then(
-      (view) => {
-        enter.remove();
-        message.style.display = "none";
-        renderBench(view);
-      },
-      (err: unknown) => {
-        // The door stays on the card: a failed read is a retry, not a dead end.
-        enter.disabled = false;
-        message.style.display = "";
-        message.textContent = err instanceof Error && err.message ? err.message : "The smithy could not be read.";
-      },
-    );
-  }
-
-  wrap.append(enter, message, list);
-  return wrap;
-}
-
-/** One bench recipe: what it costs, and the forge button that asks the simulation for the work. */
-function smithyBenchRow(
-  recipe: SmithyRecipe,
-  options: TownPanelOptions,
-  message: HTMLElement,
-  reload: () => void,
-): HTMLElement {
-  const card = h("div", { class: "field-row", "data-testid": `smithy-recipe-${recipe.id}`, style: "margin-bottom:var(--space-3)" });
-
-  const head = h("div");
-  head.append(h("strong", {}, recipe.name));
-  const cost = h(
-    "p",
-    { class: "caption", style: "margin:0" },
-    `${Math.round(recipe.metal)} metal · ${Math.round(recipe.fuel)} fuel`,
-  );
-
-  const forge = h(
-    "button",
-    { type: "button", class: "btn", "data-testid": `smithy-forge-${recipe.id}`, "aria-label": `Forge ${recipe.name}` },
-    `Forge ${recipe.name}`,
-  );
-  forge.addEventListener("click", () => {
-    forge.disabled = true;
-    void options.onForgeItem!(recipe.id).then(
-      (result) => {
-        message.style.display = "";
-        message.textContent = `Forged: ${result.name}.`;
-        reload();
-      },
-      (err: unknown) => {
-        forge.disabled = false;
-        message.style.display = "";
-        // The simulation's own refusal, verbatim: a short bin of metal, no
-        // fuel, a smith too tired to swing the hammer again today.
-        message.textContent = err instanceof Error && err.message ? err.message : "The forge refused.";
-      },
-    );
-  });
-
-  card.append(head, cost, forge);
-  return card;
-}
-
-/** One noble order: who wants the piece, how long is left, what it pays. */
-function smithyOrderRow(
-  order: SmithyOrder,
-  options: TownPanelOptions,
-  message: HTMLElement,
-  reload: () => void,
-): HTMLElement {
-  const card = h("div", { class: "field-row", "data-testid": `smithy-order-${order.id}`, style: "margin-bottom:var(--space-3)" });
-
-  const head = h("div");
-  head.append(h("strong", {}, order.patron));
-  const facts = h(
-    "p",
-    { class: "caption", style: "margin:0" },
-    `${order.patronTitle} — wants a ${order.recipeName} · ${order.daysLeft} day${order.daysLeft === 1 ? "" : "s"} left · $${Math.round(order.reward).toLocaleString("en-US")}`,
-  );
-
-  const fulfill = h(
-    "button",
-    { type: "button", class: "btn", "data-testid": `smithy-fulfill-${order.id}`, "aria-label": `Deliver the ${order.recipeName} to ${order.patron} for $${Math.round(order.reward)}` },
-    `Deliver — $${Math.round(order.reward).toLocaleString("en-US")}`,
-  );
-  fulfill.addEventListener("click", () => {
-    fulfill.disabled = true;
-    void options.onFulfillOrder!(order.id).then(
-      (result) => {
-        message.style.display = "";
-        message.textContent = result.line || `Delivered — $${Math.round(result.reward).toLocaleString("en-US")} earned.`;
-        reload();
-      },
-      (err: unknown) => {
-        fulfill.disabled = false;
-        message.style.display = "";
-        message.textContent = err instanceof Error && err.message ? err.message : "The patron refused the delivery.";
-      },
-    );
-  });
-
-  card.append(head, facts, fulfill);
-  return card;
-}
-
 /**
  * Nothing is selected. `ART_DIRECTION.md` section 10.2 gives the wording, and the
  * roster is offered as the way out of the state, because an empty panel that only
