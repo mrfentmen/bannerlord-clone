@@ -110,6 +110,22 @@ import {
 import { rollChildTraits } from "../../campaign/fortune.js";
 import { rollBattleDeath } from "../../campaign/fortune.js";
 import { rollPersuasion } from "../../campaign/fortune.js";
+import {
+  signContract,
+  tickContract,
+  breakContract,
+  contractTerms,
+  type MercenaryContract,
+} from "../../diplomacy/mercenary.js";
+import {
+  generateOrder,
+  tickOrders,
+  fulfillOrder,
+  type CraftingOrder,
+} from "../../campaign/craftingOrders.js";
+import { governorBonus } from "../../settlements/governor.js";
+import { barter, type BarterOffer } from "../../diplomacy/barter.js";
+import { defect } from "../../court/defection.js";
 
 /** Marker strings. `tools/check-no-fixtures.mjs` greps the production bundle for
  *  these, so this module cannot be smuggled into a shipped build unnoticed. */
@@ -321,6 +337,18 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
       state.attemptPrisonBreak(holderId, teamSize),
     persuade: async (charm: number, difficulty: number) =>
       rollPersuasion(charm, difficulty, state.random()),
+    signMercenaryContract: async (factionId: string, factionName: string) =>
+      state.signMercenaryContract(factionId, factionName),
+    getMercenaryContract: async () => state.getMercenaryContract(),
+    breakMercenaryContract: async () => state.breakMercenaryContract(),
+    getCraftingOrders: async () => state.getCraftingOrders(),
+    fulfillCraftingOrder: async (orderId: string) => state.fulfillCraftingOrder(orderId),
+    assignGovernor: async (townId: string, characterId: string) =>
+      state.assignGovernor(townId, characterId),
+    getGovernor: async (townId: string) => state.getGovernor(townId),
+    barterDeal: async (offer, demandValue: number) => state.barterDeal(offer, demandValue),
+    defectClan: async (clanId: string, joinFactionId?: string) =>
+      state.defectClan(clanId, joinFactionId),
     marry: async (charId1, charId2) => state.marry(charId1, charId2),
     haveChild: async (parentId1, parentId2, childName) => state.haveChild(parentId1, parentId2, childName),
     killCharacter: async (charId, cause) => state.killCharacter(charId, cause),
@@ -364,6 +392,12 @@ class FixtureState {
   #party!: PartyState;
   #npcParties: NpcParty[] = [];
   #clans: Clan[] = [];
+  /** Active mercenary contract, if the player serves a faction. */
+  #contract: MercenaryContract | null = null;
+  /** Open crafting orders at the smithy. */
+  #orders: CraftingOrder[] = [];
+  /** Town governors: townId -> character. */
+  #governors = new Map<string, { id: string; name: string; skills: Record<string, number> }>();
   #characters: GameCharacter[] = [];
   #workshops: Workshop[] = [];
   #armies: Army[] = [];
@@ -1701,6 +1735,8 @@ class FixtureState {
     this.#recoverWounded();
     this.#moveNpcParties();
     this.#resolveNpcBattles();
+    this.#tickContractDay();
+    this.#tickOrdersDay();
     this.#rebuildLedger();
     this.#refreshWarnings();
     this.#emit({ tick: this.#tick, day: this.#day, towns: townDeltas, party: structuredClone(this.#party), npcParties: structuredClone(this.#npcParties), ledger: structuredClone(this.#ledger), warnings: structuredClone(this.#warnings) });
@@ -1892,6 +1928,109 @@ class FixtureState {
   }
 
   /**
+   * Mercenary work (Bannerlord): sign a 30-day contract with a faction.
+   * Daily retainer, pay per victory, no fealty. Renown-gated.
+   */
+  signMercenaryContract(factionId: string, factionName: string): { contract: MercenaryContract } {
+    const terms = contractTerms(factionId, factionName, 5);
+    const result = signContract(terms, this.#player.renown ?? 0, this.#contract);
+    if (!result.ok) throw new Error(result.reason);
+    this.#contract = result.contract;
+    return { contract: result.contract };
+  }
+
+  getMercenaryContract(): MercenaryContract | null {
+    return this.#contract;
+  }
+
+  breakMercenaryContract(): { relationPenalty: number } {
+    if (!this.#contract) throw new Error("No active contract to break.");
+    const result = breakContract(this.#contract);
+    this.#contract = null;
+    return { relationPenalty: result.relationPenalty };
+  }
+
+  /**
+   * Crafting orders: list open orders, generate new ones, fulfill with
+   * forged pieces.
+   */
+  getCraftingOrders(): CraftingOrder[] {
+    return [...this.#orders];
+  }
+
+  fulfillCraftingOrder(orderId: string): { reward: number; line: string } {
+    const order = this.#orders.find((o) => o.id === orderId);
+    if (!order) throw new Error("Order not found.");
+    const result = fulfillOrder(order, this.#party.crafted ?? []);
+    if (!result.ok) throw new Error(result.reason);
+    // Consume the forged piece.
+    const stock = this.#party.crafted!.find((c) => c.recipeId === order.recipeId)!;
+    stock.count -= 1;
+    this.#party.crafted = this.#party.crafted!.filter((c) => c.count > 0);
+    this.#orders = this.#orders.filter((o) => o.id !== orderId);
+    this.#party.money += result.reward;
+    return { reward: result.reward, line: result.line };
+  }
+
+  /**
+   * Governors: assign a companion to a town. Their skills shape it.
+   */
+  assignGovernor(townId: string, characterId: string): { line: string } {
+    const char = this.#characters.find((c) => c.id === characterId);
+    if (!char) throw new Error("Character not found.");
+    if (!char.alive) throw new Error("The dead govern nothing.");
+    const town = this.#towns.get(townId);
+    if (!town) throw new Error("Town not found.");
+    this.#governors.set(townId, { id: char.id, name: char.name, skills: char.skills ?? {} });
+    const bonus = governorBonus({ id: char.id, name: char.name, skills: char.skills ?? {} });
+    return { line: `${char.name} takes ${town.name}. ${bonus.line}` };
+  }
+
+  getGovernor(townId: string): { name: string; line: string } | null {
+    const g = this.#governors.get(townId);
+    if (!g) return null;
+    return { name: g.name, line: governorBonus(g).line };
+  }
+
+  /**
+   * Barter: value an offer against a demand. Used for peace deals and
+   * prisoner swaps.
+   */
+  barterDeal(offer: BarterOffer, demandValue: number): { accepted: boolean; gap: number; line: string } {
+    const prices: Record<string, number> = {};
+    for (const m of this.#markets.values()) {
+      for (const g of m.goods) {
+        prices[g.goodId] = g.price;
+      }
+    }
+    return barter(offer, { demandValue, prices, prisonerValue: 100 });
+  }
+
+  /**
+   * Defection: a clan walks away from its kingdom.
+   */
+  defectClan(clanId: string, joinFactionId?: string): { line: string } {
+    const clan = this.#clans.find((c) => c.id === clanId);
+    if (!clan) throw new Error("Clan not found.");
+    const fiefNames = clan.fiefIds
+      .map((id) => this.#towns.get(id)?.name ?? id)
+      .filter(Boolean);
+    const result = defect({
+      clanName: clan.name,
+      kingdomName: clan.factionId || "its kingdom",
+      // Clans track no loyalty stat; use renown standing as a proxy —
+      // low-renown clans have little to lose by walking.
+      loyalty: Math.min(100, (clan.renown ?? 0) / 10),
+      fiefs: fiefNames,
+      ...(joinFactionId ? { joinKingdom: joinFactionId } : {}),
+    });
+    if (!result.ok) throw new Error(result.reason);
+    clan.factionId = joinFactionId ?? "";
+    if (!result.keepsFiefs) clan.fiefIds = [];
+    return { line: result.line };
+  }
+
+  /**
    * Prison break (roguery): attempt to free imprisoned troops from a holder.
    * Uses the fieldSystems odds; success returns them to the party as a
    * wounded-light troop stack, failure wounds the team and angers the holder.
@@ -2016,9 +2155,66 @@ class FixtureState {
     }
   }
 
+  /**
+   * Daily mercenary tick: retainer pay accrues, the contract counts down.
+   * Mercenary victories are paid when battles resolve for the faction.
+   */
+  #tickContractDay(): void {
+    if (!this.#contract) return;
+    const { contract, pay, expired } = tickContract(this.#contract);
+    this.#party.money += pay;
+    this.#contract = contract;
+    if (expired) {
+      this.#notifications.push({
+        id: `n-contract-${this.#sequence++}`,
+        day: this.#day,
+        priority: "informational",
+        text: `Your mercenary contract has ended. The faction thanks you for your service.`,
+        entityId: this.#party.id,
+        field: "contract",
+      });
+    }
+  }
+
+  /**
+   * Daily crafting-order tick: new orders arrive, old ones expire.
+   */
+  #tickOrdersDay(): void {
+    const { kept, expired } = tickOrders(this.#orders);
+    this.#orders = kept;
+    for (const o of expired) {
+      this.#notifications.push({
+        id: `n-orderexp-${this.#sequence++}`,
+        day: this.#day,
+        priority: "informational",
+        text: `${o.patron}'s order for a ${o.recipeName} expired. They'll remember the wait.`,
+        entityId: this.#party.id,
+        field: "orders",
+      });
+    }
+    // New orders drift in, up to 3 open.
+    if (this.#orders.length < 3 && this.#random() < 0.3) {
+      const order = generateOrder(
+        SMITHING_RECIPES.map((r) => ({ id: r.id, name: r.name })),
+        `order-${Date.now()}-${Math.round(this.#random() * 10000)}`,
+        this.#random,
+      );
+      if (order) {
+        this.#orders.push(order);
+        this.#notifications.push({
+          id: `n-ordernew-${this.#sequence++}`,
+          day: this.#day,
+          priority: "informational",
+          text: `New crafting order: ${order.patron} (${order.patronTitle}) wants a ${order.recipeName} — ${order.reward} gold.`,
+          entityId: this.#party.id,
+          field: "orders",
+        });
+      }
+    }
+  }
+
   /** Two NPC parties fight when bandits meet non-bandits, or hostile factions meet. */
-  #npcHostile(a: NpcParty, b: NpcParty): boolean {
-    if (a.kind === "bandit" && b.kind !== "bandit") return true;
+  #npcHostile(a: NpcParty, b: NpcParty): boolean {    if (a.kind === "bandit" && b.kind !== "bandit") return true;
     if (b.kind === "bandit" && a.kind !== "bandit") return true;
     return a.factionId !== b.factionId && (a.hostile || b.hostile);
   }
@@ -2453,6 +2649,19 @@ class FixtureState {
       entityId: this.#party.id,
       field: "troops",
     });
+
+    // Mercenary victory pay: the contract pays per battle won.
+    if (won && this.#contract) {
+      this.#party.money += this.#contract.payPerVictory;
+      this.#notifications.push({
+        id: `n-mercpay-${this.#sequence++}`,
+        day: this.#day,
+        priority: "informational",
+        text: `${this.#contract.factionName} pays ${this.#contract.payPerVictory} gold for the victory.`,
+        entityId: this.#party.id,
+        field: "contract",
+      });
+    }
 
     return {
       troopsRemaining,

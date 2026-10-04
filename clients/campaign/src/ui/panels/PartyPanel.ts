@@ -73,6 +73,10 @@ export interface PartyPanelOptions {
    * send it and the party has imprisoned troops.
    */
   onPrisonBreak?: (holderId: string, teamSize: number) => Promise<{ success: boolean; freed: number; wounded: number; caught: boolean }>;
+  /** Open crafting orders. Only drawn with the bench. */
+  craftingOrders?: { id: string; patron: string; patronTitle: string; recipeId: string; recipeName: string; daysLeft: number; reward: number }[];
+  /** Fulfill a crafting order. Only drawn when the caller can send it. */
+  onFulfillOrder?: (orderId: string) => Promise<{ reward: number; line: string }>;
   /**
    * Ransom prisoners for gold. The panel sends the troop id and count; the
    * simulation owns the price and the result. Only drawn when the caller can
@@ -369,6 +373,37 @@ export function partyPanel(options: PartyPanelOptions): HTMLElement {
           "Stockpile",
           party.crafted!.map((c) => `${c.name} ×${c.count}`).join(", "),
           { testId: "party-crafted" },
+        ),
+      );
+    }
+    // Crafting orders: nobles want forged pieces. Bannerlord's smithy loop.
+    for (const order of options.craftingOrders ?? []) {
+      const hasPiece = (party.crafted ?? []).some((c) => c.recipeId === order.recipeId && c.count > 0);
+      bench.appendChild(
+        h(
+          "div",
+          { class: "row" },
+          h("span", { class: "row__label label" }, `Order: ${order.recipeName}`),
+          h(
+            "span",
+            { class: "row__value" },
+            h("span", { class: "caption" }, `${order.patron} (${order.patronTitle}) — ${order.reward}g, ${order.daysLeft}d left. `),
+            options.onFulfillOrder
+              ? h(
+                  "button",
+                  {
+                    class: "btn",
+                    "data-testid": `party-fulfill-${order.id}`,
+                    disabled: hasPiece ? undefined : "disabled",
+                    title: hasPiece ? "Deliver the forged piece" : `Forge a ${order.recipeName} first`,
+                    onclick: async () => {
+                      await options.onFulfillOrder?.(order.id);
+                    },
+                  },
+                  "Deliver",
+                )
+              : null,
+          ),
         ),
       );
     }

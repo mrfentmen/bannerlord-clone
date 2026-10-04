@@ -1251,6 +1251,20 @@ export interface SimulationProvider {
   attemptPrisonBreak(holderId: string, teamSize: number): Promise<{ success: boolean; freed: number; wounded: number; caught: boolean }>;
   /** Charm persuasion check (Bannerlord-style seeded roll). */
   persuade(charm: number, difficulty: number): Promise<{ chance: number; success: boolean; margin: number }>;
+  /** Sign a mercenary contract with a faction. */
+  signMercenaryContract(factionId: string, factionName: string): Promise<{ contract: { factionId: string; factionName: string; daysLeft: number; payPerVictory: number; dailyPay: number } }>;
+  getMercenaryContract(): Promise<{ factionId: string; factionName: string; daysLeft: number; payPerVictory: number; dailyPay: number } | null>;
+  breakMercenaryContract(): Promise<{ relationPenalty: number }>;
+  /** Open crafting orders at the smithy. */
+  getCraftingOrders(): Promise<{ id: string; patron: string; patronTitle: string; recipeId: string; recipeName: string; daysLeft: number; reward: number }[]>;
+  fulfillCraftingOrder(orderId: string): Promise<{ reward: number; line: string }>;
+  /** Assign a governor to a town. */
+  assignGovernor(townId: string, characterId: string): Promise<{ line: string }>;
+  getGovernor(townId: string): Promise<{ name: string; line: string } | null>;
+  /** Value a barter offer against a demand. */
+  barterDeal(offer: { gold: number; goods: Record<string, number>; prisoners: number; dailyTribute: number; tributeDays: number }, demandValue: number): Promise<{ accepted: boolean; gap: number; line: string }>;
+  /** A clan walks away from its kingdom. */
+  defectClan(clanId: string, joinFactionId?: string): Promise<{ line: string }>;
   /** Set an army's objective. */
   setArmyObjective(armyId: string, objective: Army["objective"]): Promise<void>;
   /** Restore the provider's internal state from a saved snapshot. */

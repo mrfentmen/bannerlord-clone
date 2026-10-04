@@ -761,6 +761,44 @@ export class HttpSimulationProvider implements SimulationProvider {
     throw new Error("Persuasion is not available on the live simulation yet.");
   }
 
+  // Proposal: the server has none of these systems yet. They throw until
+  // the routes land; the fixture implements them.
+  async signMercenaryContract(_factionId: string, _factionName: string): Promise<{ contract: { factionId: string; factionName: string; daysLeft: number; payPerVictory: number; dailyPay: number } }> {
+    throw new Error("Mercenary contracts are not available on the live simulation yet.");
+  }
+
+  async getMercenaryContract(): Promise<{ factionId: string; factionName: string; daysLeft: number; payPerVictory: number; dailyPay: number } | null> {
+    return null;
+  }
+
+  async breakMercenaryContract(): Promise<{ relationPenalty: number }> {
+    throw new Error("Mercenary contracts are not available on the live simulation yet.");
+  }
+
+  async getCraftingOrders(): Promise<{ id: string; patron: string; patronTitle: string; recipeId: string; recipeName: string; daysLeft: number; reward: number }[]> {
+    throw new Error("Crafting orders are not available on the live simulation yet.");
+  }
+
+  async fulfillCraftingOrder(_orderId: string): Promise<{ reward: number; line: string }> {
+    throw new Error("Crafting orders are not available on the live simulation yet.");
+  }
+
+  async assignGovernor(_townId: string, _characterId: string): Promise<{ line: string }> {
+    throw new Error("Governors are not available on the live simulation yet.");
+  }
+
+  async getGovernor(_townId: string): Promise<{ name: string; line: string } | null> {
+    return null;
+  }
+
+  async barterDeal(_offer: { gold: number; goods: Record<string, number>; prisoners: number; dailyTribute: number; tributeDays: number }, _demandValue: number): Promise<{ accepted: boolean; gap: number; line: string }> {
+    throw new Error("Barter is not available on the live simulation yet.");
+  }
+
+  async defectClan(_clanId: string, _joinFactionId?: string): Promise<{ line: string }> {
+    throw new Error("Defection is not available on the live simulation yet.");
+  }
+
   async marry(charId1: string, charId2: string): Promise<void> {
     await this.#post(
       "/v1/dynasty/marry",
