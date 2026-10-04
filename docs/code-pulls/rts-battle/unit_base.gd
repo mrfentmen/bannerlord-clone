@@ -1,0 +1,507 @@
+class_name UnitBase extends CharacterBody2D
+## Base class for all game units.
+## Provides common functionality like movement, health, and auto-attack.
+
+signal health_changed(current_health: int, max_health: int)
+signal attack_started(target: Node)
+signal attack_stopped
+
+enum UnitState { IDLE, MOVING, ATTACKING, ATTACK_MOVING, ENGAGING, HARVESTING, DEAD }
+
+## Threshold distance to consider "arrived" at target
+const ARRIVAL_THRESHOLD: float = 5.0
+
+## Palette-swap shader that recolors the sprite's team-color key region (SPI-1436).
+const TEAM_COLOR_SHADER := preload("res://assets/shaders/team_color.gdshader")
+
+## Rotation that aligns the sprite's art with a heading of angle 0 (due east).
+## The creature art faces up (-Y) while Vector2.angle() measures from +X, so the
+## sprite needs a quarter-turn clockwise to line up (SPI-1455). Single place to
+## change if the art bible ever settles on a different forward axis.
+## Because the offset is added to an angle() result in (-PI, PI], the stored
+## rotation spans (-PI/2, 3PI/2]. Fine for a snap, which assigns rather than
+## accumulates — but easing this value later must use lerp_angle(), or the sprite
+## will spin the long way round at the wrap boundary.
+const SPRITE_FORWARD_OFFSET: float = PI / 2.0
+
+## Spawn emerge effect (SPI-1425): a purely cosmetic scale-in + fade-in for a
+## freshly Mother-spawned unit. Visual only — never touches position/state.
+const EMERGE_DURATION: float = 0.25
+## Starting scale fraction of the sprite at the beginning of the emerge tween.
+const EMERGE_START_SCALE: float = 0.3
+
+## Movement speed in pixels per second
+@export var move_speed: float = 200.0
+@export var team_id: int = 0
+@export var unit_type: String = "drone"
+
+var max_health: int = 1
+var current_health: int = 1
+var damage: int = 0
+var attack_speed: float = 1.0
+var attack_range: float = 0.0
+var harvest_speed: float = 0.0
+var _state: UnitState = UnitState.IDLE
+var _has_attack_move_destination: bool = false
+var _is_dead: bool:
+	get:
+		return _state == UnitState.DEAD
+var _is_moving: bool:
+	get:
+		return (
+			_state == UnitState.MOVING
+			or _state == UnitState.ATTACK_MOVING
+			or _state == UnitState.ENGAGING
+		)
+var _is_selected: bool = false
+var _target_position: Vector2
+var _attack_target: UnitBase = null
+var _attack_cooldown: float = 0.0
+var _enemies_in_range: Array[UnitBase] = []
+var _attack_area: Area2D = null
+var _engage_target: UnitBase = null
+var _engage_offset: Vector2 = Vector2.ZERO
+var _harvest_target: BiomassNode = null
+var _harvest_progress: float = 0.0
+var _selection_circle: Sprite2D = null
+
+@onready var _sprite: AnimatedSprite2D = $AnimatedSprite2D
+
+
+func _ready() -> void:
+	add_to_group("units")
+	_target_position = position
+	_load_stats()
+	_setup_attack_area()
+	_setup_selection_circle()
+	_apply_team_color()
+	EventBus.unit_died.connect(_on_unit_died)
+
+
+func _physics_process(delta: float) -> void:
+	match _state:
+		UnitState.IDLE:
+			_try_acquire_target()
+			if _attack_target != null:
+				_state = UnitState.ATTACKING
+		UnitState.MOVING:
+			_process_movement()
+		UnitState.ATTACKING:
+			_process_attacking(delta)
+		UnitState.ATTACK_MOVING:
+			_process_attack_moving()
+		UnitState.ENGAGING:
+			_process_engaging()
+		UnitState.HARVESTING:
+			_process_harvesting(delta)
+		UnitState.DEAD:
+			pass
+
+
+func set_selected(selected: bool) -> void:
+	_is_selected = selected
+	if _selection_circle:
+		_selection_circle.visible = selected
+	if selected:
+		EventBus.unit_selected.emit(self)
+	else:
+		EventBus.unit_deselected.emit(self)
+
+
+## Plays a brief cosmetic emerge effect on the sprite (scale-in + fade-in) for a
+## freshly spawned unit. Visual only: it animates the child sprite's scale and
+## modulate and never touches position, _target_position, or _state — so it is
+## lockstep-safe and non-blocking. Called by MotherUnit.spawn_unit(); directly
+## instantiated units (MapLoader, tests) never emerge.
+func play_spawn_emerge() -> void:
+	if _sprite == null:
+		return
+	var target_scale := _sprite.scale
+	var faded := _sprite.modulate
+	faded.a = 0.0
+	_sprite.scale = target_scale * EMERGE_START_SCALE
+	_sprite.modulate = faded
+	var tween := create_tween()
+	tween.set_parallel(true)
+	tween.tween_property(_sprite, "scale", target_scale, EMERGE_DURATION)
+	tween.tween_property(_sprite, "modulate:a", 1.0, EMERGE_DURATION)
+
+
+func move_to(target: Vector2) -> void:
+	if _state == UnitState.DEAD:
+		return
+	if position.distance_to(target) <= ARRIVAL_THRESHOLD:
+		return
+	_clear_command_targets()
+	_target_position = target
+	_state = UnitState.MOVING
+	attack_stopped.emit()
+
+
+func attack_move_to(target: Vector2) -> void:
+	if _state == UnitState.DEAD:
+		return
+	if position.distance_to(target) <= ARRIVAL_THRESHOLD:
+		return
+	_clear_command_targets()
+	_has_attack_move_destination = true
+	_target_position = target
+	_state = UnitState.ATTACK_MOVING
+	attack_stopped.emit()
+
+
+func engage_unit(target: UnitBase, approach_offset: Vector2 = Vector2.ZERO) -> void:
+	if _state == UnitState.DEAD:
+		return
+	if not _is_valid_target(target):
+		return
+	_clear_command_targets()
+	_engage_target = target
+	_engage_offset = approach_offset
+	_state = UnitState.ENGAGING
+	attack_stopped.emit()
+
+
+func harvest_at(node: BiomassNode) -> void:
+	if _state == UnitState.DEAD:
+		return
+	if node == null or node.is_depleted():
+		return
+	if harvest_speed <= 0.0:
+		return
+	_clear_command_targets()
+	_harvest_target = node
+	_state = UnitState.HARVESTING
+	attack_stopped.emit()
+
+
+# True for the ENTIRE HARVESTING state, including the approach leg before
+# extraction begins. The harvest indicator keys on this, matching AC1
+# ("given a unit is in HARVESTING state").
+func is_harvesting() -> bool:
+	return _state == UnitState.HARVESTING
+
+
+# Whether enemies may pick this unit as an automatic attack target. Mothers
+# override this to false; they must be targeted manually (future work). The
+# guard that consumes this lives in _on_body_entered_attack_range (Task 2).
+func is_auto_targetable() -> bool:
+	return true
+
+
+## Resets all command-target state to defaults. A command method calls this
+## before setting its own target (e.g. engage_unit then sets _engage_target),
+## so every issued command starts from a clean slate.
+func _clear_command_targets() -> void:
+	_attack_target = null
+	_has_attack_move_destination = false
+	_engage_target = null
+	_engage_offset = Vector2.ZERO
+	_harvest_target = null
+	_harvest_progress = 0.0
+
+
+func take_damage(amount: int) -> void:
+	if _is_dead:
+		return
+	current_health = maxi(current_health - amount, 0)
+	health_changed.emit(current_health, max_health)
+	if current_health <= 0:
+		_die()
+
+
+func _die() -> void:
+	_state = UnitState.DEAD
+	SelectionManager.remove_unit(self)
+	velocity = Vector2.ZERO
+	_attack_target = null
+	_engage_target = null
+	_engage_offset = Vector2.ZERO
+	_harvest_target = null
+	_harvest_progress = 0.0
+	_enemies_in_range.clear()
+	if _attack_area != null:
+		var shape_node := _attack_area.get_child(0) as CollisionShape2D
+		if shape_node:
+			shape_node.set_deferred("disabled", true)
+	if _sprite.sprite_frames.has_animation("death"):
+		_sprite.play("death")
+	remove_from_group("units")
+	EventBus.unit_died.emit(self)
+	var tween := create_tween()
+	tween.tween_property(self, "modulate:a", 0.0, 0.5)
+	tween.tween_callback(queue_free)
+
+
+func _load_stats() -> void:
+	var file := FileAccess.open("res://data/unit_stats.json", FileAccess.READ)
+	if not file:
+		push_warning("UnitBase: Could not open unit_stats.json")
+		return
+	var json := JSON.new()
+	var error := json.parse(file.get_as_text())
+	file.close()
+	if error != OK:
+		push_warning("UnitBase: Failed to parse unit_stats.json: %s" % json.get_error_message())
+		return
+	var stats: Dictionary = json.data
+	if not stats.has(unit_type):
+		push_warning("UnitBase: No stats found for unit_type '%s'" % unit_type)
+		return
+	var unit_stats: Dictionary = stats[unit_type]
+	max_health = unit_stats.get("health", 50)
+	current_health = max_health
+	damage = unit_stats.get("damage", 10)
+	attack_speed = unit_stats.get("attack_speed", 1.0)
+	move_speed = unit_stats.get("move_speed", move_speed)
+	attack_range = unit_stats.get("attack_range", 0.0)
+	harvest_speed = float(unit_stats.get("harvest_speed", 0))
+	health_changed.emit(current_health, max_health)
+
+
+func _setup_attack_area() -> void:
+	if attack_range <= 0.0:
+		return
+	_attack_area = Area2D.new()
+	_attack_area.name = "AttackRange"
+	_attack_area.collision_layer = 2
+	_attack_area.collision_mask = 1
+	var shape := CollisionShape2D.new()
+	var circle := CircleShape2D.new()
+	circle.radius = attack_range
+	shape.shape = circle
+	_attack_area.add_child(shape)
+	add_child(_attack_area)
+	_attack_area.body_entered.connect(_on_body_entered_attack_range)
+	_attack_area.body_exited.connect(_on_body_exited_attack_range)
+
+
+func _setup_selection_circle() -> void:
+	_selection_circle = Sprite2D.new()
+	_selection_circle.texture = preload("res://assets/sprites/ui/selection_circle.png")
+	_selection_circle.z_index = -1
+	_selection_circle.visible = false
+	add_child(_selection_circle)
+
+
+## Applies the team-color palette-swap shader to this unit's sprite, tinting the
+## key-hue region to this team's color (SPI-1436). Each unit gets its own
+## ShaderMaterial so per-unit team_color params never bleed across units.
+func _apply_team_color() -> void:
+	var material := ShaderMaterial.new()
+	material.shader = TEAM_COLOR_SHADER
+	material.set_shader_parameter("team_color", TeamColors.color_for(team_id))
+	_sprite.material = material
+
+
+## The direction this unit is trying to move, or Vector2.ZERO when it is under no
+## movement order. Deliberately derived from the command target rather than from
+## velocity: move_and_slide() overwrites velocity with the post-collision result, so a
+## unit pressed head-on into an obstacle ends the frame at ZERO while still driving
+## toward its destination, and _process_engaging() leaves velocity stale when it drops
+## back to IDLE. HARVESTING is excluded because the only caller (MotherUnit) can never
+## harvest — its approach leg does have a stable heading and should be added here if a
+## harvesting unit ever needs one.
+func _current_heading() -> Vector2:
+	match _state:
+		UnitState.MOVING, UnitState.ATTACK_MOVING:
+			return _target_position - position
+		UnitState.ENGAGING:
+			if _is_valid_target(_engage_target):
+				return _engage_target.global_position + _engage_offset - global_position
+			return Vector2.ZERO
+		_:
+			return Vector2.ZERO
+
+
+func _process_movement() -> void:
+	var distance := position.distance_to(_target_position)
+
+	if distance <= ARRIVAL_THRESHOLD:
+		_state = UnitState.IDLE
+		_has_attack_move_destination = false
+		velocity = Vector2.ZERO
+		_update_animation()
+		return
+
+	var direction := (_target_position - position).normalized()
+	velocity = direction * move_speed
+
+	_update_animation(direction)
+
+	move_and_slide()
+
+
+func _process_attacking(delta: float) -> void:
+	if not _is_valid_target(_attack_target):
+		_attack_target = null
+		attack_stopped.emit()
+		if _is_valid_target(_engage_target):
+			_state = UnitState.ENGAGING
+		elif _has_attack_move_destination:
+			_state = UnitState.ATTACK_MOVING
+		else:
+			_state = UnitState.IDLE
+			_try_acquire_target()
+		return
+
+	_face_direction(_attack_target.global_position - global_position)
+
+	_attack_cooldown -= delta
+	if _attack_cooldown <= 0.0:
+		_perform_attack()
+		_attack_cooldown = _get_attack_interval()
+
+
+func _process_attack_moving() -> void:
+	if _attack_target == null:
+		_try_acquire_target()
+	if _attack_target != null:
+		_state = UnitState.ATTACKING
+		return
+	_process_movement()
+
+
+func _process_engaging() -> void:
+	if not _is_valid_target(_engage_target):
+		_engage_target = null
+		_engage_offset = Vector2.ZERO
+		_state = UnitState.IDLE
+		return
+
+	if _engage_target in _enemies_in_range:
+		_attack_target = _engage_target
+		_attack_cooldown = 0.0
+		_state = UnitState.ATTACKING
+		attack_started.emit(_attack_target)
+		return
+
+	var destination := _engage_target.global_position + _engage_offset
+	var direction := (destination - global_position).normalized()
+	velocity = direction * move_speed
+	_update_animation(direction)
+	move_and_slide()
+
+
+func _process_harvesting(delta: float) -> void:
+	if not is_instance_valid(_harvest_target) or _harvest_target.is_depleted():
+		_harvest_target = null
+		_harvest_progress = 0.0
+		_state = UnitState.IDLE
+		return
+	var to_node := _harvest_target.global_position - global_position
+	if to_node.length() > _harvest_target.harvest_radius:
+		var direction := to_node.normalized()
+		velocity = direction * move_speed
+		_play_walk_animation(direction)
+		move_and_slide()
+		return
+	velocity = Vector2.ZERO
+	_update_animation(Vector2.ZERO)
+	_harvest_progress += harvest_speed * delta
+	var whole := int(_harvest_progress)
+	if whole > 0:
+		var got := _harvest_target.harvest(whole)
+		if got > 0:
+			ResourceManager.add_resources(team_id, got)
+		_harvest_progress -= float(got)
+
+
+func _try_acquire_target() -> void:
+	var nearest: UnitBase = null
+	var nearest_dist := INF
+	for enemy in _enemies_in_range:
+		if not _is_valid_target(enemy):
+			continue
+		var dist := global_position.distance_squared_to(enemy.global_position)
+		if dist < nearest_dist:
+			nearest_dist = dist
+			nearest = enemy
+	if nearest != null:
+		_attack_target = nearest
+		_attack_cooldown = 0.0
+		attack_started.emit(nearest)
+
+
+func _is_valid_target(target: UnitBase) -> bool:
+	if target == null:
+		return false
+	if not is_instance_valid(target):
+		return false
+	if target._is_dead:
+		return false
+	if target.team_id == team_id:
+		return false
+	return true
+
+
+func _perform_attack() -> void:
+	if not _is_valid_target(_attack_target):
+		return
+	_attack_target.take_damage(damage)
+	EventBus.unit_attacked.emit(self, _attack_target, damage)
+
+
+func _get_attack_interval() -> float:
+	if attack_speed <= 0.0:
+		return 1.0
+	return 1.0 / attack_speed
+
+
+func _on_body_entered_attack_range(body: Node2D) -> void:
+	if (
+		body is UnitBase
+		and body != self
+		and body.team_id != team_id
+		and not body._is_dead
+		and body.is_auto_targetable()
+	):
+		_enemies_in_range.append(body)
+
+
+func _on_body_exited_attack_range(body: Node2D) -> void:
+	if body is UnitBase:
+		_enemies_in_range.erase(body)
+		if _attack_target == body:
+			_attack_target = null
+			attack_stopped.emit()
+
+
+func _on_unit_died(unit: Node) -> void:
+	if unit is UnitBase:
+		_enemies_in_range.erase(unit)
+		if _attack_target == unit:
+			_attack_target = null
+			attack_stopped.emit()
+		if _engage_target == unit:
+			_engage_target = null
+			_engage_offset = Vector2.ZERO
+
+
+func _update_animation(direction: Vector2 = Vector2.ZERO) -> void:
+	if _is_moving:
+		_play_walk_animation(direction)
+	else:
+		if _sprite.animation != "idle":
+			_sprite.play("idle")
+
+
+## Plays the walk animation and turns the sprite to face the movement
+## direction. Used by moving states and by the HARVESTING approach leg
+## (which is not counted by `_is_moving` but still slides toward the node).
+func _play_walk_animation(direction: Vector2) -> void:
+	_face_direction(direction)
+	if _sprite.animation != "walk":
+		_sprite.play("walk")
+
+
+## Snaps the sprite to point along `direction` (SPI-1455). Cosmetic only: it turns
+## the AnimatedSprite2D and never the body, so position, collision, and the upright
+## HealthBar / HarvestIndicator / selection-circle siblings are untouched and
+## lockstep determinism is unaffected — nothing reads this rotation back.
+## A zero direction leaves the current facing alone, so a unit that stops keeps the
+## heading it stopped with instead of snapping to a default.
+func _face_direction(direction: Vector2) -> void:
+	if direction.is_zero_approx():
+		return
+	_sprite.rotation = direction.angle() + SPRITE_FORWARD_OFFSET

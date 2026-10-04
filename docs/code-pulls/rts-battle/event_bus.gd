@@ -1,0 +1,32 @@
+extends Node
+## Global event bus for cross-system communication.
+## Connect to these signals to respond to game events.
+
+# Unit events
+signal unit_spawned(unit: Node)
+signal unit_died(unit: Node)
+signal unit_selected(unit: Node)
+signal unit_deselected(unit: Node)
+signal unit_attacked(attacker: Node, target: Node, damage: int)
+## A Mother's rally point was set or cleared (SPI-1453). Lets the HUD react to a
+## rally placed by a map click, which happens with no selection change to key off.
+signal mother_rally_changed(mother: Node)
+
+# Resource events
+signal resources_changed(player_id: int, new_amount: int)
+signal supply_changed(player_id: int, current: int, maximum: int)
+
+# Control point events
+signal control_point_captured(point: Node, team_id: int)
+signal control_point_contested(point: Node)
+signal victory_points_changed(player_id: int, points: int)
+
+# Game state events
+signal game_started
+signal game_paused
+signal game_resumed
+signal game_ended(winning_team: int)
+
+# Match events
+signal match_countdown_started(seconds: int)
+signal match_timer_updated(seconds_remaining: int)
