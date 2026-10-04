@@ -22,6 +22,11 @@ export const BANNER_SYMBOLS = [
   "wolf", "bear", "eagle", "lion", "dragon", "crossed-swords", "shield", "star",
   "sun", "crescent", "lightning", "skull", "crown", "horse", "arrow", "axe",
   "spear", "mountain", "wave", "oak", "flame", "raven", "serpent", "fist",
+  // Batch 2: more beasts, tools, and concepts
+  "bull", "stag", "boar", "falcon", "owl", "scorpion", "castle", "key",
+  "hammer", "anchor", "compass", "dagger", "bow", "diamond", "eye", "wings",
+  // Letters A-Z and numbers 0-9
+  ...("abcdefghijklmnopqrstuvwxyz0123456789".split("").map((c) => `letter-${c}`)),
 ] as const;
 export type BannerSymbol = (typeof BANNER_SYMBOLS)[number];
 
@@ -69,6 +74,11 @@ export function buildClanBanner(
 /** Get the asset URL for a banner shape. */
 export function shapeAssetUrl(shape: BannerShape): string {
   return `/banners/shapes/shape-${shape}.webp`;
+}
+
+/** Get the asset URL for a pre-colored banner. */
+export function coloredBannerUrl(shape: BannerShape, colorName: string): string {
+  return `/banners/colored/banner-${shape}-${colorName}.webp`;
 }
 
 /** Get the asset URL for a banner symbol. */

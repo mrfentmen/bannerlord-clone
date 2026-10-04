@@ -26,6 +26,9 @@ SYMBOL_NAMES = [
     "wolf", "bear", "eagle", "lion", "dragon", "crossed-swords", "shield", "star",
     "sun", "crescent", "lightning", "skull", "crown", "horse", "arrow", "axe",
     "spear", "mountain", "wave", "oak", "flame", "raven", "serpent", "fist",
+    # Batch 2 (del order 2026-10-04): more symbols
+    "bull", "stag", "boar", "falcon", "owl", "scorpion", "castle", "key",
+    "hammer", "anchor", "compass", "dagger", "bow", "diamond", "eye", "wings",
 ]
 
 def clean_generated(directory: Path, prefix: str, names: list[str], out_prefix: str) -> int:

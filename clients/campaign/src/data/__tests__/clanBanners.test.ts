@@ -19,8 +19,8 @@ describe("clan banners", () => {
     expect(BANNER_SHAPES.length).toBe(6);
   });
 
-  it("has 24 symbols", () => {
-    expect(BANNER_SYMBOLS.length).toBe(24);
+  it("has 76 symbols (40 icons + 36 letters/numbers)", () => {
+    expect(BANNER_SYMBOLS.length).toBe(76);
   });
 
   it("has 8 palettes", () => {
