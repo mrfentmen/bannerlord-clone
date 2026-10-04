@@ -30,6 +30,7 @@ import { BUILD_HASH } from "./buildHash.js";
 import { getAudioManager } from "./audio/AudioManager.js";
 import { applyAudioSettings } from "./audio/applySettings.js";
 import { installUiSounds, playVerdictSound } from "./audio/uiSounds.js";
+import { soundBirth, soundDefection, soundGovernorAssigned, soundTroopsFreed } from "./audio/gameSounds.js";
 import { playNoticeCue } from "./audio/noticePop.js";
 import { applySelectionAmbient } from "./audio/selectionAmbient.js";
 
@@ -1546,6 +1547,7 @@ function townNode(town: TownState): Node {
     onAssignGovernor: (characterId) =>
       provider.assignGovernor(town.id, characterId).then((r) => {
         playVerdictSound(true);
+        soundGovernorAssigned();
         void refreshAfterSimOrder();
         return r;
       }),
@@ -1948,12 +1950,12 @@ function openDiplomacy(): void {
     onMakePeace: (warId) =>
       provider.makePeace(warId).then(() => {
         void refreshAfterSimOrder();
-      }),
-    onDefectClan: (joinFactionId) =>
-      provider.defectClan("clan-player", joinFactionId).then((r) => {
-        void refreshAfterSimOrder();
-        return r;
-      }),
+      }),        onDefectClan: (joinFactionId) =>
+          provider.defectClan("clan-player", joinFactionId).then((r) => {
+            soundDefection();
+            void refreshAfterSimOrder();
+            return r;
+          }),
     mercenaryContract: null,
     onSignMercenary: async (factionId, factionName) => {
       await provider.signMercenaryContract(factionId, factionName);
@@ -2418,6 +2420,7 @@ function rebuildContext(): void {
         onPrisonBreak: async (holderId, teamSize) => {
           const result = await provider.attemptPrisonBreak(holderId, teamSize);
           playVerdictSound(result.success);
+          if (result.freed > 0) soundTroopsFreed();
           await reloadSnapshot();
           rebuildContext();
           paint();
@@ -2549,7 +2552,11 @@ function rebuildContext(): void {
         onGetClanTier: () => provider.getClanTier(),
         onGetHeir: () => provider.getHeir("clan-player"),
         onMarry: (a, b) => provider.marry(a, b),
-        onHaveChild: (p1, p2, name) => provider.haveChild(p1, p2, name),
+        onHaveChild: (p1, p2, name) =>
+          provider.haveChild(p1, p2, name).then((r) => {
+            soundBirth();
+            return r;
+          }),
         onStartCourtship: (targetId) => provider.startCourtship(targetId),
         onPerformCourtAction: (action) => provider.performCourtAction(action),
         onProposeMarriage: () => provider.proposeMarriage(),

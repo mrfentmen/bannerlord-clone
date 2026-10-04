@@ -52,9 +52,16 @@ provider methods + wire validators + UI, not just a button.
 - Party template refit route; companion role assignment; character kill
 - Pause/resume, step-days, health check
 
-## 4. Sound events nothing fires (49 of 73)
+## 4. Sound events nothing fires (45 of 73; was 49)
 
-Hana's cue map is complete; the game never calls most of it. Biggest clusters:
+Bucket 8 wired four cues into flows Buffy owns: `soundTroopsFreed` (prison break that frees anyone), `soundGovernorAssigned` (governor appointment), `soundBirth` (dynasty birth), `soundDefection` (clan defection). The 8 gameSounds still without an honest trigger point, and why:
+- `soundBarter` / `soundPersuasion`: the underlying sim features are unwired on purpose (no demand to barter against; no scenario to persuade in). Wire the cue with the feature.
+- `soundCompanionDeath`: `killCharacter` has no UI (sim test hook only).
+- `soundCavalryCharge` / `soundDuelExchange` / `soundDuelEnd`: combat and duel systems expose no client event surface — combat lane (Pax).
+- `soundMercenaryPay`: contract pay accrues inside the sim; no discrete client event exists.
+- `soundNpcBattle`: NPC battles resolve inside the sim; the snapshot carries no battle event.
+
+Hana's cue map is complete; the game never calls the rest of it. Biggest clusters:
 - UI chrome: ui.hover, ui.tab-switch, ui.back, ui.pause/resume, ui.panel-open/close, ui.map-open, ui.paper, ui.save/load, ui.gold-loss, ui.time-speed, ui.tutorial-ping
 - Combat: hit-armour, shot, pistol, shotgun, wounded, horse, explosion, reload, dry-fire, formation, arrow-fire/hit, weapon-switch, artillery-distant, footstep, ambient-battle, rain-loop, suppressive-fire
 - World: objective.update/accepted, level-up, skill-point, notification.critical, construction.complete, party.depart/arrive, siege.begun/wall-breach/ram, alarm.air-raid/gong, tavern.game-win/lose/crowd, market.trade
