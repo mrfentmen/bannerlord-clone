@@ -102,6 +102,14 @@ import {
   resolvePrisonBreak,
   type PrisonBreakResult,
 } from "../../campaign/fieldSystems.js";
+import { generateWeaponName } from "../../campaign/namePools.js";
+import {
+  randomName,
+  type NameSex,
+} from "../../campaign/namePools.js";
+import { rollChildTraits } from "../../campaign/fortune.js";
+import { rollBattleDeath } from "../../campaign/fortune.js";
+import { rollPersuasion } from "../../campaign/fortune.js";
 
 /** Marker strings. `tools/check-no-fixtures.mjs` greps the production bundle for
  *  these, so this module cannot be smuggled into a shipped build unnoticed. */
@@ -311,6 +319,8 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     getSmithingRecipes: async () => SMITHING_RECIPES.map((r) => ({ ...r })),
     attemptPrisonBreak: async (holderId: string, teamSize: number) =>
       state.attemptPrisonBreak(holderId, teamSize),
+    persuade: async (charm: number, difficulty: number) =>
+      rollPersuasion(charm, difficulty, state.random()),
     marry: async (charId1, charId2) => state.marry(charId1, charId2),
     haveChild: async (parentId1, parentId2, childName) => state.haveChild(parentId1, parentId2, childName),
     killCharacter: async (charId, cause) => state.killCharacter(charId, cause),
@@ -343,6 +353,11 @@ class FixtureState {
   #cause = new Map<string, CauseRow>();
   #sequence = 0;
   #random: () => number;
+
+  /** The seeded RNG, for provider methods that need a die roll. */
+  random(): () => number {
+    return this.#random;
+  }
   #towns = new Map<string, TownState>();
   #notables = new Map<string, Notable>();
   #markets = new Map<string, MarketState>();
@@ -1867,11 +1882,13 @@ class FixtureState {
     if (!check.ok) throw new Error(`Cannot forge ${recipe.name}: ${check.reason}.`);
     this.#party.metal -= recipe.metal;
     fuel!.quantity -= recipe.fuel;
+    // Bannerlord names every forge: stitch descriptors onto the base item.
+    const forgedName = generateWeaponName(recipe.name, this.#random);
     const stock = (this.#party.crafted ??= []);
     const existing = stock.find((c) => c.recipeId === recipeId);
     if (existing) existing.count += 1;
-    else stock.push({ recipeId, name: recipe.name, count: 1 });
-    return { name: recipe.name };
+    else stock.push({ recipeId, name: forgedName, count: 1 });
+    return { name: forgedName };
   }
 
   /**
@@ -2535,6 +2552,28 @@ class FixtureState {
     }
 
     // Player retreats: move away from the NPC
+    // Bannerlord's battle death: companions downed in a lost battle have a
+    // ~10% chance to die instead of pulling through.
+    const clan = this.#clans.find((c) => c.id === "clan-player");
+    if (clan) {
+      for (const memberId of [...clan.memberIds]) {
+        const member = this.#characters.find((c) => c.id === memberId);
+        if (!member || member.isPlayer || !member.alive) continue;
+        if (rollBattleDeath(this.#random)) {
+          member.alive = false;
+          member.deathDay = this.#day;
+          clan.memberIds = clan.memberIds.filter((id) => id !== memberId);
+          this.#notifications.push({
+            id: `n-bdeath-${this.#sequence++}`,
+            day: this.#day,
+            priority: "important",
+            text: `${member.name} was killed in the rout.`,
+            entityId: memberId,
+            field: "family",
+          });
+        }
+      }
+    }
     if (npc) {
       const dx = this.#party.position.x - npc.position.x;
       const dz = this.#party.position.z - npc.position.z;
@@ -3734,10 +3773,14 @@ class FixtureState {
     if (!p1 || !p2) throw new Error("Parent not found.");
     if (!p1.alive || !p2.alive) throw new Error("Cannot have a child with a dead parent.");
 
+    // Bannerlord pulls newborn names from the culture pool; an empty name
+    // means "let the pool decide."
+    const sex: NameSex = this.#random() < 0.5 ? "male" : "female";
+    const name = childName.trim() || randomName(p1.factionId, sex, this.#random);
     const childId = `char-${Date.now()}-${Math.round(this.#random() * 10000)}`;
     const child: GameCharacter = {
       id: childId,
-      name: childName,
+      name,
       age: 0,
       clanId: p1.clanId, // child joins the first parent's clan
       factionId: p1.factionId,
@@ -3746,6 +3789,8 @@ class FixtureState {
       childrenIds: [],
       role: "commoner",
       isPlayer: false,
+      // Bannerlord rolls child traits flat random — parents don't skew it.
+      traits: rollChildTraits(this.#random),
     };
     this.#characters.push(child);
     p1.childrenIds.push(childId);
@@ -3761,7 +3806,7 @@ class FixtureState {
       id: `n-birth-${this.#sequence++}`,
       day: this.#day,
       priority: "informational",
-      text: `${childName} is born to ${p1.name} and ${p2.name}.`,
+      text: `${name} is born to ${p1.name} and ${p2.name}.`,
       entityId: childId,
       field: "family",
     });

@@ -757,6 +757,10 @@ export class HttpSimulationProvider implements SimulationProvider {
     throw new Error("Prison breaks are not available on the live simulation yet.");
   }
 
+  async persuade(_charm: number, _difficulty: number): Promise<{ chance: number; success: boolean; margin: number }> {
+    throw new Error("Persuasion is not available on the live simulation yet.");
+  }
+
   async marry(charId1: string, charId2: string): Promise<void> {
     await this.#post(
       "/v1/dynasty/marry",

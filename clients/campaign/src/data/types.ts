@@ -836,6 +836,8 @@ export interface GameCharacter {
   isPlayer: boolean;
   /** Skill levels (0-10) for companions. Affects party/settlement systems. */
   skills?: Record<string, number>;
+  /** Personality traits (children roll these at birth; see campaign/fortune.ts). */
+  traits?: string[];
 }
 
 /** Marriage record. */
@@ -1247,6 +1249,8 @@ export interface SimulationProvider {
   forgeItem(recipeId: string): Promise<{ name: string }>;
   getSmithingRecipes(): Promise<{ id: string; name: string; metal: number; fuel: number; result: string }[]>;
   attemptPrisonBreak(holderId: string, teamSize: number): Promise<{ success: boolean; freed: number; wounded: number; caught: boolean }>;
+  /** Charm persuasion check (Bannerlord-style seeded roll). */
+  persuade(charm: number, difficulty: number): Promise<{ chance: number; success: boolean; margin: number }>;
   /** Set an army's objective. */
   setArmyObjective(armyId: string, objective: Army["objective"]): Promise<void>;
   /** Restore the provider's internal state from a saved snapshot. */
