@@ -64,7 +64,7 @@ Hana's cue map is complete; the game never calls most of it. Biggest clusters:
 1. [DONE a9fc37b7] Party ops + templates (daily-play loop)
 2. [DONE this commit] Quests tab + journal (tasks 125-128, section G)
 3. [DONE this commit] Notables talk/relations (town social loop) — gift/favor are real routes; ask-recruits/ask-quest stay as the sim's own information lines until the contract grows an execution method
-4. Dynasty + clan power panels (the Bag-felle loop)
+4. [DONE this commit] Dynasty + clan power panels (ClanPanel: family/heir/fiefs, courtship, tier + found kingdom, held lords)
 5. Sieges + armies (war loop)
 6. Diplomacy re-wire (mercenary contracts were wiped once already)
 7. Economy/crime cluster

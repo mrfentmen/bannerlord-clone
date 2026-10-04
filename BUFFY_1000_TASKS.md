@@ -288,12 +288,12 @@
 242. Character: weapon slots (4)
 243. Character: mount slot
 244. Character: equipped item stats on hover
-245. Clan panel: open via L key
+[x] 245. Clan panel: open via L key
 246. Clan: banner customization
 247. Clan: name display and edit
-248. Clan: member list
-249. Clan: fief list (owned towns/castles)
-250. Clan: clan tier display and progress
+[x] 248. Clan: member list
+[x] 249. Clan: fief list (owned towns/castles)
+[x] 250. Clan: clan tier display and progress
 
 ---
 

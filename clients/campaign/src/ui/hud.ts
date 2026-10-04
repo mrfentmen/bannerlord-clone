@@ -87,7 +87,7 @@ export interface HudOptions {
   ironmanActive?: () => boolean;
 }
 
-export type HudPanel = "town" | "market" | "party" | "march" | "ledger" | "roster" | "why" | "character" | "none";
+export type HudPanel = "town" | "market" | "party" | "march" | "ledger" | "roster" | "clan" | "why" | "character" | "none";
 
 /** Which detent of the time dial is live. Used by the pointer and the tick scale. */
 export type TimePositionId = "paused" | "normal" | "fast" | "very-fast";
@@ -458,6 +458,7 @@ export function createHud(options: HudOptions): HudHandle {
     for (const [id, label, testId] of [
       ["party", "Party", "open-party"],
       ["character", "Character", "open-character"],
+      ["clan", "Clan", "open-clan"],
       ["march", "March", "open-march"],
       ["ledger", "Ledger", "open-ledger"],
       ["roster", "Rulers", "open-roster"],

@@ -27,6 +27,7 @@ export type InputActionId =
   | "ui.cancel"
   | "ui.confirm"
   | "ui.settings"
+  | "ui.clan"
   | "game.quicksave"
   // -- campaign map ----------------------------------------------------------
   | "map.panUp"
@@ -109,6 +110,9 @@ export const ACTION_DEFS: readonly ActionDef[] = [
   def("ui.settings", "Open settings", "interface",
     "Opens the settings panel. Unbound by default — assign a key in the keybinding editor.",
     []),
+  def("ui.clan", "Open clan panel", "interface",
+    "Opens the clan panel: family, courtship, clan standing, held lords.",
+    [{ key: "l" }], { preventDefault: true }),
   def("game.quicksave", "Quicksave", "interface",
     "Writes the live campaign to the Quicksave slot. Blocked on Ironman — ironman runs keep only the 5-minute autosave.",
     [{ key: "F5" }], { preventDefault: true }),

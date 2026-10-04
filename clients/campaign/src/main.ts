@@ -67,6 +67,7 @@ import { settingsPanel } from "./ui/panels/SettingsPanel.js";
 import { gameMenuPanel } from "./ui/panels/GameMenu.js";
 import { partyPanel } from "./ui/panels/PartyPanel.js";
 import { characterPanel } from "./ui/panels/CharacterPanel.js";
+import { clanPanel } from "./ui/panels/ClanPanel.js";
 import { marchPlanner } from "./ui/panels/MarchPlanner.js";
 import { ledgerPanel } from "./ui/panels/LedgerPanel.js";
 import { rulerCard, rulerRoster } from "./ui/panels/RulerPanel.js";
@@ -1202,6 +1203,15 @@ function bindInputActions(): void {
   });
 
   input.on("ui.settings", () => openSettings());
+
+  // Clan panel on L (task 245). The registry has no editable-target guard, so
+  // the check lives here: typing an l in a name field must never open a panel.
+  input.on("ui.clan", () => {
+    const el = document.activeElement;
+    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) return;
+    if (el instanceof HTMLElement && el.isContentEditable) return;
+    openPanel("clan");
+  });
 
   // Touch A behaves like gamepad A: keyboard Enter is left alone — it already
   // activates natively, and this guard keeps the two from double-firing.
@@ -2393,6 +2403,42 @@ function rebuildContext(): void {
           renown: p.renown,
           factionId: p.factionId,
         },
+      });
+      return;
+    }
+    case "clan": {
+      if (!snapshot) return;
+      const snap = snapshot;
+      contextNode = clanPanel({
+        snapshot: snap,
+        playerId: "char-player",
+        clanId: "clan-player",
+        onChanged: () => {
+          // Only world-changing successes call this; the chime marks them.
+          playVerdictSound(true);
+          void provider
+            .getSnapshot()
+            .then((fresh) => {
+              previous = snapshot;
+              snapshot = fresh;
+              rebuildContext();
+              paint();
+            })
+            .catch(() => undefined);
+        },
+        onGetClanTier: () => provider.getClanTier(),
+        onGetHeir: () => provider.getHeir("clan-player"),
+        onMarry: (a, b) => provider.marry(a, b),
+        onHaveChild: (p1, p2, name) => provider.haveChild(p1, p2, name),
+        onStartCourtship: (targetId) => provider.startCourtship(targetId),
+        onPerformCourtAction: (action) => provider.performCourtAction(action),
+        onProposeMarriage: () => provider.proposeMarriage(),
+        onGetCourtships: () => provider.getCourtships(),
+        onGetHeldLords: () => provider.getHeldLords(),
+        onRansomHeldLord: (name) => provider.ransomHeldLord(name),
+        onReleaseHeldLord: (name) => provider.releaseHeldLord(name),
+        onExecuteHeldLord: (name) => provider.executeHeldLord(name),
+        onFoundKingdom: (name) => provider.foundKingdom(name),
       });
       return;
     }
