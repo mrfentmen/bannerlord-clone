@@ -123,6 +123,11 @@ export const SOUND_EVENTS = {
   "combat.hit": { id: "sfx-melee-warhammer-hit", volume: 0.7, hook: "A melee blow lands." },
   "combat.hit-armour": { id: "sfx-melee-helmet-clank", volume: 0.7, hook: "A blow lands on armour." },
   "combat.shot": { id: "sfx-weapon-rifle", volume: 0.6, hook: "A shot is fired." },
+  // Tasks 502/503: sidearm and shotgun have their own voices — the rifle cue
+  // above is the generic battle-rifle; pistols and shotguns get distinct
+  // reports so a mixed firefight reads by ear.
+  "combat.pistol": { id: "sfx-weapon-pistol", volume: 0.55, hook: "A pistol is fired." },
+  "combat.shotgun": { id: "sfx-weapon-shotgun", volume: 0.75, hook: "A shotgun is fired." },
   "combat.kill": { id: "sfx-melee-sword-clash", volume: 0.65, hook: "A combatant goes down." },
   "combat.wounded": { id: "sfx-melee-mace-thud", volume: 0.6, hook: "A combatant is wounded but lives." },
   "combat.charge": { id: "sfx-signal-trumpet-charge", volume: 0.7, hook: "A charge is ordered or sounds." },
@@ -133,6 +138,15 @@ export const SOUND_EVENTS = {
   "combat.reload": { id: "sfx-weapon-reload", volume: 0.5, hook: "A weapon is reloaded." },
   "combat.dry-fire": { id: "sfx-weapon-dry-fire", volume: 0.45, hook: "An empty trigger is pulled." },
   "combat.formation": { id: "sfx-melee-shield-raise", volume: 0.55, hook: "A formation changes." },
+  // Tasks 511-516: the melee/ranged set. Gallop is the cavalry move cue
+  // (the neigh above is the idle animal); swing/parry/arrow/shield cover the
+  // hand-to-hand and archery beats the battle scene drives.
+  "combat.gallop": { id: "sfx-horse-gallop", volume: 0.6, hook: "Cavalry moves at speed." },
+  "combat.swing": { id: "sfx-melee-sword-whoosh", volume: 0.5, hook: "A melee swing cuts air." },
+  "combat.parry": { id: "sfx-melee-sword-clash", volume: 0.6, hook: "A blow is parried." },
+  "combat.arrow-fire": { id: "sfx-melee-arrow-whoosh", volume: 0.5, hook: "An arrow is loosed." },
+  "combat.arrow-hit": { id: "sfx-melee-arrow-hit-flesh", volume: 0.6, hook: "An arrow strikes flesh." },
+  "combat.shield-block": { id: "sfx-melee-shield-block", volume: 0.65, hook: "A shield takes a blow." },
 
   // -- Campaign ------------------------------------------------------------
   "construction.complete": { id: "sfx-forge-steel-pour", volume: 0.7, hook: "A building or project finishes." },
