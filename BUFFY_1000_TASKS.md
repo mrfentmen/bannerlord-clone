@@ -160,10 +160,10 @@
 122. Town panel: arena tab (if applicable)
 123. Town panel: arena fight button
 124. Town panel: arena reward display
-125. Town panel: quests tab
-126. Town panel: quest list with status icons
-127. Town panel: quest accept button
-128. Town panel: quest abandon button
+[x] 125. Town panel: quests tab
+[x] 126. Town panel: quest list with status icons
+[x] 127. Town panel: quest accept button
+[x] 128. Town panel: quest abandon button
 129. Town panel: notable NPCs list
 130. Town panel: talk button per NPC
 131. Town panel: trade caravan option

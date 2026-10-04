@@ -203,6 +203,15 @@ export interface TownPanelOptions {
    */
   onPlayDice?: (stake: number) => Promise<{ won: boolean; payout: number; line: string }>;
   /**
+   * Read the town's quest board (tasks 125-126): offers the notables posted,
+   * plus the quests the party carries. Fetched on demand.
+   */
+  onLoadQuests?: () => Promise<import("./sections/townQuests.js").TownQuestsView>;
+  /** Accept a quest offer. Rejects with the simulation's own reason. */
+  onAcceptQuest?: (templateId: string) => Promise<{ questId: string }>;
+  /** Abandon a carried quest. Rejects with the simulation's own reason. */
+  onAbandonQuest?: (questId: string) => Promise<void>;
+  /**
    * The survey is still being read. Renders `town-skeleton`, which mirrors this
    * panel's sections, so the context region does not change height when the town
    * lands. Drawn before the request, never after it (CONSTITUTION.md section 3.2).

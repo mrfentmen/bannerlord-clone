@@ -61,8 +61,8 @@ Hana's cue map is complete; the game never calls most of it. Biggest clusters:
 
 ## Priority order (core loop first)
 
-1. Party ops + templates (daily-play loop)
-2. Quests tab + journal (task 125-126, section G)
+1. [DONE a9fc37b7] Party ops + templates (daily-play loop)
+2. [DONE this commit] Quests tab + journal (tasks 125-128, section G)
 3. Notables talk/relations (town social loop)
 4. Dynasty + clan power panels (the Bag-felle loop)
 5. Sieges + armies (war loop)

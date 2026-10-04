@@ -612,6 +612,20 @@ export interface QuestObjective {
   townId?: string;
 }
 
+/**
+ * A quest offer: work a notable has posted, before it is accepted. The
+ * simulation owns which offers exist and what they pay (tasks 125-126).
+ */
+export interface QuestOffer {
+  templateId: string;
+  title: string;
+  description: string;
+  rewardMoney: number;
+  rewardRenown: number;
+  /** Days until the offer's deadline once accepted (null = no deadline). */
+  deadlineDays: number | null;
+}
+
 /** A quest. Data-driven; objectives tracked by the simulation. */
 export interface Quest {
   id: string;
@@ -1361,6 +1375,8 @@ export interface SimulationProvider {
   acceptQuest(giverId: string, giverName: string, templateId: string): Promise<{ questId: string }>;
   /** Abandon an active quest. */
   abandonQuest(questId: string): Promise<void>;
+  /** Work a notable has posted near this town (tasks 125-126). */
+  getQuestOffers(giverId: string, giverName: string): Promise<QuestOffer[]>;
   /** Commit a crime in a town. Increases crime rating, lowers relations. */
   commitCrime(townId: string, kind: "theft" | "assault" | "smuggling"): Promise<{ fine: number }>;
   /** Pay off criminal fines in a town. */

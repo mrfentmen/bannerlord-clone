@@ -80,6 +80,7 @@ import type {
   War,
   Quest,
   QuestObjective,
+  QuestOffer,
   TaxOrderResult,
   TimeScaleResult,
   WhyChain,
@@ -356,6 +357,7 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     makePeace: async (warId) => state.makePeace(warId),
     acceptQuest: async (giverId, giverName, templateId) => state.acceptQuest(giverId, giverName, templateId),
     abandonQuest: async (questId) => state.abandonQuest(questId),
+    getQuestOffers: async (giverId, giverName) => state.getQuestOffers(giverId, giverName),
     commitCrime: async (townId, kind) => state.commitCrime(townId, kind),
     payFine: async (townId) => state.payFine(townId),
     getPartyCapacity: async () => state.partyCapacity(),
@@ -4044,6 +4046,23 @@ class FixtureState {
       deadlineDays: 25,
     },
   ];
+
+  /**
+   * Work a notable has posted: their offers, priced by the simulation.
+   * A notable's power gates which problems they trust to whom.
+   */
+  async getQuestOffers(giverId: string, giverName: string): Promise<QuestOffer[]> {
+    void giverId;
+    void giverName;
+    return (FixtureState.QUEST_TEMPLATES as any[]).map((t) => ({
+      templateId: t.id,
+      title: t.title,
+      description: t.description,
+      rewardMoney: t.rewardMoney,
+      rewardRenown: t.rewardRenown,
+      deadlineDays: t.deadlineDays ?? null,
+    }));
+  }
 
   /**
    * Accept a quest from a giver.

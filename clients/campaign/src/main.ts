@@ -1432,6 +1432,36 @@ function townNode(town: TownState): Node {
       paint();
       return result;
     },
+    // Quests (tasks 125-126): offers from the town's notables, plus the
+    // quests the party carries. The sim owns objectives, deadlines, rewards.
+    onLoadQuests: async () => {
+      const notable = (town.notables ?? [])[0];
+      const giverName = notable ? notable.name : `the people of ${town.name}`;
+      const giverId = notable ? notable.id : `town-${town.id}`;
+      const offers = await provider.getQuestOffers(giverId, giverName).catch(() => []);
+      const active = (snapshot?.quests ?? []).filter((q) => q.status === "active");
+      return { offers, active };
+    },
+    onAcceptQuest: async (templateId) => {
+      const notable = (town.notables ?? [])[0];
+      const giverName = notable ? notable.name : `the people of ${town.name}`;
+      const giverId = notable ? notable.id : `town-${town.id}`;
+      const result = await provider.acceptQuest(giverId, giverName, templateId);
+      playVerdictSound(true);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+      return result;
+    },
+    onAbandonQuest: async (questId) => {
+      await provider.abandonQuest(questId);
+      playVerdictSound(false);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+    },
     onRecruitMilitia: async (count) => {
       if (!snapshot) throw new Error("No snapshot to recruit militia against.");
       await provider.recruitMilitia(town.id, count);

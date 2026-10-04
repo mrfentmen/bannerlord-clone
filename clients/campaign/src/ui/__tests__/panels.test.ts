@@ -90,6 +90,9 @@ function town(opts: { loading?: boolean; town?: TownState | null } = {}): HTMLEl
     onSmeltArms: async () => ({ metal: 2 }),
     onFulfillOrder: async () => ({ reward: 0, line: "" }),
     onPlayDice: async () => ({ won: false, payout: 0, line: "" }),
+    onLoadQuests: async () => ({ offers: [], active: [] }),
+    onAcceptQuest: async () => ({ questId: "q-test" }),
+    onAbandonQuest: async () => undefined,
   });
 }
 

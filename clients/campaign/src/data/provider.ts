@@ -37,6 +37,7 @@ import type {
   MarchRequest,
   NearbyForce,
   PlayerCharacter,
+  QuestOffer,
   RecruitRequest,
   RecruitResult,
   SimSnapshot,
@@ -803,6 +804,10 @@ export class HttpSimulationProvider implements SimulationProvider {
 
   async smeltArms(_quantity: number): Promise<{ metal: number }> {
     throw new Error("Smithing is not available on the live simulation yet.");
+  }
+
+  async getQuestOffers(_giverId: string, _giverName: string): Promise<QuestOffer[]> {
+    throw new Error("Quest offers are not available on the live simulation yet.");
   }
 
   async forgeItem(_recipeId: string): Promise<{ name: string }> {
