@@ -24,6 +24,27 @@ already exist and pass PNG validation.
 
     python tools/fetch-elevation-tiles.py [--region PATH] [--out DIR] [--workers N]
 
+### verify-elevation-tiles.py
+
+Checks that every elevation tile a region manifest references is on disk, is a
+complete PNG, and decodes to real terrain. Run it after a fetch, and in CI: it
+catches the failure a size check cannot, namely a tile that is present but
+useless because it decodes to no relief at all and silently flattens the map.
+
+The two tiers are judged differently, because `DATA-MANIFEST.md` section 2.1
+documents them differently. `elevation` (boot, 154 tiles) must be present and is
+a boot dependency -- the client throws on the first missing one. `elevationDetail`
+(2,236 tiles, about 250 MB) is fetched on demand, so its absence is reported as
+deferred rather than failed; any tile of it that *is* present is held to the same
+standard. Pass `--strict-detail` to require the detail tier too.
+
+    python tools/verify-elevation-tiles.py [--region PATH ...] [--strict-detail]
+
+Exits non-zero if any required tile is missing, truncated, undecodable, void, or
+zero-filled. The fill test counts distinct decoded elevations rather than
+distinct colour channels, because terrarium spends 256 m of range per step of R
+and genuinely flat real ground holds R constant.
+
 ### fetch-city-data.py
 
 Fetches building footprints and major streets for a city bounding box from
