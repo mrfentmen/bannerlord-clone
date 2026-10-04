@@ -57,7 +57,13 @@ export type UnservedOrder =
   | "marry"
   | "haveChild"
   | "killCharacter"
-  | "setClanHeir";
+  | "setClanHeir"
+  | "getHeldLords"
+  | "ransomHeldLord"
+  | "releaseHeldLord"
+  | "executeHeldLord"
+  | "getClanTier"
+  | "foundKingdom";
 
 /** What the table records about one unserved path. */
 export interface UnservedPath {
@@ -196,6 +202,36 @@ export const UNSERVED: Readonly<Record<string, UnservedPath>> = {
     order: "setClanHeir",
     method: "getHeir",
     reason: "the dynasty foundation landed client-side first; the server side is not written",
+  },
+  "/v1/lords": {
+    order: "getHeldLords",
+    method: "getHeldLords",
+    reason: "lord capture and prisoner management are implemented in the client's fixture, with no server side yet",
+  },
+  "/v1/lords/{}/ransom": {
+    order: "ransomHeldLord",
+    method: "ransomHeldLord",
+    reason: "lord capture and prisoner management are implemented in the client's fixture, with no server side yet",
+  },
+  "/v1/lords/{}/release": {
+    order: "releaseHeldLord",
+    method: "releaseHeldLord",
+    reason: "lord capture and prisoner management are implemented in the client's fixture, with no server side yet",
+  },
+  "/v1/lords/{}/execute": {
+    order: "executeHeldLord",
+    method: "executeHeldLord",
+    reason: "lord capture and prisoner management are implemented in the client's fixture, with no server side yet",
+  },
+  "/v1/clan/tier": {
+    order: "getClanTier",
+    method: "getClanTier",
+    reason: "clan tiers are implemented in the client's fixture, with no server side yet",
+  },
+  "/v1/kingdom": {
+    order: "foundKingdom",
+    method: "foundKingdom",
+    reason: "kingdom founding is implemented in the client's fixture, with no server side yet",
   },
 };
 

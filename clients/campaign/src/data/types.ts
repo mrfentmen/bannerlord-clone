@@ -497,6 +497,12 @@ export interface NpcParty {
   ownerId?: string;
   /** Day the caravan was founded (player convoys only). */
   foundedDay?: number;
+  /**
+   * Named leader of a "lord" party (a ruler from the fixture's ruler list).
+   * Defeating the party rolls capture of this lord — the ransom / release /
+   * execute loop starts here.
+   */
+  leaderName?: string;
   /** Lifetime trading profit in dollars (player convoys only). */
   totalProfit?: number;
 }
@@ -522,6 +528,36 @@ export interface NearbyForce {
   hostile: boolean;
   position: { x: number; z: number };
   distanceKm?: number;
+  troops?: { name: string; count: number; tier: number }[];
+}
+
+/**
+ * A force in the player's encounter range, as the encounter flow is given it.
+ *
+ * This is the whole of what `getNearbyHostiles` promises, and it is a narrower
+ * thing than {@link NpcParty}. The fixture answers that call with whole
+ * npcParties rows, which satisfy this. The campaign server answers it with the
+ * facts it holds about a party: a name, a headcount, whether it is hostile, and
+ * where it is. It has no composition for a party it is not simulating --
+ * `model.Party` is a count and a morale, not stacks -- so `troops` is optional
+ * and absent from the server's rows rather than invented to fill the shape.
+ *
+ * `id` is the party's simulation id. That is what POST /v1/encounters wants as a
+ * number, and what fleeing and defeat resolve a force by, so a force read off
+ * this route can be fought and can be run from without the client manufacturing
+ * an id for it.
+ */
+export interface NearbyForce {
+  id: string;
+  name: string;
+  /** Total headcount, denormalized so the encounter panel need not add up stacks. */
+  troopCount: number;
+  /** Whether this party would raise an encounter with the player's. */
+  hostile: boolean;
+  position: { x: number; z: number };
+  /** How far off the player, in the same units as `position`. */
+  distanceKm?: number;
+  /** Composition, where the source has one. */
   troops?: { name: string; count: number; tier: number }[];
 }
 
@@ -646,29 +682,6 @@ export interface PartyState {
   goods: { goodId: string; name: string; quantity: number; avgPaid: number }[];
   /** Captured enemy troops held as prisoners. */
   prisoners: { troopId: string; name: string; count: number; tier: number }[];
-  /**
-   * Spare riding horses by breed (see campaign/partySpeed.ts). These mount
-   * footmen on the march -- one horse per footman is the optimum.
-   */
-  horses?: { breed: 'quarter' | 'mustang' | 'draft' | 'thoroughbred'; count: number }[];
-  /** Mules. Carry capacity, no speed. */
-  packAnimals?: number;
-  /** Motorized haulers. Huge capacity, road-bound, need fuel. */
-  trucks?: number;
-  /**
-   * Bannerlord-style speed breakdown, refreshed on every daily tick. The
-   * party panel renders this under the march-speed row.
-   */
-  speedFactors?: { name: string; mult: number; detail: string }[];
-  /** Forced march: +30% speed at daily morale/food cost. */
-  forcedMarch?: boolean;
-  /** Workshop bench output: forged weapons and mods awaiting sale or issue. */
-  crafted?: { recipeId: string; name: string; count: number }[];
-  /**
-   * Player troops held captive by enemies. Prison breaks (roguery) free them;
-   * see campaign/fieldSystems.ts.
-   */
-  imprisoned?: { name: string; count: number; holderId: string; holderName: string }[];
 }
 
 /** The tradeable goods of ECONOMY.md, named so the market is legible. */
@@ -834,8 +847,6 @@ export interface GameCharacter {
   isPlayer: boolean;
   /** Skill levels (0-10) for companions. Affects party/settlement systems. */
   skills?: Record<string, number>;
-  /** Personality traits (children roll these at birth; see campaign/fortune.ts). */
-  traits?: string[];
 }
 
 /** Marriage record. */
@@ -1035,6 +1046,10 @@ export interface SimSnapshot {
     resources: Resources;
     influence: number;
     renown: number;
+    /** Honor 0..100ish. Rises on mercy (releasing lords), craters on executions. */
+    honor?: number;
+    /** Dread 0..100ish. Rises on executions; feared commanders are fled from. */
+    dread?: number;
   };
   party: PartyState;
   /** NPC parties roaming the map (bandits, caravans, lord parties). */
@@ -1055,6 +1070,8 @@ export interface SimSnapshot {
   sieges: Siege[];
   /** Active wars between factions. */
   wars: War[];
+  /** Enemy lords held prisoner by the player clan. */
+  heldLords: { name: string; factionId: string; clanName: string; capturedDay: number }[];
   /** Active and completed quests. */
   quests: Quest[];
   /** Outstanding fines per town ID. */
@@ -1207,6 +1224,32 @@ export interface SimulationProvider {
   recruitPrisoners(troopId: string, count: number): Promise<void>;
   /** Ransom prisoners for gold. */
   ransomPrisoners(troopId: string, count: number): Promise<{ gold: number }>;
+  /** Enemy lords held prisoner by the player clan. */
+  getHeldLords(): Promise<{ name: string; factionId: string; clanName: string; capturedDay: number }[]>;
+  /** Ransom a held lord home for gold. */
+  ransomHeldLord(name: string): Promise<{ gold: number }>;
+  /** Release a held lord freely: +relation with their faction, +honor. */
+  releaseHeldLord(name: string): Promise<{ relationGained: number }>;
+  /** Execute a held lord: the nuclear political option. */
+  executeHeldLord(name: string): Promise<{ line: string }>;
+  /** Clan tier info: tier, limits, progress to next. */
+  getClanTier(): Promise<{
+    tier: number;
+    name: string;
+    renown: number;
+    renownToNext: number;
+    fiefLimit: number;
+    fiefsHeld: number;
+    companionSlots: number;
+    partyCapacity: number;
+  }>;
+  /** Found your own kingdom. Breaking away with fiefs means war. */
+  foundKingdom(kingdomName: string): Promise<{
+    kingdomName: string;
+    capital: string;
+    warWithFormer: boolean;
+    line: string;
+  }>;
   /** Create an army led by a character. Returns the army ID. */
   createArmy(name: string, leaderId: string): Promise<{ armyId: string }>;
   /** Add a party to an army. */
@@ -1241,28 +1284,6 @@ export interface SimulationProvider {
   getPartyCapacity(): Promise<number>;
   /** Current party speed in km/day (from troop composition). */
   getPartySpeed(): Promise<number>;
-  setForcedMarch(active: boolean): Promise<void>;
-  getForcedMarch(): Promise<boolean>;
-  smeltArms(quantity: number): Promise<{ metal: number }>;
-  forgeItem(recipeId: string): Promise<{ name: string }>;
-  getSmithingRecipes(): Promise<{ id: string; name: string; metal: number; fuel: number; result: string }[]>;
-  attemptPrisonBreak(holderId: string, teamSize: number): Promise<{ success: boolean; freed: number; wounded: number; caught: boolean }>;
-  /** Charm persuasion check (Bannerlord-style seeded roll). */
-  persuade(charm: number, difficulty: number): Promise<{ chance: number; success: boolean; margin: number }>;
-  /** Sign a mercenary contract with a faction. */
-  signMercenaryContract(factionId: string, factionName: string): Promise<{ contract: { factionId: string; factionName: string; daysLeft: number; payPerVictory: number; dailyPay: number } }>;
-  getMercenaryContract(): Promise<{ factionId: string; factionName: string; daysLeft: number; payPerVictory: number; dailyPay: number } | null>;
-  breakMercenaryContract(): Promise<{ relationPenalty: number }>;
-  /** Open crafting orders at the smithy. */
-  getCraftingOrders(): Promise<{ id: string; patron: string; patronTitle: string; recipeId: string; recipeName: string; daysLeft: number; reward: number }[]>;
-  fulfillCraftingOrder(orderId: string): Promise<{ reward: number; line: string }>;
-  /** Assign a governor to a town. */
-  assignGovernor(townId: string, characterId: string): Promise<{ line: string }>;
-  getGovernor(townId: string): Promise<{ name: string; line: string } | null>;
-  /** Value a barter offer against a demand. */
-  barterDeal(offer: { gold: number; goods: Record<string, number>; prisoners: number; dailyTribute: number; tributeDays: number }, demandValue: number): Promise<{ accepted: boolean; gap: number; line: string }>;
-  /** A clan walks away from its kingdom. */
-  defectClan(clanId: string, joinFactionId?: string): Promise<{ line: string }>;
   /** Set an army's objective. */
   setArmyObjective(armyId: string, objective: Army["objective"]): Promise<void>;
   /** Restore the provider's internal state from a saved snapshot. */

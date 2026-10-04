@@ -20,6 +20,9 @@
 
 import { buildFixtureSides } from "./sides.js";
 import { getEthnicity, getEthnicityEffects } from "../ethnicities.js";
+import { advanceTier, canHoldFief, tierName, renownToNextTier, maxFiefsForTier, companionSlotsForTier, partyCapacityForTier } from "../../clan/tiers.js";
+import { foundKingdom as proclaimKingdom } from "../../court/foundKingdom.js";
+import { executionConsequences } from "../../afteraction/prisoners.js";
 import type {
   BattleResult,
   CauseRow,
@@ -45,6 +48,7 @@ import type {
   RecruitRequest,
   RecruitResult,
   ResourceWarning,
+  SideState,
   RulerState,
   SimSnapshot,
   SimulationProvider,
@@ -82,53 +86,6 @@ import {
   CARAVAN_FOUNDING_COST,
   foundCaravanSpec,
 } from "../traders.js";
-import {
-  GOOD_WEIGHTS,
-  partySpeed,
-  type MarchTerrain,
-  type PartySpeedReport,
-} from "../../campaign/partySpeed.js";
-import {
-  FORCED_MARCH_FOOD_MULT,
-  FORCED_MARCH_MORALE_COST,
-  foodVariety,
-  foodVarietyMoraleDelta,
-} from "../../campaign/fieldSystems.js";
-import { rollAnnualDeath } from "../../campaign/mortality.js";
-import { simulateNpcBattle } from "../../battleflow/npcBattle.js";
-import {
-  SMITHING_RECIPES,
-  canForge,
-  resolvePrisonBreak,
-  type PrisonBreakResult,
-  rollQuality,
-  QUALITY_MULTIPLIERS,
-  spoilFood,
-} from "../../campaign/fieldSystems.js";
-import { generateWeaponName } from "../../campaign/namePools.js";
-import {
-  randomName,
-  type NameSex,
-} from "../../campaign/namePools.js";
-import { rollChildTraits } from "../../campaign/fortune.js";
-import { rollBattleDeath } from "../../campaign/fortune.js";
-import { rollPersuasion } from "../../campaign/fortune.js";
-import {
-  signContract,
-  tickContract,
-  breakContract,
-  contractTerms,
-  type MercenaryContract,
-} from "../../diplomacy/mercenary.js";
-import {
-  generateOrder,
-  tickOrders,
-  fulfillOrder,
-  type CraftingOrder,
-} from "../../campaign/craftingOrders.js";
-import { governorBonus } from "../../settlements/governor.js";
-import { barter, type BarterOffer } from "../../diplomacy/barter.js";
-import { defect } from "../../court/defection.js";
 
 /** Marker strings. `tools/check-no-fixtures.mjs` greps the production bundle for
  *  these, so this module cannot be smuggled into a shipped build unnoticed. */
@@ -313,6 +270,12 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     sellWorkshop: async (workshopId) => state.sellWorkshop(workshopId),
     recruitPrisoners: async (troopId, count) => state.recruitPrisoners(troopId, count),
     ransomPrisoners: async (troopId, count) => state.ransomPrisoners(troopId, count),
+    getHeldLords: async () => state.getHeldLords(),
+    ransomHeldLord: async (name) => state.ransomHeldLord(name),
+    releaseHeldLord: async (name) => state.releaseHeldLord(name),
+    executeHeldLord: async (name) => state.executeHeldLord(name),
+    getClanTier: async () => state.getClanTier(),
+    foundKingdom: async (kingdomName) => state.foundKingdom(kingdomName),
     createArmy: async (name, leaderId) => state.createArmy(name, leaderId),
     joinArmy: async (armyId, partyId) => state.joinArmy(armyId, partyId),
     leaveArmy: async (armyId, partyId) => state.leaveArmy(armyId, partyId),
@@ -331,27 +294,6 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     payFine: async (townId) => state.payFine(townId),
     getPartyCapacity: async () => state.partyCapacity(),
     getPartySpeed: async () => state.partySpeed(),
-    setForcedMarch: async (active: boolean) => state.setForcedMarch(active),
-    getForcedMarch: async () => state.getForcedMarch(),
-    smeltArms: async (quantity: number) => state.smeltArms(quantity),
-    forgeItem: async (recipeId: string) => state.forgeItem(recipeId),
-    getSmithingRecipes: async () => SMITHING_RECIPES.map((r) => ({ ...r })),
-    attemptPrisonBreak: async (holderId: string, teamSize: number) =>
-      state.attemptPrisonBreak(holderId, teamSize),
-    persuade: async (charm: number, difficulty: number) =>
-      rollPersuasion(charm, difficulty, state.random()),
-    signMercenaryContract: async (factionId: string, factionName: string) =>
-      state.signMercenaryContract(factionId, factionName),
-    getMercenaryContract: async () => state.getMercenaryContract(),
-    breakMercenaryContract: async () => state.breakMercenaryContract(),
-    getCraftingOrders: async () => state.getCraftingOrders(),
-    fulfillCraftingOrder: async (orderId: string) => state.fulfillCraftingOrder(orderId),
-    assignGovernor: async (townId: string, characterId: string) =>
-      state.assignGovernor(townId, characterId),
-    getGovernor: async (townId: string) => state.getGovernor(townId),
-    barterDeal: async (offer, demandValue: number) => state.barterDeal(offer, demandValue),
-    defectClan: async (clanId: string, joinFactionId?: string) =>
-      state.defectClan(clanId, joinFactionId),
     marry: async (charId1, charId2) => state.marry(charId1, charId2),
     haveChild: async (parentId1, parentId2, childName) => state.haveChild(parentId1, parentId2, childName),
     killCharacter: async (charId, cause) => state.killCharacter(charId, cause),
@@ -374,39 +316,28 @@ class FixtureState {
   #month: number = FIXTURE.startMonth;
   #year: number = FIXTURE.startYear;
   #tick = 0;
-  /** Hour of day, 0-23. The fixture ticks by days; scenarios set this directly. */
-  #hour = 12;
-
-  /** True between 20:00 and 06:00. Night marches are slower. */
-  #isNight(): boolean {
-    return this.#hour < 6 || this.#hour >= 20;
-  }
   #cause = new Map<string, CauseRow>();
   #sequence = 0;
   #random: () => number;
-
-  /** The seeded RNG, for provider methods that need a die roll. */
-  random(): () => number {
-    return this.#random;
-  }
   #towns = new Map<string, TownState>();
   #notables = new Map<string, Notable>();
   #markets = new Map<string, MarketState>();
   #party!: PartyState;
   #npcParties: NpcParty[] = [];
   #clans: Clan[] = [];
-  /** Active mercenary contract, if the player serves a faction. */
-  #contract: MercenaryContract | null = null;
-  /** Open crafting orders at the smithy. */
-  #orders: CraftingOrder[] = [];
-  /** Town governors: townId -> character. */
-  #governors = new Map<string, { id: string; name: string; skills: Record<string, number> }>();
   #characters: GameCharacter[] = [];
   #workshops: Workshop[] = [];
   #armies: Army[] = [];
   #sieges: Siege[] = [];
   #wars: War[] = [];
   #quests: Quest[] = [];
+  /** Player-founded factions (kingdoms), appended to the fixture sides. */
+  #extraSides: SideState[] = [];
+  /**
+   * Captured enemy lords held by the player clan. Each entry names a ruler
+   * from #rulers taken prisoner when their party was destroyed.
+   */
+  #heldLords: { name: string; factionId: string; clanName: string; capturedDay: number }[] = [];
   /** Outstanding fines per town ID. */
   #fines: Map<string, number> = new Map();
   #rulers: RulerState[] = [];
@@ -525,9 +456,6 @@ class FixtureState {
       roles: { quartermaster: "Ivo Petran", surgeon: "Ada Renko", scout: "Bil Todd" },
       goods: [{ goodId: "grain", name: "Grain", quantity: 0, avgPaid: 0 }],
       prisoners: [],
-      horses: [{ breed: "quarter", count: 10 }],
-      packAnimals: 2,
-      trucks: 1,
     };
 
     // Spawn hostile bandit parties near the player's start.
@@ -911,7 +839,7 @@ class FixtureState {
       npcParties: structuredClone(this.#npcParties),
       towns: [...this.#towns.values()].map((t) => ({ ...t })),
       markets: Object.fromEntries([...this.#markets].map(([k, v]) => [k, structuredClone(v)])),
-      sides: buildFixtureSides(),
+      sides: [...buildFixtureSides(), ...structuredClone(this.#extraSides)],
       rulers: structuredClone(this.#rulers),
       clans: structuredClone(this.#clans),
       characters: structuredClone(this.#characters),
@@ -919,6 +847,7 @@ class FixtureState {
       armies: structuredClone(this.#armies),
       sieges: structuredClone(this.#sieges),
       wars: structuredClone(this.#wars),
+      heldLords: structuredClone(this.#heldLords),
       quests: structuredClone(this.#quests),
       fines: Object.fromEntries(this.#fines),
       ledger: structuredClone(this.#ledger),
@@ -1539,9 +1468,7 @@ class FixtureState {
     this.#tick += 1;
     this.#day += 1;
     // Recompute party speed from composition every day.
-    const speedReport = this.partySpeedReport();
-    this.#party.speedKmPerDay = speedReport.speedKmPerDay;
-    this.#party.speedFactors = speedReport.factors;
+    this.#party.speedKmPerDay = this.partySpeed();
     if (this.#day > 28) {
       this.#day = 1;
       this.#month += 1;
@@ -1549,15 +1476,10 @@ class FixtureState {
     if (this.#month > 12) {
       this.#month = 1;
       this.#year += 1;
-      // Age characters by one year; the old may die of old age (Bannerlord's
-      // mortality -- see campaign/mortality.ts). Succession is handled by
-      // killCharacter.
+      // Age characters by one year.
       for (const char of this.#characters) {
         if (char.alive) {
           char.age += 1;
-          if (rollAnnualDeath(char.age, this.#random)) {
-            void this.killCharacter(char.id, "old age").catch(() => {});
-          }
         }
       }
     }
@@ -1567,6 +1489,9 @@ class FixtureState {
     this.#siegeTick();
     this.#warTick();
     this.#questTick();
+    // Dynasty: clan tier follows renown; lord parties ride for factions at war.
+    this.#clanTierTick();
+    this.#lordPartyTick();
 
     // Workshop income: each workshop generates daily income based on town prosperity.
     for (const workshop of this.#workshops) {
@@ -1737,9 +1662,6 @@ class FixtureState {
     this.#applyTrainingXp();
     this.#recoverWounded();
     this.#moveNpcParties();
-    this.#resolveNpcBattles();
-    this.#tickContractDay();
-    this.#tickOrdersDay();
     this.#rebuildLedger();
     this.#refreshWarnings();
     this.#emit({ tick: this.#tick, day: this.#day, towns: townDeltas, party: structuredClone(this.#party), npcParties: structuredClone(this.#npcParties), ledger: structuredClone(this.#ledger), warnings: structuredClone(this.#warnings) });
@@ -1776,10 +1698,6 @@ class FixtureState {
       // Each steward point reduces food consumption by 3%
       dailyFood = Math.max(1, Math.floor(dailyFood * (1 - stewardSkill * 0.03)));
     }
-    // Forced march burns extra rations.
-    if (this.#party.forcedMarch) {
-      dailyFood = Math.ceil(dailyFood * FORCED_MARCH_FOOD_MULT);
-    }
     const food = this.#party.food;
     if (food >= dailyFood) {
       this.#party.food -= dailyFood;
@@ -1811,15 +1729,6 @@ class FixtureState {
     if (this.#party.food > 0 && this.#party.wagesOwed === 0) {
       this.#party.morale = Math.min(1, this.#party.morale + 0.005);
     }
-
-    // Forced march grinds morale down every day it is active.
-    if (this.#party.forcedMarch) {
-      this.#party.morale = Math.max(0, this.#party.morale - FORCED_MARCH_MORALE_COST);
-    }
-
-    // Food variety: a varied diet keeps morale up (Bannerlord's rule).
-    const variety = foodVariety(this.#party.goods, this.#party.food);
-    this.#party.morale = Math.min(1, this.#party.morale + foodVarietyMoraleDelta(variety));
   }
 
   /**
@@ -1842,248 +1751,34 @@ class FixtureState {
    * a scout companion speeds it up.
    */
   partySpeed(): number {
-    return this.partySpeedReport().speedKmPerDay;
-  }
-
-  /**
-   * Full Bannerlord-style speed breakdown. The party's horses, mules, trucks,
-   * cargo, wounded, prisoners and morale all feed the campaign/partySpeed
-   * module; the factors list is what the party panel shows as the tooltip.
-   */
-  partySpeedReport(terrain: MarchTerrain = "plains"): PartySpeedReport {
+    const base = 34;
     const troops = this.#party.troops;
-    const footTroops = troops.reduce((s, t) => s + (t.mounted ? 0 : t.count), 0);
-    const mountedTroops = troops.reduce((s, t) => s + (t.mounted ? t.count : 0), 0);
+    const total = troops.reduce((s, t) => s + t.count, 0);
+    if (total === 0) return base;
+
+    const mounted = troops.reduce((s, t) => s + (t.mounted ? t.count : 0), 0);
     const wounded = troops.reduce((s, t) => s + (t.wounded ?? 0), 0);
     const prisoners = this.#party.prisoners.reduce((s, p) => s + p.count, 0);
-    const cargoWeight = this.#party.goods.reduce(
-      (s, g) => s + g.quantity * (GOOD_WEIGHTS[g.goodId] ?? 1),
-      0,
-    );
+
+    const mountedFrac = mounted / total;
+    let speed = base * (0.85 + 0.35 * mountedFrac);
+
+    // Wounded: -1% per 5% wounded, max -20%
+    const woundedFrac = wounded / total;
+    speed *= 1 - Math.min(0.2, woundedFrac * 0.2);
+
+    // Prisoners: -5% per 10 prisoners, max -25%
+    speed *= 1 - Math.min(0.25, Math.floor(prisoners / 10) * 0.05);
+
+    // Scout: +3% per scouting skill point, max +15%
     const scoutId = this.#party.roles.scout;
-    const scout = scoutId ? this.#characters.find((c) => c.id === scoutId) : undefined;
-    const fuel = this.#party.goods.find((g) => g.goodId === "fuel");
-
-    return partySpeed(
-      {
-        footTroops,
-        mountedTroops,
-        horses: this.#party.horses ?? [],
-        packAnimals: this.#party.packAnimals ?? 0,
-        trucks: this.#party.trucks ?? 0,
-        trucksFueled: (fuel?.quantity ?? 0) > 0,
-        cargoWeight,
-        wounded,
-        prisoners,
-        morale: this.#party.morale <= 1 ? this.#party.morale * 100 : this.#party.morale,
-        isNight: this.#isNight(),
-        scoutSkill: scout?.skills?.scouting ?? 0,
-        forcedMarch: this.#party.forcedMarch ?? false,
-      },
-      terrain,
-    );
-  }
-
-  /** Toggle forced march: +30% speed at daily morale and food cost. */
-  setForcedMarch(active: boolean): void {
-    this.#party.forcedMarch = active;
-    this.#party.speedKmPerDay = this.partySpeed();
-  }
-
-  getForcedMarch(): boolean {
-    return this.#party.forcedMarch ?? false;
-  }
-
-  /**
-   * Smithing: smelt captured arms into metal (1 arms = 2 metal).
-   * Bannerlord's smelting rewards looting.
-   */
-  smeltArms(quantity: number): { metal: number } {
-    const arms = this.#party.goods.find((g) => g.goodId === "arms");
-    const available = arms?.quantity ?? 0;
-    const take = Math.max(0, Math.min(quantity, available));
-    if (take <= 0) throw new Error("No arms to smelt.");
-    arms!.quantity -= take;
-    const metal = take * 2;
-    this.#party.metal += metal;
-    return { metal };
-  }
-
-  /**
-   * Smithing: forge a recipe from the bench. Spends metal and fuel,
-   * adds the finished piece to the crafted stockpile.
-   */
-  forgeItem(recipeId: string): { name: string } {
-    const recipe = SMITHING_RECIPES.find((r) => r.id === recipeId);
-    if (!recipe) throw new Error(`Unknown recipe: ${recipeId}`);
-    const fuel = this.#party.goods.find((g) => g.goodId === "fuel");
-    const check = canForge(recipe, this.#party.metal, fuel?.quantity ?? 0);
-    if (!check.ok) throw new Error(`Cannot forge ${recipe.name}: ${check.reason}.`);
-    this.#party.metal -= recipe.metal;
-    fuel!.quantity -= recipe.fuel;
-    // Bannerlord names every forge: stitch descriptors onto the base item.
-    // Quality comes from the smith's skill (player's crafting skill).
-    const quality = rollQuality(this.#player.skills?.["crafting"] ?? 0, this.#random);
-    const forgedName = `${QUALITY_MULTIPLIERS[quality].label} ${generateWeaponName(recipe.name, this.#random)}`;
-    const stock = (this.#party.crafted ??= []);
-    const existing = stock.find((c) => c.recipeId === recipeId && c.name === forgedName);
-    if (existing) existing.count += 1;
-    else stock.push({ recipeId, name: forgedName, count: 1 });
-    return { name: forgedName };
-  }
-
-  /**
-   * Mercenary work (Bannerlord): sign a 30-day contract with a faction.
-   * Daily retainer, pay per victory, no fealty. Renown-gated.
-   */
-  signMercenaryContract(factionId: string, factionName: string): { contract: MercenaryContract } {
-    const terms = contractTerms(factionId, factionName, 5);
-    const result = signContract(terms, this.#player.renown ?? 0, this.#contract);
-    if (!result.ok) throw new Error(result.reason);
-    this.#contract = result.contract;
-    return { contract: result.contract };
-  }
-
-  getMercenaryContract(): MercenaryContract | null {
-    return this.#contract;
-  }
-
-  breakMercenaryContract(): { relationPenalty: number } {
-    if (!this.#contract) throw new Error("No active contract to break.");
-    const result = breakContract(this.#contract);
-    this.#contract = null;
-    return { relationPenalty: result.relationPenalty };
-  }
-
-  /**
-   * Crafting orders: list open orders, generate new ones, fulfill with
-   * forged pieces.
-   */
-  getCraftingOrders(): CraftingOrder[] {
-    return [...this.#orders];
-  }
-
-  fulfillCraftingOrder(orderId: string): { reward: number; line: string } {
-    const order = this.#orders.find((o) => o.id === orderId);
-    if (!order) throw new Error("Order not found.");
-    const result = fulfillOrder(order, this.#party.crafted ?? []);
-    if (!result.ok) throw new Error(result.reason);
-    // Consume the forged piece.
-    const stock = this.#party.crafted!.find((c) => c.recipeId === order.recipeId)!;
-    stock.count -= 1;
-    this.#party.crafted = this.#party.crafted!.filter((c) => c.count > 0);
-    this.#orders = this.#orders.filter((o) => o.id !== orderId);
-    this.#party.money += result.reward;
-    return { reward: result.reward, line: result.line };
-  }
-
-  /**
-   * Governors: assign a companion to a town. Their skills shape it.
-   */
-  assignGovernor(townId: string, characterId: string): { line: string } {
-    const char = this.#characters.find((c) => c.id === characterId);
-    if (!char) throw new Error("Character not found.");
-    if (!char.alive) throw new Error("The dead govern nothing.");
-    const town = this.#towns.get(townId);
-    if (!town) throw new Error("Town not found.");
-    this.#governors.set(townId, { id: char.id, name: char.name, skills: char.skills ?? {} });
-    const bonus = governorBonus({ id: char.id, name: char.name, skills: char.skills ?? {} });
-    return { line: `${char.name} takes ${town.name}. ${bonus.line}` };
-  }
-
-  getGovernor(townId: string): { name: string; line: string } | null {
-    const g = this.#governors.get(townId);
-    if (!g) return null;
-    return { name: g.name, line: governorBonus(g).line };
-  }
-
-  /**
-   * Barter: value an offer against a demand. Used for peace deals and
-   * prisoner swaps.
-   */
-  barterDeal(offer: BarterOffer, demandValue: number): { accepted: boolean; gap: number; line: string } {
-    const prices: Record<string, number> = {};
-    for (const m of this.#markets.values()) {
-      for (const g of m.goods) {
-        prices[g.goodId] = g.price;
-      }
+    if (scoutId) {
+      const scout = this.#characters.find((c) => c.id === scoutId);
+      const skill = scout?.skills?.scouting ?? 0;
+      speed *= 1 + Math.min(0.15, skill * 0.03);
     }
-    return barter(offer, { demandValue, prices, prisonerValue: 100 });
-  }
 
-  /**
-   * Defection: a clan walks away from its kingdom.
-   */
-  defectClan(clanId: string, joinFactionId?: string): { line: string } {
-    const clan = this.#clans.find((c) => c.id === clanId);
-    if (!clan) throw new Error("Clan not found.");
-    const fiefNames = clan.fiefIds
-      .map((id) => this.#towns.get(id)?.name ?? id)
-      .filter(Boolean);
-    const result = defect({
-      clanName: clan.name,
-      kingdomName: clan.factionId || "its kingdom",
-      // Clans track no loyalty stat; use renown standing as a proxy —
-      // low-renown clans have little to lose by walking.
-      loyalty: Math.min(100, (clan.renown ?? 0) / 10),
-      fiefs: fiefNames,
-      ...(joinFactionId ? { joinKingdom: joinFactionId } : {}),
-    });
-    if (!result.ok) throw new Error(result.reason);
-    clan.factionId = joinFactionId ?? "";
-    if (!result.keepsFiefs) clan.fiefIds = [];
-    return { line: result.line };
-  }
-
-  /**
-   * Prison break (roguery): attempt to free imprisoned troops from a holder.
-   * Uses the fieldSystems odds; success returns them to the party as a
-   * wounded-light troop stack, failure wounds the team and angers the holder.
-   */
-  attemptPrisonBreak(holderId: string, teamSize: number): PrisonBreakResult & { freedName?: string } {
-    const held = this.#party.imprisoned ?? [];
-    const entry = held.find((h) => h.holderId === holderId);
-    if (!entry || entry.count <= 0) throw new Error("No prisoners held there.");
-    const player = this.#player;
-    const roguery = player.skills?.["roguery"] ?? 0;
-    const holder = this.#npcParties.find((p) => p.id === holderId);
-    const garrison = holder?.troopCount ?? 20;
-    const result = resolvePrisonBreak(
-      { roguery, teamSize: Math.max(1, Math.min(teamSize, 20)), garrison, prisonersHeld: entry.count },
-      this.#random,
-    );
-    if (result.success) {
-      // Freed troops rejoin as a fresh stack.
-      this.#party.troops.push({
-        id: `t-freed-${Date.now()}`,
-        name: "Freed captives",
-        count: entry.count,
-        wounded: 0,
-        quality: 1,
-        tier: 1,
-        xp: 0,
-        wage: 0.5,
-        morale: 0.9,
-      });
-      this.#party.imprisoned = held.filter((h) => h.holderId !== holderId);
-      if (holder) holder.troopCount = Math.max(0, holder.troopCount - entry.count);
-    } else {
-      // The team took wounds; getting caught turns the holder hostile.
-      const stack = this.#party.troops[0];
-      if (stack) stack.wounded = Math.min(stack.count, stack.wounded + result.wounded);
-      if (result.caught && holder) holder.hostile = true;
-    }
-    this.#notifications.push({
-      id: `n-break-${this.#sequence++}`,
-      day: this.#day,
-      priority: "important",
-      text: result.success
-        ? `Prison break succeeded! ${entry.count} troops freed from ${entry.holderName}.`
-        : `Prison break failed at ${entry.holderName}.${result.caught ? " They know it was you." : ""}`,
-      entityId: this.#party.id,
-      field: "prisoners",
-    });
-    return result.success ? { ...result, freedName: entry.holderName } : result;
+    return Math.max(10, Math.round(speed * 10) / 10);
   }
 
   #recoverWounded(): void {
@@ -2110,141 +1805,6 @@ class FixtureState {
     }
   }
 
-  /**
-   * NPC vs NPC battles (Bannerlord's autocombat). When two hostile NPC
-   * parties end the day within 5 km of each other, they fight: the
-   * battleflow/npcBattle sim resolves it, casualties come off the stacks,
-   * and a wiped party is removed. Caravans are fought by bandits; lords
-   * fight bandits and enemy factions.
-   */
-  #resolveNpcBattles(): void {
-    const BATTLE_RANGE_KM = 5;
-    const fought = new Set<string>();
-    for (let i = 0; i < this.#npcParties.length; i++) {
-      for (let j = i + 1; j < this.#npcParties.length; j++) {
-        const a = this.#npcParties[i]!;
-        const b = this.#npcParties[j]!;
-        if (fought.has(a.id) || fought.has(b.id)) continue;
-        if (!this.#npcHostile(a, b)) continue;
-        const dist = Math.hypot(a.position.x - b.position.x, a.position.z - b.position.z);
-        if (dist > BATTLE_RANGE_KM) continue;
-        fought.add(a.id);
-        fought.add(b.id);
-
-        const toSide = (p: NpcParty) => {
-          // Cavalry estimate: tier 4+ troops fight mounted (documented heuristic).
-          const mounted = p.troops
-            .filter((t) => t.tier >= 4)
-            .reduce((s, t) => s + t.count, 0);
-          return {
-            troops: p.troopCount,
-            avgLevel: p.troops.length > 0
-              ? p.troops.reduce((s, t) => s + t.tier * 6 * t.count, 0) / Math.max(1, p.troopCount)
-              : 6,
-            morale: 0.5,
-            cavalryFraction: p.troopCount > 0 ? mounted / p.troopCount : 0,
-            ridingSkill: 4,
-          };
-        };
-        const result = simulateNpcBattle(toSide(a), toSide(b), this.#random);
-        this.#applyNpcCasualties(a, result.killed[0] + result.wounded[0]);
-        this.#applyNpcCasualties(b, result.killed[1] + result.wounded[1]);
-
-        const winner = result.winner === 0 ? a : b;
-        const loser = result.winner === 0 ? b : a;
-        const loserGone = loser.troopCount <= 0;
-        this.#notifications.push({
-          id: `n-npcbattle-${this.#sequence++}`,
-          day: this.#day,
-          priority: "informational",
-          text: `${winner.name} defeated ${loser.name} (${result.killed[0] + result.killed[1]} killed, ${result.rounds} rounds)${loserGone ? ` -- ${loser.name} was wiped out.` : ""}`,
-          entityId: winner.id,
-          field: "battle",
-        });
-        if (loserGone) {
-          this.#npcParties = this.#npcParties.filter((p) => p.id !== loser.id);
-        }
-      }
-    }
-  }
-
-  /**
-   * Daily mercenary tick: retainer pay accrues, the contract counts down.
-   * Mercenary victories are paid when battles resolve for the faction.
-   */
-  #tickContractDay(): void {
-    if (!this.#contract) return;
-    const { contract, pay, expired } = tickContract(this.#contract);
-    this.#party.money += pay;
-    this.#contract = contract;
-    if (expired) {
-      this.#notifications.push({
-        id: `n-contract-${this.#sequence++}`,
-        day: this.#day,
-        priority: "informational",
-        text: `Your mercenary contract has ended. The faction thanks you for your service.`,
-        entityId: this.#party.id,
-        field: "contract",
-      });
-    }
-  }
-
-  /**
-   * Daily crafting-order tick: new orders arrive, old ones expire.
-   */
-  #tickOrdersDay(): void {
-    const { kept, expired } = tickOrders(this.#orders);
-    this.#orders = kept;
-    for (const o of expired) {
-      this.#notifications.push({
-        id: `n-orderexp-${this.#sequence++}`,
-        day: this.#day,
-        priority: "informational",
-        text: `${o.patron}'s order for a ${o.recipeName} expired. They'll remember the wait.`,
-        entityId: this.#party.id,
-        field: "orders",
-      });
-    }
-    // New orders drift in, up to 3 open.
-    if (this.#orders.length < 3 && this.#random() < 0.3) {
-      const order = generateOrder(
-        SMITHING_RECIPES.map((r) => ({ id: r.id, name: r.name })),
-        `order-${Date.now()}-${Math.round(this.#random() * 10000)}`,
-        this.#random,
-      );
-      if (order) {
-        this.#orders.push(order);
-        this.#notifications.push({
-          id: `n-ordernew-${this.#sequence++}`,
-          day: this.#day,
-          priority: "informational",
-          text: `New crafting order: ${order.patron} (${order.patronTitle}) wants a ${order.recipeName} — ${order.reward} gold.`,
-          entityId: this.#party.id,
-          field: "orders",
-        });
-      }
-    }
-  }
-
-  /** Two NPC parties fight when bandits meet non-bandits, or hostile factions meet. */
-  #npcHostile(a: NpcParty, b: NpcParty): boolean {    if (a.kind === "bandit" && b.kind !== "bandit") return true;
-    if (b.kind === "bandit" && a.kind !== "bandit") return true;
-    return a.factionId !== b.factionId && (a.hostile || b.hostile);
-  }
-
-  /** Remove casualties proportionally across an NPC party's stacks. */
-  #applyNpcCasualties(p: NpcParty, losses: number): void {
-    let remaining = Math.min(losses, p.troopCount);
-    for (const stack of p.troops) {
-      if (remaining <= 0) break;
-      const take = Math.min(stack.count, Math.ceil((stack.count / Math.max(1, p.troopCount)) * losses));
-      const actual = Math.min(take, remaining);
-      stack.count -= actual;
-      remaining -= actual;
-    }
-    p.troops = p.troops.filter((t) => t.count > 0);
-    p.troopCount = p.troops.reduce((s, t) => s + t.count, 0);
-  }
   /**
    * Move NPC parties. Bandits wander; when they have no destination they pick a
    * new random one within a bounded range. Deterministic via the seeded RNG.
@@ -2365,20 +1925,6 @@ class FixtureState {
    */
   #applyDailyUpkeep(): void {
     const fx = getEthnicityEffects(this.#player.ethnicityId);
-    // Fresh food rots: spoilage hits before the party eats.
-    const rotted = spoilFood(this.#party.goods);
-    for (const r of rotted) {
-      if (r.lost >= 5) {
-        this.#notifications.push({
-          id: `n-rot-${this.#sequence++}`,
-          day: this.#day,
-          priority: "informational",
-          text: `${r.lost} ${r.goodId} rotted in the packs.`,
-          entityId: this.#party.id,
-          field: "goods",
-        });
-      }
-    }
     const wages = round2(this.#party.troops.reduce((a, t) => a + t.count * t.wage, 0) * fx.troopWageMult);
     const headcount = this.#party.troops.reduce((a, t) => a + t.count, 0);
     const rations = round2(headcount * 0.85 * fx.foodConsumptionMult);
@@ -2442,6 +1988,11 @@ class FixtureState {
     this.#sieges = structuredClone(snapshot.sieges ?? []);
     this.#wars = structuredClone(snapshot.wars ?? []);
     this.#quests = structuredClone(snapshot.quests ?? []);
+    this.#heldLords = structuredClone(snapshot.heldLords ?? []);
+    // Player-founded kingdoms persist: re-derive from the side list.
+    this.#extraSides = structuredClone(
+      (snapshot.sides ?? []).filter((s) => s.id.startsWith("kingdom-")),
+    );
     this.#fines = new Map(Object.entries(snapshot.fines ?? {}).map(([k, v]) => [k, v as number]));
     this.#ledger = structuredClone(snapshot.ledger);
     // Reset transient state
@@ -2677,19 +2228,6 @@ class FixtureState {
       field: "troops",
     });
 
-    // Mercenary victory pay: the contract pays per battle won.
-    if (won && this.#contract) {
-      this.#party.money += this.#contract.payPerVictory;
-      this.#notifications.push({
-        id: `n-mercpay-${this.#sequence++}`,
-        day: this.#day,
-        priority: "informational",
-        text: `${this.#contract.factionName} pays ${this.#contract.payPerVictory} gold for the victory.`,
-        entityId: this.#party.id,
-        field: "contract",
-      });
-    }
-
     return {
       troopsRemaining,
       money: this.#party.money,
@@ -2707,6 +2245,34 @@ class FixtureState {
     if (idx >= 0) {
       const removed: NpcParty = this.#npcParties[idx]!;
       this.#npcParties.splice(idx, 1);
+      // A defeated lord may be captured — 50/50 in Bannerlord's spirit.
+      // Captured lords can be ransomed, released (for relation), or executed.
+      if (removed.kind === "lord" && removed.leaderName && this.#random() < 0.5) {
+        const ruler = this.#rulers.find((r) => r.name === removed.leaderName);
+        this.#heldLords.push({
+          name: removed.leaderName,
+          factionId: removed.factionId,
+          clanName: ruler ? `${ruler.name.split(" ").slice(-1)[0]} Household` : "a noble house",
+          capturedDay: this.#day,
+        });
+        this.#notifications.push({
+          id: `n-capture-${this.#sequence++}`,
+          day: this.#day,
+          priority: "important",
+          text: `${removed.leaderName} was captured! Ransom, release, or execute them from the party panel.`,
+          entityId: removed.id,
+          field: "prisoners",
+        });
+      } else if (removed.kind === "lord" && removed.leaderName) {
+        this.#notifications.push({
+          id: `n-escape-${this.#sequence++}`,
+          day: this.#day,
+          priority: "informational",
+          text: `${removed.leaderName} slipped away in the rout.`,
+          entityId: removed.id,
+          field: "party",
+        });
+      }
       this.#notifications.push({
         id: `n-defeat-${this.#sequence++}`,
         day: this.#day,
@@ -2779,37 +2345,10 @@ class FixtureState {
       if (actualTaken > 0 && npc) {
         // The NPC gains prisoners (tracked loosely as increased troop count for now)
         npc.troopCount += actualTaken;
-        // Track them as imprisoned so prison breaks can free them.
-        const held = (this.#party.imprisoned ??= []);
-        const existing = held.find((h) => h.holderId === npc.id);
-        if (existing) existing.count += actualTaken;
-        else held.push({ name: "Captured troops", count: actualTaken, holderId: npc.id, holderName: npc.name });
       }
     }
 
     // Player retreats: move away from the NPC
-    // Bannerlord's battle death: companions downed in a lost battle have a
-    // ~10% chance to die instead of pulling through.
-    const clan = this.#clans.find((c) => c.id === "clan-player");
-    if (clan) {
-      for (const memberId of [...clan.memberIds]) {
-        const member = this.#characters.find((c) => c.id === memberId);
-        if (!member || member.isPlayer || !member.alive) continue;
-        if (rollBattleDeath(this.#random)) {
-          member.alive = false;
-          member.deathDay = this.#day;
-          clan.memberIds = clan.memberIds.filter((id) => id !== memberId);
-          this.#notifications.push({
-            id: `n-bdeath-${this.#sequence++}`,
-            day: this.#day,
-            priority: "important",
-            text: `${member.name} was killed in the rout.`,
-            entityId: memberId,
-            field: "family",
-          });
-        }
-      }
-    }
     if (npc) {
       const dx = this.#party.position.x - npc.position.x;
       const dz = this.#party.position.z - npc.position.z;
@@ -3132,6 +2671,191 @@ class FixtureState {
     return { gold };
   }
 
+  /** Lords currently held prisoner by the player clan. */
+  async getHeldLords(): Promise<{ name: string; factionId: string; clanName: string; capturedDay: number }[]> {
+    return structuredClone(this.#heldLords);
+  }
+
+  /**
+   * Ransom a held lord back to their faction. Pays gold and slightly warms
+   * relations — even enemies respect a clean transaction.
+   */
+  async ransomHeldLord(name: string): Promise<{ gold: number }> {
+    const idx = this.#heldLords.findIndex((l) => l.name === name);
+    if (idx < 0) throw new Error(`${name} is not your prisoner.`);
+    const lord = this.#heldLords[idx]!;
+    const gold = 1500 + Math.floor(this.#random() * 1500);
+    this.#heldLords.splice(idx, 1);
+    this.#party.money += gold;
+    this.#adjustFactionRelation(lord.factionId, 5);
+    this.#notifications.push({
+      id: `n-lord-ransom-${this.#sequence++}`,
+      day: this.#day,
+      priority: "important",
+      text: `${lord.name} ransomed home for ${gold} gold.`,
+      entityId: lord.factionId,
+      field: "prisoners",
+    });
+    return { gold };
+  }
+
+  /**
+   * Release a held lord freely. Bannerlord's primary honorable political
+   * tool: grants relation with their faction and honor.
+   */
+  async releaseHeldLord(name: string): Promise<{ relationGained: number }> {
+    const idx = this.#heldLords.findIndex((l) => l.name === name);
+    if (idx < 0) throw new Error(`${name} is not your prisoner.`);
+    const lord = this.#heldLords[idx]!;
+    this.#heldLords.splice(idx, 1);
+    const relationGained = 15;
+    this.#adjustFactionRelation(lord.factionId, relationGained);
+    this.#player.honor = (this.#player.honor ?? 0) + 10;
+    this.#notifications.push({
+      id: `n-lord-release-${this.#sequence++}`,
+      day: this.#day,
+      priority: "important",
+      text: `${lord.name} walks free. Their faction will remember the mercy (+${relationGained} relation).`,
+      entityId: lord.factionId,
+      field: "prisoners",
+    });
+    return { relationGained };
+  }
+
+  /**
+   * Execute a held lord — the nuclear option. Applies the full political
+   * fallout: their faction's rulers turn hostile, honor craters, dread
+   * rises, your troops lose heart.
+   */
+  async executeHeldLord(name: string): Promise<{ line: string }> {
+    const idx = this.#heldLords.findIndex((l) => l.name === name);
+    if (idx < 0) throw new Error(`${name} is not your prisoner.`);
+    const lord = this.#heldLords[idx]!;
+    this.#heldLords.splice(idx, 1);
+    const consequences = executionConsequences({
+      id: `lord-${name}`,
+      name: lord.name,
+      tier: 4,
+      ransomValue: 0,
+      isNoble: true,
+      factionId: lord.factionId,
+      clanName: lord.clanName,
+    });
+    this.#adjustFactionRelation(lord.factionId, consequences.factionRelationDelta);
+    this.#player.honor = (this.#player.honor ?? 0) + consequences.honorDelta;
+    this.#player.dread = (this.#player.dread ?? 0) + consequences.dreadGained;
+    for (const stack of this.#party.troops) {
+      stack.morale = Math.max(0, (stack.morale ?? 0.5) + consequences.ownMoraleDelta / 100);
+    }
+    this.#notifications.push({
+      id: `n-execute-${this.#sequence++}`,
+      day: this.#day,
+      priority: "important",
+      text: consequences.line,
+      entityId: lord.factionId,
+      field: "prisoners",
+    });
+    return { line: consequences.line };
+  }
+
+  /** Shift every ruler of a faction's relation to the player. */
+  #adjustFactionRelation(factionId: string, delta: number): void {
+    for (const ruler of this.#rulers) {
+      if (ruler.factionId === factionId) {
+        ruler.relationToPlayer = Math.max(-100, Math.min(100, ruler.relationToPlayer + delta));
+      }
+    }
+  }
+
+  /** Clan tier info for the clan panel: tier, name, limits, progress. */
+  async getClanTier(): Promise<{
+    tier: number;
+    name: string;
+    renown: number;
+    renownToNext: number;
+    fiefLimit: number;
+    fiefsHeld: number;
+    companionSlots: number;
+    partyCapacity: number;
+  }> {
+    const clan = this.#clans.find((c) => c.id === "clan-player");
+    if (!clan) throw new Error("Player clan not found.");
+    return {
+      tier: clan.tier,
+      name: tierName(clan.tier),
+      renown: clan.renown,
+      renownToNext: renownToNextTier(clan.tier, clan.renown),
+      fiefLimit: maxFiefsForTier(clan.tier),
+      fiefsHeld: clan.fiefIds.length,
+      companionSlots: companionSlotsForTier(clan.tier),
+      partyCapacity: partyCapacityForTier(clan.tier),
+    };
+  }
+
+  /**
+   * Found your own kingdom. Breaking away with fiefs means the old faction
+   * declares war — the crown does not give up land with a handshake.
+   */
+  async foundKingdom(kingdomName: string): Promise<{
+    kingdomName: string;
+    capital: string;
+    warWithFormer: boolean;
+    line: string;
+  }> {
+    const clan = this.#clans.find((c) => c.id === "clan-player");
+    if (!clan) throw new Error("Player clan not found.");
+    const formerFactionId = this.#player.factionId;
+    const result = proclaimKingdom({
+      clanName: clan.name,
+      tier: clan.tier,
+      fiefs: [...clan.fiefIds],
+      isVassal: false, // founding IS the break; the war below is the price
+      formerKingdom: formerFactionId,
+      keptFiefsOnDefection: clan.fiefIds.length > 0,
+      influence: this.#player.influence,
+      kingdomName,
+    });
+    if (!result.ok) throw new Error(result.reason);
+
+    this.#player.influence -= result.influenceSpent;
+    const newFactionId = `kingdom-${kingdomName.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+    // Register the new side among the factions.
+    if (!this.#extraSides.some((s) => s.id === newFactionId)) {
+      this.#extraSides.push({
+        id: newFactionId,
+        name: result.kingdomName,
+        difficulty: "Medium",
+        memberStates: [],
+        pros: ["A new power, unburdened by old treaties."],
+        cons: ["Every established faction sees a rival."],
+        biggestDanger: "The old kingdom wants its land back.",
+        signatureMechanic: "Founded by the player clan.",
+        ratings: { money: 3, gold: 3, food: 3, metal: 3, population: 3 },
+        states: [],
+      });
+    }
+    this.#player.factionId = newFactionId;
+    clan.factionId = newFactionId;
+
+    if (result.warWithFormer) {
+      await this.declareWar(formerFactionId);
+    }
+    this.#notifications.push({
+      id: `n-kingdom-${this.#sequence++}`,
+      day: this.#day,
+      priority: "important",
+      text: result.line,
+      entityId: newFactionId,
+      field: "court",
+    });
+    return {
+      kingdomName: result.kingdomName,
+      capital: result.capital,
+      warWithFormer: result.warWithFormer,
+      line: result.line,
+    };
+  }
+
   /**
    * Create an army led by a character. The leader must be alive and belong to
    * a clan. The army starts empty; parties join via joinArmy.
@@ -3319,6 +3043,40 @@ class FixtureState {
 
       // Apply attacker casualties to parties
       this.#applySiegeCasualties(siege.attackerPartyIds, attackerLoss);
+
+      // The player clan claims the fief — gated by clan-tier fief limits
+      // (the anti-snowball rule: you cannot hold everything at tier 1).
+      if (siege.attackerPartyIds.includes(this.#party.id)) {
+        const clan = this.#clans.find((c) => c.id === "clan-player");
+        if (clan) {
+          const grant = canHoldFief(clan.tier, clan.fiefIds.length);
+          if (grant.ok) {
+            clan.fiefIds.push(town.id);
+            town.holderId = clan.leaderId;
+            town.holderName = clan.name;
+            this.#notifications.push({
+              id: `n-fief-${this.#sequence++}`,
+              day: this.#day,
+              priority: "important",
+              text: `${town.name} is now a fief of ${clan.name} (${clan.fiefIds.length} held).`,
+              entityId: town.id,
+              field: "clan",
+            });
+          } else {
+            // At the cap: the town is sacked for gold but cannot be held.
+            const loot = 500 + Math.floor(this.#random() * 500);
+            this.#party.money += loot;
+            this.#notifications.push({
+              id: `n-fief-cap-${this.#sequence++}`,
+              day: this.#day,
+              priority: "important",
+              text: `${town.name} falls but ${clan.name} cannot hold it — ${grant.reason} Sacked for ${loot} gold instead.`,
+              entityId: town.id,
+              field: "clan",
+            });
+          }
+        }
+      }
 
       this.#notifications.push({
         id: `n-siege-capture-${this.#sequence++}`,
@@ -3761,6 +3519,83 @@ class FixtureState {
   }
 
   /**
+   * Dynasty tick: the player clan's tier follows its renown. Advancement is
+   * announced; tiers unlock party capacity, companion slots, and fief limits
+   * (see clan/tiers.ts).
+   */
+  #clanTierTick(): void {
+    const clan = this.#clans.find((c) => c.id === "clan-player");
+    if (!clan) return;
+    const advancement = advanceTier(clan.tier, clan.renown, clan.name);
+    if (advancement.advanced) {
+      clan.tier = advancement.toTier;
+      this.#notifications.push({
+        id: `n-tier-${this.#sequence++}`,
+        day: this.#day,
+        priority: "important",
+        text: advancement.line,
+        entityId: clan.id,
+        field: "clan",
+      });
+    }
+  }
+
+  /**
+   * War tick: factions at war with the player keep one lord party in the
+   * field, led by one of their rulers. Destroying it can capture the lord —
+   * the ransom/release/execute loop in Bannerlord starts here.
+   */
+  #lordPartyTick(): void {
+    const myFaction = this.#player.factionId;
+    const enemyFactions = new Set<string>();
+    for (const war of this.#wars) {
+      if (war.attackerFactionId === myFaction) enemyFactions.add(war.defenderFactionId);
+      else if (war.defenderFactionId === myFaction) enemyFactions.add(war.attackerFactionId);
+    }
+    for (const factionId of enemyFactions) {
+      const already = this.#npcParties.some((p) => p.kind === "lord" && p.factionId === factionId);
+      if (already) continue;
+      const factionName = factionId
+        .split("-")
+        .map((w) => (w ? w[0]!.toUpperCase() + w.slice(1) : w))
+        .join(" ");
+      const rulers = this.#rulers.filter(
+        (r) =>
+          r.factionId === factionId &&
+          (r.tier === "lord" || r.tier === "side-leader" || r.tier === "state-governor" || r.tier === "city-ruler"),
+      );
+      if (rulers.length === 0) continue;
+      const ruler = rulers[Math.floor(this.#random() * rulers.length)]!;
+      const holding = ruler.holdings[0]?.settlementId;
+      const pos = holding ? (SETTLEMENT_POSITIONS[holding] ?? { x: 0, z: 0 }) : { x: 0, z: 0 };
+      const px = pos.x + 30;
+      const pz = pos.z + 30;
+      const count = 20 + Math.floor(this.#random() * 25);
+      this.#npcParties.push({
+        id: `npc-lord-${factionId}-${this.#sequence++}`,
+        name: `${ruler.name}'s Host`,
+        kind: "lord" as const,
+        factionId,
+        position: { x: px, z: pz },
+        troops: [{ name: "Household Guard", count, tier: 3 }],
+        troopCount: count,
+        hostile: true,
+        destination: null,
+        speedKmPerDay: 30,
+        leaderName: ruler.name,
+      });
+      this.#notifications.push({
+        id: `n-lord-${this.#sequence++}`,
+        day: this.#day,
+        priority: "important",
+        text: `${ruler.name} of the ${factionName} has taken the field against you.`,
+        entityId: factionId,
+        field: "war",
+      });
+    }
+  }
+
+  /**
    * Apply casualties proportionally across attacker parties.
    */
   #applySiegeCasualties(partyIds: string[], totalLoss: number): void {
@@ -4009,14 +3844,10 @@ class FixtureState {
     if (!p1 || !p2) throw new Error("Parent not found.");
     if (!p1.alive || !p2.alive) throw new Error("Cannot have a child with a dead parent.");
 
-    // Bannerlord pulls newborn names from the culture pool; an empty name
-    // means "let the pool decide."
-    const sex: NameSex = this.#random() < 0.5 ? "male" : "female";
-    const name = childName.trim() || randomName(p1.factionId, sex, this.#random);
     const childId = `char-${Date.now()}-${Math.round(this.#random() * 10000)}`;
     const child: GameCharacter = {
       id: childId,
-      name,
+      name: childName,
       age: 0,
       clanId: p1.clanId, // child joins the first parent's clan
       factionId: p1.factionId,
@@ -4025,8 +3856,6 @@ class FixtureState {
       childrenIds: [],
       role: "commoner",
       isPlayer: false,
-      // Bannerlord rolls child traits flat random — parents don't skew it.
-      traits: rollChildTraits(this.#random),
     };
     this.#characters.push(child);
     p1.childrenIds.push(childId);
@@ -4042,7 +3871,7 @@ class FixtureState {
       id: `n-birth-${this.#sequence++}`,
       day: this.#day,
       priority: "informational",
-      text: `${name} is born to ${p1.name} and ${p2.name}.`,
+      text: `${childName} is born to ${p1.name} and ${p2.name}.`,
       entityId: childId,
       field: "family",
     });
