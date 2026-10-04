@@ -8,17 +8,17 @@ import "../notables/index.js";
 import { BUILDING_OWNERS, buildingOwnersForCity } from "../buildingOwners.js";
 
 describe("city notables", () => {
-  it("has 12 notables for each of the 19 cities", () => {
+  it("has 12 notables for each city", () => {
     const cities = Object.keys(CITY_NOTABLES);
-    expect(cities.length).toBe(19);
+    expect(cities.length).toBe(51);
     for (const cityId of cities) {
       const notables = notablesForCity(cityId);
       expect(notables.length, `${cityId} should have 12 notables`).toBe(12);
     }
   });
 
-  it("totals 228 notables", () => {
-    expect(totalNotableCount()).toBe(228);
+  it("totals 612 notables", () => {
+    expect(totalNotableCount()).toBe(612);
   });
 
   it("every notable has a name, lore, portrait key, and title", () => {

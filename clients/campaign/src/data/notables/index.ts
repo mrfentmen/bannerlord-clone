@@ -11,6 +11,9 @@ import "./southEast.js";
 import "./westCoast.js";
 import "./northEast.js";
 import "./finalBatch.js";
+import "./newCities1.js";
+import "./newCities2.js";
+import "./newCities3.js";
 
 export { CITY_NOTABLES, notablesForCity, totalNotableCount } from "../cityNotables.js";
 export type { CityNotable } from "../cityNotables.js";
