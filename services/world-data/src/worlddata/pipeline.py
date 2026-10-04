@@ -41,6 +41,7 @@ from .sections import (
 )
 from .transforms.boundaries import (
     PlaceBoundary,
+    PlaceBoundaryIndex,
     StateBoundary,
     cross_check_against_natural_earth,
     load_place_boundaries,
@@ -387,21 +388,27 @@ def run(
 
     # --- stage 7: geometry for settlements --------------------------------
     stage_start = time.perf_counter()
-    place_by_key = {
-        f"{boundary.state_fips}-{boundary.place_fips}": boundary for boundary in place_boundaries
-    }
-    by_name_state = {
-        (boundary.state_name if hasattr(boundary, "state_name") else boundary.state_fips, boundary.name): boundary
-        for boundary in place_boundaries
-    }
+    # One index, built once, used by this stage and by the seed stage. Both need
+    # to know which settlements have a Census place polygon, and when they each
+    # built their own lookup they could disagree - which is how a settlement came
+    # to have a coordinate in one table and none in the other.
+    place_index = PlaceBoundaryIndex(place_boundaries)
+    if place_index.ambiguous_names:
+        shown = ", ".join(f"{name} ({state})" for state, name in place_index.ambiguous_names[:8])
+        result.log(
+            f"boundaries: {len(place_index.ambiguous_names)} (state, name) pairs name more than one Census place, "
+            f"starting with {shown}. A settlement carrying one of those names resolves to no polygon rather than "
+            "to the other place of the same name, so it ships with null coordinates and no area instead of "
+            "standing at the wrong town."
+        )
     settlement_points: dict[str, tuple[float, float]] = {}
     for row in kept:
-        boundary = place_by_key.get(row.settlement_id) or by_name_state.get((row.state_name, row.name))
+        boundary = place_index.resolve(row.settlement_id, row.state_fips, row.name)
         if boundary is not None:
             settlement_points[row.settlement_id] = (boundary.longitude, boundary.latitude)
     result.log(
         f"geometry: matched {len(settlement_points)} of {len(kept)} settlements to a Census place polygon "
-        "by place FIPS, then by state and name"
+        "by place FIPS, then by state FIPS and name behind the Census fragment marker"
     )
 
     sampler, terrain_notes = load_elevation_tiles(config)
@@ -428,7 +435,7 @@ def run(
     seeds: list[SettlementSeed] = []
     missing_boundary = 0
     for row in kept:
-        boundary = place_by_key.get(row.settlement_id) or by_name_state.get((row.state_name, row.name))
+        boundary = place_index.resolve(row.settlement_id, row.state_fips, row.name)
         if boundary is None:
             missing_boundary += 1
         profile = profile_by_fips[row.state_fips]
@@ -458,12 +465,11 @@ def run(
     result.log_stage("seed")
 
     # Everything downstream of seeding needs settlement coordinates, which are
-    # already copied into settlement_points. The place_by_key / by_name_state
-    # indexes and raw population rows are no longer needed, but the
-    # place_boundaries list itself must survive until _assemble_tables builds
-    # the export (it was cleared here before, shipping zero boundary rows).
-    place_by_key = {}
-    by_name_state = {}
+    # already copied into settlement_points. The shared place index and the raw
+    # population rows are no longer needed, but the place_boundaries list itself
+    # must survive until _assemble_tables builds the export (it was cleared here
+    # before, shipping zero boundary rows).
+    place_index = None
     kept = []
     population = None
     gc.collect()

@@ -25,7 +25,9 @@ The rule this module applies, and why:
 * SUMLEV 157 is either an exact duplicate of a 162 total or a "(pt.)"/"Balance
   of <county>" fragment. Reading it directly would duplicate settlements, so it
   is excluded and the exclusion is asserted by requiring every retained key to
-  be unique.
+  be unique. What counts as a fragment marker is defined once, in
+  `transforms.boundaries`, because the cartographic place file has to agree with
+  this file about which rows are fragments and which spelling names the place.
 * CDPs and the eight consolidated cities have PLACE 00000, so they are keyed
   on (state, name) instead.
 
@@ -44,17 +46,13 @@ from pathlib import Path
 
 from ..config import Config
 from ..errors import DatasetGap, ParseError
+from .boundaries import base_place_name, is_place_fragment
 
 # SUMLEV values whose rows describe a whole place rather than a fragment.
 SUMLEV_PLACE_TOTAL = "162"
 SUMLEV_PLACE_TOTAL_BY_COUNTY = "071"
 SUMLEV_PLACE_PARTS = "061"
 SUMLEV_CONSOLIDATED_CITY = "170"
-
-# Names that mark a fragment rather than a settlement.
-_FRAGMENT_PREFIX = "Balance of "
-_FRAGMENT_SUFFIX = "(pt.)"
-_BALANCE_SUFFIX = "(balance)"
 
 # The Census national estimates file includes Puerto Rico, whose FIPS is 72.
 # FACTIONS.md section 4 does not put Puerto Rico in any side, so it is excluded
@@ -121,7 +119,15 @@ def _to_int(text: str, *, field: str, row_number: int) -> int:
 
 
 def _is_fragment(name: str) -> bool:
-    return name.startswith(_FRAGMENT_PREFIX) or name.endswith(_FRAGMENT_SUFFIX) or name.endswith(_BALANCE_SUFFIX)
+    """True for a name the Census Bureau marks as a fragment of a place.
+
+    One definition, two readers: this module drops fragment rows so they cannot
+    be counted as settlements, and `transforms.boundaries` strips the same
+    marker so the cartographic place file can still be joined to this file's
+    rows. They used to be two copies of the rule, and when they drifted the join
+    went quiet rather than failing.
+    """
+    return is_place_fragment(name)
 
 
 def _base_name(name: str) -> str:
@@ -131,11 +137,7 @@ def _base_name(name: str) -> str:
     whose county fragments are partly filtered is recognised and excluded from
     the fragment cross-check.
     """
-    if name.endswith(_FRAGMENT_SUFFIX):
-        return name[: -len(_FRAGMENT_SUFFIX)].strip()
-    if name.endswith(_BALANCE_SUFFIX):
-        return name[: -len(_BALANCE_SUFFIX)].strip()
-    return name
+    return base_place_name(name)
 
 
 @dataclass(frozen=True)

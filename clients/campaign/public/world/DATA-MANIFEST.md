@@ -159,8 +159,8 @@ all 487 rows in this region, because the data is TIGER/Line rather than OSM.
 
 This is the client's only geometry for a town's actual shape. Before it existed the map
 drew settlements as points and nothing else, and the only outline on screen was
-`territories.json` — a convex hull around a group of settlements, which is a faction
-region rather than a town boundary. Nothing in `src/` reads that file yet either.
+`territories.json` — a faction region rather than a town boundary, and at the time a
+convex hull around a group of settlements. Nothing in `src/` reads that file either.
 
 The wire is deliberately explicit about three things a renderer would otherwise have to
 guess, and `src/world/boundaries.test.ts` checks every claim against the deployed file:
@@ -187,7 +187,46 @@ different Census vintages — which is what `tests/test_wire_place_boundaries.py
 derived from these rings as a legal or cadastral area; use `landAreaKm2`, which is the
 Census Bureau's own ALAND figure from the attribute table.
 
-### 2.5 Typography
+### 2.5 Faction territories — U.S. Census Cartographic Boundary Files (state)
+
+| Field | Value |
+|---|---|
+| Source | U.S. Census Bureau, Cartographic Boundary Files, 2023, 500k, state (`cb_2023_us_state_500k.zip`) |
+| Licence | **U.S. Government work, public domain** (Title 17 U.S.C. 105). No attribution required. |
+| Retrieved | 2026-10-04 (`generated` in the file is the build's own run time) |
+| Factions | 6 — `great_lakes_union`, `southern_compact`, `atlantic_corridor`, `lone_star_frontier`, `pacific_compact`, `mountain_alliance`, from `[sections]` in the pipeline config |
+| Geometry | 1,406 polygons, 1,406 rings, 278,162 vertices, nothing simplified |
+| File | `public/world/territories.json`, 5.4 MB |
+| Consumer | Nothing in `src/` reads it yet; the shape is declared as `TerritoriesFile` in `src/world/types.ts` |
+
+A faction's territory is the **union of the Census rings of its member states**, and the
+file carries it as a MultiPolygon: 8 polygons for the Mountain Alliance, 657 for the Pacific
+Compact, because each state is itself a multipolygon of islands and lake shorelines.
+Sections partition the states — `worlddata.config` refuses a build in which a state is in
+two sections or in none — so no two polygons in the file overlap and a renderer fills all of
+them. Nothing in the geometry is a hull of settlements: a hull of a faction's settlement
+points contains every other settlement inside it, which is how 783 settlements (5.9% of the
+country) came to be drawn inside a territory that was not theirs.
+
+Two things about this file a renderer has to be told rather than assume:
+
+- **Coordinates are `[lon, lat]`**, GeoJSON order and the opposite of every other file in
+  this directory. It is what this file has always carried and the file states it in
+  `coordinateOrder`. Rings run exterior clockwise, holes counter-clockwise (`ringOrder`).
+- **`polygon[0]` is not this faction.** It is the first state in config order and, for a
+  faction of 14 states, a small part of it. Read the whole array.
+
+Two gaps are recorded in the file itself rather than left for a reader to infer:
+`no_position` names the 8 settlements with no coordinates, which are in no territory, in no
+faction's population and in no faction's settlement count; and `outside_every_territory`
+names the 8 settlements that fall inside no polygon here, because the 500k state
+generalisation carries the state but not the island their own place polygon covers (Seward
+and Unalaska in Alaska, Coronado off San Diego, Munising and St. Ignace on the Straits of
+Mackinac, Newport on Aquidneck, Portsmouth on the Elizabeth River). Both lists clear on the
+next pipeline run: the first because `PlaceBoundaryIndex` now resolves the eight
+consolidated city-county governments, the second never, because it is the generalisation.
+
+### 2.6 Typography
 
 | Field | Value |
 |---|---|
@@ -387,6 +426,13 @@ exist in any real form yet. See section 1.
   deploy: NOTE: region.json: no wire_version in the client's copy, so the deployed file will not have it
   deploy: NOTE: boundaries.json: no wire_version in the client's copy, so the deployed file will not have it
   ```
+
+  The stamp describes the shape of *that one file*, so 2 does not mean the same thing
+  everywhere: `territories.json`'s v2 is the MultiPolygon union of member state polygons
+  (section 2.5), and the single convex-hull ring that file used to carry shipped under the
+  same stamp. Nothing in `src/` reads `territories.json`, so no renderer has to be taught
+  the old shape; the point of recording it here is that the stamp alone would not have
+  caught that change, and the next revision of the shape will not catch it either.
 
   So stamping all four is a real follow-up, and it belongs in the wire build rather than
   in the deploy tool — the deploy only carries what is already there. Both directions are

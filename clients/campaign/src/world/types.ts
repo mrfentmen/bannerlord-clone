@@ -33,6 +33,12 @@ export type DataProvenance = "aws-terrarium" | "openstreetmap" | "us-census" | "
  * stamps the other two. A file with no stamp is read as an unversioned file, which is
  * what it is. A file with a stamp this client does not know is refused.
  *
+ * The stamp means *the shape of that one file* moved, not that a whole wire generation
+ * did, which is why the shapes are written out in this file rather than summarised here:
+ * `boundaries.json` and `settlements.json` both read 2 for unrelated reasons, and
+ * `territories.json`'s 2 is the MultiPolygon described on `TerritoriesFile`. Check the
+ * type for the file you are reading, not the stamp alone.
+ *
  * Spelled `wire_version` and not `wireVersion` because that is what the file says, the
  * same way `travelEdgesMeta.matched_settlements` keeps its underscore. The build
  * camel-cases most multi-word fields; these two are the exception, and renaming them
@@ -286,6 +292,86 @@ export interface BoundariesFile extends WireStamped {
   vertexCount: number;
   note: string;
   boundaries: PlaceBoundaryFile[];
+}
+
+/**
+ * `territories.json`: the six factions' regions, as built by
+ * `services/world-data/tools/build-territories.py`.
+ *
+ * **Coordinates are `[lon, lat]` in this file, not the `[lat, lon]` every other wire file
+ * uses.** It is GeoJSON order, it is what the file has always carried, and the file states
+ * it in `coordinateOrder` so a renderer reads the order rather than assuming it. This is
+ * the one wire file in `public/world/` whose order differs; anything that draws from two of
+ * them has to swap one of them.
+ *
+ * **A faction's `polygon` is a MultiPolygon, not a ring.** Faction membership is a list of
+ * states (`config/world_data.toml [sections]`) and the honest polygon is the union of those
+ * states' Census rings, which is 8 polygons for the Mountain Alliance and 657 for the Pacific
+ * Compact, because each state is itself a multipolygon of islands and lake shorelines.
+ * Sections partition the states - `worlddata.config` refuses a build where a state is in two
+ * sections or in none - so no two polygons here overlap and a renderer fills all of them.
+ *
+ * It used to be a single convex hull of the faction's *settlement points*, which is the shape
+ * this replaced: a hull of settlement points necessarily contains every other settlement
+ * inside it, so 783 settlements - 5.9% of the country - were drawn inside a territory that
+ * was not theirs. Reading `polygon[0]` is not a cheaper version of this file, it is the
+ * western states of one faction and nothing else.
+ *
+ * `wire_version` 2 is this MultiPolygon shape. The hull shipped under the same stamp, which
+ * is the reason the stamp alone was never a reliable signal here; the shape is the contract.
+ * Nothing in `src/` reads this file yet, so no renderer has to be taught the old shape - but
+ * this type is the shape any renderer is to be written against.
+ */
+export interface FactionTerritory {
+  /** `section_key` from the pipeline, e.g. "great_lakes_union". Joins to nothing else; it is the faction's own id. */
+  faction: string;
+  /** The faction's display name, e.g. "Great Lakes Union". */
+  label: string;
+  /** Display colour, from the banners/art palette. */
+  color: string;
+  /** The member states, by Census name, in `config/world_data.toml [sections]` order. */
+  states: string[];
+  /** The same member states by FIPS, same order. */
+  state_fips: string[];
+  /** Placed settlements in this faction. Excludes settlements with no coordinates; see `no_position`. */
+  settlement_count: number;
+  /** Sum of the populations of those settlements. Real Census figures, not modelled ones. */
+  total_population: number;
+  capital: { id: string; name: string; lat: number; lon: number; population: number };
+  /** Each polygon is the exterior ring followed by its holes; each ring is a closed `[lon, lat]` list. */
+  polygon: [number, number][][];
+  polygon_count: number;
+  ring_count: number;
+  vertex_count: number;
+  /**
+   * Settlements sampled within 50 km of another faction's settlement. A *sample*: both sides
+   * are strided, so this is an estimate of the count and not the count.
+   */
+  border_settlement_sample: number;
+}
+
+export interface TerritoriesFile extends WireStamped {
+  wire_version: 2;
+  source: string;
+  licence: string;
+  coordinateOrder: string;
+  ringOrder: string;
+  /** When this build ran, UTC. A run stamp, not a typed-in date. */
+  generated: string;
+  faction_count: number;
+  /** Placed settlements across all six factions: the file's denominator. */
+  settlement_count: number;
+  /**
+   * Settlements with no latitude or longitude. They are in no territory, in no faction's
+   * population and in no faction's settlement count, and this is where a reader finds out.
+   */
+  no_position: { count: number; settlements: string[] };
+  /**
+   * Settlements that fall inside no polygon in this file, because the 500k state
+   * generalisation carries the state but not the island their own place polygon covers.
+   */
+  outside_every_territory: { count: number; settlements: string[] };
+  territories: FactionTerritory[];
 }
 
 /**

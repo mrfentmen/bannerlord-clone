@@ -28,6 +28,41 @@ Impact of the retune (both-ends snap rate):
 Config lives in `[travel].snap_radius_km_by_class` in `config/world_data.toml`;
 every value is validated positive at load and all three classes are required.
 
+## Route gate: fragments shorter than the straight line
+
+A snap radius decides whether a line endpoint *reaches* a town; it says nothing
+about whether the line between two snapped endpoints is a journey. TIGER/Line
+splits rail into yard leads, sidings and digitisation fragments, so with a 10 km
+rail radius a 30-metre fragment whose two ends land inside the radius of two
+different towns becomes a "route" between towns 19 km apart — shorter than the
+straight line between its own endpoints, which no traveller can walk. In the
+2026-10-01 export 6,154 of 9,648 rail edges were shorter than that line.
+
+`[travel].min_segment_gc_fraction = 0.5` closes it, per fragment: a fragment
+covering less than half the great-circle distance between its two settlements
+stays in `route_segments` and forms no `routes` edge. It was declared in config
+with this rationale and read by nothing until 2026-10-04, which is what made it a
+comment rather than a rule.
+
+Measured on the committed `dist/route_segments.parquet` with the gate applied:
+
+| kind | snapped fragments judged | dropped by the gate | share |
+|---|---:|---:|---:|
+| rail | 11,895 | 4,918 | 41.4% |
+| road | 8,440 | 997 | 11.8% |
+
+Edges from that segment table go from 11,047 to 9,028. The run numbers elsewhere
+in this document are from 2026-10-01 and predate the gate; they change on the
+next pipeline run.
+
+Two cases the gate deliberately keeps, because it removes manufactured edges and
+not settlements from the graph: a fragment with an endpoint that has no
+settlement position leaves the comparison undecidable and keeps its edge, and two
+settlements at the same point have no straight-line distance to be short of. A
+corridor whose every fragment falls below the gate loses its edge — the
+convention is written per fragment in config, and the cost is a real connection
+rather than a fabricated one.
+
 ## The graph (Tier 1A-9)
 
 `tools/build-travel-graph.py` reads the pipeline's `routes` + `settlements`

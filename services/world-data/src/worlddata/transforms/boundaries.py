@@ -13,10 +13,20 @@ it tests that every state the pipeline ships is present in both sources and
 that the two area figures agree to within the difference expected between a
 1:500k and a 1:10m generalisation. A state present in one and not the other, or
 whose areas disagree beyond that, stops the run.
+
+The place file is a second reader of the same two Census publications, and the
+two disagree about how a place is spelled. ``PlaceBoundaryIndex`` is the single
+lookup over those place boundaries, shared by both pipeline stages that need a
+settlement's centre, so the geometry stage and the seed stage cannot disagree
+about which settlements have a position. ``is_place_fragment`` and
+``base_place_name`` are the single definition of the Census Bureau's fragment
+marker, used here and by ``transforms.settlements``; they were previously two
+copies that drifted.
 """
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -103,6 +113,117 @@ class PlaceBoundary:
     latitude: float
     vertex_count: int
     ring_count: int
+
+
+# Census Bureau fragment markers, spelled the way the two source files spell them.
+#
+# The cartographic place file publishes a consolidated city-county government as
+# "Indianapolis city (balance)" because the government is two jurisdictions and
+# the file carries only the part outside the city. The Vintage estimates file
+# publishes the same place as "Indianapolis city", under SUMLEV 170, with PLACE
+# 00000. County parts appear as "West Peoria city (pt.)" and the remainder of a
+# county outside every place as "Balance of Cook County".
+#
+# Both files have to be readable and the join between them has to survive the
+# difference, so the marker is stripped in exactly one place. Two readers that
+# each carried their own copy of the rule is how the eight consolidated
+# governments came to resolve to no polygon at all.
+_FRAGMENT_PREFIX = "Balance of "
+_FRAGMENT_SUFFIXES = ("(pt.)", "(balance)")
+
+
+def is_place_fragment(name: str) -> bool:
+    """True for a row that is part of a place rather than the place itself.
+
+    The settlement reader uses this to drop fragment rows before they can be
+    counted as settlements of their own; the place reader uses `base_place_name`
+    to get behind the marker so a fragment spelling can still find its place.
+    """
+    return name.startswith(_FRAGMENT_PREFIX) or name.endswith(_FRAGMENT_SUFFIXES)
+
+
+def base_place_name(name: str) -> str:
+    """The place a fragment row belongs to, or the name unchanged.
+
+    'Indianapolis city (balance)' and 'Indianapolis city' are the same place in
+    two Census Bureau publications, and both spellings have to reach the same
+    entry in `PlaceBoundaryIndex` for the join to hold.
+    """
+    if name.startswith(_FRAGMENT_PREFIX):
+        return name[len(_FRAGMENT_PREFIX) :].strip()
+    for suffix in _FRAGMENT_SUFFIXES:
+        if name.endswith(suffix):
+            return name[: -len(suffix)].strip()
+    return name
+
+
+class PlaceBoundaryIndex:
+    """The one place lookup: place FIPS first, then (state FIPS, name).
+
+    Two keys, in that order, because the Census Bureau's own identifier is the
+    strongest key there is and must not be second-guessed. Everything keyed on a
+    place FIPS resolves on it alone.
+
+    The second key exists for the places the Census Bureau gives no place FIPS.
+    A Census-designated place and a consolidated city-county government are both
+    published as PLACE 00000, so their `settlement_id` is built from the state
+    FIPS and the name and a FIPS lookup can never hold them. Those are the eight
+    largest settlements in the export by population for Indianapolis, Louisville
+    and Nashville-Davidson, and they shipped with null coordinates, null land
+    area and null crowding because the fallback could not fire.
+
+    Two rules that the fallback has to obey, both learned from real data:
+
+    * **Both sides of the lookup are state FIPS.** Keying the index on the
+      boundary's state FIPS and looking it up with the population row's
+      ``state_name`` could never match - "18" is not "Indiana" - so the fallback
+      was dead code and every settlement that needed it silently got nothing.
+    * **An ambiguous name resolves to nothing.** Pennsylvania publishes two
+      "Liberty borough" places; picking either would put one town at the other
+      one's coordinates, which is worse than shipping no outline. Those keys are
+      reported in `ambiguous_names` so the settlements that carry one are
+      visible rather than merely absent.
+
+    The key is the place file's own ``NAME``, behind the fragment marker, and
+    not ``NAMELSAD``. The two disagree for 32,595 of the 32,608 rows in the 2023
+    file - the cartographic file puts the LSAD type in ``NAMELSAD`` only - and
+    indexing both spellings would make 90 further (state, name) pairs ambiguous
+    without resolving a single additional settlement in the published export.
+    """
+
+    def __init__(self, boundaries: Iterable[PlaceBoundary]) -> None:
+        self._by_key: dict[str, PlaceBoundary] = {}
+        candidates: dict[tuple[str, str], list[PlaceBoundary]] = {}
+        for boundary in boundaries:
+            key = f"{boundary.state_fips}-{boundary.place_fips}"
+            if key in self._by_key:
+                raise ParseError(
+                    f"two place boundaries share the identifier {key}; the place file is supposed to hold "
+                    "one row per state and place FIPS"
+                )
+            self._by_key[key] = boundary
+            name = base_place_name(boundary.name)
+            if name:
+                candidates.setdefault((boundary.state_fips, name), []).append(boundary)
+        self._by_state_name = {
+            key: members[0] for key, members in candidates.items() if len(members) == 1
+        }
+        self.ambiguous_names: list[tuple[str, str]] = sorted(
+            key for key, members in candidates.items() if len(members) > 1
+        )
+
+    def resolve(self, settlement_id: str, state_fips: str, name: str) -> PlaceBoundary | None:
+        """The boundary for one settlement, or None if there is not an unambiguous one.
+
+        ``settlement_id`` is the settlement's own identifier, ``state_fips`` its
+        Census state FIPS and ``name`` its name as the population file spells it.
+        A FIPS-keyed identifier resolves on its own; anything else falls back to
+        the state FIPS together with the name, behind the fragment marker.
+        """
+        by_fips = self._by_key.get(settlement_id)
+        if by_fips is not None:
+            return by_fips
+        return self._by_state_name.get((state_fips, base_place_name(name)))
 
 
 def _unpack_place_archive(archive_path: Path, cache_dir: Path) -> Path:

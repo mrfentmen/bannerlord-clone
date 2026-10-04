@@ -11,9 +11,11 @@ What this module builds:
   travel time, and a seeded road_safety.
 * ``routes`` - settlement-to-settlement edges. Each line endpoint is snapped to
   the nearest settlement within a configured radius; a line whose both endpoints
-  snap becomes an edge between two towns. A line with one snapped endpoint is
-  kept as a dangling route to the edge of the settled world, because deleting it
-  would silently lose real geography.
+  snap becomes an edge between two towns, provided the line is at least
+  ``travel.min_segment_gc_fraction`` of the straight-line distance between those
+  two towns. A line with one snapped endpoint is kept as a dangling route to the
+  edge of the settled world, because deleting it would silently lose real
+  geography.
 
 What it does not build: a street network. The Census PRIMARYROADS layer holds
 primary roads only. That gap is recorded in the data manifest.
@@ -279,6 +281,81 @@ def _seeded_safety(config: Config, road_class: str, kind: str, length_km: float)
     return max(0.0, min(float(config.get("road_safety.clamp_max")), value))
 
 
+def _grouped_pairs(segments: list[RouteSegment]) -> dict[tuple[str, str, str], list[RouteSegment]]:
+    """Snapped, non-loop segments grouped by the settlement pair and kind they connect.
+
+    The pair is sorted, because a route is undirected: the same corridor read
+    from either end is one edge, not two.
+    """
+    grouped: dict[tuple[str, str, str], list[RouteSegment]] = {}
+    for segment in segments:
+        if segment.from_settlement_id is None or segment.to_settlement_id is None:
+            continue
+        if segment.from_settlement_id == segment.to_settlement_id:
+            # A loop that starts and ends at the same town is not an edge between
+            # two settlements; it is a spur and stays a segment.
+            continue
+        left, right = sorted((segment.from_settlement_id, segment.to_settlement_id))
+        grouped.setdefault((left, right, segment.kind), []).append(segment)
+    return grouped
+
+
+def _covers_the_gap(
+    segment: RouteSegment,
+    left: str,
+    right: str,
+    settlement_points: dict[str, Coord],
+    min_segment_gc_fraction: float,
+) -> bool:
+    """Whether one fragment is long enough to be the journey it appears to be.
+
+    TIGER/Line splits rail into yard leads, sidings and digitisation fragments.
+    With a snap radius of 10 km on rail, a 30-metre fragment whose two ends land
+    inside the snap radius of two different towns is not a route between them; it
+    is a piece of track near each town at once. Measured on the 2023 national
+    rail layer, 2,263 of 9,648 rail route edges were shorter than the
+    great-circle distance between their own two endpoints, the worst a 0.01 km
+    "route" between towns 3.9 km apart.
+
+    Two cases are deliberately kept rather than dropped, because the gate exists
+    to remove manufactured edges and not to remove settlements from the graph:
+
+    * an endpoint with no position in the index leaves the comparison
+      undecidable, and an undecidable edge stays;
+    * two towns at the same point have no straight-line distance to be short of.
+    """
+    if min_segment_gc_fraction <= 0.0:
+        return True
+    left_point = settlement_points.get(left)
+    right_point = settlement_points.get(right)
+    if left_point is None or right_point is None:
+        return True
+    straight_km = haversine_km(left_point, right_point)
+    if straight_km <= 0.0:
+        return True
+    return segment.length_km >= straight_km * min_segment_gc_fraction
+
+
+def _gate_drop_counts(
+    segments: list[RouteSegment],
+    settlement_points: dict[str, Coord],
+    min_segment_gc_fraction: float,
+) -> dict[str, tuple[int, int]]:
+    """Fragments the gate keeps and drops, per kind, as (kept, dropped).
+
+    Measured over the same grouping and the same predicate the edge builder uses,
+    so the note in the pipeline log is the gate's own arithmetic rather than a
+    second implementation of it that could drift.
+    """
+    counts: dict[str, list[int]] = {}
+    for (left, right, kind), members in _grouped_pairs(segments).items():
+        entry = counts.setdefault(kind, [0, 0])
+        for segment in members:
+            survives = _covers_the_gap(segment, left, right, settlement_points, min_segment_gc_fraction)
+            entry[0 if survives else 1] += 1
+    return {kind: (kept, dropped) for kind, (kept, dropped) in counts.items()}
+
+
 def _load_lines(
     config: Config,
     archive_name: str,
@@ -388,11 +465,21 @@ def load_routes(
     """Load roads and rail, then build the settlement-to-settlement route graph.
 
     ``settlement_points`` maps settlement identifier to its longitude and
-    latitude, resolved by the settlements stage.
+    latitude, resolved by the settlements stage. The same map measures the
+    straight line between two snapped towns, which is what
+    ``travel.min_segment_gc_fraction`` is applied to; without it the configured
+    knob would be a comment, and 63.8% of the committed rail edges were shorter
+    than the great-circle distance between their own endpoints.
     """
     if not settlement_points:
         raise ParseError(
             "the route graph was asked to snap to an empty settlement set; run the settlements stage first"
+        )
+    min_segment_gc_fraction = float(config.get("travel.min_segment_gc_fraction"))
+    if not 0.0 <= min_segment_gc_fraction <= 1.0:
+        raise ParseError(
+            f"travel.min_segment_gc_fraction is {min_segment_gc_fraction}, which is not a fraction of the "
+            "straight line between two settlements; config/world_data.toml documents 0.25..0.75"
         )
     segments: list[RouteSegment] = []
     notes: list[str] = []
@@ -418,12 +505,29 @@ def load_routes(
         "the export can seek to a segment instead of rescanning the file."
     )
 
-    routes = _build_route_edges(segments)
+    routes = _build_route_edges(
+        segments,
+        settlement_points=settlement_points,
+        min_segment_gc_fraction=min_segment_gc_fraction,
+    )
     connected = sum(1 for route in routes if route.from_settlement_id and route.to_settlement_id)
     notes.append(
         f"Built {len(routes)} settlement-to-settlement route edges from {len(segments)} imported lines "
         f"({connected} have settlements at both ends)."
     )
+    dropped_notes = []
+    gate_counts = _gate_drop_counts(segments, settlement_points, min_segment_gc_fraction)
+    for kind, (kept, dropped) in sorted(gate_counts.items()):
+        if not dropped:
+            continue
+        dropped_notes.append(f"{kind}: {dropped:,} of {kept + dropped:,} snapped fragments")
+    if dropped_notes:
+        notes.append(
+            f"Line fragments shorter than travel.min_segment_gc_fraction ({min_segment_gc_fraction:g}) of the "
+            "straight line between the two settlements they snapped to formed no route edge, and stayed in the "
+            "segment table. Fragments that gate removed: " + "; ".join(dropped_notes) + ". A fragment with an "
+            "endpoint that has no settlement position is left undecidable and keeps its edge."
+        )
     notes.append(
         "Road length is the sum of great-circle distances between consecutive real vertices of the Census "
         "centreline. It is not a posted-mileage figure and will be shorter on mountainous terrain than a "
@@ -432,21 +536,41 @@ def load_routes(
     return segments, routes, notes
 
 
-def _build_route_edges(segments: list[RouteSegment]) -> list[Route]:
-    """Turn snapped segments into undirected settlement-to-settlement routes."""
-    grouped: dict[tuple[str, str, str], list[RouteSegment]] = {}
-    for segment in segments:
-        if segment.from_settlement_id is None or segment.to_settlement_id is None:
-            continue
-        if segment.from_settlement_id == segment.to_settlement_id:
-            # A loop that starts and ends at the same town is not an edge between
-            # two settlements; it is a spur and stays a segment.
-            continue
-        left, right = sorted((segment.from_settlement_id, segment.to_settlement_id))
-        grouped.setdefault((left, right, segment.kind), []).append(segment)
+def _build_route_edges(
+    segments: list[RouteSegment],
+    *,
+    settlement_points: dict[str, Coord] | None = None,
+    min_segment_gc_fraction: float | None = None,
+) -> list[Route]:
+    """Turn snapped segments into undirected settlement-to-settlement routes.
 
+    ``settlement_points`` and ``min_segment_gc_fraction`` together switch on the
+    gate that refuses to make a route edge out of a fragment that is far shorter
+    than the straight line between the two towns it snapped to; see
+    `_covers_the_gap` for why and for the two cases it leaves alone.
+
+    Both default to None, which is the unfiltered behaviour and the reason the
+    gate is an argument rather than a change of default: a caller with no
+    settlement positions - a repair tool working from the committed segment table,
+    say - still gets every snapped pair, exactly as before the gate existed. The
+    gate is per fragment, as `travel.min_segment_gc_fraction` describes it, so a
+    corridor carried by several parallel tracks keeps its edge on whichever
+    fragments survive.
+    """
+    grouped = _grouped_pairs(segments)
+    if settlement_points is not None and min_segment_gc_fraction is not None:
+        grouped = {
+            key: [
+                segment
+                for segment in members
+                if _covers_the_gap(segment, key[0], key[1], settlement_points, min_segment_gc_fraction)
+            ]
+            for key, members in grouped.items()
+        }
     routes: list[Route] = []
     for (left, right, kind), members in sorted(grouped.items()):
+        if not members:
+            continue
         length = sum(segment.length_km for segment in members)
         # Length-weighted mean safety: a short dangerous spur should not drag a
         # long safe highway down as hard as a long dangerous one would lift it.
