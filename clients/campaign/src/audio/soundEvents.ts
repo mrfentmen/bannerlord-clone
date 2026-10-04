@@ -161,6 +161,11 @@ export const SOUND_EVENTS = {
   "combat.weapon-switch": { id: "sfx-ui-click", volume: 0.5, hook: "A weapon is switched." },
   "combat.artillery-distant": { id: "sfx-weapon-distant-artillery", volume: 0.6, hook: "Distant artillery fires." },
   "combat.body-fall": { id: "sfx-melee-mace-thud", volume: 0.5, hook: "A body hits the ground." },
+  // Tasks 510, 521, 522, 526: movement and ambient loops
+  "combat.footstep": { id: "sfx-foley-footstep", volume: 0.3, hook: "A footstep. Surface varies by terrain." },
+  "combat.ambient-battle": { id: "sfx-ambient-battlefield", volume: 0.4, loop: true, hook: "Distant battle ambience loop." },
+  "combat.rain-loop": { id: "sfx-ambient-rain", volume: 0.35, loop: true, hook: "Rain loop when raining." },
+  "combat.suppressive-fire": { id: "sfx-weapon-suppressive", volume: 0.5, loop: true, hook: "Suppressive fire loop." },
 
   // -- Campaign ------------------------------------------------------------
   "construction.complete": { id: "sfx-forge-steel-pour", volume: 0.7, hook: "A building or project finishes." },

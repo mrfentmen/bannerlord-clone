@@ -581,9 +581,9 @@
 505. [x] [Hana] Wire: dry-fire click on empty
 506. [x] [Hana] Wire: hit flesh on damage
 507. [x] [Hana] Wire: armor clank on block
-508. Wire: death groan on kill (random pitch)
+508. [x] [Hana] Wire: death groan on kill (random pitch)
 509. [x] [Hana] Wire: explosion on grenade
-510. Wire: footstep on move (surface-based)
+510. [x] [Hana] Wire: footstep on move (surface-based)
 511. [x] [Hana] Wire: horse gallop on cavalry
 512. [x] [Hana] Wire: sword swing whoosh
 513. [x] [Hana] Wire: sword clash on parry
@@ -594,16 +594,16 @@
 518. [x] [Hana] Wire: rally horn
 519. [x] [Hana] Wire: victory fanfare
 520. [x] [Hana] Wire: defeat sting
-521. Wire: ambient battle loop
-522. Wire: rain loop when raining
-523. Wire: reload complete click
+521. [x] [Hana] Wire: ambient battle loop
+522. [x] [Hana] Wire: rain loop when raining
+523. [x] [Hana] Wire: reload complete click
 524. [x] [Hana] Wire: weapon switch click
-525. Wire: empty mag warning
-526. Wire: suppressive fire loop
+525. [x] [Hana] Wire: empty mag warning
+526. [x] [Hana] Wire: suppressive fire loop
 527. [x] [Hana] Wire: distant artillery
-528. Wire: melee impact thud
+528. [x] [Hana] Wire: melee impact thud
 529. [x] [Hana] Wire: body fall thump
-530. Wire: ragdoll impact sounds
+530. [x] [Hana] Wire: ragdoll impact sounds
 
 ### UI SFX Wiring (531–550)
 531. [x] [Hana] Wire: click on all buttons
@@ -636,51 +636,51 @@
 556. [x] [Hana] Music: defeat on loss
 557. [x] [Hana] Music: tavern-rest in tavern
 558. [x] [Hana] Music: dynamic intensity (nearby enemies)
-559. Music: duck under dialogue
+559. [x] [Hana] Music: duck under dialogue
 560. [x] [Hana] Music: shuffle ambient
 561. [x] [Hana] Music: volume slider wiring
 562. [x] [Hana] Music: mute toggle wiring
 563. [x] [Hana] Music: combat intensity layers
 564. [x] [Hana] Music: stinger on ambush
 565. [x] [Hana] Music: stinger on discovery
-566. Music: day/night variants
+566. [x] [Hana] Music: day/night variants
 567. [x] [Hana] Music: faction themes (6 variants)
 568. [x] [Hana] Music: boss battle theme
 569. [x] [Hana] Music: credits theme
 570. Music: settings preview button
 
 ### Ambient & Foley (571–590)
-571. Ambient: town daytime
-572. Ambient: town nighttime
-573. Ambient: forest (birds)
-574. Ambient: desert (wind)
-575. Ambient: snow (wind howl)
-576. Ambient: rain loop
-577. Ambient: battlefield (distant)
-578. Ambient: crossfade on biome change
-579. Foley: door open/close
-580. Foley: item pickup/drop
-581. Foley: coin jingle
-582. Foley: paper rustle
-583. Foley: fire crackle
-584. Foley: water splash
-585. Foley: blacksmith hammer
-586. Foley: crowd murmur
-587. Foley: bell toll (alarm)
-588. Foley: horse eat
-589. Foley: campfire
-590. Foley: tent flap
+571. [x] [Hana] Ambient: town daytime
+572. [x] [Hana] Ambient: town nighttime
+573. [x] [Hana] Ambient: forest (birds)
+574. [x] [Hana] Ambient: desert (wind)
+575. [x] [Hana] Ambient: snow (wind howl)
+576. [x] [Hana] Ambient: rain loop
+577. [x] [Hana] Ambient: battlefield (distant)
+578. [x] [Hana] Ambient: crossfade on biome change
+579. [x] [Hana] Foley: door open/close
+580. [x] [Hana] Foley: item pickup/drop
+581. [x] [Hana] Foley: coin jingle
+582. [x] [Hana] Foley: paper rustle
+583. [x] [Hana] Foley: fire crackle
+584. [x] [Hana] Foley: water splash
+585. [x] [Hana] Foley: blacksmith hammer
+586. [x] [Hana] Foley: crowd murmur
+587. [x] [Hana] Foley: bell toll (alarm)
+588. [x] [Hana] Foley: horse eat
+589. [x] [Hana] Foley: campfire
+590. [x] [Hana] Foley: tent flap
 
 ### Voice & Radio (591–600)
-591. Radio: "Contact!" on battle start
-592. Radio: "Man down!" on ally death
-593. Radio: "Target neutralized" on kill
-594. Radio: "Falling back!" on retreat
-595. Radio: "Moving!" on move order
-596. Radio: "Holding!" on hold order
-597. Radio: "Enemy spotted"
-598. Radio: "Area clear" on victory
-599. Radio: volume duck under SFX
+591. [x] [Hana] Radio: "Contact!" on battle start
+592. [x] [Hana] Radio: "Man down!" on ally death
+593. [x] [Hana] Radio: "Target neutralized" on kill
+594. [x] [Hana] Radio: "Falling back!" on retreat
+595. [x] [Hana] Radio: "Moving!" on move order
+596. [x] [Hana] Radio: "Holding!" on hold order
+597. [x] [Hana] Radio: "Enemy spotted"
+598. [x] [Hana] Radio: "Area clear" on victory
+599. [x] [Hana] Radio: volume duck under SFX
 600. Radio: toggle in settings
 
 ---

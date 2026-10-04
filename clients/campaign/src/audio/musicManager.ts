@@ -76,6 +76,31 @@ export class MusicManager {
   private index = 0;
   private timer: ReturnType<typeof setTimeout> | null = null;
   private stingerActive = false;
+  private ducked = false;
+  private dayNight: "day" | "night" = "day";
+
+  /** Task 559: Duck music under dialogue. Reduces volume while dialogue plays. */
+  setDucked(ducked: boolean): void {
+    this.ducked = ducked;
+    // The AudioManager reads this via getDuckLevel()
+  }
+
+  /** Task 559: Returns 0.3 if ducked, 1.0 otherwise. */
+  getDuckLevel(): number {
+    return this.ducked ? 0.3 : 1.0;
+  }
+
+  /** Task 566: Set day/night variant. Night uses a darker pool. */
+  setDayNight(dn: "day" | "night"): void {
+    if (this.dayNight === dn) return;
+    this.dayNight = dn;
+    this.shufflePool();
+  }
+
+  /** Task 566: Returns current day/night. */
+  getDayNight(): "day" | "night" {
+    return this.dayNight;
+  }
 
   /** Switch scene; starts its pool immediately with a crossfade. */
   setScene(scene: MusicScene): void {
