@@ -103,6 +103,21 @@ export interface DiplomacyPanelOptions {
   onBreakMercenary?: () => Promise<void>;
   /** Factions available for mercenary work. */
   mercenaryFactions?: { id: string; name: string }[];
+  /**
+   * The simulation's own wars (attacker/defender factions, scores, exhaustion),
+   * as the caller holds them from the snapshot. Omitted, the section is absent.
+   */
+  simWars?: { id: string; attackerFactionId: string; defenderFactionId: string; startDay: number; exhaustion: number; attackerScore: number; defenderScore: number }[];
+  /** Declare war on a faction through the simulation. */
+  onDeclareWar?: (targetFactionId: string) => Promise<{ warId: string }>;
+  /** Make peace through the simulation, ending a war. */
+  onMakePeace?: (warId: string) => Promise<void>;
+  /** Defect: leave your clan for another faction. */
+  onDefectClan?: (joinFactionId?: string) => Promise<{ line: string }>;
+  /** The player's current faction id, so the wars list can name who is who. */
+  playerFactionId?: string;
+  /** Called after a sim order changed the world, so the caller repaints. */
+  onWorldChanged?: () => void;
 }
 
 export function diplomacyPanel(options: DiplomacyPanelOptions): HTMLElement {
@@ -343,6 +358,91 @@ function buildDiplomacyPanel(options: DiplomacyPanelOptions, notice: string | nu
 
   // -- mercenary work ----------------------------------------------------------
   // Bannerlord's sellsword life: fight for a faction without swearing fealty.
+  // -- the simulation's wars (bucket 6): what the world is actually fighting --
+  if (options.simWars !== undefined) {
+    body.appendChild(sectionHeader("Wars of the realm"));
+    if (options.simWars.length === 0) {
+      body.appendChild(
+        emptyState("No wars", "The realm is at peace. Declaring war is below, if you mean to end that."),
+      );
+    } else {
+      for (const w of options.simWars) {
+        const mine = options.playerFactionId !== undefined && (w.attackerFactionId === options.playerFactionId || w.defenderFactionId === options.playerFactionId);
+        const card = h("div", { class: "field-row", "data-testid": `simwar-${w.id}`, style: "margin-bottom:var(--space-3)" });
+        card.append(
+          h("div", {},
+            h("strong", { class: "label" }, `${w.attackerFactionId} vs ${w.defenderFactionId}${mine ? " (yours)" : ""}`),
+            h("p", { class: "caption", style: "margin:0" },
+              `Day ${w.startDay} · score ${w.attackerScore}–${w.defenderScore} · exhaustion ${Math.round(w.exhaustion)}%`),
+          ),
+        );
+        if (mine && options.onMakePeace) {
+          const peaceBtn = h("button", { type: "button", class: "btn", "data-testid": `simwar-peace-${w.id}` }, "Sue for peace");
+          peaceBtn.addEventListener("click", () => {
+            peaceBtn.disabled = true;
+            void options.onMakePeace!(w.id).then(
+              () => {
+                peaceBtn.disabled = false;
+                rerender("The war is ended. The treaty is signed.");
+                options.onWorldChanged?.();
+              },
+              (err: unknown) => {
+                peaceBtn.disabled = false;
+                rerender(err instanceof Error && err.message ? err.message : "The peace did not land.");
+              },
+            );
+          });
+          card.append(peaceBtn);
+        }
+        body.appendChild(card);
+      }
+    }
+    if (options.onDeclareWar) {
+      const enemyInput = h("input", { class: "field__input", "data-testid": "simwar-enemy-input", placeholder: "faction id to attack", "aria-label": "Faction id to declare war on" });
+      const declareBtn = h("button", { type: "button", class: "btn", "data-testid": "simwar-declare" }, "Declare war");
+      declareBtn.addEventListener("click", () => {
+        const enemy = enemyInput.value.trim();
+        if (!enemy) return;
+        declareBtn.disabled = true;
+        void options.onDeclareWar!(enemy).then(
+          () => {
+            declareBtn.disabled = false;
+            enemyInput.value = "";
+            rerender("War is declared. There is no undoing it.");
+            options.onWorldChanged?.();
+          },
+          (err: unknown) => {
+            declareBtn.disabled = false;
+            rerender(err instanceof Error && err.message ? err.message : "The declaration did not land.");
+          },
+        );
+      });
+      body.appendChild(h("div", { class: "form-row" }, enemyInput, declareBtn));
+    }
+  }
+
+  // -- defection (bucket 6) -------------------------------------------------
+  if (options.onDefectClan) {
+    body.appendChild(sectionHeader("Defection"));
+    const defectInput = h("input", { class: "field__input", "data-testid": "defect-faction-input", placeholder: "faction to defect to (optional)", "aria-label": "Faction id to defect to" });
+    const defectBtn = h("button", { type: "button", class: "btn", "data-testid": "defect-clan" }, "Leave your clan");
+    defectBtn.addEventListener("click", () => {
+      defectBtn.disabled = true;
+      void options.onDefectClan!(defectInput.value.trim() || undefined).then(
+        (r) => {
+          defectBtn.disabled = false;
+          rerender(r.line);
+          options.onWorldChanged?.();
+        },
+        (err: unknown) => {
+          defectBtn.disabled = false;
+          rerender(err instanceof Error && err.message ? err.message : "The defection did not land.");
+        },
+      );
+    });
+    body.appendChild(h("div", { class: "form-row" }, defectInput, defectBtn));
+  }
+
   if (options.onSignMercenary || options.mercenaryContract !== undefined) {
     body.appendChild(sectionHeader("Mercenary work"));
     const contract = options.mercenaryContract;
@@ -369,9 +469,14 @@ function buildDiplomacyPanel(options: DiplomacyPanelOptions, notice: string | nu
                   class: "btn",
                   "data-testid": "mercenary-break",
                   onclick: async () => {
-                    soundContractEnded(true);
-                    await options.onBreakMercenary?.();
-                    rerender("Contract broken. The faction will remember.");
+                    try {
+                      await options.onBreakMercenary?.();
+                      soundContractEnded(true);
+                      rerender("Contract broken. The faction will remember.");
+                      options.onWorldChanged?.();
+                    } catch (err) {
+                      rerender(err instanceof Error && err.message ? err.message : "The contract held. It did not break.");
+                    }
                   },
                 },
                 "Break contract",
@@ -397,9 +502,14 @@ function buildDiplomacyPanel(options: DiplomacyPanelOptions, notice: string | nu
                       class: "btn",
                       "data-testid": `mercenary-sign-${faction.id}`,
                       onclick: async () => {
-                        soundContractSigned();
-                        await options.onSignMercenary?.(faction.id, faction.name);
-                        rerender(`Signed with ${faction.name}.`);
+                        try {
+                          await options.onSignMercenary?.(faction.id, faction.name);
+                          soundContractSigned();
+                          rerender(`Signed with ${faction.name}.`);
+                          options.onWorldChanged?.();
+                        } catch (err) {
+                          rerender(err instanceof Error && err.message ? err.message : "They did not take the contract.");
+                        }
                       },
                     },
                     "Sign on",

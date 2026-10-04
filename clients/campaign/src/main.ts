@@ -1886,14 +1886,60 @@ function openLoans(): void {
 
 function openDiplomacy(): void {
   currentPanel = "none";
+  const factions = [...new Map((snapshot?.rulers ?? []).map((r) => [r.factionId, { id: r.factionId, name: r.factionName }])).values()]
+    .filter((f) => f.id !== snapshot?.player.factionId);
   contextNode = diplomacyPanel({
     currentSeason: seasonForDay(snapshot?.day ?? 0),
+    factions,
+    // Bucket 6: the simulation's own wars, mercenary contracts, defection.
+    // No war/mercenary routes on the live server yet, so there the orders fail
+    // with the transport's own message; the fixture serves them all.
+    simWars: snapshot?.wars ?? [],
+    ...(snapshot ? { playerFactionId: snapshot.player.factionId } : {}),
+    onDeclareWar: (targetFactionId) => {
+      if (!snapshot) throw new Error("No snapshot to declare war against.");
+      return provider.declareWar(targetFactionId).then((r) => {
+        playVerdictSound(true);
+        void refreshAfterSimOrder();
+        return r;
+      });
+    },
+    onMakePeace: (warId) =>
+      provider.makePeace(warId).then(() => {
+        void refreshAfterSimOrder();
+      }),
+    onDefectClan: (joinFactionId) =>
+      provider.defectClan("clan-player", joinFactionId).then((r) => {
+        void refreshAfterSimOrder();
+        return r;
+      }),
+    mercenaryContract: null,
+    onSignMercenary: async (factionId, factionName) => {
+      await provider.signMercenaryContract(factionId, factionName);
+      void refreshAfterSimOrder();
+    },
+    onBreakMercenary: async () => {
+      await provider.breakMercenaryContract();
+      void refreshAfterSimOrder();
+    },
+    mercenaryFactions: factions,
+    onWorldChanged: () => {
+      void refreshAfterSimOrder();
+    },
     onClose: () => {
       currentPanel = "none";
       contextNode = null;
       paint();
     },
   });
+  paint();
+}
+
+/** Re-read the snapshot after a diplomacy order moved the world. */
+async function refreshAfterSimOrder(): Promise<void> {
+  previous = snapshot;
+  snapshot = await provider.getSnapshot();
+  rebuildContext();
   paint();
 }
 

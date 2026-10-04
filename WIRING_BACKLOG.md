@@ -66,7 +66,7 @@ Hana's cue map is complete; the game never calls most of it. Biggest clusters:
 3. [DONE this commit] Notables talk/relations (town social loop) — gift/favor are real routes; ask-recruits/ask-quest stay as the sim's own information lines until the contract grows an execution method
 4. [DONE this commit] Dynasty + clan power panels (ClanPanel: family/heir/fiefs, courtship, tier + found kingdom, held lords)
 5. [DONE this commit] Sieges + armies (war loop) — siege section live on town panel; armies read + ordered in ClanPanel (army routes not yet on the live server: orders fail with the transport's own message)
-6. Diplomacy re-wire (mercenary contracts were wiped once already)
+6. [DONE this commit] Diplomacy re-wire (sim wars + declare/peace + defection + mercenary contracts restored to DiplomacyPanel; refusal text no longer swallowed)
 7. Economy/crime cluster
 8. Troops verification, sound events (spread across all of the above)
 9. Bandits/bounties (needs contract work, not just UI)
