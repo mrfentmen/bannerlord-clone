@@ -27,6 +27,13 @@ import { tickConformity, checkConformity, recruitmentMoraleCost } from "../../af
 import { startPregnancy, conceptionChance, pregnancyStatus, resolveBirth, type Pregnancy } from "../../clan/pregnancy.js";
 import { expressInterest, courtAction, propose, type Courtship, type CourtAction } from "../../clan/courtship.js";
 import { sellToBroker } from "../../economy/brokers.js";
+import { WORKSHOP_RECIPES, runWorkshopDay } from "../../economy/workshopChains.js";
+import { branchChoices, getBranch, isValidBranch } from "../../troop/branches.js";
+import { emptyEnginePark, queueEngine, moveEngine, tickEngines, deployedDamage, engineType } from "../../siege/engines.js";
+import { startDiceGame, playDiceRound, settleDiceGame, npcStake } from "../../tavern/games.js";
+import { saveTemplate, refitToward, templateSummary, type PartyTemplate } from "../../party/templates.js";
+import { maxStamina, checkStamina, spendStamina, recoverStamina, SMELT_STAMINA_PER_ARMS, forgeStaminaCost } from "../../campaign/smithingStamina.js";
+import { influenceGain, spendInfluence, type InfluenceGainSource, type InfluenceSpendAction } from "../../court/influence.js";
 import type {
   BattleResult,
   CauseRow,
@@ -183,6 +190,9 @@ const GOOD_NAMES: Record<GoodId, string> = {
   textiles: "Textiles",
   tools: "Tools",
   lumber: "Lumber",
+  beer: "Beer",
+  cloth: "Cloth",
+  leather: "Leather",
 };
 
 const GOOD_IDS = Object.keys(GOOD_NAMES) as GoodId[];
@@ -198,6 +208,9 @@ const BASE_PRICE: Record<GoodId, number> = {
   textiles: 26,
   tools: 48,
   lumber: 19,
+  beer: 18,
+  cloth: 32,
+  leather: 45,
 };
 
 function mulberry32(seed: number): () => number {
@@ -373,10 +386,21 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     proposeMarriage: async () => state.proposeMarriage(),
     getCourtships: async () => state.getCourtships(),
     sellPrisonersToBroker: async (townId, troopId, count) => state.sellPrisonersToBroker(townId, troopId, count),
+    playTavernDice: async (townId, stake) => state.playTavernDice(townId, stake),
+    savePartyTemplate: async (name) => state.savePartyTemplate(name),
+    getPartyTemplates: async () => state.getPartyTemplates(),
+    refitPartyToward: async (templateId) => state.refitPartyToward(templateId),
+    queueSiegeEngine: async (siegeId, typeId) => state.queueSiegeEngine(siegeId, typeId),
+    moveSiegeEngine: async (siegeId, typeId, to) => state.moveSiegeEngine(siegeId, typeId, to),
+    makeFireVariant: async (siegeId, typeId) => state.makeFireVariant(siegeId, typeId),
+    getSiegeEngines: async (siegeId) => state.getSiegeEngines(siegeId),
+    getSmithingStamina: async () => state.getSmithingStamina(),
+    spendInfluenceAction: async (action) => state.spendInfluenceAction(action),
+    getInfluence: async () => state.getInfluence(),
     killCharacter: async (charId, cause) => state.killCharacter(charId, cause),
     getHeir: async (clanId) => state.getHeir(clanId),
     debugSetClanTier: async (clanId, tier) => state.debugSetClanTier(clanId, tier),
-    debugAddPrisoners: async (troopId, name, count, tier) => state.debugAddPrisoners(troopId, name, count, tier),
+    debugAddPrisoners: async (troopId, name, count, tier, conformity) => state.debugAddPrisoners(troopId, name, count, tier, conformity),
     restoreSnapshot: async (snapshot) => state.restoreSnapshot(snapshot),
     getNearbyHostiles: async (rangeKm) => state.getNearbyHostiles(rangeKm),
     upgradeTroops: async (request) => state.upgradeTroops(request),
@@ -437,6 +461,10 @@ class FixtureState {
   #pregnancies: Pregnancy[] = [];
   /** Active courtships. */
   #courtships: Courtship[] = [];
+  /** Smithing stamina remaining (refills each dawn). */
+  #smithingStamina = 100;
+  /** Saved party composition templates. */
+  #partyTemplates: PartyTemplate[] = [];
   /** Outstanding fines per town ID. */
   #fines: Map<string, number> = new Map();
   #rulers: RulerState[] = [];
@@ -952,6 +980,8 @@ class FixtureState {
       heldLords: structuredClone(this.#heldLords),
       pregnancies: structuredClone(this.#pregnancies),
       courtships: structuredClone(this.#courtships),
+      partyTemplates: structuredClone(this.#partyTemplates),
+      smithingStamina: this.#smithingStamina,
       quests: structuredClone(this.#quests),
       fines: Object.fromEntries(this.#fines),
       ledger: structuredClone(this.#ledger),
@@ -1607,15 +1637,23 @@ class FixtureState {
     this.#pregnancyTick();
     this.#conformityTick();
 
-    // Workshop income: each workshop generates daily income based on town prosperity.
+    // Smithing stamina refills each dawn; the forge can only take so much.
+    this.#smithingStamina = recoverStamina(this.#player.skills?.["crafting"] ?? 0);
+
+    // Workshop production: each workshop runs its recipe against the town
+    // market — buys inputs, sells outputs, pays wages, keeps the difference.
     for (const workshop of this.#workshops) {
       const town = this.#towns.get(workshop.townId);
-      if (!town) continue;
+      const market = this.#markets.get(workshop.townId);
+      if (!town || !market) continue;
       workshop.ageDays += 1;
-      // Income scales with prosperity (0.5 to 1.5x base)
-      const prosperityFactor = 0.5 + (town.prosperity / 100);
-      const income = Math.round(workshop.dailyIncome * prosperityFactor);
-      this.#party.money += income;
+      const recipe = WORKSHOP_RECIPES[workshop.type];
+      if (!recipe) continue;
+      const lines = new Map(market.goods.map((g) => [g.goodId, g]));
+      const result = runWorkshopDay(recipe, lines, workshop.name);
+      workshop.lastProfit = result.profit;
+      workshop.dailyIncome = result.profit;
+      this.#party.money += result.profit;
     }
 
     const townDeltas: Record<string, Partial<TownState>> = {};
@@ -1942,6 +1980,11 @@ class FixtureState {
     const available = arms?.quantity ?? 0;
     const take = Math.max(0, Math.min(quantity, available));
     if (take <= 0) throw new Error("No arms to smelt.");
+    const crafting = this.#player.skills?.["crafting"] ?? 0;
+    const staminaCost = take * SMELT_STAMINA_PER_ARMS;
+    const staminaCheck = checkStamina({ crafting, stamina: this.#smithingStamina }, staminaCost);
+    if (!staminaCheck.ok) throw new Error(staminaCheck.reason);
+    this.#smithingStamina = spendStamina({ crafting, stamina: this.#smithingStamina }, staminaCost);
     arms!.quantity -= take;
     const metal = take * 2;
     this.#party.metal += metal;
@@ -1958,6 +2001,11 @@ class FixtureState {
     const fuel = this.#party.goods.find((g) => g.goodId === "fuel");
     const check = canForge(recipe, this.#party.metal, fuel?.quantity ?? 0);
     if (!check.ok) throw new Error(`Cannot forge ${recipe.name}: ${check.reason}.`);
+    const crafting = this.#player.skills?.["crafting"] ?? 0;
+    const staminaCost = forgeStaminaCost(Math.ceil(recipe.metal / 2));
+    const staminaCheck = checkStamina({ crafting, stamina: this.#smithingStamina }, staminaCost);
+    if (!staminaCheck.ok) throw new Error(staminaCheck.reason);
+    this.#smithingStamina = spendStamina({ crafting, stamina: this.#smithingStamina }, staminaCost);
     this.#party.metal -= recipe.metal;
     fuel!.quantity -= recipe.fuel;
     // Bannerlord names every forge: stitch descriptors onto the base item.
@@ -2487,6 +2535,8 @@ class FixtureState {
       ...c,
       stage: c.stage as Courtship["stage"],
     }));
+    this.#partyTemplates = structuredClone(snapshot.partyTemplates ?? []);
+    this.#smithingStamina = snapshot.smithingStamina ?? 100;
     // Player-founded kingdoms persist: re-derive from the side list.
     this.#extraSides = structuredClone(
       (snapshot.sides ?? []).filter((s) => s.id.startsWith("kingdom-")),
@@ -2725,6 +2775,9 @@ class FixtureState {
       entityId: this.#party.id,
       field: "troops",
     });
+
+    // Influence: victories are heard. The realm notices who wins.
+    if (won) this.#awardInfluence("battle-victory");
 
     // Mercenary victory pay: the contract pays per battle won.
     if (won && this.#contract) {
@@ -3255,6 +3308,7 @@ class FixtureState {
     const relationGained = 15;
     this.#adjustFactionRelation(lord.factionId, relationGained);
     this.#player.honor = (this.#player.honor ?? 0) + 10;
+    this.#awardInfluence("release-lord");
     this.#notifications.push({
       id: `n-lord-release-${this.#sequence++}`,
       day: this.#day,
@@ -3519,6 +3573,7 @@ class FixtureState {
       attackerCasualties: 0,
       defenderCasualties: 0,
       siegeEngines: 0,
+      engines: emptyEnginePark(),
     };
     const siege: Siege = armyId ? { ...siegeBase, armyId } : siegeBase;
     this.#sieges.push(siege);
@@ -3584,6 +3639,7 @@ class FixtureState {
       town.garrison = Math.max(0, town.garrison - defenderLoss);
       town.underSiege = false;
       town.loyalty = Math.max(0.1, town.loyalty - 0.3); // Conquered populace is unhappy
+      this.#awardInfluence("siege-victory");
 
       // Apply attacker casualties to parties
       this.#applySiegeCasualties(siege.attackerPartyIds, attackerLoss);
@@ -3653,6 +3709,122 @@ class FixtureState {
     }
 
     return { victory, casualties: attackerLoss };
+  }
+
+  /** Queue a siege engine for construction at a siege. Costs gold. */
+  async queueSiegeEngine(siegeId: string, typeId: string): Promise<{ cost: number }> {
+    const siege = this.#sieges.find((s) => s.id === siegeId);
+    if (!siege) throw new Error("Siege not found.");
+    siege.engines ??= emptyEnginePark();
+    const { cost } = queueEngine(siege.engines, typeId);
+    if (this.#party.money < cost) {
+      siege.engines.queue.pop();
+      throw new Error(`A ${engineType(typeId)?.name ?? typeId} costs ${cost} gold.`);
+    }
+    this.#party.money -= cost;
+    return { cost };
+  }
+
+  /** Move a siege engine between reserve and deployed. */
+  async moveSiegeEngine(siegeId: string, typeId: string, to: "reserve" | "deployed"): Promise<void> {
+    const siege = this.#sieges.find((s) => s.id === siegeId);
+    if (!siege) throw new Error("Siege not found.");
+    siege.engines ??= emptyEnginePark();
+    moveEngine(siege.engines, typeId, to);
+  }
+
+  /** Mark a reserve engine as a fire variant: double damage, cook-off risk. */
+  async makeFireVariant(siegeId: string, typeId: string): Promise<void> {
+    const siege = this.#sieges.find((s) => s.id === siegeId);
+    if (!siege) throw new Error("Siege not found.");
+    siege.engines ??= emptyEnginePark();
+    if (!siege.engines.reserve.includes(typeId)) throw new Error("Engine must be in reserve to convert.");
+    if (!siege.engines.fireVariants.includes(typeId)) siege.engines.fireVariants.push(typeId);
+  }
+
+  /** Engine park state for a siege. */
+  async getSiegeEngines(siegeId: string): Promise<{ queue: { typeId: string; daysLeft: number }[]; reserve: string[]; deployed: string[]; fireVariants: string[] }> {
+    const siege = this.#sieges.find((s) => s.id === siegeId);
+    if (!siege) throw new Error("Siege not found.");
+    siege.engines ??= emptyEnginePark();
+    return structuredClone(siege.engines);
+  }
+
+  /**
+   * Tavern dice: stake gold against the town's regulars. Best of 3 rounds,
+   * highest total takes the pot. Bannerlord's tavern game, with dice.
+   */
+  async playTavernDice(townId: string, stake: number): Promise<{ won: boolean; payout: number; line: string }> {
+    const town = this.#towns.get(townId);
+    if (!town) throw new Error("Town not found.");
+    if (stake <= 0) throw new Error("Stake must be positive.");
+    if (this.#party.money < stake) throw new Error(`You don't have ${stake} gold to stake.`);
+    this.#party.money -= stake;
+    const opponents = [
+      { name: "A regular", stake: npcStake(town.prosperity, this.#random) },
+      { name: "The barkeep", stake: npcStake(town.prosperity, this.#random) },
+    ];
+    const game = startDiceGame(this.#party.name, stake, opponents);
+    for (let r = 0; r < game.totalRounds; r++) playDiceRound(game, this.#random);
+    const result = settleDiceGame(game, this.#party.name);
+    const won = result.pot > 0;
+    if (won) this.#party.money += result.pot;
+    return { won, payout: result.pot, line: result.line };
+  }
+
+  /** Save the current party composition as a named template. */
+  async savePartyTemplate(name: string): Promise<{ templateId: string; summary: string }> {
+    if (!name.trim()) throw new Error("Name the template.");
+    const template = saveTemplate(
+      `tpl-${this.#sequence++}`,
+      name.trim(),
+      this.#party.troops.map((t) => ({ tier: t.tier, branch: t.branch ?? null, count: t.count })),
+      this.#day,
+    );
+    this.#partyTemplates.push(template);
+    return { templateId: template.id, summary: templateSummary(template) };
+  }
+
+  /** List saved party templates. */
+  async getPartyTemplates(): Promise<{ id: string; name: string; summary: string }[]> {
+    return this.#partyTemplates.map((t) => ({ id: t.id, name: t.name, summary: templateSummary(t) }));
+  }
+
+  /** Compare the party against a template: recruit/dismiss orders to refit. */
+  async refitPartyToward(templateId: string): Promise<{ orders: { action: string; tier: number; branch: string | null; count: number }[] }> {
+    const template = this.#partyTemplates.find((t) => t.id === templateId);
+    if (!template) throw new Error("Template not found.");
+    const orders = refitToward(
+      template,
+      this.#party.troops.map((t) => ({ tier: t.tier, branch: t.branch ?? null, count: t.count })),
+    );
+    return { orders };
+  }
+
+  /** Smithing stamina remaining / max. */
+  async getSmithingStamina(): Promise<{ stamina: number; max: number }> {
+    const crafting = this.#player.skills?.["crafting"] ?? 0;
+    return { stamina: Math.floor(this.#smithingStamina), max: maxStamina(crafting) };
+  }
+
+  /** Spend influence on a realm action. */
+  async spendInfluenceAction(action: InfluenceSpendAction): Promise<{ line: string }> {
+    const result = spendInfluence(action, this.#player.influence);
+    if (!result.ok) throw new Error(result.reason);
+    this.#player.influence -= result.spent;
+    return { line: result.line };
+  }
+
+  /** Current influence. */
+  async getInfluence(): Promise<number> {
+    return this.#player.influence;
+  }
+
+  /** Award influence for a deed (battle, quest, release...). The famous are heard. */
+  #awardInfluence(source: InfluenceGainSource): void {
+    const clan = this.#clans.find((c) => c.id === "clan-player");
+    const gain = influenceGain(source, clan?.renown ?? 0, this.#random);
+    this.#player.influence += gain;
   }
 
   /**
@@ -3998,6 +4170,7 @@ class FixtureState {
   #completeQuest(quest: Quest): void {
     quest.status = "completed";
     this.#party.money += quest.rewardMoney;
+    this.#awardInfluence("quest-complete");
     // Renown goes to player character
     const player = this.#characters.find((c) => c.id === "char-player");
     if (player) {
@@ -4247,15 +4420,37 @@ class FixtureState {
       }
       siege.preparation = Math.min(1, siege.preparation + prepRate);
 
-      // Build siege engines (1 per 3 days after preparation starts)
-      if (siege.preparation > 0.3 && this.#day % 3 === 0) {
-        siege.siegeEngines += 1;
+      // Engine build order: queue progress, counter-battery, cook-offs.
+      siege.engines ??= emptyEnginePark();
+      const engineEvents = tickEngines(siege.engines, this.#random);
+      for (const done of engineEvents.completed) {
+        const type = engineType(done);
+        this.#notifications.push({
+          id: `n-engine-done-${this.#sequence++}`,
+          day: this.#day,
+          priority: "informational",
+          text: `${type?.name ?? done} completed at the siege of ${siege.townName} — in reserve.`,
+          entityId: siege.id,
+          field: "siege",
+        });
       }
+      for (const lost of [...engineEvents.destroyed, ...engineEvents.cookoffs]) {
+        const type = engineType(lost);
+        this.#notifications.push({
+          id: `n-engine-lost-${this.#sequence++}`,
+          day: this.#day,
+          priority: "important",
+          text: `${type?.name ?? lost} destroyed at the siege of ${siege.townName}.`,
+          entityId: siege.id,
+          field: "siege",
+        });
+      }
+      siege.siegeEngines = siege.engines.reserve.length + siege.engines.deployed.length;
 
-      // Bombardment damages walls (faster with more engines)
-      if (siege.siegeEngines > 0 && !siege.breached) {
-        const damage = 0.05 * siege.siegeEngines;
-        siege.wallIntegrity = Math.max(0, siege.wallIntegrity - damage);
+      // Bombardment damages walls — deployed engines do the work now.
+      const engineDamage = deployedDamage(siege.engines);
+      if (engineDamage > 0 && !siege.breached) {
+        siege.wallIntegrity = Math.max(0, siege.wallIntegrity - engineDamage);
         if (siege.wallIntegrity <= 0) {
           siege.breached = true;
           this.#notifications.push({
@@ -4696,12 +4891,13 @@ class FixtureState {
    * Test hook: add prisoners directly.
    * @internal
    */
-  async debugAddPrisoners(troopId: string, name: string, count: number, tier: number): Promise<void> {
+  async debugAddPrisoners(troopId: string, name: string, count: number, tier: number, conformity = 0): Promise<void> {
     const existing = this.#party.prisoners.find((p) => p.troopId === troopId);
     if (existing) {
       existing.count += count;
+      existing.conformity = Math.max(existing.conformity ?? 0, conformity);
     } else {
-      this.#party.prisoners.push({ troopId, name, count, tier });
+      this.#party.prisoners.push({ troopId, name, count, tier, conformity });
     }
   }
 
@@ -4728,14 +4924,37 @@ class FixtureState {
     if (this.#player.resources.money < goldCost) {
       return { upgraded: false, stackId: stack.id, fromTier: stack.tier, toTier: stack.tier, xpSpent: 0, goldSpent: 0, reason: `Upgrading ${stack.name} costs ${formatMoney(goldCost)}. You have ${formatMoney(this.#player.resources.money)}.`, causedBy: "upgrade-rejected" };
     }
+    // Branching tiers: the troop must choose a specialty.
+    const choices = branchChoices(stack.tier);
+    let branch = null as ReturnType<typeof getBranch>;
+    if (choices.length > 0) {
+      if (!request.branchId || !isValidBranch(stack.tier, request.branchId)) {
+        return {
+          upgraded: false,
+          stackId: stack.id,
+          fromTier: stack.tier,
+          toTier: stack.tier,
+          xpSpent: 0,
+          goldSpent: 0,
+          reason: `${stack.name} stand at a fork: choose their specialty.`,
+          branchChoices: choices.map((c) => ({ id: c.id, name: c.name, role: c.role })),
+          causedBy: "upgrade-branch-required",
+        };
+      }
+      branch = getBranch(request.branchId);
+    }
 
     this.#player.resources.money = round2(this.#player.resources.money - goldCost);
     this.#party.money = this.#player.resources.money;
     stack.xp = Math.round(stack.xp - xpNeeded);
     stack.tier = toTier.tier;
     stack.quality = toTier.tier;
-    stack.wage = round2(stack.wage * (toTier.wageMultiplier / fromTier.wageMultiplier));
+    stack.wage = round2(stack.wage * (toTier.wageMultiplier / fromTier.wageMultiplier) * (branch?.wageMult ?? 1));
     stack.morale = round2(clamp(stack.morale + 0.05, 0, 1));
+    if (branch) {
+      stack.branch = branch.id;
+      stack.name = branch.name;
+    }
 
     return {
       upgraded: true,
@@ -5050,6 +5269,9 @@ const GOOD_MARKET_UNITS: Record<GoodId, number> = {
   textiles: 40,
   tools: 32,
   lumber: 55,
+  beer: 36,
+  cloth: 30,
+  leather: 26,
 };
 
 /**

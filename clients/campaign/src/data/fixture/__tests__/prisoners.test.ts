@@ -3,11 +3,15 @@
  */
 import { describe, expect, it } from "vitest";
 import { createFixtureSimulationProvider } from "../fixtureProvider.js";
+import { conformityNeed } from "../../../afteraction/conformity.js";
+
+/** Prisoners added via debug start broken-in, the way a long-held captive would be. */
+const BROKEN_IN = (tier: number) => conformityNeed(tier);
 
 describe("prisoners", () => {
   it("recruits prisoners into the party", async () => {
     const provider = createFixtureSimulationProvider({ seed: 42 });
-    await provider.debugAddPrisoners?.("bandit-1", "Bandit", 10, 2);
+    await provider.debugAddPrisoners?.("bandit-1", "Bandit", 10, 2, BROKEN_IN(2));
     
     const before = await provider.getSnapshot();
     const moneyBefore = before.party.money;
@@ -29,12 +33,19 @@ describe("prisoners", () => {
 
   it("removes prisoner entry when all are recruited", async () => {
     const provider = createFixtureSimulationProvider({ seed: 42 });
-    await provider.debugAddPrisoners?.("bandit-1", "Bandit", 5, 2);
-    
+    await provider.debugAddPrisoners?.("bandit-1", "Bandit", 5, 2, BROKEN_IN(2));
+
     await provider.recruitPrisoners("bandit-1", 5);
 
     const after = await provider.getSnapshot();
     expect(after.party.prisoners.find((p) => p.troopId === "bandit-1")).toBeUndefined();
+  });
+
+  it("refuses to recruit prisoners who aren't broken in yet", async () => {
+    const provider = createFixtureSimulationProvider({ seed: 42 });
+    await provider.debugAddPrisoners?.("bandit-1", "Bandit", 5, 2); // conformity 0
+
+    await expect(provider.recruitPrisoners("bandit-1", 5)).rejects.toThrow(/conformity/);
   });
 
   it("rejects recruiting more than held", async () => {

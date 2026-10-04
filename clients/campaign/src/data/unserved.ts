@@ -68,7 +68,18 @@ export type UnservedOrder =
   | "performCourtAction"
   | "proposeMarriage"
   | "getCourtships"
-  | "sellPrisonersToBroker";
+  | "sellPrisonersToBroker"
+  | "playTavernDice"
+  | "savePartyTemplate"
+  | "getPartyTemplates"
+  | "refitPartyToward"
+  | "queueSiegeEngine"
+  | "moveSiegeEngine"
+  | "makeFireVariant"
+  | "getSiegeEngines"
+  | "getSmithingStamina"
+  | "getInfluence"
+  | "spendInfluenceAction";
 
 /** What the table records about one unserved path. */
 export interface UnservedPath {
@@ -232,6 +243,56 @@ export const UNSERVED: Readonly<Record<string, UnservedPath>> = {
     order: "sellPrisonersToBroker",
     method: "sellPrisonersToBroker",
     reason: "ransom brokers landed client-side first; the server side is not written",
+  },
+  "/v1/towns/{}/tavern/dice": {
+    order: "playTavernDice",
+    method: "playTavernDice",
+    reason: "tavern dice landed client-side first; the server side is not written",
+  },
+  "/v1/party/templates": {
+    order: "savePartyTemplate",
+    method: "savePartyTemplate",
+    reason: "party templates landed client-side first; the server side is not written",
+  },
+  "/v1/party/templates/{}/refit": {
+    order: "refitPartyToward",
+    method: "refitPartyToward",
+    reason: "party templates landed client-side first; the server side is not written",
+  },
+  "/v1/sieges/{}/engines": {
+    order: "getSiegeEngines",
+    method: "getSiegeEngines",
+    reason: "siege engines landed client-side first; the server side is not written",
+  },
+  "/v1/sieges/{}/engines/queue": {
+    order: "queueSiegeEngine",
+    method: "queueSiegeEngine",
+    reason: "siege engines landed client-side first; the server side is not written",
+  },
+  "/v1/sieges/{}/engines/move": {
+    order: "moveSiegeEngine",
+    method: "moveSiegeEngine",
+    reason: "siege engines landed client-side first; the server side is not written",
+  },
+  "/v1/sieges/{}/engines/fire-variant": {
+    order: "makeFireVariant",
+    method: "makeFireVariant",
+    reason: "siege engines landed client-side first; the server side is not written",
+  },
+  "/v1/smithing/stamina": {
+    order: "getSmithingStamina",
+    method: "getSmithingStamina",
+    reason: "smithing stamina landed client-side first; the server side is not written",
+  },
+  "/v1/influence": {
+    order: "getInfluence",
+    method: "getInfluence",
+    reason: "the influence economy landed client-side first; the server side is not written",
+  },
+  "/v1/influence/spend": {
+    order: "spendInfluenceAction",
+    method: "spendInfluenceAction",
+    reason: "the influence economy landed client-side first; the server side is not written",
   },
   "/v1/lords": {
     order: "getHeldLords",

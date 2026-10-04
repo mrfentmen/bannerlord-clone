@@ -912,6 +912,89 @@ export class HttpSimulationProvider implements SimulationProvider {
     );
   }
 
+  async playTavernDice(townId: string, stake: number): Promise<{ won: boolean; payout: number; line: string }> {
+    return this.#post<{ won: boolean; payout: number; line: string }>(
+      `/v1/towns/${encodeURIComponent(townId)}/tavern/dice`,
+      { stake },
+      "The dice did not land.",
+    );
+  }
+
+  async savePartyTemplate(name: string): Promise<{ templateId: string; summary: string }> {
+    return this.#post<{ templateId: string; summary: string }>(
+      "/v1/party/templates",
+      { name },
+      "The template did not land.",
+    );
+  }
+
+  async getPartyTemplates(): Promise<{ id: string; name: string; summary: string }[]> {
+    return this.#getJson<{ id: string; name: string; summary: string }[]>(
+      "/v1/party/templates",
+      "The templates did not load.",
+    );
+  }
+
+  async refitPartyToward(templateId: string): Promise<{ orders: { action: string; tier: number; branch: string | null; count: number }[] }> {
+    return this.#post<{ orders: { action: string; tier: number; branch: string | null; count: number }[] }>(
+      `/v1/party/templates/${encodeURIComponent(templateId)}/refit`,
+      {},
+      "The refit did not land.",
+    );
+  }
+
+  async queueSiegeEngine(siegeId: string, typeId: string): Promise<{ cost: number }> {
+    return this.#post<{ cost: number }>(
+      `/v1/sieges/${encodeURIComponent(siegeId)}/engines/queue`,
+      { typeId },
+      "The engine order did not land.",
+    );
+  }
+
+  async moveSiegeEngine(siegeId: string, typeId: string, to: "reserve" | "deployed"): Promise<void> {
+    await this.#post(
+      `/v1/sieges/${encodeURIComponent(siegeId)}/engines/move`,
+      { typeId, to },
+      "The engine did not move.",
+      () => null,
+    );
+  }
+
+  async makeFireVariant(siegeId: string, typeId: string): Promise<void> {
+    await this.#post(
+      `/v1/sieges/${encodeURIComponent(siegeId)}/engines/fire-variant`,
+      { typeId },
+      "The conversion did not land.",
+      () => null,
+    );
+  }
+
+  async getSiegeEngines(siegeId: string): Promise<{ queue: { typeId: string; daysLeft: number }[]; reserve: string[]; deployed: string[]; fireVariants: string[] }> {
+    return this.#getJson(
+      `/v1/sieges/${encodeURIComponent(siegeId)}/engines`,
+      "The engines did not load.",
+    );
+  }
+
+  async getSmithingStamina(): Promise<{ stamina: number; max: number }> {
+    return this.#getJson<{ stamina: number; max: number }>(
+      "/v1/smithing/stamina",
+      "The stamina did not load.",
+    );
+  }
+
+  async spendInfluenceAction(action: "muster-army" | "call-vote" | "bribe-lord" | "recruit-vassal" | "force-policy"): Promise<{ line: string }> {
+    return this.#post<{ line: string }>(
+      "/v1/influence/spend",
+      { action },
+      "The influence did not land.",
+    );
+  }
+
+  async getInfluence(): Promise<number> {
+    return this.#getJson<number>("/v1/influence", "The influence did not load.");
+  }
+
   async killCharacter(charId: string, cause: string): Promise<void> {
     await this.#post(
       `/v1/dynasty/characters/${encodeURIComponent(charId)}/kill`,

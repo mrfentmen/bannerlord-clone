@@ -90,7 +90,7 @@ export interface BuildingInfo {
   nextDays: number;
 }
 
-/** A player-owned workshop in a town. Produces daily income. */
+/** A player-owned workshop in a town. Runs a production recipe daily. */
 export interface Workshop {
   id: string;
   townId: string;
@@ -99,6 +99,8 @@ export interface Workshop {
   name: string;
   /** Daily income in gold. */
   dailyIncome: number;
+  /** Yesterday's production profit (negative when the workshop bled). */
+  lastProfit?: number;
   /** Days since purchased. */
   ageDays: number;
 }
@@ -324,6 +326,8 @@ export interface TroopStack {
   quality: number;
   /** 1 to 5, indexes TROOP_TIERS. Kept in sync with quality on upgrade. */
   tier: number;
+  /** Upgrade branch id ("raider", "marksman", ...) or null when unbranched. */
+  branch?: string | null;
   /** XP banked toward the next tier upgrade (stack total; thresholds scale by count). */
   xp: number;
   /** Money per day per soldier. */
@@ -368,6 +372,8 @@ export function troopStackPower(stack: Pick<TroopStack, "count" | "tier" | "mora
 
 export interface UpgradeTroopsRequest {
   stackId: string;
+  /** Branch choice when promoting from a branching tier (see troop/branches.ts). */
+  branchId?: string;
 }
 
 export interface UpgradeTroopsResult {
@@ -381,6 +387,8 @@ export interface UpgradeTroopsResult {
   goldSpent: number;
   /** Why the upgrade failed, in the product's voice, when `upgraded` is false. */
   reason?: string;
+  /** Branch choices when the tier forks and none was picked. */
+  branchChoices?: { id: string; name: string; role: string }[];
   causedBy: string;
 }
 
@@ -625,6 +633,13 @@ export interface Siege {
   defenderCasualties: number;
   /** Number of siege engines built. */
   siegeEngines: number;
+  /** Engine build order: queue, reserve, deployed, fire variants (see siege/engines.ts). */
+  engines: {
+    queue: { typeId: string; daysLeft: number }[];
+    reserve: string[];
+    deployed: string[];
+    fireVariants: string[];
+  };
 }
 
 export interface PartyState {
@@ -687,6 +702,9 @@ export const GOODS = [
   { id: "textiles", name: "Textiles" },
   { id: "tools", name: "Tools" },
   { id: "lumber", name: "Lumber" },
+  { id: "beer", name: "Beer" },
+  { id: "cloth", name: "Cloth" },
+  { id: "leather", name: "Leather" },
 ] as const;
 
 export type GoodId = (typeof GOODS)[number]["id"];
@@ -1071,6 +1089,10 @@ export interface SimSnapshot {
   pregnancies: { motherId: string; fatherId: string; startDay: number; dueDay: number }[];
   /** Active courtships (persisted so wooing survives save/load). */
   courtships: { suitorId: string; targetId: string; stage: string; affection: number; startedDay: number; rejections: number }[];
+  /** Saved party composition templates. */
+  partyTemplates: { id: string; name: string; entries: { tier: number; branch: string | null; count: number }[]; savedDay: number }[];
+  /** Smithing stamina remaining (refills each dawn). */
+  smithingStamina: number;
   /** Active and completed quests. */
   quests: Quest[];
   /** Outstanding fines per town ID. */
@@ -1223,8 +1245,30 @@ export interface SimulationProvider {
   getCourtships(): Promise<{ targetName: string; affection: number; stage: string }[]>;
   /** Sell prisoners to a town's ransom broker at a discount. */
   sellPrisonersToBroker(townId: string, troopId: string, count: number): Promise<{ gold: number; line: string }>;
+  /** Play tavern dice in a town: stake gold, best of 3 rounds vs. the regulars. */
+  playTavernDice(townId: string, stake: number): Promise<{ won: boolean; payout: number; line: string }>;
+  /** Save the current party composition as a named template. */
+  savePartyTemplate(name: string): Promise<{ templateId: string; summary: string }>;
+  /** List saved party templates. */
+  getPartyTemplates(): Promise<{ id: string; name: string; summary: string }[]>;
+  /** Compare the party against a template: recruit/dismiss orders to refit. */
+  refitPartyToward(templateId: string): Promise<{ orders: { action: string; tier: number; branch: string | null; count: number }[] }>;
+  /** Queue a siege engine for construction. */
+  queueSiegeEngine(siegeId: string, typeId: string): Promise<{ cost: number }>;
+  /** Move a siege engine between reserve and deployed. */
+  moveSiegeEngine(siegeId: string, typeId: string, to: "reserve" | "deployed"): Promise<void>;
+  /** Mark a reserve engine as a fire variant (double damage, cook-off risk). */
+  makeFireVariant(siegeId: string, typeId: string): Promise<void>;
+  /** Siege engine park state for a siege. */
+  getSiegeEngines(siegeId: string): Promise<{ queue: { typeId: string; daysLeft: number }[]; reserve: string[]; deployed: string[]; fireVariants: string[] }>;
+  /** Smithing stamina remaining / max. */
+  getSmithingStamina(): Promise<{ stamina: number; max: number }>;
+  /** Spend influence on a realm action (muster-army, call-vote, bribe-lord, recruit-vassal, force-policy). */
+  spendInfluenceAction(action: "muster-army" | "call-vote" | "bribe-lord" | "recruit-vassal" | "force-policy"): Promise<{ line: string }>;
+  /** Current influence. */
+  getInfluence(): Promise<number>;
   /** Test hook: add prisoners. */
-  debugAddPrisoners?(troopId: string, name: string, count: number, tier: number): Promise<void>;
+  debugAddPrisoners?(troopId: string, name: string, count: number, tier: number, conformity?: number): Promise<void>;
   /** Buy a workshop in a town. */
   buyWorkshop(townId: string, type: string): Promise<{ workshopId: string }>;
   /** Sell a workshop. */
