@@ -31,6 +31,13 @@ import type {
 import { troopTier, TROOP_TIERS } from "../../data/types.js";
 import { SimulationUnavailableError } from "../../data/provider.js";
 import { SMITHING_RECIPES } from "../../campaign/fieldSystems.js";
+import {
+  soundForcedMarch,
+  soundSmelt,
+  soundForge,
+  soundOrderFulfilled,
+  soundPrisonBreak,
+} from "../../audio/gameSounds.js";
 
 /** The empty-wagon copy, verbatim from ART_DIRECTION.md section 10.2. */
 const NOTHING_TO_HAUL = "Caravan holds no goods. Buy something in a market before hauling.";
@@ -265,7 +272,9 @@ export function partyPanel(options: PartyPanelOptions): HTMLElement {
                     "data-testid": "party-forced-march-toggle",
                     "aria-pressed": String(party.forcedMarch ?? false),
                     onclick: async () => {
-                      await options.onToggleForcedMarch?.(!(party.forcedMarch ?? false));
+                      const next = !(party.forcedMarch ?? false);
+                      soundForcedMarch(next);
+                      await options.onToggleForcedMarch?.(next);
                     },
                   },
                   party.forcedMarch ? "On (+30%, costs morale)" : "Off",
@@ -327,6 +336,7 @@ export function partyPanel(options: PartyPanelOptions): HTMLElement {
                 class: "btn",
                 "data-testid": "party-smelt-arms",
                 onclick: async () => {
+                  soundSmelt();
                   await options.onSmeltArms?.(Math.min(10, arms?.quantity ?? 0));
                 },
               },
@@ -357,7 +367,11 @@ export function partyPanel(options: PartyPanelOptions): HTMLElement {
                     disabled: canAfford ? undefined : "disabled",
                     title: `${recipe.metal} metal, ${recipe.fuel} fuel`,
                     onclick: async () => {
-                      await options.onForgeItem?.(recipe.id);
+                      const result = await options.onForgeItem?.(recipe.id);
+                      if (result) {
+                        const quality = result.name.split(" ")[0]?.toLowerCase() ?? "";
+                        soundForge(quality);
+                      }
                     },
                   },
                   `Forge (${recipe.metal}M ${recipe.fuel}F)`,
@@ -398,6 +412,7 @@ export function partyPanel(options: PartyPanelOptions): HTMLElement {
                     title: hasPiece ? "Deliver the forged piece" : `Forge a ${order.recipeName} first`,
                     onclick: async () => {
                       await options.onFulfillOrder?.(order.id);
+                      soundOrderFulfilled();
                     },
                   },
                   "Deliver",
@@ -432,7 +447,8 @@ export function partyPanel(options: PartyPanelOptions): HTMLElement {
                     "data-testid": `party-break-${entry.holderId}`,
                     title: "Roguery: sneak a team in. Small teams are sneakier.",
                     onclick: async () => {
-                      await options.onPrisonBreak?.(entry.holderId, 4);
+                      const result = await options.onPrisonBreak?.(entry.holderId, 4);
+                      if (result) soundPrisonBreak(result.success);
                     },
                   },
                   "Break them out",

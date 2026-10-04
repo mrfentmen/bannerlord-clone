@@ -9,6 +9,7 @@
 
 import { button, h, numberField, row, sectionHeader } from "../dom.js";
 import { dataTable, emptyState, panel, type Column } from "../kit.js";
+import { soundContractSigned, soundContractEnded } from "../../audio/gameSounds.js";
 import {
   adjustRelation,
   relationNotifications,
@@ -93,6 +94,15 @@ export interface DiplomacyPanelOptions {
   factions?: DiplomacyFaction[];
   onClose?: () => void;
   testId?: string;
+  /**
+   * Mercenary contract: sign on with a faction, or break the active deal.
+   * Only drawn when the caller can send these orders.
+   */
+  mercenaryContract?: { factionId: string; factionName: string; daysLeft: number; payPerVictory: number; dailyPay: number } | null;
+  onSignMercenary?: (factionId: string, factionName: string) => Promise<void>;
+  onBreakMercenary?: () => Promise<void>;
+  /** Factions available for mercenary work. */
+  mercenaryFactions?: { id: string; name: string }[];
 }
 
 export function diplomacyPanel(options: DiplomacyPanelOptions): HTMLElement {
@@ -329,6 +339,77 @@ function buildDiplomacyPanel(options: DiplomacyPanelOptions, notice: string | nu
       { header: "Reason", render: (n) => n.reason },
     ];
     body.appendChild(dataTable("Relation changes", columns, feed, "diplomacy-relations"));
+  }
+
+  // -- mercenary work ----------------------------------------------------------
+  // Bannerlord's sellsword life: fight for a faction without swearing fealty.
+  if (options.onSignMercenary || options.mercenaryContract !== undefined) {
+    body.appendChild(sectionHeader("Mercenary work"));
+    const contract = options.mercenaryContract;
+    if (contract) {
+      body.appendChild(
+        row(
+          "Under contract",
+          `${contract.factionName} — ${contract.daysLeft}d left, ${contract.dailyPay}g/day + ${contract.payPerVictory}g per victory`,
+          { testId: "mercenary-active" },
+        ),
+      );
+      if (options.onBreakMercenary) {
+        body.appendChild(
+          h(
+            "div",
+            { class: "row" },
+            h("span", { class: "row__label label" }, "Contract"),
+            h(
+              "span",
+              { class: "row__value" },
+              h(
+                "button",
+                {
+                  class: "btn",
+                  "data-testid": "mercenary-break",
+                  onclick: async () => {
+                    soundContractEnded(true);
+                    await options.onBreakMercenary?.();
+                    rerender("Contract broken. The faction will remember.");
+                  },
+                },
+                "Break contract",
+              ),
+            ),
+          ),
+        );
+      }
+    } else {
+      for (const faction of options.mercenaryFactions ?? []) {
+        body.appendChild(
+          h(
+            "div",
+            { class: "row" },
+            h("span", { class: "row__label label" }, faction.name),
+            h(
+              "span",
+              { class: "row__value" },
+              options.onSignMercenary
+                ? h(
+                    "button",
+                    {
+                      class: "btn",
+                      "data-testid": `mercenary-sign-${faction.id}`,
+                      onclick: async () => {
+                        soundContractSigned();
+                        await options.onSignMercenary?.(faction.id, faction.name);
+                        rerender(`Signed with ${faction.name}.`);
+                      },
+                    },
+                    "Sign on",
+                  )
+                : h("span", { class: "caption" }, "30 days, daily pay + victory bonuses."),
+            ),
+          ),
+        );
+      }
+    }
   }
 
   return root;
