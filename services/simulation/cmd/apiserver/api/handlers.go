@@ -1,7 +1,8 @@
 package api
 
 import (
-"fmt"
+	"errors"
+	"fmt"
 	"io"
 	"net/http"
 
@@ -279,6 +280,11 @@ func (s *Server) postMarchCommit(w http.ResponseWriter, r *http.Request) {
 	s.order(w, r, func() (any, error) { return s.camp.CommitMarch(ctx, req) })
 }
 
+// maxLoadBytes caps what POST /v1/load will read into memory. It is far above any
+// real save, which runs to a few megabytes, and far below anything that would
+// take the process down.
+const maxLoadBytes = 256 << 20
+
 // postSave writes the whole campaign to the response body as one JSON save
 // file. The client stores it wherever the player keeps saves.
 func (s *Server) postSave(w http.ResponseWriter, r *http.Request) {
@@ -295,8 +301,21 @@ func (s *Server) postSave(w http.ResponseWriter, r *http.Request) {
 
 // postLoad restores the campaign from a save file posted in the request body.
 func (s *Server) postLoad(w http.ResponseWriter, r *http.Request) {
-	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, 256<<20))
+	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxLoadBytes))
 	if err != nil {
+		// A body past the cap is the player handing over something enormous --
+		// a video, a disk image, a save from a much larger world. That is a bad
+		// request, and saying so is the difference between the player checking
+		// their Downloads folder and the player filing a server bug.
+		var tooBig *http.MaxBytesError
+		if errors.As(err, &tooBig) {
+			s.writeFault(w, &campaign.Fault{
+				Code:    campaign.CodeBadRequest,
+				Message: fmt.Sprintf("load body exceeds the %d MiB cap", maxLoadBytes>>20),
+				Reason:  "That file is too large to be a save game.",
+			})
+			return
+		}
 		s.writeFault(w, err)
 		return
 	}

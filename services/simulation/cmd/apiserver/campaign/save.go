@@ -272,7 +272,9 @@ var errSaveBusy = errors.New("save refused: orders are still queued; wait for th
 // to call while the clock is running; the world it captures is tick-atomic.
 func (c *Campaign) Save() ([]byte, error) {
 	if n := len(c.pending); n > 0 {
-		return nil, fmt.Errorf("%w (%d queued)", errSaveBusy, n)
+		return nil, wrappingConflictf(errSaveBusy,
+			"An order is still in flight. Wait for the day to finish, then save again.",
+			"%v (%d queued)", errSaveBusy, n)
 	}
 	c.mu.RLock()
 	defer c.mu.RUnlock()
@@ -356,31 +358,45 @@ func copySeenRow(m map[int]bool) map[int]bool {
 // Load restores a campaign from bytes previously produced by Save. It takes
 // the write lock, so the tick loop pauses while the world is swapped; the
 // swap itself is atomic from the tick's point of view.
+//
+// Every way the file can be wrong answers a Fault rather than a bare error. A
+// player who loads the wrong file, or a save from a newer build, has done
+// something the game can explain; a 500 would tell them the world simulation
+// broke, and send them looking in the wrong place for a problem that is sitting
+// on their own disk.
 func (c *Campaign) Load(data []byte) error {
 	if n := len(c.pending); n > 0 {
-		return fmt.Errorf("%w (%d queued)", errSaveBusy, n)
+		return wrappingConflictf(errSaveBusy,
+			"An order is still in flight. Wait for the day to finish, then load again.",
+			"%v (%d queued)", errSaveBusy, n)
 	}
 	var sf saveFile
 	if err := json.Unmarshal(data, &sf); err != nil {
-		return fmt.Errorf("load: %w", err)
+		return badRequestf("That file could not be read as a save game: %v.", err)
 	}
 	if sf.Format != "mbclone-save" {
-		return fmt.Errorf("load: not a save file (format %q)", sf.Format)
+		return badRequestf("That file is not a save game from this game (it says %q).", sf.Format)
 	}
 	if sf.Version != saveFileVersion {
-		return fmt.Errorf("load: version %d not supported (this build reads %d)",
+		if sf.Version > saveFileVersion {
+			return badRequestf(
+				"That save was written by a newer version of the game (save version %d, this build reads %d).",
+				sf.Version, saveFileVersion)
+		}
+		return badRequestf(
+			"That save was written by an older version of the game (save version %d, this build reads %d).",
 			sf.Version, saveFileVersion)
 	}
 
 	world, err := unmarshalWorld(sf.World)
 	if err != nil {
-		return err
+		return badRequestf("That save game's world could not be read: %v.", err)
 	}
 	history := make(map[marketKey]*priceSeries, len(sf.Campaign.History))
 	for ks, ps := range sf.Campaign.History {
 		k, err := parseMarketKey(ks)
 		if err != nil {
-			return err
+			return badRequestf("That save game's market history could not be read: %v.", err)
 		}
 		history[k] = &priceSeries{
 			last: ps.Last, previous: ps.Previous, seen: ps.Seen,
