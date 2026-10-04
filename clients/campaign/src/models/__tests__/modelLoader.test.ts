@@ -493,3 +493,28 @@ describe("ModelLoader timeout (task 602)", () => {
     }
   });
 });
+
+describe("ModelLoader raycast tagging (task 617)", () => {
+  it("tags every mesh with the model id and category, preserving metadata", async () => {
+    const meshA: { name: string; metadata?: Record<string, unknown> } = { name: "a", metadata: { custom: 1 } };
+    const meshB: { name: string; metadata?: Record<string, unknown> } = { name: "b" };
+    const containerLoader = {
+      load: async () => ({ meshes: [meshA, meshB] }),
+    };
+    const loader = await readyLoader({ load: containerLoader.load });
+
+    await loader.load("troop-gunner");
+
+    expect(meshA.metadata).toMatchObject({ custom: 1, modelId: "troop-gunner", modelCategory: "troop" });
+    expect(meshB.metadata).toMatchObject({ modelId: "troop-gunner", modelCategory: "troop" });
+    loader.dispose();
+  });
+
+  it("leaves non-container results alone", async () => {
+    const flaky = flakyLoader(0, "gunner");
+    const loader = await readyLoader({ load: flaky.load });
+
+    await expect(loader.load("troop-gunner")).resolves.toEqual({ name: "gunner" });
+    loader.dispose();
+  });
+});

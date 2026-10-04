@@ -236,6 +236,7 @@ export class ModelLoader {
 
     try {
       const result = await promise;
+      this.tagForRaycast(result, info);
       this.cache.set(id, result);
       this.loading.delete(id);
       return result;
@@ -243,6 +244,22 @@ export class ModelLoader {
       this.loading.delete(id);
       console.error(`ModelLoader: failed to load "${id}":`, err);
       return null;
+    }
+  }
+
+  /**
+   * Task 617: tag every mesh of a loaded model for raycast. Hit handlers read
+   * `mesh.metadata.modelId` / `modelCategory` to know what the ray hit without
+   * parsing mesh names. Existing metadata is preserved — the tags merge in.
+   */
+  private tagForRaycast(container: any, info: ModelInfo): void {
+    const meshes: any[] = container?.meshes ?? [];
+    for (const mesh of meshes) {
+      mesh.metadata = {
+        ...(mesh.metadata ?? {}),
+        modelId: info.id,
+        modelCategory: info.category,
+      };
     }
   }
 

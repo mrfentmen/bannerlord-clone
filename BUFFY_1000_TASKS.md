@@ -688,88 +688,88 @@
 ## F. Models & Animations (601–750)
 
 ### Model Loading (601–630)
-601. ModelLoader: retry on failure (3x)
-602. ModelLoader: timeout after 30s
-603. ModelLoader: progress callback
-604. ModelLoader: cache loaded models
-605. ModelLoader: preload battle models
-606. ModelLoader: async with placeholder
-607. ModelLoader: error fallback (red box)
-608. Model: LOD by distance
-609. Model: cull behind camera
-610. Model: cull when far (>500m)
-611. Model: instance identical props
-612. Model: validate GLB magic bytes
-613. Model: warn if >10MB
-614. Model: auto-scale to meters
-615. Model: fix up-axis
-616. Model: generate collider from bounds
-617. Model: tag for raycast
-618. Model: damage states (intact/destroyed)
-619. Model: snow cover tint
-620. Model: wet look when raining
-621. Model: preload town models on approach
-622. Model: dispose on memory pressure
-623. Model: log load times
-624. Model: Draco compression support
-625. Model: KTX2 texture support
-626. Model: center pivot
-627. Model: night emissive windows
-628. Model: dust cover in desert
-629. Model: battle damage decals
+601. ModelLoader: retry on failure (3x) ✓
+602. ModelLoader: timeout after 30s ✓
+603. ModelLoader: progress callback ✓
+604. ModelLoader: cache loaded models ✓
+605. ModelLoader: preload battle models ✓
+606. ModelLoader: async with placeholder ✓
+607. ModelLoader: error fallback (red box) ✓
+608. Model: LOD by distance ✓
+609. Model: cull behind camera ✓
+610. Model: cull when far (>500m) ✓
+611. Model: instance identical props ✓
+612. Model: validate GLB magic bytes ✓
+613. Model: warn if >10MB ✓
+614. Model: auto-scale to meters ✓
+615. Model: fix up-axis ✓
+616. Model: generate collider from bounds ✓
+617. Model: tag for raycast ✓
+618. Model: damage states (intact/destroyed) ✓
+619. Model: snow cover tint ✓
+620. Model: wet look when raining ✓
+621. Model: preload town models on approach ✓
+622. Model: dispose on memory pressure ✓
+623. Model: log load times ✓
+624. Model: Draco compression support ✓
+625. Model: KTX2 texture support ✓
+626. Model: center pivot ✓
+627. Model: night emissive windows ✓
+628. Model: dust cover in desert ✓
+629. Model: battle damage decals ✓
 630. Model: verify all 49 load
 
 ### Animation (631–680)
-631. Blend: idle→walk (0.2s)
-632. Blend: walk→run (0.15s)
-633. Blend: any→hit (0.05s interrupt)
-634. Blend: hit→previous (0.3s)
-635. Blend: any→death (0.1s)
-636. Blend: idle→aim (0.15s)
-637. Blend: aim→shoot (0.05s)
-638. Blend: shoot→aim (0.2s)
-639. IK: feet plant on ground
-640. IK: hand to weapon grip
-641. IK: look at target (head)
-642. IK: rider legs to stirrups
-643. IK: disable when ragdoll active
-644. Face: blink every 3-7s
-645. Face: look at speaker
-646. Cloth: cape flutter
-647. Equipment: weapon on back when idle
-648. Equipment: weapon in hand in combat
-649. Blood: decal on hit (fade 30s)
-650. Blood: pool under corpse (fade 60s)
-651. Blood: toggle in settings
-652. Thumb pose: apply on all soldiers (done, verify)
-653. LOD: skip thumb anim beyond 30m (done, verify)
-654. Speed: scale anim with movement speed
-655. Additive: aim overlay (upper body)
-656. Horse: walk/trot/gallop gaits
-657. Horse: death fall
-658. Rider: mount/dismount anim
-659. Rider: mounted idle bounce
-660. Rider: mounted shoot
-661. Rider: fall off on death
+631. Blend: idle→walk (0.2s) ✓
+632. Blend: walk→run (0.15s) ✓
+633. Blend: any→hit (0.05s interrupt) ✓
+634. Blend: hit→previous (0.3s) ✓
+635. Blend: any→death (0.1s) ✓
+636. Blend: idle→aim (0.15s) ✓
+637. Blend: aim→shoot (0.05s) ✓
+638. Blend: shoot→aim (0.2s) ✓
+639. IK: feet plant on ground ✓
+640. IK: hand to weapon grip ✓
+641. IK: look at target (head) ✓
+642. IK: rider legs to stirrups ✓
+643. IK: disable when ragdoll active ✓
+644. Face: blink every 3-7s ✓
+645. Face: look at speaker ✓
+646. Cloth: cape flutter ✓
+647. Equipment: weapon on back when idle ✓
+648. Equipment: weapon in hand in combat ✓
+649. Blood: decal on hit (fade 30s) ✓
+650. Blood: pool under corpse (fade 60s) ✓
+651. Blood: toggle in settings ✓
+652. Thumb pose: apply on all soldiers (done, verify) ✓
+653. LOD: skip thumb anim beyond 30m (done, verify) ✓
+654. Speed: scale anim with movement speed ✓
+655. Additive: aim overlay (upper body) ✓
+656. Horse: walk/trot/gallop gaits ✓
+657. Horse: death fall ✓
+658. Rider: mount/dismount anim ✓
+659. Rider: mounted idle bounce ✓
+660. Rider: mounted shoot ✓
+661. Rider: fall off on death ✓
 662. Ladder: climb anim
 663. Ram: push anim (crew)
 664. Ram: impact on gate
 665. Catapult: fire anim
 666. Catapult: reload (30s)
-667. Surrender: hands-up (use cheer, verify)
-668. Cheer: victory (verify)
-669. Hit-react: blend test
-670. Death: fall then ragdoll (verify)
-671. Prone: crawl anim
-672. Crouch: idle/walk (verify)
-673. Jump: start/loop/land
-674. Slide: start/loop/exit
-675. Melee: swing anim
-676. Throw: grenade toss
-677. Interact: generic
-678. Heal: kneel
-679. Revive: kneel then stand
-680. Downed: incapacitated pose
+667. Surrender: hands-up (use cheer, verify) ✓
+668. Cheer: victory (verify) ✓
+669. Hit-react: blend test ✓
+670. Death: fall then ragdoll (verify) ✓
+671. Prone: crawl anim ✓
+672. Crouch: idle/walk (verify) ✓
+673. Jump: start/loop/land ✓
+674. Slide: start/loop/exit ✓
+675. Melee: swing anim ✓
+676. Throw: grenade toss ✓
+677. Interact: generic ✓
+678. Heal: kneel ✓
+679. Revive: kneel then stand ✓
+680. Downed: incapacitated pose ✓
 
 ### Siege Equipment Models (681–700)
 681. Model: siege ladder
@@ -826,25 +826,25 @@
 730. Idle: guard patrol
 
 ### Weapons (731–750)
-731. Model: assault rifle variant 2
-732. Model: sniper rifle
-733. Model: SMG variant
+731. Model: assault rifle variant 2 ✓
+732. Model: sniper rifle ✓
+733. Model: SMG variant ✓
 734. Model: shotgun variant
-735. Model: pistol variant 2
+735. Model: pistol variant 2 ✓
 736. Model: LMG
 737. Model: grenade
 738. Model: knife
 739. Model: baton
 740. Model: sword (ceremonial)
-741. Weapon: muzzle flash effect
-742. Weapon: tracer rounds (toggleable)
-743. Weapon: shell casings eject
-744. Weapon: reload anim (mag out/in)
+741. Weapon: muzzle flash effect ✓
+742. Weapon: tracer rounds (toggleable) ✓
+743. Weapon: shell casings eject ✓
+744. Weapon: reload anim (mag out/in) ✓
 745. Weapon: inspect anim (idle)
-746. Weapon: skins (camo variants)
+746. Weapon: skins (camo variants) ✓
 747. Weapon: attachments (sight, grip)
 748. Weapon: stats display (damage, range, etc.)
-749. Weapon: compare in inventory
+749. Weapon: compare in inventory ✓
 750. Weapon: favorite/star
 
 ---
