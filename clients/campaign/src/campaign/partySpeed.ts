@@ -57,6 +57,8 @@ export interface PartyComposition {
   isNight: boolean;
   /** Scout skill points, for the scouting bonus. */
   scoutSkill: number;
+  /** Forced march: +30% speed at a daily morale/food cost (see fieldSystems). */
+  forcedMarch: boolean;
 }
 
 /** One line of the speed breakdown. */
@@ -250,6 +252,11 @@ export function partySpeed(c: PartyComposition, terrain: MarchTerrain): PartySpe
   if (c.scoutSkill > 0) {
     const mult = 1 + Math.min(0.15, c.scoutSkill * 0.03);
     push('Scouting', mult, `scout skill ${c.scoutSkill}`);
+  }
+
+  // Forced march: the party pushes harder and pays for it daily.
+  if (c.forcedMarch) {
+    push('Forced march', 1.3, 'pushing hard -- morale and rations suffer');
   }
 
   return {

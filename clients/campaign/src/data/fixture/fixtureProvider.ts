@@ -88,6 +88,12 @@ import {
   type MarchTerrain,
   type PartySpeedReport,
 } from "../../campaign/partySpeed.js";
+import {
+  FORCED_MARCH_FOOD_MULT,
+  FORCED_MARCH_MORALE_COST,
+  foodVariety,
+  foodVarietyMoraleDelta,
+} from "../../campaign/fieldSystems.js";
 
 /** Marker strings. `tools/check-no-fixtures.mjs` greps the production bundle for
  *  these, so this module cannot be smuggled into a shipped build unnoticed. */
@@ -1695,6 +1701,10 @@ class FixtureState {
       // Each steward point reduces food consumption by 3%
       dailyFood = Math.max(1, Math.floor(dailyFood * (1 - stewardSkill * 0.03)));
     }
+    // Forced march burns extra rations.
+    if (this.#party.forcedMarch) {
+      dailyFood = Math.ceil(dailyFood * FORCED_MARCH_FOOD_MULT);
+    }
     const food = this.#party.food;
     if (food >= dailyFood) {
       this.#party.food -= dailyFood;
@@ -1726,6 +1736,15 @@ class FixtureState {
     if (this.#party.food > 0 && this.#party.wagesOwed === 0) {
       this.#party.morale = Math.min(1, this.#party.morale + 0.005);
     }
+
+    // Forced march grinds morale down every day it is active.
+    if (this.#party.forcedMarch) {
+      this.#party.morale = Math.max(0, this.#party.morale - FORCED_MARCH_MORALE_COST);
+    }
+
+    // Food variety: a varied diet keeps morale up (Bannerlord's rule).
+    const variety = foodVariety(this.#party.goods, this.#party.food);
+    this.#party.morale = Math.min(1, this.#party.morale + foodVarietyMoraleDelta(variety));
   }
 
   /**
@@ -1784,9 +1803,16 @@ class FixtureState {
         morale: this.#party.morale <= 1 ? this.#party.morale * 100 : this.#party.morale,
         isNight: this.#isNight(),
         scoutSkill: scout?.skills?.scouting ?? 0,
+        forcedMarch: this.#party.forcedMarch ?? false,
       },
       terrain,
     );
+  }
+
+  /** Toggle forced march: +30% speed at daily morale and food cost. */
+  setForcedMarch(active: boolean): void {
+    this.#party.forcedMarch = active;
+    this.#party.speedKmPerDay = this.partySpeed();
   }
 
   #recoverWounded(): void {

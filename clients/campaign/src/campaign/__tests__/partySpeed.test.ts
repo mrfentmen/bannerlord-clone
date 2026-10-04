@@ -29,6 +29,7 @@ function base(over: Partial<PartyComposition> = {}): PartyComposition {
     morale: 70,
     isNight: false,
     scoutSkill: 0,
+    forcedMarch: false,
     ...over,
   };
 }
@@ -162,5 +163,12 @@ describe("party speed (Bannerlord port)", () => {
     const r = partySpeed(base({ cargoWeight: 100, packAnimals: 2 }), 'plains');
     expect(r.capacity).toBe(20 * 30 + 2 * 100);
     expect(r.cargoWeight).toBe(100);
+  });
+
+  it("forced march adds 30% speed", () => {
+    const normal = partySpeed(base(), 'plains').speedKmPerDay;
+    const forced = partySpeed(base({ forcedMarch: true }), 'plains');
+    expect(forced.factors.some((f) => f.name === 'Forced march')).toBe(true);
+    expect(forced.speedKmPerDay).toBeGreaterThan(normal);
   });
 });

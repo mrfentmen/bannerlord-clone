@@ -660,6 +660,8 @@ export interface PartyState {
    * party panel renders this under the march-speed row.
    */
   speedFactors?: { name: string; mult: number; detail: string }[];
+  /** Forced march: +30% speed at daily morale/food cost. */
+  forcedMarch?: boolean;
 }
 
 /** The tradeable goods of ECONOMY.md, named so the market is legible. */
