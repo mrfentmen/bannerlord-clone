@@ -128,6 +128,21 @@ export class BattleLoop {
     };
   }
 
+  /** Living brains on the player's team — the orders UI commands these. */
+  get playerBrains(): UnitBrain[] {
+    return this.brains.filter((b) => b.team === 0);
+  }
+
+  /** Seconds since the loop started. */
+  get elapsedSeconds(): number {
+    return this.elapsed;
+  }
+
+  /** Total dead on a team (for the kill feed / HUD). */
+  casualties(team: number): number {
+    return this.brains.filter((b) => b.team === team && !b.alive).length;
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;

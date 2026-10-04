@@ -19,7 +19,30 @@ import {
   Vector3,
 } from "@babylonjs/core";
 import { initPhysics, createGroundCollider } from "../physics/ragdoll.js";
+import { input } from "../input/index.js";
 import type { DeploymentZone } from "./BattleUI.js";
+import { BattleHud } from "./BattleUI.js";
+import { BattleLoop, type BattleResult } from "./BattleLoop.js";
+import { BattleOrders } from "./BattleOrders.js";
+
+/** Options for starting the real-time fight in this battle scene. */
+export interface StartBattleOptions {
+  /** Soldiers on the player's side. Default 5. */
+  playerCount?: number;
+  /** Soldiers on the enemy side. Default 5. */
+  enemyCount?: number;
+  /**
+   * Fired once when one side is wiped. Called synchronously inside the
+   * render loop — defer scene disposal to the next tick.
+   */
+  onEnd?: (result: BattleResult) => void;
+}
+
+/** A running battle: tick is automatic; dispose ends it and frees UI. */
+export interface BattleHandle {
+  readonly loop: BattleLoop;
+  dispose(): void;
+}
 
 export type BiomeType =
   | "plains" | "forest" | "urban" | "snow" | "river"
@@ -73,6 +96,7 @@ export class BattleScene {
   readonly biome: BiomeType;
   readonly size: number;
   private physicsEnabled = false;
+  private battleHandle: BattleHandle | null = null;
 
   private constructor(scene: Scene, biome: BiomeType, size: number) {
     this.scene = scene;
@@ -383,6 +407,91 @@ export class BattleScene {
       try { s.dispose(); } catch { /* best-effort cleanup */ }
     }
     this.dispose();
+  }
+
+  /**
+   * Start the real-time fight: spawn both armies, tick the battle loop every
+   * frame, and attach the orders + HUD. This is the entry point Buffy's
+   * battleflow calls after deployment:
+   *
+   *   const battle = await BattleScene.create(engine, { biome: "plains" });
+   *   const handle = await battle.startBattle({
+   *     playerCount: 8, enemyCount: 8,
+   *     onEnd: (r) => { showBattleOutro(...); },
+   *   });
+   *   engine.runRenderLoop(() => battle.scene.render());
+   *   // later: handle.dispose(); battle.dispose();
+   */
+  async startBattle(options: StartBattleOptions = {}): Promise<BattleHandle> {
+    if (this.battleHandle) throw new Error("battle already running");
+    const playerTotal = options.playerCount ?? 5;
+    const enemyTotal = options.enemyCount ?? 5;
+    const half = this.size / 2;
+    const margin = Math.min(60, this.size * 0.15);
+
+    const loop = await BattleLoop.create({
+      battle: this,
+      playerCount: playerTotal,
+      enemyCount: enemyTotal,
+      onEnd: (result) => options.onEnd?.(result),
+    });
+
+    const hud = new BattleHud();
+    const orders = new BattleOrders({
+      scene: this.scene,
+      input,
+      getBrains: () => loop.playerBrains,
+      retreatPoint: new Vector3(0, 0, -(half - margin)),
+      onOrder: (order, group) => {
+        hud.flashOrder(`${group}: ${order}`);
+        hud.setSelection(orders.selectionLabel());
+      },
+    });
+    hud.setSelection(orders.selectionLabel());
+
+    let lastPlayerDead = 0;
+    let lastEnemyDead = 0;
+    let last = performance.now();
+    const observer = this.scene.onBeforeRenderObservable.add(() => {
+      const now = performance.now();
+      const dt = Math.min((now - last) / 1000, 0.1);
+      last = now;
+      if (loop.isEnded) return;
+      loop.update(dt);
+
+      const playerDead = loop.casualties(0);
+      const enemyDead = loop.casualties(1);
+      if (playerDead > lastPlayerDead) {
+        lastPlayerDead = playerDead;
+        hud.feed(`Friendly down — ${playerDead} lost`);
+      }
+      if (enemyDead > lastEnemyDead) {
+        lastEnemyDead = enemyDead;
+        hud.feed(`Enemy down — ${enemyDead} lost`);
+      }
+      const { player, enemy } = loop.livingCount;
+      hud.update({ playerAlive: player, enemyAlive: enemy, playerTotal, enemyTotal, elapsed: loop.elapsedSeconds });
+      hud.setSelection(orders.selectionLabel());
+    });
+
+    const handle: BattleHandle = {
+      loop,
+      dispose: () => {
+        if (this.battleHandle !== handle) return;
+        this.battleHandle = null;
+        this.scene.onBeforeRenderObservable.remove(observer);
+        orders.dispose();
+        hud.dispose();
+        loop.dispose();
+      },
+    };
+    this.battleHandle = handle;
+    return handle;
+  }
+
+  /** True while startBattle's fight is running. */
+  get battleRunning(): boolean {
+    return this.battleHandle !== null;
   }
 
   /**

@@ -54,6 +54,11 @@ export class UnitBrain {
   private moveTarget: Vector3 | null = null;
   private target: UnitBrain | null = null;
   private cooldown = 0;
+  /**
+   * Hold order: stand ground, strike enemies that come into range, never
+   * chase. Any other command clears it.
+   */
+  private holding = false;
 
   constructor(
     readonly soldier: SoldierLike,
@@ -72,6 +77,7 @@ export class UnitBrain {
   /** Plain move order: walk to the point, then idle. */
   commandMoveTo(target: Vector3): void {
     this.clearTargets();
+    this.holding = false;
     this.moveTarget = target.clone();
     this.state = "moving";
   }
@@ -79,6 +85,7 @@ export class UnitBrain {
   /** Attack-move: advance, engaging anything acquired on the way. */
   commandAttackMove(target: Vector3): void {
     this.clearTargets();
+    this.holding = false;
     this.moveTarget = target.clone();
     this.state = "attack_moving";
   }
@@ -86,8 +93,21 @@ export class UnitBrain {
   /** Direct engagement order against one enemy. */
   commandEngage(enemy: UnitBrain): void {
     this.clearTargets();
+    this.holding = false;
     this.target = enemy;
     this.state = "engaging";
+  }
+
+  /** Hold: stand ground, fight enemies in range, never chase. */
+  commandHold(): void {
+    this.clearTargets();
+    this.holding = true;
+    this.state = "idle";
+  }
+
+  /** True while a hold order is active. */
+  get isHolding(): boolean {
+    return this.holding;
   }
 
   private clearTargets(): void {
@@ -144,8 +164,19 @@ export class UnitBrain {
     switch (this.state) {
       case "idle":
         if (seen !== null) {
-          this.target = seen;
-          this.state = "engaging";
+          if (this.holding) {
+            // Hold: never walk to the enemy, but strike what's in reach —
+            // the Bannerlord hold-position behaviour.
+            const d = Vector3.Distance(this.position, seen.position);
+            if (d <= this.stats.attackRange) {
+              this.target = seen;
+              this.state = "attacking";
+              this.cooldown = 0;
+            }
+          } else {
+            this.target = seen;
+            this.state = "engaging";
+          }
         }
         break;
 
@@ -182,6 +213,10 @@ export class UnitBrain {
         if (d <= this.stats.attackRange) {
           this.state = "attacking";
           this.cooldown = 0;
+        } else if (this.holding) {
+          // Hold: refuse the chase, drop back to the line.
+          this.target = null;
+          this.state = "idle";
         } else {
           this.moveToward(t.position, dt);
         }
@@ -199,7 +234,13 @@ export class UnitBrain {
         this.face(t.position);
         const d = Vector3.Distance(this.position, t.position);
         if (d > this.stats.attackRange * 1.25) {
-          this.state = "engaging";
+          if (this.holding) {
+            // Hold: no pursuit — back to the line.
+            this.target = null;
+            this.state = "idle";
+          } else {
+            this.state = "engaging";
+          }
           break;
         }
         this.cooldown -= dt;

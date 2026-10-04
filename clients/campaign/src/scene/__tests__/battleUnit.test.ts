@@ -125,3 +125,55 @@ describe("UnitBrain", () => {
     expect(frames).toBeLessThan(3600);
   });
 });
+
+describe("UnitBrain hold", () => {
+  it("stands ground: no chase when the enemy is in acquire range but out of reach", () => {
+    const brain = new UnitBrain(fakeSoldier(0, 0), 0);
+    const enemy = new UnitBrain(fakeSoldier(10, 0), 1);
+    brain.commandHold();
+    expect(brain.isHolding).toBe(true);
+    for (let i = 0; i < 60; i++) brain.update(dt, [enemy]);
+    expect(brain.state).toBe("idle");
+    // Never moved toward the enemy.
+    expect(brain.position.x).toBeCloseTo(0, 6);
+    expect(brain.position.z).toBeCloseTo(0, 6);
+  });
+
+  it("strikes an enemy that steps into attack range while holding", () => {
+    const holder = fakeSoldier(0, 0);
+    const brain = new UnitBrain(holder, 0);
+    const enemySoldier = fakeSoldier(1, 0);
+    const enemy = new UnitBrain(enemySoldier, 1);
+    brain.commandHold();
+    brain.update(dt, [enemy]);
+    expect(brain.state).toBe("attacking");
+    const hpBefore = enemySoldier.health;
+    for (let i = 0; i < 120; i++) brain.update(dt, [enemy]);
+    expect(enemySoldier.health).toBeLessThan(hpBefore);
+    // Still on the line, never chased.
+    expect(brain.position.x).toBeCloseTo(0, 6);
+  });
+
+  it("drops back to the line instead of pursuing a retreating target", () => {
+    const brain = new UnitBrain(fakeSoldier(0, 0), 0);
+    const enemySoldier = fakeSoldier(1, 0);
+    const enemy = new UnitBrain(enemySoldier, 1);
+    brain.commandHold();
+    brain.update(dt, [enemy]);
+    expect(brain.state).toBe("attacking");
+    // Enemy retreats out of reach.
+    enemySoldier.root.position.set(30, 0, 0);
+    for (let i = 0; i < 30; i++) brain.update(dt, [enemy]);
+    expect(brain.state).toBe("idle");
+    expect(brain.position.x).toBeCloseTo(0, 6);
+  });
+
+  it("a move order clears the hold", () => {
+    const brain = new UnitBrain(fakeSoldier(0, 0), 0);
+    brain.commandHold();
+    expect(brain.isHolding).toBe(true);
+    brain.commandMoveTo(new Vector3(50, 0, 50));
+    expect(brain.isHolding).toBe(false);
+    expect(brain.state).toBe("moving");
+  });
+});

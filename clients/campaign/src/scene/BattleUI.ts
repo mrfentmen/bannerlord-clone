@@ -433,3 +433,100 @@ export class BattleMinimap {
     this.canvas.remove();
   }
 }
+
+/** Live battle HUD: force counts, timer, kill feed, selection + order hints. */
+export interface BattleHudData {
+  playerAlive: number;
+  enemyAlive: number;
+  playerTotal: number;
+  enemyTotal: number;
+  /** Seconds since the fight started. */
+  elapsed: number;
+}
+
+function formatBattleTime(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+export class BattleHud {
+  private readonly root: HTMLElement;
+  private readonly countsEl: HTMLElement;
+  private readonly timerEl: HTMLElement;
+  private readonly feedEl: HTMLElement;
+  private readonly selectionEl: HTMLElement;
+  private readonly hintEl: HTMLElement;
+  private lastCounts = "";
+  private lastTime = "";
+  private lastSelection = "";
+
+  constructor() {
+    this.countsEl = h("div", { class: "battle-hud__counts", role: "status", "aria-live": "polite" });
+    this.timerEl = h("div", { class: "battle-hud__timer", role: "timer" });
+    const top = h("div", { class: "battle-hud__top" }, this.countsEl, this.timerEl);
+
+    this.feedEl = h("div", { class: "battle-hud__feed", "aria-live": "polite" });
+
+    this.selectionEl = h("span", { class: "battle-hud__selection" });
+    this.hintEl = h(
+      "span",
+      { class: "battle-hud__hints" },
+      "1/2/3 select · 0 all · F1 attack · F2 move · F3 hold · F4 retreat",
+    );
+    const bottom = h("div", { class: "battle-hud__bottom" }, this.selectionEl, this.hintEl);
+
+    this.root = h("div", { class: "battle-hud" }, top, this.feedEl, bottom);
+    document.body.appendChild(this.root);
+    this.setSelection("All troops");
+  }
+
+  /** Refresh counts and timer. Writes DOM only when values change. */
+  update(data: BattleHudData): void {
+    const counts = `${data.playerAlive}/${data.playerTotal} vs ${data.enemyAlive}/${data.enemyTotal}`;
+    if (counts !== this.lastCounts) {
+      this.lastCounts = counts;
+      this.countsEl.textContent = "";
+      this.countsEl.append(
+        h("span", { style: `color:${battleSide.player}` }, `${data.playerAlive}`),
+        ` / ${data.playerTotal} — `,
+        h("span", { style: `color:${battleSide.enemy}` }, `${data.enemyAlive}`),
+        ` / ${data.enemyTotal}`,
+      );
+    }
+    const time = formatBattleTime(data.elapsed);
+    if (time !== this.lastTime) {
+      this.lastTime = time;
+      this.timerEl.textContent = time;
+    }
+  }
+
+  /** One fading line in the kill feed (max 5 kept). */
+  feed(text: string): void {
+    const line = h("div", { class: "battle-hud__feed-line" }, text);
+    this.feedEl.appendChild(line);
+    while (this.feedEl.children.length > 5) {
+      this.feedEl.firstChild?.remove();
+    }
+    window.setTimeout(() => line.remove(), 6000);
+  }
+
+  setSelection(label: string): void {
+    if (label === this.lastSelection) return;
+    this.lastSelection = label;
+    this.selectionEl.textContent = label;
+  }
+
+  /** Flash the last issued order next to the hints. */
+  flashOrder(text: string): void {
+    this.hintEl.textContent = text;
+    window.setTimeout(() => {
+      this.hintEl.textContent =
+        "1/2/3 select · 0 all · F1 attack · F2 move · F3 hold · F4 retreat";
+    }, 2500);
+  }
+
+  dispose(): void {
+    this.root.remove();
+  }
+}
