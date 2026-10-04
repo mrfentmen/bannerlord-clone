@@ -31,6 +31,8 @@ import { relationBand } from "../../diplomacy/notables.js";
 import type { NotableType, Notification } from "../../data/types.js";
 import { BANNER_COLORS } from "../../clan/bannerPalette.js";
 import type { ColorblindMode } from "../../settings/schema.js";
+import { notablesForCity } from "../../data/notables/index.js";
+import { buildingOwnersForCity } from "../../data/buildingOwners.js";
 import "./townPanel.css";
 
 /**
@@ -551,6 +553,19 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
   // -- notables (task 129) ----------------------------------------------------
   body.appendChild(notablesSection(town));
 
+  // Rowan (del order 2026-10-04): city notables with portraits and lore.
+  // These are the 12 hand-written NPCs per city from the name generator.
+  const cityNotables = notablesForCity(town.settlementId);
+  if (cityNotables.length > 0) {
+    body.appendChild(cityNotablesSection(cityNotables));
+  }
+
+  // Rowan (del order 2026-10-04): named building owners (taverns, workshops, etc.)
+  const buildingOwners = buildingOwnersForCity(town.settlementId);
+  if (buildingOwners.length > 0) {
+    body.appendChild(buildingOwnersSection(buildingOwners));
+  }
+
   // -- what happened here (task 138) ------------------------------------------
   const events = eventsSection(town, options);
   if (events) body.appendChild(events);
@@ -695,6 +710,78 @@ function notablesSection(town: TownState): HTMLElement {
       "Power decides who will sign on for you. Standing decides what they will tell you.",
     ),
   );
+  return wrap;
+}
+
+/**
+ * City notables with portraits and lore (del order 2026-10-04).
+ * The 12 hand-written NPCs per city from the name generator, with AI-generated
+ * portraits and 2-sentence lore. These supplement the sim's notables.
+ */
+function cityNotablesSection(notables: import("../../data/notables/index.js").CityNotable[]): HTMLElement {
+  const wrap = h("section", { "data-testid": "town-city-notables" });
+  wrap.appendChild(sectionHeader("City notables"));
+
+  const grid = h("div", { class: "city-notables-grid", style: "display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:var(--space-3)" });
+  for (const notable of notables) {
+    // Portrait key is like "german-male-middle"; we have 18 base portraits (ethnicity-gender).
+    const baseKey = notable.portraitKey.split("-").slice(0, 2).join("-");
+    const portraitUrl = `/portraits/portrait-${baseKey}.webp`;
+
+    const card = h("div", {
+      class: "city-notable-card",
+      "data-testid": `city-notable-${notable.id}`,
+      style: "border:1px solid var(--border);border-radius:var(--radius);padding:var(--space-2);background:var(--surface)",
+    });
+    card.append(
+      h("img", {
+        src: portraitUrl,
+        alt: `Portrait of ${notable.name}`,
+        style: "width:64px;height:64px;border-radius:50%;object-fit:cover;float:left;margin-right:var(--space-2)",
+        "data-testid": `city-notable-portrait-${notable.id}`,
+      }),
+      h("div", {},
+        h("strong", { class: "label" }, notable.name),
+        h("div", { class: "caption" }, `${notable.title} • Power ${notable.power}`),
+      ),
+      h("p", { class: "caption", style: "margin:var(--space-2) 0 0;clear:both" }, notable.lore),
+    );
+    grid.appendChild(card);
+  }
+  wrap.appendChild(grid);
+  return wrap;
+}
+
+/**
+ * Building owners section (del order 2026-10-04).
+ * Named proprietors for taverns, workshops, markets, stables, smithies.
+ */
+function buildingOwnersSection(owners: import("../../data/buildingOwners.js").BuildingOwner[]): HTMLElement {
+  const wrap = h("section", { "data-testid": "town-building-owners" });
+  wrap.appendChild(sectionHeader("Establishments"));
+
+  const list = h("ul", { class: "building-list" });
+  for (const owner of owners) {
+    const portraitUrl = `/portraits/portrait-${owner.portraitKey}.webp`;
+    const item = h("li", {
+      class: "building",
+      "data-testid": `building-${owner.id}`,
+      style: "display:flex;gap:var(--space-2);align-items:center;margin-bottom:var(--space-2)",
+    });
+    item.append(
+      h("img", {
+        src: portraitUrl,
+        alt: `Portrait of ${owner.ownerName}`,
+        style: "width:48px;height:48px;border-radius:50%;object-fit:cover",
+      }),
+      h("div", {},
+        h("strong", { class: "label" }, owner.buildingName),
+        h("div", { class: "caption" }, `${owner.ownerName} — ${owner.ownerTitle}`),
+      ),
+    );
+    list.appendChild(item);
+  }
+  wrap.appendChild(list);
   return wrap;
 }
 
