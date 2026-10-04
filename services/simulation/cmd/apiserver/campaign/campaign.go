@@ -206,6 +206,12 @@ type Campaign struct {
 	prisoners  *prisonerState
 	companions *companionState
 
+	// dynasty is the clan/court/enterprise domain: characters, clans,
+	// pregnancies, courtships, held lords, workshops, templates, siege
+	// engine parks, troop prisoners, and smithing stamina. Built on first
+	// use, like prisoners and companions.
+	dynasty *dynastyState
+
 	// jobs is the pending order queue. The API writes to pending; only the
 	// tick goroutine reads it, and only while holding mu.
 	pending chan *job
