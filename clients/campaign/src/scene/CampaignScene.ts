@@ -44,6 +44,7 @@ import { mapColor, tokens } from "../design/tokens.js";
 import { attachMapGestures } from "../input/touch/gestures.js";
 import { applyMouseCameraBindings, loadMouseCameraBindings } from "../input/mouseBindings.js";
 import { PlayerController } from "./PlayerController.js";
+import { VehicleController } from "./VehicleController.js";
 import type { InputRegistry } from "../input/registry.js";
 import { resolveGrade, type QualityLevel } from "../design/grade.js";
 import {
@@ -197,6 +198,15 @@ export interface SceneHandle {
   enterWalkMode(x: number, z: number): void;
   exitWalkMode(): void;
   readonly walkMode: boolean;
+  /**
+   * Drive mode (Pax brief #2). One car spawns near the player on
+   * `enterDriveMode`; E (player.interact) toggles between walking and
+   * driving while walk mode is active.
+   */
+  readonly vehicle: VehicleController | null;
+  enterDriveMode(): void;
+  exitDriveMode(): void;
+  readonly driveMode: boolean;
 }
 
 /** Per-frame camera deltas for the twin-stick driver (task 2). */
@@ -506,6 +516,41 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       })
     : null;
 
+  // -- vehicle (Pax brief #2: drive) ------------------------------------------
+  // One car, spawned on demand near the player. E toggles walk<->drive.
+  const vehicle = options.input
+    ? new VehicleController({
+        scene,
+        input: options.input,
+        start: new Vector3(projection.width / 2, 0, projection.depth / 2),
+        groundHeight: (x, z) => projection.heightAt(x, z) * VERTICAL_SCALE,
+      })
+    : null;
+  if (options.input && player !== null && vehicle !== null) {
+    const p = player;
+    const v = vehicle;
+    options.input.on("player.interact", () => {
+      if (!p.isActive) return;
+      if (v.isActive) {
+        // Get out: back to walking, player placed beside the car.
+        v.setActive(false);
+        p.reposition(
+          v.position.x + 2.2,
+          v.position.y,
+          v.position.z,
+        );
+        p.setActive(true);
+        scene.activeCamera = p.camera;
+      } else {
+        // Get in: the car pulls up beside the player.
+        v.reposition(p.position.x + 3, p.position.z, 0);
+        p.setActive(false);
+        v.setActive(true);
+        scene.activeCamera = v.camera;
+      }
+    }, { when: () => p.isActive || v.isActive });
+  }
+
   // Frame cap (settings maxFps, task 12): skip renders that arrive too soon.
   let maxFps = options.maxFps ?? 0;
   let lastFrameAt = 0;
@@ -520,6 +565,7 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
     if (grain) grain.tick(engine.getDeltaTime());
     ambient.update();
     if (player !== null && player.isActive) player.update(dt);
+    if (vehicle !== null && vehicle.isActive) vehicle.update(dt);
     townLod.update(camera.target);
     sizePartyPin(pin, camera.radius, engine.getRenderHeight());
     scene.render();
@@ -536,6 +582,26 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
     get walkMode(): boolean {
       return player !== null && player.isActive;
     },
+    vehicle,
+    get driveMode(): boolean {
+      return vehicle !== null && vehicle.isActive;
+    },
+    enterDriveMode(): void {
+      if (player === null || vehicle === null || !player.isActive) return;
+      vehicle.reposition(player.position.x + 3, player.position.z, 0);
+      player.setActive(false);
+      camera.detachControl();
+      vehicle.setActive(true);
+      scene.activeCamera = vehicle.camera;
+    },
+    exitDriveMode(): void {
+      if (player === null || vehicle === null || !vehicle.isActive) return;
+      const vp = vehicle.position;
+      vehicle.setActive(false);
+      player.reposition(vp.x + 2.2, vp.y, vp.z);
+      player.setActive(true);
+      scene.activeCamera = player.camera;
+    },
     enterWalkMode(x: number, z: number): void {
       if (player === null) return;
       // Drop the player at the party's map position, on the ground.
@@ -549,6 +615,7 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
     },
     exitWalkMode(): void {
       if (player === null) return;
+      if (vehicle !== null && vehicle.isActive) vehicle.setActive(false);
       player.setActive(false);
       scene.activeCamera = camera;
       camera.attachControl(canvas, true);
@@ -559,6 +626,7 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       engine.stopRenderLoop();
       mapGestures.dispose();
       player?.dispose();
+      vehicle?.dispose();
       shadowGen?.dispose();
       grain?.dispose();
       particleManager.dispose();

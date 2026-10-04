@@ -55,7 +55,8 @@ export type InputActionId =
   | "player.jump"
   | "player.sprint"
   | "player.crouch"
-  | "player.togglePerspective";
+  | "player.togglePerspective"
+  | "player.interact";
 
 export interface ActionDef {
   /**
@@ -180,6 +181,8 @@ export const ACTION_DEFS: readonly ActionDef[] = [
   def("player.togglePerspective", "Toggle first/third person", "player",
     "Switches between first-person and third-person camera. Active only in walk mode.",
     [{ key: "v" }, { key: "V" }]),
+  def("player.interact", "Enter / exit vehicle", "player",
+    "Gets in the nearby car, or gets out while driving.", [{ key: "e" }, { key: "E" }]),
 ];
 
 /** Look up a catalog entry by id. Throws for unknown ids: a typo'd action id is a
