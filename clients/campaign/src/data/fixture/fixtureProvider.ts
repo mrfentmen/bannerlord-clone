@@ -76,6 +76,12 @@ import { SNAPSHOT_SCHEMA_VERSION } from "../wire.js";
 // fresh cast of leaders, kings, nobles, merchants and couriers on fixed roads.
 import { generateNotableName, titledName, type NpcRole } from "../names.js";
 import { planTradeParties, SETTLEMENT_POSITIONS } from "../tradePaths.js";
+// Rowan (trader system, del order 2026-10-03): player-founded trade convoys,
+// modernized from Bannerlord's caravans.
+import {
+  CARAVAN_FOUNDING_COST,
+  foundCaravanSpec,
+} from "../traders.js";
 
 /** Marker strings. `tools/check-no-fixtures.mjs` greps the production bundle for
  *  these, so this module cannot be smuggled into a shipped build unnoticed. */
@@ -1029,6 +1035,55 @@ class FixtureState {
   }
 
   /**
+   * Found a player-owned trade convoy (Rowan, trader system, del order 2026-10-03).
+   * Modernized Bannerlord caravan founding: $15,000, a hired driver, and a
+   * security detail. The convoy spawns as an NPC party on the town's circuit
+   * and its trading profits flow back to the player's purse.
+   */
+  async foundCaravan(
+    townId: string,
+    circuit: string[],
+  ): Promise<{ accepted: boolean; caravanId?: string; displayName?: string; reason?: string }> {
+    if (this.#player.resources.money < CARAVAN_FOUNDING_COST) {
+      return {
+        accepted: false,
+        reason: `A trade convoy costs $${CARAVAN_FOUNDING_COST.toLocaleString()}. You have $${Math.floor(this.#player.resources.money).toLocaleString()}.`,
+      };
+    }
+    const town = this.#towns.get(townId);
+    if (!town) {
+      return { accepted: false, reason: `No town with id ${townId}.` };
+    }
+    this.#player.resources.money = round2(this.#player.resources.money - CARAVAN_FOUNDING_COST);
+    const spec = foundCaravanSpec({
+      townId,
+      seed: Math.floor(this.#random() * 0x7fffffff),
+      circuit,
+    });
+    const caravanId = `npc-caravan-player-${this.#npcParties.length}`;
+    const pos = SETTLEMENT_POSITIONS[townId] ?? { x: 0, z: 0 };
+    this.#npcParties.push({
+      id: caravanId,
+      name: spec.displayName,
+      kind: "caravan",
+      factionId: "merchants",
+      position: { x: pos.x, z: pos.z },
+      troops: [{ name: "Security", count: spec.guardCount, tier: 2 }],
+      troopCount: spec.guardCount,
+      hostile: false,
+      destination: null,
+      speedKmPerDay: 30,
+      cargo: [],
+      circuit: spec.circuit,
+      circuitIndex: -1,
+      ownerId: "player",
+      foundedDay: this.#day,
+      totalProfit: 0,
+    });
+    return { accepted: true, caravanId, displayName: spec.displayName };
+  }
+
+  /**
    * Hire soldiers into the party.
    *
    * The hiring bonus comes out of the purse immediately, and the new mouths join the
@@ -1794,10 +1849,14 @@ class FixtureState {
     const market = this.#markets.get(townId);
     if (!market) return;
 
-    // Sell cargo (increasing town stock, lowering price)
+    // Sell cargo (increasing town stock, lowering price).
+    // Rowan (trader system): track revenue for player-owned convoys so
+    // profits flow back to the player's purse, Bannerlord-style.
+    let sellRevenue = 0;
     for (const item of npc.cargo ?? []) {
       const good = market.goods.find((g) => g.goodId === item.goodId);
       if (good && item.quantity > 0) {
+        sellRevenue = round2(sellRevenue + good.price * item.quantity);
         good.stock += item.quantity;
         good.price = round2(BASE_PRICE[item.goodId as keyof typeof BASE_PRICE] * priceFor(good.stock, good.demand));
       }
@@ -1811,11 +1870,22 @@ class FixtureState {
         cheapest = good;
       }
     }
+    let buyCost = 0;
     if (cheapest && cheapest.stock > 20) {
       const qty = Math.min(20, Math.floor(cheapest.stock * 0.2));
+      buyCost = round2(cheapest.price * qty);
       cheapest.stock -= qty;
       cheapest.price = round2(BASE_PRICE[cheapest.goodId as keyof typeof BASE_PRICE] * priceFor(cheapest.stock, cheapest.demand));
       npc.cargo.push({ goodId: cheapest.goodId, quantity: qty });
+    }
+
+    // Player convoys: profit = revenue - cost, paid to the player's purse.
+    if (npc.ownerId === "player") {
+      const profit = round2(sellRevenue - buyCost);
+      npc.totalProfit = round2((npc.totalProfit ?? 0) + profit);
+      if (profit !== 0) {
+        this.#player.resources.money = round2(this.#player.resources.money + profit);
+      }
     }
   }
 

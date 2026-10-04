@@ -490,6 +490,15 @@ export interface NpcParty {
   circuit?: string[];
   /** Index into `circuit` of the stop currently being traveled to. */
   circuitIndex?: number;
+  /**
+   * Owner of this party. "player" for player-founded trade convoys
+   * (see `data/traders.ts`); absent for NPC parties.
+   */
+  ownerId?: string;
+  /** Day the caravan was founded (player convoys only). */
+  foundedDay?: number;
+  /** Lifetime trading profit in dollars (player convoys only). */
+  totalProfit?: number;
 }
 
 /**
