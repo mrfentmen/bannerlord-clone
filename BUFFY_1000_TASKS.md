@@ -628,21 +628,21 @@
 550. [x] [Hana] Wire: save game chime
 
 ### Music System (551–570)
-551. Music: menu-theme on title
-552. Music: ambient-exploration on map
-553. Music: battle-theme on battle start
-554. Music: crossfade between tracks (2s)
-555. Music: victory-fanfare on win
-556. Music: defeat on loss
-557. Music: tavern-rest in tavern
-558. Music: dynamic intensity (nearby enemies)
+551. [x] [Hana] Music: menu-theme on title
+552. [x] [Hana] Music: ambient-exploration on map
+553. [x] [Hana] Music: battle-theme on battle start
+554. [x] [Hana] Music: crossfade between tracks (2s)
+555. [x] [Hana] Music: victory-fanfare on win
+556. [x] [Hana] Music: defeat on loss
+557. [x] [Hana] Music: tavern-rest in tavern
+558. [x] [Hana] Music: dynamic intensity (nearby enemies)
 559. Music: duck under dialogue
-560. Music: shuffle ambient
-561. Music: volume slider wiring
-562. Music: mute toggle wiring
-563. Music: combat intensity layers
-564. Music: stinger on ambush
-565. Music: stinger on discovery
+560. [x] [Hana] Music: shuffle ambient
+561. [x] [Hana] Music: volume slider wiring
+562. [x] [Hana] Music: mute toggle wiring
+563. [x] [Hana] Music: combat intensity layers
+564. [x] [Hana] Music: stinger on ambush
+565. [x] [Hana] Music: stinger on discovery
 566. Music: day/night variants
 567. Music: faction themes (6 variants)
 568. Music: boss battle theme
