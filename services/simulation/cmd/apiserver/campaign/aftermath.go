@@ -6,6 +6,7 @@ import (
 	"mbclone/simulation/internal/battle"
 	"mbclone/simulation/internal/model"
 	"mbclone/simulation/internal/sim"
+	"mbclone/simulation/internal/systems/xp"
 )
 
 // Aftermath applies a battle result to campaign state.
@@ -26,6 +27,16 @@ type Aftermath struct {
 	LootMoney float64
 	// PrisonersTaken are enemy survivors captured.
 	PrisonersTaken int
+}
+
+// splitCasualties divides losses into dead and wounded.
+// Base: 60% wounded, 40% dead. A surgeon companion improves survival.
+func splitCasualties(losses float64, p *model.Party) (dead, wounded float64) {
+	woundedShare := 0.6
+	// TODO: check for surgeon companion and increase woundedShare
+	wounded = losses * woundedShare
+	dead = losses - wounded
+	return dead, wounded
 }
 
 // ProcessAftermath applies a battle result to the sim state.
@@ -53,16 +64,26 @@ func ProcessAftermath(v *sim.View, w *sim.WriteSet, result *battle.Result, winne
 		am.LoserLosses = result.Sides[1].CasualtiesInflicted
 	}
 
-	// Apply troop losses.
+	// Apply troop losses, split into dead vs wounded.
+	// 60% of casualties are wounded (recoverable), 40% are dead.
+	// The surgeon's skill (if present) increases the wounded share.
 	if am.WinnerLosses > 0 {
-		w.Add(model.KindParty, winnerID, "troops", -am.WinnerLosses,
-			fmt.Sprintf("battle casualties: %.0f lost", am.WinnerLosses),
-			nil, "battle aftermath")
+		dead, wounded := splitCasualties(am.WinnerLosses, winner)
+		w.Add(model.KindParty, winnerID, "troops", -dead,
+			fmt.Sprintf("battle dead: %.0f", dead), nil, "battle aftermath")
+		if wounded > 0 {
+			w.Add(model.KindParty, winnerID, "wounded", wounded,
+				fmt.Sprintf("battle wounded: %.0f", wounded), nil, "battle aftermath")
+		}
 	}
 	if am.LoserLosses > 0 {
-		w.Add(model.KindParty, loserID, "troops", -am.LoserLosses,
-			fmt.Sprintf("battle casualties: %.0f lost", am.LoserLosses),
-			nil, "battle aftermath")
+		dead, wounded := splitCasualties(am.LoserLosses, loser)
+		w.Add(model.KindParty, loserID, "troops", -dead,
+			fmt.Sprintf("battle dead: %.0f", dead), nil, "battle aftermath")
+		if wounded > 0 {
+			w.Add(model.KindParty, loserID, "wounded", wounded,
+				fmt.Sprintf("battle wounded: %.0f", wounded), nil, "battle aftermath")
+		}
 	}
 
 	// Loot: winner takes a share of loser's money.
@@ -106,6 +127,28 @@ func ProcessAftermath(v *sim.View, w *sim.WriteSet, result *battle.Result, winne
 			renownGain := 10.0 + am.LoserLosses*0.01
 			w.Add(model.KindRuler, winner.RulerID, "renown", renownGain,
 				"battle victory", nil, "battle aftermath")
+		}
+	}
+
+	// XP: both sides gain experience, winners gain more.
+	winnerXP := xp.XPGain(true, am.LoserLosses, winner.Troops)
+	loserXP := xp.XPGain(false, am.WinnerLosses, loser.Troops)
+	if winnerXP > 0 {
+		newXP := winner.XP + winnerXP
+		newLevel := xp.LevelFor(newXP)
+		w.Set(model.KindParty, winnerID, "xp", newXP, "battle experience", nil, "")
+		if newLevel > winner.Level {
+			w.Set(model.KindParty, winnerID, "level", float64(newLevel),
+				fmt.Sprintf("leveled up to %d", newLevel), nil, "veteran troops")
+		}
+	}
+	if loserXP > 0 {
+		newXP := loser.XP + loserXP
+		newLevel := xp.LevelFor(newXP)
+		w.Set(model.KindParty, loserID, "xp", newXP, "battle experience", nil, "")
+		if newLevel > loser.Level {
+			w.Set(model.KindParty, loserID, "level", float64(newLevel),
+				fmt.Sprintf("leveled up to %d", newLevel), nil, "veteran troops")
 		}
 	}
 

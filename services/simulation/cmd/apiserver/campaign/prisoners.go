@@ -241,6 +241,41 @@ func (c *Campaign) ExecutePrisoner(ctx context.Context, id string) (map[string]a
 	return map[string]any{"id": id, "fear": ps.fear, "message": fmt.Sprintf("%s dies in the dirt. The next ones you face may run.", name)}, nil
 }
 
+// InterrogatePrisoner extracts intel from a captive.
+// Higher rank prisoners know more. The prisoner is not consumed,
+// but repeated interrogations yield diminishing returns.
+func (c *Campaign) InterrogatePrisoner(ctx context.Context, id string) (map[string]any, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	ps := c.ensurePrisoners()
+	p := ps.byID[id]
+	if p == nil {
+		return nil, notFoundf("prisoner %s not found", id)
+	}
+
+	// Intel quality depends on rank.
+	intel := map[string]any{"prisoner": p.Name, "rank": string(p.Rank)}
+	switch p.Rank {
+	case RankNotable, RankOfficer:
+		// Officers know troop dispositions and town defenses.
+		intel["troopIntel"] = fmt.Sprintf("%s reports %s fields %d troops across their lands.", p.Name, p.FactionName, 100+int(p.Loyalty*500))
+		intel["townIntel"] = fmt.Sprintf("Their towns are defended but stretched thin.")
+	case RankSergeant:
+		intel["troopIntel"] = fmt.Sprintf("%s describes patrol routes and supply trains.", p.Name)
+	default:
+		intel["troopIntel"] = fmt.Sprintf("%s knows little beyond camp gossip.", p.Name)
+	}
+
+	// Interrogation lowers loyalty (they resent it).
+	p.Loyalty = math.Max(0, p.Loyalty-0.1)
+
+	return map[string]any{
+		"id":      id,
+		"intel":   intel,
+		"message": fmt.Sprintf("%s talks. Some of it may even be true.", p.Name),
+	}, nil
+}
+
 func (c *Campaign) prisonerUpkeepLocked() {
 	ps := c.ensurePrisoners()
 	n := len(ps.order)

@@ -31,6 +31,7 @@ import (
 	"mbclone/simulation/internal/systems/election"
 	"mbclone/simulation/internal/systems/factionai"
 	"mbclone/simulation/internal/systems/food"
+	"mbclone/simulation/internal/systems/healing"
 	"mbclone/simulation/internal/systems/influence"
 	"mbclone/simulation/internal/systems/labor"
 	"mbclone/simulation/internal/systems/logistics"
@@ -82,6 +83,7 @@ func Systems() []sim.System {
 		supply.System(),
 		attrition.System(),
 		upkeep.System(),
+		healing.System(),
 		siege.System(),
 
 		// --- politics ---

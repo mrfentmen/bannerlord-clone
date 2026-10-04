@@ -280,6 +280,10 @@ type Party struct {
 	ColumnDisease    float64
 	RaidTarget       int
 	WageDaily        float64
+	// XP is accumulated combat experience. Level is derived from XP.
+	// Higher level troops fight better (see battle effectiveness).
+	XP    float64
+	Level int
 }
 
 // Ruler is a named character who holds land, leads a party, or sells a company.
