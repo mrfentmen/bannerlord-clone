@@ -646,6 +646,20 @@ export interface PartyState {
   goods: { goodId: string; name: string; quantity: number; avgPaid: number }[];
   /** Captured enemy troops held as prisoners. */
   prisoners: { troopId: string; name: string; count: number; tier: number }[];
+  /**
+   * Spare riding horses by breed (see campaign/partySpeed.ts). These mount
+   * footmen on the march -- one horse per footman is the optimum.
+   */
+  horses?: { breed: 'quarter' | 'mustang' | 'draft' | 'thoroughbred'; count: number }[];
+  /** Mules. Carry capacity, no speed. */
+  packAnimals?: number;
+  /** Motorized haulers. Huge capacity, road-bound, need fuel. */
+  trucks?: number;
+  /**
+   * Bannerlord-style speed breakdown, refreshed on every daily tick. The
+   * party panel renders this under the march-speed row.
+   */
+  speedFactors?: { name: string; mult: number; detail: string }[];
 }
 
 /** The tradeable goods of ECONOMY.md, named so the market is legible. */

@@ -131,6 +131,21 @@ Port: perks must be concrete, percentage-based, and situational. No dead perks.
   morale, wounded, overburdened (too much loot), night/day, weather.
 - Forced march: faster, costs morale.
 - Scouting reveals enemy parties and tracks.
+- **Party speed system** (`clients/campaign/src/campaign/partySpeed.ts`,
+  ported from Bannerlord's party-speed rules, modernized):
+  - Spare riding horses mount footmen: one horse per footman is optimal.
+  - **Perfect herd**: exactly one horse per footman gives a +5% bonus.
+  - **Herd penalty**: more than 1.5 animals per troop slows the party.
+  - **Horse breeds × terrain**: quarter (balanced), mustang (hills/desert),
+    draft (forest/swamp), thoroughbred (fast on roads, bad in mud).
+  - **Trucks**: +400 capacity each, fast on roads, struggle off-road; more
+    than 1 per 8 troops causes congestion; unfueled trucks are dead weight.
+  - **Horse-truck synergy**: trucks haul the heavy gear while horses keep the
+    pace (+5%).
+  - **Encumbrance**: cargo over carrying capacity brings the party to a crawl;
+    capacity = troops×30 + mules×100 + horses×20 + trucks×400.
+  - Wounded, prisoners, low morale, and night all slow the march.
+  - The party panel shows the full Bannerlord-style speed breakdown.
 
 ### 4.3 Recruitment
 - Recruit from settlements. Each ethnicity's territory favors its own units.

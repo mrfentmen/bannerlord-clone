@@ -225,6 +225,28 @@ export function partyPanel(options: PartyPanelOptions): HTMLElement {
       row("Daily rations", `${dailyFood.toFixed(1)} person-days`, { mono: true, testId: "party-daily-rations" }),
       row("Purse", money(party.money), { mono: true, testId: "party-purse" }),
       row("March speed", `${party.speedKmPerDay.toFixed(0)} km/day`, { mono: true, testId: "party-speed" }),
+      // Bannerlord-style speed breakdown: each factor that moved the number,
+      // with the reason. Only rendered when the provider supplies it.
+      ...(party.speedFactors && party.speedFactors.length > 0
+        ? [
+            h(
+              "div",
+              { class: "row", "data-testid": "party-speed-factors" },
+              h("span", { class: "row__label label" }, "Speed factors"),
+              h(
+                "span",
+                { class: "row__value" },
+                ...party.speedFactors.map((f) =>
+                  h(
+                    "div",
+                    { class: "data", title: f.detail },
+                    `${f.name} ${f.mult >= 1 ? "+" : ""}${((f.mult - 1) * 100).toFixed(0)}%`,
+                  ),
+                ),
+              ),
+            ),
+          ]
+        : []),
     ),
   );
 

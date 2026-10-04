@@ -82,6 +82,12 @@ import {
   CARAVAN_FOUNDING_COST,
   foundCaravanSpec,
 } from "../traders.js";
+import {
+  GOOD_WEIGHTS,
+  partySpeed,
+  type MarchTerrain,
+  type PartySpeedReport,
+} from "../../campaign/partySpeed.js";
 
 /** Marker strings. `tools/check-no-fixtures.mjs` greps the production bundle for
  *  these, so this module cannot be smuggled into a shipped build unnoticed. */
@@ -306,6 +312,13 @@ class FixtureState {
   #month: number = FIXTURE.startMonth;
   #year: number = FIXTURE.startYear;
   #tick = 0;
+  /** Hour of day, 0-23. The fixture ticks by days; scenarios set this directly. */
+  #hour = 12;
+
+  /** True between 20:00 and 06:00. Night marches are slower. */
+  #isNight(): boolean {
+    return this.#hour < 6 || this.#hour >= 20;
+  }
   #cause = new Map<string, CauseRow>();
   #sequence = 0;
   #random: () => number;
@@ -439,6 +452,9 @@ class FixtureState {
       roles: { quartermaster: "Ivo Petran", surgeon: "Ada Renko", scout: "Bil Todd" },
       goods: [{ goodId: "grain", name: "Grain", quantity: 0, avgPaid: 0 }],
       prisoners: [],
+      horses: [{ breed: "quarter", count: 10 }],
+      packAnimals: 2,
+      trucks: 1,
     };
 
     // Spawn hostile bandit parties near the player's start.
@@ -1450,7 +1466,9 @@ class FixtureState {
     this.#tick += 1;
     this.#day += 1;
     // Recompute party speed from composition every day.
-    this.#party.speedKmPerDay = this.partySpeed();
+    const speedReport = this.partySpeedReport();
+    this.#party.speedKmPerDay = speedReport.speedKmPerDay;
+    this.#party.speedFactors = speedReport.factors;
     if (this.#day > 28) {
       this.#day = 1;
       this.#month += 1;
@@ -1730,34 +1748,45 @@ class FixtureState {
    * a scout companion speeds it up.
    */
   partySpeed(): number {
-    const base = 34;
-    const troops = this.#party.troops;
-    const total = troops.reduce((s, t) => s + t.count, 0);
-    if (total === 0) return base;
+    return this.partySpeedReport().speedKmPerDay;
+  }
 
-    const mounted = troops.reduce((s, t) => s + (t.mounted ? t.count : 0), 0);
+  /**
+   * Full Bannerlord-style speed breakdown. The party's horses, mules, trucks,
+   * cargo, wounded, prisoners and morale all feed the campaign/partySpeed
+   * module; the factors list is what the party panel shows as the tooltip.
+   */
+  partySpeedReport(terrain: MarchTerrain = "plains"): PartySpeedReport {
+    const troops = this.#party.troops;
+    const footTroops = troops.reduce((s, t) => s + (t.mounted ? 0 : t.count), 0);
+    const mountedTroops = troops.reduce((s, t) => s + (t.mounted ? t.count : 0), 0);
     const wounded = troops.reduce((s, t) => s + (t.wounded ?? 0), 0);
     const prisoners = this.#party.prisoners.reduce((s, p) => s + p.count, 0);
-
-    const mountedFrac = mounted / total;
-    let speed = base * (0.85 + 0.35 * mountedFrac);
-
-    // Wounded: -1% per 5% wounded, max -20%
-    const woundedFrac = wounded / total;
-    speed *= 1 - Math.min(0.2, woundedFrac * 0.2);
-
-    // Prisoners: -5% per 10 prisoners, max -25%
-    speed *= 1 - Math.min(0.25, Math.floor(prisoners / 10) * 0.05);
-
-    // Scout: +3% per scouting skill point, max +15%
+    const cargoWeight = this.#party.goods.reduce(
+      (s, g) => s + g.quantity * (GOOD_WEIGHTS[g.goodId] ?? 1),
+      0,
+    );
     const scoutId = this.#party.roles.scout;
-    if (scoutId) {
-      const scout = this.#characters.find((c) => c.id === scoutId);
-      const skill = scout?.skills?.scouting ?? 0;
-      speed *= 1 + Math.min(0.15, skill * 0.03);
-    }
+    const scout = scoutId ? this.#characters.find((c) => c.id === scoutId) : undefined;
+    const fuel = this.#party.goods.find((g) => g.goodId === "fuel");
 
-    return Math.max(10, Math.round(speed * 10) / 10);
+    return partySpeed(
+      {
+        footTroops,
+        mountedTroops,
+        horses: this.#party.horses ?? [],
+        packAnimals: this.#party.packAnimals ?? 0,
+        trucks: this.#party.trucks ?? 0,
+        trucksFueled: (fuel?.quantity ?? 0) > 0,
+        cargoWeight,
+        wounded,
+        prisoners,
+        morale: this.#party.morale <= 1 ? this.#party.morale * 100 : this.#party.morale,
+        isNight: this.#isNight(),
+        scoutSkill: scout?.skills?.scouting ?? 0,
+      },
+      terrain,
+    );
   }
 
   #recoverWounded(): void {
