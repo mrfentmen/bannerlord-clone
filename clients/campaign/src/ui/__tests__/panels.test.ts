@@ -93,6 +93,21 @@ function town(opts: { loading?: boolean; town?: TownState | null } = {}): HTMLEl
     onLoadQuests: async () => ({ offers: [], active: [] }),
     onAcceptQuest: async () => ({ questId: "q-test" }),
     onAbandonQuest: async () => undefined,
+    onNotableTalk: async () => ({
+      notableId: "n-test",
+      name: "Test notable",
+      dialogue: ["Talk."],
+      actions: [{ id: "gift", label: "Offer a gift (50 gold)", detail: "Gold opens doors.", available: true }],
+    }),
+    onNotableImprove: async () => ({
+      accepted: true,
+      notableId: "n-test",
+      name: "Test notable",
+      relationBefore: 0,
+      relationAfter: 10,
+      summary: "Relation rose.",
+      causedBy: "test",
+    }),
   });
 }
 

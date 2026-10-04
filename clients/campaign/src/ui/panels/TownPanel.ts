@@ -212,6 +212,18 @@ export interface TownPanelOptions {
   /** Abandon a carried quest. Rejects with the simulation's own reason. */
   onAbandonQuest?: (questId: string) => Promise<void>;
   /**
+   * Open a conversation with a notable (tasks 129-133). The simulation writes
+   * every line and lists which actions it currently serves. Rejects with its
+   * own reason (unknown notable, wrong town).
+   */
+  onNotableTalk?: (notableId: string) => Promise<import("../../data/types.js").TalkToNotableResult>;
+  /**
+   * Perform a real relation action on a notable (gift with its gold cost, or
+   * favor). Rejects with the simulation's own reason; a soft refusal (insulting
+   * gift, short purse) resolves with `accepted: false` and its summary.
+   */
+  onNotableImprove?: (request: import("../../data/types.js").ImproveRelationRequest) => Promise<import("../../data/types.js").ImproveRelationResult>;
+  /**
    * The survey is still being read. Renders `town-skeleton`, which mirrors this
    * panel's sections, so the context region does not change height when the town
    * lands. Drawn before the request, never after it (CONSTITUTION.md section 3.2).

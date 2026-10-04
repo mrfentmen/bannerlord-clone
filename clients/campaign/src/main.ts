@@ -1462,6 +1462,18 @@ function townNode(town: TownState): Node {
       rebuildContext();
       paint();
     },
+    // Notables (tasks 129-133): the sim writes the lines and gates the actions;
+    // gift and favor are real routes (/v1/notables/talk, /v1/notables/relation).
+    onNotableTalk: (notableId) => provider.talkToNotable(town.settlementId, notableId),
+    onNotableImprove: async (request) => {
+      const result = await provider.improveRelation(request);
+      playVerdictSound(result.accepted);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+      return result;
+    },
     onRecruitMilitia: async (count) => {
       if (!snapshot) throw new Error("No snapshot to recruit militia against.");
       await provider.recruitMilitia(town.id, count);

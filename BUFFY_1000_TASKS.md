@@ -164,8 +164,8 @@
 [x] 126. Town panel: quest list with status icons
 [x] 127. Town panel: quest accept button
 [x] 128. Town panel: quest abandon button
-129. Town panel: notable NPCs list
-130. Town panel: talk button per NPC
+[x] 129. Town panel: notable NPCs list
+[x] 130. Town panel: talk button per NPC
 131. Town panel: trade caravan option
 132. Town panel: wait here button (pass time)
 133. Town panel: leave town button
