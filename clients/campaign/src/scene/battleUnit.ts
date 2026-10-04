@@ -51,6 +51,16 @@ export const INFANTRY_STATS: UnitStats = {
 export class UnitBrain {
   state: UnitState = "idle";
 
+  /**
+   * Fired after every strike this brain lands, with whether the blow killed.
+   * The battle loop wires it to the combat event bus; until then it is null
+   * and strikes stay silent, so a brain fighting without a loop never lies
+   * about being watched.
+   */
+  onStrike:
+    | ((attacker: UnitBrain, victim: UnitBrain, amount: number, killed: boolean) => void)
+    | null = null;
+
   private moveTarget: Vector3 | null = null;
   private target: UnitBrain | null = null;
   private cooldown = 0;
@@ -248,7 +258,9 @@ export class UnitBrain {
           this.cooldown = this.stats.attackCooldown;
           const dir = t.position.subtract(this.position);
           dir.y = 0;
+          const wasAlive = t.alive;
           t.soldier.damage(this.stats.damage, dir);
+          this.onStrike?.(this, t, this.stats.damage, wasAlive && !t.alive);
         }
         break;
       }

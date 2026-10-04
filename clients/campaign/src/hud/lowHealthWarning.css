@@ -1,0 +1,17 @@
+.hud-lowhp {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: inset 0 0 9rem 3rem rgba(200, 20, 20, 0.55);
+}
+
+.hud-lowhp--show {
+  opacity: 1;
+  animation: hud-lowhp-pulse 1.1s ease-in-out infinite;
+}
+
+@keyframes hud-lowhp-pulse {
+  0%, 100% { opacity: 0.45; }
+  50% { opacity: 1; }
+}

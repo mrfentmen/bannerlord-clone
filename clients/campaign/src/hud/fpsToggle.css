@@ -1,0 +1,20 @@
+.hud-fps__wrap {
+  position: absolute;
+  top: 4.5rem;
+  left: 1rem;
+}
+
+.hud-fps {
+  padding: 0.3rem 0.6rem;
+  border-radius: 0.375rem;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(10, 10, 14, 0.72);
+  color: #e8e8e8;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.hud-fps[aria-pressed="true"] {
+  border-color: #ffd76a;
+  color: #ffd76a;
+}

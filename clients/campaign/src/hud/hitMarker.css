@@ -1,0 +1,20 @@
+.hud-hitmarker {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.8);
+  opacity: 0;
+  pointer-events: none;
+}
+
+.hud-hitmarker__x {
+  font-size: 2rem;
+  color: #fff;
+  text-shadow: 0 0 6px rgba(255, 90, 90, 0.9);
+}
+
+.hud-hitmarker--show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1.15);
+  transition: transform 90ms ease-out, opacity 90ms ease-out;
+}

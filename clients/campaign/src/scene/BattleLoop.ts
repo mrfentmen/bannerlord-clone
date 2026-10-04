@@ -16,6 +16,7 @@ import { Vector3 } from "@babylonjs/core";
 import type { BattleScene } from "./BattleScene.js";
 import { BattleSoldier } from "./BattleSoldier.js";
 import { INFANTRY_STATS, UnitBrain } from "./battleUnit.js";
+import { CombatEventBus } from "./combatEvents.js";
 
 export interface BattleResult {
   /** True when every enemy is dead and at least one player soldier stands. */
@@ -39,6 +40,12 @@ export class BattleLoop {
   private readonly brains: UnitBrain[] = [];
   private readonly soldiers: BattleSoldier[] = [];
   private readonly onEnd: ((result: BattleResult) => void) | undefined;
+  /**
+   * The fight's honest feed (tasks 31, 45-48): every strike and kill the
+   * brains actually performed. HUD components subscribe; nothing here is
+   * invented.
+   */
+  readonly combatEvents = new CombatEventBus();
   private elapsed = 0;
   private ended = false;
   private disposed = false;
@@ -83,6 +90,26 @@ export class BattleLoop {
     await spawnTeam(1, enemyCount, 1);
 
     const loop = new BattleLoop(battle, soldiers, brains, options);
+
+    // Every strike becomes a combat event: the HUD's kill feed, hit marker,
+    // damage direction and combo counter all read this bus, so they can only
+    // ever show what actually happened on the field.
+    for (const brain of brains) {
+      brain.onStrike = (attacker, victim, _amount, killed) => {
+        const from = attacker.position.subtract(victim.position);
+        from.y = 0;
+        if (from.lengthSquared() > 0) from.normalize();
+        loop.combatEvents.emitStrike({
+          attackerTeam: attacker.team,
+          victimTeam: victim.team,
+          fromDirection: { x: from.x, z: from.z },
+          killed,
+        });
+        if (killed) {
+          loop.combatEvents.emitKill({ victimTeam: victim.team, killerTeam: attacker.team });
+        }
+      };
+    }
 
     // Opening orders: both sides attack-move at each other. The brains take
     // it from there — acquire, engage, attack, die.
@@ -141,6 +168,26 @@ export class BattleLoop {
   /** Total dead on a team (for the kill feed / HUD). */
   casualties(team: number): number {
     return this.brains.filter((b) => b.team === team && !b.alive).length;
+  }
+
+  /**
+   * Lowest health fraction among the player's living soldiers, 0..1 (task 33:
+   * the low-health warning reads this). Null when no player soldier has ever
+   * reported — same honesty rule as the troop counts: no report is not zero.
+   */
+  playerMinHealthFraction(): number | null {
+    let min: number | null = null;
+    for (let i = 0; i < this.brains.length; i++) {
+      const brain = this.brains[i];
+      const soldier = this.soldiers[i];
+      if (!brain || !soldier) continue;
+      if (brain.team !== 0 || !brain.alive) continue;
+      const max = soldier.maxHealth;
+      if (max <= 0) continue;
+      const fraction = Math.max(0, soldier.health / max);
+      min = min === null ? fraction : Math.min(min, fraction);
+    }
+    return min;
   }
 
   dispose(): void {

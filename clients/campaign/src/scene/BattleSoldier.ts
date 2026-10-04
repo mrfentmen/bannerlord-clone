@@ -32,12 +32,14 @@ export class BattleSoldier {
   private meshes: AbstractMesh[] = [];
   private ragdoll: RagdollHandle | null = null;
   private _health: number;
+  private readonly _maxHealth: number;
   private _alive = true;
 
   private constructor(scene: Scene, root: TransformNode, health: number) {
     this.scene = scene;
     this.root = root;
     this._health = health;
+    this._maxHealth = health;
   }
 
   /**
@@ -77,6 +79,8 @@ export class BattleSoldier {
   }
 
   get health(): number { return this._health; }
+  /** Health at spawn: the denominator behind every health bar and fraction. */
+  get maxHealth(): number { return this._maxHealth; }
   get alive(): boolean { return this._alive; }
 
   /**

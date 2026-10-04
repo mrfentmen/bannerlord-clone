@@ -56,26 +56,26 @@
 28. HUD pause button
 29. HUD surrender button (with confirm dialog)
 30. HUD retreat button (with confirm dialog)
-31. HUD kill feed (last 5 kills, auto-fade)
+31. HUD kill feed (last 5 kills, auto-fade) ✓
 32. HUD objective marker display
-33. HUD low-health warning (screen edge pulse)
+33. HUD low-health warning (screen edge pulse) ✓
 34. HUD ammo counter (if ranged units)
-35. HUD selected unit info panel
-36. HUD unit health bars (toggleable)
+35. HUD selected unit info panel ✓
+36. HUD unit health bars (toggleable) ✓
 37. HUD faction banners (top corners)
 38. HUD battle timer (elapsed, mm:ss)
 39. HUD reinforcement timer (if applicable)
 40. HUD settings gear (opens pause menu)
-41. HUD FPS counter (debug, toggleable)
+41. HUD FPS counter (debug, toggleable) ✓
 42. HUD objective progress bar
 43. HUD victory points display
 44. HUD capture point markers
-45. HUD damage direction indicator
-46. HUD hit marker (X on hit)
-47. HUD kill confirm (skull icon)
-48. HUD combo counter (kills in 10s window)
-49. HUD ping indicator (multiplayer stub, disabled)
-50. HUD chat box (multiplayer stub, disabled)
+45. HUD damage direction indicator ✓
+46. HUD hit marker (X on hit) ✓
+47. HUD kill confirm (skull icon) ✓
+48. HUD combo counter (kills in 10s window) ✓
+49. HUD ping indicator (multiplayer stub, disabled) ✓
+50. HUD chat box (multiplayer stub, disabled) ✓
 
 ### Orders & Command (51–75)
 51. Order: move (right-click ground)
