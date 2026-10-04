@@ -177,3 +177,107 @@ describe("UnitBrain hold", () => {
     expect(brain.state).toBe("moving");
   });
 });
+
+describe("UnitBrain new behaviors (tasks 257, 289, 295)", () => {
+  it("charges at 1.6x speed and the charge ends with the first strike", () => {
+    const walker = new UnitBrain(fakeSoldier(0, 0), 0);
+    const charger = new UnitBrain(fakeSoldier(0, 0), 0);
+    walker.commandMoveTo(new Vector3(100, 0, 0));
+    charger.commandCharge(new Vector3(100, 0, 0));
+    expect(charger.isCharging).toBe(true);
+    for (let i = 0; i < 60; i++) {
+      walker.update(dt, []);
+      charger.update(dt, []);
+    }
+    // The charger covered 1.6x the walker's ground in the same time.
+    expect(charger.position.x).toBeCloseTo(walker.position.x * 1.6, 0);
+
+    // First strike ends the charge.
+    const enemySoldier = fakeSoldier(4, 0, 1000);
+    const enemy = new UnitBrain(enemySoldier, 1);
+    charger.commandCharge(new Vector3(4, 0, 0));
+    for (let i = 0; i < 600 && charger.isCharging; i++) charger.update(dt, [enemy]);
+    expect(charger.isCharging).toBe(false);
+  });
+
+  it("a new order cancels the charge", () => {
+    const brain = new UnitBrain(fakeSoldier(0, 0), 0);
+    brain.commandCharge(new Vector3(50, 0, 0));
+    expect(brain.isCharging).toBe(true);
+    brain.commandHold();
+    expect(brain.isCharging).toBe(false);
+  });
+
+  it("strikes from behind hit 1.5x, from the side 1.25x, from the front 1x", () => {
+    // Victim faces +z (rotation.y = 0 → forward (0,0,1)... soldier faces atan2(dx,dz)).
+    const victimSoldier = fakeSoldier(0, 10, 1000);
+    const victim = new UnitBrain(victimSoldier, 1);
+    victimSoldier.root.rotation.y = 0; // facing +z, away from an attacker at -z... set explicitly below
+
+    const striker = (x: number, z: number): UnitBrain => {
+      const b = new UnitBrain(fakeSoldier(x, z), 0);
+      // Teleport into range and force the strike by direct call path:
+      b.commandEngage(victim);
+      return b;
+    };
+
+    // Attacker directly behind the victim: victim faces +z, attacker at -z.
+    victimSoldier.root.rotation.y = 0;
+    let behind = striker(0, 0);
+    expect(behind.flankMultiplier(victim)).toBe(1.5);
+
+    // Attacker to the side.
+    let side = striker(10, 10);
+    expect(side.flankMultiplier(victim)).toBe(1.25);
+
+    // Attacker in front.
+    let front = striker(0, 20);
+    expect(front.flankMultiplier(victim)).toBe(1);
+  });
+
+  it("applies the flank multiplier to the damage dealt", () => {
+    const victimSoldier = fakeSoldier(0, 0, 1000);
+    const victim = new UnitBrain(victimSoldier, 1);
+    victimSoldier.root.rotation.y = 0; // facing +z
+    const attacker = new UnitBrain(fakeSoldier(0, -1.5), 0);
+    attacker.commandEngage(victim);
+    // In range: strike on the first attacking tick.
+    for (let i = 0; i < 120 && victimSoldier.health === 1000; i++) attacker.update(dt, [victim]);
+    // 12 base * 1.5 rear = 18.
+    expect(victimSoldier.health).toBe(1000 - 18);
+  });
+
+  it("sidesteps when stuck without making progress", () => {
+    const soldier = fakeSoldier(0, 0);
+    const brain = new UnitBrain(soldier, 0);
+    // Jam the soldier: damage() irrelevant — freeze position by pinning it.
+    const target = new Vector3(100, 0, 0);
+    brain.commandMoveTo(target);
+    // Simulate a wall: every update, put the soldier back where it was.
+    for (let i = 0; i < 200; i++) {
+      brain.update(dt, []);
+      soldier.root.position.set(0, 0, 0);
+    }
+    // The brain gave up pushing and sidestepped its target off the straight line.
+    const t = (brain as unknown as { moveTarget: Vector3 | null }).moveTarget;
+    expect(t).not.toBeNull();
+    expect(Math.abs(t!.z)).toBeGreaterThan(0.5);
+  });
+});
+
+describe("UnitBrain idle look-around (task 251)", () => {
+  it("turns its gaze while idling, never its position", () => {
+    const soldier = fakeSoldier(0, 0);
+    const brain = new UnitBrain(soldier, 0);
+    const yaw0 = soldier.root.rotation.y;
+    let turned = false;
+    for (let i = 0; i < 600; i++) {
+      brain.update(dt, []);
+      if (soldier.root.rotation.y !== yaw0) turned = true;
+    }
+    expect(turned).toBe(true);
+    expect(brain.state).toBe("idle");
+    expect(soldier.root.position.x).toBe(0);
+    expect(soldier.root.position.z).toBe(0);
+  });
+});

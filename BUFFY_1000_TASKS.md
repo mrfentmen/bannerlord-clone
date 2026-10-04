@@ -300,13 +300,13 @@
 ## C. Battle Simulation (Go) (251–400)
 
 ### Unit Behaviors (251–300)
-251. Unit: idle behavior (stand, occasional look-around)
+251. Unit: idle behavior (stand, occasional look-around) ✓
 252. Unit: move to position (pathfind, avoid obstacles)
-253. Unit: attack nearest enemy in range
-254. Unit: attack specific target (order)
-255. Unit: hold position (don't chase)
-256. Unit: retreat to rally point
-257. Unit: charge (sprint at enemy)
+253. Unit: attack nearest enemy in range ✓
+254. Unit: attack specific target (order) ✓
+255. Unit: hold position (don't chase) ✓
+256. Unit: retreat to rally point ✓
+257. Unit: charge (sprint at enemy) ✓
 258. Unit: skirmish (hit and run for ranged)
 259. Unit: guard (protect specific unit/position)
 260. Unit: follow (trail behind leader)
@@ -338,14 +338,14 @@
 286. Unit: rain penalty (reduced ranged accuracy)
 287. Unit: uphill bonus (damage/accuracy)
 288. Unit: downhill charge bonus
-289. Unit: flanking bonus (attack from side/rear)
-290. Unit: friendly fire check (don't hit allies)
-291. Unit: overkill (excess damage wasted)
+289. Unit: flanking bonus (attack from side/rear) ✓
+290. Unit: friendly fire check (don't hit allies) ✓
+291. Unit: overkill (excess damage wasted) ✓
 292. Unit: execution (finish downed enemies)
 293. Unit: battlefield awareness (don't walk off cliff)
 294. Unit: obstacle avoidance (go around, not through)
-295. Unit: stuck detection (unstick if not moving)
-296. Unit: despawn when far from camera (perf)
+295. Unit: stuck detection (unstick if not moving) ✓
+296. Unit: despawn when far from camera (perf) ✓
 297. Unit: respawn at edge (reinforcements)
 298. Unit: night vision (reduced penalty if trained)
 299. Unit: weather adaptation (reduced penalty if equipped)

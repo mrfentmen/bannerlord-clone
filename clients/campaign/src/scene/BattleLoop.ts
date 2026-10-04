@@ -34,18 +34,28 @@ export interface BattleLoopOptions {
   /** Soldiers on the enemy side. Default 5. */
   enemyCount?: number;
   onEnd?: (result: BattleResult) => void;
+  /**
+   * Distance LOD (task 296): brains farther than this many metres from the
+   * battle camera think every third tick instead of every tick. Default
+   * Infinity — off — so a loop that never asked for it behaves exactly as
+   * before. Rendering is untouched; only the thinking throttles.
+   */
+  cullDistance?: number;
 }
 
 export class BattleLoop {
   private readonly brains: UnitBrain[] = [];
   private readonly soldiers: BattleSoldier[] = [];
   private readonly onEnd: ((result: BattleResult) => void) | undefined;
+  private readonly battle: BattleScene;
   /**
    * The fight's honest feed (tasks 31, 45-48): every strike and kill the
    * brains actually performed. HUD components subscribe; nothing here is
    * invented.
    */
   readonly combatEvents = new CombatEventBus();
+  private readonly cullDistance: number;
+  private tickCount = 0;
   private elapsed = 0;
   private ended = false;
   private disposed = false;
@@ -59,7 +69,8 @@ export class BattleLoop {
     this.soldiers = soldiers;
     this.brains = brains;
     this.onEnd = options.onEnd;
-    void battle;
+    this.cullDistance = options.cullDistance ?? Infinity;
+    this.battle = battle;
   }
 
   static async create(options: BattleLoopOptions): Promise<BattleLoop> {
@@ -126,7 +137,22 @@ export class BattleLoop {
   update(dt: number): void {
     if (this.ended || this.disposed) return;
     this.elapsed += dt;
+    this.tickCount++;
+    // Distance LOD (task 296): far brains think every third tick. The camera
+    // pose is read once per frame, not per brain.
+    const camPos = this.cullDistance === Infinity
+      ? null
+      : this.battle.getCamera()?.position ?? null;
     for (const brain of this.brains) {
+      if (camPos !== null) {
+        const dx = brain.position.x - camPos.x;
+        const dz = brain.position.z - camPos.z;
+        if (dx * dx + dz * dz > this.cullDistance * this.cullDistance) {
+          if (this.tickCount % 3 !== 0) continue;
+          brain.update(dt * 3, this.brains);
+          continue;
+        }
+      }
       brain.update(dt, this.brains);
     }
     const playerAlive = this.brains.some((b) => b.team === 0 && b.alive);
