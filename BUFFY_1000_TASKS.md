@@ -505,22 +505,22 @@
 439. [x] [milo] Travel: consume food per day
 440. [x] [milo] Travel: random encounters on road
 441. [x] [milo] Travel: weather slows travel
-442. Travel: forced march (faster, morale hit)
+442. [x] [milo] Travel: forced march (faster, morale hit)
 443. [x] [milo] Travel: arrival event trigger
-444. Travel: interrupt on enemy contact
+444. [x] [milo] Travel: interrupt on enemy contact
 445. Road: patrol encounters (friendly)
-446. Road: toll booths (pay or fight)
-447. Road: bridge crossings (chokepoint)
-448. Road: ferry crossings (cost + time)
-449. Travel: night travel slower
+446. [x] [milo] Road: toll booths (pay or fight)
+447. [x] [milo] Road: bridge crossings (chokepoint)
+448. [x] [milo] Road: ferry crossings (cost + time)
+449. [x] [milo] Travel: night travel slower
 450. [x] [milo] Travel: rest to recover
 
 ### Factions & Territory (451–475)
-451. Territory: assign settlements to factions
-452. Territory: border calculation
+451. [x] [milo] Territory: assign settlements to factions
+452. [x] [milo] Territory: border calculation
 453. Territory: visual: colored overlay
-454. Faction: capital designation
-455. Faction: strength calculation
+454. [x] [milo] Faction: capital designation
+455. [x] [milo] Faction: strength calculation
 456. [x] [milo] Faction AI: expand when strong
 457. [x] [milo] Faction AI: defend when weak
 458. [x] [milo] Faction AI: seek alliances when threatened
@@ -538,9 +538,9 @@
 470. [x] [milo] War: territory cession
 471. [x] [milo] War: truce duration
 472. [x] [milo] Faction: relation decay over time
-473. Faction: relation improvement via gifts
-474. Faction: casus belli system
-475. Faction: war exhaustion
+473. [x] [milo] Faction: relation improvement via gifts
+474. [x] [milo] Faction: casus belli system
+475. [x] [milo] Faction: war exhaustion
 
 ### Events & Encounters (476–500)
 476. Event: bandit ambush
