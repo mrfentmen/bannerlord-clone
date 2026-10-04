@@ -1967,10 +1967,14 @@ function openLoans(): void {
   paint();
 }
 
-function openDiplomacy(): void {
+async function openDiplomacy(): Promise<void> {
   currentPanel = "none";
   const factions = [...new Map((snapshot?.rulers ?? []).map((r) => [r.factionId, { id: r.factionId, name: r.factionName }])).values()]
     .filter((f) => f.id !== snapshot?.player.factionId);
+  // The active contract is the provider's state (fixture models it; the live
+  // sim has no mercenary routes and answers null), never a hardcoded null —
+  // a signed contract that renders as no contract would offer "Sign on" again.
+  const mercenaryContract = await provider.getMercenaryContract().catch(() => null);
   contextNode = diplomacyPanel({
     currentSeason: seasonForDay(snapshot?.day ?? 0),
     factions,
@@ -2008,7 +2012,7 @@ function openDiplomacy(): void {
             }),
         }
       : {}),
-    mercenaryContract: null,
+    mercenaryContract,
     onSignMercenary: async (factionId, factionName) => {
       await provider.signMercenaryContract(factionId, factionName);
       void refreshAfterSimOrder();
@@ -2528,6 +2532,16 @@ function rebuildContext(): void {
         onRefitTemplate: async (templateId) => {
           const result = await provider.refitPartyToward(templateId);
           playVerdictSound(true);
+          return result;
+        },
+        // Troop training/promotion: the sim owns readiness, cost, and refusals;
+        // its answer is printed verbatim by the panel.
+        onUpgradeTroops: async (stackId) => {
+          const result = await provider.upgradeTroops({ stackId });
+          playVerdictSound(result.upgraded);
+          await reloadSnapshot();
+          rebuildContext();
+          paint();
           return result;
         },
       });
