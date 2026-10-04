@@ -45,6 +45,34 @@ balance for a web game), 39 files, ~23 MB:
 `cobble` has 3/4 maps (no separate AO shipped by Poly Haven for that
 set — the normal map carries the depth).
 
+## HDRIs — `vendor/hdris/`
+
+12 CC0 sky environments from Poly Haven, 1k HDR, ~17 MB. An HDRI is
+a 360° photograph of real sky light — the engine uses it for
+image-based lighting (IBL), so every PBR material in the scene gets
+correct reflections and ambient light "for free", plus it doubles as
+the visible skybox.
+
+| File | Light | Use for |
+|------|-------|---------|
+| `syferfontein_0d_clear_1k.hdr` | Clear midday | Default daytime |
+| `kloofendal_43d_clear_puresky_1k.hdr` | Clear day (pure sky) | Daytime alt, no ground clutter |
+| `autumn_field_puresky_1k.hdr` | Bright day | Daytime with character |
+| `qwantani_dawn_1k.hdr` | Dawn | Morning missions |
+| `kiara_1_dawn_1k.hdr` | Dawn alt | Morning alt |
+| `belfast_sunset_puresky_1k.hdr` | Sunset (pure sky) | Golden hour |
+| `bambanani_sunset_1k.hdr` | Sunset | Golden hour alt |
+| `qwantani_night_puresky_1k.hdr` | Night (pure sky) | Night ops |
+| `rogland_clear_night_1k.hdr` | Clear starry night | Night alt |
+| `kloppenheim_02_puresky_1k.hdr` | Night | Night alt 2 |
+| `kloofendal_overcast_puresky_1k.hdr` | Overcast | Gloomy/rain mood |
+| `approaching_storm_1k.hdr` | Storm | Battle dread mood |
+
+In Babylon.js: load via `CubeTexture` or convert to `.env` with the
+`ibl` tooling for fast IBL. Swap per time-of-day or per mission mood.
+Pure-sky variants have no ground baked in — correct choice since the
+game renders its own terrain below the horizon.
+
 ## License
 
 CC0 1.0 Universal (public domain). No attribution required.

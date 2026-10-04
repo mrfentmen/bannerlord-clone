@@ -1,7 +1,7 @@
 # Texture licenses — clients/campaign/public/textures/
 
-All textures under `vendor/pbr/` are from **Poly Haven**
-(https://polyhaven.com/textures), released under **CC0 1.0 Universal**
+All textures and HDRIs under `vendor/pbr/` and `vendor/hdris/` are from
+**Poly Haven** (https://polyhaven.com), released under **CC0 1.0 Universal**
 (public domain). No attribution required; source asset names are
 recorded in `README.md` as a courtesy.
 
