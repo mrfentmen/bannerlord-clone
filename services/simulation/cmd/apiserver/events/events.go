@@ -138,6 +138,11 @@ const defaultBuffer = 64
 // silently expiring it would hide that.
 func (b *Bus) Subscribe() *Subscription {
 	sub := &Subscription{bus: b, ch: make(chan Event, defaultBuffer), seq: b.subSeq.Add(1)}
+	// C is the channel subscribers read; ch is the same channel used to publish.
+	// Without this assignment C is nil, and a read on it blocks forever — which
+	// looks exactly like a stream with no events rather than like a bug. Nobody
+	// noticed until the first WebSocket layer subscribed.
+	sub.C = sub.ch
 	b.mu.Lock()
 	b.subs[sub] = struct{}{}
 	b.mu.Unlock()

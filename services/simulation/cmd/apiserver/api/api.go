@@ -2,10 +2,13 @@
 package api
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"strings"
 	"time"
@@ -112,6 +115,7 @@ func (s *Server) routes() {
 	s.mux.HandleFunc("GET /v1/bounties", s.listBounties)
 	s.mux.HandleFunc("POST /v1/bounties/{id}/claim", s.claimBounty)
 	s.mux.HandleFunc("GET /v1/health", s.getHealth)
+	s.mux.HandleFunc("GET /ws", s.getWS)
 	s.mux.HandleFunc("/", s.notFound)
 }
 
@@ -206,6 +210,20 @@ type statusRecorder struct {
 func (r *statusRecorder) WriteHeader(code int) {
 	r.status = code
 	r.ResponseWriter.WriteHeader(code)
+}
+
+// Hijack passes the upgrade through to the real connection.
+//
+// Embedding http.ResponseWriter promotes only that interface's methods, and
+// Hijack is not one of them, so without this method the /ws upgrade fails with
+// "server does not support hijacking" even though the connection beneath was
+// perfectly capable of it.
+func (r *statusRecorder) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	hj, ok := r.ResponseWriter.(http.Hijacker)
+	if !ok {
+		return nil, nil, fmt.Errorf("the underlying writer is not a hijacker")
+	}
+	return hj.Hijack()
 }
 
 func (s *Server) withLogging(next http.Handler) http.Handler {

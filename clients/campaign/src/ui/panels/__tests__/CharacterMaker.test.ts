@@ -27,19 +27,40 @@ import {
   startingSkillLevels,
 } from "../../../data/attributes.js";
 import type { GameCharacter } from "../../../data/backgrounds.js";
+import type { WorldSettlement } from "../../../world/types.js";
 
 /** The nine steps, in order. */
 const STEPS = [
   "Name",
   "Appearance",
   "Age",
-  "City",
+  "Home",
   "Difficulty",
   "Background",
   "Attributes",
   "Skills",
   "Review",
 ] as const;
+
+const HOME_STEP = 3;
+
+/** A real-shaped settlement for the home resolver, population and all. */
+function place(over: Partial<WorldSettlement> & { name: string }): WorldSettlement {
+  const { name, ...rest } = over;
+  return {
+    id: name.toLowerCase().replace(/\s+/g, "-"),
+    name,
+    place: "city",
+    lat: 0,
+    lon: 0,
+    population: 1000,
+    populationSource: "U.S. Census Bureau",
+    state: null,
+    stateCode: null,
+    osmPopulation: null,
+    ...rest,
+  };
+}
 
 const ATTRIBUTES_STEP = 6;
 const SKILLS_STEP = 7;
@@ -56,10 +77,18 @@ interface Maker {
 }
 
 /** Builds the maker with a name already filled in, so step 0 can be left. */
-function build(options: { bonusPointsTotal?: number } = {}): Maker {
+function build(options: {
+  bonusPointsTotal?: number;
+  side?: { id: string; name: string; stateCodes: readonly string[] };
+  stateCode?: string;
+  settlements?: WorldSettlement[];
+} = {}): Maker {
   let character: GameCharacter | null = null;
   const root = characterMaker({
     ...(options.bonusPointsTotal === undefined ? {} : { bonusPointsTotal: options.bonusPointsTotal }),
+    ...(options.side === undefined ? {} : { side: options.side }),
+    ...(options.stateCode === undefined ? {} : { stateCode: options.stateCode }),
+    ...(options.settlements === undefined ? {} : { settlements: options.settlements }),
     onComplete: (c) => {
       character = c;
     },
@@ -123,6 +152,67 @@ describe("character maker steps", () => {
     // The review step finishes rather than advancing, so there is no Next.
     expect(root.querySelector('[data-testid="maker-done"]')).not.toBeNull();
     expect(root.querySelector('[data-testid="maker-next"]')).toBeNull();
+  });
+
+  it("derives the home town from the side and the heritage", () => {
+    const settlements = [
+      place({ name: "New York City", state: "New York", stateCode: "NY", population: 8_804_190 }),
+      place({ name: "Columbus", state: "Ohio", stateCode: "OH", population: 913_175 }),
+      place({ name: "Los Angeles", state: "California", stateCode: "CA", population: 3_898_747 }),
+    ];
+    // Default heritage is Italian-American, whose strongest real concentration is
+    // New York; the side's states are the constraint that picks the state.
+    const maker = build({
+      side: { id: "atlantic-corridor", name: "Atlantic Corridor", stateCodes: ["NY", "PA"] },
+      settlements,
+    });
+    walkTo(maker.root, HOME_STEP);
+    expect(q(maker.root, "home-card").textContent).toContain("New York City");
+    expect(text(maker.root, "home-reason")).toContain("New York");
+  });
+
+  it("hands the campaign the home town's simulation slug rather than a display name", () => {
+    const settlements = [
+      place({ name: "New York City", state: "New York", stateCode: "NY", population: 8_804_190 }),
+    ];
+    const maker = build({
+      side: { id: "atlantic-corridor", name: "Atlantic Corridor", stateCodes: ["NY"] },
+      settlements,
+    });
+    walkTo(maker.root, HOME_STEP);
+    for (let i = HOME_STEP; i < REVIEW_STEP; i += 1) click(maker.root, "maker-next");
+    expect(text(maker.root, "review-home-reason")).toContain("New York");
+    click(maker.root, "maker-done");
+    expect(maker.complete()!.startCity).toBe("new-york-city");
+  });
+
+  it("says so honestly when no mapped settlement fits the side", () => {
+    const maker = build();
+    walkTo(maker.root, HOME_STEP);
+    expect(q(maker.root, "home-missing")).toBeTruthy();
+  });
+
+  it("keeps the review open and allows retry when starting the campaign fails", async () => {
+    let attempts = 0;
+    const root = characterMaker({
+      onComplete: async () => {
+        attempts += 1;
+        throw Object.assign(new Error("internal detail"), { playerMessage: "The simulation is not answering." });
+      },
+      onCancel: () => {},
+    });
+    document.body.appendChild(root);
+    walkTo(root, REVIEW_STEP);
+
+    click(root, "maker-done");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+
+    expect(q(root, "maker-start-error").textContent).toContain("The simulation is not answering.");
+    expect(root.querySelector('[data-testid="char-review"]')).not.toBeNull();
+    expect(q<HTMLButtonElement>(root, "maker-done").disabled).toBe(false);
+    click(root, "maker-done");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(attempts).toBe(2);
   });
 });
 

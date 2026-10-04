@@ -1,17 +1,25 @@
 /**
  * The character maker: Bannerlord-style creation for modern America.
  *
- * Steps: Name → Appearance → Age → City → Difficulty → Background → Attributes →
+ * Steps: Name → Appearance → Age → Home → Difficulty → Background → Attributes →
  * Skills → Review. Each background choice grants skill bonuses and shapes the
  * biography. Attributes and skills are the six and the eighteen of
  * `CHARACTER.md`, and `src/data/attributes.ts` owns the rules for both.
  * The result feeds into the campaign start.
+ *
+ * The Home step is derived, not picked: the side and state from the start screen
+ * plus the heritage chosen on step one resolve to a real settlement through
+ * `src/data/homes.ts`. There is no city list to click, because where a
+ * character starts in America is a fact about their side and their community
+ * rather than a menu.
  */
 
 import { clear, h } from "../dom.js";
 import { CHARACTER_STAGES, appearancesForEthnicity, computeCharacterStats,
-  START_CITIES, AGE_BRACKETS, DIFFICULTIES, clanNamesForEthnicity,
+  AGE_BRACKETS, DIFFICULTIES, clanNamesForEthnicity,
   scenarioForBackgrounds, type GameCharacter } from "../../data/backgrounds.js";
+import { resolveHome, type HomeChoice } from "../../data/homes.js";
+import type { WorldSettlement } from "../../world/types.js";
 import { attributesWithFamilyBonus, familyById } from "../../data/families.js";
 import { ATTRIBUTES, ATTRIBUTE_MAX, ATTRIBUTE_MIN, ATTRIBUTE_POINTS_TOTAL,
   FOCUS_POINTS_TOTAL, SKILLS, attributeLabel, attributePointsRemaining,
@@ -21,7 +29,7 @@ import { ATTRIBUTES, ATTRIBUTE_MAX, ATTRIBUTE_MIN, ATTRIBUTE_POINTS_TOTAL,
 import { ETHNICITIES } from "../../data/ethnicities.js";
 
 export interface CharacterMakerOptions {
-  onComplete: (character: GameCharacter) => void;
+  onComplete: (character: GameCharacter) => void | Promise<void>;
   onCancel: () => void;
   testId?: string;
   /**
@@ -29,9 +37,15 @@ export interface CharacterMakerOptions {
    * 142: New Game+ heirs get legacy training on top of the base budget).
    */
   bonusPointsTotal?: number | undefined;
+  /** The side taken on the start screen; its states constrain where home can be. */
+  side?: { id: string; name: string; stateCodes: readonly string[] } | undefined;
+  /** The state chosen on the start screen, when the side had any to choose. */
+  stateCode?: string | null;
+  /** The mapped settlements the home resolver reads. */
+  settlements?: readonly WorldSettlement[] | undefined;
 }
 
-const MAKER_STEPS = ["Name", "Appearance", "Age", "City", "Difficulty", "Background",
+const MAKER_STEPS = ["Name", "Appearance", "Age", "Home", "Difficulty", "Background",
   "Attributes", "Skills", "Review"] as const;
 type MakerStep = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
@@ -52,7 +66,8 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
   let appearanceId = appearancesForEthnicity(ETHNICITIES[0]!.id)[0]?.id ?? "";
   let ethnicityId = ETHNICITIES[0]!.id;
   let age = 30;
-  let startCity = "manhattan-sample";
+  /** Derived every render from the side, the state, and the chosen heritage. */
+  let home: HomeChoice | null = null;
   let difficulty = "normal";
   let attributes = evenAttributes();
   let skillFocus = emptyFocus();
@@ -65,6 +80,8 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
   const root = h("div", { class: "character-maker", "data-testid": options.testId ?? "character-maker" });
 
   function go(next: MakerStep): void {
+    if (completing) return;
+    completionError = null;
     step = next;
     render();
   }
@@ -90,13 +107,13 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
         "button",
         {
           class: `stepbar__step${i === step ? " stepbar__step--current" : ""}${i < step ? " stepbar__step--done" : ""}`,
-          disabled: i > step ? true : undefined,
+          disabled: i > step || completing ? true : undefined,
           "data-testid": `maker-step-${i}`,
         },
         `${i + 1}. ${label}`,
       );
       btn.addEventListener("click", () => {
-        if (i <= step) go(i as MakerStep);
+        if (!completing && i <= step) go(i as MakerStep);
       });
       bar.appendChild(btn);
     });
@@ -281,43 +298,36 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     return frag;
   }
 
-  function cityStep(): HTMLElement {
+  function homeStep(): HTMLElement {
     const frag = h("div", { class: "maker-step" });
-    frag.appendChild(h("h2", { class: "title" }, "Where do you start?"));
-    frag.appendChild(h("p", { class: "caption" }, "Your home turf shapes your whole campaign. Each city has real tradeoffs — read them before you commit."));
+    frag.appendChild(h("h2", { class: "title" }, "Your home ground"));
+    frag.appendChild(
+      h("p", { class: "caption" },
+        "Where you start follows from the side you took and the heritage you chose — real demographics, not a city menu. You can go back if you want a different side or a different name."),
+    );
 
-    const grid = h("div", { class: "roles", "data-testid": "city-grid" });
-    for (const city of START_CITIES) {
-      const selected = startCity === city.slug;
-      const proList = h("ul", { class: "pros" });
-      for (const pro of city.pros) {
-        proList.appendChild(h("li", { title: pro.reason }, `+ ${pro.label}`));
-      }
-      const conList = h("ul", { class: "cons" });
-      for (const con of city.cons) {
-        conList.appendChild(h("li", { title: con.reason }, `- ${con.label}`));
-      }
-      const btn = h(
-        "button",
-        {
-          class: `role city-card${selected ? " role--selected" : ""}`,
-          "aria-pressed": selected ? "true" : "false",
-          "data-testid": `city-${city.slug}`,
-          title: city.description,
-        },
-        h("strong", {}, city.name),
-        h("br"),
-        h("em", { class: "tagline" }, city.tagline),
-        h("p", { class: "caption city-desc" }, city.description),
-        h("div", { class: "city-pros-cons" }, proList, conList),
+    if (!home) {
+      frag.appendChild(
+        h("p", { class: "caption", "data-testid": "home-missing" },
+          "No mapped settlement falls inside your side's states yet, so the campaign places you at the simulation's own start town."),
       );
-      btn.addEventListener("click", () => {
-        startCity = city.slug;
-        render();
-      });
-      grid.appendChild(btn);
+      return frag;
     }
-    frag.appendChild(grid);
+
+    const s = home.settlement;
+    const card = h("div", { class: "sheet portrait-panel", "data-testid": "home-card" });
+    card.appendChild(h("h3", {}, `${s.name}${s.state ? `, ${s.state}` : ""}`));
+    card.appendChild(
+      h("p", { class: "caption" },
+        s.population === null
+          ? "Population not surveyed."
+          : `Population ${s.population.toLocaleString("en-US")} (US Census Bureau).`),
+    );
+    if (options.side) {
+      card.appendChild(h("p", { class: "caption" }, `Your side: ${options.side.name}.`));
+    }
+    card.appendChild(h("p", { "data-testid": "home-reason" }, home.reason));
+    frag.appendChild(card);
     return frag;
   }
 
@@ -571,7 +581,6 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     const ethnicity = ETHNICITIES.find((e) => e.id === ethnicityId);
     const appearance = appearancesForEthnicity(ethnicityId).find((a) => a.id === appearanceId);
     const bracket = AGE_BRACKETS.find((b) => age >= b.min && age <= b.max);
-    const city = START_CITIES.find((c) => c.slug === startCity);
 
     const card = h("div", { class: "sheet portrait-panel", "data-testid": "char-review" });
     // Portrait preview — large icon with appearance details.
@@ -589,18 +598,12 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     const diff = DIFFICULTIES.find((d) => d.id === difficulty);
     card.appendChild(
       h("p", { class: "caption", style: "text-align:center" },
-        `Starting city: ${city?.name ?? startCity} · Difficulty: ${diff?.label ?? difficulty}`),
+        `Starting home: ${home ? `${home.settlement.name}${home.settlement.state ? `, ${home.settlement.state}` : ""}` : "the simulation's own town"} · Difficulty: ${diff?.label ?? difficulty}`),
     );
-    if (city) {
-      card.appendChild(h("p", { class: "caption", style: "text-align:center" }, city.tagline));
-      const cityEffects = h("ul", { class: "city-effects" });
-      for (const pro of city.pros) {
-        cityEffects.appendChild(h("li", { class: "pro", title: pro.reason }, `+ ${pro.label}`));
-      }
-      for (const con of city.cons) {
-        cityEffects.appendChild(h("li", { class: "con", title: con.reason }, `- ${con.label}`));
-      }
-      card.appendChild(cityEffects);
+    if (home) {
+      card.appendChild(
+        h("p", { class: "caption", style: "text-align:center", "data-testid": "review-home-reason" }, home.reason),
+      );
     }
 
     card.appendChild(h("h4", {}, "Attributes"));
@@ -658,26 +661,45 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
   }
 
   let nextBtn!: HTMLButtonElement;
+  let completing = false;
+  let completionError: string | null = null;
 
   function render(): void {
     clear(root);
+    home = resolveHome({
+      ethnicityId,
+      stateCode: options.stateCode ?? null,
+      sideStateCodes: options.side?.stateCodes,
+      ethnicityName: ETHNICITIES.find((e) => e.id === ethnicityId)?.name ?? ethnicityId,
+      settlements: options.settlements ?? [],
+    });
     root.appendChild(stepBar());
 
     const body = h("div", { class: "maker-body" });
     if (step === 0) body.appendChild(nameStep());
     else if (step === 1) body.appendChild(appearanceStep());
     else if (step === 2) body.appendChild(ageStep());
-    else if (step === 3) body.appendChild(cityStep());
+    else if (step === 3) body.appendChild(homeStep());
     else if (step === 4) body.appendChild(difficultyStep());
     else if (step === 5) body.appendChild(backgroundStep());
     else if (step === 6) body.appendChild(attributesStep());
     else if (step === 7) body.appendChild(skillsStep());
     else body.appendChild(reviewStep());
     root.appendChild(body);
+    if (completionError) {
+      root.appendChild(
+        h("div", { class: "error", role: "alert", "data-testid": "maker-start-error" },
+          h("p", { class: "error__message" }, completionError)),
+      );
+    }
 
     const nav = h("div", { class: "maker-nav" });
     if (step > 0) {
-      const back = h("button", { class: "btn", "data-testid": "maker-back" }, "← Back");
+      const back = h("button", {
+        class: "btn",
+        disabled: completing ? true : undefined,
+        "data-testid": "maker-back",
+      }, "← Back");
       back.addEventListener("click", () => go((step - 1) as MakerStep));
       nav.appendChild(back);
     } else {
@@ -696,25 +718,43 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
       });
       nav.appendChild(nextBtn);
     } else {
-      const done = h("button", { class: "btn btn--primary", "data-testid": "maker-done" }, "Start Game");
-      done.addEventListener("click", () => {
+      const done = h("button", {
+        class: "btn btn--primary",
+        "data-testid": "maker-done",
+        disabled: completing ? true : undefined,
+      }, completing ? "Starting…" : "Start Game");
+      done.addEventListener("click", async () => {
+        if (completing) return;
+        completing = true;
+        completionError = null;
+        done.disabled = true;
+        done.textContent = "Starting…";
         const { skills, cash, biography } = computeCharacterStats(backgroundChoices, age, {});
-        options.onComplete({
-          firstName: firstName.trim(),
-          lastName: lastName.trim(),
-          gender,
-          appearanceId,
-          ethnicityId,
-          backgroundChoices: { ...backgroundChoices },
-          attributes: { ...attributes },
-          skillFocus: { ...skillFocus },
-          startingSkills: skills,
-          startCity,
-          age,
-          difficulty,
-          startingCash: cash,
-          biography,
-        });
+        try {
+          await options.onComplete({
+            firstName: firstName.trim(),
+            lastName: lastName.trim(),
+            gender,
+            appearanceId,
+            ethnicityId,
+            backgroundChoices: { ...backgroundChoices },
+            attributes: { ...attributes },
+            skillFocus: { ...skillFocus },
+            startingSkills: skills,
+            startCity: home?.slug ?? "",
+            age,
+            difficulty,
+            startingCash: cash,
+            biography,
+          });
+        } catch (err) {
+          completionError =
+            err instanceof Error && "playerMessage" in err && typeof err.playerMessage === "string"
+              ? err.playerMessage
+              : "The campaign could not start. Please try again.";
+          completing = false;
+          render();
+        }
       });
       nav.appendChild(done);
     }

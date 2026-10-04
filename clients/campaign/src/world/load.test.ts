@@ -9,8 +9,8 @@
 import { existsSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { bandFor, classifySettlement, makeProjection } from "./load.js";
-import type { Heightfield, RegionFile, WorldSettlement } from "./types.js";
+import { bandFor, classifySettlement, indexSettlements, makeProjection } from "./load.js";
+import type { Heightfield, RegionFile, WorldSettlement, WorldSettlementFile } from "./types.js";
 
 /** The decoder as a pure function, so it can be tested without a canvas. */
 export function decodeTerrarium(r: number, g: number, b: number): number {
@@ -98,6 +98,56 @@ describe("terrarium elevation decoding", () => {
       }
       expect(missing.map((t) => t.path)).toEqual([]);
     }
+  });
+});
+
+describe("simulation settlement IDs", () => {
+  const place: WorldSettlement = {
+    id: "huber-heights-osm",
+    name: "Huber Heights",
+    place: "town",
+    lat: 39.8595,
+    lon: -84.1131,
+    population: 43_313,
+    populationSource: "Census",
+    state: "Ohio",
+    stateCode: "OH",
+    osmPopulation: null,
+  };
+
+  it("resolves a hyphenated server name slug to the client settlement", () => {
+    expect(indexSettlements([place]).resolve("huber-heights")).toBe(place);
+  });
+
+  it("resolves the simulation's slugs against real shipped place names", () => {
+    const dir = fileURLToPath(new URL("../../public/world/", import.meta.url));
+    const settlements = JSON.parse(readFileSync(`${dir}settlements.json`, "utf8")) as {
+      settlements: WorldSettlementFile[];
+    };
+    const places = settlements.settlements.map((entry) => ({
+      id: entry.osmId,
+      name: entry.name,
+      place: entry.place,
+      lat: entry.lat,
+      lon: entry.lon,
+      population: entry.population,
+      populationSource: entry.populationSource,
+      state: entry.state,
+      stateCode: entry.stateCode,
+      osmPopulation: entry.osmPopulation,
+    }));
+    const index = indexSettlements(places);
+
+    for (const name of ["Columbus", "Huber Heights", "Lexington-Fayette urban county"]) {
+      const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+      expect(index.resolve(slug)?.name, slug).toBe(name);
+    }
+
+    const duplicateSlug = index.resolve("dayton");
+    expect(duplicateSlug, "a slug shared by two real places must not pick an arbitrary town").toBeUndefined();
+    expect(index.resolve("DAYTON")?.name).toBeUndefined();
+    expect(index.resolve("DAYTON", "Ohio")?.state).toBe("Ohio");
+    expect(index.resolve("DAYTON", "Kentucky")?.state).toBe("Kentucky");
   });
 });
 

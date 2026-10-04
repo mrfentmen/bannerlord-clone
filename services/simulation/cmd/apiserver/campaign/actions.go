@@ -336,6 +336,14 @@ func (c *Campaign) SetCharacter(ctx context.Context, ch wire.PlayerCharacter) (a
 	if r := c.state.Rulers[c.playerRuler]; r != nil && ch.Age > 0 {
 		c.state.Set(model.KindRuler, r.ID, "ruler_age", ch.Age)
 	}
+	// startCity is where the player's side and heritage put them — the client
+	// derives it from real demographics — so the player is moved there rather
+	// than the sheet storing a town the party never reaches.
+	if ch.StartCity != "" {
+		if t, ok := c.townByRef(ch.StartCity); ok {
+			c.relocatePlayer(t)
+		}
+	}
 	return wire.Accepted{Accepted: true}, nil
 }
 

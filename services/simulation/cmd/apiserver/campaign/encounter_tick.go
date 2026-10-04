@@ -3,8 +3,10 @@ package campaign
 import (
 	"context"
 	"math"
+	"sort"
 
 	"mbclone/simulation/cmd/apiserver/wire"
+	"mbclone/simulation/internal/model"
 )
 
 // Encounter auto-trigger.
@@ -32,19 +34,54 @@ const encounterRange = 5.0
 func (c *Campaign) checkEncountersLocked() {
 	st := storeFor(c)
 
-	// Collect party IDs in deterministic order for stable encounter creation.
-	ids := c.state.PartyIDs()
+	// Pairs that already have a pending encounter, read once per pass. Asking
+	// the store per pair re-scanned the whole encounter list for every pair —
+	// thousands of calls per pass, each looking at a list that only grows. One
+	// scan answers every pair, and a pair created below is added here so later
+	// pairs in the same pass see it exactly as the old live check did. Pairs are
+	// keyed low-id-first so the two orders of the same pair are one entry.
+	pending := make(map[[2]int]struct{})
+	st.mu.Lock()
+	for _, enc := range st.encounters {
+		if enc.Status != "pending" {
+			continue
+		}
+		a, b := enc.Attacker.PartyID, enc.Defender.PartyID
+		if a > b {
+			a, b = b, a
+		}
+		pending[[2]int{a, b}] = struct{}{}
+	}
+	st.mu.Unlock()
 
-	for i := 0; i < len(ids); i++ {
-		for j := i + 1; j < len(ids); j++ {
-			a := c.state.Parties[ids[i]]
-			b := c.state.Parties[ids[j]]
+	// Sweep the parties that can fight in X order, and stop each inner loop once
+	// the X gap alone is past the range. The previous version tested every pair —
+	// there are hundreds of parties, so that was hundreds of thousands of distance
+	// and AtWar checks on every tick, and it held the campaign lock long enough
+	// that ordinary HTTP requests timed out behind it. The sweep visits exactly
+	// the pairs that can be in range, so it creates the same encounters the full
+	// scan would have created.
+	parties := make([]*model.Party, 0, len(c.state.Parties))
+	for _, id := range c.state.PartyIDs() {
+		p := c.state.Parties[id]
+		if p == nil || p.Troops <= 0 {
+			continue
+		}
+		parties = append(parties, p)
+	}
+	sort.Slice(parties, func(i, j int) bool {
+		if parties[i].X != parties[j].X {
+			return parties[i].X < parties[j].X
+		}
+		return parties[i].ID < parties[j].ID
+	})
 
-			if a == nil || b == nil {
-				continue
-			}
-			if a.Troops <= 0 || b.Troops <= 0 {
-				continue
+	for i := 0; i < len(parties); i++ {
+		a := parties[i]
+		for j := i + 1; j < len(parties); j++ {
+			b := parties[j]
+			if b.X-a.X > encounterRange {
+				break
 			}
 
 			// Proximity check.
@@ -62,7 +99,11 @@ func (c *Campaign) checkEncountersLocked() {
 			}
 
 			// Skip if there's already a pending encounter for this pair.
-			if st.hasPendingEncounterFor(a.ID, b.ID) {
+			pairKey := [2]int{a.ID, b.ID}
+			if pairKey[0] > pairKey[1] {
+				pairKey[0], pairKey[1] = pairKey[1], pairKey[0]
+			}
+			if _, seen := pending[pairKey]; seen {
 				continue
 			}
 
@@ -93,30 +134,13 @@ func (c *Campaign) checkEncountersLocked() {
 			}
 			st.encounters[id] = enc
 			st.mu.Unlock()
+			pending[pairKey] = struct{}{}
 
 			// Notify if the player's party is involved.
 			// The client polls ListEncountersForParty to discover these.
 			_ = enc
 		}
 	}
-}
-
-// hasPendingEncounterFor returns true if there's a pending encounter
-// involving both party IDs (in either order).
-func (st *encounterStore) hasPendingEncounterFor(aID, bID int) bool {
-	st.mu.Lock()
-	defer st.mu.Unlock()
-	for _, enc := range st.encounters {
-		if enc.Status != "pending" {
-			continue
-		}
-		aMatch := enc.Attacker.PartyID == aID || enc.Defender.PartyID == aID
-		bMatch := enc.Attacker.PartyID == bID || enc.Defender.PartyID == bID
-		if aMatch && bMatch {
-			return true
-		}
-	}
-	return false
 }
 
 // ListEncountersForParty returns all encounters (pending or otherwise)

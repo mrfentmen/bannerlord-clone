@@ -522,12 +522,19 @@ const selectionScreen = startScreen({
     // Character maker goes between faction select and campaign mount.
     pendingIronman = choice.ironman === true;
     pendingNewGamePlus = choice.newGamePlus === true && ngplusRecord !== null;
+    // The maker resolves the player's home town from the side and the heritage
+    // they pick, against the real settlements the map loaded.
+    const chosenSide = snapshot?.sides.find((s) => s.id === choice.sideId);
     selectionScreen.replaceWith(
       characterMaker({
         bonusPointsTotal:
           pendingNewGamePlus && ngplusRecord ? BONUS_POINTS_TOTAL + ngplusRecord.bonusPoints : undefined,
-        onComplete: (character) => {
-          document.querySelector(".character-maker")?.remove();
+        side: chosenSide
+          ? { id: chosenSide.id, name: chosenSide.name, stateCodes: chosenSide.states.map((st) => st.code) }
+          : undefined,
+        stateCode: choice.stateCode,
+        settlements: worldData.data.settlements,
+        onComplete: async (character) => {
           // New Game+ (task 142): the heir inherits gold and a legacy line.
           // Renown itself is sim-side with no client write path, so it is
           // recorded in the biography and the carryover list, not faked
@@ -538,7 +545,7 @@ const selectionScreen = startScreen({
             pendingNewGamePlus && ngplusRecord
               ? `${character.biography}\n\n${legacyBiographyLine(ngplusRecord)}`
               : character.biography;
-          provider.setCharacter({
+          await provider.setCharacter({
             firstName: character.firstName,
             lastName: character.lastName,
             gender: character.gender,
@@ -549,10 +556,16 @@ const selectionScreen = startScreen({
             difficulty: character.difficulty,
             backgroundChoices: character.backgroundChoices,
             startingSkills: character.startingSkills,
+            attributes: character.attributes,
+            skillFocus: character.skillFocus,
             startingCash,
             biography,
           });
-          void reloadSnapshot().then(() => mountCampaign());
+          const startedSnapshot = await provider.getSnapshot();
+          previous = snapshot;
+          snapshot = startedSnapshot;
+          document.querySelector(".character-maker")?.remove();
+          if (!campaignMounted) mountCampaign();
           // Seed the clan roster with the player as founding ruler
           // (integration: the laws panel's succession outlook reads this).
           clearClanStore();
@@ -873,8 +886,11 @@ function enterPhotoMode(): void {
   });
 }
 
+let campaignMounted = false;
+
 function mountCampaign(): void {
-  if (!snapshot) return;
+  if (!snapshot || campaignMounted) return;
+  campaignMounted = true;
 
   // Campaign map music: ambient exploration bed, loops seamlessly.
   void getAudioManager().playMusic("ambient-exploration").catch(() => {});
@@ -1289,7 +1305,9 @@ function settlement(idOrName: string): WorldSettlement | undefined {
  */
 function simIdOf(place: WorldSettlement | undefined): string | null {
   if (!place || !snapshot) return null;
-  return snapshot.towns.find((t) => settlement(t.settlementId)?.id === place.id)?.settlementId ?? null;
+  return snapshot.towns.find(
+    (town) => world?.settlements.resolve(town.settlementId, town.state)?.id === place.id,
+  )?.settlementId ?? null;
 }
 
 /** Client settlement id -> the town the simulation runs for it. */
@@ -1298,7 +1316,7 @@ let townByPlaceId = new Map<string, TownState>();
 function reindexTowns(): void {
   townByPlaceId = new Map();
   for (const town of snapshot?.towns ?? []) {
-    const place = settlement(town.settlementId);
+    const place = world?.settlements.resolve(town.settlementId, town.state);
     if (place) townByPlaceId.set(place.id, town);
   }
 }
@@ -1830,9 +1848,10 @@ const TRACKER_COLLAPSED_KEY = "campaign.questTracker.collapsed.v1";
 
 function loadTrackerCollapsed(): boolean {
   try {
-    return localStorage.getItem(TRACKER_COLLAPSED_KEY) === "1";
+    const saved = localStorage.getItem(TRACKER_COLLAPSED_KEY);
+    return saved === null ? true : saved === "1";
   } catch {
-    return false;
+    return true;
   }
 }
 

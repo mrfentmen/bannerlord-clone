@@ -116,6 +116,10 @@ type Options struct {
 	// PlayerRulerID and PlayerTownID choose the player. Zero means pick one.
 	PlayerRulerID int
 	PlayerTownID  int
+
+	// Settlements is the real settlement feed used to build the map. An empty
+	// slice intentionally selects worldgen's synthetic map.
+	Settlements []worldgen.Settlement
 }
 
 // withDefaults fills every unset option.
@@ -264,7 +268,7 @@ func New(cfg *config.Config, opts Options) (*Campaign, error) {
 		return nil, fmt.Errorf("apiserver: balance config is not runnable: %w", err)
 	}
 
-	gen := worldgen.Generate(cfg, opts.Seed, nil)
+	gen := worldgen.Generate(cfg, opts.Seed, opts.Settlements)
 	if gen.State == nil || len(gen.State.Towns) == 0 {
 		return nil, errors.New("apiserver: world generation produced no settlements")
 	}
@@ -423,6 +427,38 @@ func (c *Campaign) attachParty(r *model.Ruler) error {
 	c.state.SetIDCounter(model.IDParty, id)
 	c.party = id
 	return nil
+}
+
+// relocatePlayer moves the player's ruler and party to t.
+//
+// Town and ruler are a one-to-one pair: town.Holder names the ruler based there
+// and ruler.TownID names the town. Moving the player onto a town somebody else
+// holds therefore swaps the two holders — the other ruler takes the town the
+// player left — so no town is ever left with a holder who lives elsewhere and no
+// ruler is left holding two towns. The player's party moves with them, because a
+// party in a different town from its ruler is a contradiction the next march
+// would have to clean up.
+func (c *Campaign) relocatePlayer(t *model.Town) {
+	r := c.state.Rulers[c.playerRuler]
+	if r == nil || t == nil || t.ID == r.TownID {
+		return
+	}
+	old := c.state.Towns[r.TownID]
+	if other := c.state.Rulers[t.Holder]; t.Holder >= 0 && t.Holder != r.ID && other != nil && old != nil {
+		other.TownID = old.ID
+		old.Holder = other.ID
+	} else if old != nil {
+		old.Holder = -1
+	}
+	r.TownID = t.ID
+	t.Holder = r.ID
+	c.homeTown = t.ID
+	if p := c.state.Parties[c.party]; p != nil {
+		p.HomeTown = t.ID
+		p.X, p.Y = t.X, t.Y
+		p.DestTown = -1
+		p.DestX, p.DestY = t.X, t.Y
+	}
 }
 
 // townPos returns a town's X, or zero when the id names no town. The caller

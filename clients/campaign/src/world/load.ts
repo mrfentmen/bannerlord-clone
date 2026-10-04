@@ -340,20 +340,56 @@ export function makeProjection(region: RegionFile, hf: Heightfield): Projection 
 /** Build the settlement lookup described in `SettlementIndex`. */
 export function indexSettlements(settlements: WorldSettlement[]): SettlementIndex {
   const byId = new Map<string, WorldSettlement>();
-  const byName = new Map<string, WorldSettlement>();
+  const byName = new Map<string, WorldSettlement | null>();
+  const bySlug = new Map<string, WorldSettlement | null>();
   for (const s of settlements) {
     byId.set(s.id, s);
-    byName.set(s.name, s);
-    byName.set(s.name.toLowerCase(), s);
+    addUnambiguous(byName, s.name.toLowerCase(), s);
+    addUnambiguous(bySlug, settlementSlug(s.name), s);
   }
   return {
     byId,
     byName,
-    resolve(input) {
-      return byId.get(input) ?? byName.get(input) ?? byName.get(input.toLowerCase());
+    resolve(input, state) {
+      const slug = settlementSlug(input);
+      const named = byId.get(input) ?? resolveName(byName, input) ?? resolveName(bySlug, slug);
+      if (named && (!state || !named.state || named.state.toLowerCase() === state.toLowerCase())) return named;
+      if (state) {
+        return settlements.find(
+          (place) =>
+            settlementSlug(place.name) === slug &&
+            place.state?.toLowerCase() === state.toLowerCase(),
+        );
+      }
+      return undefined;
     },
     all: () => settlements,
   };
+}
+
+function addUnambiguous(
+  index: Map<string, WorldSettlement | null>,
+  key: string,
+  settlement: WorldSettlement,
+): void {
+  const existing = index.get(key);
+  index.set(key, existing === undefined ? settlement : null);
+}
+
+function resolveName(
+  index: Map<string, WorldSettlement | null>,
+  name: string,
+): WorldSettlement | undefined {
+  return index.get(name) ?? index.get(name.toLowerCase()) ?? undefined;
+}
+
+/** Match the simulation's lowercase, hyphenated settlement-name key. */
+export function settlementSlug(name: string): string {
+  return name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "");
 }
 
 export function classifySettlement(settlement: WorldSettlement): {
