@@ -44,7 +44,7 @@ describe("workshop production chains", () => {
 
   it("a smithy consumes inputs and produces arms for a profit", () => {
     const market = marketOf();
-    const result = runWorkshopDay(WORKSHOP_RECIPES.smithy, market, "Smithy");
+    const result = runWorkshopDay(WORKSHOP_RECIPES.smithy!, market, "Smithy");
     expect(result.runs).toBe(3);
     expect(result.inputCost).toBeGreaterThan(0);
     expect(result.outputValue).toBeGreaterThan(0);
@@ -59,7 +59,7 @@ describe("workshop production chains", () => {
       ["fuel", { goodId: "fuel", price: 30, stock: 0 }],
       ["arms", { goodId: "arms", price: 210, stock: 10 }],
     ]);
-    const result = runWorkshopDay(WORKSHOP_RECIPES.smithy, market, "Smithy");
+    const result = runWorkshopDay(WORKSHOP_RECIPES.smithy!, market, "Smithy");
     expect(result.runs).toBe(0);
     expect(result.profit).toBeLessThan(0);
     expect(result.line).toMatch(/idles/);

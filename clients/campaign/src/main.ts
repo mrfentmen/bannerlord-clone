@@ -77,7 +77,7 @@ import { townPanel } from "./ui/panels/TownPanel.js";
 import { whyPanel } from "./ui/panels/WhyPanel.js";
 import type {
   GoodId,
-  NpcParty,
+  NearbyForce,
   SettlementOption,
   SimSnapshot,
   TickUpdate,
@@ -901,13 +901,15 @@ function mountCampaign(): void {
       local: {
         describeEncounter: (attackerId, defenderId) => {
           // Use the actual encountered NPC party if available.
-          const encounterNpc = (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
+          const encounterNpc = (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
           const defender = encounterNpc
             ? {
                 partyId: defenderId,
                 name: encounterNpc.name,
                 troops: encounterNpc.troopCount,
-                power: encounterNpc.troops.reduce((n, t) => n + t.count * t.tier, 0),
+                power: "troops" in encounterNpc
+                  ? encounterNpc.troops.reduce((n, t) => n + t.count * t.tier, 0)
+                  : encounterNpc.troopCount,
               }
             : {
                 partyId: defenderId,
@@ -996,12 +998,12 @@ function mountCampaign(): void {
               console.error("Battle writeback failed:", err);
             });
 
-          const encounterNpc = (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
+          const encounterNpc = (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
           if (won && encounterNpc) {
             void provider
               .defeatNpcParty(encounterNpc.id)
               .then(() => {
-                delete (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
+                delete (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
                 return reloadSnapshot();
               })
               .catch((err) => {
@@ -1015,14 +1017,14 @@ function mountCampaign(): void {
                 prisonersTaken: Math.min(3, Math.round(playerWounded / 2)),
               })
               .then(() => {
-                delete (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
+                delete (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
                 return reloadSnapshot();
               })
               .catch((err) => {
                 console.error("Defeat consequences failed:", err);
               });
           } else if (!won) {
-            delete (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
+            delete (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
           }
         }
       },
@@ -1356,6 +1358,19 @@ function townNode(town: TownState): Node {
     onSellWorkshop: async (workshopId) => {
       if (!snapshot) throw new Error("No snapshot to sell a workshop against.");
       await provider.sellWorkshop(workshopId);
+      playVerdictSound(true);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+    },
+    // Tasks 115–117: the tavern tab. The panel fetches the roster on demand
+    // (when the player steps inside) and sends the hire order; the simulation
+    // owns the price, the roster, and the refusal.
+    onLoadTavern: () => provider.tavernCompanions(town.id),
+    onHireCompanion: async (companionId) => {
+      if (!snapshot) throw new Error("No snapshot to hire a companion against.");
+      await provider.recruitCompanion(companionId);
       playVerdictSound(true);
       previous = snapshot;
       snapshot = await provider.getSnapshot();
@@ -2219,11 +2234,6 @@ function rebuildContext(): void {
           renown: p.renown,
           factionId: p.factionId,
         },
-        onClose: () => {
-          currentPanel = "party";
-          rebuildContext();
-          paint();
-        },
       });
       return;
     }
@@ -2406,11 +2416,11 @@ async function checkForHostiles(): Promise<void> {
 }
 
 /** Handle the player's encounter choice: fight, flee, or dismiss. */
-async function handleEncounterChoice(choice: { action: "fight" | "flee" | "dismiss"; npcParty: NpcParty }): Promise<void> {
+async function handleEncounterChoice(choice: { action: "fight" | "flee" | "dismiss"; npcParty: NearbyForce }): Promise<void> {
   const { npcParty } = choice;
   if (choice.action === "fight") {
     // Store the NPC for the battle's describeEncounter to use.
-    (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc = npcParty;
+    (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc = npcParty;
     console.log(`[encounter] Fighting ${npcParty.name} (${npcParty.troopCount} troops)`);
     // Start the battle: player (attacker) vs the NPC party (defender).
     // The defender party ID is a hash of the NPC ID since battleflow uses numbers.
@@ -2420,7 +2430,7 @@ async function handleEncounterChoice(choice: { action: "fight" | "flee" | "dismi
         await battleUi.attack(0, defenderId); // 0 = player party
       } catch (err) {
         console.error("Failed to start battle:", err);
-        delete (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
+        delete (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
       }
     }
   } else if (choice.action === "flee") {
@@ -2440,7 +2450,7 @@ function hashNpcId(id: string): number {
 }
 
 /** Handle fleeing from an encounter: move the player away, apply consequences. */
-async function handleFlee(npcParty: NpcParty): Promise<void> {
+async function handleFlee(npcParty: NearbyForce): Promise<void> {
   if (!snapshot || !provider) return;
   console.log(`[encounter] Fled from ${npcParty.name}`);
 

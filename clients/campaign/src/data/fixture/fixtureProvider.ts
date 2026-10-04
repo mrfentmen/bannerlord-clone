@@ -72,6 +72,7 @@ import type {
   UpgradeTroopsRequest,
   UpgradeTroopsResult,
   ConstructionResult,
+  TavernCompanion,
   Workshop,
   Army,
   Siege,
@@ -349,6 +350,7 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     assaultSiege: async (siegeId) => state.assaultSiege(siegeId),
     liftSiege: async (siegeId) => state.liftSiege(siegeId),
     recruitCompanion: async (charId) => state.recruitCompanion(charId),
+    tavernCompanions: async (townId) => state.tavernCompanions(townId),
     assignPartyRole: async (charId, role) => state.assignPartyRole(charId, role),
     declareWar: async (targetFactionId) => state.declareWar(targetFactionId),
     makePeace: async (warId) => state.makePeace(warId),
@@ -697,11 +699,13 @@ class FixtureState {
 
     // Companion candidates: wandering heroes available for hire.
     // They start clanless; recruitment adds them to the player's clan.
+    // Backstory and wage are the fixture's own world data, the same way the
+    // ruler specs are — the tavern roster reads them, the hire order bills them.
     const companionSpecs = [
-      { name: "Sable", age: 28, skills: { medicine: 4, leadership: 2 } },
-      { name: "Corvus", age: 32, skills: { scouting: 5, tactics: 3 } },
-      { name: "Mira", age: 26, skills: { steward: 4, trade: 3 } },
-      { name: "Dain", age: 35, skills: { engineering: 5, tactics: 2 } },
+      { name: "Sable", age: 28, skills: { medicine: 4, leadership: 2 }, wageDaily: 12, backstory: "Field medic for a caravan crew that stopped coming home. Works for whoever keeps people breathing." },
+      { name: "Corvus", age: 32, skills: { scouting: 5, tactics: 3 }, wageDaily: 15, backstory: "Read trails the way toll-booth operators read faces. Never lost a party, never lost a fight he chose." },
+      { name: "Mira", age: 26, skills: { steward: 4, trade: 3 }, wageDaily: 11, backstory: "Ran a trading post on the river until the tolls ran it under. Knows what everything costs and who can pay it." },
+      { name: "Dain", age: 35, skills: { engineering: 5, tactics: 2 }, wageDaily: 14, backstory: "Bridge builder before the bridges stopped being safe. If it holds weight, he built it or broke it." },
     ];
     for (let i = 0; i < companionSpecs.length; i++) {
       const spec = companionSpecs[i]!;
@@ -717,6 +721,8 @@ class FixtureState {
         role: "companion",
         isPlayer: false,
         skills: spec.skills,
+        backstory: spec.backstory,
+        wageDaily: spec.wageDaily,
       });
     }
 
@@ -3850,6 +3856,33 @@ class FixtureState {
       entityId: siege.townId,
       field: "siege",
     });
+  }
+
+  /**
+   * The tavern roster: companions sitting in a town's tavern right now.
+   *
+   * The fixture's tavern is the wandering-hero pool itself — everyone alive,
+   * clanless, and asking a wage is in town tonight. `available` reflects what a
+   * hire order would actually do to this purse: `recruitCompanion` bills 500
+   * gold flat, so that is the number reported and the test of availability.
+   */
+  tavernCompanions(_townId: string): Promise<TavernCompanion[]> {
+    const COST = 500;
+    const roster = this.#characters
+      .filter((c) => c.role === "companion" && c.alive && !c.clanId && !c.isPlayer && c.wageDaily !== undefined && c.backstory !== undefined)
+      .map((c) => ({
+        id: c.id,
+        name: c.name,
+        backstory: c.backstory!,
+        traits: c.traits ?? [],
+        skills: c.skills ?? {},
+        wageDaily: c.wageDaily!,
+        recruitKind: "gold" as const,
+        recruitValue: COST,
+        hired: false,
+        available: this.#party.money >= COST,
+      }));
+    return Promise.resolve(roster);
   }
 
   /**

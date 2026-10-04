@@ -40,6 +40,7 @@ import type {
   RecruitRequest,
   RecruitResult,
   SimSnapshot,
+  TavernCompanion,
   SimulationProvider,
   TalkToNotableResult,
   TaxOrderResult,
@@ -61,6 +62,7 @@ import {
   marchCommitProblem,
   marchPlanProblem,
   nearbyForceListProblem,
+  tavernCompanionListProblem,
   recruitRequestProblem,
   recruitResultProblem,
   schemaVersionProblem,
@@ -1032,6 +1034,17 @@ export class HttpSimulationProvider implements SimulationProvider {
     const problem = nearbyForceListProblem(body);
     if (problem) throw new Error(problem);
     return body as NearbyForce[];
+  }
+
+  async tavernCompanions(townId: string): Promise<TavernCompanion[]> {
+    const url = `${this.#httpUrl}/v1/towns/${encodeURIComponent(townId)}/tavern/companions`;
+    const body = await this.#getJson(url, "The tavern roster could not be read.");
+    // Checked at the boundary like every other list: a row the tavern section
+    // cannot read is refused here, where the reason is visible, rather than in
+    // the panel, where it would be an undefined name.
+    const problem = tavernCompanionListProblem(body);
+    if (problem) throw new Error(problem);
+    return body as TavernCompanion[];
   }
 
   async upgradeTroops(request: UpgradeTroopsRequest): Promise<UpgradeTroopsResult> {

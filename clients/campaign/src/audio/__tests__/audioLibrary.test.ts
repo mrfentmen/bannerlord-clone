@@ -181,7 +181,9 @@ describe("families", () => {
     expect(counts.get("music")).toBeGreaterThan(200);
     expect(counts.get("music-stem")).toBeGreaterThan(1_000);
     expect(counts.get("voice-bark")).toBeGreaterThan(3_000);
-    expect(counts.get("voice-cry")).toBe(42);
+    // Cries grow with every audio batch (42 when written, 98 by October), so
+    // pin the floor, not the exact count, like every other family here.
+    expect(counts.get("voice-cry")).toBeGreaterThan(40);
     expect(counts.get("sfx-ambience")).toBeGreaterThan(20);
   });
 

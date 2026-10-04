@@ -150,9 +150,9 @@
 112. Town panel: sell button per good
 113. Town panel: player inventory display
 114. Town panel: player gold display
-115. Town panel: tavern tab
-116. Town panel: tavern recruitable NPCs list
-117. Town panel: tavern hire button
+115. [x] Town panel: tavern tab
+116. [x] Town panel: tavern recruitable NPCs list
+117. [x] Town panel: tavern hire button
 118. Town panel: tavern rumor display
 119. Town panel: smithy tab (if applicable)
 120. Town panel: smithy weapon list

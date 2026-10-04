@@ -22,7 +22,7 @@ import { button, h, numberField, row, sectionHeader } from "../dom.js";
 import { emptyState, errorState, gauge, panel, statusChip, type StatusKind } from "../kit.js";
 import { townSkeleton } from "./skeletons.js";
 import { asBottomSheet } from "./narrow.js";
-import type { BuildingInfo, ConstructionResult, RecruitableUnit, RecruitResult, TownState, Workshop } from "../../data/types.js";
+import type { BuildingInfo, ConstructionResult, RecruitableUnit, RecruitResult, TavernCompanion, TownState, Workshop } from "../../data/types.js";
 import { SimulationUnavailableError } from "../../data/provider.js";
 import { simulateTaxPolicy } from "../../economy/taxSimulator.js";
 import { answerProposal, proposeTradeDeal } from "../../economy/tradeDeals.js";
@@ -139,6 +139,18 @@ export interface TownPanelOptions {
    * actually send the order.
    */
   onRecruitMilitia?: (count: number) => Promise<void>;
+  /**
+   * Read the tavern roster (tasks 115–117). Only drawn when the caller can
+   * actually read it; the section fetches on demand, when the player steps
+   * inside, not on every panel render.
+   */
+  onLoadTavern?: () => Promise<TavernCompanion[]>;
+  /**
+   * Hire a tavern companion. Resolves when the simulation accepts the order;
+   * rejects with the simulation's own reason when it refuses (short purse,
+   * not enough renown, no battle wins yet).
+   */
+  onHireCompanion?: (companionId: string) => Promise<void>;
   /**
    * The survey is still being read. Renders `town-skeleton`, which mirrors this
    * panel's sections, so the context region does not change height when the town
@@ -566,6 +578,10 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
   if (buildingOwners.length > 0) {
     body.appendChild(buildingOwnersSection(buildingOwners));
   }
+
+  // -- the tavern (tasks 115–117) ----------------------------------------------
+  const tavern = tavernSection(options);
+  if (tavern) body.appendChild(tavern);
 
   // -- what happened here (task 138) ------------------------------------------
   const events = eventsSection(town, options);
@@ -1035,6 +1051,122 @@ function recruitRow(
     hire,
   );
   return rowEl;
+}
+
+/**
+ * The tavern (tasks 115–117): recruitable NPCs, hire button, and what each one
+ * wants before they follow the player. The roster is fetched when the player
+ * steps inside, not on every panel render, so a town panel costs one request
+ * no matter how often it repaints. Task 118 (rumors) is not drawn: the
+ * simulation publishes no rumor field, and the panel does not invent one.
+ */
+function tavernSection(options: TownPanelOptions): HTMLElement | null {
+  if (!options.onLoadTavern || !options.onHireCompanion) return null;
+
+  const wrap = h("section", { "data-testid": "tavern-section" });
+  wrap.appendChild(sectionHeader("Tavern"));
+
+  const message = h("p", { class: "caption", "data-testid": "tavern-message", role: "status", style: "margin:0 0 var(--space-3)" });
+  message.style.display = "none";
+  const list = h("div", { "data-testid": "tavern-list" });
+
+  const enter = h("button", { type: "button", class: "btn", "data-testid": "tavern-enter", "aria-label": "Step inside the tavern" }, "Step inside");
+  enter.addEventListener("click", () => {
+    enter.disabled = true;
+    message.style.display = "";
+    message.textContent = "Reading the room...";
+    reload();
+  });
+
+  function renderRoster(roster: TavernCompanion[]): void {
+    list.replaceChildren();
+    if (roster.length === 0) {
+      const empty = emptyState("The benches are empty.", "Nobody in this tavern is looking for work tonight.");
+      empty.setAttribute("data-testid", "tavern-empty");
+      list.appendChild(empty);
+      return;
+    }
+    for (const comp of roster) list.appendChild(tavernRow(comp, options, message, reload));
+  }
+
+  function reload(): void {
+    void options.onLoadTavern!().then(
+      (roster) => {
+        enter.remove();
+        message.style.display = "none";
+        renderRoster(roster);
+      },
+      (err: unknown) => {
+        // The door stays on the card: a failed read is a retry, not a dead end.
+        enter.disabled = false;
+        message.style.display = "";
+        message.textContent = err instanceof Error && err.message ? err.message : "The tavern roster could not be read.";
+      },
+    );
+  }
+
+  wrap.append(enter, message, list);
+  return wrap;
+}
+
+/** What the companion wants before joining, in the simulation's own terms. */
+function tavernWant(comp: TavernCompanion): string {
+  const value = Math.round(comp.recruitValue).toLocaleString("en-US");
+  if (comp.recruitKind === "gold") return `$${value} up front`;
+  if (comp.recruitKind === "reputation") return `renown ${value}`;
+  return `${value} battle win${comp.recruitValue === 1 ? "" : "s"}`;
+}
+
+function tavernRow(
+  comp: TavernCompanion,
+  options: TownPanelOptions,
+  message: HTMLElement,
+  reload: () => void,
+): HTMLElement {
+  const card = h("div", { class: "field-row", "data-testid": `tavern-companion-${comp.id}`, style: "margin-bottom:var(--space-3)" });
+
+  const head = h("div");
+  const name = h("strong", {}, comp.name);
+  const wage = h("span", { class: "caption", style: "margin-left:var(--space-2)" }, `$${Math.round(comp.wageDaily).toLocaleString("en-US")}/day`);
+  head.append(name, wage);
+
+  const facts: string[] = [];
+  if (comp.traits.length > 0) facts.push(comp.traits.join(", "));
+  const skills = Object.entries(comp.skills)
+    .map(([skill, level]) => `${skill.charAt(0).toUpperCase()}${skill.slice(1)} ${Math.round(level)}`)
+    .join(" · ");
+  if (skills) facts.push(skills);
+  const detail = h("p", { class: "caption", style: "margin:0" }, facts.join(" — "));
+
+  const story = h("p", { class: "caption", style: "margin:0" }, comp.backstory);
+
+  const want = tavernWant(comp);
+  const hire = h(
+    "button",
+    { type: "button", class: "btn", "data-testid": `tavern-hire-${comp.id}`, "aria-label": `Hire ${comp.name} for ${want}` },
+    `Hire ${comp.name} — ${want}`,
+  );
+  hire.disabled = !comp.available;
+  hire.addEventListener("click", () => {
+    hire.disabled = true;
+    void options.onHireCompanion!(comp.id).then(
+      () => {
+        message.style.display = "";
+        message.textContent = `${comp.name} signed on. $${Math.round(comp.wageDaily).toLocaleString("en-US")} joins the daily bill.`;
+        reload();
+      },
+      (err: unknown) => {
+        hire.disabled = false;
+        message.style.display = "";
+        // The simulation's own refusal is the message: a short purse, a name
+        // not yet known, a fight not yet won. Shown verbatim, not paraphrased.
+        message.textContent = err instanceof Error && err.message ? err.message : "They declined.";
+      },
+    );
+  });
+
+  card.append(head, detail, story, hire);
+  return card;
 }
 
 /**

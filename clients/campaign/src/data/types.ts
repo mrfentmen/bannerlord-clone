@@ -106,6 +106,32 @@ export interface Workshop {
 }
 
 /**
+ * A companion sitting in a town's tavern, recruitable on the spot.
+ *
+ * Mirrors the simulation's tavern roster (the wire shape of `CompanionView`):
+ * each companion wants something different before they follow the player —
+ * gold up front, renown, or a proven streak of battle wins — and the
+ * simulation, not the client, decides who is actually available.
+ */
+export interface TavernCompanion {
+  id: string;
+  name: string;
+  backstory: string;
+  traits: string[];
+  /** Skill name -> level, on the simulation's own scale. */
+  skills: Record<string, number>;
+  /** Daily wage once they join the party. */
+  wageDaily: number;
+  /** What the companion wants before joining: gold up front, renown, or battle wins. */
+  recruitKind: "gold" | "reputation" | "win_fight";
+  /** The threshold that goes with `recruitKind`. */
+  recruitValue: number;
+  hired: boolean;
+  /** Whether the simulation would accept a hire order for them right now. */
+  available: boolean;
+}
+
+/**
  * The answer to a construction order.
  *
  * The second half is only present when `ok` is true, and it is what the project card
@@ -860,6 +886,10 @@ export interface GameCharacter {
   skills?: Record<string, number>;
   /** Personality traits (children roll these at birth; see campaign/fortune.ts). */
   traits?: string[];
+  /** The character's story, as the tavern tells it. Wandering heroes carry one. */
+  backstory?: string;
+  /** Daily wage the character asks for once hired, in gold. */
+  wageDaily?: number;
 }
 
 /** Marriage record. */
@@ -1319,6 +1349,8 @@ export interface SimulationProvider {
   liftSiege(siegeId: string): Promise<void>;
   /** Recruit a companion into the player's clan. Costs 500 gold. */
   recruitCompanion(charId: string): Promise<void>;
+  /** The companions currently sitting in a town's tavern. */
+  tavernCompanions(townId: string): Promise<TavernCompanion[]>;
   /** Assign a companion to a party role. */
   assignPartyRole(charId: string, role: "quartermaster" | "scout" | "surgeon" | "engineer" | null): Promise<void>;
   /** Declare war on another faction. */

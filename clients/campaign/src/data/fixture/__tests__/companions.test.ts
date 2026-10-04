@@ -39,6 +39,32 @@ describe("companions", () => {
     await expect(provider.recruitCompanion("char-player")).rejects.toThrow();
   });
 
+  it("seats the wandering heroes in the tavern with the terms the hire order bills", async () => {
+    const provider = createFixtureSimulationProvider({ seed: 42 });
+    const roster = await provider.tavernCompanions("t1");
+    expect(roster.length).toBeGreaterThan(0);
+    for (const comp of roster) {
+      expect(comp.id).toMatch(/^comp-/);
+      expect(comp.backstory.length).toBeGreaterThan(0);
+      expect(comp.wageDaily).toBeGreaterThan(0);
+      expect(comp.recruitKind).toBe("gold");
+      expect(comp.recruitValue).toBe(500);
+      expect(comp.available).toBe(true);
+    }
+  });
+
+  it("empties the tavern roster once a companion signs on", async () => {
+    const provider = createFixtureSimulationProvider({ seed: 42 });
+    const rosterBefore = await provider.tavernCompanions("t1");
+    const candidate = rosterBefore[0]!;
+
+    await provider.recruitCompanion(candidate.id);
+
+    const rosterAfter = await provider.tavernCompanions("t1");
+    expect(rosterAfter.some((c) => c.id === candidate.id)).toBe(false);
+    expect(rosterAfter.length).toBe(rosterBefore.length - 1);
+  });
+
   it("rejects double recruitment", async () => {
     const provider = createFixtureSimulationProvider({ seed: 42 });
     const before = await provider.getSnapshot();

@@ -186,7 +186,7 @@ export const SOUND_EVENTS = {
   "tavern.crowd": { id: "sfx-crowd-cheer-loop", volume: 0.4, hook: "A full tavern, looped under the room." },
   "market.trade": { id: "sfx-foley-coins-pour", volume: 0.5, hook: "A market purchase." },
   "prison.lock": { id: "sfx-prison-manacle-rattle", volume: 0.6, hook: "A prisoner is taken." },
-} as const satisfies Record<string, { id: SfxId; volume: number; hook: string }>;
+} as const satisfies Record<string, { id: SfxId; volume: number; hook: string; loop?: boolean }>;
 
 export type SoundEventName = keyof typeof SOUND_EVENTS;
 

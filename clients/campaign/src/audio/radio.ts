@@ -450,13 +450,12 @@ export function getRadio(): Radio {
 // Task 599: Radio volume duck under SFX.
 // When a loud SFX plays, the radio ducks to 30% volume, then restores.
 let radioDucked = false;
-let radioBaseVolume = 0.7;
 
 /** Duck radio volume when SFX plays. */
 export function setRadioDucked(ducked: boolean): void {
   radioDucked = ducked;
-  const radio = getRadio();
-  // The radio instance manages its own volume; this flag is read by the player
+  // Ensure the shared radio exists; the player reads the duck flag itself.
+  getRadio();
 }
 
 /** Get current radio duck level (0.3 if ducked, 1.0 otherwise). */

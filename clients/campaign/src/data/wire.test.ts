@@ -28,6 +28,7 @@ import {
   schemaVersionProblem,
   skipToArrivalProblem,
   snapshotProblem,
+  tavernCompanionListProblem,
   talkResultProblem,
   taxResultProblem,
   timeScaleProblem,
@@ -649,5 +650,44 @@ describe("a force in encounter range is checked before the panel is raised from 
 
   it("refuses a distance that is present and not a number", () => {
     expect(nearbyForceListProblem([{ ...serverRow, distanceKm: "3.5" }])).toMatch(/distanceKm/);
+  });
+});
+
+describe("a tavern roster is checked before the panel seats anyone", () => {
+  // The shape the Go server sends for `GET /v1/towns/{id}/tavern/companions`
+  // (campaign.CompanionView). Every field the tavern section reads is present.
+  const serverRow = {
+    id: "chen_wei",
+    name: "Chen Wei",
+    backstory: "ER trauma surgeon. Now stitches people in a panel van for cash.",
+    traits: ["loyal", "cautious"],
+    skills: { medic: 90, quartermaster: 35, fighter: 20 },
+    wageDaily: 22,
+    recruitKind: "gold",
+    recruitValue: 700,
+    hired: false,
+    xp: 0,
+    available: true,
+  };
+
+  it("accepts a row carrying the fields the tavern section reads", () => {
+    expect(tavernCompanionListProblem([serverRow])).toBeNull();
+  });
+
+  it("refuses a row with no wage, because the hire button prices the daily bill from it", () => {
+    const { wageDaily: _omitted, ...withoutWage } = serverRow;
+    expect(tavernCompanionListProblem([withoutWage])).toMatch(/has no wageDaily/);
+  });
+
+  it("refuses a recruit kind the hire flow does not implement", () => {
+    expect(tavernCompanionListProblem([{ ...serverRow, recruitKind: "fame" }])).toMatch(/has no recruitKind/);
+  });
+
+  it("refuses a skills map that is not a map of numbers", () => {
+    expect(tavernCompanionListProblem([{ ...serverRow, skills: { medic: "ninety" } }])).toMatch(/has no skills/);
+  });
+
+  it("refuses a reply that is not a list", () => {
+    expect(tavernCompanionListProblem({ companions: [] })).toMatch(/not a list/);
   });
 });

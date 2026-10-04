@@ -45,6 +45,7 @@ import type {
   RecruitResult,
   SimSnapshot,
   TalkToNotableResult,
+  TavernCompanion,
   TradeRequest,
   TradeResult,
   UpgradeTroopsRequest,
@@ -591,6 +592,31 @@ export function nearbyForceListProblem(raw: unknown): string | null {
   return listProblem(raw, nearbyForceProblem, (i) => `force ${i}`);
 }
 
+const RECRUIT_KINDS = ["gold", "reputation", "win_fight"] as const;
+
+function tavernCompanionProblem(raw: unknown): string | null {
+  if (!isRecord(raw)) return "is not a JSON object";
+  const problem = fieldsProblem([
+    ["id", isString(raw.id)],
+    ["name", isString(raw.name)],
+    ["backstory", isString(raw.backstory)],
+    ["traits", isArray(raw.traits) && raw.traits.every(isString)],
+    ["skills", isRecord(raw.skills) && Object.values(raw.skills).every(isFiniteNumber)],
+    ["wageDaily", isFiniteNumber(raw.wageDaily)],
+    ["recruitKind", isOneOf(raw.recruitKind, RECRUIT_KINDS)],
+    ["recruitValue", isFiniteNumber(raw.recruitValue)],
+    ["hired", isBoolean(raw.hired)],
+    ["available", isBoolean(raw.available)],
+  ]);
+  if (problem) return `has no ${problem}`;
+  return null;
+}
+
+export function tavernCompanionListProblem(raw: unknown): string | null {
+  if (!isArray(raw)) return "the reply is not a list of tavern companions";
+  return listProblem(raw, tavernCompanionProblem, (i) => `companion ${i}`);
+}
+
 // -- compile-time tie between the checks and the types they guard ------------
 //
 // A validator is only worth having if the type it guards is the type the client
@@ -614,7 +640,9 @@ const _plan: (raw: unknown) => MarchPlan | null = (raw) => (marchPlanProblem(raw
 const _chain: (raw: unknown) => WhyChain | null = (raw) => (whyChainProblem(raw) === null ? (raw as WhyChain) : null);
 const _forces: (raw: unknown) => NearbyForce[] | null = (raw) =>
   nearbyForceListProblem(raw) === null ? (raw as NearbyForce[]) : null;
-void [_snapshot, _trade, _recruit, _talk, _relation, _awards, _upgrade, _construction, _plan, _chain, _forces];
+const _tavern: (raw: unknown) => TavernCompanion[] | null = (raw) =>
+  tavernCompanionListProblem(raw) === null ? (raw as TavernCompanion[]) : null;
+void [_snapshot, _trade, _recruit, _talk, _relation, _awards, _upgrade, _construction, _plan, _chain, _forces, _tavern];
 
 /** Re-exported so a payload with a `{ x, z }` shape is checked the same way everywhere. */
 export { pointProblem };
