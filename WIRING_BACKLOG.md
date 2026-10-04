@@ -74,3 +74,50 @@ Hana's cue map is complete; the game never calls most of it. Biggest clusters:
 Rule of engagement: sections pipeline (`ui/panels/townSections.ts`) for town
 facilities; panel-option handlers elsewhere; the simulation owns every number
 and every refusal; no fake.
+
+## 5. Bannerlord canon comparison (fandom wiki scan, 2026-10-04)
+
+Sources: Mount&Blade II main page, Fiefs page. Verdict per mechanic:
+W = wired, M = made but unwired (see sections 1-3), N = needs making.
+
+| Bannerlord mechanic | Verdict | Notes |
+|---|---|---|
+| Overland map, towns, travel, encounters | W | core loop live |
+| Markets/trade, caravans, goods prices | W | TownPanel market + caravans |
+| Workshops (buy, earn) | W | TownPanel workshops section |
+| Tavern: recruit companions | W | tasks 115-117 |
+| Tavern dice | W | pipeline e0bb0bf0 (fixture-only until server route wired) |
+| Smithy: smelt/forge/stamina/crafting orders | W | 97cc9e78 (fixture-only) |
+| Party: recruit/upgrade troops, food, morale, wages, forced march* | W*/M | *forced march was wired once, lost — re-wire |
+| Prisoners: recruit/ransom via panel | W | recruitPrisoners/ransomPrisoners in PartyPanel |
+| Quests | M | contract + fixture done; accept/abandon UI missing |
+| Notables: talk, relations | M | routes mounted live; TownPanel has no talk/gift UI |
+| Party templates (save/refit) | M | Pax systems batch |
+| Influence: earn/spend (muster, vote, bribe, vassal, policy) | M | spendInfluenceAction; vote/policy effects are flavor strings — real council effects need making |
+| Governors | M | 04bc30ec |
+| Mercenary contracts | M | wired once (ec700fe1), lost in wipe; re-wire |
+| Barter with lords | M | barterDeal engine done |
+| Dynasty: marry, children, courtship, heir, execution | M | 310c96d5 + 4bea7fc8 |
+| Clan tiers, found kingdom | M | 7002ecb4 |
+| Held lords: ransom/release/execute | M | routes mounted live |
+| Armies (create/join/objective) | M | provider only |
+| Sieges (start/assault/lift) + engine park | M | siege routes mounted; engines fixture-only |
+| Save/load over HTTP | M | client saves local; server save/load mounted, unused |
+| Bandits list/camps | N | server-only, not in client contract |
+| Bounties + claim | N | server-only, not in client contract |
+| Castles as a fief type | N | klass is city/town/village only |
+| Fief ownership by the player/vassals (landed titles, ownership transfer after siege) | N | towns have holders but no player-owns-fief loop, no award vote |
+| Perks (skill-tree perk selection) | N | skills 0-10 exist, no perks |
+| Crafting part discovery (unlock pieces by smelting) | N | forge names/quality exist, no part unlocks |
+| Tournaments | N | none |
+| Village raiding with economic effect | N | raiders exist; raid loot/prosperity damage to villages does not |
+| Garrison troop transfer (donate/take) | N | garrison number exists, no troop flow |
+| Companions leading their own parties | N | roles exist (quartermaster/scout/surgeon/engineer, unwired) but no independent parties |
+| Board games per faction | N | deliberately out — Americanization keeps dice (fine) |
+| Civilian outfit / cosmetic layers | N | out of scope for this skin unless asked |
+
+Read: the sim-lane muses have BUILT almost every Bannerlord system; the client
+has wired about a third of it. Sections 1-3 of this file ARE the gap. The only
+genuinely missing systems are the fief-ownership loop (castles, ownership,
+award votes, garrison transfer, raids), perks, part discovery, tournaments,
+and the bandit/bounty contract work.
