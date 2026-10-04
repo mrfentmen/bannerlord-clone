@@ -99,7 +99,7 @@ W = wired, M = made but unwired (see sections 1-3), N = needs making.
 | Quests | M | contract + fixture done; accept/abandon UI missing |
 | Notables: talk, relations | M | routes mounted live; TownPanel has no talk/gift UI |
 | Party templates (save/refit) | M | Pax systems batch |
-| Influence: earn/spend (muster, vote, bribe, vassal, policy) | M | spendInfluenceAction; vote/policy effects are flavor strings — real council effects need making |
+| Influence: earn/spend (muster, vote, bribe, vassal, policy) | M | spend wired 2026-10-04 (Realm influence section in DiplomacyPanel, balance-gated buttons); vote/policy effects are still flavor strings — real council effects need making |
 | Governors | M | 04bc30ec |
 | Mercenary contracts | M | wired once (ec700fe1), lost in wipe; re-wire |
 | Barter with lords | M | barterDeal engine done |

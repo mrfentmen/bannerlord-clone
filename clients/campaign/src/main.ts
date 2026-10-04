@@ -1977,6 +1977,18 @@ function openDiplomacy(): void {
             void refreshAfterSimOrder();
             return r;
           }),
+    // Realm influence: the snapshot's own balance, spent through the sim's
+    // POST /v1/influence/spend. Buttons the balance cannot afford stay off.
+    ...(snapshot && snapshot.player.influence !== undefined
+      ? {
+          influenceBalance: snapshot.player.influence,
+          onSpendInfluence: (action: "muster-army" | "call-vote" | "bribe-lord" | "recruit-vassal" | "force-policy") =>
+            provider.spendInfluenceAction(action).then((r) => {
+              void refreshAfterSimOrder();
+              return r;
+            }),
+        }
+      : {}),
     mercenaryContract: null,
     onSignMercenary: async (factionId, factionName) => {
       await provider.signMercenaryContract(factionId, factionName);

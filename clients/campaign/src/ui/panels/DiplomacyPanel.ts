@@ -10,6 +10,7 @@
 import { button, h, numberField, row, sectionHeader } from "../dom.js";
 import { dataTable, emptyState, panel, type Column } from "../kit.js";
 import { soundContractSigned, soundContractEnded } from "../../audio/gameSounds.js";
+import { INFLUENCE_COSTS, type InfluenceSpendAction } from "../../court/influence.js";
 import {
   adjustRelation,
   relationNotifications,
@@ -116,6 +117,14 @@ export interface DiplomacyPanelOptions {
   onDefectClan?: (joinFactionId?: string) => Promise<{ line: string }>;
   /** The player's current faction id, so the wars list can name who is who. */
   playerFactionId?: string;
+  /**
+   * The player's influence balance and the realm actions it can buy. Both must
+   * be supplied: a spend button without a balance cannot say whether the
+   * player can afford it, and a balance without a caller cannot send orders.
+   * Omitted, the section is absent.
+   */
+  influenceBalance?: number;
+  onSpendInfluence?: (action: "muster-army" | "call-vote" | "bribe-lord" | "recruit-vassal" | "force-policy") => Promise<{ line: string }>;
   /** Called after a sim order changed the world, so the caller repaints. */
   onWorldChanged?: () => void;
 }
@@ -441,6 +450,46 @@ function buildDiplomacyPanel(options: DiplomacyPanelOptions, notice: string | nu
       );
     });
     body.appendChild(h("div", { class: "form-row" }, defectInput, defectBtn));
+  }
+
+  // -- realm influence (bucket: influence spend loop) -------------------------
+  if (options.onSpendInfluence && options.influenceBalance !== undefined) {
+    body.appendChild(sectionHeader("Realm influence"));
+    const balance = options.influenceBalance;
+    body.appendChild(
+      h("p", { class: "caption", "data-testid": "influence-balance", style: "margin:0 0 var(--space-2)" },
+        `You hold ${Math.round(balance)} influence.`),
+    );
+    const ACTIONS: { id: InfluenceSpendAction; label: string }[] = [
+      { id: "muster-army", label: "Muster an army" },
+      { id: "call-vote", label: "Call a council vote" },
+      { id: "bribe-lord", label: "Bribe a lord" },
+      { id: "recruit-vassal", label: "Recruit a vassal" },
+      { id: "force-policy", label: "Force a policy" },
+    ];
+    for (const a of ACTIONS) {
+      const cost = INFLUENCE_COSTS[a.id];
+      const btn = h(
+        "button",
+        { type: "button", class: "btn", "data-testid": `influence-${a.id}`, ...(balance < cost ? { disabled: "" } : {}) },
+        `${a.label} (${cost} influence)`,
+      );
+      btn.addEventListener("click", () => {
+        btn.disabled = true;
+        void options.onSpendInfluence!(a.id).then(
+          (r) => {
+            btn.disabled = false;
+            rerender(r.line);
+            options.onWorldChanged?.();
+          },
+          (err: unknown) => {
+            btn.disabled = false;
+            rerender(err instanceof Error && err.message ? err.message : "The realm did not answer.");
+          },
+        );
+      });
+      body.appendChild(h("div", { class: "form-row" }, btn));
+    }
   }
 
   if (options.onSignMercenary || options.mercenaryContract !== undefined) {

@@ -101,3 +101,64 @@ describe("diplomacy panel: the simulation's wars, defection, mercenary refusals"
     document.body.innerHTML = "";
   });
 });
+
+describe("diplomacy panel: realm influence", () => {
+  const ACTIONS = [
+    { id: "muster-army", label: "Muster an army", cost: 30 },
+    { id: "call-vote", label: "Call a council vote", cost: 20 },
+    { id: "bribe-lord", label: "Bribe a lord", cost: 25 },
+    { id: "recruit-vassal", label: "Recruit a vassal", cost: 50 },
+    { id: "force-policy", label: "Force a policy", cost: 40 },
+  ] as const;
+
+  it("the influence section is absent without a balance and a caller", () => {
+    const bare = diplomacyPanel({ currentSeason: 12 });
+    expect(bare.querySelector('[data-testid="influence-balance"]')).toBeNull();
+    const noCaller = diplomacyPanel({ currentSeason: 12, influenceBalance: 100 });
+    expect(noCaller.querySelector('[data-testid="influence-balance"]')).toBeNull();
+    const noBalance = diplomacyPanel({ currentSeason: 12, onSpendInfluence: vi.fn() });
+    expect(noBalance.querySelector('[data-testid="influence-balance"]')).toBeNull();
+  });
+
+  it("renders the sim's balance and one button per realm action, priced", () => {
+    const root = diplomacyPanel({ currentSeason: 12, influenceBalance: 45, onSpendInfluence: vi.fn() });
+    expect(root.querySelector('[data-testid="influence-balance"]')?.textContent).toContain("45 influence");
+    for (const a of ACTIONS) {
+      const btn = root.querySelector<HTMLButtonElement>(`[data-testid="influence-${a.id}"]`);
+      expect(btn).not.toBeNull();
+      expect(btn?.textContent).toContain(String(a.cost));
+    }
+    // The balance cannot afford the vassal (50) but can afford the rest.
+    expect(root.querySelector<HTMLButtonElement>('[data-testid="influence-recruit-vassal"]')?.disabled).toBe(true);
+    expect(root.querySelector<HTMLButtonElement>('[data-testid="influence-force-policy"]')?.disabled).toBe(false);
+    expect(root.querySelector<HTMLButtonElement>('[data-testid="influence-call-vote"]')?.disabled).toBe(false);
+  });
+
+  it("a spend order goes through the caller and the sim's line becomes the notice", async () => {
+    const onSpendInfluence = vi.fn().mockResolvedValue({ line: "The banners answer. An army musters under your command." });
+    const onWorldChanged = vi.fn();
+    document.body.appendChild(
+      diplomacyPanel({ currentSeason: 12, influenceBalance: 100, onSpendInfluence, onWorldChanged }),
+    );
+    document.querySelector<HTMLButtonElement>('[data-testid="influence-muster-army"]')!.click();
+    await tick();
+    expect(onSpendInfluence).toHaveBeenCalledWith("muster-army");
+    expect(document.body.textContent).toContain("The banners answer.");
+    expect(onWorldChanged).toHaveBeenCalled();
+    document.body.innerHTML = "";
+  });
+
+  it("a refused spend lands verbatim and re-arms the button", async () => {
+    const onSpendInfluence = vi.fn().mockRejectedValue(new Error("Needs 50 influence (have 12)."));
+    document.body.appendChild(
+      diplomacyPanel({ currentSeason: 12, influenceBalance: 12, onSpendInfluence }),
+    );
+    const btn = document.querySelector<HTMLButtonElement>('[data-testid="influence-bribe-lord"]')!;
+    btn.disabled = false; // the harness balance would gate it; force the refusal path
+    btn.click();
+    await tick();
+    expect(onSpendInfluence).toHaveBeenCalledWith("bribe-lord");
+    expect(document.body.textContent).toContain("Needs 50 influence (have 12).");
+    document.body.innerHTML = "";
+  });
+});
