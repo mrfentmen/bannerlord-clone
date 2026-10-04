@@ -125,3 +125,59 @@ conversation system.
 - Go sim quest/diplomacy reintegration.
 - Side-select/start flow — fix claimed, never verified on the boss's device.
 - Market trading, party management, march planning — untested end to end.
+
+## 11. Siege gameplay (VERIFIED missing client-side)
+
+The Go sim has `services/simulation/cmd/apiserver/campaign/siege.go`,
+but the client has zero siege files — no siege scene, no wall assault,
+no siege engines. Bannerlord's signature feature is absent.
+
+- `docs/code-pulls/siege-combat/` (notes only) — ranged combat spec:
+  cooldowns, projectiles, AoE, knockback, wall blocking.
+- `docs/code-pulls/rts-battle/` (MIT) — unit assault states for
+  attackers/defenders on walls.
+- Art: `clients/campaign/public/models/vendor/gravewake/` has
+  `catapult.glb` (siege engine model, MIT) already in the repo.
+- GitHub: https://github.com/Jaxsbr/toy-box-siege (no license —
+  reimplement from the notes, don't copy).
+
+## 12. Bandits / street gangs (VERIFIED missing client-side)
+
+The Go sim has `campaign/bandits.go`; the client has nothing. In
+modern America these are street gangs — they should roam, raid, and
+have hideouts to clear (`clan/hideout.ts` exists for the player side).
+
+- `docs/code-pulls/rts-battle/` (MIT) — `unit_base.gd` target
+  acquisition and engage states work for gang AI.
+- `docs/code-pulls/roguelike/` (MIT) — `spawnEnemies` (floor-scaled,
+  room-distributed spawning) is the pattern for gang hideout
+  population.
+
+## 13. Villages (VERIFIED missing entirely)
+
+Towns exist (`ui/panels/TownPanel.ts`, `scene/townLod.ts`). Villages —
+Bannerlord's food/recruit-producing settlements that get raided —
+do not exist anywhere.
+
+- `docs/code-pulls/city-sim/` (notes only) — tile economy: production,
+  growth, and raiding effects on output.
+- `docs/code-pulls/strategy-core/` (MIT) — `city.rs`: city data model
+  with facilities and upgrade costs; adapt down for villages.
+
+## 14. Kingdom management (VERIFIED missing entirely)
+
+Seven factions exist, but there is no kingdom layer: no policies,
+no council voting, no succession, no rebellions/civil wars.
+
+- `docs/code-pulls/strategy-core/` (MIT) — `model.rs` has factions,
+  diplomacy relations, and pending diplomacy orders; the closest
+  working model of what this layer looks like.
+- `docs/code-pulls/mcts-ai/` + `docs/code-pulls/strategy-ai/` —
+  for AI lords voting and scheming instead of scripted behavior.
+
+## 15. Crafting (VERIFIED missing entirely)
+
+No smithing/crafting system. No pull found in the sweep — this one
+needs a design, not a repo. Bannerlord's smithing (smelt → refine →
+forge → sell) ports naturally to a modern setting (chop shop /
+gunsmithing).
