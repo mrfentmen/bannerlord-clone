@@ -233,6 +233,26 @@ export interface TownPanelOptions {
   onLiftSiege?: (siegeId: string) => Promise<void>;
   /** Called after a siege order changed the world, so the caller repaints. */
   onSiegeChanged?: () => void;
+  /** The town's outstanding fine, read through the caller (bucket 7). */
+  onGetOutstandingFine?: () => Promise<number>;
+  /** Commit a crime in the town. The sim prices it. */
+  onCommitCrime?: (kind: "theft" | "assault" | "smuggling") => Promise<{ fine: number }>;
+  /** Pay off the town's fines. */
+  onPayFine?: () => Promise<{ paid: number }>;
+  /** True when the player's clan holds this town (gates the governor section). */
+  heldByPlayer?: boolean;
+  /** Read the town's current governor, or null. */
+  onGetGovernor?: () => Promise<{ name: string; line: string } | null>;
+  /** Appoint a companion governor. */
+  onAssignGovernor?: (characterId: string) => Promise<{ line: string }>;
+  /** Companions eligible to govern, as the caller holds them. */
+  governorCandidates?: { id: string; name: string }[];
+  /** The party's prisoners, for the ransom broker. */
+  prisoners?: { troopId: string; name: string; count: number; tier: number }[];
+  /** Sell prisoners to the town's ransom broker. */
+  onSellPrisonersToBroker?: (troopId: string, count: number) => Promise<{ gold: number; line: string }>;
+  /** Called after an economy order changed the world, so the caller repaints. */
+  onWorldChanged?: () => void;
   /**
    * The survey is still being read. Renders `town-skeleton`, which mirrors this
    * panel's sections, so the context region does not change height when the town

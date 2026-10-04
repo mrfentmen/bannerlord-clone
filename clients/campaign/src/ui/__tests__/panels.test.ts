@@ -113,6 +113,18 @@ function town(opts: { loading?: boolean; town?: TownState | null } = {}): HTMLEl
     onAssaultSiege: async () => ({ victory: true, casualties: 0 }),
     onLiftSiege: async () => undefined,
     onSiegeChanged: () => undefined,
+    onGetOutstandingFine: async () => 0,
+    onCommitCrime: async () => ({ fine: 200 }),
+    onPayFine: async () => ({ paid: 0 }),
+    // The skeleton mirrors the panel's MAXIMUM configuration: every gated
+    // section on, so the count test compares the full shapes.
+    heldByPlayer: true,
+    onGetGovernor: async () => null,
+    onAssignGovernor: async () => ({ line: "" }),
+    governorCandidates: [{ id: "c-test", name: "Test companion" }],
+    prisoners: [{ troopId: "troop-test", name: "Bandits", count: 1, tier: 1 }],
+    onSellPrisonersToBroker: async () => ({ gold: 0, line: "" }),
+    onWorldChanged: () => undefined,
   });
 }
 

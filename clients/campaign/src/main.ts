@@ -1517,6 +1517,47 @@ function townNode(town: TownState): Node {
       // The handlers above already repaint; this exists for orders that change
       // nothing to repaint (a refused siege keeps the world as it was).
     },
+    // Economy/crime (bucket 7): fines, crimes, governor, ransom broker.
+    // All fixture-served; the live server refuses with its own message.
+    onGetOutstandingFine: async () => (snapshot?.fines as Record<string, number> | undefined)?.[town.id] ?? 0,
+    onCommitCrime: (kind) =>
+      provider.commitCrime(town.id, kind).then((r) => {
+        playVerdictSound(false);
+        void refreshAfterSimOrder();
+        return r;
+      }),
+    onPayFine: () =>
+      provider.payFine(town.id).then((r) => {
+        playVerdictSound(true);
+        void refreshAfterSimOrder();
+        return r;
+      }),
+    ...(snapshot
+      ? {
+          heldByPlayer:
+            snapshot.clans.find((c) => c.id === "clan-player")?.fiefIds.includes(town.settlementId) === true,
+          governorCandidates: snapshot.characters
+            .filter((c) => c.role === "companion" && c.clanId === "clan-player" && c.alive)
+            .map((c) => ({ id: c.id, name: c.name })),
+          prisoners: snapshot.party.prisoners,
+        }
+      : {}),
+    onGetGovernor: () => provider.getGovernor(town.id),
+    onAssignGovernor: (characterId) =>
+      provider.assignGovernor(town.id, characterId).then((r) => {
+        playVerdictSound(true);
+        void refreshAfterSimOrder();
+        return r;
+      }),
+    onSellPrisonersToBroker: (troopId, count) =>
+      provider.sellPrisonersToBroker(town.id, troopId, count).then((r) => {
+        playVerdictSound(true);
+        void refreshAfterSimOrder();
+        return r;
+      }),
+    onWorldChanged: () => {
+      void refreshAfterSimOrder();
+    },
     onRecruitMilitia: async (count) => {
       if (!snapshot) throw new Error("No snapshot to recruit militia against.");
       await provider.recruitMilitia(town.id, count);

@@ -90,7 +90,7 @@ function tableStub(columns: number, rows: number): HTMLElement {
 // -- town ---------------------------------------------------------------------
 
 /** The sections of the town panel, plus the header block and the three actions. */
-export const TOWN_SECTIONS = 20;
+export const TOWN_SECTIONS = 23;
 
 /**
  * `town-skeleton`. Food, health, sanitation and housing, unrest and loyalty, taxes,
@@ -137,6 +137,12 @@ export function townSkeletonBody(): HTMLElement {
   // Street talk: the notables' conversations (doorless, one card each).
   root.appendChild(section(rows(2)));
   // Siege: the town's siege state, or the besiege button.
+  root.appendChild(section(rows(2)));
+  // Under the law: the fine ledger and the crime buttons.
+  root.appendChild(section(rows(2)));
+  // Governor: who governs here, and the appointment.
+  root.appendChild(section(rows(2)));
+  // Ransom broker: the party's prisoners, priced by the broker.
   root.appendChild(section(rows(2)));
   // Building owners (Rowan): the named proprietors.
   root.appendChild(section(rows(2)));
