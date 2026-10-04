@@ -17,6 +17,7 @@ const CATEGORY_LABEL: Record<ActionDef["category"], string> = {
   interface: "Interface",
   "campaign-map": "Campaign map",
   "battle-command": "Battle command",
+  player: "On foot / driving",
 };
 
 const MAX_CHORDS = 3;

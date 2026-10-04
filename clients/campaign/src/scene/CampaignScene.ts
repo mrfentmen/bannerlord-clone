@@ -43,6 +43,8 @@ import { ZoomTick } from "../audio/zoomTick.js";
 import { mapColor, tokens } from "../design/tokens.js";
 import { attachMapGestures } from "../input/touch/gestures.js";
 import { applyMouseCameraBindings, loadMouseCameraBindings } from "../input/mouseBindings.js";
+import { PlayerController } from "./PlayerController.js";
+import type { InputRegistry } from "../input/registry.js";
 import { resolveGrade, type QualityLevel } from "../design/grade.js";
 import {
   DEFAULT_GRAIN_INTENSITY,
@@ -91,6 +93,12 @@ export interface SceneOptions {
   year: number;
   quality: QualityLevel;
   onSelect: (settlementId: string) => void;
+  /**
+   * Walk mode (Pax brief #1): when provided, the scene builds a
+   * `PlayerController` and exposes it on the handle as `player`, with
+   * `enterWalkMode`/`exitWalkMode`. Omit to keep the map camera only.
+   */
+  input?: InputRegistry;
   /** Engine creation options from settings (tasks 8/12): need a reload. */
   antialias?: boolean;
   powerPreference?: WebGLPowerPreference;
@@ -179,6 +187,16 @@ export interface SceneHandle {
   /** One line about what the map is showing, for the data-source panel. */
   summary(): string;
   towns: TownCluster[];
+  /**
+   * Walk mode (Pax brief #1). Null until the input registry is passed in
+   * `SceneOptions.input`. `enterWalkMode` switches the active camera to the
+   * player controller and starts WASD+mouse walking; `exitWalkMode` restores
+   * the map camera. Buffy: pass `input` in the options and call these from UI.
+   */
+  readonly player: PlayerController | null;
+  enterWalkMode(x: number, z: number): void;
+  exitWalkMode(): void;
+  readonly walkMode: boolean;
 }
 
 /** Per-frame camera deltas for the twin-stick driver (task 2). */
@@ -474,6 +492,20 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
     if (typeof id === "string") options.onSelect(id);
   });
 
+  // -- player controller (Pax brief #1: walk) --------------------------------
+  // Built when the input registry is provided. The controller is inert until
+  // `enterWalkMode`; its action handlers are gated on the active flag, so the
+  // map keeps WASD until walk mode starts.
+  const player = options.input
+    ? new PlayerController({
+        scene,
+        input: options.input,
+        canvas,
+        start: new Vector3(projection.width / 2, 0, projection.depth / 2),
+        groundHeight: (x, z) => projection.heightAt(x, z) * VERTICAL_SCALE,
+      })
+    : null;
+
   // Frame cap (settings maxFps, task 12): skip renders that arrive too soon.
   let maxFps = options.maxFps ?? 0;
   let lastFrameAt = 0;
@@ -484,8 +516,10 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       if (now - lastFrameAt < 1000 / maxFps) return;
       lastFrameAt = now;
     }
+    const dt = engine.getDeltaTime() / 1000;
     if (grain) grain.tick(engine.getDeltaTime());
     ambient.update();
+    if (player !== null && player.isActive) player.update(dt);
     townLod.update(camera.target);
     sizePartyPin(pin, camera.radius, engine.getRenderHeight());
     scene.render();
@@ -498,11 +532,33 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
     scene,
     engine,
     towns,
+    player,
+    get walkMode(): boolean {
+      return player !== null && player.isActive;
+    },
+    enterWalkMode(x: number, z: number): void {
+      if (player === null) return;
+      // Drop the player at the party's map position, on the ground.
+      const groundY = projection.heightAt(x, z) * VERTICAL_SCALE;
+      player.reposition(x, groundY, z);
+      player.setActive(true);
+      // Park the map camera: detach its canvas inputs so drags don't orbit
+      // the camera we aren't looking through.
+      camera.detachControl();
+      scene.activeCamera = player.camera;
+    },
+    exitWalkMode(): void {
+      if (player === null) return;
+      player.setActive(false);
+      scene.activeCamera = camera;
+      camera.attachControl(canvas, true);
+    },
     dispose() {
       window.removeEventListener("resize", onResize);
       canvas.removeEventListener("wheel", onWheel);
       engine.stopRenderLoop();
       mapGestures.dispose();
+      player?.dispose();
       shadowGen?.dispose();
       grain?.dispose();
       particleManager.dispose();

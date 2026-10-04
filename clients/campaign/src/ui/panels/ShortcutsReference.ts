@@ -15,6 +15,7 @@ const CATEGORY_LABELS: Record<ActionCategory, string> = {
   interface: "Interface",
   "campaign-map": "Campaign map",
   "battle-command": "Battle command",
+  player: "On foot / driving",
 };
 
 export function formatBinding(binding: KeyBinding): string {
@@ -38,7 +39,7 @@ export function shortcutsReference(options: ShortcutsReferenceOptions): HTMLElem
     { class: "shortcuts", role: "dialog", "aria-label": "Keyboard shortcuts", "data-testid": "shortcuts-panel" },
     h("h2", {}, "Keyboard shortcuts"),
   );
-  const categories = ["interface", "campaign-map", "battle-command"] as const;
+  const categories = ["interface", "campaign-map", "battle-command", "player"] as const;
   for (const category of categories) {
     const actions = registry.actions().filter((a) => a.category === category);
     if (actions.length === 0) continue;
