@@ -56,6 +56,7 @@ import { START_YEAR, eraGradeForYear } from "./design/grade.js";
 import { buildWorld } from "./world/build.js";
 import { publishWorld } from "./world/context.js";
 import { classifySettlement } from "./world/load.js";
+import { campaignOpening, factionRegionFor } from "./world/factionRegion.js";
 import type { WorldSettlement } from "./world/types.js";
 import { createCampaignScene, VERTICAL_SCALE, type SceneHandle } from "./scene/CampaignScene.js";
 import { findRoute, shortestPath } from "./scene/network.js";
@@ -371,6 +372,19 @@ let sessionBattlesWon = 0;
 let world: Awaited<ReturnType<typeof buildWorld>> | null = null;
 /** Ironman (MASTER_PLAN task 143): chosen on the start screen, started when the campaign mounts. */
 let pendingIronman = false;
+/**
+ * The side the player picked on the start screen, held until the campaign mounts.
+ *
+ * `StartScreen` emits `sideId` on every confirm; before this, `main.ts` read only the
+ * two checkbox flags off that payload and dropped the faction on the floor, so every
+ * campaign opened on the same region however the player chose. Read at mount by
+ * `openOnFactionTerritory`.
+ *
+ * `null` means no side was chosen — the boot skeleton's own start button, or a region
+ * deployed without `territories.json`. Both open on the whole region, which is what the
+ * map did before faction mapping existed.
+ */
+let pendingSideId: string | null = null;
 let ironman: IronmanRunRecord | null = null;
 let selectedSettlement: string | null = null;
 let selectedRuler: string | null = null;
@@ -522,6 +536,10 @@ const selectionScreen = startScreen({
     // Character maker goes between faction select and campaign mount.
     pendingIronman = choice.ironman === true;
     pendingNewGamePlus = choice.newGamePlus === true && ngplusRecord !== null;
+    // The chosen side decides which part of the map the campaign opens on. Read here
+    // because this is the only place the id exists; `mountCampaign` runs after the
+    // character maker, a screen later.
+    pendingSideId = choice.sideId;
     selectionScreen.replaceWith(
       characterMaker({
         bonusPointsTotal:
@@ -1096,12 +1114,70 @@ function mountCampaign(): void {
     },
   );
 
-  // Open on the worst town, so the Why panel has a real chain to walk immediately, but
-  // framed on the region rather than zoomed to the town. A campaign map should open
-  // showing the campaign, not one street.
+  openOnFactionTerritory();
+}
+
+/**
+ * The frame the whole region is shown at, in world metres.
+ *
+ * The "open on the campaign, not one street" shot, and the ceiling a faction's own
+ * territory is framed within. Also the tightest frame `selectSettlement` uses for a
+ * village, which is why that is the floor a faction frame may reach.
+ */
+const REGION_FRAME_RADIUS = 34_000;
+const TOWN_FRAME_RADIUS = 7_500;
+
+/**
+ * Where the campaign opens, given the side the player chose.
+ *
+ * The rule that used to be here — select the highest-unrest town, frame the whole
+ * region — ignored the faction entirely, so a Great Lakes Union campaign and a Southern
+ * Compact campaign opened on the same view of the same map. Now the side is resolved
+ * against `territories.json` and the camera opens on that faction's own ground.
+ *
+ * Two fallbacks, both real states of the data rather than guesses:
+ *
+ *  - The faction holds no territory inside the loaded region. Three of the six do not
+ *    touch the Ohio River Valley at all, because the hulls are national and the region
+ *    is five states. Then the map opens on the region as it always did; framing the
+ *    camera on a territory that lies off the edge of the loaded world would put the
+ *    player in empty terrain.
+ *  - The faction has no shipped territory at all, which is the Wanderer start and any
+ *    region deployed before the territory build.
+ *
+ * The town that opens is the faction's own anchor when it is inside this region and its
+ * biggest holding when it is not, and only if the simulation is running a town there.
+ * A settlement the client can place but the sim has no record for still opens the
+ * camera — the faction's ground is real either way — but it does not become the
+ * selection, because selecting it would put a "no simulation record" sheet where the
+ * Why panel's chain should be.
+ */
+function openOnFactionTerritory(): void {
+  if (!world || !snapshot) return;
+
+  const region = pendingSideId ? factionRegionFor(pendingSideId, world.data) : null;
+  const opening = campaignOpening(region, world.projection, {
+    regionRadius: REGION_FRAME_RADIUS,
+    minRadius: TOWN_FRAME_RADIUS,
+    isAnchorPlayable: (id) => townFor(id) !== undefined,
+  });
+
+  if (opening.anchor) {
+    selectSettlement(opening.anchor.settlementId);
+    if (scene) {
+      const p = world.projection.toWorld(opening.anchor.lat, opening.anchor.lon);
+      scene.focus(p.x, p.z, opening.radius);
+    }
+    return;
+  }
+
+  // No faction ground in this region, or the sim is not running a town there: open on
+  // the worst town in the region so the Why panel still has a real chain to walk, framed
+  // on the region rather than zoomed to the town. A campaign map should open showing the
+  // campaign, not one street.
   const worst = [...snapshot.towns].sort((a, b) => b.unrest - a.unrest)[0];
   if (worst) selectSettlement(worst.settlementId);
-  if (scene && world) scene.focus(world.projection.width / 2, world.projection.depth / 2, 34_000);
+  if (scene) scene.focus(world.projection.width / 2, world.projection.depth / 2, REGION_FRAME_RADIUS);
 }
 
 // -- input actions -----------------------------------------------------------
@@ -1318,7 +1394,7 @@ function selectSettlement(id: string): void {
   if (place && scene) {
     const p = worldData.projection.toWorld(place.lat, place.lon);
     const { klass } = classifySettlement(place);
-    scene.focus(p.x, p.z, klass === "city" ? 20_000 : klass === "town" ? 13_000 : 7_500);
+    scene.focus(p.x, p.z, klass === "city" ? 20_000 : klass === "town" ? 13_000 : TOWN_FRAME_RADIUS);
   }
   currentPanel = town ? "town" : "none";
   // Task 571: a selected town is the existing place-entry signal. The sim has

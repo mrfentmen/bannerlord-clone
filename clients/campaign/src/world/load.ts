@@ -9,6 +9,7 @@
 
 import type {
   BoundariesFile,
+  FactionTerritoriesFile,
   Heightfield,
   NetworkFile,
   PlaceBoundary,
@@ -553,6 +554,59 @@ function toRoadClass(highway: string): RoadClass | null {
   return null;
 }
 
+/**
+ * Check a territory file the client is about to make a gameplay decision from.
+ *
+ * A territory carries a hull and a capital, and `factionRegion.ts` picks the anchor
+ * town and frames the camera on it. A hull with a transposed coordinate pair, or a
+ * capital outside the country, would not fail — it would quietly open the campaign on
+ * the wrong town — so the shape is checked here where the failure can still be loud.
+ */
+function validateTerritories(file: FactionTerritoriesFile): void {
+  if (!Array.isArray(file.territories)) {
+    throw new WorldDataError(
+      "decode",
+      "The faction territory survey is damaged.",
+      "territories.json has no territories array",
+      false,
+    );
+  }
+  for (const t of file.territories) {
+    const where = `territories.json entry ${t.faction ?? "<unnamed>"}`;
+    if (
+      typeof t.faction !== "string" ||
+      typeof t.label !== "string" ||
+      !Array.isArray(t.polygon) ||
+      t.polygon.length < 3
+    ) {
+      throw new WorldDataError(
+        "decode",
+        "A faction territory in the survey has no usable shape, so it cannot be shown on the map.",
+        `${where} is malformed: ${JSON.stringify(t).slice(0, 200)}`,
+        false,
+      );
+    }
+    for (const [lon, lat] of t.polygon) {
+      if (!Number.isFinite(lon) || !Number.isFinite(lat)) {
+        throw new WorldDataError(
+          "decode",
+          `The boundary of ${t.label} is damaged, so it cannot be shown on the map.`,
+          `${where} has a non-finite hull vertex`,
+          false,
+        );
+      }
+    }
+    if (!Number.isFinite(t.capital?.lat) || !Number.isFinite(t.capital?.lon)) {
+      throw new WorldDataError(
+        "decode",
+        `The capital of ${t.label} has no usable position.`,
+        `${where} capital is ${JSON.stringify(t.capital)}`,
+        false,
+      );
+    }
+  }
+}
+
 export interface LoadOptions {
   baseUrl: string;
   onStage?: (stage: string, loaded: number, total: number) => void;
@@ -566,8 +620,8 @@ export async function loadWorldData(options: LoadOptions): Promise<WorldData> {
   const base = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
   const root = new URL(base, location.href).href;
 
-  onStage?.("survey", 0, 4);
-  const [region, settlementFile, network, boundaryFile] = await Promise.all([
+  onStage?.("survey", 0, 5);
+  const [region, settlementFile, network, boundaryFile, territoryFile] = await Promise.all([
     // `getJson` and `getOptionalJson` add the cache-busting build hash themselves, so
     // every world URL in this module goes through exactly one code path for it.
     getJson<RegionFile>(`${root}region.json`, "region"),
@@ -576,6 +630,11 @@ export async function loadWorldData(options: LoadOptions): Promise<WorldData> {
     // Optional, so a 404 resolves to null rather than failing the whole load. See
     // `getOptionalJson`.
     getOptionalJson<BoundariesFile>(`${root}boundaries.json`, "town outlines"),
+    // The per-faction region wire file. Optional for the same reason: a region that
+    // predates the territory build loads and opens on the whole region rather than
+    // refusing to start. It is what `factionRegion.ts` reads to answer "which part of
+    // this map does the chosen faction hold".
+    getOptionalJson<FactionTerritoriesFile>(`${root}territories.json`, "faction territories"),
   ]);
 
   // Format first, then shape: a file from a newer wire revision may be shaped nothing
@@ -585,10 +644,12 @@ export async function loadWorldData(options: LoadOptions): Promise<WorldData> {
   validateWireVersion("settlements", settlementFile);
   validateWireVersion("network", network);
   if (boundaryFile) validateWireVersion("boundaries", boundaryFile);
+  if (territoryFile) validateWireVersion("territories", territoryFile);
 
   validateRegion(region);
   validateSettlements(settlementFile);
   validateNetwork(network);
+  if (territoryFile) validateTerritories(territoryFile);
 
   onStage?.("terrain", 0, region.elevation.tiles.length);
   const heightfield = await loadHeightfield(region, root, (loaded, total) =>
@@ -643,6 +704,7 @@ export async function loadWorldData(options: LoadOptions): Promise<WorldData> {
       coords: r.coords,
     })),
     boundaries,
+    territories: territoryFile ? territoryFile.territories : [],
     heightfield,
     provenance: {
       elevation: "aws-terrarium",

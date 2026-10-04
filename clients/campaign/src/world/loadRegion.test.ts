@@ -104,7 +104,7 @@ describe("loading the committed world data", () => {
     expect(settlementsWithoutBoundaries(world.settlements, world.boundaries)).toEqual([]);
   });
 
-  it("fetches exactly the four wire files and then the boot tiles", async () => {
+  it("fetches exactly the five wire files and then the boot tiles", async () => {
     await loadWorldData({ baseUrl: "/world" });
 
     const region = readWorld<{ elevation: { tiles: { path: string }[] } }>("region.json");
@@ -113,6 +113,7 @@ describe("loading the committed world data", () => {
       "/world/settlements.json",
       "/world/network.json",
       "/world/boundaries.json",
+      "/world/territories.json",
       ...region.elevation.tiles.map((t) => `/world/${t.path}`),
     ];
     // The detail tier is a fetchable artifact, not a boot dependency, so none of its
@@ -169,8 +170,9 @@ describe("loading the committed world data", () => {
       baseUrl: "/world",
       onStage: (stage, loaded, total) => stages.set(stage, [loaded, total]),
     });
-    // Four wire files: region, settlements, network, and the town outlines.
-    expect(stages.get("survey")).toEqual([0, 4]);
+    // Five wire files: region, settlements, network, the town outlines, and the faction
+    // territories that `factionRegion.ts` maps a chosen side onto.
+    expect(stages.get("survey")).toEqual([0, 5]);
     const terrain = stages.get("terrain");
     expect(terrain).toBeDefined();
     expect(terrain![0]).toBe(terrain![1]);

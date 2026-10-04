@@ -172,6 +172,51 @@ export interface SettlementsFile extends WireStamped {
   settlements: WorldSettlementFile[];
 }
 
+/**
+ * One faction's territory, as shipped in `territories.json`.
+ *
+ * This is the per-faction region wire file. `services/world-data/tools/build-territories.py`
+ * groups the national settlement export by the section that claims it, takes a convex
+ * hull of each group and records the largest member as the capital. So the polygon is a
+ * real convex hull over real settlement positions, not a drawn shape.
+ *
+ * Coordinates are `[lon, lat]` — GeoJSON order — which is the opposite of every other
+ * coordinate in this file. The build script emits `[[lon, lat] for lon, lat in hull]`,
+ * so that is what this type says, and `factionRegion.ts` is the one place that reads
+ * it. Getting the pair backwards maps the Pacific Compact's hull into the Gulf of
+ * Mexico and then reports, confidently, that no faction holds any part of the region.
+ *
+ * `faction` is snake_case (`great_lakes_union`) where the client's playable side ids are
+ * hyphenated (`great-lakes-union`). That mismatch is real and is why
+ * `normalizeFactionKey` exists rather than a lookup on the raw string.
+ */
+export interface FactionTerritory {
+  faction: string;
+  label: string;
+  /** Banner colour for the territory tint, `#rrggbb`. */
+  color: string;
+  /** Member settlements nationally, before the loaded region's own bounds are applied. */
+  settlement_count: number;
+  total_population: number;
+  capital: {
+    id: string;
+    name: string;
+    lat: number;
+    lon: number;
+    population: number;
+  };
+  /** Convex hull, GeoJSON order. Not closed: first and last point are distinct. */
+  polygon: [number, number][];
+  /** How many members sit within 50 km of another faction's member. A count, not a list. */
+  border_settlement_sample: number;
+}
+
+export interface FactionTerritoriesFile extends WireStamped {
+  generated: string;
+  faction_count: number;
+  territories: FactionTerritory[];
+}
+
 export type RoadClass = "motorway" | "trunk" | "primary" | "secondary";
 
 /** The on-disk shape of a road, before the client normalises the class. */
@@ -321,6 +366,17 @@ export interface WorldData {
    * papered over with a circle around each town.
    */
   boundaries: PlaceBoundary[];
+  /**
+   * Real faction territories, when the region ships them. Empty for a region deployed
+   * without `territories.json`, which is the same "absent is a fact about the data"
+   * rule `boundaries` follows.
+   *
+   * The territories themselves are national: the build script hulls every settlement
+   * the section claims across the whole country, so a faction's capital is often
+   * nowhere near this region. `factionRegion.ts` intersects them with what was actually
+   * loaded rather than assuming either one is the other's scale.
+   */
+  territories: FactionTerritory[];
   /** Raw terrarium pixels, decoded to metres by `elevation.ts`. Keyed `z/x/y`. */
   heightfield: Heightfield;
   provenance: Record<string, DataProvenance>;
