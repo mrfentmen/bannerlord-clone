@@ -43,11 +43,23 @@ function settlementLoreEntry(settlementId: string): string | null {
     denver: "lore-city-denver",
     boulder: "lore-city-boulder",
     golden: "lore-city-golden",
-    // National cities — entries in codex/entries6.ts
+    // National cities — entries in codex/entries6.ts and entries9.ts
     "new-york": "lore-city-new-york",
     "los-angeles": "lore-city-los-angeles",
     houston: "lore-city-houston",
     miami: "lore-city-miami",
+    chicago: "lore-city-chicago",
+    seattle: "lore-city-seattle",
+    atlanta: "lore-city-atlanta",
+    dallas: "lore-city-dallas",
+    phoenix: "lore-city-phoenix",
+    "san-francisco": "lore-city-san-francisco",
+    boston: "lore-city-boston",
+    philadelphia: "lore-city-philadelphia",
+    "new-orleans": "lore-city-new-orleans",
+    detroit: "lore-city-detroit",
+    nashville: "lore-city-nashville",
+    "las-vegas": "lore-city-las-vegas",
   };
   return map[settlementId] ?? null;
 }
