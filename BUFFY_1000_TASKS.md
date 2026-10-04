@@ -462,16 +462,16 @@
 ## D. World Data & Map (401–500)
 
 ### Settlements (401–430)
-401. Settlement: name generator (American place names)
-402. Settlement: type assignment (city/town/village)
-403. Settlement: population based on type
-404. Settlement: prosperity calculation
-405. Settlement: food production
-406. Settlement: garrison size by importance
+401. [x] [Hana] Settlement: name generator (American place names)
+402. [x] [Hana] Settlement: type assignment (city/town/village)
+403. [x] [Hana] Settlement: population based on type
+404. [x] [Hana] Settlement: prosperity calculation
+405. [x] [Hana] Settlement: food production
+406. [x] [Hana] Settlement: garrison size by importance
 407. Settlement: market goods based on region
 408. Settlement: construction projects
-409. Settlement: tax income calculation
-410. Settlement: loyalty to owner faction
+409. [x] [Hana] Settlement: tax income calculation
+410. [x] [Hana] Settlement: loyalty to owner faction
 411. Settlement: rebellion risk when loyalty low
 412. Settlement: wall level (defense bonus)
 413. Settlement: granary level (food storage)
@@ -491,11 +491,11 @@
 427. Settlement: prosperity change over time
 428. Settlement: population growth/decline
 429. Settlement: food shortage warning
-430. Settlement: notable NPCs spawn
+430. [x] [Hana] Settlement: notable NPCs spawn
 
 ### Roads & Travel (431–450)
-431. Road: generate between nearby settlements
-432. Road: quality (highway/dirt/path)
+431. [x] [Hana] Road: generate between nearby settlements
+432. [x] [Hana] Road: quality (highway/dirt/path)
 433. Road: travel speed modifier
 434. Road: bandit ambush chance
 435. Road: visual: line on map
