@@ -30,6 +30,11 @@ func run(v *sim.View, w *sim.WriteSet) {
 		// Base heal rate: 10% of wounded per day.
 		healRate := 0.1
 
+		// Surgeon companion speeds healing: +5% per skill point.
+		if skill, ok := p.Companions["surgeon"]; ok && skill > 0 {
+			healRate *= 1.0 + float64(skill)*0.05
+		}
+
 		// Medicine speeds healing.
 		if p.Medicine > 0 {
 			healRate *= 1.5

@@ -39,6 +39,8 @@ import (
 	"mbclone/simulation/internal/systems/march"
 	"mbclone/simulation/internal/systems/market"
 	"mbclone/simulation/internal/systems/migration"
+	"mbclone/simulation/internal/systems/mortality"
+	"mbclone/simulation/internal/systems/diplomacy"
 	"mbclone/simulation/internal/systems/player"
 	"mbclone/simulation/internal/systems/relation"
 	"mbclone/simulation/internal/systems/rulerai"
@@ -94,6 +96,8 @@ func Systems() []sim.System {
 		influence.System(),
 		relation.System(),
 		rulerai.System(),
+		mortality.System(),
+		diplomacy.System(),
 		factionai.System(),
 
 		// --- turning intentions into movement ---

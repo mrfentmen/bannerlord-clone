@@ -70,6 +70,10 @@ func run(v *sim.View, w *sim.WriteSet) {
 		// with plunder takes longer to reach anywhere.
 		load := shared.SafeDiv(p.Food+p.Metal, c.March.FoodPerTroop*c.March.SizeReference*2)
 		speed *= 1 - c.March.LoadSpeedWeight*shared.Clamp01(load)
+		// Scout companion: +3% speed per skill point.
+		if skill, ok := p.Companions["scout"]; ok && skill > 0 {
+			speed *= 1.0 + float64(skill)*0.03
+		}
 		// Weather: a random seasonal effect. An army caught out in bad weather
 		// loses days it cannot get back, which is a real cost and not a
 		// scripted event.

@@ -46,6 +46,10 @@ func run(v *sim.View, w *sim.WriteSet) {
 		if !underway(p.Activity) {
 			dailyNeed = p.Troops * c.March.StationaryFoodRate * c.Food.PersonDaysPerPersonDay
 		}
+		// Quartermaster reduces food consumption: -2% per skill point.
+		if skill, ok := p.Companions["quartermaster"]; ok && skill > 0 {
+			dailyNeed *= 1.0 - float64(skill)*0.02
+		}
 		daysFood := shared.SafeDiv(p.Food, dailyNeed)
 		w.Set(model.KindParty, pid, "days_food", daysFood,
 			shared.ReadString(

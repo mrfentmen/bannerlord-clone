@@ -19,6 +19,20 @@ type Traits struct {
 	Calculation float64
 }
 
+// Skills are combat and leadership abilities.
+// Tactics: affects battle effectiveness (+2% per point).
+// Leadership: affects morale and troop cap (+1% morale per point).
+// Roguery: affects loot and prisoner capture.
+// Medicine: affects wound healing (stacks with surgeon).
+// Engineering: affects siege effectiveness.
+type Skills struct {
+	Tactics     int
+	Leadership  int
+	Roguery     int
+	Medicine    int
+	Engineering int
+}
+
 // Ambition is what a ruler wants, which tilts their scoring.
 type Ambition int
 
@@ -284,6 +298,10 @@ type Party struct {
 	// Higher level troops fight better (see battle effectiveness).
 	XP    float64
 	Level int
+	// Companions maps role -> skill level (1-10) for companions serving
+	// in party roles. Empty means no companion in that role.
+	// Roles: quartermaster, scout, surgeon, engineer.
+	Companions map[string]int
 }
 
 // Ruler is a named character who holds land, leads a party, or sells a company.
@@ -303,6 +321,7 @@ type Ruler struct {
 	// rather than fifty equals.
 	Tier     int
 	Traits   Traits
+	Skills   Skills
 	Ambition Ambition
 	// Money and Gold are the ruler's personal wealth, distinct from a town's.
 	// A ruler can be solvent while their capital is broke, and a merchant

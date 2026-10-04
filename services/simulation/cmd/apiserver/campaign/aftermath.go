@@ -116,7 +116,14 @@ func ProcessAftermath(v *sim.View, w *sim.WriteSet, result *battle.Result, winne
 	}
 
 	// Morale: winner gains, loser loses.
-	w.Add(model.KindParty, winnerID, "morale", 0.1,
+	// Leadership skill amplifies the winner's morale gain.
+	moraleGain := 0.1
+	if winner.RulerID >= 0 {
+		if ruler, ok := v.State.Rulers[winner.RulerID]; ok && ruler != nil {
+			moraleGain *= 1.0 + float64(ruler.Skills.Leadership)*0.02
+		}
+	}
+	w.Add(model.KindParty, winnerID, "morale", moraleGain,
 		"victory", nil, "battle aftermath")
 	w.Add(model.KindParty, loserID, "morale", -0.2,
 		"defeat", nil, "battle aftermath")
