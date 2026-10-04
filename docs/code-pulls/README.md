@@ -98,6 +98,22 @@ grenades). Framework-free logic; ports to Babylon directly.
 **Use for:** the missing FPS controller; adapt for TPS with a
 chase camera. See `fps-controller/NOTES.md`.
 
+### 12. babylon-controller/ — Babylon-native character controllers (Apache-2.0 + MIT, code included)
+Found by code-hunt agent 3. `ssatguru/BabylonJS-CharacterController`
+(Apache-2.0): complete kinematic TPS/FPS controller — slope limits,
+step offset, elastic camera with collision, third→first-person radius
+blend, animation blending. Missing only head-bob + crouch, which are
+taken from `crazyramirez/BJS_Character_Controller_V2` (MIT) —
+the only Babylon controller with real head-bob (lines 3618-3636).
+**Use for:** build on ssatguru, not the three.js controller — the
+engine calls are already Babylon and it solves the annoying parts
+(camera collision, TPS↔FPS blend). Bike-physics findings in
+`babylon-controller/NOTES.md`: no JS/TS motorcycle impl clears the
+bar; port cannon-es `RaycastVehicle` + arcade assists instead —
+Babylon 8 ships no vehicle physics at all.
+See `babylon-controller/NOTES.md` and
+`~/workspace/agent-outputs/babylon-controller-finds.md`.
+
 ## License status
 
 - Code copied (OSI license positively identified, license file kept):

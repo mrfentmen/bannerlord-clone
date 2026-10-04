@@ -21,23 +21,32 @@ The game has orbit cameras only (`ArcRotateCamera` on campaign map
 and battle overview). No WASD handling exists anywhere. The `src/input/`
 system has bindings but nothing consumes them for movement.
 
-### 1a. FPS controller — IN REPO
-- `docs/code-pulls/fps-controller/` (MIT, BridgeMind 2026)
-- Full controller: yaw/pitch look, crouch, sprint, jump/fall,
-  head-bob, **recoil** (accumulates and recovers), **ADS**
-  (aim-down-sights transition), plus vitals, input class, and a
-  complete weapon system (state machine, viewmodel, grenades).
-- Read `fps-controller/NOTES.md` for the porting guide
-  (controller logic is framework-free; only ViewModel is three.js-specific).
-- GitHub (if you want the rest of the game — enemies, nav grid):
-  https://github.com/bridge-mind/claude-opus-5.5-zombies-game (MIT)
+### 1a. FPS/TPS controller — IN REPO (Babylon-native, preferred)
+- `docs/code-pulls/babylon-controller/` — found by code-hunt agent 3,
+  license-verified via GitHub API + LICENSE files.
+- **Build on:** `ssatguru/BabylonJS-CharacterController` (Apache-2.0,
+  243 stars, TypeScript, npm-published): complete kinematic
+  controller, no physics engine needed. Slope limits, step offset,
+  **elastic camera with collision**, animation blending, and a
+  **third→first-person radius blend** — the TPS↔FPS switch for free.
+  The Babylon APIs it uses are unchanged in Babylon 8.
+- **Missing pieces** (no head-bob, no crouch): take from
+  `crazyramirez/BJS_Character_Controller_V2` (MIT) in the same folder —
+  the only Babylon controller with real head-bob (lines 3618-3636:
+  sprint-scaled frequencies/amplitudes, exponential return to centre)
+  plus crouch and sprint. Self-contained math, ports verbatim.
+- Full agent report with two more verified options (Havok-based TPS,
+  minimal pointer-lock FPS reference):
+  `~/workspace/agent-outputs/babylon-controller-finds.md`
 
-### 1b. TPS controller — ADAPT, no direct pull found
-- No MIT-licensed TPS controller turned up in the sweep.
-- Build from 1a: keep its yaw/pitch + movement, put the camera
-  behind the character, render the character instead of the viewmodel.
-- Chase-camera pattern: `docs/code-pulls/vehicle-physics/camera.js`
-  (MIT, in repo).
+### 1b. FPS controller (three.js alternative) — IN REPO
+- `docs/code-pulls/fps-controller/` (MIT, BridgeMind 2026): full
+  controller with **recoil** and **ADS**, plus a complete weapon
+  system (state machine, viewmodel, grenades).
+- Use the Babylon-native 1a for the character; take the weapon system
+  and recoil/ADS feel from here. The zombies repo also has enemies
+  and a nav grid if needed:
+  https://github.com/bridge-mind/claude-opus-5.5-zombies-game (MIT)
 
 ## 2. Driving mechanics (VERIFIED missing — vehicle models have no code)
 
@@ -226,11 +235,24 @@ Horse gait animations and death/ragdoll handoff exist
 but there are no riding mechanics: no mount/dismount, no mounted
 movement or combat. In modern America this is motorcycles.
 
-- `docs/code-pulls/vehicle-physics/` (MIT) — adapt `kart.js`:
-  two-wheel handling (lean into turns instead of drift), wheelie/
-  stoppie optional.
-- Rider uses the FPS/TPS controller (section 1); bike is the vehicle
-  (section 2). Mount/dismount is an interaction + animation blend.
+Code-hunt agent 3's honest finding: **no open-source 3D JS/TS
+motorcycle implementation clears the license bar**, and **Babylon 8
+ships no vehicle physics at all** (verified against
+`@babylonjs/core@8.56.2`). So the bike is a bespoke build:
+- **Algorithm:** port `pmndrs/cannon-es` `RaycastVehicle.ts` (MIT,
+  673 lines of clean TS) — replace its raycast with Babylon
+  `scene.pickWithRay`; it already loops over wheel count, so 2 wheels work.
+- **Assists:** take the arcade block from `icurtis1/raycast-vehicle`
+  (MIT): `antiWheelie`, `uprightAssist` (cross-product righting torque
+  faded by speed — the standard trick for keeping a two-wheeler up
+  while letting it lean and crash), `tiltClampAirborne`.
+- **Feel constants:** `ArcaDone/UnityMotorbikeController` (MIT, C#) —
+  wheelie/lean/crash/gear math as plain floats; transliterate, don't port
+  the WheelCollider parts.
+- Full analysis: `docs/code-pulls/babylon-controller/NOTES.md` (bike section)
+  and `~/workspace/agent-outputs/babylon-controller-finds.md`.
+- Rider uses the controller (section 1a); mount/dismount is an
+  interaction + animation blend.
 
 ## 19. Crew mustering (armies, modernized) (VERIFIED missing entirely)
 
