@@ -19,6 +19,7 @@ import { ATTRIBUTES, ATTRIBUTE_MAX, ATTRIBUTE_MIN, ATTRIBUTE_POINTS_TOTAL,
   emptyFocus, focusRemaining, nextPerkThreshold, perksEarned,
   skillLabel, startingSkillLevels } from "../../data/attributes.js";
 import { ETHNICITIES } from "../../data/ethnicities.js";
+import { personName, createNameRng } from "../../data/names.js";
 
 export interface CharacterMakerOptions {
   onComplete: (character: GameCharacter) => void;
@@ -29,6 +30,8 @@ export interface CharacterMakerOptions {
    * 142: New Game+ heirs get legacy training on top of the base budget).
    */
   bonusPointsTotal?: number | undefined;
+  /** Open a codex lore entry (e.g. ethnicity lore from the heritage picker). */
+  onOpenLore?: (entryId: string) => void;
 }
 
 const MAKER_STEPS = ["Name", "Appearance", "Age", "City", "Difficulty", "Background",
@@ -153,6 +156,7 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     frag.appendChild(h("h3", {}, "Heritage"));
     const egrid = h("div", { class: "roles", "data-testid": "char-ethnicity-grid" });
     for (const e of ETHNICITIES) {
+      const wrap = h("div", { class: "role-wrap" });
       const btn = h(
         "button",
         {
@@ -169,10 +173,50 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
         appearanceId = appearancesForEthnicity(ethnicityId)[0]?.id ?? "";
         render();
       });
-      egrid.appendChild(btn);
+      wrap.appendChild(btn);
+      // Lore link: open the codex to this ethnicity's deep lore (del order 2026-10-03).
+      if (options.onOpenLore) {
+        const loreBtn = h(
+          "button",
+          {
+            type: "button",
+            class: "btn btn--quiet btn--xs",
+            "data-testid": `char-ethnicity-lore-${e.id}`,
+            title: `Read the lore of the ${e.name} community`,
+          },
+          "📖",
+        ) as HTMLButtonElement;
+        loreBtn.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          options.onOpenLore?.(`lore-ethnicity-${e.id}`);
+        });
+        wrap.appendChild(loreBtn);
+      }
+      egrid.appendChild(wrap);
     }
 
-    frag.append(firstInput, lastInput, h("h3", {}, "Gender"), genderRow, egrid);
+    // Random name from the ethnicity generator (del order 2026-10-03).
+    const randomBtn = h(
+      "button",
+      {
+        type: "button",
+        class: "btn btn--quiet",
+        "data-testid": "char-random-name",
+        title: "Generate a random name for your heritage and gender",
+      },
+      "🎲 Random name",
+    ) as HTMLButtonElement;
+    randomBtn.addEventListener("click", () => {
+      const rng = createNameRng((Math.random() * 0x7fffffff) | 0);
+      const person = personName(ethnicityId, rng, gender);
+      firstName = person.firstName;
+      lastName = person.lastName;
+      firstInput.value = firstName;
+      lastInput.value = lastName;
+      nextBtn.disabled = !canProceed();
+    });
+
+    frag.append(firstInput, lastInput, randomBtn, h("h3", {}, "Gender"), genderRow, egrid);
 
     // Clan name suggestions based on heritage.
     const clans = clanNamesForEthnicity(ethnicityId);

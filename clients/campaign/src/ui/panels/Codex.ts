@@ -17,6 +17,8 @@ export interface CodexPanelOptions {
   onEntryRead?: (entry: CodexEntry) => void;
   /** Fired when the user searches with a non-empty query. */
   onSearch?: () => void;
+  /** Open with this entry selected (lore deep-links). */
+  initialEntryId?: string | undefined;
 }
 
 const CAT_LABEL: Record<CodexCategory, string> = CODEX_CATEGORY_LABEL;
@@ -32,7 +34,9 @@ export function codexPanel(options: CodexPanelOptions = {}): HTMLElement {
 
   let category: CategoryFilter = "all";
   let query = "";
-  let selected: CodexEntry | null = null;
+  // Rowan (del order 2026-10-03): deep-link to a lore entry when provided.
+  let selected: CodexEntry | null =
+    options.initialEntryId ? (getEntry(ALL_CODEX_ENTRIES, options.initialEntryId) ?? null) : null;
 
   const toolbar = h("div", { class: "codex__toolbar" });
   const tabs = h("div", { class: "codex__tabs", role: "tablist", "aria-label": "Codex category" });

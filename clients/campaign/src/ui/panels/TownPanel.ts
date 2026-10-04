@@ -33,6 +33,25 @@ import { BANNER_COLORS } from "../../clan/bannerPalette.js";
 import type { ColorblindMode } from "../../settings/schema.js";
 import "./townPanel.css";
 
+/**
+ * Map a settlement id to its codex lore entry, if one exists.
+ * (Rowan, del order 2026-10-03): wires city lore into town panels.
+ */
+function settlementLoreEntry(settlementId: string): string | null {
+  const map: Record<string, string> = {
+    // Front Range (fixture towns) — entries in codex/entries7.ts
+    denver: "lore-city-denver",
+    boulder: "lore-city-boulder",
+    golden: "lore-city-golden",
+    // National cities — entries in codex/entries6.ts
+    "new-york": "lore-city-new-york",
+    "los-angeles": "lore-city-los-angeles",
+    houston: "lore-city-houston",
+    miami: "lore-city-miami",
+  };
+  return map[settlementId] ?? null;
+}
+
 export interface TownPanelOptions {
   /**
    * `null` when the map has nothing selected. The panel then says what to do about
@@ -45,6 +64,8 @@ export interface TownPanelOptions {
   onOpenMarket: () => void;
   onMarchHere: () => void;
   onRoster: () => void;
+  /** Open a codex lore entry (e.g. city lore from the town header). */
+  onOpenLore?: (entryId: string) => void;
   /**
    * Set the town's tax rate. The panel sends the order; the simulation clamps
    * and applies it. Resolves when the order is accepted.
@@ -86,23 +107,23 @@ export interface TownPanelOptions {
    * The player's workshops in this town. Omitted, the section is not drawn —
    * a workshop list the player cannot act on is worse than no list.
    */
-  workshops?: Workshop[] | undefined;
+  workshops?: Workshop[];
   /**
    * Buy a workshop of the given type in this town. The panel sends the type;
    * the simulation owns the price and the result.
    */
-  onBuyWorkshop?: ((type: string) => Promise<{ workshopId: string }>) | undefined;
+  onBuyWorkshop?: (type: string) => Promise<{ workshopId: string }>;
   /**
    * Sell a workshop by id. The panel sends the id; the simulation owns the
    * price and the result.
    */
-  onSellWorkshop?: ((workshopId: string) => Promise<void>) | undefined;
+  onSellWorkshop?: (workshopId: string) => Promise<void>;
   /**
    * Hire militia for the town's garrison. The panel sends the count; the
    * simulation owns the cost and the result. Only drawn when the caller can
    * actually send the order.
    */
-  onRecruitMilitia?: ((count: number) => Promise<void>) | undefined;
+  onRecruitMilitia?: (count: number) => Promise<void>;
   /**
    * The survey is still being read. Renders `town-skeleton`, which mirrors this
    * panel's sections, so the context region does not change height when the town
@@ -151,6 +172,25 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
   // name. Without one the header says who holds the town and stops, rather than
   // guessing a side from the holder's name or the state's code — a banner is a
   // claim about who controls a place, and an invented one is a lie about the map.
+  //
+  // Rowan (del order 2026-10-03): lore button deep-links to the codex when a
+  // lore entry exists for this settlement.
+  const loreEntryId = settlementLoreEntry(town.settlementId);
+  const headerActions = h("div", { style: "display:flex;gap:var(--space-1)" });
+  if (loreEntryId && options.onOpenLore) {
+    const loreBtn = h(
+      "button",
+      {
+        type: "button",
+        class: "btn btn--quiet btn--xs",
+        "data-testid": "town-lore",
+        title: `Read the lore of ${town.name}`,
+      },
+      "📖 Lore",
+    ) as HTMLButtonElement;
+    loreBtn.addEventListener("click", () => options.onOpenLore?.(loreEntryId));
+    headerActions.appendChild(loreBtn);
+  }
   body.appendChild(
     h(
       "div",
@@ -163,6 +203,7 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
         h("p", { class: "caption", style: "margin:0" }, `A ${town.klass} on the surveyed road network`),
       ),
       statusChip(unrestKind(town.unrest), `Unrest ${town.unrest.toFixed(2)}`, { testId: "town-unrest-chip" }),
+      headerActions,
     ),
   );
   body.appendChild(
