@@ -87,12 +87,23 @@ knockback, wall blocking — all pure functions over flat data.
 **Use for:** siege combat spec; port the shape into Go with the tests.
 See `siege-combat/NOTES.md`.
 
+## Systems (round 3)
+
+### 11. fps-controller/ — FPS player controller + weapons (MIT, code included)
+From `bridge-mind/claude-opus-5.5-zombies-game` (three.js browser FPS).
+Full controller: yaw/pitch look, crouch, sprint, jump/fall, head-bob,
+recoil accumulation/recovery, ADS transition — plus vitals, input
+class, and a complete weapon system (state machine, viewmodel,
+grenades). Framework-free logic; ports to Babylon directly.
+**Use for:** the missing FPS controller; adapt for TPS with a
+chase camera. See `fps-controller/NOTES.md`.
+
 ## License status
 
 - Code copied (OSI license positively identified, license file kept):
   `vehicle-physics` (MIT), `mcts-ai` (MIT), `strategy-core` (MIT),
-  `rts-battle` (MIT), `roguelike` (MIT). Keep copyright notices on
-  redistribution.
+  `rts-battle` (MIT), `roguelike` (MIT), `fps-controller` (MIT).
+  Keep copyright notices on redistribution.
 - Design notes only (no license detected — reimplement, don't copy):
   `deterministic-sim`, `city-sim`, `strategy-ai`, `dialogue-graph`,
   `siege-combat`.
