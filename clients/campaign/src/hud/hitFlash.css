@@ -1,0 +1,16 @@
+.hud-hitflash {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: inset 0 0 7rem 2.5rem rgba(200, 20, 20, 0.5);
+}
+
+.hud-hitflash--show {
+  animation: hud-hitflash-blink 220ms ease-out;
+}
+
+@keyframes hud-hitflash-blink {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}

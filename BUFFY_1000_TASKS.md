@@ -381,12 +381,12 @@
 327. Explosive: blast knockback
 328. Explosive: shrapnel (random secondary hits)
 329. Explosive: destroy cover
-330. Damage numbers: floating text on hit
-331. Damage numbers: color by type (white/yellow/red)
-332. Damage numbers: toggle in settings
-333. Hit flash: red vignette on player damage
-334. Hit sound trigger: on damage dealt
-335. Kill sound trigger: on kill
+330. Damage numbers: floating text on hit ✓
+331. Damage numbers: color by type (white/yellow/red) ✓
+332. Damage numbers: toggle in settings ✓
+333. Hit flash: red vignette on player damage ✓
+334. Hit sound trigger: on damage dealt ✓
+335. Kill sound trigger: on kill ✓
 336. Damage: dismemberment chance (visual, on kill)
 337. Damage: gib on explosive kill
 338. Melee: disarm (knock weapon away, rare)

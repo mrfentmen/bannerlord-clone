@@ -31,6 +31,10 @@ export interface StrikeEvent {
   fromDirection: { x: number; z: number };
   /** True when this strike killed. */
   killed: boolean;
+  /** Damage dealt by this strike, after flanking and other multipliers. */
+  amount: number;
+  /** World position of the victim when the strike landed. */
+  victimPosition: { x: number; y: number; z: number };
 }
 
 export interface CombatEventSource {

@@ -36,7 +36,7 @@ describe("combat event bus", () => {
     const offKill = bus.onKill((e) => kills.push(e));
     bus.onStrike((e) => strikes.push(e));
 
-    bus.emitStrike({ attackerTeam: 0, victimTeam: 1, fromDirection: { x: 1, z: 0 }, killed: false });
+    bus.emitStrike({ attackerTeam: 0, victimTeam: 1, fromDirection: { x: 1, z: 0 }, killed: false, amount: 12, victimPosition: { x: 0, y: 0, z: 0 } });
     bus.emitKill({ victimTeam: 1, killerTeam: 0 });
     expect(strikes).toHaveLength(1);
     expect(kills).toHaveLength(1);
@@ -88,14 +88,14 @@ describe("hit marker (task 46)", () => {
     const marker = createHitMarker(bus, { setTimeout: () => 0 });
     document.body.appendChild(marker.root);
 
-    bus.emitStrike({ attackerTeam: 0, victimTeam: 1, fromDirection: { x: 0, z: 1 }, killed: false });
+    bus.emitStrike({ attackerTeam: 0, victimTeam: 1, fromDirection: { x: 0, z: 1 }, killed: false, amount: 12, victimPosition: { x: 0, y: 0, z: 0 } });
     expect(document.querySelector(".hud-hitmarker--show")).not.toBeNull();
 
     document.querySelector(".hud-hitmarker")?.classList.remove("hud-hitmarker--show");
-    bus.emitStrike({ attackerTeam: 0, victimTeam: 1, fromDirection: { x: 0, z: 1 }, killed: true });
+    bus.emitStrike({ attackerTeam: 0, victimTeam: 1, fromDirection: { x: 0, z: 1 }, killed: true, amount: 12, victimPosition: { x: 0, y: 0, z: 0 } });
     expect(document.querySelector(".hud-hitmarker--show")).toBeNull();
 
-    bus.emitStrike({ attackerTeam: 1, victimTeam: 0, fromDirection: { x: 0, z: 1 }, killed: false });
+    bus.emitStrike({ attackerTeam: 1, victimTeam: 0, fromDirection: { x: 0, z: 1 }, killed: false, amount: 12, victimPosition: { x: 0, y: 0, z: 0 } });
     expect(document.querySelector(".hud-hitmarker--show")).toBeNull();
     marker.destroy();
   });
@@ -164,7 +164,7 @@ describe("damage direction (task 45)", () => {
     const dir = createDamageDirection(bus, () => 0, { setTimeout: () => 0 });
     document.body.appendChild(dir.root);
 
-    bus.emitStrike({ attackerTeam: 1, victimTeam: 0, fromDirection: { x: 0, z: 1 }, killed: false });
+    bus.emitStrike({ attackerTeam: 1, victimTeam: 0, fromDirection: { x: 0, z: 1 }, killed: false, amount: 12, victimPosition: { x: 0, y: 0, z: 0 } });
     const arc = document.querySelector<HTMLElement>(".hud-dmgdir__arc");
     expect(document.querySelector(".hud-dmgdir--show")).not.toBeNull();
     expect(arc?.style.transform).toBe("rotate(0deg)");
@@ -173,7 +173,7 @@ describe("damage direction (task 45)", () => {
     dir.destroy();
     const dir2 = createDamageDirection(bus, () => Math.PI / 2, { setTimeout: () => 0 });
     document.body.appendChild(dir2.root);
-    bus.emitStrike({ attackerTeam: 1, victimTeam: 0, fromDirection: { x: 0, z: 1 }, killed: false });
+    bus.emitStrike({ attackerTeam: 1, victimTeam: 0, fromDirection: { x: 0, z: 1 }, killed: false, amount: 12, victimPosition: { x: 0, y: 0, z: 0 } });
     const arc2 = document.querySelector<HTMLElement>(".hud-dmgdir__arc");
     expect(arc2?.style.transform).toBe("rotate(-90deg)");
     dir2.destroy();
@@ -184,7 +184,7 @@ describe("damage direction (task 45)", () => {
     const dir = createDamageDirection(bus, () => 0, { setTimeout: () => 0 });
     document.body.appendChild(dir.root);
 
-    bus.emitStrike({ attackerTeam: 0, victimTeam: 1, fromDirection: { x: 0, z: 1 }, killed: false });
+    bus.emitStrike({ attackerTeam: 0, victimTeam: 1, fromDirection: { x: 0, z: 1 }, killed: false, amount: 12, victimPosition: { x: 0, y: 0, z: 0 } });
     expect(document.querySelector(".hud-dmgdir--show")).toBeNull();
     dir.destroy();
   });

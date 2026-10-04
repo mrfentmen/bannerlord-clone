@@ -106,15 +106,18 @@ export class BattleLoop {
     // damage direction and combo counter all read this bus, so they can only
     // ever show what actually happened on the field.
     for (const brain of brains) {
-      brain.onStrike = (attacker, victim, _amount, killed) => {
+      brain.onStrike = (attacker, victim, amount, killed) => {
         const from = attacker.position.subtract(victim.position);
         from.y = 0;
         if (from.lengthSquared() > 0) from.normalize();
+        const vp = victim.position;
         loop.combatEvents.emitStrike({
           attackerTeam: attacker.team,
           victimTeam: victim.team,
           fromDirection: { x: from.x, z: from.z },
           killed,
+          amount,
+          victimPosition: { x: vp.x, y: vp.y, z: vp.z },
         });
         if (killed) {
           loop.combatEvents.emitKill({ victimTeam: victim.team, killerTeam: attacker.team });
