@@ -41,6 +41,7 @@ import (
 	"mbclone/simulation/internal/systems/migration"
 	"mbclone/simulation/internal/systems/mortality"
 	"mbclone/simulation/internal/systems/diplomacy"
+	"mbclone/simulation/internal/systems/dynasty"
 	"mbclone/simulation/internal/systems/player"
 	"mbclone/simulation/internal/systems/relation"
 	"mbclone/simulation/internal/systems/rulerai"
@@ -98,6 +99,7 @@ func Systems() []sim.System {
 		rulerai.System(),
 		mortality.System(),
 		diplomacy.System(),
+		dynasty.System(),
 		factionai.System(),
 
 		// --- turning intentions into movement ---

@@ -348,6 +348,12 @@ type Ruler struct {
 	// ServiceQuality is how competently this ruler governs, computed by the
 	// influence system from the state of their own holdings.
 	ServiceQuality float64
+	// SpouseID is the ruler's spouse (-1 if unmarried).
+	// HeirID is the designated heir (-1 if none).
+	SpouseID int
+	HeirID   int
+	// Children are the ruler's offspring (ruler IDs).
+	Children []int
 }
 
 // Side is one of the six playable sections from FACTIONS.md.
