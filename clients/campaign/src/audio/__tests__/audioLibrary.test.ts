@@ -45,7 +45,7 @@ function shippedAudioFiles(dir = AUDIO_ROOT, found: string[] = []): string[] {
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry);
     if (statSync(full).isDirectory()) shippedAudioFiles(full, found);
-    else if (full.endsWith(".mp3")) found.push(relative(REPO_ROOT, full));
+    else if (full.endsWith(".mp3") || full.endsWith(".wav")) found.push(relative(REPO_ROOT, full));
   }
   return found;
 }
