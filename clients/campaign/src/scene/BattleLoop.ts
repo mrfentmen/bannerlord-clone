@@ -26,6 +26,14 @@ export interface BattleResult {
   enemyCasualties: number;
   /** Seconds the fight lasted. */
   duration: number;
+  /**
+   * Troops that threw down their weapons — prisoners for the campaign's
+   * ransom system, not corpses. (A surrendered unit is alive and has not
+   * fled, so without counting them the battle would never end on mass
+   * surrender.)
+   */
+  playerSurrendered: number;
+  enemySurrendered: number;
 }
 
 export interface BattleLoopOptions {
@@ -176,8 +184,13 @@ export class BattleLoop {
         soldier.root.setEnabled(false);
       }
     }
-    const playerAlive = this.brains.some((b) => b.team === 0 && b.alive && !b.hasFled);
-    const enemyAlive = this.brains.some((b) => b.team === 1 && b.alive && !b.hasFled);
+    // A side is done when nothing on it is still fighting: the dead, the
+    // fled, and the surrendered are all out. (Surrendered units are alive
+    // and have not fled — without the isSurrendered check a mass surrender
+    // would soft-lock the battle.)
+    const stillFighting = (b: UnitBrain) => b.alive && !b.hasFled && !b.isSurrendered;
+    const playerAlive = this.brains.some((b) => b.team === 0 && stillFighting(b));
+    const enemyAlive = this.brains.some((b) => b.team === 1 && stillFighting(b));
     if (!playerAlive || !enemyAlive) {
       this.ended = true;
       const playerDead = this.brains.filter((b) => b.team === 0 && !b.alive).length;
@@ -187,6 +200,8 @@ export class BattleLoop {
         playerCasualties: playerDead,
         enemyCasualties: enemyDead,
         duration: this.elapsed,
+        playerSurrendered: this.brains.filter((b) => b.team === 0 && b.isSurrendered).length,
+        enemySurrendered: this.brains.filter((b) => b.team === 1 && b.isSurrendered).length,
       });
     }
   }
@@ -215,6 +230,22 @@ export class BattleLoop {
   /** Total dead on a team (for the kill feed / HUD). */
   casualties(team: number): number {
     return this.brains.filter((b) => b.team === team && !b.alive).length;
+  }
+
+  /**
+   * Average morale 0-100 across a team's living brains (0 when none left).
+   * The brain tracks 0..1; the HUD reads 0-100. Named to avoid the
+   * MoraleSystem field.
+   */
+  averageMorale(team: number): number {
+    const living = this.brains.filter((b) => b.team === team && b.alive);
+    if (living.length === 0) return 0;
+    return (living.reduce((sum, b) => sum + b.morale, 0) / living.length) * 100;
+  }
+
+  /** Brains on a team currently in a given state (for the HUD feed). */
+  countState(team: number, state: UnitBrain["state"]): number {
+    return this.brains.filter((b) => b.team === team && b.state === state).length;
   }
 
   /**

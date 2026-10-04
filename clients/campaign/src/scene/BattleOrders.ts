@@ -31,6 +31,11 @@ export interface BattleOrdersOptions {
 
 const GROUP_COUNT = 3;
 
+/** Still in the fight: alive, not routing, not surrendered, not fled. */
+function isFighting(b: UnitBrain): boolean {
+  return b.alive && !b.isRouting && !b.isSurrendered && !b.hasFled;
+}
+
 /** Ray from the camera through the pointer, intersected with the y=0 plane. */
 export function pointerGroundPoint(scene: Scene): Vector3 | null {
   const camera = scene.activeCamera;
@@ -73,7 +78,7 @@ export class BattleOrders {
 
   /** Living player brains, split round-robin into GROUP_COUNT groups. */
   groups(): UnitBrain[][] {
-    const brains = this.options.getBrains().filter((b) => b.alive);
+    const brains = this.options.getBrains().filter(isFighting);
     const groups: UnitBrain[][] = Array.from({ length: GROUP_COUNT }, () => []);
     brains.forEach((b, i) => groups[i % GROUP_COUNT]!.push(b));
     return groups;
@@ -81,7 +86,7 @@ export class BattleOrders {
 
   /** The brains the next order will hit. */
   selectedBrains(): UnitBrain[] {
-    if (this.selected === -1) return this.options.getBrains().filter((b) => b.alive);
+    if (this.selected === -1) return this.options.getBrains().filter(isFighting);
     return this.groups()[this.selected] ?? [];
   }
 
@@ -106,7 +111,7 @@ export class BattleOrders {
   issue(order: BattleOrderKind, point?: Vector3 | null): void {
     if (this.disposed) return;
     const brains = order === "rout"
-      ? this.options.getBrains().filter((b) => b.alive)
+      ? this.options.getBrains().filter(isFighting)
       : this.selectedBrains();
     if (brains.length === 0) return;
 

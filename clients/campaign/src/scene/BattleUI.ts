@@ -500,12 +500,27 @@ export interface BattleHudData {
   enemyTotal: number;
   /** Seconds since the fight started. */
   elapsed: number;
+  /** Average morale 0-100 per side. */
+  playerMorale: number;
+  enemyMorale: number;
 }
 
 function formatBattleTime(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${String(s).padStart(2, "0")}`;
+}
+
+/** A 0-100 morale bar: filled portion in the side colour, red when breaking. */
+function paintMoraleBar(el: HTMLElement, morale: number, color: string): void {
+  const pct = Math.max(0, Math.min(100, morale));
+  el.textContent = "";
+  el.appendChild(
+    h("span", {
+      class: "battle-hud__morale-fill" + (pct <= 25 ? " battle-hud__morale-fill--breaking" : ""),
+      style: `width:${pct}%;background:${pct <= 25 ? "#ff2222" : color}`,
+    }),
+  );
 }
 
 export class BattleHud {
@@ -515,14 +530,27 @@ export class BattleHud {
   private readonly feedEl: HTMLElement;
   private readonly selectionEl: HTMLElement;
   private readonly hintEl: HTMLElement;
+  private readonly playerMoraleEl: HTMLElement;
+  private readonly enemyMoraleEl: HTMLElement;
   private lastCounts = "";
   private lastTime = "";
   private lastSelection = "";
+  private lastMorale = "";
 
   constructor() {
     this.countsEl = h("div", { class: "battle-hud__counts", role: "status", "aria-live": "polite" });
     this.timerEl = h("div", { class: "battle-hud__timer", role: "timer" });
     const top = h("div", { class: "battle-hud__top" }, this.countsEl, this.timerEl);
+
+    this.playerMoraleEl = h("div", { class: "battle-hud__morale battle-hud__morale--player" });
+    this.enemyMoraleEl = h("div", { class: "battle-hud__morale battle-hud__morale--enemy" });
+    const morale = h(
+      "div",
+      { class: "battle-hud__morale-row", role: "img", "aria-label": "Army morale" },
+      h("span", { class: "battle-hud__morale-label" }, "Morale"),
+      this.playerMoraleEl,
+      this.enemyMoraleEl,
+    );
 
     this.feedEl = h("div", { class: "battle-hud__feed", "aria-live": "polite" });
 
@@ -534,12 +562,12 @@ export class BattleHud {
     );
     const bottom = h("div", { class: "battle-hud__bottom" }, this.selectionEl, this.hintEl);
 
-    this.root = h("div", { class: "battle-hud" }, top, this.feedEl, bottom);
+    this.root = h("div", { class: "battle-hud" }, top, morale, this.feedEl, bottom);
     document.body.appendChild(this.root);
     this.setSelection("All troops");
   }
 
-  /** Refresh counts and timer. Writes DOM only when values change. */
+  /** Refresh counts, timer, and morale. Writes DOM only when values change. */
   update(data: BattleHudData): void {
     const counts = `${data.playerAlive}/${data.playerTotal} vs ${data.enemyAlive}/${data.enemyTotal}`;
     if (counts !== this.lastCounts) {
@@ -556,6 +584,12 @@ export class BattleHud {
     if (time !== this.lastTime) {
       this.lastTime = time;
       this.timerEl.textContent = time;
+    }
+    const moraleKey = `${Math.round(data.playerMorale)}:${Math.round(data.enemyMorale)}`;
+    if (moraleKey !== this.lastMorale) {
+      this.lastMorale = moraleKey;
+      paintMoraleBar(this.playerMoraleEl, data.playerMorale, battleSide.player);
+      paintMoraleBar(this.enemyMoraleEl, data.enemyMorale, battleSide.enemy);
     }
   }
 

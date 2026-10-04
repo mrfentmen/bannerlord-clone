@@ -451,6 +451,9 @@ export class BattleScene {
 
     let lastPlayerDead = 0;
     let lastEnemyDead = 0;
+    let lastPlayerSurr = 0;
+    let lastEnemySurr = 0;
+    let lastEnemyRouting = 0;
     let last = performance.now();
     const observer = this.scene.onBeforeRenderObservable.add(() => {
       const now = performance.now();
@@ -469,8 +472,31 @@ export class BattleScene {
         lastEnemyDead = enemyDead;
         hud.feed(`Enemy down — ${enemyDead} lost`);
       }
+      const playerSurr = loop.countState(0, "surrendered");
+      const enemySurr = loop.countState(1, "surrendered");
+      if (enemySurr > lastEnemySurr) {
+        lastEnemySurr = enemySurr;
+        hud.feed(`Enemy surrenders — ${enemySurr} prisoner${enemySurr === 1 ? "" : "s"} taken`);
+      }
+      if (playerSurr > lastPlayerSurr) {
+        lastPlayerSurr = playerSurr;
+        hud.feed(`Friendly surrenders — ${playerSurr} captured`);
+      }
+      const enemyRouting = loop.countState(1, "routing");
+      if (enemyRouting > lastEnemyRouting && lastEnemyRouting === 0) {
+        hud.feed("The enemy line is breaking!");
+      }
+      lastEnemyRouting = enemyRouting;
       const { player, enemy } = loop.livingCount;
-      hud.update({ playerAlive: player, enemyAlive: enemy, playerTotal, enemyTotal, elapsed: loop.elapsedSeconds });
+      hud.update({
+        playerAlive: player,
+        enemyAlive: enemy,
+        playerTotal,
+        enemyTotal,
+        elapsed: loop.elapsedSeconds,
+        playerMorale: loop.averageMorale(0),
+        enemyMorale: loop.averageMorale(1),
+      });
       hud.setSelection(orders.selectionLabel());
     });
 
