@@ -6,7 +6,7 @@
   padding: 0.6rem 0.75rem;
   border-radius: 0.5rem;
   background: rgba(10, 10, 14, 0.78);
-  color: #e8e8e8;
+  color: var(--paper-100);
 }
 
 .hud-selunit__title {
@@ -14,7 +14,7 @@
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: #9a9aa5;
+  color: var(--ink-500);
 }
 
 .hud-selunit__list {
@@ -37,8 +37,8 @@
   padding-left: 0.4rem;
 }
 
-.hud-selunit__item--ally { border-left-color: #4da3ff; }
-.hud-selunit__item--enemy { border-left-color: #ff5a5a; }
+.hud-selunit__item--ally { border-left-color: var(--accent-info); }
+.hud-selunit__item--enemy { border-left-color: var(--status-critical); }
 
 .hud-selunit__hp {
   flex: 1;
@@ -51,5 +51,5 @@
 .hud-selunit__bar {
   display: block;
   height: 100%;
-  background: linear-gradient(90deg, #3fd97c, #a8e05f);
+  background: linear-gradient(90deg, var(--status-good), var(--status-good-fill));
 }

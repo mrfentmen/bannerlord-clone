@@ -20,6 +20,7 @@ import {
   StandardMaterial,
 } from "@babylonjs/core";
 import type { CombatEventSource, StrikeEvent } from "./combatEvents.js";
+import { battleSide, subtitle } from "../design/tokens.js";
 
 const NUMBER_WIDTH = 1.2;
 const NUMBER_HEIGHT = 0.6;
@@ -35,9 +36,9 @@ interface FloatEntry {
 }
 
 function numberColor(e: StrikeEvent, baseDamage: number): string {
-  if (e.killed) return "#ff4444";
-  if (e.amount > baseDamage * 1.01) return "#ffd76a";
-  return "#ffffff";
+  if (e.killed) return battleSide.enemy;
+  if (e.amount > baseDamage * 1.01) return subtitle.speaker;
+  return subtitle.text;
 }
 
 export interface DamageNumbersOptions {

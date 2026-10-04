@@ -518,7 +518,7 @@ function paintMoraleBar(el: HTMLElement, morale: number, color: string): void {
   el.appendChild(
     h("span", {
       class: "battle-hud__morale-fill" + (pct <= 25 ? " battle-hud__morale-fill--breaking" : ""),
-      style: `width:${pct}%;background:${pct <= 25 ? "#ff2222" : color}`,
+      style: `width:${pct}%;background:${pct <= 25 ? "var(--status-critical)" : color}`,
     }),
   );
 }

@@ -11,6 +11,6 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  color: #ffd76a;
+  color: var(--subtitle-speaker);
   text-shadow: 0 0 10px rgba(255, 180, 60, 0.7);
 }

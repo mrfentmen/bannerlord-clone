@@ -143,7 +143,7 @@ describe("the staged batch against its manifest (task 614)", () => {
   const entries = manifest();
 
   it("has the manifest to check", () => {
-    expect(entries).toHaveLength(49);
+    expect(entries).toHaveLength(461);
   });
 
   it("scales every trustworthy model to its target length", () => {

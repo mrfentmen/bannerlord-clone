@@ -26,9 +26,9 @@
   transition: opacity 1.2s ease;
 }
 
-.hud-killfeed__item--player { border-left: 3px solid #4da3ff; }
-.hud-killfeed__item--enemy { border-left: 3px solid #ff5a5a; }
+.hud-killfeed__item--player { border-left: 3px solid var(--accent-info); }
+.hud-killfeed__item--enemy { border-left: 3px solid var(--status-critical); }
 
 .hud-killfeed__item--fading { opacity: 0; }
 
-.hud-killfeed__text { color: #e8e8e8; }
+.hud-killfeed__text { color: var(--paper-100); }

@@ -126,8 +126,8 @@ beforeEach(() => {
 });
 
 describe("the manifest itself (task 630)", () => {
-  it("stages exactly 49 models", () => {
-    expect(manifest()).toHaveLength(49);
+  it("stages exactly 461 models", () => {
+    expect(manifest()).toHaveLength(461);
   });
 
   it("stages the documented category counts", () => {
@@ -136,11 +136,15 @@ describe("the manifest itself (task 630)", () => {
       counts.set(entry.category, (counts.get(entry.category) ?? 0) + 1);
     }
     expect(Object.fromEntries(counts)).toEqual({
-      vehicle: 11,
-      troop: 16,
-      structure: 8,
-      prop: 10,
+      building: 65,
+      character: 36,
       nyc: 4,
+      prop: 220,
+      structure: 8,
+      troop: 16,
+      vegetation: 73,
+      vehicle: 38,
+      weapon: 1,
     });
   });
 

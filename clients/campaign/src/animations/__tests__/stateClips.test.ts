@@ -63,7 +63,12 @@ describe("prone crawl (task 671)", () => {
   it("lists what a model can and cannot do", () => {
     const operator = clipsOf('operator-viper.glb');
     expect(availableStates(operator)).toContain('prone-crawl');
-    expect(unavailableStates(operator)).toEqual([]);
+    // The four modernized siege states (breach, ram-push, breach-impact,
+    // artillery-fire) are registered for the siege equipment, not the
+    // operator rig, so they correctly report clip-not-in-model here.
+    expect(unavailableStates(operator).map((g) => g.state).sort()).toEqual(
+      ['artillery-fire', 'breach', 'breach-impact', 'ram-push'],
+    );
     expect(availableStates(clipsOf('horse.glb'))).toEqual([]);
     // A horse cannot do any of the human states: every one is reported by name.
     const gaps = unavailableStates(clipsOf('horse.glb'));

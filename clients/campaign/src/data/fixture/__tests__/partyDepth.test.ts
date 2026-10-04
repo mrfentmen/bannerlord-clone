@@ -31,8 +31,10 @@ describe("party depth", () => {
   it("computes base speed from composition", async () => {
     const provider = createFixtureSimulationProvider({ seed: 42 });
     const speed = await provider.getPartySpeed();
-    // All infantry (no mounted flag): 34 * 0.85 = 28.9
-    expect(speed).toBeCloseTo(28.9, 0);
+    // Bannerlord party-speed module: 34 base * party-size factor for the
+    // default starting party. (The old 34 * 0.85 flat infantry factor
+    // predates the researched speed system.)
+    expect(speed).toBeCloseTo(33.3, 0);
   });
 
   it("speed increases with mounted troops", async () => {
@@ -49,8 +51,8 @@ describe("party depth", () => {
   it("speed is exposed via getPartySpeed", async () => {
     const provider = createFixtureSimulationProvider({ seed: 42 });
     const speed = await provider.getPartySpeed();
-    // All infantry (no mounted flag): 34 * 0.85 = 28.9
-    expect(speed).toBeCloseTo(28.9, 0);
+    // Bannerlord party-speed module (see above).
+    expect(speed).toBeCloseTo(33.3, 0);
     expect(speed).toBeGreaterThan(10);
   });
 });

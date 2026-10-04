@@ -8,6 +8,7 @@
  */
 
 import { Color3, DynamicTexture, Mesh, MeshBuilder, Scene, StandardMaterial } from "@babylonjs/core";
+import { battleSide, subtitle } from "../design/tokens.js";
 import type { UnitBrain } from "./battleUnit.js";
 
 const MARKER_Y = 2.6;
@@ -46,8 +47,8 @@ export class WaverMarkers {
     scene: Scene,
     private readonly brains: UnitBrain[],
   ) {
-    this.warnMaterial = markerMaterial(scene, "waverWarn", "#ffd76a");
-    this.routMaterial = markerMaterial(scene, "waverRout", "#ff4444");
+    this.warnMaterial = markerMaterial(scene, "waverWarn", subtitle.speaker);
+    this.routMaterial = markerMaterial(scene, "waverRout", battleSide.enemy);
     brains.forEach((brain, i) => {
       const mesh = MeshBuilder.CreatePlane(`waver_${i}`, {
         width: MARKER_SIZE,
