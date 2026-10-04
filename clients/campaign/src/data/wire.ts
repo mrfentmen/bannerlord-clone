@@ -617,6 +617,21 @@ export function tavernCompanionListProblem(raw: unknown): string | null {
   return listProblem(raw, tavernCompanionProblem, (i) => `companion ${i}`);
 }
 
+function smithingStaminaProblem(raw: unknown): string | null {
+  if (!isRecord(raw)) return "is not a JSON object";
+  const problem = fieldsProblem([
+    ["stamina", isFiniteNumber(raw.stamina) && (raw.stamina as number) >= 0],
+    ["max", isFiniteNumber(raw.max) && (raw.max as number) > 0],
+  ]);
+  if (problem) return `has no ${problem}`;
+  return null;
+}
+
+export function smithingStaminaReplyProblem(raw: unknown): string | null {
+  const problem = smithingStaminaProblem(raw);
+  return problem === null ? null : `the smithing stamina reply ${problem}`;
+}
+
 // -- compile-time tie between the checks and the types they guard ------------
 //
 // A validator is only worth having if the type it guards is the type the client
@@ -642,7 +657,9 @@ const _forces: (raw: unknown) => NearbyForce[] | null = (raw) =>
   nearbyForceListProblem(raw) === null ? (raw as NearbyForce[]) : null;
 const _tavern: (raw: unknown) => TavernCompanion[] | null = (raw) =>
   tavernCompanionListProblem(raw) === null ? (raw as TavernCompanion[]) : null;
-void [_snapshot, _trade, _recruit, _talk, _relation, _awards, _upgrade, _construction, _plan, _chain, _forces, _tavern];
+const _smithStamina: (raw: unknown) => { stamina: number; max: number } | null = (raw) =>
+  smithingStaminaProblem(raw) === null ? (raw as { stamina: number; max: number }) : null;
+void [_snapshot, _trade, _recruit, _talk, _relation, _awards, _upgrade, _construction, _plan, _chain, _forces, _tavern, _smithStamina];
 
 /** Re-exported so a payload with a `{ x, z }` shape is checked the same way everywhere. */
 export { pointProblem };

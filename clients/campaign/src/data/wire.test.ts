@@ -29,6 +29,7 @@ import {
   skipToArrivalProblem,
   snapshotProblem,
   tavernCompanionListProblem,
+  smithingStaminaReplyProblem,
   talkResultProblem,
   taxResultProblem,
   timeScaleProblem,
@@ -689,5 +690,30 @@ describe("a tavern roster is checked before the panel seats anyone", () => {
 
   it("refuses a reply that is not a list", () => {
     expect(tavernCompanionListProblem({ companions: [] })).toMatch(/not a list/);
+  });
+});
+
+describe("the smithing stamina reply is checked before the bench trusts it", () => {
+  // The shape `GET /v1/smithing/stamina` returns. The bench prints the pair
+  // directly, so a missing or garbage field would read as `undefined/undefined`.
+  it("accepts the shape the smithy section prints", () => {
+    expect(smithingStaminaReplyProblem({ stamina: 84, max: 100 })).toBeNull();
+  });
+
+  it("refuses a reply with no max, because the bench prints the pair", () => {
+    expect(smithingStaminaReplyProblem({ stamina: 84 })).toMatch(/has no max/);
+  });
+
+  it("refuses a max that is not a positive number", () => {
+    expect(smithingStaminaReplyProblem({ stamina: 84, max: 0 })).toMatch(/has no max/);
+    expect(smithingStaminaReplyProblem({ stamina: 84, max: "full" })).toMatch(/has no max/);
+  });
+
+  it("refuses a negative stamina, which no honest bench reports", () => {
+    expect(smithingStaminaReplyProblem({ stamina: -1, max: 100 })).toMatch(/has no stamina/);
+  });
+
+  it("refuses a reply that is not an object", () => {
+    expect(smithingStaminaReplyProblem([84, 100])).toMatch(/not a JSON object/);
   });
 });

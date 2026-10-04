@@ -63,6 +63,7 @@ import {
   marchPlanProblem,
   nearbyForceListProblem,
   tavernCompanionListProblem,
+  smithingStaminaReplyProblem,
   recruitRequestProblem,
   recruitResultProblem,
   schemaVersionProblem,
@@ -979,10 +980,13 @@ export class HttpSimulationProvider implements SimulationProvider {
   }
 
   async getSmithingStamina(): Promise<{ stamina: number; max: number }> {
-    return this.#getJson<{ stamina: number; max: number }>(
+    const body = await this.#getJson<unknown>(
       "/v1/smithing/stamina",
       "The stamina did not load.",
     );
+    const problem = smithingStaminaReplyProblem(body);
+    if (problem) throw new Error(problem);
+    return body as { stamina: number; max: number };
   }
 
   async spendInfluenceAction(action: "muster-army" | "call-vote" | "bribe-lord" | "recruit-vassal" | "force-policy"): Promise<{ line: string }> {

@@ -154,9 +154,9 @@
 116. [x] Town panel: tavern recruitable NPCs list
 117. [x] Town panel: tavern hire button
 118. Town panel: tavern rumor display
-119. Town panel: smithy tab (if applicable)
-120. Town panel: smithy weapon list
-121. Town panel: smithy buy button
+119. [x] Town panel: smithy tab (if applicable)
+120. [x] Town panel: smithy weapon list
+121. [x] Town panel: smithy buy button
 122. Town panel: arena tab (if applicable)
 123. Town panel: arena fight button
 124. Town panel: arena reward display
@@ -647,7 +647,7 @@
 567. [x] [Hana] Music: faction themes (6 variants)
 568. [x] [Hana] Music: boss battle theme
 569. [x] [Hana] Music: credits theme
-570. Music: settings preview button
+570. [x] Music: settings preview button
 
 ### Ambient & Foley (571–590)
 571. [x] [Hana] Ambient: town daytime

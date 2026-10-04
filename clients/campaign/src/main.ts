@@ -1377,6 +1377,47 @@ function townNode(town: TownState): Node {
       rebuildContext();
       paint();
     },
+    // Tasks 119–121: the smithy tab. The bench (recipes, noble orders, stamina)
+    // is fetched on demand; the simulation owns the forge, the crucible, and
+    // every refusal.
+    onLoadSmithy: async () => {
+      const [recipes, orders, stamina] = await Promise.all([
+        provider.getSmithingRecipes(),
+        provider.getCraftingOrders(),
+        provider.getSmithingStamina(),
+      ]);
+      return { recipes, orders, stamina };
+    },
+    onForgeItem: async (recipeId) => {
+      if (!snapshot) throw new Error("No snapshot to forge against.");
+      const result = await provider.forgeItem(recipeId);
+      playVerdictSound(true);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+      return result;
+    },
+    onSmeltArms: async (quantity) => {
+      if (!snapshot) throw new Error("No snapshot to smelt against.");
+      const result = await provider.smeltArms(quantity);
+      playVerdictSound(true);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+      return result;
+    },
+    onFulfillOrder: async (orderId) => {
+      if (!snapshot) throw new Error("No snapshot to deliver against.");
+      const result = await provider.fulfillCraftingOrder(orderId);
+      playVerdictSound(true);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+      return result;
+    },
     onRecruitMilitia: async (count) => {
       if (!snapshot) throw new Error("No snapshot to recruit militia against.");
       await provider.recruitMilitia(town.id, count);
