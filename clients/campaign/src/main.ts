@@ -2417,6 +2417,21 @@ function rebuildContext(): void {
           rebuildContext();
           paint();
         },
+        onReleasePrisoner: async (troopId) => {
+          const result = await provider.releasePrisoner(troopId);
+          playVerdictSound(true);
+          await reloadSnapshot();
+          rebuildContext();
+          paint();
+          return result;
+        },
+        onExecutePrisoner: async (troopId) => {
+          const result = await provider.executePrisoner(troopId);
+          await reloadSnapshot();
+          rebuildContext();
+          paint();
+          return result;
+        },
         onSplitParty: async (input) => {
           const result = await provider.splitParty(input);
           playVerdictSound(true);

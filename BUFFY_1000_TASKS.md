@@ -190,7 +190,7 @@
 150. Party panel: prisoner list
 151. Party panel: prisoner recruit button
 152. Party panel: prisoner ransom button
-153. Party panel: prisoner release button
+153. [x] Party panel: prisoner release button (execute too — sim charges renown)
 154. Party panel: companion list
 155. Party panel: companion stats display
 156. Party panel: companion equipment slots

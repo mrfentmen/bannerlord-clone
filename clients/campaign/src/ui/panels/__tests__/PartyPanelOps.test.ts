@@ -143,3 +143,64 @@ describe("party ops wiring (bucket 1)", () => {
     expect(msg?.textContent).toContain("recruit 5 and dismiss 2");
   });
 });
+
+describe("party ops: prisoner release and execute", () => {
+  function partyWithPrisoners() {
+    const p = party();
+    p.prisoners = [{ troopId: "troop-bandit", name: "Bandits", count: 4, tier: 1 }];
+    return p as typeof p;
+  }
+
+  it("release and execute buttons appear only when the caller can send them", () => {
+    const withHandlers = partyPanel(options({ party: partyWithPrisoners(), onReleasePrisoner: vi.fn(), onExecutePrisoner: vi.fn() }));
+    expect(withHandlers.querySelector('[data-testid="release-troop-bandit"]')).not.toBeNull();
+    expect(withHandlers.querySelector('[data-testid="execute-troop-bandit"]')).not.toBeNull();
+    const bare = partyPanel(options({ party: partyWithPrisoners() }));
+    expect(bare.querySelector('[data-testid="release-troop-bandit"]')).toBeNull();
+    expect(bare.querySelector('[data-testid="execute-troop-bandit"]')).toBeNull();
+  });
+
+  it("release prints the sim's line; a refusal lands verbatim and re-arms", async () => {
+    const onReleasePrisoner = vi.fn().mockRejectedValue(new Error("No such prisoners held."));
+    const root = partyPanel(options({ party: partyWithPrisoners(), onReleasePrisoner }));
+    (root.querySelector('[data-testid="release-troop-bandit"]') as HTMLButtonElement).click();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(onReleasePrisoner).toHaveBeenCalledWith("troop-bandit");
+    expect(root.querySelector('[data-testid="party-prisoner-message"]')?.textContent).toContain("No such prisoners held.");
+    expect((root.querySelector('[data-testid="release-troop-bandit"]') as HTMLButtonElement).disabled).toBe(false);
+  });
+
+  it("execute needs two presses, then prints the sim's line", async () => {
+    const onExecutePrisoner = vi.fn().mockResolvedValue({ line: "4 Bandits die in the dirt. The next ones you face may run." });
+    const root = partyPanel(options({ party: partyWithPrisoners(), onExecutePrisoner }));
+    const btn = root.querySelector('[data-testid="execute-troop-bandit"]') as HTMLButtonElement;
+    btn.click();
+    expect(onExecutePrisoner).not.toHaveBeenCalled();
+    expect(btn.textContent).toBe("Confirm");
+    expect(root.querySelector('[data-testid="party-prisoner-message"]')?.textContent).toContain("cannot be undone");
+    btn.click();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(onExecutePrisoner).toHaveBeenCalledWith("troop-bandit");
+    expect(root.querySelector('[data-testid="party-prisoner-message"]')?.textContent).toContain("die in the dirt");
+    expect(btn.textContent).toBe("Execute");
+    expect(btn.disabled).toBe(false);
+  });
+
+  it("a successful release prints the sim's line and re-arms the button", async () => {
+    const onReleasePrisoner = vi.fn().mockResolvedValue({ line: "You cut 4 Bandits loose. Word travels. Their people notice." });
+    const p = party();
+    p.prisoners = [{ troopId: "troop-bandit", name: "Bandits", count: 4, tier: 1 }];
+    const root = partyPanel(options({ party: p, onReleasePrisoner }));
+    (root.querySelector('[data-testid="release-troop-bandit"]') as HTMLButtonElement).click();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(onReleasePrisoner).toHaveBeenCalledWith("troop-bandit");
+    expect(root.querySelector('[data-testid="party-prisoner-message"]')?.textContent).toContain("Word travels");
+    expect((root.querySelector('[data-testid="release-troop-bandit"]') as HTMLButtonElement).disabled).toBe(false);
+  });
+});

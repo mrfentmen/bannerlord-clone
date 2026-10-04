@@ -98,6 +98,18 @@ export interface PartyPanelOptions {
    */
   onRecruitPrisoners?: (troopId: string, count: number) => Promise<void>;
   /**
+   * Set a prisoner stack free. The simulation pays renown for the mercy and
+   * answers with its own line. Only drawn when the caller can actually send
+   * the order.
+   */
+  onReleasePrisoner?: (troopId: string) => Promise<{ line: string }>;
+  /**
+   * Execute a prisoner stack. The simulation charges renown and answers with
+   * its own line; the panel asks twice because this cannot be undone. Only
+   * drawn when the caller can actually send the order.
+   */
+  onExecutePrisoner?: (troopId: string) => Promise<{ line: string }>;
+  /**
    * Split troops off into a new party. The panel sends the stacks and the new
    * party's name; the simulation owns whether the split happens. Only drawn
    * when the caller can actually send the order.
@@ -667,6 +679,12 @@ export function partyPanel(options: PartyPanelOptions): HTMLElement {
   if (party.prisoners.length === 0) {
     body.appendChild(emptyState("No prisoners.", "Take captives in battle to ransom or recruit them."));
   } else {
+    // One status line for the whole table: release refusals, the execute
+    // confirm, and the sim's own verdicts land here.
+    const prisonerMsg = h("p", { class: "caption", "data-testid": "party-prisoner-message", role: "status", style: "margin:var(--space-2) 0 0" });
+    const say = (text: string) => {
+      prisonerMsg.textContent = text;
+    };
     const prisonerColumns: Column<{ troopId: string; name: string; count: number; tier: number }>[] = [
       { header: "Unit", render: (p) => h("span", { class: "label" }, p.name) },
       { header: "Count", numeric: true, testId: "prisoner-count", render: (p) => String(p.count) },
@@ -674,7 +692,7 @@ export function partyPanel(options: PartyPanelOptions): HTMLElement {
     ];
     // The actions column only appears when the caller can actually send the orders.
     // A ransom button that does nothing is worse than no ransom button.
-    if (options.onRansomPrisoners || options.onRecruitPrisoners) {
+    if (options.onRansomPrisoners || options.onRecruitPrisoners || options.onReleasePrisoner || options.onExecutePrisoner) {
       prisonerColumns.push({
         header: "Actions",
         render: (p) => {
@@ -707,11 +725,63 @@ export function partyPanel(options: PartyPanelOptions): HTMLElement {
             });
             wrap.appendChild(recruitBtn);
           }
+          if (options.onReleasePrisoner) {
+            const releaseBtn = h(
+              "button",
+              { type: "button", class: "btn btn--small", "data-testid": `release-${p.troopId}`, "aria-label": `Release ${p.name}` },
+              "Release",
+            );
+            releaseBtn.addEventListener("click", () => {
+              releaseBtn.setAttribute("disabled", "");
+              void options.onReleasePrisoner!(p.troopId)
+                .then((r) => {
+                  say(r.line);
+                })
+                .catch((err: unknown) => {
+                  say(err instanceof Error && err.message ? err.message : "The release did not land.");
+                })
+                .finally(() => {
+                  releaseBtn.removeAttribute("disabled");
+                });
+            });
+            wrap.appendChild(releaseBtn);
+          }
+          if (options.onExecutePrisoner) {
+            const executeBtn = h(
+              "button",
+              { type: "button", class: "btn btn--small", "data-testid": `execute-${p.troopId}`, "aria-label": `Execute ${p.name}` },
+              "Execute",
+            );
+            executeBtn.addEventListener("click", () => {
+              // Two presses: the first only arms the confirm. Executing cannot
+              // be undone, so a fat finger must not be a death sentence.
+              if (executeBtn.textContent !== "Confirm") {
+                executeBtn.textContent = "Confirm";
+                say(`Executing ${p.name} cannot be undone. Press again.`);
+                return;
+              }
+              executeBtn.setAttribute("disabled", "");
+              void options.onExecutePrisoner!(p.troopId)
+                .then((r) => {
+                  executeBtn.textContent = "Execute";
+                  say(r.line);
+                })
+                .catch((err: unknown) => {
+                  executeBtn.textContent = "Execute";
+                  say(err instanceof Error && err.message ? err.message : "The execution did not land.");
+                })
+                .finally(() => {
+                  executeBtn.removeAttribute("disabled");
+                });
+            });
+            wrap.appendChild(executeBtn);
+          }
           return wrap;
         },
       });
     }
     body.appendChild(stackable(dataTable("Prisoners held", prisonerColumns, party.prisoners, "party-prisoners")));
+    body.appendChild(prisonerMsg);
   }
 
   // -- split party ------------------------------------------------------------

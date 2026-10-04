@@ -1362,6 +1362,10 @@ export interface SimulationProvider {
   recruitPrisoners(troopId: string, count: number): Promise<void>;
   /** Ransom prisoners for gold. */
   ransomPrisoners(troopId: string, count: number): Promise<{ gold: number }>;
+  /** Set a prisoner free: the sim pays renown for the mercy. */
+  releasePrisoner(troopId: string): Promise<{ line: string }>;
+  /** Execute a prisoner: the sim raises fear and charges renown. */
+  executePrisoner(troopId: string): Promise<{ line: string }>;
   /** Enemy lords held prisoner by the player clan. */
   getHeldLords(): Promise<{ name: string; factionId: string; clanName: string; capturedDay: number }[]>;
   /** Ransom a held lord home for gold. */

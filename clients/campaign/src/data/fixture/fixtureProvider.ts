@@ -339,6 +339,8 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     sellWorkshop: async (workshopId) => state.sellWorkshop(workshopId),
     recruitPrisoners: async (troopId, count) => state.recruitPrisoners(troopId, count),
     ransomPrisoners: async (troopId, count) => state.ransomPrisoners(troopId, count),
+    releasePrisoner: async (troopId) => state.releasePrisoner(troopId),
+    executePrisoner: async (troopId) => state.executePrisoner(troopId),
     getHeldLords: async () => state.getHeldLords(),
     ransomHeldLord: async (name) => state.ransomHeldLord(name),
     releaseHeldLord: async (name) => state.releaseHeldLord(name),
@@ -3394,6 +3396,52 @@ class FixtureState {
     });
     
     return { gold };
+  }
+
+  /**
+   * Set a prisoner stack free. The simulation pays for the mercy: half a
+   * point of renown per prisoner released, the same rate the live sim
+   * charges when its ruler cuts one loose.
+   */
+  async releasePrisoner(troopId: string): Promise<{ line: string }> {
+    const prisoner = this.#party.prisoners.find((p) => p.troopId === troopId);
+    if (!prisoner) throw new Error("No such prisoners held.");
+    const count = prisoner.count;
+    const clan = this.#clans.find((c) => c.id === "clan-player");
+    if (clan) clan.renown += count * 0.5;
+    this.#party.prisoners = this.#party.prisoners.filter((p) => p.troopId !== troopId);
+    this.#notifications.push({
+      id: `n-release-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: `Released ${count} ${prisoner.name}. Word travels. Their people notice.`,
+      entityId: this.#party.id,
+      field: "prisoners",
+    });
+    return { line: `You cut ${count} ${prisoner.name} loose. Word travels. Their people notice.` };
+  }
+
+  /**
+   * Execute a prisoner stack. The simulation charges for it: a point of
+   * renown per prisoner, floored at zero, the same price the live sim's
+   * ruler pays. Fear is the sim's own ledger and stays there.
+   */
+  async executePrisoner(troopId: string): Promise<{ line: string }> {
+    const prisoner = this.#party.prisoners.find((p) => p.troopId === troopId);
+    if (!prisoner) throw new Error("No such prisoners held.");
+    const count = prisoner.count;
+    const clan = this.#clans.find((c) => c.id === "clan-player");
+    if (clan) clan.renown = Math.max(0, clan.renown - count);
+    this.#party.prisoners = this.#party.prisoners.filter((p) => p.troopId !== troopId);
+    this.#notifications.push({
+      id: `n-execute-${this.#sequence++}`,
+      day: this.#day,
+      priority: "important",
+      text: `Executed ${count} ${prisoner.name}. The next ones you face may run.`,
+      entityId: this.#party.id,
+      field: "prisoners",
+    });
+    return { line: `${count} ${prisoner.name} die in the dirt. The next ones you face may run.` };
   }
 
   /** Lords currently held prisoner by the player clan. */

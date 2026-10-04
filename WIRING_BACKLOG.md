@@ -39,12 +39,12 @@ clan/tiers.
 
 ## 3. Server routes the client never references (36)
 
-Bandits/bounties are server-ONLY: not in the client contract at all — need
-provider methods + wire validators + UI, not just a button.
+Bounties are wired (town bounty board); bandit camps still need a UI surface
+(provider methods exist). The rest of this list is routes with no client
+caller at all — need provider methods + wire validators + UI, not just a button.
 
-- Bandit layer: GET /v1/bandits, GET /v1/bandits/camps
-- Bounty layer: GET /v1/bounties, POST /v1/bounties/{id}/claim
-- Prisoner per-troop ops: POST /v1/prisoners/{id}/{ransom,recruit,release,execute}
+- Bounty layer: GET /v1/bounties, POST /v1/bounties/{id}/claim — DONE, wired as the town bounty board
+- Prisoner per-troop ops: POST /v1/prisoners/{id}/{ransom,recruit,release,execute} — DONE, all four wired (release/execute as party-panel buttons, task 153)
 - Held-lord ops: POST /v1/lords/{name}/{ransom,release,execute}, GET heir
 - Siege engine park: GET/POST /v1/sieges/{id}/engines/*, assault, lift, town siege start
 - Save/load over HTTP: POST /v1/save, POST /v1/load (client saves are local-only)
@@ -110,8 +110,7 @@ W = wired, M = made but unwired (see sections 1-3), N = needs making.
 | Armies (create/join/objective) | M | provider only |
 | Sieges (start/assault/lift) + engine park | M | siege routes mounted; engines fixture-only |
 | Save/load over HTTP | M | client saves local; server save/load mounted, unused |
-| Bandits list/camps | N | server-only, not in client contract |
-| Bounties + claim | N | server-only, not in client contract |
+| Bandits list/camps | M | provider methods exist (getBandits/getBanditCamps); camps UI has no surface and the fixture serves none — waiting on a map layer |
 | Castles as a fief type | N | klass is city/town/village only |
 | Fief ownership by the player/vassals (landed titles, ownership transfer after siege) | N | towns have holders but no player-owns-fief loop, no award vote |
 | Perks (skill-tree perk selection) | N | skills 0-10 exist, no perks |

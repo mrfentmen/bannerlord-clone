@@ -576,6 +576,24 @@ export class HttpSimulationProvider implements SimulationProvider {
     );
   }
 
+  async releasePrisoner(troopId: string): Promise<{ line: string }> {
+    const reply = await this.#post<{ message?: string }>(
+      `/v1/prisoners/${encodeURIComponent(troopId)}/release`,
+      {},
+      "The release did not land.",
+    );
+    return { line: reply.message ?? "The prisoner walks free." };
+  }
+
+  async executePrisoner(troopId: string): Promise<{ line: string }> {
+    const reply = await this.#post<{ message?: string }>(
+      `/v1/prisoners/${encodeURIComponent(troopId)}/execute`,
+      {},
+      "The execution did not land.",
+    );
+    return { line: reply.message ?? "The prisoner is dead." };
+  }
+
   async ransomPrisoners(troopId: string, count: number): Promise<{ gold: number }> {
     return this.#post<{ gold: number }>(
       `/v1/prisoners/${encodeURIComponent(troopId)}/ransom`,
