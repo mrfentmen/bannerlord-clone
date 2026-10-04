@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "id": "leader-1",
+  "kind": "batch",
+  "file": "leader-1.mp3",
+  "voice_id": "unknown",
+  "character": "Leader",
+  "class": "leader",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 21.72,
+  "loudness_lufs": -27.6,
+  "lines": [
+    {
+      "index": 0,
+      "text": "California has eleven days of grain, and I count every one of them before breakfast.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "You want my trust? Be somewhere on a schedule, repeatedly, with men who can carry.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "I do not need you to be brave. I need you to be on time.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "Every disaster I have ever seen was a spreadsheet that ran out of margin.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "You are worth exactly as many trucks as you can keep moving. Remember that.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    }
+  ]
+}

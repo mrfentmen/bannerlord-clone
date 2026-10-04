@@ -1,0 +1,56 @@
+{
+  "schema_version": 1,
+  "id": "leader-5",
+  "kind": "batch",
+  "file": "leader-5.mp3",
+  "voice_id": "unknown",
+  "character": "Leader",
+  "class": "leader",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 22.51,
+  "loudness_lufs": -29.1,
+  "lines": [
+    {
+      "index": 0,
+      "text": "Here is my price. I said it before you asked because I do not waste time.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "Texas does not do ceremony. We do deals, and deals have numbers.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "You want my fuel, my roads, my men? That costs what it costs.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "I do not care who you were before the fall. I care what you can deliver Thursday.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "Shake or walk. Those are the options and I am fine with either.",
+      "emotion": "stern",
+      "context_tags": [
+        "quest_offer"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "id": "medic-2",
+  "kind": "batch",
+  "file": "medic-2.mp3",
+  "voice_id": "avocado_v2:vdc_2561",
+  "character": "Tender Cushion",
+  "class": "medic",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 31.75,
+  "loudness_lufs": -22.1,
+  "lines": [
+    {
+      "index": 0,
+      "text": "I need a hand here, get me a hand, do not just stand there looking.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat",
+        "casualty"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "Pressure here. Hold it. Do not let go and do not look up.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat",
+        "casualty"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "Four down in the ditch line. Four. Somebody count them again and tell me a smaller number.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat",
+        "casualty"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "His leg is going, we cannot stop that on the field, we go now.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat",
+        "casualty"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "Do not step over him, do not step over him, go around.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat",
+        "casualty"
+      ]
+    },
+    {
+      "index": 5,
+      "text": "I am out of tape, I am out of tape, does anybody have tape.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat",
+        "casualty"
+      ]
+    },
+    {
+      "index": 6,
+      "text": "Get me the bag out of the second truck. Not the first one, the second one.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat",
+        "casualty"
+      ]
+    },
+    {
+      "index": 7,
+      "text": "There is a man in that truck and he is not talking and I do not like that.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat",
+        "casualty"
+      ]
+    }
+  ]
+}

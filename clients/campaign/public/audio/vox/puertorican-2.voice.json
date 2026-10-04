@@ -1,0 +1,48 @@
+{
+  "schema_version": 1,
+  "id": "puertorican-2",
+  "kind": "batch",
+  "file": "puertorican-2.mp3",
+  "voice_id": "avocado_v2:pirate-4",
+  "character": "Rugged Hull",
+  "class": "puertorican",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 13.68,
+  "loudness_lufs": -25.0,
+  "lines": [
+    {
+      "index": 0,
+      "text": "We weathered the storm. We will weather them.",
+      "emotion": "determined",
+      "context_tags": [
+        "rally"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "Move like the water around the rocks. Flow.",
+      "emotion": "determined",
+      "context_tags": [
+        "rally"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "Island blood, city streets. We adapt to both.",
+      "emotion": "determined",
+      "context_tags": [
+        "rally"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "For the ones back home watching the news. Hold.",
+      "emotion": "determined",
+      "context_tags": [
+        "rally"
+      ]
+    }
+  ]
+}

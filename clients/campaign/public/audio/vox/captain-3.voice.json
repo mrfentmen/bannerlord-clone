@@ -1,0 +1,106 @@
+{
+  "schema_version": 1,
+  "id": "captain-3",
+  "kind": "batch",
+  "file": "captain-3.mp3",
+  "voice_id": "avocado_v2:vdc_5723",
+  "character": "Solemn Pillar",
+  "class": "captain",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 37.85,
+  "loudness_lufs": -22.6,
+  "lines": [
+    {
+      "index": 0,
+      "text": "Close up on me, I want the line shut.",
+      "emotion": "stern",
+      "context_tags": [
+        "combat",
+        "order"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "Double time, we are behind the schedule.",
+      "emotion": "stern",
+      "context_tags": [
+        "combat",
+        "order"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "Do not cross the road until I give the word.",
+      "emotion": "stern",
+      "context_tags": [
+        "combat",
+        "order"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "Form on the ridge and hold the high side of it.",
+      "emotion": "stern",
+      "context_tags": [
+        "combat",
+        "order"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "Shift left, thirty yards, everyone shift left.",
+      "emotion": "stern",
+      "context_tags": [
+        "combat",
+        "order"
+      ]
+    },
+    {
+      "index": 5,
+      "text": "Save your ammunition, do not shoot at smoke.",
+      "emotion": "stern",
+      "context_tags": [
+        "combat",
+        "order"
+      ]
+    },
+    {
+      "index": 6,
+      "text": "Nobody fires past the ditch. That is the whole rule.",
+      "emotion": "stern",
+      "context_tags": [
+        "combat",
+        "order"
+      ]
+    },
+    {
+      "index": 7,
+      "text": "Withdraw to the road, and do it in order, and do it fast.",
+      "emotion": "stern",
+      "context_tags": [
+        "combat",
+        "order"
+      ]
+    },
+    {
+      "index": 8,
+      "text": "Pick your ground, do not let them pick it for you.",
+      "emotion": "stern",
+      "context_tags": [
+        "combat",
+        "order"
+      ]
+    },
+    {
+      "index": 9,
+      "text": "Steady, steady. Slow is fine. Fast and dead is not fine.",
+      "emotion": "stern",
+      "context_tags": [
+        "combat",
+        "order"
+      ]
+    }
+  ]
+}

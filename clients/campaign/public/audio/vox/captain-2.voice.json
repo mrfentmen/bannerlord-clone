@@ -1,0 +1,88 @@
+{
+  "schema_version": 1,
+  "id": "captain-2",
+  "kind": "batch",
+  "file": "captain-2.mp3",
+  "voice_id": "avocado_v2:vdc_5723",
+  "character": "Solemn Pillar",
+  "class": "captain",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 25.73,
+  "loudness_lufs": -22.4,
+  "lines": [
+    {
+      "index": 0,
+      "text": "Forward, all of you, keep it up.",
+      "emotion": "stern",
+      "context_tags": [
+        "combat",
+        "order"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "Left flank, swing left, go now.",
+      "emotion": "stern",
+      "context_tags": [
+        "combat",
+        "order"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "Fall back twenty yards, twenty yards and no more.",
+      "emotion": "stern",
+      "context_tags": [
+        "combat",
+        "order"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "Hold your fire. Hold it until I count.",
+      "emotion": "stern",
+      "context_tags": [
+        "combat",
+        "order"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "Cease fire, cease fire, they are not there anymore.",
+      "emotion": "stern",
+      "context_tags": [
+        "combat",
+        "order"
+      ]
+    },
+    {
+      "index": 5,
+      "text": "Shoot at the ones standing. Shoot at the ones standing.",
+      "emotion": "stern",
+      "context_tags": [
+        "combat",
+        "order"
+      ]
+    },
+    {
+      "index": 6,
+      "text": "Gunners, walk your guns up to the fence line.",
+      "emotion": "stern",
+      "context_tags": [
+        "combat",
+        "order"
+      ]
+    },
+    {
+      "index": 7,
+      "text": "Medics, get to the man in the ditch and forget the fight.",
+      "emotion": "stern",
+      "context_tags": [
+        "combat",
+        "order"
+      ]
+    }
+  ]
+}

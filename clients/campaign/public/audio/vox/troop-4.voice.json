@@ -1,0 +1,96 @@
+{
+  "schema_version": 1,
+  "id": "troop-4",
+  "kind": "batch",
+  "file": "troop-4.mp3",
+  "voice_id": "avocado_v2:chip",
+  "character": "Warm Pebble",
+  "class": "troop",
+  "format": "mp3",
+  "role": "delivery",
+  "sample_rate_hz": 48000,
+  "duration_s": 37.25,
+  "loudness_lufs": -24.2,
+  "lines": [
+    {
+      "index": 0,
+      "text": "They have stopped coming. Did everybody notice they stopped coming.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat"
+      ]
+    },
+    {
+      "index": 1,
+      "text": "Four down from ours and a lot more than that from theirs.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat"
+      ]
+    },
+    {
+      "index": 2,
+      "text": "We are back in the ditch and the ditch still exists.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat"
+      ]
+    },
+    {
+      "index": 3,
+      "text": "They overshot, they are out of position, we can use that.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat"
+      ]
+    },
+    {
+      "index": 4,
+      "text": "Good man. Whoever said reload, that was the right call.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat"
+      ]
+    },
+    {
+      "index": 5,
+      "text": "Nothing left in the gun. Nothing. What do we do now.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat"
+      ]
+    },
+    {
+      "index": 6,
+      "text": "I am on my back with a rifle I cannot reload.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat"
+      ]
+    },
+    {
+      "index": 7,
+      "text": "Do not stand up for anything except the captain's word.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat"
+      ]
+    },
+    {
+      "index": 8,
+      "text": "Pick up the rifle off the body, that is an order, not a suggestion.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat"
+      ]
+    },
+    {
+      "index": 9,
+      "text": "Down, he is down.",
+      "emotion": "urgent",
+      "context_tags": [
+        "combat"
+      ]
+    }
+  ]
+}
