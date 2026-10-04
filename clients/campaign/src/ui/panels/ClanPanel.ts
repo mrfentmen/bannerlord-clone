@@ -57,6 +57,16 @@ export interface ClanPanelOptions {
   onExecuteHeldLord: (name: string) => Promise<{ line: string }>;
   /** Found your own kingdom. */
   onFoundKingdom: (kingdomName: string) => Promise<{ kingdomName: string; capital: string; warWithFormer: boolean; line: string }>;
+  /** Form an army led by the player character. */
+  onCreateArmy: (name: string) => Promise<{ armyId: string }>;
+  /** Add the player's party to an army. */
+  onJoinArmy: (armyId: string) => Promise<void>;
+  /** Remove the player's party from an army. */
+  onLeaveArmy: (armyId: string) => Promise<void>;
+  /** Disband an army; its parties become independent. */
+  onDisbandArmy: (armyId: string) => Promise<void>;
+  /** Order an army to march on a town. */
+  onSetArmyObjective: (armyId: string, townId: string) => Promise<void>;
   /** The player's character id (suitor, spouse, parent). */
   playerId: string;
   /** The player clan's id (heir lookup, family roster). */
@@ -330,6 +340,95 @@ function heldLordsSection(body: HTMLElement, options: ClanPanelOptions, say: Say
   );
 }
 
+/**
+ * Armies (backlog bucket 5): read from the snapshot, ordered through the
+ * provider. The live simulation does not serve army routes yet, so a form or
+ * an order there fails with the transport's own message, printed verbatim —
+ * the same honesty the quest board ships with.
+ */
+function armiesSection(body: HTMLElement, options: ClanPanelOptions, say: Say): void {
+  body.appendChild(sectionHeader("Armies"));
+  const armies = options.snapshot.armies ?? [];
+  const box = h("div", { "data-testid": "clan-armies" });
+  if (armies.length === 0) {
+    box.append(h("p", { class: "caption", style: "margin:0", "data-testid": "clan-armies-empty" }, "No armies in the field."));
+  } else {
+    for (const army of armies) {
+      const mine = army.leaderId === options.playerId || army.partyIds.includes(options.snapshot.party.id);
+      const card = h("div", { class: "field-row", "data-testid": `clan-army-${army.id}`, style: "margin-bottom:var(--space-3)" });
+      const where = army.besiegingTownId ? " · besieging" : "";
+      card.append(
+        h("div", {},
+          h("strong", { class: "label" }, `${army.name}${mine ? " (yours)" : ""}`),
+          h("p", { class: "caption", style: "margin:0" },
+            `${army.totalTroops} troops${where}${army.objective?.kind === "town" ? " · objective set" : ""}`),
+        ),
+      );
+      if (mine) {
+        const actions = h("div", { class: "field-row", style: "gap:var(--space-2)" });
+        const towns = options.snapshot.towns ?? [];
+        const select = h("select", { class: "field__input", "data-testid": `clan-army-objective-${army.id}`, "aria-label": `Objective for ${army.name}` },
+          ...towns.slice(0, 30).map((t) => h("option", { value: t.id }, t.name)),
+        );
+        const objBtn = h("button", { type: "button", class: "btn", "data-testid": `clan-army-march-${army.id}` }, "March on");
+        objBtn.addEventListener("click", () => {
+          const townId = (select as HTMLSelectElement).value;
+          if (!townId) return;
+          objBtn.disabled = true;
+          void options.onSetArmyObjective!(army.id, townId).then(
+            () => { say(`The army marches.`); options.onChanged(); },
+            (err: unknown) => { objBtn.disabled = false; say(errText(err, "The order did not land.")); },
+          );
+        });
+        const leaveBtn = h("button", { type: "button", class: "btn", "data-testid": `clan-army-leave-${army.id}` }, "Leave");
+        leaveBtn.addEventListener("click", () => {
+          leaveBtn.disabled = true;
+          void options.onLeaveArmy!(army.id).then(
+            () => { say("You strike out on your own."); options.onChanged(); },
+            (err: unknown) => { leaveBtn.disabled = false; say(errText(err, "The order did not land.")); },
+          );
+        });
+        const disbandBtn = h("button", { type: "button", class: "btn", "data-testid": `clan-army-disband-${army.id}` }, "Disband");
+        disbandBtn.addEventListener("click", () => {
+          disbandBtn.disabled = true;
+          void options.onDisbandArmy!(army.id).then(
+            () => { say("The army disbands. Its parties go their own ways."); options.onChanged(); },
+            (err: unknown) => { disbandBtn.disabled = false; say(errText(err, "The order did not land.")); },
+          );
+        });
+        if (towns.length > 0) actions.append(select, objBtn);
+        actions.append(leaveBtn, disbandBtn);
+        card.append(actions);
+      } else if (!army.partyIds.includes(options.snapshot.party.id)) {
+        const joinBtn = h("button", { type: "button", class: "btn", "data-testid": `clan-army-join-${army.id}` }, "Join with your party");
+        joinBtn.addEventListener("click", () => {
+          joinBtn.disabled = true;
+          void options.onJoinArmy!(army.id).then(
+            () => { say(`You fall in with ${army.name}.`); options.onChanged(); },
+            (err: unknown) => { joinBtn.disabled = false; say(errText(err, "The army did not take you.")); },
+          );
+        });
+        card.append(joinBtn);
+      }
+      box.append(card);
+    }
+  }
+  body.appendChild(box);
+
+  const nameInput = h("input", { class: "field__input", "data-testid": "clan-army-name", placeholder: "name your army", "aria-label": "Army name" });
+  const formBtn = h("button", { type: "button", class: "btn", "data-testid": "clan-army-form" }, "Form an army");
+  formBtn.addEventListener("click", () => {
+    const name = nameInput.value.trim();
+    if (!name) { say("An army needs a name."); return; }
+    formBtn.disabled = true;
+    void options.onCreateArmy!(name).then(
+      () => { say(`${name} is under your banner.`); options.onChanged(); },
+      (err: unknown) => { formBtn.disabled = false; say(errText(err, "The army was not formed.")); },
+    );
+  });
+  body.appendChild(h("div", { class: "field-row", style: "gap:var(--space-2);margin-top:var(--space-2)" }, nameInput, formBtn));
+}
+
 export function clanPanel(options: ClanPanelOptions): HTMLElement {
   const { root, body } = panel({
     title: "Clan",
@@ -350,6 +449,7 @@ export function clanPanel(options: ClanPanelOptions): HTMLElement {
   familySection(body, options, say);
   courtshipSection(body, options, say);
   tierSection(body, options, say);
+  armiesSection(body, options, say);
   heldLordsSection(body, options, say);
   return root;
 }

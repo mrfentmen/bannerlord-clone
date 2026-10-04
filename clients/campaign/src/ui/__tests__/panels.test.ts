@@ -108,6 +108,11 @@ function town(opts: { loading?: boolean; town?: TownState | null } = {}): HTMLEl
       summary: "Relation rose.",
       causedBy: "test",
     }),
+    onGetSiege: async () => null,
+    onStartSiege: async () => ({ siegeId: "s-test" }),
+    onAssaultSiege: async () => ({ victory: true, casualties: 0 }),
+    onLiftSiege: async () => undefined,
+    onSiegeChanged: () => undefined,
   });
 }
 

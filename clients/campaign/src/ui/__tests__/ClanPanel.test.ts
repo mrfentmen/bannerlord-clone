@@ -39,6 +39,11 @@ describe("clan panel (tasks 139-142)", () => {
       onReleaseHeldLord: (n) => provider.releaseHeldLord(n),
       onExecuteHeldLord: (n) => provider.executeHeldLord(n),
       onFoundKingdom: (n) => provider.foundKingdom(n),
+      onCreateArmy: (n) => provider.createArmy(n, "char-player"),
+      onJoinArmy: (armyId) => provider.joinArmy(armyId, snapshot.party.id),
+      onLeaveArmy: (armyId) => provider.leaveArmy(armyId, snapshot.party.id),
+      onDisbandArmy: (armyId) => provider.disbandArmy(armyId),
+      onSetArmyObjective: (armyId, townId) => provider.setArmyObjective(armyId, { kind: "town", townId }),
     });
     expect(root.querySelector('[data-testid="clan-family"]')).not.toBeNull();
     expect(root.querySelector('[data-testid="clan-member-char-player"]')).not.toBeNull();
@@ -72,6 +77,11 @@ describe("clan panel (tasks 139-142)", () => {
       onReleaseHeldLord: (n) => provider.releaseHeldLord(n),
       onExecuteHeldLord: (n) => provider.executeHeldLord(n),
       onFoundKingdom: (n) => provider.foundKingdom(n),
+      onCreateArmy: (n) => provider.createArmy(n, "char-player"),
+      onJoinArmy: (armyId) => provider.joinArmy(armyId, snapshot.party.id),
+      onLeaveArmy: (armyId) => provider.leaveArmy(armyId, snapshot.party.id),
+      onDisbandArmy: (armyId) => provider.disbandArmy(armyId),
+      onSetArmyObjective: (armyId, townId) => provider.setArmyObjective(armyId, { kind: "town", townId }),
     });
     expect(root.textContent).toContain("No clan.");
   });
@@ -131,6 +141,11 @@ describe("clan panel (tasks 139-142)", () => {
       onReleaseHeldLord: (n) => provider.releaseHeldLord(n),
       onExecuteHeldLord: (n) => provider.executeHeldLord(n),
       onFoundKingdom: (n) => provider.foundKingdom(n),
+      onCreateArmy: (n) => provider.createArmy(n, "char-player"),
+      onJoinArmy: (armyId) => provider.joinArmy(armyId, snapshot.party.id),
+      onLeaveArmy: (armyId) => provider.leaveArmy(armyId, snapshot.party.id),
+      onDisbandArmy: (armyId) => provider.disbandArmy(armyId),
+      onSetArmyObjective: (armyId, townId) => provider.setArmyObjective(armyId, { kind: "town", townId }),
     });
     await flush();
     // The fixture does not seed held lords, so the empty state is the honest read.
@@ -144,6 +159,76 @@ describe("clan panel (tasks 139-142)", () => {
     expect(exec).not.toBeNull();
     exec!.click();
     expect(exec!.textContent).toBe("Confirm");
+  });
+
+  it("army formation works against the fixture, then lists the army as yours", async () => {
+    const provider = createFixtureSimulationProvider();
+    const snapshot = await provider.getSnapshot();
+    const onChanged = vi.fn();
+    const root = clanPanel({
+      snapshot,
+      playerId: "char-player",
+      clanId: "clan-player",
+      onChanged,
+      onGetClanTier: () => provider.getClanTier(),
+      onGetHeir: () => provider.getHeir("clan-player"),
+      onMarry: (a, b) => provider.marry(a, b),
+      onHaveChild: (p1, p2, n) => provider.haveChild(p1, p2, n),
+      onStartCourtship: (t) => provider.startCourtship(t),
+      onPerformCourtAction: (a) => provider.performCourtAction(a),
+      onProposeMarriage: () => provider.proposeMarriage(),
+      onGetCourtships: () => provider.getCourtships(),
+      onGetHeldLords: () => provider.getHeldLords(),
+      onRansomHeldLord: (n) => provider.ransomHeldLord(n),
+      onReleaseHeldLord: (n) => provider.releaseHeldLord(n),
+      onExecuteHeldLord: (n) => provider.executeHeldLord(n),
+      onFoundKingdom: (n) => provider.foundKingdom(n),
+      onCreateArmy: (n) => provider.createArmy(n, "char-player"),
+      onJoinArmy: (armyId) => provider.joinArmy(armyId, snapshot.party.id),
+      onLeaveArmy: (armyId) => provider.leaveArmy(armyId, snapshot.party.id),
+      onDisbandArmy: (armyId) => provider.disbandArmy(armyId),
+      onSetArmyObjective: (armyId, townId) => provider.setArmyObjective(armyId, { kind: "town", townId }),
+    });
+    expect(root.querySelector('[data-testid="clan-armies-empty"]')?.textContent).toContain("No armies in the field.");
+    const name = root.querySelector<HTMLInputElement>('[data-testid="clan-army-name"]');
+    const form = root.querySelector<HTMLButtonElement>('[data-testid="clan-army-form"]');
+    name!.value = "1st Colorado";
+    form!.click();
+    await flush(12);
+    expect(root.querySelector('[data-testid="clan-message"]')?.textContent).toContain("1st Colorado is under your banner.");
+    expect(onChanged).toHaveBeenCalled();
+  });
+
+  it("an empty army name is refused locally, before any provider call", async () => {
+    const provider = createFixtureSimulationProvider();
+    const snapshot = await provider.getSnapshot();
+    const root = clanPanel({
+      snapshot,
+      playerId: "char-player",
+      clanId: "clan-player",
+      onChanged: vi.fn(),
+      onGetClanTier: () => provider.getClanTier(),
+      onGetHeir: () => provider.getHeir("clan-player"),
+      onMarry: (a, b) => provider.marry(a, b),
+      onHaveChild: (p1, p2, n) => provider.haveChild(p1, p2, n),
+      onStartCourtship: (t) => provider.startCourtship(t),
+      onPerformCourtAction: (a) => provider.performCourtAction(a),
+      onProposeMarriage: () => provider.proposeMarriage(),
+      onGetCourtships: () => provider.getCourtships(),
+      onGetHeldLords: () => provider.getHeldLords(),
+      onRansomHeldLord: (n) => provider.ransomHeldLord(n),
+      onReleaseHeldLord: (n) => provider.releaseHeldLord(n),
+      onExecuteHeldLord: (n) => provider.executeHeldLord(n),
+      onFoundKingdom: (n) => provider.foundKingdom(n),
+      onCreateArmy: (n) => provider.createArmy(n, "char-player"),
+      onJoinArmy: (armyId) => provider.joinArmy(armyId, snapshot.party.id),
+      onLeaveArmy: (armyId) => provider.leaveArmy(armyId, snapshot.party.id),
+      onDisbandArmy: (armyId) => provider.disbandArmy(armyId),
+      onSetArmyObjective: (armyId, townId) => provider.setArmyObjective(armyId, { kind: "town", townId }),
+    });
+    root.querySelector<HTMLButtonElement>('[data-testid="clan-army-form"]')!.click();
+    await flush();
+    expect(root.querySelector('[data-testid="clan-message"]')?.textContent).toContain("An army needs a name.");
   });
 
   it("the sim refuses court actions with no active courtship, and the panel says so", async () => {
@@ -169,6 +254,11 @@ describe("clan panel (tasks 139-142)", () => {
       onReleaseHeldLord: (n) => provider.releaseHeldLord(n),
       onExecuteHeldLord: (n) => provider.executeHeldLord(n),
       onFoundKingdom: (n) => provider.foundKingdom(n),
+      onCreateArmy: (n) => provider.createArmy(n, "char-player"),
+      onJoinArmy: (armyId) => provider.joinArmy(armyId, snapshot.party.id),
+      onLeaveArmy: (armyId) => provider.leaveArmy(armyId, snapshot.party.id),
+      onDisbandArmy: (armyId) => provider.disbandArmy(armyId),
+      onSetArmyObjective: (armyId, townId) => provider.setArmyObjective(armyId, { kind: "town", townId }),
     });
     const visit = root.querySelector<HTMLButtonElement>('[data-testid="clan-court-visit"]');
     expect(visit).not.toBeNull();

@@ -169,7 +169,7 @@
 131. Town panel: trade caravan option
 132. Town panel: wait here button (pass time)
 133. Town panel: leave town button
-134. Town panel: siege option (if at war)
+[x] 134. Town panel: siege option (if at war)
 135. Town panel: raid option (if hostile)
 136. Town panel: town description text
 137. Town panel: town image/banner
@@ -487,7 +487,7 @@
 423. Settlement: travel time estimate
 424. Settlement: "track" button (quest marker)
 425. Settlement: raid option (if hostile)
-426. Settlement: siege option (if at war)
+[x] 426. Settlement: siege option (if at war)
 427. [x] [milo] Settlement: prosperity change over time
 428. [x] [milo] Settlement: population growth/decline
 429. Settlement: food shortage warning

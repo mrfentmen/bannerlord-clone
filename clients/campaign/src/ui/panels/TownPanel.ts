@@ -223,6 +223,16 @@ export interface TownPanelOptions {
    * gift, short purse) resolves with `accepted: false` and its summary.
    */
   onNotableImprove?: (request: import("../../data/types.js").ImproveRelationRequest) => Promise<import("../../data/types.js").ImproveRelationResult>;
+  /** Read the town's live siege, or null when the town is not besieged. */
+  onGetSiege?: (townId: string) => Promise<import("../../data/types.js").Siege | null>;
+  /** Lay siege to the town with the player's party. The sim owns every gate. */
+  onStartSiege?: (townId: string) => Promise<{ siegeId: string }>;
+  /** Order an assault on the town's siege. The sim decides victory. */
+  onAssaultSiege?: (siegeId: string) => Promise<{ victory: boolean; casualties: number }>;
+  /** Lift the town's siege (attackers withdraw). */
+  onLiftSiege?: (siegeId: string) => Promise<void>;
+  /** Called after a siege order changed the world, so the caller repaints. */
+  onSiegeChanged?: () => void;
   /**
    * The survey is still being read. Renders `town-skeleton`, which mirrors this
    * panel's sections, so the context region does not change height when the town

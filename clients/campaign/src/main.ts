@@ -1484,6 +1484,39 @@ function townNode(town: TownState): Node {
       paint();
       return result;
     },
+    // Sieges (tasks 134/426): the snapshot carries the town's siege; the sim
+    // owns every gate (at war, already besieged, breach needed for assault).
+    onGetSiege: async (townId) => (snapshot?.sieges ?? []).find((s) => s.townId === townId) ?? null,
+    onStartSiege: async (townId) => {
+      if (!snapshot) throw new Error("No snapshot to besiege against.");
+      const result = await provider.startSiege(townId, [snapshot.party.id]);
+      playVerdictSound(true);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+      return result;
+    },
+    onAssaultSiege: async (siegeId) => {
+      const result = await provider.assaultSiege(siegeId);
+      playVerdictSound(result.victory);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+      return result;
+    },
+    onLiftSiege: async (siegeId) => {
+      await provider.liftSiege(siegeId);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+    },
+    onSiegeChanged: () => {
+      // The handlers above already repaint; this exists for orders that change
+      // nothing to repaint (a refused siege keeps the world as it was).
+    },
     onRecruitMilitia: async (count) => {
       if (!snapshot) throw new Error("No snapshot to recruit militia against.");
       await provider.recruitMilitia(town.id, count);
@@ -2439,6 +2472,18 @@ function rebuildContext(): void {
         onReleaseHeldLord: (name) => provider.releaseHeldLord(name),
         onExecuteHeldLord: (name) => provider.executeHeldLord(name),
         onFoundKingdom: (name) => provider.foundKingdom(name),
+        onCreateArmy: (name) => provider.createArmy(name, "char-player"),
+        onJoinArmy: (armyId) => {
+          if (!snapshot) throw new Error("No snapshot to join an army with.");
+          return provider.joinArmy(armyId, snapshot.party.id);
+        },
+        onLeaveArmy: (armyId) => {
+          if (!snapshot) throw new Error("No snapshot to leave an army with.");
+          return provider.leaveArmy(armyId, snapshot.party.id);
+        },
+        onDisbandArmy: (armyId) => provider.disbandArmy(armyId),
+        onSetArmyObjective: (armyId, townId) =>
+          provider.setArmyObjective(armyId, { kind: "town", townId }),
       });
       return;
     }

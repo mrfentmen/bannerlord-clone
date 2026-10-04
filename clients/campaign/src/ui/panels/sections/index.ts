@@ -9,6 +9,7 @@ import { tavernDiceSectionSpec } from "./tavernDice.js";
 import { smithySectionSpec } from "./smithy.js";
 import { townQuestsSectionSpec } from "./townQuests.js";
 import { townNotablesSectionSpec } from "./townNotables.js";
+import { townSiegeSectionSpec } from "./townSiege.js";
 
 export const TOWN_SECTIONS: TownSectionSpec<never>[] = [
   tavernSectionSpec,
@@ -16,4 +17,5 @@ export const TOWN_SECTIONS: TownSectionSpec<never>[] = [
   smithySectionSpec,
   townQuestsSectionSpec,
   townNotablesSectionSpec,
+  townSiegeSectionSpec,
 ] as unknown as TownSectionSpec<never>[];
