@@ -114,11 +114,53 @@ Babylon 8 ships no vehicle physics at all.
 See `babylon-controller/NOTES.md` and
 `~/workspace/agent-outputs/babylon-controller-finds.md`.
 
+### 13. turf-territory/ — gang turf rules engine + territory growth (MIT, code included)
+Found by code-hunt agent 2. `inkwave` (MIT): `src/game/zones.js`
+(425 lines) — a complete, renderer-free zone-control rules engine:
+coverage-threshold flips (take at 80%, neutralize at 40%),
+hold-countdown scoring, penalty locks, objective rotation,
+overtime — ~90% copy-paste for Babylon. Adapt "ink coverage" to
+crew presence / tag coverage; countdown becomes per-block income.
+`ZONES-config.js` is the full tunable block (balance as data, not
+code). `BorderGrowth.ts` (`OpenCiv`, MIT): cost-curved slow
+territory creep (ports verbatim) — compose with inkwave: creep for
+influence, threshold capture for takeover. **Property honest
+picture:** no permissively-licensed repo does buyable property +
+stash end-to-end (the whole FiveM/ESX ecosystem is GPL-3.0,
+rejected). Best split: `threejs-sims-house-builder` (MIT, safehouse
+interiors), `business-tycoon` (MIT, premises economy), `isometric-city`
+(MIT, land value + taxation). The purchase layer (~50 lines) must be
+written. See `turf-territory/NOTES.md` and
+`~/workspace/agent-outputs/territory-property-finds.md`.
+
+### 14. crime-systems/ — wanted/heat + heist framework (MIT, code included)
+Found by code-hunt agent 1. `bridge-mind/leonida` (MIT): a complete
+browser GTA in TypeScript whose wanted core has **zero engine imports**.
+`wanted/machine.ts` (313 lines) — pure state machine: `responding`
+(cops go to the crime scene, not the player) / `active` (LOS stamped)
+/ `searching` (growing search circle from `lastSeenPos` — losing the
+cops is a circle you must escape, not a timer). Witness gating,
+hot scenes, same-level witness checks, heat meter feeding cop
+accuracy. `police/` — CopBrain FSM, cruiser pursuit over a road
+graph, helicopter, roadblocks, arrest/bail. `missions/` — data-driven
+sequential-objective framework; `m8_theScore.ts` is a genuine heist
+(approach → breach → loot grab → `setLevel(5)` → timed getaway).
+**Caveat:** README says "non-commercial fan project" despite the MIT
+LICENSE — get maintainer clarification before shipping commercial.
+**Bounty hunting: empty result** — nothing permissively licensed
+exists; build from the mission framework + `timed()` + yuka memory
+(see NOTES). Also in the agent report: yuka AI primitives (MIT),
+Babylon-native pursuit demo (MIT), minimal wanted loop (MIT),
+ink for heist planning (MIT). See `crime-systems/NOTES.md` and
+`~/workspace/agent-outputs/crime-systems-finds.md`.
+
 ## License status
 
 - Code copied (OSI license positively identified, license file kept):
   `vehicle-physics` (MIT), `mcts-ai` (MIT), `strategy-core` (MIT),
-  `rts-battle` (MIT), `roguelike` (MIT), `fps-controller` (MIT).
+  `rts-battle` (MIT), `roguelike` (MIT), `fps-controller` (MIT),
+  `babylon-controller` (Apache-2.0 + MIT), `turf-territory` (MIT),
+  `crime-systems` (MIT).
   Keep copyright notices on redistribution.
 - Design notes only (no license detected — reimplement, don't copy):
   `deterministic-sim`, `city-sim`, `strategy-ai`, `dialogue-graph`,

@@ -170,6 +170,14 @@ have hideouts to clear (`clan/hideout.ts` exists for the player side).
 - `docs/code-pulls/roguelike/` (MIT) — `spawnEnemies` (floor-scaled,
   room-distributed spawning) is the pattern for gang hideout
   population.
+- **Turf war rules engine** — `docs/code-pulls/turf-territory/` (MIT,
+  inkwave): complete zone-control rules — coverage-threshold flips,
+  hold-countdown scoring, penalty locks, objective rotation.
+  Adapt "ink coverage" to crew presence / tag coverage; countdown
+  becomes per-block income. `ZONES-config.js` for tunables.
+- **Slow territory creep** — `BorderGrowth.ts` (MIT, OpenCiv, same
+  folder): cost-curved influence spreading, block to block. Compose
+  with inkwave: creep for influence, threshold capture for takeover.
 
 ## 13. Small towns / rural communities (villages, modernized) (VERIFIED missing entirely)
 
@@ -327,7 +335,17 @@ Modernized business types to add:
 Refs: extend `economy/workshops.ts` (keep buy/improve/income, add
 types + input/output chains). `docs/code-pulls/city-sim/` for
 production→prosperity math. `docs/code-pulls/strategy-core/`
-`city.rs` for facility models.
+`city.rs` for facility models. **Code-hunt agent 2 findings**
+(full report `~/workspace/agent-outputs/territory-property-finds.md`):
+no permissively-licensed repo does buyable property + stash
+end-to-end (whole FiveM/ESX ecosystem is GPL-3.0 — rejected). Best
+split: `TeamDay-AI/business-tycoon` (MIT) — premises purchase costs,
+placement validation, staffed-synergy bonuses, daily costs, loans;
+`amilich/isometric-city` (MIT) — per-tile landValue, taxRate,
+zoning R/C/I, abandonment/recovery. The purchase layer
+(`{id, type, price, ownerId, tier, stash[], incomePerDay}` + buy/
+upgrade transactions) must be written — see
+`docs/code-pulls/turf-territory/NOTES.md`.
 
 ## 24. Jobs board (VERIFIED missing entirely)
 
@@ -382,3 +400,92 @@ Refs: `docs/code-pulls/city-sim/` (production→prosperity→raid
 effects), `docs/code-pulls/strategy-core/` (city facilities),
 `economy/caravans.ts` + `supplyLines.ts` (goods movement between
 cities already exists).
+
+## 26. Police / wanted / heat system (CODE IN REPO)
+
+Code-hunt agent 1's best find: `bridge-mind/leonida` (MIT) — a
+complete browser GTA in TypeScript. `docs/code-pulls/crime-systems/`
+contains the whole enforcement stack:
+
+- **`wanted/machine.ts`** (313 lines, **zero engine imports**) — the
+  prize. Pure state machine: `responding` (cops go to the crime
+  scene, not the player — they don't know who did it) / `active`
+  (LOS stamped per tick) / `searching` (growing search circle from
+  `lastSeenPos` — losing the cops is a circle you must escape, not a
+  timer you watch; hiding inside counts at 1/1.5 speed, so you must
+  *leave*). Witness gating (unwitnessed crimes don't count), hot
+  scenes (re-raise on outside→inside transition only), same-level
+  witness checks. Heat is a separate 0–100 meter feeding cop accuracy
+  and dispatch delay. Copy near-verbatim; map hooks to audio/UI.
+- **`police-data.ts`** — `CRIME_TABLE` (12 crime types, per-crime
+  `stars` vs `starsWhenWanted` + cooldowns) and `DISPATCH_TABLE`
+  (7 tiers: cruisers, SWAT, helicopters, roadblocks, spike strips,
+  ramming, shoot-vs-arrest — all data, not code).
+- **`police/`** — CopBrain foot-cop FSM (ride → approach → arrest →
+  combat → standDown), PoliceDriver cruiser FSM (A* over a road
+  graph — re-implement the two driver interfaces against Babylon
+  entities), Helicopter, Roadblock, arrest.ts (BUSTED timer → arrest,
+  bail, respawn). `vision.ts` — swap `raycastInto` for
+  `scene.pickWithRay`.
+- Also in the agent report (not pulled): yuka AI primitives (MIT,
+  pursuit/vision/memory), Babylon-native pursuit demo (MIT),
+  minimal wanted loop (MIT, ~30 lines).
+
+⚠️ **License caveat:** leonida's LICENSE is MIT but its README says
+"non-commercial fan project" — get maintainer clarification before
+shipping anything commercial.
+
+Full report: `~/workspace/agent-outputs/crime-systems-finds.md`
+
+## 27. Heist framework (CODE IN REPO)
+
+Same repo, `docs/code-pulls/crime-systems/missions/`:
+
+- **`types.ts`** — data-driven `MissionDef`
+  (`{id, name, contact, position, unlockedAfter, reward, repeatable,
+  build(ctx) → Objective[]}`); `build()` returns a fresh objective
+  array per attempt so nothing leaks between retries. Zero engine
+  imports — lift and re-implement `game` as a thin Babylon adapter.
+- **`objectives.ts`** — reusable factories mapping 1:1 onto heist
+  stages: `goto`, `enterVehicle`, `deliver`, `kill`, `survive`,
+  `waitFor(event, predicate)` (event-driven — the hook for "crew
+  member breaches the vault"), `timed(inner, seconds, failReason,
+  showTimer)` (**the getaway clock as a decorator**),
+  `lootGrab(counter, seconds, radius, text)`, `robStore`,
+  `escapeWanted`, `reachWanted`, `intimidateOrKill`.
+- **`Runner.ts`** — runs one attempt with a **LIFO `onCleanup` stack**
+  that fires on pass, fail *or* abort (spawned guards/vehicles tear
+  down without leaks).
+- **`m8_theScore.ts`** — a genuine heist: approach → breach → 20 s
+  loot grab → `wanted.setLevel(5)` (**heat is set, not earned** — the
+  getaway is a guaranteed 5-star chase, not a coin flip) → timed
+  marina escape with an authored fail reason.
+- **`jobs.ts`** — repeatable jobs; `jobRobbery` = `robStore()` →
+  `escapeWanted()` → payout. The smallest complete crime loop — the
+  best 30-line template to start from.
+- Heist **planning** (crew selection, entry points, branching
+  briefing): no code exists for this stage — use `inkle/ink` + `inkjs`
+  (MIT) to drive a narrative overlay; its choices write to
+  `MissionContext.reward` and set flags the execution stage reads.
+- Crew roles as code (hacker opens vaults, driver skill checks) and
+  the payout-split screen: **must be written** — every implementation
+  lives in GPL FiveM resources (rejected).
+
+## 28. Bounty hunting (VERIFIED empty — build from parts)
+
+Code-hunt agent 1's honest result: **no permissively-licensed bounty
+system exists anywhere** — contract on a named NPC, track them down,
+capture/kill for a fee. Every implementation is a GPL/unlicensed
+FiveM Lua resource. Build it from pulled parts:
+
+- Mission framework + job-board loop (`crime-systems/missions/`) —
+  availability gate → contact marker → objective array → reward →
+  `repeatable`.
+- `timed()` for the capture window; `custom()` + `waitFor()` for the
+  "target flees to X" branch; `intimidateOrKill()` (already in
+  `objectives.ts`) for capture-or-kill.
+- Reputation→payout curve from `liberty-drive`'s `syndicate.js`
+  (MIT, in the agent report): `floor((baseReward + reputation × 12)
+  × timeBonusRatio)`.
+- Tracking: per-cop `MemoryRecord.lastSensedPosition` from yuka
+  (MIT) for a target who knows you're coming.
