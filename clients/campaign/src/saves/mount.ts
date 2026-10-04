@@ -1,21 +1,25 @@
 /**
  * Save/load panel mount.
  *
- * The DOM layer over the SaveScreens UI logic (screens.ts), which itself
- * sits on PAX's SaveManager (../data/saves.ts). The layering is strict:
+ * The DOM layer over the SaveScreens view models (screens.ts), which sits on
+ * the campaign server's `POST /v1/save` / `POST /v1/load` and on a local store
+ * of the save files the server wrote. The layering is strict:
  *
  *   DOM (this file) -> SaveScreens (view models, validation, errors) ->
- *   SaveManager (IndexedDB storage)
+ *   SaveServer (the campaign server) + SlotStore (IndexedDB)
  *
- * This module owns no game state and no storage. It renders the panel,
- * forwards player intent, and shows `SaveUiError.playerMessage` verbatim —
- * never a raw stack or a made-up message.
+ * This module owns no game state, no transport and no storage. It renders the
+ * panel, forwards player intent, and shows `SaveUiError.playerMessage` verbatim
+ * — never a raw stack and never a sentence it invented. A retryable failure
+ * also gets a retry button, because CONSTITUTION.md section 1.3 requires a way
+ * out of every error state and "try again" is the real way out of a save that
+ * was refused while the world was busy.
  *
- * Wiring (see the task report for the exact main.ts snippet):
- * - `currentSnapshot` supplies the live snapshot when the player saves.
- * - `onLoad` applies a loaded snapshot. The client currently has no
- *   provider-level snapshot restore (PAX's data lane), so the reference
- *   wiring reports Load as unsupported rather than faking it.
+ * Wiring: `currentSnapshot` supplies the day a new slot is labelled with, and
+ * `onLoad` is the after-restore hook (see screens.ts — the restore itself
+ * happens on the server). Both `server` and `store` default to live ones
+ * pointed at the configured API, so the panel reaches the campaign without the
+ * app shell having to wire it.
  */
 
 import "./saves.css";
@@ -24,20 +28,27 @@ import { h, replace, clear } from "../ui/dom.js";
 import { panel, statusChip, emptyState, toast } from "../ui/kit.js";
 import {
   AUTOSAVE_ID,
-  SaveManager,
   SaveScreens,
   SaveUiError,
   type SlotCard,
 } from "./screens.js";
+import { SaveServer } from "./server.js";
+import type { SlotStore } from "./slots.js";
 import type { SimSnapshot } from "../data/types.js";
 
 export interface SaveLoadPanelOptions {
-  /** Defaults to a fresh SaveManager (PAX's IndexedDB layer). */
-  manager?: SaveManager;
-  /** Live game state, read when the player hits Save. */
+  /** The campaign server. Defaults to a live one on the configured API. */
+  server?: SaveServer;
+  /** Where save files are kept. Defaults to IndexedDB. */
+  store?: SlotStore;
+  /** Live game state, read when the player saves. */
   currentSnapshot: () => SimSnapshot;
-  /** Apply a loaded snapshot to the running game. */
-  onLoad: (snapshot: SimSnapshot) => void | Promise<void>;
+  /**
+   * Called after the server has restored the campaign. Advisory: the restore
+   * has already happened, so use it to drop cached state and let the next tick
+   * repaint. A throw here is logged, not shown as a failed load.
+   */
+  onLoad?: (snapshot: SimSnapshot) => void | Promise<void>;
   onClose?: () => void;
   /**
    * Ironman (MASTER_PLAN task 143): a single autosave, no manual saves. When
@@ -54,11 +65,14 @@ export function saveLoadPanel(options: SaveLoadPanelOptions): {
   root: HTMLElement;
   /** Re-read the slot list. Runs automatically after every action. */
   refresh: () => Promise<void>;
+  /** The screens layer, for callers that also drive a quicksave through it. */
+  screens: SaveScreens;
 } {
   const screens = new SaveScreens({
-    manager: options.manager ?? new SaveManager(),
+    ...(options.server ? { server: options.server } : {}),
+    ...(options.store ? { store: options.store } : {}),
     currentSnapshot: options.currentSnapshot,
-    onLoad: options.onLoad,
+    ...(options.onLoad ? { onLoad: options.onLoad } : {}),
   });
 
   const { root, body } = panel({
@@ -75,12 +89,35 @@ export function saveLoadPanel(options: SaveLoadPanelOptions): {
     "data-testid": "save-error",
   });
 
-  function showError(err: unknown): void {
+  /**
+   * Show a failure.
+   *
+   * `retry` is the action that was just refused, so the retry button re-runs
+   * exactly that rather than a generic refresh: a save refused because the
+   * world was busy is fixed by pressing Save again, and offering "refresh the
+   * list" there would be a button that cannot fix it. The button names what it
+   * retries, because "Try again" next to a save form reads as a guess.
+   */
+  function showError(err: unknown, retry?: { label: string; run: () => void }): void {
     const message =
       err instanceof SaveUiError
         ? err.playerMessage
         : "Something went wrong. The game itself is untouched.";
-    replace(errorBox, statusChip("critical", message));
+    const retryable = err instanceof SaveUiError && err.retryable;
+    const children: Node[] = [statusChip("critical", message)];
+    if (retryable && retry) {
+      const btn = h(
+        "button",
+        { type: "button", class: "btn btn--quiet", "data-testid": "save-error-retry" },
+        `Try ${retry.label} again`,
+      );
+      btn.addEventListener("click", () => {
+        clearError();
+        retry.run();
+      });
+      children.push(btn);
+    }
+    replace(errorBox, ...children);
     errorBox.hidden = false;
   }
 
@@ -103,14 +140,21 @@ export function saveLoadPanel(options: SaveLoadPanelOptions): {
     for (const el of controls) el.disabled = next;
   }
 
-  async function run(op: () => Promise<void>): Promise<void> {
+  /**
+   * Run one player action: disable the controls, clear the old error, and
+   * surface anything that throws.
+   *
+   * `label` names the action in the retry affordance, so the button reads "Try
+   * saving again" rather than a bare "Try again" when the failure was a save.
+   */
+  async function run(op: () => Promise<void>, label?: string): Promise<void> {
     if (busy) return;
     setBusy(true);
     clearError();
     try {
       await op();
     } catch (err) {
-      showError(err);
+      showError(err, label ? { label, run: () => void run(op, label) } : undefined);
     } finally {
       setBusy(false);
     }
@@ -140,17 +184,19 @@ export function saveLoadPanel(options: SaveLoadPanelOptions): {
       "Save",
     ) as HTMLButtonElement,
   );
-  saveBtn.addEventListener("click", () =>
-    run(async () => {
-      const name = nameInput.value;
-      const card = await screens.save(name);
-      nameInput.value = "";
-      // Task 550: a save that landed gets a chime, not just a toast.
-      getAudioManager().playUiSound("confirm");
-      toast(`Saved "${card.name}".`);
-      await renderList();
-    }),
-  );
+
+  /** Named so the retry button can say what it is retrying. */
+  const saveAction = async (): Promise<void> => {
+    const name = nameInput.value;
+    const card = await screens.save(name);
+    nameInput.value = "";
+    // Task 550: a save that landed gets a chime, not just a toast.
+    getAudioManager().playUiSound("confirm");
+    toast(`Saved "${card.name}". Day ${card.day}.`);
+    await renderList();
+  };
+
+  saveBtn.addEventListener("click", () => void run(saveAction, "saving"));
 
   body.append(
     h(
@@ -209,10 +255,12 @@ export function saveLoadPanel(options: SaveLoadPanelOptions): {
     );
     loadBtn.addEventListener("click", () =>
       run(async () => {
-        await screens.load(card.id);
-        toast(`Loaded "${card.name}".`);
+        const loaded = await screens.load(card.id);
+        // The day comes back from the server, not from the row the player was
+        // just reading, so it is quoted from the answer rather than from `card`.
+        toast(`Loaded "${loaded.name}". The campaign is now on day ${loaded.day}.`);
         await renderList();
-      }),
+      }, "loading"),
     );
 
     const exportBtn = track(
@@ -231,7 +279,7 @@ export function saveLoadPanel(options: SaveLoadPanelOptions): {
       run(async () => {
         await screens.exportSave(card.id);
         toast(`Exported "${card.name}".`);
-      }),
+      }, "exporting"),
     );
 
     actions.append(loadBtn, exportBtn);
@@ -336,7 +384,7 @@ export function saveLoadPanel(options: SaveLoadPanelOptions): {
               ),
       );
     } catch (err) {
-      showError(err);
+      showError(err, { label: "reading the save list", run: () => void refresh() });
     }
   }
 
@@ -355,7 +403,7 @@ export function saveLoadPanel(options: SaveLoadPanelOptions): {
     h("input", {
       type: "file",
       id: "save-load-import",
-      accept: ".bcsave.json,application/json",
+      accept: ".mbclone-save.json,.bcsave.json,application/json",
       "aria-label": "Choose a save file to import",
       "data-testid": "import-file",
     }) as HTMLInputElement,
@@ -376,9 +424,9 @@ export function saveLoadPanel(options: SaveLoadPanelOptions): {
       }
       const card = await screens.importSave(file);
       fileInput.value = "";
-      toast(`Imported "${card.name}".`);
+      toast(`Imported "${card.name}". Load it to play on day ${card.day}.`);
       await renderList();
-    }),
+    }, "importing"),
   );
   body.append(
     h(
@@ -399,5 +447,5 @@ export function saveLoadPanel(options: SaveLoadPanelOptions): {
   );
 
   void refresh();
-  return { root, refresh };
+  return { root, refresh, screens };
 }

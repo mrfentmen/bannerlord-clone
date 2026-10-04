@@ -1,131 +1,255 @@
 /**
- * Tests for quicksave (F5).
+ * Quicksave (F5).
  *
  * The module owns no storage and no keyboard: tests drive `performQuicksave`
- * with a recording fake store, plus two registry-level tests proving the F5
- * chord actually reaches the `game.quicksave` action and swallows the
- * browser's own reload.
- *
- * @vitest-environment jsdom
+ * with a recording store, which is why the store surface it takes is one method
+ * rather than a whole save manager. The assertions are about refusals and about
+ * the sentence the HUD shows, because that is the part a player reads.
  */
 
-import { describe, expect, it, vi } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
+  bindQuicksaveKeybind,
+  performQuicksave,
+  quicksaveMessage,
+  quicksaveStoreFor,
   QUICKSAVE_ID,
   QUICKSAVE_NAME,
-  performQuicksave,
   type QuicksaveDeps,
-  type QuicksaveStore,
 } from "../quicksave";
-import { createInputRegistry } from "../../input/registry";
+import { SaveScreens, SaveUiError } from "../screens";
+import { SaveServer } from "../server";
+import type { SlotStore } from "../slots";
 import type { SimSnapshot } from "../../data/types";
+import { faultBody, recordingFetch, SAVE_PAYLOAD } from "./fixture";
 
-function fakeSnapshot(day: number): SimSnapshot {
-  return { schemaVersion: 1, day } as SimSnapshot;
-}
-
-interface Call {
-  name: string;
-  snapshot: SimSnapshot;
-  id: string | undefined;
-}
-
-function recordingStore(fail = false): { store: QuicksaveStore; calls: Call[] } {
-  const calls: Call[] = [];
-  const store: QuicksaveStore = {
-    saveSlot: (name: string, snapshot: SimSnapshot, id?: string) => {
-      if (fail) return Promise.reject(new Error("idb gone"));
-      calls.push({ name, snapshot, id });
-      return Promise.resolve(undefined);
-    },
-  };
-  return { store, calls };
-}
-
-function makeDeps(over: Partial<QuicksaveDeps> = {}): {
-  d: QuicksaveDeps;
-  calls: Call[];
-} {
-  const { store, calls } = recordingStore();
-  const snap = fakeSnapshot(42);
+function deps(over: Partial<QuicksaveDeps> = {}): QuicksaveDeps & { calls: Array<{ name?: string }> } {
+  const calls: Array<{ name?: string }> = [];
   return {
     calls,
-    d: {
-      store,
-      currentSnapshot: () => snap,
-      ironman: () => false,
-      ...over,
+    ironman: () => false,
+    store: {
+      quicksave: async (name?: string) => {
+        calls.push({ ...(name === undefined ? {} : { name }) });
+        return {
+          id: QUICKSAVE_ID,
+          name: name ?? QUICKSAVE_NAME,
+          day: 42,
+          updatedAt: "",
+          createdAt: "",
+          isAutosave: false,
+          bytes: 10,
+          subtitle: "Day 42",
+        };
+      },
     },
+    ...over,
   };
 }
 
 describe("performQuicksave", () => {
-  it("writes the live snapshot to the stable quicksave slot", async () => {
-    const { d, calls } = makeDeps();
-    const out = await performQuicksave(d);
-    expect(out).toEqual({ ok: true, day: 42 });
-    expect(calls).toHaveLength(1);
-    expect(calls[0]).toMatchObject({ name: QUICKSAVE_NAME, id: QUICKSAVE_ID });
-    expect(calls[0]!.snapshot).toBe(d.currentSnapshot());
+  it("writes the Quicksave slot and reports the day", async () => {
+    const d = deps();
+    const outcome = await performQuicksave(d);
+    expect(outcome).toEqual({ ok: true, day: 42 });
+    expect(d.calls).toEqual([{ name: QUICKSAVE_NAME }]);
   });
 
-  it("overwrites the same slot instead of piling up copies", async () => {
-    const { d, calls } = makeDeps();
+  it("overwrites the same slot every time instead of piling up copies", async () => {
+    const d = deps();
     await performQuicksave(d);
-    const out = await performQuicksave({
-      ...d,
-      currentSnapshot: () => fakeSnapshot(43),
+    await performQuicksave(d);
+    // The id is a constant, so both presses land in the same slot by construction.
+    expect(d.calls.map((c) => c.name)).toEqual([QUICKSAVE_NAME, QUICKSAVE_NAME]);
+    expect(QUICKSAVE_ID).toBe("quicksave");
+  });
+
+  it("is refused on ironman, without touching the server", async () => {
+    const d = deps({ ironman: () => true });
+    const outcome = await performQuicksave(d);
+    expect(outcome).toEqual({ ok: false, reason: "ironman" });
+    expect(d.calls).toHaveLength(0);
+  });
+
+  it("reports a failure as an outcome and never throws", async () => {
+    // A throw here would surface in the keybind handler, where nothing catches it.
+    const d = deps({
+      store: {
+        quicksave: async () => {
+          throw new SaveUiError("The world is in the middle of something.", "busy", true);
+        },
+      },
     });
-    expect(out).toEqual({ ok: true, day: 43 });
-    expect(calls.map((c) => c.id)).toEqual([QUICKSAVE_ID, QUICKSAVE_ID]);
-  });
-
-  it("refuses ironman without touching the store", async () => {
-    const { d, calls } = makeDeps({ ironman: () => true });
-    const out = await performQuicksave(d);
-    expect(out).toEqual({ ok: false, reason: "ironman" });
-    expect(calls).toHaveLength(0);
-  });
-
-  it("reports no-campaign before a campaign mounts", async () => {
-    const { d, calls } = makeDeps({ currentSnapshot: () => null });
-    const out = await performQuicksave(d);
-    expect(out).toEqual({ ok: false, reason: "no-campaign" });
-    expect(calls).toHaveLength(0);
-  });
-
-  it("turns a store failure into an outcome instead of throwing", async () => {
-    const { store, calls } = recordingStore(true);
-    const out = await performQuicksave({
-      store,
-      currentSnapshot: () => fakeSnapshot(7),
-      ironman: () => false,
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const outcome = await performQuicksave(d);
+    expect(outcome).toMatchObject({
+      ok: false,
+      reason: "store-error",
+      message: "The world is in the middle of something.",
+      retryable: true,
     });
-    expect(out).toEqual({ ok: false, reason: "store-error" });
-    expect(calls).toHaveLength(0);
+    consoleError.mockRestore();
+  });
+
+  it("gives a player a sentence even for an error that is not a SaveUiError", async () => {
+    const d = deps({
+      store: {
+        quicksave: async () => {
+          throw new TypeError("Failed to fetch");
+        },
+      },
+    });
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const outcome = await performQuicksave(d);
+    expect(quicksaveMessage(outcome)).toContain("campaign is untouched");
+    consoleError.mockRestore();
   });
 });
 
-describe("game.quicksave binding", () => {
-  it("F5 reaches the action and the browser's reload is swallowed", () => {
-    const input = createInputRegistry();
-    const handler = vi.fn();
-    input.on("game.quicksave", handler);
-    const ev = new KeyboardEvent("keydown", {
-      key: "F5",
-      bubbles: true,
-      cancelable: true,
-    });
-    expect(input.handleKeyEvent(ev)).toBe(true);
-    expect(handler).toHaveBeenCalledTimes(1);
-    // The def must preventDefault: a bare F5 reloads the tab.
-    expect(ev.defaultPrevented).toBe(true);
+describe("quicksaveMessage", () => {
+  it("says nothing on success, because there is nothing to recover from", () => {
+    expect(quicksaveMessage({ ok: true, day: 42 })).toBeNull();
   });
 
-  it("shows up in the catalog so the keybinding editor can rebind it", () => {
-    const input = createInputRegistry();
-    const found = input.actions().find((a) => a.id === "game.quicksave");
-    expect(found).toBeDefined();
-    expect(found!.defaultKeys).toEqual([{ key: "F5" }]);
+  it("says nothing on ironman, which is a rule rather than a failure", () => {
+    // The settings panel already explains ironman keeps one autosave. A toast
+    // every time a player presses F5 would be nagging about a design decision.
+    expect(quicksaveMessage({ ok: false, reason: "ironman" })).toBeNull();
+  });
+
+  it("carries the sentence through for a real failure", () => {
+    expect(quicksaveMessage({ ok: false, reason: "store-error", message: "nope" })).toBe("nope");
+  });
+});
+
+describe("quicksaveStoreFor", () => {
+  function screenHarness(replies: Parameters<typeof recordingFetch>[0]) {
+    const { fetch, calls } = recordingFetch(replies);
+    const slots = new Map<string, string>();
+    const store: SlotStore = {
+      list: async () => [],
+      read: async (id) => (slots.has(id) ? { id, name: id, day: 1, payload: slots.get(id)!, createdAt: "", updatedAt: "" } : null),
+      write: async (s) => {
+        slots.set(s.id, s.payload);
+        return { ...s, createdAt: "", updatedAt: "" };
+      },
+      remove: async (id) => { slots.delete(id); },
+    };
+    const screens = new SaveScreens({
+      server: new SaveServer({ httpUrl: "http://sim.test", fetchImpl: fetch }),
+      store,
+      currentSnapshot: (): SimSnapshot => ({ schemaVersion: 1, day: 12 } as SimSnapshot),
+    });
+    return { store: quicksaveStoreFor(screens), calls, slots };
+  }
+
+  it("routes the keybind to a real server save, not to a local snapshot dump", async () => {
+    // This is the whole point of the change: F5 asks the campaign server for the
+    // campaign, so what lands in the slot is something POST /v1/load accepts.
+    const { store, calls, slots } = screenHarness([
+      { body: SAVE_PAYLOAD },
+      { body: JSON.stringify({ ok: true, day: 3 }) },
+    ]);
+    await store.quicksave(QUICKSAVE_NAME);
+    expect(calls[0]!.url).toBe("http://sim.test/v1/save");
+    expect(slots.get(QUICKSAVE_ID)).toBe(SAVE_PAYLOAD);
+  });
+});
+describe("bindQuicksaveKeybind", () => {
+  function registry() {
+    const handlers = new Map<string, Array<() => void>>();
+    return {
+      input: {
+        on(id: string, handler: () => void) {
+          const list = handlers.get(id) ?? [];
+          list.push(handler);
+          handlers.set(id, list);
+          return () => handlers.set(id, list.filter((h) => h !== handler));
+        },
+      },
+      fire(id: string) {
+        for (const h of handlers.get(id) ?? []) h();
+      },
+      count: (id: string) => (handlers.get(id) ?? []).length,
+    };
+  }
+
+  function screensOn(replies: Parameters<typeof recordingFetch>[0]) {
+    const { fetch, calls } = recordingFetch(replies);
+    const slots = new Map<string, string>();
+    const store: SlotStore = {
+      list: async () => [],
+      read: async (id) => (slots.has(id) ? { id, name: id, day: 1, payload: slots.get(id)!, createdAt: "", updatedAt: "" } : null),
+      write: async (s) => {
+        slots.set(s.id, s.payload);
+        return { ...s, createdAt: "", updatedAt: "" };
+      },
+      remove: async (id) => { slots.delete(id); },
+    };
+    const screens = new SaveScreens({
+      server: new SaveServer({ httpUrl: "http://sim.test", fetchImpl: fetch }),
+      store,
+      currentSnapshot: (): SimSnapshot => ({ schemaVersion: 1, day: 12 } as SimSnapshot),
+    });
+    return { screens, calls, slots };
+  }
+
+  it("saves on F5 and announces the day, without a DOM", async () => {
+    const { input, fire } = registry();
+    const { screens, calls, slots } = screensOn([{ body: SAVE_PAYLOAD }]);
+    const said: string[] = [];
+    bindQuicksaveKeybind({ input, screens, ironman: () => false, announce: (m) => said.push(m) });
+
+    fire("game.quicksave");
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(calls[0]!.url).toBe("http://sim.test/v1/save");
+    expect(slots.get(QUICKSAVE_ID)).toBe(SAVE_PAYLOAD);
+    expect(said.join(" ")).toContain("Quicksaved");
+  });
+
+  it("says nothing on ironman, because that is a rule and not a failure", async () => {
+    const { input, fire } = registry();
+    const { screens, calls } = screensOn([{ body: SAVE_PAYLOAD }]);
+    const said: string[] = [];
+    bindQuicksaveKeybind({ input, screens, ironman: () => true, announce: (m) => said.push(m) });
+
+    fire("game.quicksave");
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(calls).toHaveLength(0);
+    expect(said).toEqual([]);
+  });
+
+  it("announces the server's own refusal rather than swallowing it", async () => {
+    const { input, fire } = registry();
+    const { screens } = screensOn([
+      { status: 500, statusText: "Internal Server Error", body: faultBody("save refused: orders are still queued") },
+    ]);
+    const said: string[] = [];
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    bindQuicksaveKeybind({ input, screens, ironman: () => false, announce: (m) => said.push(m) });
+
+    fire("game.quicksave");
+    await new Promise((r) => setTimeout(r, 10));
+
+    expect(said.join(" ")).toContain("middle of something");
+    consoleError.mockRestore();
+  });
+
+  it("unbinds, so mounting twice does not leave two writers on one slot", () => {
+    const { input, count } = registry();
+    const { screens } = screensOn([]);
+    const off = bindQuicksaveKeybind({ input, screens, ironman: () => false, announce: () => {} });
+    expect(count("game.quicksave")).toBe(1);
+    off();
+    expect(count("game.quicksave")).toBe(0);
+  });
+
+  it("can be bound to a renamed action, so a rename does not silently lose F5", () => {
+    const { input, count } = registry();
+    const { screens } = screensOn([]);
+    bindQuicksaveKeybind({ input, screens, ironman: () => false, announce: () => {}, actionId: "game.fastSave" });
+    expect(count("game.fastSave")).toBe(1);
   });
 });
