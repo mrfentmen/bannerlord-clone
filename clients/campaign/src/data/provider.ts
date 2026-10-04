@@ -731,6 +731,74 @@ export class HttpSimulationProvider implements SimulationProvider {
     return snap.party.speedKmPerDay;
   }
 
+  // Proposal: the server has no party-speed systems yet (forced march,
+  // smithing). These throw until the routes land; the fixture implements them.
+  async setForcedMarch(_active: boolean): Promise<void> {
+    throw new Error("Forced march is not available on the live simulation yet.");
+  }
+
+  async getForcedMarch(): Promise<boolean> {
+    return false;
+  }
+
+  async smeltArms(_quantity: number): Promise<{ metal: number }> {
+    throw new Error("Smithing is not available on the live simulation yet.");
+  }
+
+  async forgeItem(_recipeId: string): Promise<{ name: string }> {
+    throw new Error("Smithing is not available on the live simulation yet.");
+  }
+
+  async getSmithingRecipes(): Promise<{ id: string; name: string; metal: number; fuel: number; result: string }[]> {
+    throw new Error("Smithing is not available on the live simulation yet.");
+  }
+
+  async attemptPrisonBreak(_holderId: string, _teamSize: number): Promise<{ success: boolean; freed: number; wounded: number; caught: boolean }> {
+    throw new Error("Prison breaks are not available on the live simulation yet.");
+  }
+
+  async persuade(_charm: number, _difficulty: number): Promise<{ chance: number; success: boolean; margin: number }> {
+    throw new Error("Persuasion is not available on the live simulation yet.");
+  }
+
+  // Proposal: the server has none of these systems yet. They throw until
+  // the routes land; the fixture implements them.
+  async signMercenaryContract(_factionId: string, _factionName: string): Promise<{ contract: { factionId: string; factionName: string; daysLeft: number; payPerVictory: number; dailyPay: number } }> {
+    throw new Error("Mercenary contracts are not available on the live simulation yet.");
+  }
+
+  async getMercenaryContract(): Promise<{ factionId: string; factionName: string; daysLeft: number; payPerVictory: number; dailyPay: number } | null> {
+    return null;
+  }
+
+  async breakMercenaryContract(): Promise<{ relationPenalty: number }> {
+    throw new Error("Mercenary contracts are not available on the live simulation yet.");
+  }
+
+  async getCraftingOrders(): Promise<{ id: string; patron: string; patronTitle: string; recipeId: string; recipeName: string; daysLeft: number; reward: number }[]> {
+    throw new Error("Crafting orders are not available on the live simulation yet.");
+  }
+
+  async fulfillCraftingOrder(_orderId: string): Promise<{ reward: number; line: string }> {
+    throw new Error("Crafting orders are not available on the live simulation yet.");
+  }
+
+  async assignGovernor(_townId: string, _characterId: string): Promise<{ line: string }> {
+    throw new Error("Governors are not available on the live simulation yet.");
+  }
+
+  async getGovernor(_townId: string): Promise<{ name: string; line: string } | null> {
+    return null;
+  }
+
+  async barterDeal(_offer: { gold: number; goods: Record<string, number>; prisoners: number; dailyTribute: number; tributeDays: number }, _demandValue: number): Promise<{ accepted: boolean; gap: number; line: string }> {
+    throw new Error("Barter is not available on the live simulation yet.");
+  }
+
+  async defectClan(_clanId: string, _joinFactionId?: string): Promise<{ line: string }> {
+    throw new Error("Defection is not available on the live simulation yet.");
+  }
+
   async marry(charId1: string, charId2: string): Promise<void> {
     await this.#post(
       "/v1/dynasty/marry",
