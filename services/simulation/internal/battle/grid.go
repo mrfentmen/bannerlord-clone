@@ -448,6 +448,48 @@ func (h *hash) anyInCell(x, y, radius float64, fn func(id int) bool) bool {
 	return false
 }
 
+// collectCells appends to dst the flat index of every NON-EMPTY cell the query at
+// (x,y) keeps, in the same ring order forEachCell walks, and returns the
+// extended slice.
+//
+// The index is the one the CSR grid addresses its runs by, so a caller walks its
+// own candidates with items[starts[k]:starts[k+1]]. dst is the caller's own
+// scratch: handing it in means the walk allocates nothing after the scratch has
+// grown once, which is what keeps a per-tick loop allocation-free.
+func (h *hash) collectCells(dst []int32, x, y, radius float64) []int32 {
+	if h.count == 0 {
+		return dst
+	}
+	cx, cy := h.extent(x, y)
+	last := h.span(radius)
+	starts := h.starts
+	w := h.w
+	visit := func(ix, iy int) {
+		if ix < 0 || iy < 0 || ix >= w || iy >= h.h {
+			return
+		}
+		i := ix + w*iy
+		if starts[i] != starts[i+1] {
+			dst = append(dst, int32(i))
+		}
+	}
+	for ring := 0; ring <= last; ring++ {
+		if ring == 0 {
+			visit(cx, cy)
+			continue
+		}
+		for dx := -ring; dx <= ring; dx++ {
+			visit(cx+dx, cy-ring)
+			visit(cx+dx, cy+ring)
+		}
+		for dy := -ring + 1; dy <= ring-1; dy++ {
+			visit(cx-ring, cy+dy)
+			visit(cx+ring, cy+dy)
+		}
+	}
+	return dst
+}
+
 // occupiedCells is how many non-empty cells the index holds, reported so a
 // performance note can say what the battle actually built rather than guessing.
 func (h *hash) occupiedCells() int { return h.cellCount }
