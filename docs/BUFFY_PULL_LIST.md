@@ -281,3 +281,82 @@ hear street rumors, run poker games.
   tavern space itself.
 - `espionage/rumors.ts` exists — rumors have a home; they need a
   place to be heard.
+
+## 23. Ownable businesses (workshops, modernized) (PARTIALLY EXISTS)
+
+`economy/workshops.ts` exists — buy/improve/collect income — but the
+types are medieval (`smithy | brewery | tannery | weaver | mill`).
+How Bannerlord does it: each workshop converts inputs → outputs
+(brewery: grain→beer, tannery: hides→leather), tied to what the
+bound villages produce; income scales with town prosperity.
+
+Modernized business types to add:
+- **Legit:** liquor store, jewelry store, pawn shop, restaurant,
+  garage, car wash, dispensary, warehouse
+- **Fronts (gang-tied):** chop shop (stolen cars→parts), underground
+  casino, grow house
+- Each needs a production chain: inputs in, product out, staffed or
+  not. A jewelry store needs gold supply; a chop shop needs boosted
+  cars (ties to gang jobs, §24); a brewery needs grain (ties to
+  rural production, §25).
+- Rival gangs can torch your businesses (ties to turf wars);
+  police can raid fronts (ties to heat).
+
+Refs: extend `economy/workshops.ts` (keep buy/improve/income, add
+types + input/output chains). `docs/code-pulls/city-sim/` for
+production→prosperity math. `docs/code-pulls/strategy-core/`
+`city.rs` for facility models.
+
+## 24. Jobs board (VERIFIED missing entirely)
+
+No job system at all. Bannerlord has village notables and town
+quest-givers; modernized this becomes a jobs board with two tracks:
+
+**Gang jobs** (per gang, per city — reputation-gated):
+- Drug run (drive package across town, heat risk)
+- Protection collection (visit fronts, persuade/intimidate)
+- Hit (assassination — `espionage/assassination.ts` exists)
+- Boost cars (steal specific vehicles → feeds chop shops, §23)
+- Lookout / wheelman for heists
+
+**Civilian jobs** (per city, tied to its income identity, §25):
+- Dockworker (port cities), fisherman (coastal), truck driver
+  (hauling goods between cities — ties to `economy/caravans.ts`),
+  bouncer (bars/clubs, §22), taxi driver, warehouse shift,
+  farmhand (rural towns)
+
+Jobs pay cash + build rep with the employer gang/business. Gang
+jobs raise police heat; civilian jobs are the clean-money path.
+Both feed the economy: truckers move real goods, dockworkers
+unload real cargo.
+
+Refs: `docs/code-pulls/dialogue-graph/` for job-giver conversations;
+`docs/code-pulls/roguelike/` enemy/item scaling for job difficulty
+tiers. No direct code pull found — needs design + the above pieces.
+
+## 25. City income identity (VERIFIED missing — design gap)
+
+Every city needs a **distinct economic engine** — the thing that
+keeps it alive. Right now towns are interchangeable. How Bannerlord
+does it: villages produce specific raw goods by type, towns refine
+and trade them, prosperity follows production. If villages get
+raided, the town starves.
+
+Modernized per-city identities (Ohio River Valley):
+- **Port city** — docks, shipping, fishing; dockworker/fisherman jobs
+- **Industrial city** — factories, warehouses; manufacturing jobs
+- **Tourist city** — casinos, hotels, nightlife; hospitality jobs
+- **Agricultural towns** — farms producing grain/produce; farmhand jobs
+- **College town** — student economy, bars, cheap housing
+
+The loop: rural production → city refinement → businesses sell →
+prosperity rises → more jobs → more income. Break any link (gang
+war shuts the docks, raid hits the farms) and the city declines:
+prices spike (`economy/prices.ts` + `shortages.ts` exist), jobs dry
+up, gangs get desperate. This is what makes each city feel different
+and gives the player reasons to protect — or exploit — them.
+
+Refs: `docs/code-pulls/city-sim/` (production→prosperity→raid
+effects), `docs/code-pulls/strategy-core/` (city facilities),
+`economy/caravans.ts` + `supplyLines.ts` (goods movement between
+cities already exists).
