@@ -335,2062 +335,2474 @@
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf-gpt-astra/public/models/dewey-monument.glb",
-   "name": "vendor-fable51-worlds-dewey-monument"
+   "name": "vendor-fable51-worlds-dewey-monument",
+   "targetLengthM": 27.432
   },
   {
    "category": "character",
    "file": "vendor/fable51-worlds/union-square-sf-gpt-astra/public/models/pedestrian.glb",
-   "name": "vendor-fable51-worlds-pedestrian"
+   "name": "vendor-fable51-worlds-pedestrian",
+   "targetLengthM": 2.0
   },
   {
    "category": "vehicle",
    "file": "vendor/fable51-worlds/union-square-sf-gpt-astra/public/models/powell-cable-car.glb",
-   "name": "vendor-fable51-worlds-powell-cable-car"
+   "name": "vendor-fable51-worlds-powell-cable-car",
+   "targetLengthM": 8.46
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf-gpt-astra/public/models/retail-displays.glb",
-   "name": "vendor-fable51-worlds-retail-displays"
+   "name": "vendor-fable51-worlds-retail-displays",
+   "targetLengthM": 33.909
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/awning_fabric_3m.glb",
-   "name": "vendor-fable51-worlds-awning-fabric-3m"
+   "name": "vendor-fable51-worlds-awning-fabric-3m",
+   "targetLengthM": 3.0
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/awning_fabric_3m_black.glb",
-   "name": "vendor-fable51-worlds-awning-fabric-3m-black"
+   "name": "vendor-fable51-worlds-awning-fabric-3m-black",
+   "targetLengthM": 3.0
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/awning_fabric_3m_green.glb",
-   "name": "vendor-fable51-worlds-awning-fabric-3m-green"
+   "name": "vendor-fable51-worlds-awning-fabric-3m-green",
+   "targetLengthM": 3.0
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/balcony_iron_2.4m.glb",
-   "name": "vendor-fable51-worlds-balcony-iron-2.4m"
+   "name": "vendor-fable51-worlds-balcony-iron-2.4m",
+   "targetLengthM": 2.424
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/balcony_iron_2.4m_lod1.glb",
-   "name": "vendor-fable51-worlds-balcony-iron-2.4m-lod1"
+   "name": "vendor-fable51-worlds-balcony-iron-2.4m-lod1",
+   "targetLengthM": 2.424
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/balcony_stone_2.4m.glb",
-   "name": "vendor-fable51-worlds-balcony-stone-2.4m"
+   "name": "vendor-fable51-worlds-balcony-stone-2.4m",
+   "targetLengthM": 2.48
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/balcony_stone_2.4m_lod1.glb",
-   "name": "vendor-fable51-worlds-balcony-stone-2.4m-lod1"
+   "name": "vendor-fable51-worlds-balcony-stone-2.4m-lod1",
+   "targetLengthM": 2.4
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/balustrade_1m.glb",
-   "name": "vendor-fable51-worlds-balustrade-1m"
+   "name": "vendor-fable51-worlds-balustrade-1m",
+   "targetLengthM": 1.0
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/balustrade_1m_lod1.glb",
-   "name": "vendor-fable51-worlds-balustrade-1m-lod1"
+   "name": "vendor-fable51-worlds-balustrade-1m-lod1",
+   "targetLengthM": 1.0
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/canopy_metal_4m.glb",
-   "name": "vendor-fable51-worlds-canopy-metal-4m"
+   "name": "vendor-fable51-worlds-canopy-metal-4m",
+   "targetLengthM": 4.08
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/column_corinthian_6m.glb",
-   "name": "vendor-fable51-worlds-column-corinthian-6m"
+   "name": "vendor-fable51-worlds-column-corinthian-6m",
+   "targetLengthM": 6
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/column_corinthian_6m_lod1.glb",
-   "name": "vendor-fable51-worlds-column-corinthian-6m-lod1"
+   "name": "vendor-fable51-worlds-column-corinthian-6m-lod1",
+   "targetLengthM": 6
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/column_doric_4m.glb",
-   "name": "vendor-fable51-worlds-column-doric-4m"
+   "name": "vendor-fable51-worlds-column-doric-4m",
+   "targetLengthM": 4
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/column_doric_4m_lod1.glb",
-   "name": "vendor-fable51-worlds-column-doric-4m-lod1"
+   "name": "vendor-fable51-worlds-column-doric-4m-lod1",
+   "targetLengthM": 4
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/cornice_heavy_1m.glb",
-   "name": "vendor-fable51-worlds-cornice-heavy-1m"
+   "name": "vendor-fable51-worlds-cornice-heavy-1m",
+   "targetLengthM": 1.2
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/cornice_medium_1m.glb",
-   "name": "vendor-fable51-worlds-cornice-medium-1m"
+   "name": "vendor-fable51-worlds-cornice-medium-1m",
+   "targetLengthM": 1.0
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/door_hotel_marquee_6.0.glb",
-   "name": "vendor-fable51-worlds-door-hotel-marquee-6.0"
+   "name": "vendor-fable51-worlds-door-hotel-marquee-6.0",
+   "targetLengthM": 6.7
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/door_hotel_marquee_6.0_lod1.glb",
-   "name": "vendor-fable51-worlds-door-hotel-marquee-6.0-lod1"
+   "name": "vendor-fable51-worlds-door-hotel-marquee-6.0-lod1",
+   "targetLengthM": 6.7
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/door_revolving_2.4.glb",
-   "name": "vendor-fable51-worlds-door-revolving-2.4"
+   "name": "vendor-fable51-worlds-door-revolving-2.4",
+   "targetLengthM": 2.6
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/door_revolving_2.4_lod1.glb",
-   "name": "vendor-fable51-worlds-door-revolving-2.4-lod1"
+   "name": "vendor-fable51-worlds-door-revolving-2.4-lod1",
+   "targetLengthM": 2.6
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/fire_escape_module_2.4x3.6.glb",
-   "name": "vendor-fable51-worlds-fire-escape-module-2.4x3.6"
+   "name": "vendor-fable51-worlds-fire-escape-module-2.4x3.6",
+   "targetLengthM": 4.509
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/fire_escape_module_2.4x3.6_lod1.glb",
-   "name": "vendor-fable51-worlds-fire-escape-module-2.4x3.6-lod1"
+   "name": "vendor-fable51-worlds-fire-escape-module-2.4x3.6-lod1",
+   "targetLengthM": 4.509
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/flagpole_facade_4m.glb",
-   "name": "vendor-fable51-worlds-flagpole-facade-4m"
+   "name": "vendor-fable51-worlds-flagpole-facade-4m",
+   "targetLengthM": 2.871
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/flagpole_facade_4m_lod1.glb",
-   "name": "vendor-fable51-worlds-flagpole-facade-4m-lod1"
+   "name": "vendor-fable51-worlds-flagpole-facade-4m-lod1",
+   "targetLengthM": 2.871
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/mansard_1m.glb",
-   "name": "vendor-fable51-worlds-mansard-1m"
+   "name": "vendor-fable51-worlds-mansard-1m",
+   "targetLengthM": 2.5
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/mansard_dormer_1.5m.glb",
-   "name": "vendor-fable51-worlds-mansard-dormer-1.5m"
+   "name": "vendor-fable51-worlds-mansard-dormer-1.5m",
+   "targetLengthM": 2.5
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/parapet_1m.glb",
-   "name": "vendor-fable51-worlds-parapet-1m"
+   "name": "vendor-fable51-worlds-parapet-1m",
+   "targetLengthM": 1.0
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/pilaster_flat_0.6x4m.glb",
-   "name": "vendor-fable51-worlds-pilaster-flat-0.6x4m"
+   "name": "vendor-fable51-worlds-pilaster-flat-0.6x4m",
+   "targetLengthM": 4
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/pilaster_flat_0.8x12m.glb",
-   "name": "vendor-fable51-worlds-pilaster-flat-0.8x12m"
+   "name": "vendor-fable51-worlds-pilaster-flat-0.8x12m",
+   "targetLengthM": 12
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/roof_penthouse_6x4x3.glb",
-   "name": "vendor-fable51-worlds-roof-penthouse-6x4x3"
+   "name": "vendor-fable51-worlds-roof-penthouse-6x4x3",
+   "targetLengthM": 6.2
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/roof_penthouse_6x4x3_lod1.glb",
-   "name": "vendor-fable51-worlds-roof-penthouse-6x4x3-lod1"
+   "name": "vendor-fable51-worlds-roof-penthouse-6x4x3-lod1",
+   "targetLengthM": 6.2
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/roof_watertank.glb",
-   "name": "vendor-fable51-worlds-roof-watertank"
+   "name": "vendor-fable51-worlds-roof-watertank",
+   "targetLengthM": 4.175
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/roof_watertank_lod1.glb",
-   "name": "vendor-fable51-worlds-roof-watertank-lod1"
+   "name": "vendor-fable51-worlds-roof-watertank-lod1",
+   "targetLengthM": 3.12
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/rustication_1m.glb",
-   "name": "vendor-fable51-worlds-rustication-1m"
+   "name": "vendor-fable51-worlds-rustication-1m",
+   "targetLengthM": 1.0
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/sign_blade_1.0x0.6.glb",
-   "name": "vendor-fable51-worlds-sign-blade-1.0x0.6"
+   "name": "vendor-fable51-worlds-sign-blade-1.0x0.6",
+   "targetLengthM": 1.15
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/sign_corner_wrap.glb",
-   "name": "vendor-fable51-worlds-sign-corner-wrap"
+   "name": "vendor-fable51-worlds-sign-corner-wrap",
+   "targetLengthM": 1.34
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/sign_fascia_blank_3x0.8.glb",
-   "name": "vendor-fable51-worlds-sign-fascia-blank-3x0.8"
+   "name": "vendor-fable51-worlds-sign-fascia-blank-3x0.8",
+   "targetLengthM": 3.0
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/storefront_arcade_arch_4.0x5.5.glb",
-   "name": "vendor-fable51-worlds-storefront-arcade-arch-4.0x5.5"
+   "name": "vendor-fable51-worlds-storefront-arcade-arch-4.0x5.5",
+   "targetLengthM": 5.48
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/storefront_arcade_arch_4.0x5.5_lod1.glb",
-   "name": "vendor-fable51-worlds-storefront-arcade-arch-4.0x5.5-lod1"
+   "name": "vendor-fable51-worlds-storefront-arcade-arch-4.0x5.5-lod1",
+   "targetLengthM": 5.402
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/storefront_bay_3.0x4.5.glb",
-   "name": "vendor-fable51-worlds-storefront-bay-3.0x4.5"
+   "name": "vendor-fable51-worlds-storefront-bay-3.0x4.5",
+   "targetLengthM": 4.1
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/storefront_bay_4.0x5.0.glb",
-   "name": "vendor-fable51-worlds-storefront-bay-4.0x5.0"
+   "name": "vendor-fable51-worlds-storefront-bay-4.0x5.0",
+   "targetLengthM": 4.6
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/storefront_door_double_2.0x2.8.glb",
-   "name": "vendor-fable51-worlds-storefront-door-double-2.0x2.8"
+   "name": "vendor-fable51-worlds-storefront-door-double-2.0x2.8",
+   "targetLengthM": 3.2
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/storefront_door_double_2.0x2.8_lod1.glb",
-   "name": "vendor-fable51-worlds-storefront-door-double-2.0x2.8-lod1"
+   "name": "vendor-fable51-worlds-storefront-door-double-2.0x2.8-lod1",
+   "targetLengthM": 3.2
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/storefront_door_recessed_3.0x4.5.glb",
-   "name": "vendor-fable51-worlds-storefront-door-recessed-3.0x4.5"
+   "name": "vendor-fable51-worlds-storefront-door-recessed-3.0x4.5",
+   "targetLengthM": 4.5
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/storefront_door_recessed_3.0x4.5_lod1.glb",
-   "name": "vendor-fable51-worlds-storefront-door-recessed-3.0x4.5-lod1"
+   "name": "vendor-fable51-worlds-storefront-door-recessed-3.0x4.5-lod1",
+   "targetLengthM": 4.5
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/storefront_luxury_4.0x5.0.glb",
-   "name": "vendor-fable51-worlds-storefront-luxury-4.0x5.0"
+   "name": "vendor-fable51-worlds-storefront-luxury-4.0x5.0",
+   "targetLengthM": 5
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/storefront_luxury_4.0x5.0_lod1.glb",
-   "name": "vendor-fable51-worlds-storefront-luxury-4.0x5.0-lod1"
+   "name": "vendor-fable51-worlds-storefront-luxury-4.0x5.0-lod1",
+   "targetLengthM": 5
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/stringcourse_1m.glb",
-   "name": "vendor-fable51-worlds-stringcourse-1m"
+   "name": "vendor-fable51-worlds-stringcourse-1m",
+   "targetLengthM": 1.0
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/win_arch_stone_1.5x3.0.glb",
-   "name": "vendor-fable51-worlds-win-arch-stone-1.5x3.0"
+   "name": "vendor-fable51-worlds-win-arch-stone-1.5x3.0",
+   "targetLengthM": 3.266
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/win_arch_stone_1.5x3.0_lod1.glb",
-   "name": "vendor-fable51-worlds-win-arch-stone-1.5x3.0-lod1"
+   "name": "vendor-fable51-worlds-win-arch-stone-1.5x3.0-lod1",
+   "targetLengthM": 3.234
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/win_bay_oriel_2.4x3.0.glb",
-   "name": "vendor-fable51-worlds-win-bay-oriel-2.4x3.0"
+   "name": "vendor-fable51-worlds-win-bay-oriel-2.4x3.0",
+   "targetLengthM": 3.034
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/win_bay_oriel_2.4x3.0_lod1.glb",
-   "name": "vendor-fable51-worlds-win-bay-oriel-2.4x3.0-lod1"
+   "name": "vendor-fable51-worlds-win-bay-oriel-2.4x3.0-lod1",
+   "targetLengthM": 2.7
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/win_curtain_3.0x3.6.glb",
-   "name": "vendor-fable51-worlds-win-curtain-3.0x3.6"
+   "name": "vendor-fable51-worlds-win-curtain-3.0x3.6",
+   "targetLengthM": 3.6
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/win_dh_stone_1.2x2.2.glb",
-   "name": "vendor-fable51-worlds-win-dh-stone-1.2x2.2"
+   "name": "vendor-fable51-worlds-win-dh-stone-1.2x2.2",
+   "targetLengthM": 2.43
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/win_dh_stone_1.5x2.6.glb",
-   "name": "vendor-fable51-worlds-win-dh-stone-1.5x2.6"
+   "name": "vendor-fable51-worlds-win-dh-stone-1.5x2.6",
+   "targetLengthM": 2.89
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/win_office_strip_3.0x1.8.glb",
-   "name": "vendor-fable51-worlds-win-office-strip-3.0x1.8"
+   "name": "vendor-fable51-worlds-win-office-strip-3.0x1.8",
+   "targetLengthM": 3.0
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/win_pair_stone_2.4x2.4.glb",
-   "name": "vendor-fable51-worlds-win-pair-stone-2.4x2.4"
+   "name": "vendor-fable51-worlds-win-pair-stone-2.4x2.4",
+   "targetLengthM": 2.9
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/win_pair_stone_2.4x2.4_lod1.glb",
-   "name": "vendor-fable51-worlds-win-pair-stone-2.4x2.4-lod1"
+   "name": "vendor-fable51-worlds-win-pair-stone-2.4x2.4-lod1",
+   "targetLengthM": 2.9
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/win_punched_modern_1.8x2.0.glb",
-   "name": "vendor-fable51-worlds-win-punched-modern-1.8x2.0"
+   "name": "vendor-fable51-worlds-win-punched-modern-1.8x2.0",
+   "targetLengthM": 2
   },
   {
    "category": "building",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/arch/window_ac_unit.glb",
-   "name": "vendor-fable51-worlds-window-ac-unit"
+   "name": "vendor-fable51-worlds-window-ac-unit",
+   "targetLengthM": 0.6
   },
   {
    "category": "character",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/backpack.glb",
-   "name": "vendor-fable51-worlds-backpack"
+   "name": "vendor-fable51-worlds-backpack",
+   "targetLengthM": 0.4
   },
   {
    "category": "character",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/camera.glb",
-   "name": "vendor-fable51-worlds-camera"
+   "name": "vendor-fable51-worlds-camera",
+   "targetLengthM": 0.12
   },
   {
    "category": "character",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/coffee_cup.glb",
-   "name": "vendor-fable51-worlds-coffee-cup"
+   "name": "vendor-fable51-worlds-coffee-cup",
+   "targetLengthM": 0.104
   },
   {
    "category": "character",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/handbag.glb",
-   "name": "vendor-fable51-worlds-handbag"
+   "name": "vendor-fable51-worlds-handbag",
+   "targetLengthM": 0.3
   },
   {
    "category": "character",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/head.glb",
-   "name": "vendor-fable51-worlds-head"
+   "name": "vendor-fable51-worlds-head",
+   "targetLengthM": 0.236
   },
   {
    "category": "character",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/head_hat.glb",
-   "name": "vendor-fable51-worlds-head-hat"
+   "name": "vendor-fable51-worlds-head-hat",
+   "targetLengthM": 0.266
   },
   {
    "category": "character",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/head_longhair.glb",
-   "name": "vendor-fable51-worlds-head-longhair"
+   "name": "vendor-fable51-worlds-head-longhair",
+   "targetLengthM": 0.392
   },
   {
    "category": "character",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/lower_arm.glb",
-   "name": "vendor-fable51-worlds-lower-arm"
+   "name": "vendor-fable51-worlds-lower-arm",
+   "targetLengthM": 0.205
   },
   {
    "category": "character",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/lower_leg.glb",
-   "name": "vendor-fable51-worlds-lower-leg"
+   "name": "vendor-fable51-worlds-lower-leg",
+   "targetLengthM": 0.38
   },
   {
    "category": "character",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/pelvis.glb",
-   "name": "vendor-fable51-worlds-pelvis"
+   "name": "vendor-fable51-worlds-pelvis",
+   "targetLengthM": 0.331
   },
   {
    "category": "character",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/phone.glb",
-   "name": "vendor-fable51-worlds-phone"
+   "name": "vendor-fable51-worlds-phone",
+   "targetLengthM": 0.15
   },
   {
    "category": "character",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/torso.glb",
-   "name": "vendor-fable51-worlds-torso"
+   "name": "vendor-fable51-worlds-torso",
+   "targetLengthM": 0.5
   },
   {
    "category": "character",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/torso_coat.glb",
-   "name": "vendor-fable51-worlds-torso-coat"
+   "name": "vendor-fable51-worlds-torso-coat",
+   "targetLengthM": 0.95
   },
   {
    "category": "character",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/torso_dress.glb",
-   "name": "vendor-fable51-worlds-torso-dress"
+   "name": "vendor-fable51-worlds-torso-dress",
+   "targetLengthM": 0.95
   },
   {
    "category": "character",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/umbrella.glb",
-   "name": "vendor-fable51-worlds-umbrella"
+   "name": "vendor-fable51-worlds-umbrella",
+   "targetLengthM": 1.0
   },
   {
    "category": "character",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/upper_arm.glb",
-   "name": "vendor-fable51-worlds-upper-arm"
+   "name": "vendor-fable51-worlds-upper-arm",
+   "targetLengthM": 0.3
   },
   {
    "category": "character",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/people/upper_leg.glb",
-   "name": "vendor-fable51-worlds-upper-leg"
+   "name": "vendor-fable51-worlds-upper-leg",
+   "targetLengthM": 0.45
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_avenue_shelf.glb",
-   "name": "vendor-fable51-worlds-apple-avenue-shelf"
+   "name": "vendor-fable51-worlds-apple-avenue-shelf",
+   "targetLengthM": 3.0
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_bench_forum.glb",
-   "name": "vendor-fable51-worlds-apple-bench-forum"
+   "name": "vendor-fable51-worlds-apple-bench-forum",
+   "targetLengthM": 3.0
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_genius_table.glb",
-   "name": "vendor-fable51-worlds-apple-genius-table"
+   "name": "vendor-fable51-worlds-apple-genius-table",
+   "targetLengthM": 1.907
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_glass_balustrade_1m.glb",
-   "name": "vendor-fable51-worlds-apple-glass-balustrade-1m"
+   "name": "vendor-fable51-worlds-apple-glass-balustrade-1m",
+   "targetLengthM": 1.1
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_headphones.glb",
-   "name": "vendor-fable51-worlds-apple-headphones"
+   "name": "vendor-fable51-worlds-apple-headphones",
+   "targetLengthM": 0.272
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_imac.glb",
-   "name": "vendor-fable51-worlds-apple-imac"
+   "name": "vendor-fable51-worlds-apple-imac",
+   "targetLengthM": 0.55
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_ipad_stand.glb",
-   "name": "vendor-fable51-worlds-apple-ipad-stand"
+   "name": "vendor-fable51-worlds-apple-ipad-stand",
+   "targetLengthM": 0.25
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_iphone_stand.glb",
-   "name": "vendor-fable51-worlds-apple-iphone-stand"
+   "name": "vendor-fable51-worlds-apple-iphone-stand",
+   "targetLengthM": 0.144
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_macbook.glb",
-   "name": "vendor-fable51-worlds-apple-macbook"
+   "name": "vendor-fable51-worlds-apple-macbook",
+   "targetLengthM": 0.3
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_planter_tree_box.glb",
-   "name": "vendor-fable51-worlds-apple-planter-tree-box"
+   "name": "vendor-fable51-worlds-apple-planter-tree-box",
+   "targetLengthM": 2
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_stair_module.glb",
-   "name": "vendor-fable51-worlds-apple-stair-module"
+   "name": "vendor-fable51-worlds-apple-stair-module",
+   "targetLengthM": 1.0
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_stool.glb",
-   "name": "vendor-fable51-worlds-apple-stool"
+   "name": "vendor-fable51-worlds-apple-stool",
+   "targetLengthM": 0.45
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_table.glb",
-   "name": "vendor-fable51-worlds-apple-table"
+   "name": "vendor-fable51-worlds-apple-table",
+   "targetLengthM": 2.4
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_table_long.glb",
-   "name": "vendor-fable51-worlds-apple-table-long"
+   "name": "vendor-fable51-worlds-apple-table-long",
+   "targetLengthM": 3.6
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_video_wall_frame.glb",
-   "name": "vendor-fable51-worlds-apple-video-wall-frame"
+   "name": "vendor-fable51-worlds-apple-video-wall-frame",
+   "targetLengthM": 11.8
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/apple_watch_stand.glb",
-   "name": "vendor-fable51-worlds-apple-watch-stand"
+   "name": "vendor-fable51-worlds-apple-watch-stand",
+   "targetLengthM": 0.09
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/char_isabelle.glb",
-   "name": "vendor-fable51-worlds-char-isabelle"
+   "name": "vendor-fable51-worlds-char-isabelle",
+   "targetLengthM": 1.124
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/char_kirby.glb",
-   "name": "vendor-fable51-worlds-char-kirby"
+   "name": "vendor-fable51-worlds-char-kirby",
+   "targetLengthM": 1.094
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/char_link.glb",
-   "name": "vendor-fable51-worlds-char-link"
+   "name": "vendor-fable51-worlds-char-link",
+   "targetLengthM": 1.544
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/char_luigi.glb",
-   "name": "vendor-fable51-worlds-char-luigi"
+   "name": "vendor-fable51-worlds-char-luigi",
+   "targetLengthM": 1.427
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/char_mario.glb",
-   "name": "vendor-fable51-worlds-char-mario"
+   "name": "vendor-fable51-worlds-char-mario",
+   "targetLengthM": 1.264
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/char_pikmin_blue.glb",
-   "name": "vendor-fable51-worlds-char-pikmin-blue"
+   "name": "vendor-fable51-worlds-char-pikmin-blue",
+   "targetLengthM": 0.489
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/char_pikmin_red.glb",
-   "name": "vendor-fable51-worlds-char-pikmin-red"
+   "name": "vendor-fable51-worlds-char-pikmin-red",
+   "targetLengthM": 0.489
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/char_pikmin_yellow.glb",
-   "name": "vendor-fable51-worlds-char-pikmin-yellow"
+   "name": "vendor-fable51-worlds-char-pikmin-yellow",
+   "targetLengthM": 0.489
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/char_toad.glb",
-   "name": "vendor-fable51-worlds-char-toad"
+   "name": "vendor-fable51-worlds-char-toad",
+   "targetLengthM": 0.878
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_cafe_chair.glb",
-   "name": "vendor-fable51-worlds-gen-cafe-chair"
+   "name": "vendor-fable51-worlds-gen-cafe-chair",
+   "targetLengthM": 0.86
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_cafe_table.glb",
-   "name": "vendor-fable51-worlds-gen-cafe-table"
+   "name": "vendor-fable51-worlds-gen-cafe-table",
+   "targetLengthM": 0.72
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_checkout.glb",
-   "name": "vendor-fable51-worlds-gen-checkout"
+   "name": "vendor-fable51-worlds-gen-checkout",
+   "targetLengthM": 2.05
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_clothing_rack.glb",
-   "name": "vendor-fable51-worlds-gen-clothing-rack"
+   "name": "vendor-fable51-worlds-gen-clothing-rack",
+   "targetLengthM": 1.6
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_display_pedestal.glb",
-   "name": "vendor-fable51-worlds-gen-display-pedestal"
+   "name": "vendor-fable51-worlds-gen-display-pedestal",
+   "targetLengthM": 0.6
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_display_pedestal_tall.glb",
-   "name": "vendor-fable51-worlds-gen-display-pedestal-tall"
+   "name": "vendor-fable51-worlds-gen-display-pedestal-tall",
+   "targetLengthM": 1.2
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_hotel_lobby_sofa.glb",
-   "name": "vendor-fable51-worlds-gen-hotel-lobby-sofa"
+   "name": "vendor-fable51-worlds-gen-hotel-lobby-sofa",
+   "targetLengthM": 2.2
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_jewelry_case.glb",
-   "name": "vendor-fable51-worlds-gen-jewelry-case"
+   "name": "vendor-fable51-worlds-gen-jewelry-case",
+   "targetLengthM": 1.5
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_lobby_lamp.glb",
-   "name": "vendor-fable51-worlds-gen-lobby-lamp"
+   "name": "vendor-fable51-worlds-gen-lobby-lamp",
+   "targetLengthM": 1.42
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_mannequin.glb",
-   "name": "vendor-fable51-worlds-gen-mannequin"
+   "name": "vendor-fable51-worlds-gen-mannequin",
+   "targetLengthM": 1.8
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_mannequin_black.glb",
-   "name": "vendor-fable51-worlds-gen-mannequin-black"
+   "name": "vendor-fable51-worlds-gen-mannequin-black",
+   "targetLengthM": 1.8
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_shelf_wall_3m.glb",
-   "name": "vendor-fable51-worlds-gen-shelf-wall-3m"
+   "name": "vendor-fable51-worlds-gen-shelf-wall-3m",
+   "targetLengthM": 3.0
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_shopping_bag.glb",
-   "name": "vendor-fable51-worlds-gen-shopping-bag"
+   "name": "vendor-fable51-worlds-gen-shopping-bag",
+   "targetLengthM": 0.426
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/gen_window_display_dress.glb",
-   "name": "vendor-fable51-worlds-gen-window-display-dress"
+   "name": "vendor-fable51-worlds-gen-window-display-dress",
+   "targetLengthM": 3.0
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/nintendo_checkout.glb",
-   "name": "vendor-fable51-worlds-nintendo-checkout"
+   "name": "vendor-fable51-worlds-nintendo-checkout",
+   "targetLengthM": 4.06
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/nintendo_demo_kiosk.glb",
-   "name": "vendor-fable51-worlds-nintendo-demo-kiosk"
+   "name": "vendor-fable51-worlds-nintendo-demo-kiosk",
+   "targetLengthM": 0.95
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/nintendo_gondola.glb",
-   "name": "vendor-fable51-worlds-nintendo-gondola"
+   "name": "vendor-fable51-worlds-nintendo-gondola",
+   "targetLengthM": 1.8
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/nintendo_led_wall.glb",
-   "name": "vendor-fable51-worlds-nintendo-led-wall"
+   "name": "vendor-fable51-worlds-nintendo-led-wall",
+   "targetLengthM": 6.2
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/nintendo_pedestal_statue.glb",
-   "name": "vendor-fable51-worlds-nintendo-pedestal-statue"
+   "name": "vendor-fable51-worlds-nintendo-pedestal-statue",
+   "targetLengthM": 1.01
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/nintendo_plush_bin.glb",
-   "name": "vendor-fable51-worlds-nintendo-plush-bin"
+   "name": "vendor-fable51-worlds-nintendo-plush-bin",
+   "targetLengthM": 1.24
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/nintendo_question_block.glb",
-   "name": "vendor-fable51-worlds-nintendo-question-block"
+   "name": "vendor-fable51-worlds-nintendo-question-block",
+   "targetLengthM": 0.94
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/nintendo_switch2_display.glb",
-   "name": "vendor-fable51-worlds-nintendo-switch2-display"
+   "name": "vendor-fable51-worlds-nintendo-switch2-display",
+   "targetLengthM": 2
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/nintendo_wall_shelf_3m.glb",
-   "name": "vendor-fable51-worlds-nintendo-wall-shelf-3m"
+   "name": "vendor-fable51-worlds-nintendo-wall-shelf-3m",
+   "targetLengthM": 3.0
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/retail/nintendo_warp_pipe.glb",
-   "name": "vendor-fable51-worlds-nintendo-warp-pipe"
+   "name": "vendor-fable51-worlds-nintendo-warp-pipe",
+   "targetLengthM": 1.6
   },
   {
    "category": "prop",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/smoke/lamp.glb",
-   "name": "vendor-fable51-worlds-lamp"
+   "name": "vendor-fable51-worlds-lamp",
+   "targetLengthM": 4
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/banner_pole_bracket.glb",
-   "name": "vendor-fable51-worlds-banner-pole-bracket"
+   "name": "vendor-fable51-worlds-banner-pole-bracket",
+   "targetLengthM": 2.16
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/barricade_a_frame.glb",
-   "name": "vendor-fable51-worlds-barricade-a-frame"
+   "name": "vendor-fable51-worlds-barricade-a-frame",
+   "targetLengthM": 1.4
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/bench_metal.glb",
-   "name": "vendor-fable51-worlds-bench-metal"
+   "name": "vendor-fable51-worlds-bench-metal",
+   "targetLengthM": 1.8
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/bench_plaza.glb",
-   "name": "vendor-fable51-worlds-bench-plaza"
+   "name": "vendor-fable51-worlds-bench-plaza",
+   "targetLengthM": 2.4
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/bench_wood.glb",
-   "name": "vendor-fable51-worlds-bench-wood"
+   "name": "vendor-fable51-worlds-bench-wood",
+   "targetLengthM": 1.8
   },
   {
    "category": "vehicle",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/bike_rack.glb",
-   "name": "vendor-fable51-worlds-bike-rack"
+   "name": "vendor-fable51-worlds-bike-rack",
+   "targetLengthM": 0.925
   },
   {
    "category": "vehicle",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/bike_rack_wave.glb",
-   "name": "vendor-fable51-worlds-bike-rack-wave"
+   "name": "vendor-fable51-worlds-bike-rack-wave",
+   "targetLengthM": 1.838
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/bollard_removable.glb",
-   "name": "vendor-fable51-worlds-bollard-removable"
+   "name": "vendor-fable51-worlds-bollard-removable",
+   "targetLengthM": 1
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/bollard_steel.glb",
-   "name": "vendor-fable51-worlds-bollard-steel"
+   "name": "vendor-fable51-worlds-bollard-steel",
+   "targetLengthM": 1
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/bollard_stone.glb",
-   "name": "vendor-fable51-worlds-bollard-stone"
+   "name": "vendor-fable51-worlds-bollard-stone",
+   "targetLengthM": 0.9
   },
   {
    "category": "vehicle",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/bus_shelter_sfmta.glb",
-   "name": "vendor-fable51-worlds-bus-shelter-sfmta"
+   "name": "vendor-fable51-worlds-bus-shelter-sfmta",
+   "targetLengthM": 4.2
   },
   {
    "category": "vehicle",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/cable_car_stop_sign.glb",
-   "name": "vendor-fable51-worlds-cable-car-stop-sign"
+   "name": "vendor-fable51-worlds-cable-car-stop-sign",
+   "targetLengthM": 2.6
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/catch_basin.glb",
-   "name": "vendor-fable51-worlds-catch-basin"
+   "name": "vendor-fable51-worlds-catch-basin",
+   "targetLengthM": 1.0
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/cone_traffic.glb",
-   "name": "vendor-fable51-worlds-cone-traffic"
+   "name": "vendor-fable51-worlds-cone-traffic",
+   "targetLengthM": 0.67
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/curb_ramp.glb",
-   "name": "vendor-fable51-worlds-curb-ramp"
+   "name": "vendor-fable51-worlds-curb-ramp",
+   "targetLengthM": 2.5
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/dumpster.glb",
-   "name": "vendor-fable51-worlds-dumpster"
+   "name": "vendor-fable51-worlds-dumpster",
+   "targetLengthM": 1.84
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/fence_iron_1m.glb",
-   "name": "vendor-fable51-worlds-fence-iron-1m"
+   "name": "vendor-fable51-worlds-fence-iron-1m",
+   "targetLengthM": 1.245
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/flagpole_10m.glb",
-   "name": "vendor-fable51-worlds-flagpole-10m"
+   "name": "vendor-fable51-worlds-flagpole-10m",
+   "targetLengthM": 10
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/garage_kiosk.glb",
-   "name": "vendor-fable51-worlds-garage-kiosk"
+   "name": "vendor-fable51-worlds-garage-kiosk",
+   "targetLengthM": 4.4
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/hearts_sculpture.glb",
-   "name": "vendor-fable51-worlds-hearts-sculpture"
+   "name": "vendor-fable51-worlds-hearts-sculpture",
+   "targetLengthM": 1.58
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/hydrant_sf.glb",
-   "name": "vendor-fable51-worlds-hydrant-sf"
+   "name": "vendor-fable51-worlds-hydrant-sf",
+   "targetLengthM": 0.615
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/hydrant_sf_red.glb",
-   "name": "vendor-fable51-worlds-hydrant-sf-red"
+   "name": "vendor-fable51-worlds-hydrant-sf-red",
+   "targetLengthM": 0.615
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/kiosk_wayfinding.glb",
-   "name": "vendor-fable51-worlds-kiosk-wayfinding"
+   "name": "vendor-fable51-worlds-kiosk-wayfinding",
+   "targetLengthM": 2.4
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/mailbox_usps.glb",
-   "name": "vendor-fable51-worlds-mailbox-usps"
+   "name": "vendor-fable51-worlds-mailbox-usps",
+   "targetLengthM": 1.14
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/manhole.glb",
-   "name": "vendor-fable51-worlds-manhole"
+   "name": "vendor-fable51-worlds-manhole",
+   "targetLengthM": 0.76
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/muni_stop_pole.glb",
-   "name": "vendor-fable51-worlds-muni-stop-pole"
+   "name": "vendor-fable51-worlds-muni-stop-pole",
+   "targetLengthM": 2.6
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/newsrack.glb",
-   "name": "vendor-fable51-worlds-newsrack"
+   "name": "vendor-fable51-worlds-newsrack",
+   "targetLengthM": 1.08
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/newsrack_blue.glb",
-   "name": "vendor-fable51-worlds-newsrack-blue"
+   "name": "vendor-fable51-worlds-newsrack-blue",
+   "targetLengthM": 1.08
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/parking_meter_sf.glb",
-   "name": "vendor-fable51-worlds-parking-meter-sf"
+   "name": "vendor-fable51-worlds-parking-meter-sf",
+   "targetLengthM": 1.08
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/pigeon.glb",
-   "name": "vendor-fable51-worlds-pigeon"
+   "name": "vendor-fable51-worlds-pigeon",
+   "targetLengthM": 0.395
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/planter_large.glb",
-   "name": "vendor-fable51-worlds-planter-large"
+   "name": "vendor-fable51-worlds-planter-large",
+   "targetLengthM": 1.5
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/planter_long.glb",
-   "name": "vendor-fable51-worlds-planter-long"
+   "name": "vendor-fable51-worlds-planter-long",
+   "targetLengthM": 3.06
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/planter_square.glb",
-   "name": "vendor-fable51-worlds-planter-square"
+   "name": "vendor-fable51-worlds-planter-square",
+   "targetLengthM": 1.24
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/rail_handrail_1m.glb",
-   "name": "vendor-fable51-worlds-rail-handrail-1m"
+   "name": "vendor-fable51-worlds-rail-handrail-1m",
+   "targetLengthM": 1.0
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/scaffold_sidewalk_3m.glb",
-   "name": "vendor-fable51-worlds-scaffold-sidewalk-3m"
+   "name": "vendor-fable51-worlds-scaffold-sidewalk-3m",
+   "targetLengthM": 4
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/street_sign_pole.glb",
-   "name": "vendor-fable51-worlds-street-sign-pole"
+   "name": "vendor-fable51-worlds-street-sign-pole",
+   "targetLengthM": 3.045
   },
   {
    "category": "character",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/streetlight_pedestrian_4m.glb",
-   "name": "vendor-fable51-worlds-streetlight-pedestrian-4m"
+   "name": "vendor-fable51-worlds-streetlight-pedestrian-4m",
+   "targetLengthM": 4.69
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/streetlight_plaza_globe.glb",
-   "name": "vendor-fable51-worlds-streetlight-plaza-globe"
+   "name": "vendor-fable51-worlds-streetlight-plaza-globe",
+   "targetLengthM": 4.58
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/streetlight_sf_double.glb",
-   "name": "vendor-fable51-worlds-streetlight-sf-double"
+   "name": "vendor-fable51-worlds-streetlight-sf-double",
+   "targetLengthM": 9.585
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/streetlight_sf_teardrop.glb",
-   "name": "vendor-fable51-worlds-streetlight-sf-teardrop"
+   "name": "vendor-fable51-worlds-streetlight-sf-teardrop",
+   "targetLengthM": 9.585
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/traffic_signal_mast.glb",
-   "name": "vendor-fable51-worlds-traffic-signal-mast"
+   "name": "vendor-fable51-worlds-traffic-signal-mast",
+   "targetLengthM": 6
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/traffic_signal_post.glb",
-   "name": "vendor-fable51-worlds-traffic-signal-post"
+   "name": "vendor-fable51-worlds-traffic-signal-post",
+   "targetLengthM": 4.5
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/trashcan_black.glb",
-   "name": "vendor-fable51-worlds-trashcan-black"
+   "name": "vendor-fable51-worlds-trashcan-black",
+   "targetLengthM": 1.14
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/trashcan_sf.glb",
-   "name": "vendor-fable51-worlds-trashcan-sf"
+   "name": "vendor-fable51-worlds-trashcan-sf",
+   "targetLengthM": 1.1
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/tree_grate.glb",
-   "name": "vendor-fable51-worlds-tree-grate"
+   "name": "vendor-fable51-worlds-tree-grate",
+   "targetLengthM": 1.5
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/tree_guard.glb",
-   "name": "vendor-fable51-worlds-tree-guard"
+   "name": "vendor-fable51-worlds-tree-guard",
+   "targetLengthM": 1.46
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/utility_box.glb",
-   "name": "vendor-fable51-worlds-utility-box"
+   "name": "vendor-fable51-worlds-utility-box",
+   "targetLengthM": 1.38
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/street/utility_box_small.glb",
-   "name": "vendor-fable51-worlds-utility-box-small"
+   "name": "vendor-fable51-worlds-utility-box-small",
+   "targetLengthM": 0.92
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/christmas_tree_big.glb",
-   "name": "vendor-fable51-worlds-christmas-tree-big"
+   "name": "vendor-fable51-worlds-christmas-tree-big",
+   "targetLengthM": 25.612
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/flowerbed_1m.glb",
-   "name": "vendor-fable51-worlds-flowerbed-1m"
+   "name": "vendor-fable51-worlds-flowerbed-1m",
+   "targetLengthM": 1.035
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/grass_patch.glb",
-   "name": "vendor-fable51-worlds-grass-patch"
+   "name": "vendor-fable51-worlds-grass-patch",
+   "targetLengthM": 1.0
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/hedge_1m.glb",
-   "name": "vendor-fable51-worlds-hedge-1m"
+   "name": "vendor-fable51-worlds-hedge-1m",
+   "targetLengthM": 1.125
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/hedge_1m_low.glb",
-   "name": "vendor-fable51-worlds-hedge-1m-low"
+   "name": "vendor-fable51-worlds-hedge-1m-low",
+   "targetLengthM": 1.194
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/palm_canary.glb",
-   "name": "vendor-fable51-worlds-palm-canary"
+   "name": "vendor-fable51-worlds-palm-canary",
+   "targetLengthM": 9.875
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/palm_canary_lod1.glb",
-   "name": "vendor-fable51-worlds-palm-canary-lod1"
+   "name": "vendor-fable51-worlds-palm-canary-lod1",
+   "targetLengthM": 10.079
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/palm_canary_short.glb",
-   "name": "vendor-fable51-worlds-palm-canary-short"
+   "name": "vendor-fable51-worlds-palm-canary-short",
+   "targetLengthM": 9.73
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/planter_shrubs.glb",
-   "name": "vendor-fable51-worlds-planter-shrubs"
+   "name": "vendor-fable51-worlds-planter-shrubs",
+   "targetLengthM": 1.2
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/shrub_box.glb",
-   "name": "vendor-fable51-worlds-shrub-box"
+   "name": "vendor-fable51-worlds-shrub-box",
+   "targetLengthM": 0.714
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/tree_ficus_indoor.glb",
-   "name": "vendor-fable51-worlds-tree-ficus-indoor"
+   "name": "vendor-fable51-worlds-tree-ficus-indoor",
+   "targetLengthM": 4.835
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/tree_ficus_lod1.glb",
-   "name": "vendor-fable51-worlds-tree-ficus-lod1"
+   "name": "vendor-fable51-worlds-tree-ficus-lod1",
+   "targetLengthM": 4.879
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/tree_olive.glb",
-   "name": "vendor-fable51-worlds-tree-olive"
+   "name": "vendor-fable51-worlds-tree-olive",
+   "targetLengthM": 5.614
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/tree_plane.glb",
-   "name": "vendor-fable51-worlds-tree-plane"
+   "name": "vendor-fable51-worlds-tree-plane",
+   "targetLengthM": 10.122
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/tree_plane_lod1.glb",
-   "name": "vendor-fable51-worlds-tree-plane-lod1"
+   "name": "vendor-fable51-worlds-tree-plane-lod1",
+   "targetLengthM": 9.989
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/tree_street_small.glb",
-   "name": "vendor-fable51-worlds-tree-street-small"
+   "name": "vendor-fable51-worlds-tree-street-small",
+   "targetLengthM": 4.301
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/tree_street_small_lod1.glb",
-   "name": "vendor-fable51-worlds-tree-street-small-lod1"
+   "name": "vendor-fable51-worlds-tree-street-small-lod1",
+   "targetLengthM": 4.461
   },
   {
    "category": "vegetation",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/veg/vine_wall_2m.glb",
-   "name": "vendor-fable51-worlds-vine-wall-2m"
+   "name": "vendor-fable51-worlds-vine-wall-2m",
+   "targetLengthM": 3.356
   },
   {
    "category": "vehicle",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/bicycle.glb",
-   "name": "vendor-fable51-worlds-bicycle"
+   "name": "vendor-fable51-worlds-bicycle",
+   "targetLengthM": 1.187
   },
   {
    "category": "vehicle",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/box_truck.glb",
-   "name": "vendor-fable51-worlds-box-truck"
+   "name": "vendor-fable51-worlds-box-truck",
+   "targetLengthM": 6.7
   },
   {
    "category": "vehicle",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/bus_muni.glb",
-   "name": "vendor-fable51-worlds-bus-muni"
+   "name": "vendor-fable51-worlds-bus-muni",
+   "targetLengthM": 12.44
   },
   {
    "category": "vehicle",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/bus_tour.glb",
-   "name": "vendor-fable51-worlds-bus-tour"
+   "name": "vendor-fable51-worlds-bus-tour",
+   "targetLengthM": 11.24
   },
   {
    "category": "vehicle",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/cable_car_powell.glb",
-   "name": "vendor-fable51-worlds-cable-car-powell"
+   "name": "vendor-fable51-worlds-cable-car-powell",
+   "targetLengthM": 8.9
   },
   {
    "category": "vehicle",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/hatch.glb",
-   "name": "vendor-fable51-worlds-hatch"
+   "name": "vendor-fable51-worlds-hatch",
+   "targetLengthM": 4.4
   },
   {
    "category": "vehicle",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/police_suv.glb",
-   "name": "vendor-fable51-worlds-police-suv"
+   "name": "vendor-fable51-worlds-police-suv",
+   "targetLengthM": 5.16
   },
   {
    "category": "vehicle",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/scooter_share.glb",
-   "name": "vendor-fable51-worlds-scooter-share"
+   "name": "vendor-fable51-worlds-scooter-share",
+   "targetLengthM": 1.071
   },
   {
    "category": "vehicle",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/sedan.glb",
-   "name": "vendor-fable51-worlds-sedan"
+   "name": "vendor-fable51-worlds-sedan",
+   "targetLengthM": 4.9
   },
   {
    "category": "vehicle",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/suv.glb",
-   "name": "vendor-fable51-worlds-suv"
+   "name": "vendor-fable51-worlds-suv",
+   "targetLengthM": 5.1
   },
   {
    "category": "vehicle",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/taxi.glb",
-   "name": "vendor-fable51-worlds-taxi"
+   "name": "vendor-fable51-worlds-taxi",
+   "targetLengthM": 4.9
   },
   {
    "category": "vehicle",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/van_delivery.glb",
-   "name": "vendor-fable51-worlds-van-delivery"
+   "name": "vendor-fable51-worlds-van-delivery",
+   "targetLengthM": 5.7
   },
   {
    "category": "vehicle",
    "file": "vendor/fable51-worlds/union-square-sf/public/assets/models/vehicles/wheel_generic.glb",
-   "name": "vendor-fable51-worlds-wheel-generic"
+   "name": "vendor-fable51-worlds-wheel-generic",
+   "targetLengthM": 0.66
   },
   {
    "category": "character",
    "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Animations/Rig_Medium_General.glb",
-   "name": "vendor-branch-zero-rig-medium-general"
+   "name": "vendor-branch-zero-rig-medium-general",
+   "targetLengthM": 1.105
   },
   {
    "category": "character",
    "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Animations/Rig_Medium_MovementBasic.glb",
-   "name": "vendor-branch-zero-rig-medium-movementbasic"
+   "name": "vendor-branch-zero-rig-medium-movementbasic",
+   "targetLengthM": 1.105
   },
   {
    "category": "character",
    "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Animations/Rig_Medium_Simulation.glb",
-   "name": "vendor-branch-zero-rig-medium-simulation"
+   "name": "vendor-branch-zero-rig-medium-simulation",
+   "targetLengthM": 1.105
   },
   {
    "category": "character",
    "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Characters/Barbarian.glb",
-   "name": "vendor-branch-zero-barbarian"
+   "name": "vendor-branch-zero-barbarian",
+   "targetLengthM": 1.264
   },
   {
    "category": "character",
    "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Characters/Bob_jacket_cape.glb",
-   "name": "vendor-branch-zero-bob-jacket-cape"
+   "name": "vendor-branch-zero-bob-jacket-cape",
+   "targetLengthM": 1.142
   },
   {
    "category": "character",
    "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Characters/Johnny_jacket.glb",
-   "name": "vendor-branch-zero-johnny-jacket"
+   "name": "vendor-branch-zero-johnny-jacket",
+   "targetLengthM": 1.086
   },
   {
    "category": "character",
    "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Characters/Knight.glb",
-   "name": "vendor-branch-zero-knight"
+   "name": "vendor-branch-zero-knight",
+   "targetLengthM": 1.299
   },
   {
    "category": "character",
    "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Characters/Mage.glb",
-   "name": "vendor-branch-zero-mage"
+   "name": "vendor-branch-zero-mage",
+   "targetLengthM": 1.966
   },
   {
    "category": "character",
    "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Characters/Mage_jacket_nocape.glb",
-   "name": "vendor-branch-zero-mage-jacket-nocape"
+   "name": "vendor-branch-zero-mage-jacket-nocape",
+   "targetLengthM": 1.14
   },
   {
    "category": "character",
    "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Characters/Ranger.glb",
-   "name": "vendor-branch-zero-ranger"
+   "name": "vendor-branch-zero-ranger",
+   "targetLengthM": 1.142
   },
   {
    "category": "character",
    "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Characters/Ranger_jacket_nocape.glb",
-   "name": "vendor-branch-zero-ranger-jacket-nocape"
+   "name": "vendor-branch-zero-ranger-jacket-nocape",
+   "targetLengthM": 1.085
   },
   {
    "category": "character",
    "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Characters/Rogue.glb",
-   "name": "vendor-branch-zero-rogue"
+   "name": "vendor-branch-zero-rogue",
+   "targetLengthM": 1.144
   },
   {
    "category": "character",
    "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Characters/Rogue_Hooded.glb",
-   "name": "vendor-branch-zero-rogue-hooded"
+   "name": "vendor-branch-zero-rogue-hooded",
+   "targetLengthM": 1.142
   },
   {
    "category": "character",
    "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Characters/Rogue_jacket_nocape.glb",
-   "name": "vendor-branch-zero-rogue-jacket-nocape"
+   "name": "vendor-branch-zero-rogue-jacket-nocape",
+   "targetLengthM": 1.144
   },
   {
    "category": "character",
    "file": "vendor/branch-zero/apps/game/assets/characters/kaykit_adventurers/Characters/Walker_jacket.glb",
-   "name": "vendor-branch-zero-walker-jacket"
+   "name": "vendor-branch-zero-walker-jacket",
+   "targetLengthM": 1.085
   },
   {
    "category": "character",
    "file": "vendor/branch-zero/apps/game/assets/characters/kenney_staff/bank_staff.glb",
-   "name": "vendor-branch-zero-bank-staff"
+   "name": "vendor-branch-zero-bank-staff",
+   "targetLengthM": 4.113
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/fx_unicorn/unicorn_pink.glb",
-   "name": "vendor-branch-zero-unicorn-pink"
+   "name": "vendor-branch-zero-unicorn-pink",
+   "targetLengthM": 5.217
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_board_frame.glb",
-   "name": "vendor-branch-zero-prop-board-frame"
+   "name": "vendor-branch-zero-prop-board-frame",
+   "targetLengthM": 8.76
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_counter.glb",
-   "name": "vendor-branch-zero-prop-counter"
+   "name": "vendor-branch-zero-prop-counter",
+   "targetLengthM": 3.72
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_elevator_lantern.glb",
-   "name": "vendor-branch-zero-prop-elevator-lantern"
+   "name": "vendor-branch-zero-prop-elevator-lantern",
+   "targetLengthM": 0.7
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_elevator_panel.glb",
-   "name": "vendor-branch-zero-prop-elevator-panel"
+   "name": "vendor-branch-zero-prop-elevator-panel",
+   "targetLengthM": 0.44
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_engraver.glb",
-   "name": "vendor-branch-zero-prop-engraver"
+   "name": "vendor-branch-zero-prop-engraver",
+   "targetLengthM": 0.5
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_names_board_frame.glb",
-   "name": "vendor-branch-zero-prop-names-board-frame"
+   "name": "vendor-branch-zero-prop-names-board-frame",
+   "targetLengthM": 2.96
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_pendant_lamp.glb",
-   "name": "vendor-branch-zero-prop-pendant-lamp"
+   "name": "vendor-branch-zero-prop-pendant-lamp",
+   "targetLengthM": 0.934
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_printer.glb",
-   "name": "vendor-branch-zero-prop-printer"
+   "name": "vendor-branch-zero-prop-printer",
+   "targetLengthM": 0.5
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_rope_post.glb",
-   "name": "vendor-branch-zero-prop-rope-post"
+   "name": "vendor-branch-zero-prop-rope-post",
+   "targetLengthM": 1
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_shredder.glb",
-   "name": "vendor-branch-zero-prop-shredder"
+   "name": "vendor-branch-zero-prop-shredder",
+   "targetLengthM": 0.835
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_stamp.glb",
-   "name": "vendor-branch-zero-prop-stamp"
+   "name": "vendor-branch-zero-prop-stamp",
+   "targetLengthM": 0.24
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_vault_door.glb",
-   "name": "vendor-branch-zero-prop-vault-door"
+   "name": "vendor-branch-zero-prop-vault-door",
+   "targetLengthM": 3.41
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_vault_frame.glb",
-   "name": "vendor-branch-zero-prop-vault-frame"
+   "name": "vendor-branch-zero-prop-vault-frame",
+   "targetLengthM": 4.95
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_vault_repeater.glb",
-   "name": "vendor-branch-zero-prop-vault-repeater"
+   "name": "vendor-branch-zero-prop-vault-repeater",
+   "targetLengthM": 4.1
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/hero/prop_water_cooler.glb",
-   "name": "vendor-branch-zero-prop-water-cooler"
+   "name": "vendor-branch-zero-prop-water-cooler",
+   "targetLengthM": 0.95
   },
   {
    "category": "character",
    "file": "vendor/branch-zero/apps/game/assets/models/inpc/gum_bot_bank.glb",
-   "name": "vendor-branch-zero-gum-bot-bank"
+   "name": "vendor-branch-zero-gum-bot-bank",
+   "targetLengthM": 0.639
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/book_set.glb",
-   "name": "vendor-branch-zero-book-set"
+   "name": "vendor-branch-zero-book-set",
+   "targetLengthM": 0.78
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/cabinet_medium.glb",
-   "name": "vendor-branch-zero-cabinet-medium"
+   "name": "vendor-branch-zero-cabinet-medium",
+   "targetLengthM": 2
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/cabinet_medium_decorated.glb",
-   "name": "vendor-branch-zero-cabinet-medium-decorated"
+   "name": "vendor-branch-zero-cabinet-medium-decorated",
+   "targetLengthM": 2.042
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/chair_A.glb",
-   "name": "vendor-branch-zero-chair-a"
+   "name": "vendor-branch-zero-chair-a",
+   "targetLengthM": 1.258
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/chair_stool.glb",
-   "name": "vendor-branch-zero-chair-stool"
+   "name": "vendor-branch-zero-chair-stool",
+   "targetLengthM": 0.75
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/couch.glb",
-   "name": "vendor-branch-zero-couch"
+   "name": "vendor-branch-zero-couch",
+   "targetLengthM": 3.0
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/lamp_standing.glb",
-   "name": "vendor-branch-zero-lamp-standing"
+   "name": "vendor-branch-zero-lamp-standing",
+   "targetLengthM": 2.52
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/lamp_table.glb",
-   "name": "vendor-branch-zero-lamp-table"
+   "name": "vendor-branch-zero-lamp-table",
+   "targetLengthM": 1.022
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/pictureframe_large_A.glb",
-   "name": "vendor-branch-zero-pictureframe-large-a"
+   "name": "vendor-branch-zero-pictureframe-large-a",
+   "targetLengthM": 1.2
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/pictureframe_large_B.glb",
-   "name": "vendor-branch-zero-pictureframe-large-b"
+   "name": "vendor-branch-zero-pictureframe-large-b",
+   "targetLengthM": 2.0
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/pictureframe_medium.glb",
-   "name": "vendor-branch-zero-pictureframe-medium"
+   "name": "vendor-branch-zero-pictureframe-medium",
+   "targetLengthM": 0.9
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/rug_oval_B.glb",
-   "name": "vendor-branch-zero-rug-oval-b"
+   "name": "vendor-branch-zero-rug-oval-b",
+   "targetLengthM": 3.0
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/rug_rectangle_stripes_B.glb",
-   "name": "vendor-branch-zero-rug-rectangle-stripes-b"
+   "name": "vendor-branch-zero-rug-rectangle-stripes-b",
+   "targetLengthM": 3.0
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/shelf_B_large_decorated.glb",
-   "name": "vendor-branch-zero-shelf-b-large-decorated"
+   "name": "vendor-branch-zero-shelf-b-large-decorated",
+   "targetLengthM": 2.0
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kaykit_furniture/table_small.glb",
-   "name": "vendor-branch-zero-table-small"
+   "name": "vendor-branch-zero-table-small",
+   "targetLengthM": 1.0
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kenney_furniture/bookcaseOpen.glb",
-   "name": "vendor-branch-zero-bookcaseopen"
+   "name": "vendor-branch-zero-bookcaseopen",
+   "targetLengthM": 0.88
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kenney_furniture/bookcaseOpenLow.glb",
-   "name": "vendor-branch-zero-bookcaseopenlow"
+   "name": "vendor-branch-zero-bookcaseopenlow",
+   "targetLengthM": 0.4
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kenney_furniture/chairCushion.glb",
-   "name": "vendor-branch-zero-chaircushion"
+   "name": "vendor-branch-zero-chaircushion",
+   "targetLengthM": 0.46
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kenney_furniture/chairDesk.glb",
-   "name": "vendor-branch-zero-chairdesk"
+   "name": "vendor-branch-zero-chairdesk",
+   "targetLengthM": 0.418
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kenney_furniture/coatRackStanding.glb",
-   "name": "vendor-branch-zero-coatrackstanding"
+   "name": "vendor-branch-zero-coatrackstanding",
+   "targetLengthM": 0.77
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kenney_furniture/computerKeyboard.glb",
-   "name": "vendor-branch-zero-computerkeyboard"
+   "name": "vendor-branch-zero-computerkeyboard",
+   "targetLengthM": 0.282
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kenney_furniture/computerScreen.glb",
-   "name": "vendor-branch-zero-computerscreen"
+   "name": "vendor-branch-zero-computerscreen",
+   "targetLengthM": 0.393
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kenney_furniture/desk.glb",
-   "name": "vendor-branch-zero-desk"
+   "name": "vendor-branch-zero-desk",
+   "targetLengthM": 0.734
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kenney_furniture/doorwayFront.glb",
-   "name": "vendor-branch-zero-doorwayfront"
+   "name": "vendor-branch-zero-doorwayfront",
+   "targetLengthM": 1.01
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kenney_furniture/lampSquareCeiling.glb",
-   "name": "vendor-branch-zero-lampsquareceiling"
+   "name": "vendor-branch-zero-lampsquareceiling",
+   "targetLengthM": 0.23
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kenney_furniture/rugDoormat.glb",
-   "name": "vendor-branch-zero-rugdoormat"
+   "name": "vendor-branch-zero-rugdoormat",
+   "targetLengthM": 0.429
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kenney_furniture/rugRectangle.glb",
-   "name": "vendor-branch-zero-rugrectangle"
+   "name": "vendor-branch-zero-rugrectangle",
+   "targetLengthM": 1.57
   },
   {
    "category": "vegetation",
    "file": "vendor/branch-zero/apps/game/assets/models/kenney_nature/flower_redA.glb",
-   "name": "vendor-branch-zero-flower-reda"
+   "name": "vendor-branch-zero-flower-reda",
+   "targetLengthM": 0.292
   },
   {
    "category": "vehicle",
    "file": "vendor/branch-zero/apps/game/assets/models/kenney_nature/plant_bushDetailed.glb",
-   "name": "vendor-branch-zero-plant-bushdetailed"
+   "name": "vendor-branch-zero-plant-bushdetailed",
+   "targetLengthM": 0.603
   },
   {
    "category": "vehicle",
    "file": "vendor/branch-zero/apps/game/assets/models/kenney_nature/plant_bushSmall.glb",
-   "name": "vendor-branch-zero-plant-bushsmall"
+   "name": "vendor-branch-zero-plant-bushsmall",
+   "targetLengthM": 0.383
   },
   {
    "category": "vegetation",
    "file": "vendor/branch-zero/apps/game/assets/models/kenney_nature/plant_flatShort.glb",
-   "name": "vendor-branch-zero-plant-flatshort"
+   "name": "vendor-branch-zero-plant-flatshort",
+   "targetLengthM": 0.278
   },
   {
    "category": "vegetation",
    "file": "vendor/branch-zero/apps/game/assets/models/kenney_nature/plant_flatTall.glb",
-   "name": "vendor-branch-zero-plant-flattall"
+   "name": "vendor-branch-zero-plant-flattall",
+   "targetLengthM": 0.284
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kenney_nature/pot_large.glb",
-   "name": "vendor-branch-zero-pot-large"
+   "name": "vendor-branch-zero-pot-large",
+   "targetLengthM": 0.564
   },
   {
    "category": "prop",
    "file": "vendor/branch-zero/apps/game/assets/models/kenney_nature/pot_small.glb",
-   "name": "vendor-branch-zero-pot-small"
+   "name": "vendor-branch-zero-pot-small",
+   "targetLengthM": 0.323
   },
   {
    "category": "vegetation",
    "file": "vendor/branch-zero/apps/game/assets/models/kenney_nature/tree_palmShort.glb",
-   "name": "vendor-branch-zero-tree-palmshort"
+   "name": "vendor-branch-zero-tree-palmshort",
+   "targetLengthM": 1.056
   },
   {
    "category": "vegetation",
    "file": "vendor/branch-zero/apps/game/assets/models/kenney_nature/tree_small_dark.glb",
-   "name": "vendor-branch-zero-tree-small-dark"
+   "name": "vendor-branch-zero-tree-small-dark",
+   "targetLengthM": 1.11
   },
   {
    "category": "vegetation",
    "file": "vendor/branch-zero/apps/game/assets/models/kenney_nature/tree_thin.glb",
-   "name": "vendor-branch-zero-tree-thin"
+   "name": "vendor-branch-zero-tree-thin",
+   "targetLengthM": 1.49
   },
   {
    "category": "prop",
    "file": "vendor/gravewake/models/altar.glb",
-   "name": "vendor-gravewake-altar"
+   "name": "vendor-gravewake-altar",
+   "targetLengthM": 3.495
   },
   {
    "category": "building",
    "file": "vendor/gravewake/models/archer.glb",
-   "name": "vendor-gravewake-archer"
+   "name": "vendor-gravewake-archer",
+   "targetLengthM": 2.412
   },
   {
    "category": "prop",
    "file": "vendor/gravewake/models/banshee.glb",
-   "name": "vendor-gravewake-banshee"
+   "name": "vendor-gravewake-banshee",
+   "targetLengthM": 1.612
   },
   {
    "category": "prop",
    "file": "vendor/gravewake/models/barrow.glb",
-   "name": "vendor-gravewake-barrow"
+   "name": "vendor-gravewake-barrow",
+   "targetLengthM": 2.561
   },
   {
    "category": "prop",
    "file": "vendor/gravewake/models/blightskull.glb",
-   "name": "vendor-gravewake-blightskull"
+   "name": "vendor-gravewake-blightskull",
+   "targetLengthM": 1.414
   },
   {
    "category": "prop",
    "file": "vendor/gravewake/models/bloat.glb",
-   "name": "vendor-gravewake-bloat"
+   "name": "vendor-gravewake-bloat",
+   "targetLengthM": 1.545
   },
   {
    "category": "prop",
    "file": "vendor/gravewake/models/bones.glb",
-   "name": "vendor-gravewake-bones"
+   "name": "vendor-gravewake-bones",
+   "targetLengthM": 1.337
   },
   {
    "category": "weapon",
    "file": "vendor/gravewake/models/catapult.glb",
-   "name": "vendor-gravewake-catapult"
+   "name": "vendor-gravewake-catapult",
+   "targetLengthM": 1.58
   },
   {
    "category": "prop",
    "file": "vendor/gravewake/models/colossus.glb",
-   "name": "vendor-gravewake-colossus"
+   "name": "vendor-gravewake-colossus",
+   "targetLengthM": 2.34
   },
   {
    "category": "prop",
    "file": "vendor/gravewake/models/crawler.glb",
-   "name": "vendor-gravewake-crawler"
+   "name": "vendor-gravewake-crawler",
+   "targetLengthM": 0.992
   },
   {
    "category": "prop",
    "file": "vendor/gravewake/models/ghoul.glb",
-   "name": "vendor-gravewake-ghoul"
+   "name": "vendor-gravewake-ghoul",
+   "targetLengthM": 1.097
   },
   {
    "category": "vegetation",
    "file": "vendor/gravewake/models/grass.glb",
-   "name": "vendor-gravewake-grass"
+   "name": "vendor-gravewake-grass",
+   "targetLengthM": 0.785
   },
   {
    "category": "prop",
    "file": "vendor/gravewake/models/grave.glb",
-   "name": "vendor-gravewake-grave"
+   "name": "vendor-gravewake-grave",
+   "targetLengthM": 1.962
   },
   {
    "category": "prop",
    "file": "vendor/gravewake/models/lantern.glb",
-   "name": "vendor-gravewake-lantern"
+   "name": "vendor-gravewake-lantern",
+   "targetLengthM": 1.785
   },
   {
    "category": "prop",
    "file": "vendor/gravewake/models/lich.glb",
-   "name": "vendor-gravewake-lich"
+   "name": "vendor-gravewake-lich",
+   "targetLengthM": 1.263
   },
   {
    "category": "prop",
    "file": "vendor/gravewake/models/necromancer.glb",
-   "name": "vendor-gravewake-necromancer"
+   "name": "vendor-gravewake-necromancer",
+   "targetLengthM": 2.379
   },
   {
    "category": "prop",
    "file": "vendor/gravewake/models/rocks.glb",
-   "name": "vendor-gravewake-rocks"
+   "name": "vendor-gravewake-rocks",
+   "targetLengthM": 1.021
   },
   {
    "category": "prop",
    "file": "vendor/gravewake/models/roots.glb",
-   "name": "vendor-gravewake-roots"
+   "name": "vendor-gravewake-roots",
+   "targetLengthM": 5.312
   },
   {
    "category": "prop",
    "file": "vendor/gravewake/models/ruin.glb",
-   "name": "vendor-gravewake-ruin"
+   "name": "vendor-gravewake-ruin",
+   "targetLengthM": 2.3
   },
   {
    "category": "prop",
    "file": "vendor/gravewake/models/skeleton.glb",
-   "name": "vendor-gravewake-skeleton"
+   "name": "vendor-gravewake-skeleton",
+   "targetLengthM": 0.823
   },
   {
    "category": "prop",
    "file": "vendor/gravewake/models/snag.glb",
-   "name": "vendor-gravewake-snag"
+   "name": "vendor-gravewake-snag",
+   "targetLengthM": 4.89
   },
   {
    "category": "prop",
    "file": "vendor/gravewake/models/statue.glb",
-   "name": "vendor-gravewake-statue"
+   "name": "vendor-gravewake-statue",
+   "targetLengthM": 2.95
   },
   {
    "category": "vegetation",
    "file": "vendor/gravewake/models/tree.glb",
-   "name": "vendor-gravewake-tree"
+   "name": "vendor-gravewake-tree",
+   "targetLengthM": 4.155
   },
   {
    "category": "prop",
    "file": "vendor/gravewake/models/warden.glb",
-   "name": "vendor-gravewake-warden"
+   "name": "vendor-gravewake-warden",
+   "targetLengthM": 1.619
   },
   {
    "category": "prop",
    "file": "vendor/gravewake/models/wizard.glb",
-   "name": "vendor-gravewake-wizard"
+   "name": "vendor-gravewake-wizard",
+   "targetLengthM": 1.836
   },
   {
    "category": "prop",
    "file": "vendor/gravewake/models/wraith.glb",
-   "name": "vendor-gravewake-wraith"
+   "name": "vendor-gravewake-wraith",
+   "targetLengthM": 1.812
   },
   {
    "category": "vehicle",
    "file": "vendor/sakura-rally/assets/models/car/hayate.glb",
-   "name": "vendor-sakura-rally-hayate"
+   "name": "vendor-sakura-rally-hayate",
+   "targetLengthM": 4.22
   },
   {
    "category": "vehicle",
    "file": "vendor/sakura-rally/assets/models/car/rally_car.glb",
-   "name": "vendor-sakura-rally-rally-car"
+   "name": "vendor-sakura-rally-rally-car",
+   "targetLengthM": 4.329
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/azalea.glb",
-   "name": "vendor-sakura-rally-azalea"
+   "name": "vendor-sakura-rally-azalea",
+   "targetLengthM": 2.462
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/bamboo_clump.glb",
-   "name": "vendor-sakura-rally-bamboo-clump"
+   "name": "vendor-sakura-rally-bamboo-clump",
+   "targetLengthM": 8.68
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/banner_fence.glb",
-   "name": "vendor-sakura-rally-banner-fence"
+   "name": "vendor-sakura-rally-banner-fence",
+   "targetLengthM": 3.12
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/bench.glb",
-   "name": "vendor-sakura-rally-bench"
+   "name": "vendor-sakura-rally-bench",
+   "targetLengthM": 1.8
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/boulder.glb",
-   "name": "vendor-sakura-rally-boulder"
+   "name": "vendor-sakura-rally-boulder",
+   "targetLengthM": 4.287
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/bridge_rail.glb",
-   "name": "vendor-sakura-rally-bridge-rail"
+   "name": "vendor-sakura-rally-bridge-rail",
+   "targetLengthM": 4
   },
   {
    "category": "vehicle",
    "file": "vendor/sakura-rally/assets/models/props/bus_stop.glb",
-   "name": "vendor-sakura-rally-bus-stop"
+   "name": "vendor-sakura-rally-bus-stop",
+   "targetLengthM": 3.47
   },
   {
    "category": "vehicle",
    "file": "vendor/sakura-rally/assets/models/props/bush_a.glb",
-   "name": "vendor-sakura-rally-bush-a"
+   "name": "vendor-sakura-rally-bush-a",
+   "targetLengthM": 1.722
   },
   {
    "category": "vehicle",
    "file": "vendor/sakura-rally/assets/models/props/bush_b.glb",
-   "name": "vendor-sakura-rally-bush-b"
+   "name": "vendor-sakura-rally-bush-b",
+   "targetLengthM": 1.698
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/cedar_a.glb",
-   "name": "vendor-sakura-rally-cedar-a"
+   "name": "vendor-sakura-rally-cedar-a",
+   "targetLengthM": 12.5
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/cedar_b.glb",
-   "name": "vendor-sakura-rally-cedar-b"
+   "name": "vendor-sakura-rally-cedar-b",
+   "targetLengthM": 14.513
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/checkpoint_gate.glb",
-   "name": "vendor-sakura-rally-checkpoint-gate"
+   "name": "vendor-sakura-rally-checkpoint-gate",
+   "targetLengthM": 11.2
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/cliff_a.glb",
-   "name": "vendor-sakura-rally-cliff-a"
+   "name": "vendor-sakura-rally-cliff-a",
+   "targetLengthM": 14.129
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/cliff_b.glb",
-   "name": "vendor-sakura-rally-cliff-b"
+   "name": "vendor-sakura-rally-cliff-b",
+   "targetLengthM": 15.526
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/corner_chevron_left.glb",
-   "name": "vendor-sakura-rally-corner-chevron-left"
+   "name": "vendor-sakura-rally-corner-chevron-left",
+   "targetLengthM": 2.4
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/corner_chevron_rail_left.glb",
-   "name": "vendor-sakura-rally-corner-chevron-rail-left"
+   "name": "vendor-sakura-rally-corner-chevron-rail-left",
+   "targetLengthM": 1.66
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/corner_chevron_rail_right.glb",
-   "name": "vendor-sakura-rally-corner-chevron-rail-right"
+   "name": "vendor-sakura-rally-corner-chevron-rail-right",
+   "targetLengthM": 1.66
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/corner_chevron_right.glb",
-   "name": "vendor-sakura-rally-corner-chevron-right"
+   "name": "vendor-sakura-rally-corner-chevron-right",
+   "targetLengthM": 2.4
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/corner_warn_curve_left.glb",
-   "name": "vendor-sakura-rally-corner-warn-curve-left"
+   "name": "vendor-sakura-rally-corner-warn-curve-left",
+   "targetLengthM": 4.606
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/corner_warn_curve_right.glb",
-   "name": "vendor-sakura-rally-corner-warn-curve-right"
+   "name": "vendor-sakura-rally-corner-warn-curve-right",
+   "targetLengthM": 4.606
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/corner_warn_hairpin_left.glb",
-   "name": "vendor-sakura-rally-corner-warn-hairpin-left"
+   "name": "vendor-sakura-rally-corner-warn-hairpin-left",
+   "targetLengthM": 4.606
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/corner_warn_hairpin_right.glb",
-   "name": "vendor-sakura-rally-corner-warn-hairpin-right"
+   "name": "vendor-sakura-rally-corner-warn-hairpin-right",
+   "targetLengthM": 4.606
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/corner_warn_series_left.glb",
-   "name": "vendor-sakura-rally-corner-warn-series-left"
+   "name": "vendor-sakura-rally-corner-warn-series-left",
+   "targetLengthM": 4.606
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/corner_warn_series_right.glb",
-   "name": "vendor-sakura-rally-corner-warn-series-right"
+   "name": "vendor-sakura-rally-corner-warn-series-right",
+   "targetLengthM": 4.606
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/corner_warn_sharp_left.glb",
-   "name": "vendor-sakura-rally-corner-warn-sharp-left"
+   "name": "vendor-sakura-rally-corner-warn-sharp-left",
+   "targetLengthM": 4.606
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/corner_warn_sharp_right.glb",
-   "name": "vendor-sakura-rally-corner-warn-sharp-right"
+   "name": "vendor-sakura-rally-corner-warn-sharp-right",
+   "targetLengthM": 4.606
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/distance_board_100.glb",
-   "name": "vendor-sakura-rally-distance-board-100"
+   "name": "vendor-sakura-rally-distance-board-100",
+   "targetLengthM": 1.7
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/distance_board_50.glb",
-   "name": "vendor-sakura-rally-distance-board-50"
+   "name": "vendor-sakura-rally-distance-board-50",
+   "targetLengthM": 1.7
   },
   {
    "category": "building",
    "file": "vendor/sakura-rally/assets/models/props/farmhouse_a.glb",
-   "name": "vendor-sakura-rally-farmhouse-a"
+   "name": "vendor-sakura-rally-farmhouse-a",
+   "targetLengthM": 10.45
   },
   {
    "category": "building",
    "file": "vendor/sakura-rally/assets/models/props/farmhouse_b.glb",
-   "name": "vendor-sakura-rally-farmhouse-b"
+   "name": "vendor-sakura-rally-farmhouse-b",
+   "targetLengthM": 11.4
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/fence_bamboo.glb",
-   "name": "vendor-sakura-rally-fence-bamboo"
+   "name": "vendor-sakura-rally-fence-bamboo",
+   "targetLengthM": 2.05
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/fence_wood.glb",
-   "name": "vendor-sakura-rally-fence-wood"
+   "name": "vendor-sakura-rally-fence-wood",
+   "targetLengthM": 2.06
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/fern.glb",
-   "name": "vendor-sakura-rally-fern"
+   "name": "vendor-sakura-rally-fern",
+   "targetLengthM": 1.683
   },
   {
    "category": "building",
    "file": "vendor/sakura-rally/assets/models/props/finish_arch.glb",
-   "name": "vendor-sakura-rally-finish-arch"
+   "name": "vendor-sakura-rally-finish-arch",
+   "targetLengthM": 11.2
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/flag_pole.glb",
-   "name": "vendor-sakura-rally-flag-pole"
+   "name": "vendor-sakura-rally-flag-pole",
+   "targetLengthM": 5.0
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/flag_pole_blue.glb",
-   "name": "vendor-sakura-rally-flag-pole-blue"
+   "name": "vendor-sakura-rally-flag-pole-blue",
+   "targetLengthM": 5.0
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/flag_pole_pink.glb",
-   "name": "vendor-sakura-rally-flag-pole-pink"
+   "name": "vendor-sakura-rally-flag-pole-pink",
+   "targetLengthM": 5.0
   },
   {
    "category": "vegetation",
    "file": "vendor/sakura-rally/assets/models/props/flowers_patch.glb",
-   "name": "vendor-sakura-rally-flowers-patch"
+   "name": "vendor-sakura-rally-flowers-patch",
+   "targetLengthM": 0.38
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/garage_nobori.glb",
-   "name": "vendor-sakura-rally-garage-nobori"
+   "name": "vendor-sakura-rally-garage-nobori",
+   "targetLengthM": 4.4
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/garage_tyres.glb",
-   "name": "vendor-sakura-rally-garage-tyres"
+   "name": "vendor-sakura-rally-garage-tyres",
+   "targetLengthM": 1.4
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/garage_workshop.glb",
-   "name": "vendor-sakura-rally-garage-workshop"
+   "name": "vendor-sakura-rally-garage-workshop",
+   "targetLengthM": 15.0
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/ginkgo.glb",
-   "name": "vendor-sakura-rally-ginkgo"
+   "name": "vendor-sakura-rally-ginkgo",
+   "targetLengthM": 7.66
   },
   {
    "category": "vegetation",
    "file": "vendor/sakura-rally/assets/models/props/grass_tuft.glb",
-   "name": "vendor-sakura-rally-grass-tuft"
+   "name": "vendor-sakura-rally-grass-tuft",
+   "targetLengthM": 0.448
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/guardrail.glb",
-   "name": "vendor-sakura-rally-guardrail"
+   "name": "vendor-sakura-rally-guardrail",
+   "targetLengthM": 4
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/hay_bale_round.glb",
-   "name": "vendor-sakura-rally-hay-bale-round"
+   "name": "vendor-sakura-rally-hay-bale-round",
+   "targetLengthM": 1.42
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/hay_bale_square.glb",
-   "name": "vendor-sakura-rally-hay-bale-square"
+   "name": "vendor-sakura-rally-hay-bale-square",
+   "targetLengthM": 1.88
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/hazagi.glb",
-   "name": "vendor-sakura-rally-hazagi"
+   "name": "vendor-sakura-rally-hazagi",
+   "targetLengthM": 4.7
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/hokora.glb",
-   "name": "vendor-sakura-rally-hokora"
+   "name": "vendor-sakura-rally-hokora",
+   "targetLengthM": 0.9
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/jizo.glb",
-   "name": "vendor-sakura-rally-jizo"
+   "name": "vendor-sakura-rally-jizo",
+   "targetLengthM": 0.796
   },
   {
    "category": "vehicle",
    "file": "vendor/sakura-rally/assets/models/props/kei_truck.glb",
-   "name": "vendor-sakura-rally-kei-truck"
+   "name": "vendor-sakura-rally-kei-truck",
+   "targetLengthM": 3.55
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/koinobori.glb",
-   "name": "vendor-sakura-rally-koinobori"
+   "name": "vendor-sakura-rally-koinobori",
+   "targetLengthM": 8.2
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/kura.glb",
-   "name": "vendor-sakura-rally-kura"
+   "name": "vendor-sakura-rally-kura",
+   "targetLengthM": 6.51
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/lantern_string.glb",
-   "name": "vendor-sakura-rally-lantern-string"
+   "name": "vendor-sakura-rally-lantern-string",
+   "targetLengthM": 5.14
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/log.glb",
-   "name": "vendor-sakura-rally-log"
+   "name": "vendor-sakura-rally-log",
+   "targetLengthM": 3.236
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/maple_green.glb",
-   "name": "vendor-sakura-rally-maple-green"
+   "name": "vendor-sakura-rally-maple-green",
+   "targetLengthM": 5.939
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/maple_orange.glb",
-   "name": "vendor-sakura-rally-maple-orange"
+   "name": "vendor-sakura-rally-maple-orange",
+   "targetLengthM": 5.783
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/maple_red.glb",
-   "name": "vendor-sakura-rally-maple-red"
+   "name": "vendor-sakura-rally-maple-red",
+   "targetLengthM": 6.507
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/maple_yellow.glb",
-   "name": "vendor-sakura-rally-maple-yellow"
+   "name": "vendor-sakura-rally-maple-yellow",
+   "targetLengthM": 6.206
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/marshal.glb",
-   "name": "vendor-sakura-rally-marshal"
+   "name": "vendor-sakura-rally-marshal",
+   "targetLengthM": 1.743
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/marshal_post.glb",
-   "name": "vendor-sakura-rally-marshal-post"
+   "name": "vendor-sakura-rally-marshal-post",
+   "targetLengthM": 1.848
   },
   {
    "category": "vegetation",
    "file": "vendor/sakura-rally/assets/models/props/persimmon_tree.glb",
-   "name": "vendor-sakura-rally-persimmon-tree"
+   "name": "vendor-sakura-rally-persimmon-tree",
+   "targetLengthM": 4.6
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/pine_a.glb",
-   "name": "vendor-sakura-rally-pine-a"
+   "name": "vendor-sakura-rally-pine-a",
+   "targetLengthM": 6.435
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/pine_b.glb",
-   "name": "vendor-sakura-rally-pine-b"
+   "name": "vendor-sakura-rally-pine-b",
+   "targetLengthM": 5.701
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/reeds.glb",
-   "name": "vendor-sakura-rally-reeds"
+   "name": "vendor-sakura-rally-reeds",
+   "targetLengthM": 1.88
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/rice_paddy_marker.glb",
-   "name": "vendor-sakura-rally-rice-paddy-marker"
+   "name": "vendor-sakura-rally-rice-paddy-marker",
+   "targetLengthM": 1.38
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/road_mirror.glb",
-   "name": "vendor-sakura-rally-road-mirror"
+   "name": "vendor-sakura-rally-road-mirror",
+   "targetLengthM": 3.202
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/rock_a.glb",
-   "name": "vendor-sakura-rally-rock-a"
+   "name": "vendor-sakura-rally-rock-a",
+   "targetLengthM": 0.746
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/rock_b.glb",
-   "name": "vendor-sakura-rally-rock-b"
+   "name": "vendor-sakura-rally-rock-b",
+   "targetLengthM": 1.308
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/rock_c.glb",
-   "name": "vendor-sakura-rally-rock-c"
+   "name": "vendor-sakura-rally-rock-c",
+   "targetLengthM": 1.315
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/rock_d.glb",
-   "name": "vendor-sakura-rally-rock-d"
+   "name": "vendor-sakura-rally-rock-d",
+   "targetLengthM": 1.34
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/rock_e.glb",
-   "name": "vendor-sakura-rally-rock-e"
+   "name": "vendor-sakura-rally-rock-e",
+   "targetLengthM": 2.301
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/sakura_a.glb",
-   "name": "vendor-sakura-rally-sakura-a"
+   "name": "vendor-sakura-rally-sakura-a",
+   "targetLengthM": 6.449
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/sakura_b.glb",
-   "name": "vendor-sakura-rally-sakura-b"
+   "name": "vendor-sakura-rally-sakura-b",
+   "targetLengthM": 5.602
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/sakura_c.glb",
-   "name": "vendor-sakura-rally-sakura-c"
+   "name": "vendor-sakura-rally-sakura-c",
+   "targetLengthM": 6.418
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/sakura_young.glb",
-   "name": "vendor-sakura-rally-sakura-young"
+   "name": "vendor-sakura-rally-sakura-young",
+   "targetLengthM": 2.997
   },
   {
    "category": "vehicle",
    "file": "vendor/sakura-rally/assets/models/props/scarecrow.glb",
-   "name": "vendor-sakura-rally-scarecrow"
+   "name": "vendor-sakura-rally-scarecrow",
+   "targetLengthM": 1.7
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/shed.glb",
-   "name": "vendor-sakura-rally-shed"
+   "name": "vendor-sakura-rally-shed",
+   "targetLengthM": 3.8
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/shrine.glb",
-   "name": "vendor-sakura-rally-shrine"
+   "name": "vendor-sakura-rally-shrine",
+   "targetLengthM": 8.4
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/shrine_bell.glb",
-   "name": "vendor-sakura-rally-shrine-bell"
+   "name": "vendor-sakura-rally-shrine-bell",
+   "targetLengthM": 3.1
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/spectator_a.glb",
-   "name": "vendor-sakura-rally-spectator-a"
+   "name": "vendor-sakura-rally-spectator-a",
+   "targetLengthM": 1.879
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/spectator_b.glb",
-   "name": "vendor-sakura-rally-spectator-b"
+   "name": "vendor-sakura-rally-spectator-b",
+   "targetLengthM": 1.819
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/spectator_c.glb",
-   "name": "vendor-sakura-rally-spectator-c"
+   "name": "vendor-sakura-rally-spectator-c",
+   "targetLengthM": 2.659
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/spectator_d.glb",
-   "name": "vendor-sakura-rally-spectator-d"
+   "name": "vendor-sakura-rally-spectator-d",
+   "targetLengthM": 1.735
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/spectator_e.glb",
-   "name": "vendor-sakura-rally-spectator-e"
+   "name": "vendor-sakura-rally-spectator-e",
+   "targetLengthM": 1.159
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/spectator_f.glb",
-   "name": "vendor-sakura-rally-spectator-f"
+   "name": "vendor-sakura-rally-spectator-f",
+   "targetLengthM": 1.664
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/spectator_g.glb",
-   "name": "vendor-sakura-rally-spectator-g"
+   "name": "vendor-sakura-rally-spectator-g",
+   "targetLengthM": 2.146
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/spectator_h.glb",
-   "name": "vendor-sakura-rally-spectator-h"
+   "name": "vendor-sakura-rally-spectator-h",
+   "targetLengthM": 1.812
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/spectator_i.glb",
-   "name": "vendor-sakura-rally-spectator-i"
+   "name": "vendor-sakura-rally-spectator-i",
+   "targetLengthM": 1.741
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/spectator_j.glb",
-   "name": "vendor-sakura-rally-spectator-j"
+   "name": "vendor-sakura-rally-spectator-j",
+   "targetLengthM": 1.776
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/spectator_k.glb",
-   "name": "vendor-sakura-rally-spectator-k"
+   "name": "vendor-sakura-rally-spectator-k",
+   "targetLengthM": 2.228
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/spectator_l.glb",
-   "name": "vendor-sakura-rally-spectator-l"
+   "name": "vendor-sakura-rally-spectator-l",
+   "targetLengthM": 1.336
   },
   {
    "category": "building",
    "file": "vendor/sakura-rally/assets/models/props/start_arch.glb",
-   "name": "vendor-sakura-rally-start-arch"
+   "name": "vendor-sakura-rally-start-arch",
+   "targetLengthM": 11.2
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/stone_lantern.glb",
-   "name": "vendor-sakura-rally-stone-lantern"
+   "name": "vendor-sakura-rally-stone-lantern",
+   "targetLengthM": 2.09
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/stone_wall.glb",
-   "name": "vendor-sakura-rally-stone-wall"
+   "name": "vendor-sakura-rally-stone-wall",
+   "targetLengthM": 2
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/stump.glb",
-   "name": "vendor-sakura-rally-stump"
+   "name": "vendor-sakura-rally-stump",
+   "targetLengthM": 1.088
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/tape_post.glb",
-   "name": "vendor-sakura-rally-tape-post"
+   "name": "vendor-sakura-rally-tape-post",
+   "targetLengthM": 3.072
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/telephone_pole.glb",
-   "name": "vendor-sakura-rally-telephone-pole"
+   "name": "vendor-sakura-rally-telephone-pole",
+   "targetLengthM": 8
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/tent.glb",
-   "name": "vendor-sakura-rally-tent"
+   "name": "vendor-sakura-rally-tent",
+   "targetLengthM": 3.14
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/tire_stack.glb",
-   "name": "vendor-sakura-rally-tire-stack"
+   "name": "vendor-sakura-rally-tire-stack",
+   "targetLengthM": 0.96
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/torii_large.glb",
-   "name": "vendor-sakura-rally-torii-large"
+   "name": "vendor-sakura-rally-torii-large",
+   "targetLengthM": 6.24
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/torii_small.glb",
-   "name": "vendor-sakura-rally-torii-small"
+   "name": "vendor-sakura-rally-torii-small",
+   "targetLengthM": 2.609
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/traffic_cone.glb",
-   "name": "vendor-sakura-rally-traffic-cone"
+   "name": "vendor-sakura-rally-traffic-cone",
+   "targetLengthM": 0.7
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/vending_machine.glb",
-   "name": "vendor-sakura-rally-vending-machine"
+   "name": "vendor-sakura-rally-vending-machine",
+   "targetLengthM": 1.83
   },
   {
    "category": "prop",
    "file": "vendor/sakura-rally/assets/models/props/water_well.glb",
-   "name": "vendor-sakura-rally-water-well"
+   "name": "vendor-sakura-rally-water-well",
+   "targetLengthM": 1.708
   }
  ],
  "source": "milo lane staging (worker/milo/simulation @ 20a7275), MANIFEST.md; see notes. Asset licensing cleared for build use per muse-bus 2026-10-01.",
