@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"mbclone/simulation/cmd/apiserver/wire"
+	"mbclone/simulation/internal/battle"
 )
 
 // Battle-session lifecycle. See package docs in original; this file adds prisoner capture on resolve/end.
@@ -74,6 +75,130 @@ func hashID(id string) float64 {
 	return float64(h%1000) / 1000.0
 }
 
+// simOutcome is what the tactical sim decided about an encounter.
+type simOutcome struct {
+	attackerWins bool
+	aLosses      int
+	dLosses      int
+	aSurrendered int
+	dSurrendered int
+}
+
+// tierUnit maps a roster tier (1-5) to a battle-sim unit. Higher tiers fight
+// better and endure more; the multipliers come from the roster's own
+// CombatMultiply table so the sim and the campaign agree on what a tier means.
+func tierUnit(tier int, troops float64, morale float64) battle.Unit {
+	if tier < 1 {
+		tier = 1
+	}
+	if tier > maxTier {
+		tier = maxTier
+	}
+	mult := troopTiers[tier-1].CombatMultiply
+	hp := 100.0 * mult
+	if morale < 0 {
+		morale = 0
+	}
+	if morale > 100 {
+		morale = 100
+	}
+	return battle.Unit{
+		Side:        battle.SideA,
+		Role:        battle.RoleMelee,
+		HP:          hp,
+		MaxHP:       hp,
+		Morale:      morale / 100.0,
+		MeleeSkill:  0.2 + 0.13*float64(tier),
+		RangedSkill: 0.15 + 0.1*float64(tier),
+		Speed:       1.4,
+		Troops:      troops,
+	}
+}
+
+// simulateEncounterLocked fights the encounter in the tactical sim
+// (internal/battle) and returns the outcome. The player's force is built
+// from the real roster stacks; an NPC force is synthesized from its troop
+// count at militia/soldier tiers. The seed derives from the encounter id,
+// so the fight is deterministic. It returns false when the sim refuses the
+// setup, and the caller falls back to abstract resolution.
+//
+// Call with c.mu held: it reads parties and the roster.
+func (c *Campaign) simulateEncounterLocked(enc *wire.Encounter, id string) (simOutcome, bool) {
+	var out simOutcome
+	build := func(partyID int, side battle.Side) []battle.Unit {
+		var units []battle.Unit
+		p := c.state.Parties[partyID]
+		if p == nil {
+			return nil
+		}
+		morale := p.Morale
+		if partyID == c.party {
+			// The player's real stacks, tier for tier. The roster is only
+			// touched with c.mu held, like here.
+			for _, s := range c.ro.stacks {
+				if s.Count <= 0 {
+					continue
+				}
+				u := tierUnit(s.Tier, float64(s.Count), morale)
+				u.Side = side
+				units = append(units, u)
+			}
+		}
+		if len(units) == 0 && p.Troops > 0 {
+			// NPC force, or a player with an empty roster: synthesize
+			// militia/soldier units in groups of ~20.
+			remaining := int(p.Troops)
+			for remaining > 0 {
+				n := 20
+				if n > remaining {
+					n = remaining
+				}
+				tier := 2
+				if hashID(id+string(rune('0'+len(units)))) > 0.7 {
+					tier = 3
+				}
+				u := tierUnit(tier, float64(n), morale)
+				u.Side = side
+				units = append(units, u)
+				remaining -= n
+			}
+		}
+		return units
+	}
+	setup := battle.Setup{
+		A:       build(enc.Attacker.PartyID, battle.SideA),
+		B:       build(enc.Defender.PartyID, battle.SideB),
+		Terrain: battle.TerrainOpen,
+		Label:   "encounter " + id,
+	}
+	if len(setup.A) == 0 || len(setup.B) == 0 {
+		return out, false
+	}
+	seed := uint64(hashID(id) * 1e9)
+	res, err := battle.Run(c.cfg, seed, setup)
+	if err != nil {
+		return out, false
+	}
+	// Stats are indexed [2]float64 in side order: 0 = A = attacker.
+	aDead := res.Stats.Dead[0] + res.Stats.Wounded[0]
+	dDead := res.Stats.Dead[1] + res.Stats.Wounded[1]
+	out.aLosses = int(aDead)
+	out.dLosses = int(dDead)
+	out.aSurrendered = int(res.Stats.Surrendered[0])
+	out.dSurrendered = int(res.Stats.Surrendered[1])
+	switch res.Outcome.Kind {
+	case battle.ResultSideA:
+		out.attackerWins = true
+	case battle.ResultSideB:
+		out.attackerWins = false
+	default:
+		// A draw goes to the stronger side by the old abstract rule, so a
+		// fight always names a winner for the aftermath code below.
+		out.attackerWins = enc.Attacker.Power >= enc.Defender.Power
+	}
+	return out, true
+}
+
 func (c *Campaign) CreateEncounter(ctx context.Context, attackerID, defenderID int) (*wire.Encounter, error) {
 	c.mu.RLock()
 	attacker, okA := c.state.Parties[attackerID]
@@ -90,10 +215,10 @@ func (c *Campaign) CreateEncounter(ctx context.Context, attackerID, defenderID i
 	defer st.mu.Unlock()
 	id := st.nextEncounterID()
 	enc := &wire.Encounter{
-		ID:       id,
+		ID: id,
 		Attacker: wire.EncounterSide{PartyID: attacker.ID, Name: attacker.Name, Troops: int(attacker.Troops), Power: partyPower(attacker.Troops, attacker.Morale)},
 		Defender: wire.EncounterSide{PartyID: defender.ID, Name: defender.Name, Troops: int(defender.Troops), Power: partyPower(defender.Troops, defender.Morale)},
-		Status:   "pending",
+		Status: "pending",
 	}
 	st.encounters[id] = enc
 	return enc, nil
@@ -132,7 +257,18 @@ func (c *Campaign) ResolveEncounter(ctx context.Context, id string) (*wire.Encou
 	winnerRate := 0.10 + 0.20*hashID(id+"winner")
 	var aLosses, dLosses int
 	var winnerID int
-	if attackerWins {
+	// Fight it in the real tactical sim first. The sim is deterministic on
+	// the encounter id, so the same fight always ends the same way; if it
+	// refuses the setup (degenerate forces), fall back to the abstract math.
+	if sim, ok := c.simulateEncounterLocked(enc, id); ok {
+		attackerWins = sim.attackerWins
+		aLosses, dLosses = sim.aLosses, sim.dLosses
+		if attackerWins {
+			winnerID = enc.Attacker.PartyID
+		} else {
+			winnerID = enc.Defender.PartyID
+		}
+	} else if attackerWins {
 		winnerID = enc.Attacker.PartyID
 		aLosses = int(float64(enc.Attacker.Troops) * winnerRate)
 		dLosses = int(float64(enc.Defender.Troops) * loserRate)

@@ -413,3 +413,44 @@ func TestDefeatRefusesNegativeAmounts(t *testing.T) {
 		}
 	}
 }
+
+// TestSimResolvesEncounters is the property that wires Milo's tactical sim
+// into the campaign: resolving an encounter runs the real battle sim, not
+// the abstract power comparison. The fight must name a winner, report
+// non-negative losses on both sides, and be deterministic on the encounter
+// id: two worlds with the same seed resolve the same fight identically.
+func TestSimResolvesEncounters(t *testing.T) {
+	resolve := func() *wire.Encounter {
+		c := newTestWorld(t)
+		defer c.Stop()
+		rival := someRival(t, c)
+		enc := raiseEncounter(t, c, rival)
+		res, err := c.ResolveEncounter(context.Background(), enc.ID)
+		if err != nil {
+			t.Fatalf("resolving: %v", err)
+		}
+		return res
+	}
+	a := resolve()
+	b := resolve()
+	for _, res := range []*wire.Encounter{a, b} {
+		if res.Status != "resolved" {
+			t.Fatalf("encounter is %q, want resolved", res.Status)
+		}
+		if res.Resolution == nil {
+			t.Fatal("resolved encounter has no resolution")
+		}
+		r := res.Resolution
+		if r.AttackerLosses < 0 || r.DefenderLosses < 0 {
+			t.Fatalf("negative losses: %+v", r)
+		}
+		if r.WinnerPartyID == 0 {
+			t.Fatal("no winner named")
+		}
+	}
+	if a.Resolution.WinnerPartyID != b.Resolution.WinnerPartyID ||
+		a.Resolution.AttackerLosses != b.Resolution.AttackerLosses ||
+		a.Resolution.DefenderLosses != b.Resolution.DefenderLosses {
+		t.Fatalf("non-deterministic resolution:\n%+v\n%+v", a.Resolution, b.Resolution)
+	}
+}
