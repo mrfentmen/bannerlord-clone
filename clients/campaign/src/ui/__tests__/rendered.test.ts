@@ -26,6 +26,13 @@ import { whyPanel } from "../panels/WhyPanel.js";
 import { marchPlanner } from "../panels/MarchPlanner.js";
 import { createHud } from "../hud.js";
 import type { SimSnapshot, SimulationProvider } from "../../data/types.js";
+import type { WorldSettlement } from "../../world/types.js";
+
+/** A mapped two-state slice, so the start screen's home step has a real map. */
+const SETTLEMENTS: WorldSettlement[] = [
+  { id: "n1", name: "Cincinnati", place: "city", lat: 39.1, lon: -84.5, population: 309317, populationSource: "Census", state: "Ohio", stateCode: "OH", osmPopulation: null },
+  { id: "n2", name: "Covington", place: "city", lat: 39.08, lon: -84.5, population: 40970, populationSource: "Census", state: "Kentucky", stateCode: "KY", osmPopulation: null },
+];
 
 let provider: SimulationProvider;
 let snapshot: SimSnapshot;
@@ -72,7 +79,7 @@ function renderedPanels(snap: SimSnapshot): Record<string, HTMLElement> {
     ledger: ledgerPanel({ ledger: snap.ledger, warnings: snap.warnings, onWhy: noop }),
     roster: rulerRoster({ rulers: snap.rulers, playerFactionId: snap.player.factionId, selectedId: null, onSelect: noop }),
     card: rulerCard({ ruler, onWhy: noop }),
-    start: startScreen({ sides: snap.sides, startYear: 2005, eraLabel: "1990s to 2000s", onStart: noop }),
+    start: startScreen({ settlements: SETTLEMENTS, startYear: 2005, eraLabel: "1990s to 2000s", onStart: noop }),
     march: marchPlanner({
       party: snap.party,
       destinations: snap.towns.slice(0, 5).map((t) => ({ id: t.settlementId, simulationId: t.settlementId, name: t.name, distanceKm: 20, distanceHint: "20 km", klass: t.klass })),

@@ -79,10 +79,10 @@ import type {
   Ledger as LedgerState,
   MarchPlan,
   RulerState,
-  SideState,
   SimSnapshot,
   SimulationProvider,
 } from "../../data/types.js";
+import type { WorldSettlement } from "../../world/types.js";
 
 function tokensCss(): string {
   return readFileSync(join(process.cwd(), "src", "design", "tokens.css"), "utf8");
@@ -170,9 +170,22 @@ function march(opts: { provider?: SimulationProvider; destinations?: SimSnapshot
   });
 }
 
-function start(opts: { loading?: boolean; sides?: SideState[] } = {}): HTMLElement {
+/**
+ * A mapped three-state slice with real Census figures, so the home step
+ * resolves against towns that exist. Pennsylvania is the Italian and German
+ * stronghold here even though Ohio holds the biggest city, which is what pins
+ * the resolver's rank order in the tests below.
+ */
+const HOME_SETTLEMENTS: WorldSettlement[] = [
+  { id: "s-oh-1", name: "Columbus", place: "city", lat: 39.96, lon: -82.99, population: 990000, populationSource: "Census", state: "Ohio", stateCode: "OH", osmPopulation: null },
+  { id: "s-oh-2", name: "Cincinnati", place: "city", lat: 39.1, lon: -84.51, population: 309317, populationSource: "Census", state: "Ohio", stateCode: "OH", osmPopulation: null },
+  { id: "s-pa-1", name: "Pittsburgh", place: "city", lat: 40.44, lon: -79.99, population: 302971, populationSource: "Census", state: "Pennsylvania", stateCode: "PA", osmPopulation: null },
+  { id: "s-ky-1", name: "Louisville", place: "city", lat: 38.25, lon: -85.76, population: 633045, populationSource: "Census", state: "Kentucky", stateCode: "KY", osmPopulation: null },
+];
+
+function start(opts: { loading?: boolean; settlements?: WorldSettlement[] } = {}): HTMLElement {
   return startScreen({
-    sides: opts.sides ?? snapshot.sides,
+    settlements: opts.settlements ?? HOME_SETTLEMENTS,
     startYear: 2005,
     eraLabel: "1990s to 2000s",
     onStart: noop,
@@ -551,10 +564,10 @@ describe("named skeletons, not spinners (CONSTITUTION.md 3.2, ART_DIRECTION.md 1
     expect(startRoleSkeletonBody().querySelectorAll(".skeleton__grid > .skeleton__block").length).toBe(START_ROLE_CARDS);
   });
 
-  it("puts the start-skeleton up while the state profiles stream in", () => {
-    const root = start({ loading: true, sides: [] });
+  it("puts the start-skeleton up while the settlement survey streams in", () => {
+    const root = start({ loading: true, settlements: [] });
     expect(root.querySelector("[data-testid='start-skeleton']")).not.toBeNull();
-    expect(root.querySelector("[data-testid='side-grid']")).toBeNull();
+    expect(root.querySelector("[data-testid='heritage-grid']")).toBeNull();
   });
 
   it("draws every skeleton as paper blocks, and never as a rotating element", () => {
@@ -691,7 +704,7 @@ describe("errors say something plain and offer a way out (CONSTITUTION.md 1.3)",
   it("gives the start screen a message and a working retry", () => {
     let retried = 0;
     const node = startScreenError("HTTP 503 from /v1/snapshot", () => (retried += 1));
-    expect(visibleText(node)).toMatch(/sections did not load|list of sections/i);
+    expect(visibleText(node)).toMatch(/survey did not load|settlement survey/i);
     const retry = node.querySelector<HTMLButtonElement>("[data-testid='start-error-retry']")!;
     retry.click();
     expect(retried).toBe(1);
@@ -825,20 +838,13 @@ describe("empty states say what to do next (ART_DIRECTION.md 10.2)", () => {
     expect(root.querySelectorAll(".ruler")).toHaveLength(1);
   });
 
-  it("says a side holds no states, and what that means for the Wanderer", () => {
-    const wanderer = snapshot.sides.find((s) => s.id === "wanderer")!;
-    const root = start({ sides: [wanderer] });
-    root.querySelector<HTMLButtonElement>("[data-testid='step-1']")!.click();
+  it("says the map holds no towns, and what to do about it", () => {
+    const root = start({ settlements: [] });
+    root.querySelector<HTMLButtonElement>("[data-testid='heritage-italian']")!.click();
+    root.querySelector<HTMLButtonElement>("[data-testid='step-3']")!.click();
     const text = visibleText(root.querySelector("[data-testid='empty-state']")!);
-    expect(text).toMatch(/no states in this section/i);
-    expect(text).toMatch(/wanderer starts nowhere in particular/i);
-  });
-
-  it("says no sides were reported, and that nothing can be chosen", () => {
-    const root = start({ sides: [] });
-    const text = visibleText(root.querySelector("[data-testid='empty-state']")!);
-    expect(text).toMatch(/no sides were reported/i);
-    expect(text).toMatch(/nothing to pick/i);
+    expect(text).toMatch(/map holds no towns/i);
+    expect(text).toMatch(/settlement survey/i);
   });
 });
 
@@ -1292,112 +1298,169 @@ describe("the ruler roster and card (RULERS.md section 9)", () => {
 // the start screen
 // =============================================================================
 
-describe("the start screen (FACTIONS.md sections 3, 4 and 7)", () => {
-  it("shows ratings, pros, cons and the biggest danger for every side", () => {
+describe("the start screen (locked creation order: heritage, family, upbringing, home)", () => {
+  it("offers every heritage as a selectable card, and gates the flow on the pick", () => {
     const root = start();
-    for (const side of snapshot.sides) {
-      const cardNode = root.querySelector<HTMLElement>(`[data-testid='side-${side.id}']`)!;
-      expect(cardNode, `no card for ${side.name}`).not.toBeNull();
-      // Five ratings, each five pips and a figure.
-      const ratings = cardNode.querySelectorAll<HTMLElement>(".rating");
-      expect(ratings.length).toBe(5);
-      for (const r of Array.from(ratings)) {
-        expect(r.querySelectorAll(".rating__pip").length).toBe(5);
-        expect(r.querySelector(".rating__pips")!.getAttribute("aria-label")).toMatch(/ of 5$/);
-        expect(r.querySelector(".rating__value")!.textContent).toMatch(/^\d\/5$/);
-      }
-      // The values are the ones the simulation sent, not the design targets.
-      for (const [key, label] of [["money", "Money"], ["gold", "Gold"], ["food", "Food"], ["metal", "Metal"], ["population", "People"]] as const) {
-        const r = Array.from(ratings).find((n) => n.querySelector(".rating__label")?.textContent === label)!;
-        expect(r.querySelector(".rating__value")!.textContent).toBe(`${side.ratings[key]}/5`);
-      }
-      // Pros and cons, all of them, transcribed from FACTIONS.md.
-      const pros = Array.from(cardNode.querySelectorAll(".proscons > div")[0]!.querySelectorAll("li")).map((li) => li.textContent);
-      const cons = Array.from(cardNode.querySelectorAll(".proscons > div")[1]!.querySelectorAll("li")).map((li) => li.textContent);
-      expect(pros).toEqual(side.pros);
-      expect(cons).toEqual(side.cons);
-      // The biggest danger is its own labelled block, not buried in the cons list.
-      const danger = cardNode.querySelector<HTMLElement>(`[data-testid='danger-${side.id}']`)!;
-      expect(visibleText(danger)).toContain(side.biggestDanger);
-      expect(visibleText(danger)).toMatch(/trouble you take on/i);
-      // And the signature mechanic, which is the play style not the balance.
-      expect(visibleText(cardNode)).toContain(side.signatureMechanic);
+    const cards = Array.from(root.querySelectorAll<HTMLButtonElement>("button[data-testid^='heritage-']"));
+    expect(cards).toHaveLength(10);
+    // Nothing is preselected: the heritage is the one explicit choice.
+    expect(cards.every((c) => c.getAttribute("aria-pressed") === "false")).toBe(true);
+    // Every card carries its bonuses as labelled pros and cons.
+    const german = root.querySelector<HTMLElement>("[data-testid='heritage-german']")!;
+    expect(visibleText(german)).toContain("German-American");
+    expect(visibleText(german)).toContain("Midwest");
+    expect(german.querySelectorAll(".pro").length).toBe(2);
+    expect(german.querySelectorAll(".con").length).toBe(1);
+    // Later steps are shut until a heritage exists, and the button says why.
+    for (const n of [1, 2, 3, 4]) {
+      const btn = root.querySelector<HTMLButtonElement>(`[data-testid='step-${n}']`)!;
+      expect(btn.disabled, `step ${n}`).toBe(true);
+      expect(btn.title).toMatch(/first/i);
     }
+    root.querySelector<HTMLButtonElement>("[data-testid='heritage-german']")!.click();
+    expect(root.querySelector<HTMLButtonElement>("[data-testid='heritage-german']")!.getAttribute("aria-pressed")).toBe("true");
+    expect(root.querySelector<HTMLButtonElement>("[data-testid='step-1']")!.disabled).toBe(false);
   });
 
-  it("draws the difficulty as a chip with a glyph, so it is not a bare word", () => {
+  it("preseeds the family job and keeps all six switchable", () => {
     const root = start();
-    for (const side of snapshot.sides) {
-      const chip = root.querySelector<HTMLElement>(`[data-testid='side-difficulty-${side.id}']`)!;
-      expect(chip.getAttribute("aria-label")).toMatch(/^(Critical|Warning|Healthy|For information): /);
-      expect(chip.querySelector(".chip__glyph")!.textContent!.trim()).toMatch(/^(◆|▲|●|■)$/);
-    }
+    root.querySelector<HTMLButtonElement>("[data-testid='heritage-italian']")!.click();
+    root.querySelector<HTMLButtonElement>("[data-testid='step-1']")!.click();
+    const families = Array.from(root.querySelectorAll<HTMLButtonElement>("button[data-testid^='family-']"));
+    expect(families).toHaveLength(6);
+    // The first family is already chosen, so the flow never dead-ends.
+    expect(root.querySelector<HTMLButtonElement>("[data-testid='family-badge']")!.getAttribute("aria-pressed")).toBe("true");
+    // The card shows the attribute the family grants.
+    expect(visibleText(root.querySelector<HTMLElement>("[data-testid='family-merchant']")!)).toContain("Intelligence");
+    root.querySelector<HTMLButtonElement>("[data-testid='family-merchant']")!.click();
+    expect(root.querySelector<HTMLButtonElement>("[data-testid='family-merchant']")!.getAttribute("aria-pressed")).toBe("true");
+    expect(root.querySelector<HTMLButtonElement>("[data-testid='family-badge']")!.getAttribute("aria-pressed")).toBe("false");
   });
 
-  it("walks side to state to role to confirm, and can go back from every step", () => {
-    const started: { sideId: string; stateCode: string; role: string }[] = [];
+  it("asks the four life stages of the upbringing, one answer each, first options preseeded", () => {
+    const root = start();
+    root.querySelector<HTMLButtonElement>("[data-testid='heritage-italian']")!.click();
+    root.querySelector<HTMLButtonElement>("[data-testid='step-2']")!.click();
+    for (const cat of ["childhood", "youth", "training", "profession"]) {
+      const grid = root.querySelector<HTMLElement>(`[data-testid='bg-${cat}']`);
+      expect(grid, cat).not.toBeNull();
+      expect(grid!.querySelectorAll("button").length).toBe(4);
+    }
+    expect(root.querySelector<HTMLButtonElement>("[data-testid='bg-childhood-projects']")!.getAttribute("aria-pressed")).toBe("true");
+    root.querySelector<HTMLButtonElement>("[data-testid='bg-childhood-suburbs']")!.click();
+    expect(root.querySelector<HTMLButtonElement>("[data-testid='bg-childhood-suburbs']")!.getAttribute("aria-pressed")).toBe("true");
+    expect(root.querySelector<HTMLButtonElement>("[data-testid='bg-childhood-projects']")!.getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("derives the home town from the heritage's real strongholds, in rank order", () => {
+    const root = start();
+    root.querySelector<HTMLButtonElement>("[data-testid='heritage-italian']")!.click();
+    root.querySelector<HTMLButtonElement>("[data-testid='step-3']")!.click();
+    // The heritage default plus every mapped state, alphabetically.
+    const stateCards = Array.from(root.querySelectorAll<HTMLElement>(".state"));
+    expect(stateCards.map((n) => n.dataset.testid)).toEqual(["home-heritage", "home-state-KY", "home-state-OH", "home-state-PA"]);
+    // Italian ranks Pennsylvania above Ohio, so Pittsburgh wins even though
+    // Columbus is the bigger city: the census order is the data.
+    const resolution = visibleText(root.querySelector("[data-testid='home-resolution']")!);
+    expect(resolution).toContain("Pittsburgh");
+    expect(resolution).toContain("Pennsylvania");
+    expect(resolution).toContain("302,971");
+    expect(resolution).toContain("Italian-American");
+  });
+
+  it("lets the player pick a state, and the pick wins over the heritage default", () => {
+    const root = start();
+    root.querySelector<HTMLButtonElement>("[data-testid='heritage-german']")!.click();
+    root.querySelector<HTMLButtonElement>("[data-testid='step-3']")!.click();
+    root.querySelector<HTMLButtonElement>("[data-testid='home-state-OH']")!.click();
+    expect(root.querySelector<HTMLButtonElement>("[data-testid='home-state-OH']")!.getAttribute("aria-pressed")).toBe("true");
+    expect(visibleText(root.querySelector("[data-testid='home-resolution']")!)).toContain("Columbus");
+    // Back to the heritage default and the stronghold state resolves again.
+    root.querySelector<HTMLButtonElement>("[data-testid='home-heritage']")!.click();
+    expect(visibleText(root.querySelector("[data-testid='home-resolution']")!)).toContain("Pittsburgh");
+  });
+
+  it("says honestly when no stronghold of the heritage is mapped, and starts in the largest town", () => {
+    const root = start();
+    root.querySelector<HTMLButtonElement>("[data-testid='heritage-mexican']")!.click();
+    root.querySelector<HTMLButtonElement>("[data-testid='step-3']")!.click();
+    const resolution = visibleText(root.querySelector("[data-testid='home-resolution']")!);
+    expect(resolution).toContain("No Mexican-American stronghold is mapped");
+    expect(resolution).toContain("Columbus");
+  });
+
+  it("restates every answer on confirm and hands the campaign the exact choice", () => {
+    const started: unknown[] = [];
     const root = startScreen({
-      sides: snapshot.sides,
+      settlements: HOME_SETTLEMENTS,
       startYear: 2005,
       eraLabel: "1990s to 2000s",
       onStart: (choice) => started.push(choice),
     });
-    // The step bar is four real buttons, and the first is current.
-    const steps = Array.from(root.querySelectorAll<HTMLButtonElement>("[data-testid^='step-']"));
-    expect(steps).toHaveLength(4);
-    expect(steps[0]!.getAttribute("aria-current")).toBe("step");
-
-    // Choose a side. The grid stays up, because a player comparing two sections has to
-    // be able to change their mind without going back a step, and the choice is shown
-    // with aria-pressed rather than by vanishing the other cards.
-    const mountain = snapshot.sides.find((s) => s.id === "mountain-alliance")!;
-    root.querySelector<HTMLButtonElement>(`[data-testid='side-${mountain.id}']`)!.click();
-    expect(root.querySelector<HTMLButtonElement>(`[data-testid='side-${mountain.id}']`)!.getAttribute("aria-pressed")).toBe("true");
-    const others = Array.from(root.querySelectorAll<HTMLElement>(".side")).filter((n) => n.dataset.testid !== `side-${mountain.id}`);
-    expect(others.every((n) => n.getAttribute("aria-pressed") === "false")).toBe(true);
-    root.querySelector<HTMLButtonElement>("[data-testid='start-next']")!.click();
-
-    // Then a state, then a role, then confirm.
-    const stateCode = mountain.states[0]!.code;
-    root.querySelector<HTMLButtonElement>(`[data-testid='state-${stateCode}']`)!.click();
-    root.querySelector<HTMLButtonElement>("[data-testid='start-next']")!.click();
-    expect(root.querySelector("[data-testid='role-grid']")).not.toBeNull();
-    root.querySelector<HTMLButtonElement>("[data-testid='role-mercenary-captain']")!.click();
+    root.querySelector<HTMLButtonElement>("[data-testid='heritage-german']")!.click();
+    root.querySelector<HTMLButtonElement>("[data-testid='step-1']")!.click();
+    root.querySelector<HTMLButtonElement>("[data-testid='family-merchant']")!.click();
+    root.querySelector<HTMLButtonElement>("[data-testid='step-2']")!.click();
+    root.querySelector<HTMLButtonElement>("[data-testid='bg-youth-athlete']")!.click();
     root.querySelector<HTMLButtonElement>("[data-testid='step-3']")!.click();
-    // The confirmation restates all three choices.
+    root.querySelector<HTMLButtonElement>("[data-testid='home-state-OH']")!.click();
+    root.querySelector<HTMLButtonElement>("[data-testid='step-4']")!.click();
     const summary = visibleText(root.querySelector(".start__summary")!);
-    expect(summary).toContain(mountain.name);
-    expect(summary).toContain(mountain.states[0]!.name);
-    expect(summary).toContain("Mercenary captain");
-    expect(summary).toContain(mountain.biggestDanger);
+    expect(summary).toContain("German-American");
+    expect(summary).toContain("Merchant Family");
+    expect(summary).toContain("Athlete");
+    expect(summary).toContain("Columbus, Ohio");
 
     root.querySelector<HTMLButtonElement>("[data-testid='start-next']")!.click();
     expect(started).toHaveLength(1);
-    expect(started[0]).toEqual({ sideId: mountain.id, stateCode, role: "mercenary-captain", ironman: false, newGamePlus: false });
+    const choice = started[0] as {
+      ethnicityId: string;
+      familyId: string;
+      upbringing: Record<string, string>;
+      homeStateCode: string | null;
+      homeState: string;
+      startCity: string;
+      homeTown: string;
+      homeReason: string;
+      ironman: boolean;
+      newGamePlus: boolean;
+    };
+    expect(choice.ethnicityId).toBe("german");
+    expect(choice.familyId).toBe("merchant");
+    expect(choice.upbringing).toEqual({ childhood: "projects", youth: "athlete", training: "military", profession: "mechanic" });
+    expect(choice.homeStateCode).toBe("OH");
+    expect(choice.homeState).toBe("Ohio");
+    expect(choice.startCity).toBe("columbus");
+    expect(choice.homeTown).toBe("Columbus");
+    expect(choice.homeReason).toContain("German-American");
+    expect(choice.ironman).toBe(false);
+    expect(choice.newGamePlus).toBe(false);
+  });
 
-    // Back from the confirm step, and the choices are all still there.
-    root.querySelector<HTMLButtonElement>("[data-testid='step-3']")!.click();
-    root.querySelector<HTMLButtonElement>("[data-testid='start-back']")!.click();
-    expect(root.querySelector("[data-testid='role-grid']")).not.toBeNull();
-    expect(root.querySelector<HTMLButtonElement>("[data-testid='role-mercenary-captain']")!.getAttribute("aria-pressed")).toBe("true");
+  it("keeps every answered step reachable from the step bar, forwards and back", () => {
+    const root = start();
+    root.querySelector<HTMLButtonElement>("[data-testid='heritage-irish']")!.click();
+    root.querySelector<HTMLButtonElement>("[data-testid='step-4']")!.click();
+    expect(root.querySelector(".start__summary")).not.toBeNull();
+    // Back to the top; the heritage is still selected.
+    root.querySelector<HTMLButtonElement>("[data-testid='step-0']")!.click();
+    expect(root.querySelector<HTMLButtonElement>("[data-testid='heritage-irish']")!.getAttribute("aria-pressed")).toBe("true");
+    // And forward again to confirm without redoing anything.
+    root.querySelector<HTMLButtonElement>("[data-testid='step-4']")!.click();
+    expect(root.querySelector(".start__summary")).not.toBeNull();
   });
 
   it("shows the banked legacy carryover on confirm and offers the heir start (task 142)", () => {
     const started: { newGamePlus: boolean }[] = [];
     const root = startScreen({
-      sides: snapshot.sides,
+      settlements: HOME_SETTLEMENTS,
       startYear: 2005,
       eraLabel: "2000s",
       newGamePlusLines: ["Heir of Asha the Bold — 3 seasons, 34 battles won, 1250 renown", "Inheritance: 2,000 gold"],
       onStart: (choice) => started.push(choice),
     });
-    const mountain = snapshot.sides.find((s) => s.id === "mountain-alliance")!;
-    root.querySelector<HTMLButtonElement>(`[data-testid='side-${mountain.id}']`)!.click();
-    root.querySelector<HTMLButtonElement>("[data-testid='start-next']")!.click();
-    root.querySelector<HTMLButtonElement>(`[data-testid='state-${mountain.states[0]!.code}']`)!.click();
-    root.querySelector<HTMLButtonElement>("[data-testid='start-next']")!.click();
-    root.querySelector<HTMLButtonElement>("[data-testid='role-mercenary-captain']")!.click();
-    root.querySelector<HTMLButtonElement>("[data-testid='step-3']")!.click();
+    root.querySelector<HTMLButtonElement>("[data-testid='heritage-italian']")!.click();
+    root.querySelector<HTMLButtonElement>("[data-testid='step-4']")!.click();
 
     // The carryover list is visible before the choice is made.
     const lines = root.querySelector("[data-testid='start-ngplus-lines']")!;
@@ -1414,94 +1477,52 @@ describe("the start screen (FACTIONS.md sections 3, 4 and 7)", () => {
   });
 
   it("hides the New Game+ section when no legacy is banked", () => {
-    const root = startScreen({ sides: snapshot.sides, startYear: 2005, eraLabel: "2000s", onStart: noop });
-    root.querySelector<HTMLButtonElement>("[data-testid='step-3']")!.click();
+    const root = start();
+    root.querySelector<HTMLButtonElement>("[data-testid='heritage-italian']")!.click();
+    root.querySelector<HTMLButtonElement>("[data-testid='step-4']")!.click();
     expect(root.querySelector("[data-testid='start-ngplus-lines']")).toBeNull();
     expect(root.querySelector("[data-testid='start-ngplus']")).toBeNull();
   });
 
-  it("shuts a step whose choice has not been made, and says why on the button", () => {
-    // A roster of one side that holds no states, so the state question is answered by
-    // the section itself and the role step opens with it.
-    const bare: SideState = { ...snapshot.sides[0]!, states: [] };
-    const root = startScreen({ sides: [bare], startYear: 2005, eraLabel: "2000s", onStart: noop });
-    const step = (n: number) => root.querySelector<HTMLButtonElement>(`[data-testid='step-${n}']`)!;
-    expect(step(0).disabled).toBe(false);
-    // The Wanderer-like start: no states to choose, so state and role are both open.
-    expect(step(1).disabled).toBe(false);
-    expect(step(2).disabled).toBe(false);
-    expect(step(3).disabled).toBe(false);
-
-    // A section that does hold states, opened with none chosen: the role step is shut,
-    // and the button carries the reason rather than being a silent no-op.
-    const withStates = snapshot.sides.find((s) => s.states.length > 0)!;
-    const root2 = startScreen({ sides: [withStates], startYear: 2005, eraLabel: "2000s", onStart: noop });
-    expect(root2.querySelector<HTMLButtonElement>("[data-testid='step-2']")!.disabled).toBe(false);
-    // And with no sides at all, nothing past the first step is open.
-    const empty = startScreen({ sides: [], startYear: 2005, eraLabel: "2000s", onStart: noop });
-    for (const n of [1, 2, 3]) {
-      const btn = empty.querySelector<HTMLButtonElement>(`[data-testid='step-${n}']`)!;
-      expect(btn.disabled, `step ${n} should be shut with no sides`).toBe(true);
-      expect(btn.title).toMatch(/first/i);
-    }
+  it("opens the home step with an honest message when the map holds no towns, and shuts confirm", () => {
+    const root = start({ settlements: [] });
+    root.querySelector<HTMLButtonElement>("[data-testid='heritage-italian']")!.click();
+    // The home step itself opens — there is an honest message waiting on it.
+    root.querySelector<HTMLButtonElement>("[data-testid='step-3']")!.click();
+    expect(root.textContent).toContain("The map holds no towns yet.");
+    // But there is no start to confirm, so the confirm step stays shut with a reason.
+    const confirm = root.querySelector<HTMLButtonElement>("[data-testid='step-4']")!;
+    expect(confirm.disabled).toBe(true);
+    expect(confirm.title).toMatch(/first/i);
   });
 
-  it("preselects a state inside a chosen section, and never preselects one for a section with none", () => {
-    const withStates = snapshot.sides.find((s) => s.states.length > 0)!;
-    const root = startScreen({ sides: snapshot.sides, startYear: 2005, eraLabel: "2000s", onStart: noop });
-    root.querySelector<HTMLButtonElement>(`[data-testid='side-${withStates.id}']`)!.click();
-    root.querySelector<HTMLButtonElement>("[data-testid='step-1']")!.click();
-    const pressed = Array.from(root.querySelectorAll<HTMLElement>(".state")).filter(
-      (n) => n.getAttribute("aria-pressed") === "true",
-    );
-    expect(pressed).toHaveLength(1);
-    expect(pressed[0]!.dataset.testid).toBe(`state-${withStates.states[0]!.code}`);
+  it("carries the ironman opt-in to the campaign, off by default", () => {
+    const started: { ironman: boolean }[] = [];
+    const root = startScreen({
+      settlements: HOME_SETTLEMENTS,
+      startYear: 2005,
+      eraLabel: "2000s",
+      onStart: (choice) => started.push(choice),
+    });
+    root.querySelector<HTMLButtonElement>("[data-testid='heritage-italian']")!.click();
+    root.querySelector<HTMLButtonElement>("[data-testid='step-4']")!.click();
+    const box = root.querySelector<HTMLInputElement>("[data-testid='start-ironman']")!;
+    expect(box.checked).toBe(false);
+    box.click();
+    root.querySelector<HTMLButtonElement>("[data-testid='start-next']")!.click();
+    expect(started).toHaveLength(1);
+    expect(started[0]!.ironman).toBe(true);
   });
 
-  it("re-seeds the state list when a different side is chosen", () => {
-    const withStates = snapshot.sides.find((s) => s.states.length > 0)!;
-    const root = startScreen({ sides: snapshot.sides, startYear: 2005, eraLabel: "2000s", onStart: noop });
-    root.querySelector<HTMLButtonElement>(`[data-testid='side-${withStates.id}']`)!.click();
-    root.querySelector<HTMLButtonElement>("[data-testid='step-1']")!.click();
-    const codes = Array.from(root.querySelectorAll<HTMLElement>(".state")).map((n) => n.dataset.testid);
-    expect(codes).toEqual(withStates.states.map((s) => `state-${s.code}`));
-    // Exactly one state is selected, and it is the one that side actually holds.
-    const pressed = Array.from(root.querySelectorAll<HTMLElement>(".state")).filter((n) => n.getAttribute("aria-pressed") === "true");
-    expect(pressed).toHaveLength(1);
-  });
-
-  it("shows the state's real population, and refuses to invent one it does not have", () => {
-    const withStates = snapshot.sides.find((s) => s.states.length > 0)!;
-    const profile = withStates.states.find((s) => s.population !== null) ?? withStates.states[0]!;
-    const root = startScreen({ sides: snapshot.sides, startYear: 2005, eraLabel: "2000s", onStart: noop });
-    root.querySelector<HTMLButtonElement>(`[data-testid='side-${withStates.id}']`)!.click();
-    root.querySelector<HTMLButtonElement>("[data-testid='step-1']")!.click();
-    const cardNode = root.querySelector<HTMLElement>(`[data-testid='state-${profile.code}']`)!;
-    const shown = profile.population === null ? "Population not surveyed" : profile.population.toLocaleString("en-US");
-    expect(visibleText(cardNode)).toContain(shown);
-    // The figure is mono when there is one, because it is a figure in a card.
-    if (profile.population !== null) {
-      expect(cardNode.querySelector(".state__pop .data")!.textContent).toBe(profile.population.toLocaleString("en-US"));
-    }
-  });
-
-  it("prints the ratings with pips that are not the only carrier of the value", () => {
+  it("shows the home state's real population, and refuses to invent one it does not have", () => {
     const root = start();
-    const pips = root.querySelector<HTMLElement>(".rating__pips")!;
-    expect(pips.getAttribute("role")).toBe("img");
-    // The accessible name carries the whole reading, and the figure beside it carries
-    // the number, so neither the pips nor the figure is the only signal.
-    expect(pips.getAttribute("aria-label")).toBe("Money 5 of 5");
-    const value = root.querySelector<HTMLElement>(".rating__value")!;
-    expect(value.textContent).toBe("5/5");
-    // The figure is `data`, not `data-sm`: ART_DIRECTION.md section 3.2 sets a 15px
-    // minimum for body size and `type-data-sm` is 12px. `type-data` is the locked step
-    // that is both mono and legal, so the figure is not set in a size outside the scale.
-    expect(value.classList.contains("data")).toBe(true);
-    expect(value.classList.contains("data-sm")).toBe(false);
-    for (const pip of Array.from(root.querySelectorAll<HTMLElement>(".rating__pip"))) {
-      expect(pip.getAttribute("aria-hidden")).toBe("true");
-    }
+    root.querySelector<HTMLButtonElement>("[data-testid='heritage-italian']")!.click();
+    root.querySelector<HTMLButtonElement>("[data-testid='step-3']")!.click();
+    const cardNode = root.querySelector<HTMLElement>("[data-testid='home-state-OH']")!;
+    const expected = HOME_SETTLEMENTS.filter((s) => s.stateCode === "OH").reduce((sum, s) => sum + (s.population ?? 0), 0);
+    expect(visibleText(cardNode)).toContain(expected.toLocaleString("en-US"));
+    // The figure is mono when there is one, because it is a figure in a card.
+    expect(cardNode.querySelector(".state__pop .data")!.textContent).toBe(expected.toLocaleString("en-US"));
   });
 
   it("writes the display line once, and no more than once", () => {
@@ -1529,7 +1550,7 @@ describe("keyboard and accessible names (UI_UX.md section 12, ART_DIRECTION.md 1
       ["card", card()],
       ["card-skeleton", card({ loading: true })],
       ["start", start()],
-      ["start-skeleton", start({ loading: true, sides: [] })],
+      ["start-skeleton", start({ loading: true, settlements: [] })],
     ];
     const problems: string[] = [];
     for (const [name, node] of panels) {
@@ -1576,7 +1597,7 @@ describe("keyboard and accessible names (UI_UX.md section 12, ART_DIRECTION.md 1
 
   it("never uses ink-300 for information, only for disabled controls", () => {
     // The disabled start steps are the one legitimate use: a step that cannot be opened.
-    const root = startScreen({ sides: [{ ...snapshot.sides[0]!, states: [] }], startYear: 2005, eraLabel: "2000s", onStart: noop });
+    const root = start({ settlements: [] });
     for (const step of Array.from(root.querySelectorAll<HTMLElement>(".step[disabled]"))) {
       expect(step.getAttribute("aria-disabled")).not.toBe("true");
     }
@@ -1621,7 +1642,7 @@ describe("copy in every state of the five panels (CONSTITUTION.md 3.3)", () => {
       ["card", card()],
       ["card-skeleton", card({ loading: true })],
       ["start", start()],
-      ["start-skeleton", start({ loading: true, sides: [] })],
+      ["start-skeleton", start({ loading: true, settlements: [] })],
       ["start-error", startScreenError("HTTP 503", noop)],
     ];
     const offenders: string[] = [];

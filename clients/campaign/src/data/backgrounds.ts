@@ -202,86 +202,11 @@ export const BACKGROUNDS: BackgroundCategory[] = [
  * life stages.
  */
 export const CHARACTER_STAGES: BackgroundCategory[] = [FAMILY_CATEGORY, ...BACKGROUNDS];
-
-/** Appearance presets — face/body options for the character portrait. */
-export interface AppearancePreset {
-  id: string;
-  label: string;
-  /** Emoji or symbol for the portrait placeholder. */
-  icon: string;
-  description: string;
-  /** Ethnicity this preset belongs to. "all" shows for every heritage. */
-  ethnicityId: string;
-}
-
-/**
- * 4 appearance presets per ethnicity (40 total).
- * Icons are placeholders until the 3D portrait renderer lands.
- */
-export const APPEARANCE_PRESETS: AppearancePreset[] = [
-  // Italian-American
-  { id: "italian-1", label: "Don", icon: "🤵", description: "Sharp suit, old-school respect.", ethnicityId: "italian" },
-  { id: "italian-2", label: "Tradesman", icon: "👷", description: "Work boots, calloused hands.", ethnicityId: "italian" },
-  { id: "italian-3", label: "Nonna's Favorite", icon: "🧑", description: "Charming, well-fed.", ethnicityId: "italian" },
-  { id: "italian-4", label: "Street Kid", icon: "🧒", description: "Grew up on Mulberry St.", ethnicityId: "italian" },
-  // Irish-American
-  { id: "irish-1", label: "Southie", icon: "👨", description: "Boston tough, loyal to the core.", ethnicityId: "irish" },
-  { id: "irish-2", label: "Cop", icon: "👮", description: "Third-generation badge.", ethnicityId: "irish" },
-  { id: "irish-3", label: "Bartender", icon: "🧔", description: "Knows everyone's story.", ethnicityId: "irish" },
-  { id: "irish-4", label: "Fighter", icon: "🥊", description: "Golden Gloves hopeful.", ethnicityId: "irish" },
-  // Chinese-American
-  { id: "chinese-1", label: "Scholar", icon: "👓", description: "Quiet, observant, precise.", ethnicityId: "chinese" },
-  { id: "chinese-2", label: "Chef", icon: "👨‍🍳", description: "Wok hei in their veins.", ethnicityId: "chinese" },
-  { id: "chinese-3", label: "Engineer", icon: "👨‍💻", description: "Builds things that last.", ethnicityId: "chinese" },
-  { id: "chinese-4", label: "Lion Dancer", icon: "🦁", description: "Carries tradition forward.", ethnicityId: "chinese" },
-  // Korean-American
-  { id: "korean-1", label: "Shopkeeper", icon: "🧑‍💼", description: "Family business, 18-hour days.", ethnicityId: "korean" },
-  { id: "korean-2", label: "Veteran", icon: "🎖️", description: "ROK Army discipline.", ethnicityId: "korean" },
-  { id: "korean-3", label: "Student", icon: "🎓", description: "Top of the class, hungry for more.", ethnicityId: "korean" },
-  { id: "korean-4", label: "Pastor", icon: "🙏", description: "Community pillar.", ethnicityId: "korean" },
-  // African-American
-  { id: "african-1", label: "Preacher", icon: "👔", description: "Voice that moves crowds.", ethnicityId: "african" },
-  { id: "african-2", label: "Athlete", icon: "🏀", description: "Built for the game.", ethnicityId: "african" },
-  { id: "african-3", label: "Organizer", icon: "✊", description: "Knows every block captain.", ethnicityId: "african" },
-  { id: "african-4", label: "Musician", icon: "🎺", description: "Carries the culture in every note.", ethnicityId: "african" },
-  // Jamaican-American
-  { id: "jamaican-1", label: "Rude Boy", icon: "😎", description: "Sharp dresser, sharper wit.", ethnicityId: "jamaican" },
-  { id: "jamaican-2", label: "Soundman", icon: "🎧", description: "Controls the vibe.", ethnicityId: "jamaican" },
-  { id: "jamaican-3", label: "Runner", icon: "🏃", description: "Fastest on the block.", ethnicityId: "jamaican" },
-  { id: "jamaican-4", label: "Elder", icon: "🧓", description: "Respected, connected.", ethnicityId: "jamaican" },
-  // Mexican-American
-  { id: "mexican-1", label: "Vaquero", icon: "🤠", description: "Ranch-raised, self-reliant.", ethnicityId: "mexican" },
-  { id: "mexican-2", label: "Lowrider", icon: "🚗", description: "Cruises slow, shines bright.", ethnicityId: "mexican" },
-  { id: "mexican-3", label: "Abuela's Pride", icon: "🧑", description: "Family first, always.", ethnicityId: "mexican" },
-  { id: "mexican-4", label: "Luchador", icon: "🎭", description: "Mask on, fear off.", ethnicityId: "mexican" },
-  // Puerto Rican-American
-  { id: "puerto_rican-1", label: "Boricua", icon: "🇵🇷", description: "Island pride, city hustle.", ethnicityId: "puerto_rican" },
-  { id: "puerto_rican-2", label: "Salsa King", icon: "💃", description: "Moves like water.", ethnicityId: "puerto_rican" },
-  { id: "puerto_rican-3", label: "Bodega Owner", icon: "🏪", description: "Knows the whole neighborhood.", ethnicityId: "puerto_rican" },
-  { id: "puerto_rican-4", label: "Boxer", icon: "🥊", description: "Hands of stone.", ethnicityId: "puerto_rican" },
-  // German-American
-  { id: "german-1", label: "Craftsman", icon: "🔨", description: "Precision in every joint.", ethnicityId: "german" },
-  { id: "german-2", label: "Brewer", icon: "🍺", description: "Old-world recipes.", ethnicityId: "german" },
-  { id: "german-3", label: "Engineer", icon: "⚙️", description: "If it ain't broke, improve it.", ethnicityId: "german" },
-  { id: "german-4", label: "Farmer", icon: "🌾", description: "Worked the land for generations.", ethnicityId: "german" },
-  // Russian-American
-  { id: "russian-1", label: "Veteran", icon: "🎖️", description: "Served, survived, remembers.", ethnicityId: "russian" },
-  { id: "russian-2", label: "Hacker", icon: "💻", description: "Sees systems others miss.", ethnicityId: "russian" },
-  { id: "russian-3", label: "Weightlifter", icon: "🏋️", description: "Built like a tank.", ethnicityId: "russian" },
-  { id: "russian-4", label: "Chess Master", icon: "♟️", description: "Thinks five moves ahead.", ethnicityId: "russian" },
-];
-
-/** Get appearance presets for a specific ethnicity. */
-export function appearancesForEthnicity(ethnicityId: string): AppearancePreset[] {
-  return APPEARANCE_PRESETS.filter((p) => p.ethnicityId === ethnicityId);
-}
-
 /** The full character created in the maker. */
 export interface GameCharacter {
   firstName: string;
   lastName: string;
   gender: "male" | "female";
-  appearanceId: string;
   ethnicityId: string;
   backgroundChoices: Record<string, string>; // categoryId -> optionId
   /**
