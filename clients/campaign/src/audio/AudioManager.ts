@@ -213,11 +213,44 @@ export class AudioManager {
     for (const asset of assets) {
       this.manifest.set(asset.id, asset);
     }
-    console.log(`AudioManager: loaded ${assets.length} assets`);
+    // The ledger is every shipped file with its attribution, so it is megabytes of
+    // credit text the mixer never reads. When the document names a runtime index,
+    // that is the id -> web path map and it replaces the ledger for playback: the
+    // ledger alone listed 109 of 6,318 files, which is why the music pools and
+    // barks resolved to nothing and the game played silence.
+    const indexUrl: string | undefined = data.runtimeIndex;
+    if (indexUrl) {
+      await this.loadRuntimeIndex(indexUrl, manifestUrl);
+    }
+    console.log(`AudioManager: loaded ${this.manifest.size} assets`);
     const preloadIds = assets
       .filter(a => a.id.startsWith('sfx-ui-'))
       .map(a => a.id);
     await this.preload(preloadIds);
+  }
+
+  /**
+   * Reads the compact `{"paths": {id: "/audio/....mp3"}}` index that sits beside
+   * the ledger, and merges it over the ledger's entries. The index wins: its
+   * paths are already web-root paths, so they need no normalisation and cannot
+   * be wrong the way a repository path fetched verbatim is.
+   *
+   * A missing or malformed index is not fatal. The ledger entries stay in the
+   * map and `webAudioPath` fixes them, so the mixer keeps working with the
+   * handful of assets the ledger did list.
+   */
+  private async loadRuntimeIndex(indexUrl: string, manifestUrl: string): Promise<void> {
+    const resolved = new URL(indexUrl, new URL(manifestUrl, window.location.href)).pathname;
+    try {
+      const resp = await fetch(resolved);
+      if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+      const document = (await resp.json()) as { paths?: Record<string, string> };
+      for (const [id, path] of Object.entries(document.paths ?? {})) {
+        this.manifest.set(id, { id, path });
+      }
+    } catch (err) {
+      console.warn(`AudioManager: runtime index ${resolved} unavailable, using the ledger`, err);
+    }
   }
 
   async preload(ids: string[]): Promise<void> {
@@ -362,6 +395,20 @@ export class AudioManager {
     const voice = this.currentAmbient;
     this.currentAmbient = null;
     if (voice) this.fadeOutVoice(voice, 0.5);
+  }
+
+  /**
+   * Whether the loaded library knows this id. A pool that names a track the
+   * library does not carry would otherwise call `preload`, find nothing, and
+   * sit in silence; asking first lets the caller drop it from the rotation.
+   */
+  has(id: string): boolean {
+    return this.manifest.has(id);
+  }
+
+  /** Every id the library knows, sorted. */
+  ids(): string[] {
+    return [...this.manifest.keys()].sort();
   }
 
   /**
