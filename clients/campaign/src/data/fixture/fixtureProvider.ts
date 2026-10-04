@@ -94,6 +94,7 @@ import {
   foodVariety,
   foodVarietyMoraleDelta,
 } from "../../campaign/fieldSystems.js";
+import { rollAnnualDeath } from "../../campaign/mortality.js";
 
 /** Marker strings. `tools/check-no-fixtures.mjs` greps the production bundle for
  *  these, so this module cannot be smuggled into a shipped build unnoticed. */
@@ -1482,10 +1483,15 @@ class FixtureState {
     if (this.#month > 12) {
       this.#month = 1;
       this.#year += 1;
-      // Age characters by one year.
+      // Age characters by one year; the old may die of old age (Bannerlord's
+      // mortality -- see campaign/mortality.ts). Succession is handled by
+      // killCharacter.
       for (const char of this.#characters) {
         if (char.alive) {
           char.age += 1;
+          if (rollAnnualDeath(char.age, this.#random)) {
+            void this.killCharacter(char.id, "old age").catch(() => {});
+          }
         }
       }
     }
