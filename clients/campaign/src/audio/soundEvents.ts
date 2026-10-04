@@ -147,6 +147,13 @@ export const SOUND_EVENTS = {
   "combat.arrow-fire": { id: "sfx-melee-arrow-whoosh", volume: 0.5, hook: "An arrow is loosed." },
   "combat.arrow-hit": { id: "sfx-melee-arrow-hit-flesh", volume: 0.6, hook: "An arrow strikes flesh." },
   "combat.shield-block": { id: "sfx-melee-shield-block", volume: 0.65, hook: "A shield takes a blow." },
+  // Tasks 524/527/529: weapon switch click, distant artillery rumble, body
+  // fall thump. The switch is the UI click at combat volume — a distinct
+  // mechanical cue; artillery is the distant rumble (not the close explosion
+  // above); body fall is the mace thud repurposed at lower volume.
+  "combat.weapon-switch": { id: "sfx-ui-click", volume: 0.5, hook: "A weapon is switched." },
+  "combat.artillery-distant": { id: "sfx-weapon-distant-artillery", volume: 0.6, hook: "Distant artillery fires." },
+  "combat.body-fall": { id: "sfx-melee-mace-thud", volume: 0.5, hook: "A body hits the ground." },
 
   // -- Campaign ------------------------------------------------------------
   "construction.complete": { id: "sfx-forge-steel-pour", volume: 0.7, hook: "A building or project finishes." },
