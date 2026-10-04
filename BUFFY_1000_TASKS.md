@@ -47,25 +47,25 @@
 
 ### Battle HUD (21–50)
 21. HUD top bar (battle name, timer, weather)
-22. HUD player troop count (live update)
-23. HUD enemy troop count (live update)
-24. HUD morale bar (player)
-25. HUD morale bar (enemy)
-26. HUD minimap toggle button
-27. HUD camera mode toggle (follow/free)
-28. HUD pause button
-29. HUD surrender button (with confirm dialog)
-30. HUD retreat button (with confirm dialog)
+22. HUD player troop count (live update) ✓
+23. HUD enemy troop count (live update) ✓
+24. HUD morale bar (player) ✓
+25. HUD morale bar (enemy) ✓
+26. HUD minimap toggle button ✓
+27. HUD camera mode toggle (follow/free) ✓
+28. HUD pause button ✓
+29. HUD surrender button (with confirm dialog) ✓
+30. HUD retreat button (with confirm dialog) ✓
 31. HUD kill feed (last 5 kills, auto-fade) ✓
 32. HUD objective marker display
 33. HUD low-health warning (screen edge pulse) ✓
 34. HUD ammo counter (if ranged units)
 35. HUD selected unit info panel ✓
 36. HUD unit health bars (toggleable) ✓
-37. HUD faction banners (top corners)
-38. HUD battle timer (elapsed, mm:ss)
+37. HUD faction banners (top corners) ✓
+38. HUD battle timer (elapsed, mm:ss) ✓
 39. HUD reinforcement timer (if applicable)
-40. HUD settings gear (opens pause menu)
+40. HUD settings gear (opens pause menu) ✓
 41. HUD FPS counter (debug, toggleable) ✓
 42. HUD objective progress bar
 43. HUD victory points display
