@@ -1,6 +1,10 @@
 /**
  * Task 75: shareable battle summary. A compact text card for a battle —
  * copyable to the clipboard and downloadable as a .txt file.
+ *
+ * Task 87: the same report as structured JSON. The JSON is the report object
+ * itself, serialized — every number the text card prints comes from these
+ * fields, so the two can never disagree about what happened.
  */
 
 import type { AfterActionReport } from "./report.js";
@@ -38,6 +42,28 @@ export function downloadBattleSummary(report: AfterActionReport): void {
   const a = document.createElement("a");
   a.href = url;
   a.download = "battle-summary.txt";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+/**
+ * The report as JSON (task 87): the full `AfterActionReport` serialized, so
+ * anything that reads the file gets the same numbers the screen showed —
+ * casualties, kills, MVP, captures, loot, XP, rating, duration. Downloaded
+ * as `battle-report.json`.
+ */
+export function battleReportJson(report: AfterActionReport): string {
+  return JSON.stringify(report, null, 2);
+}
+
+export function downloadBattleJson(report: AfterActionReport): void {
+  const blob = new Blob([battleReportJson(report)], { type: "application/json" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "battle-report.json";
   document.body.appendChild(a);
   a.click();
   a.remove();

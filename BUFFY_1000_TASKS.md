@@ -105,31 +105,31 @@
 75. Behavior: hold fire toggle ✓
 
 ### After-Action (76–100)
-76. After-action report panel
-77. Casualty breakdown by unit type
-78. Kill/death ratio display
-79. MVP unit highlight (most kills)
-80. Loot inventory list
-81. Prisoner count and options (recruit/ransom/execute)
-82. XP gain per surviving unit
-83. Level-up notifications
-84. Wounded units list (recovery time)
-85. Captured equipment list
-86. Battle replay save button
-87. Battle stats export (JSON download)
-88. "Return to campaign" button
-89. "Fight again" button (rematch)
-90. Battle rating (S/A/B/C/D based on performance)
-91. Achievement unlock toasts
+76. After-action report panel ✓
+77. Casualty breakdown by unit type ✓
+78. Kill/death ratio display ✓
+79. MVP unit highlight (most kills) ✓
+80. Loot inventory list ✓
+81. Prisoner count and options (recruit/ransom/execute) ✓
+82. XP gain per surviving unit ✓
+83. Level-up notifications ✓
+84. Wounded units list (recovery time) ✓
+85. Captured equipment list ✓
+86. Battle replay save button ✓
+87. Battle stats export (JSON download) ✓
+88. "Return to campaign" button ✓
+89. "Fight again" button (rematch) ✓
+90. Battle rating (S/A/B/C/D based on performance) ✓
+91. Achievement unlock toasts ✓
 92. New tactic unlocked notification
-93. Enemy commander captured event
-94. Enemy commander escaped event
-95. Heroic victory bonus (outnumbered win)
-96. Pyrrhic victory warning (won but heavy losses)
-97. Flawless victory bonus (zero losses)
-98. Battle duration stat
-99. Map name and biome in report header
-100. Weather and time-of-day in report header
+93. Enemy commander captured event ✓
+94. Enemy commander escaped event ✓
+95. Heroic victory bonus (outnumbered win) ✓
+96. Pyrrhic victory warning (won but heavy losses) ✓
+97. Flawless victory bonus (zero losses) ✓
+98. Battle duration stat ✓
+99. Map name and biome in report header ✓
+100. Weather and time-of-day in report header ✓
 
 ---
 
