@@ -574,58 +574,58 @@
 ## E. Audio Implementation (501–600)
 
 ### Battle SFX Wiring (501–530)
-501. Wire: rifle shot on shoot()
-502. Wire: pistol shot on sidearm
-503. Wire: shotgun blast
-504. Wire: reload sound
-505. Wire: dry-fire click on empty
-506. Wire: hit flesh on damage
-507. Wire: armor clank on block
+501. [x] [Hana] Wire: rifle shot on shoot()
+502. [x] [Hana] Wire: pistol shot on sidearm
+503. [x] [Hana] Wire: shotgun blast
+504. [x] [Hana] Wire: reload sound
+505. [x] [Hana] Wire: dry-fire click on empty
+506. [x] [Hana] Wire: hit flesh on damage
+507. [x] [Hana] Wire: armor clank on block
 508. Wire: death groan on kill (random pitch)
-509. Wire: explosion on grenade
+509. [x] [Hana] Wire: explosion on grenade
 510. Wire: footstep on move (surface-based)
-511. Wire: horse gallop on cavalry
-512. Wire: sword swing whoosh
-513. Wire: sword clash on parry
-514. Wire: arrow loose on fire
-515. Wire: arrow hit on damage
-516. Wire: shield block thud
-517. Wire: morale break horn
-518. Wire: rally horn
-519. Wire: victory fanfare
-520. Wire: defeat sting
+511. [x] [Hana] Wire: horse gallop on cavalry
+512. [x] [Hana] Wire: sword swing whoosh
+513. [x] [Hana] Wire: sword clash on parry
+514. [x] [Hana] Wire: arrow loose on fire
+515. [x] [Hana] Wire: arrow hit on damage
+516. [x] [Hana] Wire: shield block thud
+517. [x] [Hana] Wire: morale break horn
+518. [x] [Hana] Wire: rally horn
+519. [x] [Hana] Wire: victory fanfare
+520. [x] [Hana] Wire: defeat sting
 521. Wire: ambient battle loop
 522. Wire: rain loop when raining
 523. Wire: reload complete click
-524. Wire: weapon switch click
+524. [x] [Hana] Wire: weapon switch click
 525. Wire: empty mag warning
 526. Wire: suppressive fire loop
-527. Wire: distant artillery
+527. [x] [Hana] Wire: distant artillery
 528. Wire: melee impact thud
-529. Wire: body fall thump
+529. [x] [Hana] Wire: body fall thump
 530. Wire: ragdoll impact sounds
 
 ### UI SFX Wiring (531–550)
-531. Wire: click on all buttons
-532. Wire: hover tick
-533. Wire: confirm on accept
-534. Wire: error buzz on invalid
-535. Wire: toggle on switch
-536. Wire: panel open whoosh
-537. Wire: panel close whoosh
-538. Wire: tab switch
-539. Wire: gold gain chime
-540. Wire: gold loss thud
-541. Wire: level up fanfare
-542. Wire: quest accept chime
-543. Wire: quest complete fanfare
-544. Wire: quest fail sound
-545. Wire: notification pop
-546. Wire: warning alert
-547. Wire: map zoom tick
-548. Wire: time speed change
-549. Wire: pause/unpause
-550. Wire: save game chime
+531. [x] [Hana] Wire: click on all buttons
+532. [x] [Hana] Wire: hover tick
+533. [x] [Hana] Wire: confirm on accept
+534. [x] [Hana] Wire: error buzz on invalid
+535. [x] [Hana] Wire: toggle on switch
+536. [x] [Hana] Wire: panel open whoosh
+537. [x] [Hana] Wire: panel close whoosh
+538. [x] [Hana] Wire: tab switch
+539. [x] [Hana] Wire: gold gain chime
+540. [x] [Hana] Wire: gold loss thud
+541. [x] [Hana] Wire: level up fanfare
+542. [x] [Hana] Wire: quest accept chime
+543. [x] [Hana] Wire: quest complete fanfare
+544. [x] [Hana] Wire: quest fail sound
+545. [x] [Hana] Wire: notification pop
+546. [x] [Hana] Wire: warning alert
+547. [x] [Hana] Wire: map zoom tick
+548. [x] [Hana] Wire: time speed change
+549. [x] [Hana] Wire: pause/unpause
+550. [x] [Hana] Wire: save game chime
 
 ### Music System (551–570)
 551. Music: menu-theme on title
