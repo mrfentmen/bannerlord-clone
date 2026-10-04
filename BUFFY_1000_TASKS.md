@@ -78,31 +78,31 @@
 50. HUD chat box (multiplayer stub, disabled) ✓
 
 ### Orders & Command (51–75)
-51. Order: move (right-click ground)
-52. Order: attack-move (A + click)
-53. Order: hold position (H key)
-54. Order: charge (C key)
-55. Order: retreat (R key)
-56. Order: follow me (F key)
-57. Order: spread out (S key)
-58. Order: form up (G key)
-59. Order panel UI (bottom, order buttons)
-60. Order button tooltips
-61. Order hotkey display on buttons
-62. Order queue (shift+click to queue)
-63. Order cancel (right-click or Esc)
-64. Selection box (drag to select multiple)
-65. Selection highlight rings
-66. Double-click to select all of type
-67. Ctrl+click to add to selection
-68. Group hotkeys (Ctrl+1-9 to set, 1-9 to select)
-69. Group UI indicators (bottom left)
-70. Formation selector (line, column, wedge, circle)
-71. Formation preview ghost
-72. Stance selector (aggressive/defensive/passive)
-73. Stance icon on units
-74. Behavior: fire at will toggle
-75. Behavior: hold fire toggle
+51. Order: move (right-click ground) ✓
+52. Order: attack-move (A + click) ✓
+53. Order: hold position (H key) ✓
+54. Order: charge (C key) ✓
+55. Order: retreat (R key) ✓
+56. Order: follow me (F key) ✓
+57. Order: spread out (S key) ✓
+58. Order: form up (G key) ✓
+59. Order panel UI (bottom, order buttons) ✓
+60. Order button tooltips ✓
+61. Order hotkey display on buttons ✓
+62. Order queue (shift+click to queue) ✓
+63. Order cancel (right-click or Esc) ✓
+64. Selection box (drag to select multiple) ✓
+65. Selection highlight rings ✓
+66. Double-click to select all of type ✓
+67. Ctrl+click to add to selection ✓
+68. Group hotkeys (Ctrl+1-9 to set, 1-9 to select) ✓
+69. Group UI indicators (bottom left) ✓
+70. Formation selector (line, column, wedge, circle) ✓
+71. Formation preview ghost ✓
+72. Stance selector (aggressive/defensive/passive) ✓
+73. Stance icon on units ✓
+74. Behavior: fire at will toggle ✓
+75. Behavior: hold fire toggle ✓
 
 ### After-Action (76–100)
 76. After-action report panel
