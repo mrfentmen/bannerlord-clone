@@ -7,8 +7,15 @@ import {
   circuitLengthKm,
   circuitWaypoints,
   COURIER_RUNS,
+  INTERSTATE_CORRIDORS,
   legDistancesKm,
+  LONG_HAUL_CIRCUITS,
   MERCHANT_CIRCUITS,
+  NATIONAL_CITY_NAMES,
+  NATIONAL_CITY_POSITIONS,
+  NATIONAL_COURIER_RUNS,
+  nationalCircuitLengthKm,
+  nationalWaypoints,
   planTradeParties,
   planTradePartiesForSeed,
   SETTLEMENT_POSITIONS,
@@ -89,5 +96,54 @@ describe("trade paths", () => {
     expect(a).toEqual(b);
     const c = planTradePartiesForSeed(54321);
     expect(c.map((s) => s.leaderName)).not.toEqual(a.map((s) => s.leaderName));
+  });
+});
+
+describe("national road network", () => {
+  it("gives every national city a position and a display name", () => {
+    for (const [id, pos] of Object.entries(NATIONAL_CITY_POSITIONS)) {
+      expect(pos.x).toBeDefined();
+      expect(pos.z).toBeDefined();
+      expect(NATIONAL_CITY_NAMES[id], `missing name for ${id}`).toBeDefined();
+    }
+  });
+
+  it("traces interstate corridors through real cities in order", () => {
+    expect(INTERSTATE_CORRIDORS.length).toBeGreaterThanOrEqual(6);
+    for (const corridor of INTERSTATE_CORRIDORS) {
+      expect(corridor.cities.length).toBeGreaterThanOrEqual(4);
+      for (const city of corridor.cities) {
+        expect(NATIONAL_CITY_POSITIONS[city], `${corridor.id} references unknown ${city}`).toBeDefined();
+      }
+    }
+    // I-70 runs through Denver, the fixture hub.
+    const i70 = INTERSTATE_CORRIDORS.find((c) => c.id === "i-70")!;
+    expect(i70.cities).toContain("denver");
+  });
+
+  it("gives every long-haul stop a national waypoint", () => {
+    for (const circuit of [...LONG_HAUL_CIRCUITS, ...NATIONAL_COURIER_RUNS]) {
+      expect(circuit.stops.length).toBeGreaterThanOrEqual(2);
+      const pts = nationalWaypoints(circuit);
+      expect(pts).toHaveLength(circuit.stops.length);
+      // Every stop resolves to a placed city (Denver sits at the origin by design).
+      circuit.stops.forEach((stop, i) => {
+        const placed =
+          NATIONAL_CITY_POSITIONS[stop] !== undefined || SETTLEMENT_POSITIONS[stop] !== undefined;
+        expect(placed, `${stop} has no map position`).toBe(true);
+        expect(pts[i]).toBeDefined();
+      });
+    }
+  });
+
+  it("long-haul circuits span thousands of km", () => {
+    for (const circuit of LONG_HAUL_CIRCUITS) {
+      // Coast-to-coast scale: the shortest long-haul loop still exceeds 3,000 km.
+      expect(nationalCircuitLengthKm(circuit)).toBeGreaterThan(3000);
+    }
+  });
+
+  it("denver joins the national map at the fixture origin", () => {
+    expect(NATIONAL_CITY_POSITIONS["denver"]).toEqual(SETTLEMENT_POSITIONS["denver"]);
   });
 });

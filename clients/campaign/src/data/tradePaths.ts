@@ -166,3 +166,176 @@ export function planTradeParties(rng: NameRng): TradePartySpec[] {
 export function planTradePartiesForSeed(seed: number): TradePartySpec[] {
   return planTradeParties(createNameRng(seed ^ 0x9e3779b9));
 }
+
+// ---------------------------------------------------------------------------
+// National road network (del order 2026-10-03): trade routes across America.
+// ---------------------------------------------------------------------------
+// The twelve Front Range settlements above are the playable detail. Below is
+// the strategic layer: major American cities as nodes on the interstate
+// highway system, with long-haul merchant circuits and courier runs spanning
+// the continent. Positions are schematic (x = east km, z = south km, Denver
+// at the origin so the national map joins the fixture map seamlessly).
+// Distances honor real intercity mileage; bearings follow real geography.
+
+/** Schematic map positions for major American cities. Denver (0,0) is the hub. */
+export const NATIONAL_CITY_POSITIONS: Record<string, MapPoint> = {
+  // West Coast
+  seattle: { x: -1350, z: -950 },
+  portland: { x: -1400, z: -700 },
+  "san-francisco": { x: -1500, z: 100 },
+  "los-angeles": { x: -1350, z: 350 },
+  "san-diego": { x: -1300, z: 550 },
+  // Mountain West (fixture hub)
+  denver: { x: 0, z: 0 },
+  phoenix: { x: -950, z: 550 },
+  "salt-lake-city": { x: -600, z: -100 },
+  albuquerque: { x: -650, z: 450 },
+  // Midwest
+  chicago: { x: 1400, z: -350 },
+  "kansas-city": { x: 850, z: 150 },
+  "st-louis": { x: 1200, z: 250 },
+  minneapolis: { x: 1100, z: -650 },
+  detroit: { x: 1650, z: -250 },
+  // South
+  dallas: { x: 650, z: 850 },
+  houston: { x: 750, z: 1150 },
+  "new-orleans": { x: 1150, z: 1050 },
+  atlanta: { x: 1450, z: 850 },
+  nashville: { x: 1350, z: 600 },
+  memphis: { x: 1150, z: 650 },
+  // East Coast
+  miami: { x: 1850, z: 1950 },
+  washington: { x: 1950, z: 350 },
+  "new-york": { x: 2100, z: 150 },
+  boston: { x: 2200, z: -50 },
+  philadelphia: { x: 2050, z: 250 },
+};
+
+/** Display names for the national cities. */
+export const NATIONAL_CITY_NAMES: Record<string, string> = {
+  seattle: "Seattle",
+  portland: "Portland",
+  "san-francisco": "San Francisco",
+  "los-angeles": "Los Angeles",
+  "san-diego": "San Diego",
+  denver: "Denver",
+  phoenix: "Phoenix",
+  "salt-lake-city": "Salt Lake City",
+  albuquerque: "Albuquerque",
+  chicago: "Chicago",
+  "kansas-city": "Kansas City",
+  "st-louis": "St. Louis",
+  minneapolis: "Minneapolis",
+  detroit: "Detroit",
+  dallas: "Dallas",
+  houston: "Houston",
+  "new-orleans": "New Orleans",
+  atlanta: "Atlanta",
+  nashville: "Nashville",
+  memphis: "Memphis",
+  miami: "Miami",
+  washington: "Washington",
+  "new-york": "New York",
+  boston: "Boston",
+  philadelphia: "Philadelphia",
+};
+
+/**
+ * Interstate highway corridors: the roads the long-haul routes follow.
+ * Each is an ordered list of city ids tracing a real interstate.
+ */
+export const INTERSTATE_CORRIDORS: { id: string; name: string; cities: string[] }[] = [
+  {
+    id: "i-70",
+    name: "I-70 Transcontinental",
+    cities: ["los-angeles", "phoenix", "albuquerque", "denver", "kansas-city", "st-louis"],
+  },
+  {
+    id: "i-80",
+    name: "I-80 Northern",
+    cities: ["san-francisco", "salt-lake-city", "chicago", "detroit"],
+  },
+  {
+    id: "i-95",
+    name: "I-95 Eastern Seaboard",
+    cities: ["miami", "atlanta", "washington", "philadelphia", "new-york", "boston"],
+  },
+  {
+    id: "i-10",
+    name: "I-10 Southern",
+    cities: ["los-angeles", "phoenix", "dallas", "houston", "new-orleans", "miami"],
+  },
+  {
+    id: "i-5",
+    name: "I-5 Pacific",
+    cities: ["seattle", "portland", "san-francisco", "los-angeles", "san-diego"],
+  },
+  {
+    id: "i-35",
+    name: "I-35 Central",
+    cities: ["minneapolis", "kansas-city", "dallas", "houston"],
+  },
+];
+
+/** Long-haul merchant circuits: multi-day loops across regions. */
+export const LONG_HAUL_CIRCUITS: TradeCircuit[] = [
+  {
+    id: "circuit-transcontinental",
+    name: "Transcontinental Express",
+    kind: "merchant",
+    stops: ["los-angeles", "denver", "kansas-city", "chicago", "new-york"],
+  },
+  {
+    id: "circuit-southern",
+    name: "Southern Corridor",
+    kind: "merchant",
+    stops: ["los-angeles", "phoenix", "dallas", "houston", "new-orleans", "miami"],
+  },
+  {
+    id: "circuit-eastern",
+    name: "Eastern Seaboard Run",
+    kind: "merchant",
+    stops: ["miami", "atlanta", "washington", "new-york", "boston"],
+  },
+  {
+    id: "circuit-pacific",
+    name: "Pacific Run",
+    kind: "merchant",
+    stops: ["seattle", "portland", "san-francisco", "los-angeles", "san-diego"],
+  },
+  {
+    id: "circuit-heartland",
+    name: "Heartland Loop",
+    kind: "merchant",
+    stops: ["denver", "kansas-city", "st-louis", "chicago", "minneapolis", "salt-lake-city"],
+  },
+];
+
+/** Long-distance courier runs: coast-to-coast and regional expresses. */
+export const NATIONAL_COURIER_RUNS: TradeCircuit[] = [
+  { id: "courier-coast-to-coast", name: "Coast to Coast Express", kind: "courier", stops: ["new-york", "los-angeles"] },
+  { id: "courier-gulf", name: "Gulf Express", kind: "courier", stops: ["houston", "miami"] },
+  { id: "courier-pacific", name: "Pacific Dispatch", kind: "courier", stops: ["seattle", "san-diego"] },
+  { id: "courier-eastern", name: "Eastern Dispatch", kind: "courier", stops: ["boston", "miami"] },
+];
+
+/** Positions for national-circuit stops (falls back to fixture positions for Denver). */
+export function nationalWaypoints(circuit: TradeCircuit): MapPoint[] {
+  return circuit.stops.map(
+    (s) => NATIONAL_CITY_POSITIONS[s] ?? SETTLEMENT_POSITIONS[s] ?? { x: 0, z: 0 },
+  );
+}
+
+/** Straight-line km per leg for a national circuit. */
+export function nationalLegDistancesKm(circuit: TradeCircuit): number[] {
+  const pts = nationalWaypoints(circuit);
+  return pts.map((p, i) => {
+    const q = pts[(i + 1) % pts.length]!;
+    return Math.hypot(q.x - p.x, q.z - p.z);
+  });
+}
+
+/** Total loop length in km for a national circuit. */
+export function nationalCircuitLengthKm(circuit: TradeCircuit): number {
+  return nationalLegDistancesKm(circuit).reduce((a, b) => a + b, 0);
+}
