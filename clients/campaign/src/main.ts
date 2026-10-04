@@ -1541,8 +1541,15 @@ function townNode(town: TownState): Node {
             .filter((c) => c.role === "companion" && c.clanId === "clan-player" && c.alive)
             .map((c) => ({ id: c.id, name: c.name })),
           prisoners: snapshot.party.prisoners,
+          partyTroops: snapshot.party.troops.map((t) => ({ id: t.id, name: t.name, count: t.count })),
         }
       : {}),
+    onTransferToGarrison: (troopId, count) =>
+      provider.transferToGarrison(town.id, troopId, count).then((r) => {
+        playVerdictSound(true);
+        void refreshAfterSimOrder();
+        return r;
+      }),
     onGetGovernor: () => provider.getGovernor(town.id),
     onAssignGovernor: (characterId) =>
       provider.assignGovernor(town.id, characterId).then((r) => {

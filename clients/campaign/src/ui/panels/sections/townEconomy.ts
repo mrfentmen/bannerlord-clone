@@ -149,6 +149,68 @@ export const townGovernorSectionSpec: TownSectionSpec<void> = {
   },
 };
 
+export const townGarrisonSectionSpec: TownSectionSpec<void> = {
+  id: "garrison",
+  header: "Garrison",
+  enterLabel: "Inspect the garrison",
+  loadingLabel: "Counting the garrison...",
+  failureLabel: "The garrison could not be read.",
+  available: (options) =>
+    options.heldByPlayer === true &&
+    options.onTransferToGarrison !== undefined &&
+    (options.partyTroops?.length ?? 0) > 0,
+  render: (list, _view, _rt, options) => {
+    const town = options.town;
+    if (!town) return;
+    const say = (text: string) => {
+      const slot = list.closest("section")?.querySelector("[data-testid='garrison-message']");
+      if (slot) {
+        slot.textContent = text;
+        (slot as HTMLElement).style.display = "";
+      }
+    };
+    const current = h("p", { class: "caption", "data-testid": "garrison-current", style: "margin:0" },
+      `Garrison: ${Math.round(town.garrison)}.`);
+    list.append(current);
+    list.append(h("p", { class: "caption", style: "margin:var(--space-1) 0 0" },
+      "Leave troops behind to hold the town. Someone has to ride out."));
+    for (const t of options.partyTroops ?? []) {
+      const card = h("div", { class: "field-row", "data-testid": `garrison-${t.id}`, style: "margin-bottom:var(--space-3)" });
+      const qty = h("input", {
+        class: "field__input",
+        type: "number",
+        min: "1",
+        max: String(t.count),
+        value: String(t.count),
+        "aria-label": `How many ${t.name} to garrison`,
+        style: "width:5rem",
+      });
+      const btn = h("button", { type: "button", class: "btn", "data-testid": `garrison-leave-${t.id}` }, `Leave ${t.name} x${t.count}`);
+      btn.addEventListener("click", () => {
+        const count = Math.floor(Number((qty as HTMLInputElement).value));
+        if (!Number.isFinite(count) || count <= 0) {
+          say("Choose how many to leave.");
+          return;
+        }
+        btn.disabled = true;
+        void options.onTransferToGarrison!(t.id, count).then(
+          (r) => {
+            btn.disabled = false;
+            say(r.line);
+            options.onWorldChanged?.();
+          },
+          (err: unknown) => {
+            btn.disabled = false;
+            say(err instanceof Error && err.message ? err.message : "The transfer did not land.");
+          },
+        );
+      });
+      card.append(btn, qty);
+      list.append(card);
+    }
+  },
+};
+
 export const townBrokerSectionSpec: TownSectionSpec<void> = {
   id: "broker",
   header: "Ransom broker",

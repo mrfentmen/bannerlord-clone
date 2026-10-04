@@ -10,7 +10,7 @@ import { smithySectionSpec } from "./smithy.js";
 import { townQuestsSectionSpec } from "./townQuests.js";
 import { townNotablesSectionSpec } from "./townNotables.js";
 import { townSiegeSectionSpec } from "./townSiege.js";
-import { townCrimeSectionSpec, townGovernorSectionSpec, townBrokerSectionSpec } from "./townEconomy.js";
+import { townCrimeSectionSpec, townGovernorSectionSpec, townBrokerSectionSpec, townGarrisonSectionSpec } from "./townEconomy.js";
 import { townBountySectionSpec } from "./townBounty.js";
 
 export const TOWN_SECTIONS: TownSectionSpec<never>[] = [
@@ -23,5 +23,6 @@ export const TOWN_SECTIONS: TownSectionSpec<never>[] = [
   townCrimeSectionSpec,
   townGovernorSectionSpec,
   townBrokerSectionSpec,
+  townGarrisonSectionSpec,
   townBountySectionSpec,
 ] as unknown as TownSectionSpec<never>[];

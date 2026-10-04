@@ -915,6 +915,10 @@ export class HttpSimulationProvider implements SimulationProvider {
     throw new Error("Governors are not available on the live simulation yet.");
   }
 
+  async transferToGarrison(_townId: string, _troopId: string, _count: number): Promise<{ garrison: number; line: string }> {
+    throw new Error("Garrison transfers are not available on the live simulation yet.");
+  }
+
   async getGovernor(_townId: string): Promise<{ name: string; line: string } | null> {
     return null;
   }

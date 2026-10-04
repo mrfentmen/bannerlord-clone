@@ -1455,6 +1455,8 @@ export interface SimulationProvider {
   fulfillCraftingOrder(orderId: string): Promise<{ reward: number; line: string }>;
   /** Assign a governor to a town. */
   assignGovernor(townId: string, characterId: string): Promise<{ line: string }>;
+  /** Leave party troops as a held town's garrison. The player's clan must hold the town. */
+  transferToGarrison(townId: string, troopId: string, count: number): Promise<{ garrison: number; line: string }>;
   getGovernor(townId: string): Promise<{ name: string; line: string } | null>;
   /** Value a barter offer against a demand. */
   barterDeal(offer: { gold: number; goods: Record<string, number>; prisoners: number; dailyTribute: number; tributeDays: number }, demandValue: number): Promise<{ accepted: boolean; gap: number; line: string }>;

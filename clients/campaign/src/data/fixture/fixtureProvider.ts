@@ -386,6 +386,7 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     fulfillCraftingOrder: async (orderId: string) => state.fulfillCraftingOrder(orderId),
     assignGovernor: async (townId: string, characterId: string) =>
       state.assignGovernor(townId, characterId),
+    transferToGarrison: async (townId, troopId, count) => state.transferToGarrison(townId, troopId, count),
     getGovernor: async (townId: string) => state.getGovernor(townId),
     barterDeal: async (offer, demandValue: number) => state.barterDeal(offer, demandValue),
     defectClan: async (clanId: string, joinFactionId?: string) =>
@@ -2886,6 +2887,45 @@ class FixtureState {
         strength: p.troopCount * 10,
         troops: p.troopCount,
       }));
+  }
+
+  /**
+   * Leave party troops as a held town's garrison. Your clan must hold the
+   * town, and someone has to ride out: the party keeps at least one body.
+   */
+  async transferToGarrison(townId: string, troopId: string, count: number): Promise<{ garrison: number; line: string }> {
+    const town = this.#towns.get(townId);
+    if (!town) throw new Error("Town not found.");
+    const clan = this.#clans.find((c) => c.id === "clan-player");
+    if (!clan || !clan.fiefIds.includes(townId)) {
+      throw new Error(`Your clan does not hold ${town.name}.`);
+    }
+    if (!Number.isInteger(count) || count <= 0) {
+      throw new Error("Choose how many to leave in the garrison.");
+    }
+    const stack = this.#party.troops.find((t) => t.id === troopId);
+    if (!stack) throw new Error("No such troops in your party.");
+    const partyTotal = this.#party.troops.reduce((a, t) => a + t.count, 0);
+    if (count >= partyTotal) {
+      throw new Error("Someone has to ride out. Leave at least one troop with the party.");
+    }
+    if (count > stack.count) {
+      throw new Error(`Cannot leave ${count} (the party has ${stack.count}).`);
+    }
+    stack.count -= count;
+    if (stack.count === 0) {
+      this.#party.troops = this.#party.troops.filter((t) => t.id !== troopId);
+    }
+    town.garrison += count;
+    this.#notifications.push({
+      id: `n-garrison-${this.#sequence++}`,
+      day: this.#day,
+      priority: "informational",
+      text: `${count} ${stack.name} garrison ${town.name} (${town.garrison} strong).`,
+      entityId: town.id,
+      field: "garrison",
+    });
+    return { garrison: town.garrison, line: `${count} ${stack.name} now garrison ${town.name}. Garrison ${town.garrison}.` };
   }
 
   /**

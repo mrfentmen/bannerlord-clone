@@ -118,7 +118,7 @@ W = wired, M = made but unwired (see sections 1-3), N = needs making.
 | Crafting part discovery (unlock pieces by smelting) | N | forge names/quality exist, no part unlocks |
 | Tournaments | N | none |
 | Village raiding with economic effect | N | raiders exist; raid loot/prosperity damage to villages does not |
-| Garrison troop transfer (donate/take) | N | garrison number exists, no troop flow |
+| Garrison troop transfer (donate/take) | Y | donate DONE: leave troops from party into a held town's garrison (fixture provider; live sim has no route yet). Taking from garrison: no sim flow |
 | Companions leading their own parties | N | roles exist (quartermaster/scout/surgeon/engineer, unwired) but no independent parties |
 | Board games per faction | N | deliberately out — Americanization keeps dice (fine) |
 | Civilian outfit / cosmetic layers | N | out of scope for this skin unless asked |
@@ -126,5 +126,6 @@ W = wired, M = made but unwired (see sections 1-3), N = needs making.
 Read: the sim-lane muses have BUILT almost every Bannerlord system; the client
 has wired about a third of it. Sections 1-3 of this file ARE the gap. The only
 genuinely missing systems are the fief-ownership loop (castles, ownership,
-award votes, garrison transfer, raids), perks, part discovery, tournaments,
-and the bandit/bounty contract work.
+award votes, garrison donation, raids; ownership transfer via siege victory IS
+wired, garrison donation IS wired), perks, part discovery, tournaments,
+and the bandit/bounty contract work (bounty board IS wired).

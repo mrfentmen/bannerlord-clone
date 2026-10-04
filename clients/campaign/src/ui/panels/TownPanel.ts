@@ -251,6 +251,10 @@ export interface TownPanelOptions {
   prisoners?: { troopId: string; name: string; count: number; tier: number }[];
   /** Sell prisoners to the town's ransom broker. */
   onSellPrisonersToBroker?: (troopId: string, count: number) => Promise<{ gold: number; line: string }>;
+  /** The party's troop stacks, for garrison duty (held towns only). */
+  partyTroops?: { id: string; name: string; count: number }[];
+  /** Leave party troops as the town's garrison. The sim owns the rules. */
+  onTransferToGarrison?: (troopId: string, count: number) => Promise<{ garrison: number; line: string }>;
   /** Called after an economy order changed the world, so the caller repaints. */
   onWorldChanged?: () => void;
   /** Open bounties on the town's board (bandits/bounties contract). */

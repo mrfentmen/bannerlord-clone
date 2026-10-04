@@ -124,6 +124,8 @@ function town(opts: { loading?: boolean; town?: TownState | null } = {}): HTMLEl
     governorCandidates: [{ id: "c-test", name: "Test companion" }],
     prisoners: [{ troopId: "troop-test", name: "Bandits", count: 1, tier: 1 }],
     onSellPrisonersToBroker: async () => ({ gold: 0, line: "" }),
+    partyTroops: [{ id: "troop-test", name: "Militia", count: 5 }],
+    onTransferToGarrison: async () => ({ garrison: 5, line: "" }),
     onWorldChanged: () => undefined,
     onGetBounties: async () => [],
     onClaimBounty: async () => ({ claimed: true as const, reward: 0 }),

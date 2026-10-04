@@ -175,3 +175,75 @@ describe("town panel: crime, governor, ransom broker (bucket 7)", () => {
     expect(onWorldChanged).toHaveBeenCalled();
   });
 });
+
+describe("town panel: garrison transfer (fief loop)", () => {
+  it("the garrison section is gated on holding the town, a handler, and party troops", () => {
+    const full = townPanel(options({
+      heldByPlayer: true,
+      partyTroops: [{ id: "troop-militia", name: "Militia", count: 5 }],
+      onTransferToGarrison: vi.fn(),
+    }));
+    expect(full.querySelector('[data-testid="garrison-section"]')).not.toBeNull();
+    const noHold = townPanel(options({
+      heldByPlayer: false,
+      partyTroops: [{ id: "troop-militia", name: "Militia", count: 5 }],
+      onTransferToGarrison: vi.fn(),
+    }));
+    expect(noHold.querySelector('[data-testid="garrison-section"]')).toBeNull();
+    const noTroops = townPanel(options({ heldByPlayer: true, partyTroops: [], onTransferToGarrison: vi.fn() }));
+    expect(noTroops.querySelector('[data-testid="garrison-section"]')).toBeNull();
+  });
+
+  it("renders the garrison count and one row per party stack", () => {
+    const root = townPanel(options({
+      heldByPlayer: true,
+      partyTroops: [
+        { id: "troop-militia", name: "Militia", count: 5 },
+        { id: "troop-veteran", name: "Veterans", count: 3 },
+      ],
+      onTransferToGarrison: vi.fn(),
+    }));
+    expect(root.querySelector('[data-testid="garrison-current"]')?.textContent).toContain("Garrison: 50");
+    expect(root.querySelector('[data-testid="garrison-leave-troop-militia"]')).not.toBeNull();
+    expect(root.querySelector('[data-testid="garrison-leave-troop-veteran"]')).not.toBeNull();
+  });
+
+  it("a refusal lands verbatim and re-arms the button", async () => {
+    const onTransferToGarrison = vi.fn().mockRejectedValue(new Error("Someone has to ride out. Leave at least one troop with the party."));
+    const onWorldChanged = vi.fn();
+    const root = townPanel(options({
+      heldByPlayer: true,
+      partyTroops: [{ id: "troop-militia", name: "Militia", count: 5 }],
+      onTransferToGarrison,
+      onWorldChanged,
+    }));
+    await flush();
+    const qty = root.querySelector<HTMLInputElement>('[data-testid="garrison-troop-militia"] input');
+    qty!.value = "5";
+    const btn = root.querySelector('[data-testid="garrison-leave-troop-militia"]') as HTMLButtonElement;
+    btn.click();
+    await flush();
+    expect(onTransferToGarrison).toHaveBeenCalledWith("troop-militia", 5);
+    expect(root.querySelector('[data-testid="garrison-message"]')?.textContent).toContain("Someone has to ride out");
+    expect(btn.disabled).toBe(false);
+    expect(onWorldChanged).not.toHaveBeenCalled();
+  });
+
+  it("a successful transfer posts the count, prints the sim's line, and fires the changed hook", async () => {
+    const onTransferToGarrison = vi.fn().mockResolvedValue({ garrison: 55, line: "5 Militia now garrison Brooklyn. Garrison 55." });
+    const onWorldChanged = vi.fn();
+    const root = townPanel(options({
+      heldByPlayer: true,
+      partyTroops: [{ id: "troop-militia", name: "Militia", count: 5 }],
+      onTransferToGarrison,
+      onWorldChanged,
+    }));
+    await flush();
+    (root.querySelector('[data-testid="garrison-leave-troop-militia"]') as HTMLButtonElement).click();
+    await flush();
+    expect(onTransferToGarrison).toHaveBeenCalledWith("troop-militia", 5);
+    expect(root.querySelector('[data-testid="garrison-message"]')?.textContent).toContain("Garrison 55.");
+    expect(onWorldChanged).toHaveBeenCalled();
+  });
+});
+

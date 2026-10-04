@@ -140,7 +140,7 @@
 102. Town panel: population display
 103. Town panel: prosperity bar
 104. Town panel: food stores display
-105. Town panel: garrison list (unit types + counts)
+105. [x] Town panel: garrison list (unit types + counts — donate via transfer-to-garrison)
 106. Town panel: recruit button per unit type
 107. Town panel: recruit cost display
 108. Town panel: recruit time display
