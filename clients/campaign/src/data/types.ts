@@ -646,29 +646,6 @@ export interface PartyState {
   goods: { goodId: string; name: string; quantity: number; avgPaid: number }[];
   /** Captured enemy troops held as prisoners. */
   prisoners: { troopId: string; name: string; count: number; tier: number }[];
-  /**
-   * Spare riding horses by breed (see campaign/partySpeed.ts). These mount
-   * footmen on the march -- one horse per footman is the optimum.
-   */
-  horses?: { breed: 'quarter' | 'mustang' | 'draft' | 'thoroughbred'; count: number }[];
-  /** Mules. Carry capacity, no speed. */
-  packAnimals?: number;
-  /** Motorized haulers. Huge capacity, road-bound, need fuel. */
-  trucks?: number;
-  /**
-   * Bannerlord-style speed breakdown, refreshed on every daily tick. The
-   * party panel renders this under the march-speed row.
-   */
-  speedFactors?: { name: string; mult: number; detail: string }[];
-  /** Forced march: +30% speed at daily morale/food cost. */
-  forcedMarch?: boolean;
-  /** Workshop bench output: forged weapons and mods awaiting sale or issue. */
-  crafted?: { recipeId: string; name: string; count: number }[];
-  /**
-   * Player troops held captive by enemies. Prison breaks (roguery) free them;
-   * see campaign/fieldSystems.ts.
-   */
-  imprisoned?: { name: string; count: number; holderId: string; holderName: string }[];
 }
 
 /** The tradeable goods of ECONOMY.md, named so the market is legible. */
@@ -803,8 +780,6 @@ export interface Clan {
   fiefIds: string[];
   /** Banner color for UI. */
   bannerColor: string;
-  /** Full clan banner configuration (shape + symbol + colors). Optional for backwards compat. */
-  banner?: import("./clanBanners.js").ClanBanner;
 }
 
 /** A character: a named individual in the campaign world. */
@@ -836,8 +811,6 @@ export interface GameCharacter {
   isPlayer: boolean;
   /** Skill levels (0-10) for companions. Affects party/settlement systems. */
   skills?: Record<string, number>;
-  /** Personality traits (children roll these at birth; see campaign/fortune.ts). */
-  traits?: string[];
 }
 
 /** Marriage record. */
@@ -1243,28 +1216,6 @@ export interface SimulationProvider {
   getPartyCapacity(): Promise<number>;
   /** Current party speed in km/day (from troop composition). */
   getPartySpeed(): Promise<number>;
-  setForcedMarch(active: boolean): Promise<void>;
-  getForcedMarch(): Promise<boolean>;
-  smeltArms(quantity: number): Promise<{ metal: number }>;
-  forgeItem(recipeId: string): Promise<{ name: string }>;
-  getSmithingRecipes(): Promise<{ id: string; name: string; metal: number; fuel: number; result: string }[]>;
-  attemptPrisonBreak(holderId: string, teamSize: number): Promise<{ success: boolean; freed: number; wounded: number; caught: boolean }>;
-  /** Charm persuasion check (Bannerlord-style seeded roll). */
-  persuade(charm: number, difficulty: number): Promise<{ chance: number; success: boolean; margin: number }>;
-  /** Sign a mercenary contract with a faction. */
-  signMercenaryContract(factionId: string, factionName: string): Promise<{ contract: { factionId: string; factionName: string; daysLeft: number; payPerVictory: number; dailyPay: number } }>;
-  getMercenaryContract(): Promise<{ factionId: string; factionName: string; daysLeft: number; payPerVictory: number; dailyPay: number } | null>;
-  breakMercenaryContract(): Promise<{ relationPenalty: number }>;
-  /** Open crafting orders at the smithy. */
-  getCraftingOrders(): Promise<{ id: string; patron: string; patronTitle: string; recipeId: string; recipeName: string; daysLeft: number; reward: number }[]>;
-  fulfillCraftingOrder(orderId: string): Promise<{ reward: number; line: string }>;
-  /** Assign a governor to a town. */
-  assignGovernor(townId: string, characterId: string): Promise<{ line: string }>;
-  getGovernor(townId: string): Promise<{ name: string; line: string } | null>;
-  /** Value a barter offer against a demand. */
-  barterDeal(offer: { gold: number; goods: Record<string, number>; prisoners: number; dailyTribute: number; tributeDays: number }, demandValue: number): Promise<{ accepted: boolean; gap: number; line: string }>;
-  /** A clan walks away from its kingdom. */
-  defectClan(clanId: string, joinFactionId?: string): Promise<{ line: string }>;
   /** Set an army's objective. */
   setArmyObjective(armyId: string, objective: Army["objective"]): Promise<void>;
   /** Restore the provider's internal state from a saved snapshot. */

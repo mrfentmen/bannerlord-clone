@@ -1,39 +1,34 @@
 /**
- * The new game flow: heritage, family job, upbringing, home, confirm.
+ * The new game flow: side, then state, then role, then confirm.
+ * `UI_UX.md` section 3, `FACTIONS.md` sections 3, 4 and 7.
  *
- * The locked design (CONSTITUTION.md creation order) puts no side pick at
- * creation: the shipped map holds only part of the country, so a side list
- * would show sections that own no towns at all. Sides recruit the player
- * later, in the game, and a heritage shifts how fast they open up — it never
- * blocks anything. So the four answers this screen collects are who the
- * character is and where they start, and the confirm step restates them.
+ * The screen has one job beyond collecting three choices, and that job is to make the
+ * trade explicit. `FACTIONS.md` section 7: "Choosing a side is choosing which problem
+ * to have." So every side shows its ratings, its pros, its cons, and one plain sentence
+ * about the problem you are choosing to have. The ratings are the values the simulation
+ * computed from real data, not adjectives, and each rating is drawn as five pips with
+ * the figure in mono beside them so a 3 of 5 is a number rather than a feeling.
  *
- * Three things the old screen got right stay load-bearing:
+ * Three things `UI_UX.md` section 3 asks for are load-bearing:
  *
- *  - **Every step can be navigated backwards.** The step bar is a row of real
- *    buttons, not a progress indicator, and a step already answered stays
- *    reachable after the fact.
- *  - **Skeleton loading while the world data streams in.** The boot screen
- *    renders the skeleton before the settlement survey lands, so the screen
- *    does not reflow when the data arrives.
- *  - **Confirm with a summary and start.** The last step restates all four
- *    answers with the home town's real figures, and a step that has not been
- *    answered cannot be skipped.
+ *  - **Every step can be navigated backwards.** The step bar is a row of real buttons,
+ *    not a progress indicator, and a step already answered stays reachable after the
+ *    fact. Choosing a different side after looking at the states must not lose them.
+ *  - **Skeleton loading while the world data streams in.** The skeleton is the same
+ *    three-column grid of side cards the real screen draws, drawn before the data lands.
+ *  - **Confirm with a summary and start.** The last step restates all three choices with
+ *    the state's real figures, and a step that has not been answered cannot be skipped.
  *
- * The home step derives the town from `resolveHome` — the player picks a state
- * or lets their heritage decide — so no start screen choice can name a town
- * the map does not hold.
+ * The Wanderer start is a first-class choice, not an escape hatch: it has no section to
+ * belong to, so it holds no states, and the state step says so rather than showing an
+ * empty grid with no explanation.
  */
 
 import { clear, h } from "../dom.js";
-import { emptyState, errorState } from "../kit.js";
-import { startSkeletonBody } from "./panel-skeletons.js";
-import { BACKGROUNDS } from "../../data/backgrounds.js";
-import { FAMILIES } from "../../data/families.js";
-import { mappedStates, resolveHome } from "../../data/homes.js";
-import { ETHNICITIES, getEthnicity } from "../../data/ethnicities.js";
-import { attributeLabel } from "../../data/attributes.js";
-import type { WorldSettlement } from "../../world/types.js";
+import { emptyState, errorState, statusChip, type StatusKind } from "../kit.js";
+import { startRoleSkeletonBody, startSkeletonBody, startStateSkeletonBody } from "./panel-skeletons.js";
+import { STARTING_ROLES } from "../../data/sides.js";
+import type { SideState, StartingRole, StateProfile } from "../../data/types.js";
 import {
   createTipRotator,
   TIP_STORE_KEY,
@@ -41,80 +36,52 @@ import {
   type TipStorage,
 } from "../../onboarding/loadingTips.js";
 
-/** What the start screen hands the campaign when the player confirms. */
-export interface StartChoice {
-  ethnicityId: string;
-  /** The family job the character was born into (`data/families.ts`). */
-  familyId: string;
-  /** The life stages answered on the upbringing step: category id -> option id. */
-  upbringing: Record<string, string>;
-  /** The state the player picked for home, or null when heritage decided. */
-  homeStateCode: string | null;
-  /** Display name of the home state, for the maker's review and the summary. */
-  homeState: string;
-  /**
-   * The home settlement's name slug. This is the value POST /v1/character
-   * sends as `startCity`, and the simulation relocates the player by it.
-   */
-  startCity: string;
-  /** The home town's display name. */
-  homeTown: string;
-  /** The one-sentence reason the resolver gave for this town. */
-  homeReason: string;
-  /** Ironman (MASTER_PLAN task 143): one autosave, no manual saves. */
-  ironman: boolean;
-  /** New Game+ (MASTER_PLAN task 142): begin as the banked legacy's heir. */
-  newGamePlus: boolean;
-}
-
 export interface StartScreenOptions {
-  /** The settlement survey the loaded region really has, for the home step. */
-  settlements: readonly WorldSettlement[];
+  sides: SideState[];
   startYear: number;
   eraLabel: string;
-  onStart: (choice: StartChoice) => void;
+  onStart: (choice: {
+    sideId: string;
+    stateCode: string;
+    role: StartingRole;
+    /** Ironman (MASTER_PLAN task 143): one autosave, no manual saves. */
+    ironman: boolean;
+    /** New Game+ (MASTER_PLAN task 142): begin as the banked legacy's heir. */
+    newGamePlus: boolean;
+  }) => void;
   /**
    * Banked legacy carryover lines (MASTER_PLAN task 142). Shown on the
    * confirm step when present; absent means no legacy is banked.
    */
   newGamePlusLines?: string[] | undefined;
   /**
-   * The world survey is still being read. Renders the boot skeleton before the
-   * settlement data lands (CONSTITUTION.md section 3.2).
+   * The world survey is still being read. Renders `start-skeleton`, shaped like the
+   * side grid, before the profiles arrive (CONSTITUTION.md section 3.2).
    */
   loading?: boolean;
   testId?: string;
 }
 
-/** The five steps: the locked creation order, then the confirm sheet. */
-const STEPS = ["Heritage", "Family", "Upbringing", "Home", "Confirm"] as const;
-type Step = 0 | 1 | 2 | 3 | 4;
+/** The four steps, in the order `UI_UX.md` section 3 puts them. */
+const STEPS = ["Side", "State", "Role", "Confirm"] as const;
+type Step = 0 | 1 | 2 | 3;
+
+const DIFFICULTY_STATUS: Record<string, StatusKind> = {
+  "Easy to Medium": "good",
+  Medium: "warning",
+  Hard: "critical",
+};
 
 export function startScreen(options: StartScreenOptions): HTMLElement {
   let step: Step = 0;
-  let ethnicityId = "";
-  // The family job is preseeded like the upbringing is: the confirm sheet
-  // restates it, and the step bar makes changing it one click at any time.
-  let familyId = FAMILIES[0]!.id;
-  /** The life stages, preseeded with each category's first option so the
-   * flow is never stuck on a page of sixteen required clicks; the confirm
-   * sheet restates every answer so a default the player disliked is one
-   * step-bar click away. */
-  let upbringing: Record<string, string> = {};
-  for (const category of BACKGROUNDS) {
-    upbringing[category.id] = category.options[0]!.id;
-  }
-  /** Null = let the heritage decide, which is the default until picked. */
-  let homeStateCode: string | null = null;
+  let sideId = options.sides[0]?.id ?? "";
+  let stateCode = "";
+  let role: StartingRole = "ruler-in-waiting";
 
-  const root = h("div", { class: "start", "data-testid": options.testId ?? "start-screen" });
+  const root = h("div", { class: "start", "data-testid": "start-screen" });
 
-  function currentEthnicity() {
-    return getEthnicity(ethnicityId);
-  }
-
-  function currentFamily() {
-    return FAMILIES.find((f) => f.id === familyId);
+  function currentSide(): SideState | undefined {
+    return options.sides.find((s) => s.id === sideId);
   }
 
   function go(next: Step): void {
@@ -125,44 +92,40 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
   /**
    * Whether a step can be opened.
    *
-   * The heritage step is the only gate: the headline choice is made explicitly.
-   * Family and upbringing carry honest defaults, and the home step resolves
-   * from the survey that already landed, so once a heritage exists the whole
-   * path is open and every answer stays editable from the step bar.
+   * A step is reachable once the choice before it has been made, and every step already
+   * visited stays reachable afterwards so going back never loses a selection. The
+   * Wanderer start holds no states, so the state step is answered — there is nothing to
+   * choose — rather than blocked.
    */
   function reachable(target: Step): boolean {
     if (target === 0) return true;
-    if (ethnicityId === "") return false;
-    return target !== 4 || homeChoice() !== null;
-  }
-
-  /** The home the current answers resolve to, or null while the map has no towns. */
-  function homeChoice() {
-    const ethnicity = currentEthnicity();
-    if (!ethnicity) return null;
-    return resolveHome({
-      ethnicityId: ethnicity.id,
-      ethnicityName: ethnicity.name,
-      stateCode: homeStateCode,
-      settlements: options.settlements,
-    });
+    if (target === 1) return sideId !== "";
+    if (target === 2) {
+      const side = currentSide();
+      // A section with no states has answered the state question for the player: there
+      // is nothing in it to choose. So the role step opens with it rather than leaving
+      // the player stuck on a step that cannot be completed.
+      if (side && side.states.length === 0) return true;
+      return side?.id === "wanderer" || stateCode !== "";
+    }
+    return options.sides.length > 0;
   }
 
   function render(): void {
     clear(root);
+    const side = currentSide();
 
     const inner = h("div", { class: "start__inner" });
     inner.appendChild(
       h(
         "header",
         { class: "start__head" },
-        h("h1", { class: "display" }, "Who you are before the trouble starts."),
+        h("h1", { class: "display" }, "Take a side. Then live with it."),
         h(
           "p",
           { class: "lede start__lede" },
-          `Starting in ${options.startYear}, the ${options.eraLabel}. Four answers put a character on the map: ` +
-            "your people, your family's trade, how you were raised, and where home is. No section owns you at " +
-            "creation — sides recruit you later, in the game, and your heritage shifts how fast they open up.",
+          `Starting in ${options.startYear}, the ${options.eraLabel}. Everything below is computed from real data about ` +
+            "these states, not from a difficulty setting. Choose the problem you want to have.",
         ),
         h(
           "p",
@@ -176,19 +139,32 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
     inner.appendChild(stepBar());
 
     if (options.loading) {
-      // The boot skeleton: the world survey streams in underneath it, and the
-      // screen takes its real shape when the data lands.
+      // The skeleton is the real three-column grid of side cards, not a grey block, so
+      // the screen does not reflow when the profiles arrive.
       inner.appendChild(startSkeletonBody());
+      // Task 125: a loading tip under the skeleton, rotated while the world streams
+      // in. The rotator's persisted window keeps any tip from repeating within ten
+      // loads; in-screen rotation never repeats the tip currently showing.
       inner.appendChild(loadingTip(root));
       root.appendChild(inner);
       return;
     }
 
-    if (step === 0) inner.appendChild(stepHeritage());
-    if (step === 1) inner.appendChild(stepFamily());
-    if (step === 2) inner.appendChild(stepUpbringing());
-    if (step === 3) inner.appendChild(stepHome());
-    if (step === 4) inner.appendChild(stepConfirm());
+    if (options.sides.length === 0) {
+      inner.appendChild(
+        emptyState(
+          "No sides were reported.",
+          "The simulation did not send a list of sections, so there is nothing to pick. Start the simulation and take the snapshot again.",
+        ),
+      );
+      root.appendChild(inner);
+      return;
+    }
+
+    if (step === 0) inner.appendChild(stepSide());
+    if (step === 1 && side) inner.appendChild(stepState(side));
+    if (step === 2) inner.appendChild(stepRole());
+    if (step === 3) inner.appendChild(stepConfirm());
 
     root.appendChild(inner);
   }
@@ -213,280 +189,209 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
       );
       // A step that is not yet open is a real disabled button, not a silent no-op: the
       // player can see the whole flow and which choice comes next.
-      if (!open) btn.title = `Choose a heritage first.`;
+      if (!open) btn.title = `Choose a ${label.toLowerCase()} first.`;
       btn.addEventListener("click", () => go(at));
       nav.appendChild(btn);
     });
     return nav;
   }
 
-  // -- step 1: heritage -------------------------------------------------------
+  // -- step 1: side -----------------------------------------------------------
 
-  function stepHeritage(): HTMLElement {
+  function stepSide(): HTMLElement {
     const frag = h("section", { class: "start__step" });
-    frag.appendChild(h("h2", { class: "title" }, "Your heritage"));
+    frag.appendChild(
+      h("h2", { class: "title" }, "Pick a side"),
+    );
     frag.appendChild(
       h(
         "p",
         { class: "caption start__note" },
-        "Where your people live shapes where you start and how quickly the sections open their doors to you. A heritage raises or lowers an acceptance bar; it never blocks one.",
+        "Every strength connects through the systems to a weakness. Nothing here is simply the best choice.",
       ),
     );
-    const grid = h("div", { class: "roles", "data-testid": "heritage-grid" });
-    for (const e of ETHNICITIES) grid.appendChild(heritageCard(e.id, e.name, e.tagline, e.homeRegion, e.bonuses));
+    const grid = h("div", { class: "sides", "data-testid": "side-grid" });
+    for (const s of options.sides) grid.appendChild(sideCard(s));
     frag.appendChild(grid);
-    frag.appendChild(navRow(null, "Continue", () => go(1), ethnicityId !== ""));
+    frag.appendChild(navRow(null, "Choose a side to continue", () => go(1), sideId !== ""));
     return frag;
   }
 
-  function heritageCard(
-    id: string,
-    name: string,
-    tagline: string,
-    homeRegion: string,
-    bonuses: readonly { label: string; reason: string; pro: boolean }[],
-  ): HTMLElement {
-    const selected = ethnicityId === id;
-    const bonusesList = h("ul", { class: "pros" });
-    for (const b of bonuses) {
-      bonusesList.appendChild(
-        h("li", { class: b.pro ? "pro" : "con", title: b.reason }, `${b.pro ? "+" : "-"} ${b.label}`),
-      );
-    }
+  function sideCard(s: SideState): HTMLElement {
     const card = h(
       "button",
       {
         type: "button",
-        class: `role${selected ? " role--selected" : ""}`,
-        "data-testid": `heritage-${id}`,
-        "aria-pressed": selected ? "true" : "false",
-        "aria-label": `${name}. ${tagline} Home region: ${homeRegion}.`,
+        class: "side",
+        "data-testid": `side-${s.id}`,
+        "aria-pressed": sideId === s.id ? "true" : "false",
+        // The card is one control, so it needs one name. The name says which side and
+        // what the player is about to take on, which is the decision being made.
+        "aria-label": `${s.name}. ${s.difficulty}. ${s.biggestDanger}`,
       },
-      h("strong", {}, name),
-      h("br"),
-      h("em", { class: "tagline" }, tagline),
-      h("p", { class: "caption" }, `Home region: ${homeRegion}`),
-      bonusesList,
+      h("h3", { class: "side__name" }, s.name),
+      h(
+        "div",
+        { class: "side__difficulty" },
+        statusChip(DIFFICULTY_STATUS[s.difficulty] ?? "info", s.difficulty, { testId: `side-difficulty-${s.id}` }),
+      ),
+      h("h4", { class: "section-header side__subhead" }, "Ratings"),
+      h(
+        "div",
+        { class: "ratings", "data-testid": `ratings-${s.id}` },
+        rating("Money", s.ratings.money),
+        rating("Gold", s.ratings.gold),
+        rating("Food", s.ratings.food),
+        rating("Metal", s.ratings.metal),
+        rating("People", s.ratings.population),
+      ),
+      h(
+        "div",
+        { class: "proscons" },
+        h("div", {}, h("h4", { class: "section-header side__subhead" }, "For you"), h("ul", {}, s.pros.map((p) => h("li", {}, p)))),
+        h("div", {}, h("h4", { class: "section-header side__subhead" }, "Against you"), h("ul", {}, s.cons.map((c) => h("li", {}, c)))),
+      ),
+      // FACTIONS.md section 7: the plain-language line about what this side is bad at.
+      // It is given its own block rather than being left in the cons list, because it is
+      // the thing the screen exists to tell the player.
+      h(
+        "div",
+        { class: "danger side__danger", "data-testid": `danger-${s.id}` },
+        h("span", { class: "label side__danger-key" }, "The trouble you take on"),
+        h("p", { class: "caption side__danger-text" }, s.biggestDanger),
+      ),
+      h("p", { class: "caption side__mechanic" }, s.signatureMechanic),
     );
     card.addEventListener("click", () => {
-      ethnicityId = id;
+      sideId = s.id;
+      // Picking a side re-seeds the state list: the previous state belonged to a
+      // different section, and leaving it selected would start the player somewhere
+      // they did not choose.
+      stateCode = s.states[0]?.code ?? "";
       render();
     });
     return card;
   }
 
-  // -- step 2: family ---------------------------------------------------------
+  // -- step 2: state ----------------------------------------------------------
 
-  function stepFamily(): HTMLElement {
+  function stepState(side: SideState): HTMLElement {
     const frag = h("section", { class: "start__step" });
-    frag.appendChild(h("h2", { class: "title" }, "Your family's trade"));
+    frag.appendChild(h("h2", { class: "title" }, `Pick a state in the ${side.name}`));
     frag.appendChild(
       h(
         "p",
         { class: "caption start__note" },
-        "The family you were born into grants one attribute and a set of skills, and a story worth telling.",
+        "The state's real profile decides what you start with. Start where you want the problem you understand.",
       ),
     );
-    const grid = h("div", { class: "roles", "data-testid": "family-grid" });
-    for (const f of FAMILIES) {
-      const selected = familyId === f.id;
-      const gains = h("ul", { class: "pros" });
-      gains.appendChild(
-        h("li", { class: "pro" }, `+${f.attributeBonus.points} ${attributeLabel(f.attributeBonus.attribute)}`),
+
+    if (side.states.length === 0) {
+      // The Wanderer holds no states. That is what the role is, so say what the player
+      // is actually choosing rather than showing an empty grid.
+      frag.appendChild(
+        emptyState(
+          "No states in this section.",
+          side.id === "wanderer"
+            ? "The Wanderer starts nowhere in particular. You will pick a state later, or never."
+            : "No state in the loaded region belongs to this side. The Wanderer start is open from anywhere.",
+        ),
       );
-      for (const [skill, bonus] of Object.entries(f.skills)) {
-        gains.appendChild(h("li", { class: "pro" }, `+${bonus} ${skill}`));
-      }
-      if (f.cash !== 0) {
-        gains.appendChild(h("li", { class: f.cash > 0 ? "pro" : "con" }, `${f.cash > 0 ? "+" : ""}$${f.cash} starting cash`));
-      }
+      frag.appendChild(navRow(() => go(0), "Continue", () => go(2), true));
+      return frag;
+    }
+
+    const grid = h("div", { class: "states", "data-testid": "state-grid" });
+    for (const s of side.states) grid.appendChild(stateCard(s));
+    frag.appendChild(grid);
+    frag.appendChild(navRow(() => go(0), "Continue", () => go(2), stateCode !== ""));
+    return frag;
+  }
+
+  function stateCard(s: StateProfile): HTMLElement {
+    const card = h(
+      "button",
+      {
+        type: "button",
+        class: "state",
+        "data-testid": `state-${s.code}`,
+        "aria-pressed": stateCode === s.code ? "true" : "false",
+        "aria-label": `${s.name}, ${s.code}. ${s.summary}`,
+      },
+      h("span", { class: "state__name" }, `${s.name} (${s.code})`),
+      h(
+        "span",
+        { class: "state__pop" },
+        s.population === null
+          ? h("span", { class: "caption" }, "Population not surveyed")
+          : h("span", { class: "data" }, s.population.toLocaleString("en-US")),
+      ),
+      h(
+        "span",
+        { class: "ratings state__ratings" },
+        rating("Money", s.money),
+        rating("Gold", s.gold),
+        rating("Food", s.food),
+        rating("Metal", s.metal),
+      ),
+      h("span", { class: "caption state__summary" }, s.summary),
+    );
+    card.addEventListener("click", () => {
+      stateCode = s.code;
+      render();
+    });
+    return card;
+  }
+
+  // -- step 3: role -----------------------------------------------------------
+
+  function stepRole(): HTMLElement {
+    const frag = h("section", { class: "start__step" });
+    frag.appendChild(h("h2", { class: "title" }, "Pick a starting role"));
+    frag.appendChild(
+      h(
+        "p",
+        { class: "caption start__note" },
+        "The role decides what you hold on the first morning and what you owe somebody.",
+      ),
+    );
+    const grid = h("div", { class: "roles", "data-testid": "role-grid" });
+    for (const r of STARTING_ROLES) {
       const card = h(
         "button",
         {
           type: "button",
-          class: `role${selected ? " role--selected" : ""}`,
-          "data-testid": `family-${f.id}`,
-          "aria-pressed": selected ? "true" : "false",
-          "aria-label": `${f.label}. ${f.description}`,
+          class: "role",
+          "data-testid": `role-${r.id}`,
+          "aria-pressed": role === r.id ? "true" : "false",
+          "aria-label": `${r.name}. ${r.description} You start with ${r.startsWith}`,
         },
-        h("strong", {}, f.label),
-        h("br"),
-        h("span", { class: "caption" }, f.description),
-        gains,
+        h("span", { class: "role__name" }, r.name),
+        h("span", { class: "caption role__desc" }, r.description),
+        h(
+          "span",
+          { class: "danger role__starts" },
+          h("span", { class: "label role__starts-key" }, "You start with"),
+          h("span", { class: "caption" }, r.startsWith),
+        ),
       );
       card.addEventListener("click", () => {
-        familyId = f.id;
+        role = r.id;
         render();
       });
       grid.appendChild(card);
     }
     frag.appendChild(grid);
-    frag.appendChild(navRow(() => go(0), "Continue", () => go(2), true));
-    return frag;
-  }
-
-  // -- step 3: upbringing -----------------------------------------------------
-
-  function stepUpbringing(): HTMLElement {
-    const frag = h("section", { class: "start__step" });
-    frag.appendChild(h("h2", { class: "title" }, "Your upbringing"));
-    frag.appendChild(
-      h(
-        "p",
-        { class: "caption start__note" },
-        "Four life stages, one answer each. Each choice grants skills and cash, and writes a line of your biography.",
-      ),
-    );
-    for (const category of BACKGROUNDS) {
-      frag.appendChild(h("h3", { class: "section-header" }, category.question));
-      const grid = h("div", { class: "roles", "data-testid": `bg-${category.id}` });
-      for (const opt of category.options) {
-        const selected = upbringing[category.id] === opt.id;
-        const gains = h("ul", { class: "pros" });
-        for (const [skill, bonus] of Object.entries(opt.skills)) {
-          gains.appendChild(h("li", { class: "pro" }, `+${bonus} ${skill}`));
-        }
-        if (opt.cash !== 0) {
-          gains.appendChild(
-            h("li", { class: opt.cash > 0 ? "pro" : "con" }, `${opt.cash > 0 ? "+" : ""}$${opt.cash} starting cash`),
-          );
-        }
-        const card = h(
-          "button",
-          {
-            type: "button",
-            class: `role${selected ? " role--selected" : ""}`,
-            "data-testid": `bg-${category.id}-${opt.id}`,
-            "aria-pressed": selected ? "true" : "false",
-            "aria-label": `${opt.label}. ${opt.description}`,
-          },
-          h("strong", {}, opt.label),
-          h("br"),
-          h("span", { class: "caption" }, opt.description),
-          gains,
-        );
-        card.addEventListener("click", () => {
-          upbringing[category.id] = opt.id;
-          render();
-        });
-        grid.appendChild(card);
-      }
-      frag.appendChild(grid);
-    }
     frag.appendChild(navRow(() => go(1), "Continue", () => go(3), true));
     return frag;
   }
 
-  // -- step 4: home -----------------------------------------------------------
-
-  function stepHome(): HTMLElement {
-    const frag = h("section", { class: "start__step" });
-    frag.appendChild(h("h2", { class: "title" }, "Where home is"));
-    frag.appendChild(
-      h(
-        "p",
-        { class: "caption start__note" },
-        "Pick a state on the map, or let your heritage decide. The town is the real one: the largest mapped settlement of your part of the map, from the survey the game loaded.",
-      ),
-    );
-
-    const states = mappedStates(options.settlements);
-    if (states.length === 0) {
-      // The survey landed but holds no placeable towns, so no honest start
-      // exists yet. Say so plainly rather than offering a picker of nothing.
-      frag.appendChild(
-        emptyState(
-          "The map holds no towns yet.",
-          "The settlement survey arrived without placeable towns, so no start can be resolved. Load a region with towns and take this step again.",
-        ),
-      );
-      frag.appendChild(navRow(() => go(2), "Back", () => go(2), true));
-      return frag;
-    }
-
-    const grid = h("div", { class: "states", "data-testid": "home-state-grid" });
-    const heritageCard = h(
-      "button",
-      {
-        type: "button",
-        class: `state${homeStateCode === null ? " role--selected" : ""}`,
-        "data-testid": "home-heritage",
-        "aria-pressed": homeStateCode === null ? "true" : "false",
-        "aria-label": "Let your heritage decide the state.",
-      },
-      h("span", { class: "state__name" }, "Let my heritage decide"),
-      h(
-        "span",
-        { class: "caption state__summary" },
-        "You start where your people are most concentrated, as the census counts them.",
-      ),
-    );
-    heritageCard.addEventListener("click", () => {
-      homeStateCode = null;
-      render();
-    });
-    grid.appendChild(heritageCard);
-    for (const s of states) {
-      const card = h(
-        "button",
-        {
-          type: "button",
-          class: `state${homeStateCode === s.code ? " role--selected" : ""}`,
-          "data-testid": `home-state-${s.code}`,
-          "aria-pressed": homeStateCode === s.code ? "true" : "false",
-          "aria-label": `${s.name} (${s.code}). ${s.townCount} mapped towns, ${s.population.toLocaleString("en-US")} people surveyed.`,
-        },
-        h("span", { class: "state__name" }, `${s.name} (${s.code})`),
-        h(
-          "span",
-          { class: "state__pop" },
-          s.population === 0
-            ? h("span", { class: "caption" }, "Population not surveyed")
-            : h("span", { class: "data" }, s.population.toLocaleString("en-US")),
-        ),
-        h("span", { class: "caption state__summary" }, `${s.townCount} mapped ${s.townCount === 1 ? "town" : "towns"}`),
-      );
-      card.addEventListener("click", () => {
-        homeStateCode = s.code;
-        render();
-      });
-      grid.appendChild(card);
-    }
-    frag.appendChild(grid);
-
-    const home = homeChoice();
-    if (home) {
-      const resolution = h(
-        "div",
-        { class: "sheet start__summary", "data-testid": "home-resolution" },
-        h("h3", { class: "section-header" }, "Your start"),
-        h(
-          "p",
-          {},
-          h("strong", {}, home.settlement.name),
-          h("span", { class: "caption" }, ` — ${home.settlement.state ?? ""}`),
-        ),
-        h(
-          "p",
-          { class: "caption" },
-          home.settlement.population === null
-            ? "Population not surveyed"
-            : `Census population ${home.settlement.population.toLocaleString("en-US")}`,
-        ),
-        h("p", { class: "caption" }, home.reason),
-      );
-      frag.appendChild(resolution);
-    }
-    frag.appendChild(navRow(() => go(2), "Continue", () => go(4), home !== null));
-    return frag;
-  }
-
-  // -- step 5: confirm --------------------------------------------------------
+  // -- step 4: confirm --------------------------------------------------------
 
   function stepConfirm(): HTMLElement {
-    const ethnicity = currentEthnicity();
-    const family = currentFamily();
-    const home = homeChoice();
+    const side = currentSide();
+    const state = side?.states.find((s) => s.code === stateCode);
+    const roleInfo = STARTING_ROLES.find((r) => r.id === role);
 
     const frag = h("section", { class: "start__step" });
     frag.appendChild(h("h2", { class: "title" }, "Confirm"));
@@ -496,23 +401,29 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
     const summary = h("section", { class: "sheet start__summary triplicate" });
     summary.appendChild(h("h3", { class: "section-header" }, "Your start"));
     const list = h("dl", { class: "start__facts" });
-    list.appendChild(fact("Heritage", ethnicity?.name ?? "Not chosen"));
-    list.appendChild(fact("Family", family?.label ?? "Not chosen"));
-    const upbringingLabels = BACKGROUNDS.map(
-      (c) => c.options.find((o) => o.id === upbringing[c.id])?.label ?? "",
-    ).filter((label) => label.length > 0);
-    list.appendChild(fact("Upbringing", upbringingLabels.join(", ") || "Not chosen"));
-    if (home) {
-      list.appendChild(fact("Home", `${home.settlement.name}, ${home.settlement.state ?? ""}`));
+    list.appendChild(fact("Side", side?.name ?? "Not chosen"));
+    list.appendChild(fact("State", state ? `${state.name} (${state.code})` : "Not chosen"));
+    list.appendChild(fact("Role", roleInfo?.name ?? "Not chosen"));
+    if (state) {
       list.appendChild(
-        fact(
-          "Home population",
-          home.settlement.population === null ? "Not surveyed" : home.settlement.population.toLocaleString("en-US"),
+        fact("Starting population", state.population === null ? "Not surveyed" : state.population.toLocaleString("en-US")),
+      );
+    }
+    if (side) list.appendChild(fact("Difficulty", side.difficulty));
+    summary.appendChild(list);
+    if (side) {
+      summary.appendChild(
+        h(
+          "p",
+          { class: "danger start__confirm-danger" },
+          h("span", { class: "label" }, "The trouble you take on"),
+          h("span", { class: "caption" }, ` ${side.biggestDanger}`),
         ),
       );
     }
-    summary.appendChild(list);
-    if (home) summary.appendChild(h("p", { class: "caption start__confirm-role" }, home.reason));
+    if (roleInfo) {
+      summary.appendChild(h("p", { class: "caption start__confirm-role" }, `You start with ${roleInfo.startsWith.toLowerCase()}.`));
+    }
     frag.appendChild(summary);
 
     // New Game+ (MASTER_PLAN task 142): the carryover list is the
@@ -571,24 +482,11 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
 
     frag.appendChild(
       navRow(
-        () => go(3),
+        () => go(2),
         "Start the campaign",
-        () => {
-          if (!ethnicity || !family || !home) return;
-          options.onStart({
-            ethnicityId: ethnicity.id,
-            familyId: family.id,
-            upbringing: { ...upbringing },
-            homeStateCode,
-            homeState: home.settlement.state ?? "",
-            startCity: home.slug,
-            homeTown: home.settlement.name,
-            homeReason: home.reason,
-            ironman: ironmanBox.checked,
-            newGamePlus: ngplusBox?.checked === true,
-          });
-        },
-        ethnicity !== undefined && family !== undefined && home !== null,
+        () =>
+          options.onStart({ sideId, stateCode, role, ironman: ironmanBox.checked, newGamePlus: ngplusBox?.checked === true }),
+        sideId !== "" && (side?.id === "wanderer" || stateCode !== ""),
       ),
     );
     return frag;
@@ -610,17 +508,41 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
     }
     const next = h(
       "button",
-      {
-        type: "button",
-        class: "btn btn--primary",
-        "data-testid": "start-next",
-        disabled: !nextEnabled,
-      },
+      { type: "button", class: "btn btn--primary", "data-testid": "start-next", disabled: !nextEnabled },
       nextLabel,
     );
     next.addEventListener("click", onNext);
     row.appendChild(next);
     return row;
+  }
+
+  /**
+   * A rating as five pips and a figure.
+   *
+   * The pips carry the shape, which is what a player compares at a glance across seven
+   * cards, and the figure in mono carries the number, which is what they quote later.
+   * The pip row is marked as an image with the full reading as its name, so a screen
+   * reader hears "Food 5 of 5" rather than six unlabelled boxes.
+   */
+  function rating(label: string, value: number): HTMLElement {
+    const clamped = Math.max(0, Math.min(5, Math.round(value)));
+    // The rating figures are read one after another down a column of seven cards, so
+    // they are tabular. `type-data` is mono at 15px, which is `type-data-lg` scaled
+    // down — but the scale has no step between the two, and the data-sm step is 12px,
+    // which is below the 15px minimum body size in ART_DIRECTION.md section 3.2. So the
+    // figure is `data` with the mono class the token stylesheet already defines, and
+    // the locked size comes from the generated class rather than an inline style.
+    const pips = h("span", { class: "rating__pips", role: "img", "aria-label": `${label} ${clamped} of 5` });
+    for (let i = 1; i <= 5; i += 1) {
+      pips.appendChild(h("span", { class: "rating__pip", "data-on": i <= clamped ? "true" : "false", "aria-hidden": "true" }));
+    }
+    return h(
+      "span",
+      { class: "rating" },
+      h("span", { class: "label rating__label" }, label),
+      pips,
+      h("span", { class: "data rating__value" }, `${clamped}/5`),
+    );
   }
 
   function fact(label: string, value: string): HTMLElement {
@@ -632,12 +554,16 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
     );
   }
 
+  // A side with no states holds nothing to pre-select, so the state step opens empty and
+  // says why. Sides that do hold states open on the first of them, because a player
+  // who has picked a section will be inside it.
+  stateCode = options.sides[0]?.states[0]?.code ?? "";
   render();
   return root;
 }
 
 /**
- * Task 125: the loading tip shown under the boot skeleton.
+ * Task 125: the loading tip shown under the start-screen skeleton.
  *
  * The first tip comes from a rotator over the persisted recent-tip window, so
  * no tip repeats within ten loads even across reloads. While the screen stays
@@ -685,7 +611,7 @@ function tipStorage(): TipStorage | null {
 }
 
 /**
- * The start screen's failure state, for when the survey could not be read at all.
+ * The start screen's failure state, for when the sides could not be read at all.
  *
  * A plain sentence and a way to recover (CONSTITUTION.md section 1.3). The cause goes
  * to the console, never to the screen: `ART_DIRECTION.md` section 10.3 bans a file path
@@ -694,15 +620,39 @@ function tipStorage(): TipStorage | null {
 export function startScreenError(detail: string, onRetry: () => void): HTMLElement {
   const root = h("div", { class: "start", "data-testid": "start-screen" });
   const inner = h("div", { class: "start__inner" });
-  inner.appendChild(h("h1", { class: "display" }, "The world survey did not load"));
+  inner.appendChild(h("h1", { class: "display" }, "The sections did not load"));
   inner.appendChild(
     errorState({
-      message: "The settlement survey did not arrive. Nothing can be chosen until it does.",
+      message: "The list of sections did not arrive. Nothing can be chosen until it does.",
       detail,
       onRetry,
       testId: "start-error",
     }),
   );
+  root.appendChild(inner);
+  return root;
+}
+
+/**
+ * The role step at skeleton scale, for a caller that loads the roles separately.
+ *
+ * The three cards are drawn because three roles is what `FACTIONS.md` section 2 lists,
+ * and a placeholder that showed one block would promise a single-column screen the real
+ * one does not have.
+ */
+export function startRoleSkeleton(): HTMLElement {
+  const root = h("div", { class: "start", "data-testid": "start-screen" });
+  const inner = h("div", { class: "start__inner" });
+  inner.appendChild(startRoleSkeletonBody());
+  root.appendChild(inner);
+  return root;
+}
+
+/** The state step at skeleton scale. */
+export function startStateSkeleton(): HTMLElement {
+  const root = h("div", { class: "start", "data-testid": "start-screen" });
+  const inner = h("div", { class: "start__inner" });
+  inner.appendChild(startStateSkeletonBody());
   root.appendChild(inner);
   return root;
 }

@@ -33,6 +33,7 @@ import { BANNER_COLORS } from "../../clan/bannerPalette.js";
 import type { ColorblindMode } from "../../settings/schema.js";
 import { notablesForCity } from "../../data/notables/index.js";
 import { buildingOwnersForCity } from "../../data/buildingOwners.js";
+import { greetNpc, voiceForNpc } from "../../audio/greetDialogue.js";
 import "./townPanel.css";
 
 /**
@@ -731,7 +732,11 @@ function cityNotablesSection(notables: import("../../data/notables/index.js").Ci
     const card = h("div", {
       class: "city-notable-card",
       "data-testid": `city-notable-${notable.id}`,
-      style: "border:1px solid var(--border);border-radius:var(--radius);padding:var(--space-2);background:var(--surface)",
+      style: "border:1px solid var(--border);border-radius:var(--radius);padding:var(--space-2);background:var(--surface);cursor:pointer",
+    });
+    // Greet when the player clicks a notable to talk.
+    card.addEventListener("click", () => {
+      greetNpc(voiceForNpc(notable.id));
     });
     card.append(
       h("img", {

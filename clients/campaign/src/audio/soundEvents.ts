@@ -94,6 +94,13 @@ export const SOUND_EVENTS = {
   "ui.click": { id: "sfx-ui-click", volume: 0.5, hook: "Any button or tab. Click." },
   "ui.hover": { id: "sfx-ui-hover", volume: 0.3, hook: "Pointer enters an interactive element." },
   "ui.toggle": { id: "sfx-ui-toggle", volume: 0.5, hook: "Any checkbox or switch." },
+  // Tasks 538/539/540/548: tab switch uses the click at lower volume (a tab
+  // is a button variant); gold gain/loss get distinct coin cues so the
+  // treasury reads by ear; time speed is a UI tick.
+  "ui.tab-switch": { id: "sfx-ui-click", volume: 0.4, hook: "A tab is switched." },
+  "ui.gold-gain": { id: "sfx-foley-coins-pour", volume: 0.55, hook: "Gold is gained." },
+  "ui.gold-loss": { id: "sfx-tavern-coin-purse", volume: 0.5, hook: "Gold is lost." },
+  "ui.time-speed": { id: "sfx-ui-click", volume: 0.4, hook: "Time speed changes." },
   "ui.confirm": { id: "sfx-ui-confirm", volume: 0.55, hook: "An action is accepted." },
   "ui.error": { id: "sfx-ui-error", volume: 0.5, hook: "An action is refused." },
   "ui.back": { id: "sfx-ui-back", volume: 0.45, hook: "Closing a panel or stepping back." },
@@ -123,6 +130,11 @@ export const SOUND_EVENTS = {
   "combat.hit": { id: "sfx-melee-warhammer-hit", volume: 0.7, hook: "A melee blow lands." },
   "combat.hit-armour": { id: "sfx-melee-helmet-clank", volume: 0.7, hook: "A blow lands on armour." },
   "combat.shot": { id: "sfx-weapon-rifle", volume: 0.6, hook: "A shot is fired." },
+  // Tasks 502/503: sidearm and shotgun have their own voices — the rifle cue
+  // above is the generic battle-rifle; pistols and shotguns get distinct
+  // reports so a mixed firefight reads by ear.
+  "combat.pistol": { id: "sfx-weapon-pistol", volume: 0.55, hook: "A pistol is fired." },
+  "combat.shotgun": { id: "sfx-weapon-shotgun", volume: 0.75, hook: "A shotgun is fired." },
   "combat.kill": { id: "sfx-melee-sword-clash", volume: 0.65, hook: "A combatant goes down." },
   "combat.wounded": { id: "sfx-melee-mace-thud", volume: 0.6, hook: "A combatant is wounded but lives." },
   "combat.charge": { id: "sfx-signal-trumpet-charge", volume: 0.7, hook: "A charge is ordered or sounds." },
@@ -133,6 +145,22 @@ export const SOUND_EVENTS = {
   "combat.reload": { id: "sfx-weapon-reload", volume: 0.5, hook: "A weapon is reloaded." },
   "combat.dry-fire": { id: "sfx-weapon-dry-fire", volume: 0.45, hook: "An empty trigger is pulled." },
   "combat.formation": { id: "sfx-melee-shield-raise", volume: 0.55, hook: "A formation changes." },
+  // Tasks 511-516: the melee/ranged set. Gallop is the cavalry move cue
+  // (the neigh above is the idle animal); swing/parry/arrow/shield cover the
+  // hand-to-hand and archery beats the battle scene drives.
+  "combat.gallop": { id: "sfx-horse-gallop", volume: 0.6, hook: "Cavalry moves at speed." },
+  "combat.swing": { id: "sfx-melee-sword-whoosh", volume: 0.5, hook: "A melee swing cuts air." },
+  "combat.parry": { id: "sfx-melee-sword-clash", volume: 0.6, hook: "A blow is parried." },
+  "combat.arrow-fire": { id: "sfx-melee-arrow-whoosh", volume: 0.5, hook: "An arrow is loosed." },
+  "combat.arrow-hit": { id: "sfx-melee-arrow-hit-flesh", volume: 0.6, hook: "An arrow strikes flesh." },
+  "combat.shield-block": { id: "sfx-melee-shield-block", volume: 0.65, hook: "A shield takes a blow." },
+  // Tasks 524/527/529: weapon switch click, distant artillery rumble, body
+  // fall thump. The switch is the UI click at combat volume — a distinct
+  // mechanical cue; artillery is the distant rumble (not the close explosion
+  // above); body fall is the mace thud repurposed at lower volume.
+  "combat.weapon-switch": { id: "sfx-ui-click", volume: 0.5, hook: "A weapon is switched." },
+  "combat.artillery-distant": { id: "sfx-weapon-distant-artillery", volume: 0.6, hook: "Distant artillery fires." },
+  "combat.body-fall": { id: "sfx-melee-mace-thud", volume: 0.5, hook: "A body hits the ground." },
 
   // -- Campaign ------------------------------------------------------------
   "construction.complete": { id: "sfx-forge-steel-pour", volume: 0.7, hook: "A building or project finishes." },

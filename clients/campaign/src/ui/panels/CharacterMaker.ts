@@ -1,19 +1,16 @@
 /**
- * The character maker: the second half of creation for modern America.
+ * The character maker: Bannerlord-style creation for modern America.
  *
- * The start screen answers who the character is — heritage, family job,
- * upbringing, home. This panel finishes the sheet: name, age, difficulty,
- * attributes, skills, review. There is no look picker here any more: the
- * low-poly models cannot honour a face choice, so the design step was removed
- * rather than left promising something the game does not deliver. The result
- * feeds into the campaign start, and `startCity` comes from the resolved home,
- * never from a city list. Attributes and skills are the six and the eighteen of
+ * Steps: Name → Appearance → Age → City → Difficulty → Background → Attributes →
+ * Skills → Review. Each background choice grants skill bonuses and shapes the
+ * biography. Attributes and skills are the six and the eighteen of
  * `CHARACTER.md`, and `src/data/attributes.ts` owns the rules for both.
+ * The result feeds into the campaign start.
  */
 
 import { clear, h } from "../dom.js";
-import { CHARACTER_STAGES, computeCharacterStats,
-  AGE_BRACKETS, DIFFICULTIES, clanNamesForEthnicity,
+import { CHARACTER_STAGES, appearancesForEthnicity, computeCharacterStats,
+  START_CITIES, AGE_BRACKETS, DIFFICULTIES, clanNamesForEthnicity,
   scenarioForBackgrounds, type GameCharacter } from "../../data/backgrounds.js";
 import { attributesWithFamilyBonus, familyById } from "../../data/families.js";
 import { ATTRIBUTES, ATTRIBUTE_MAX, ATTRIBUTE_MIN, ATTRIBUTE_POINTS_TOTAL,
@@ -21,20 +18,8 @@ import { ATTRIBUTES, ATTRIBUTE_MAX, ATTRIBUTE_MIN, ATTRIBUTE_POINTS_TOTAL,
   attributePointsSpent, canLowerAttribute, canRaiseAttribute, evenAttributes,
   emptyFocus, focusRemaining, nextPerkThreshold, perksEarned,
   skillLabel, startingSkillLevels } from "../../data/attributes.js";
-import { ETHNICITIES, getEthnicity } from "../../data/ethnicities.js";
+import { ETHNICITIES } from "../../data/ethnicities.js";
 import { personName, createNameRng } from "../../data/names.js";
-
-/** The home the start screen resolved, passed through so review tells the truth. */
-export interface MakerHome {
-  /** The settlement name slug the simulation relocates the player by. */
-  slug: string;
-  /** Display name of the town. */
-  town: string;
-  /** Display name of the state. */
-  stateName: string;
-  /** The one-sentence reason the resolver gave for this town. */
-  reason: string;
-}
 
 export interface CharacterMakerOptions {
   onComplete: (character: GameCharacter) => void;
@@ -45,23 +30,15 @@ export interface CharacterMakerOptions {
    * 142: New Game+ heirs get legacy training on top of the base budget).
    */
   bonusPointsTotal?: number | undefined;
-  /** The heritage chosen on the start screen; seeds clan names and the review. */
-  ethnicityId?: string;
-  /**
-   * The family and upbringing choices made on the start screen, by category id.
-   * Categories the start screen does not answer fall back to their first option.
-   */
-  backgrounds?: Record<string, string>;
-  /** The resolved home from the start screen. Required: the sheet has to land somewhere real. */
-  home: MakerHome;
-  /** Open a codex lore entry (e.g. ethnicity lore from the name step). */
+  /** Open a codex lore entry (e.g. ethnicity lore from the heritage picker). */
   onOpenLore?: (entryId: string) => void;
 }
 
-const MAKER_STEPS = ["Name", "Age", "Difficulty", "Attributes", "Skills", "Review"] as const;
-type MakerStep = 0 | 1 | 2 | 3 | 4 | 5;
+const MAKER_STEPS = ["Name", "Appearance", "Age", "City", "Difficulty", "Background",
+  "Attributes", "Skills", "Review"] as const;
+type MakerStep = 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
 
-const LAST_STEP: MakerStep = 5;
+const LAST_STEP: MakerStep = 8;
 /**
  * The default focus-point budget. Kept under its old name because `main.ts` and
  * the New Game+ heir record already speak in "bonus points", and what those points
@@ -75,21 +52,17 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
   let firstName = "";
   let lastName = "";
   let gender: "male" | "female" = "male";
-  let ethnicityId = options.ethnicityId ?? ETHNICITIES[0]!.id;
+  let appearanceId = appearancesForEthnicity(ETHNICITIES[0]!.id)[0]?.id ?? "";
+  let ethnicityId = ETHNICITIES[0]!.id;
   let age = 30;
+  let startCity = "manhattan-sample";
   let difficulty = "normal";
   let attributes = evenAttributes();
   let skillFocus = emptyFocus();
   let backgroundChoices: Record<string, string> = {};
-  // Default to first option in each stage, family first, then take the answers
-  // the start screen already collected on top.
+  // Default to first option in each stage, family first.
   for (const cat of CHARACTER_STAGES) {
     backgroundChoices[cat.id] = cat.options[0]!.id;
-  }
-  if (options.backgrounds) {
-    for (const [categoryId, optionId] of Object.entries(options.backgrounds)) {
-      if (optionId) backgroundChoices[categoryId] = optionId;
-    }
   }
 
   const root = h("div", { class: "character-maker", "data-testid": options.testId ?? "character-maker" });
@@ -107,7 +80,7 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     // not gated the same way. Requiring all of it spent would mean a player who
     // wants to skip the step has to find five reasons to spend points they do not
     // have, so leaving points unspent is allowed and the remainder is simply lost.
-    if (step === 3) return attributePointsSpent(attributes) === ATTRIBUTE_POINTS_TOTAL;
+    if (step === 6) return attributePointsSpent(attributes) === ATTRIBUTE_POINTS_TOTAL;
     return true;
   }
 
@@ -136,10 +109,6 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
   function nameStep(): HTMLElement {
     const frag = h("div", { class: "maker-step" });
     frag.appendChild(h("h2", { class: "title" }, "Who are you?"));
-    const heritage = getEthnicity(ethnicityId);
-    frag.appendChild(
-      h("p", { class: "caption" }, `Heritage: ${heritage?.name ?? "unlisted"} — chosen on the first screen, it shapes your clan name and your starting town.`),
-    );
 
     const firstInput = h("input", {
       class: "field__input",
@@ -183,27 +152,50 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
       genderRow.appendChild(btn);
     });
 
-    // A lore deep-link for the heritage already chosen on the start screen
-    // (Rowan, del order 2026-10-03): the picker itself lives on the start
-    // screen now, so the link follows it here as a single quiet button.
-    if (options.onOpenLore && heritage) {
-      const loreBtn = h(
+    // Heritage (ethnicity) picker — same data as the start screen.
+    frag.appendChild(h("h3", {}, "Heritage"));
+    const egrid = h("div", { class: "roles", "data-testid": "char-ethnicity-grid" });
+    for (const e of ETHNICITIES) {
+      const wrap = h("div", { class: "role-wrap" });
+      const btn = h(
         "button",
         {
-          type: "button",
-          class: "btn btn--quiet btn--xs",
-          "data-testid": `char-heritage-lore`,
-          title: `Read the lore of the ${heritage.name} community`,
+          class: `role${ethnicityId === e.id ? " role--selected" : ""}`,
+          "aria-pressed": ethnicityId === e.id ? "true" : "false",
+          "data-testid": `char-ethnicity-${e.id}`,
+          title: e.tagline,
         },
-        "📖 Lore",
-      ) as HTMLButtonElement;
-      loreBtn.addEventListener("click", () => {
-        options.onOpenLore?.(`lore-ethnicity-${heritage.id}`);
+        e.name,
+      );
+      btn.addEventListener("click", () => {
+        ethnicityId = e.id;
+        // Reset appearance to this ethnicity's first preset.
+        appearanceId = appearancesForEthnicity(ethnicityId)[0]?.id ?? "";
+        render();
       });
-      frag.appendChild(loreBtn);
+      wrap.appendChild(btn);
+      // Lore link: open the codex to this ethnicity's deep lore (del order 2026-10-03).
+      if (options.onOpenLore) {
+        const loreBtn = h(
+          "button",
+          {
+            type: "button",
+            class: "btn btn--quiet btn--xs",
+            "data-testid": `char-ethnicity-lore-${e.id}`,
+            title: `Read the lore of the ${e.name} community`,
+          },
+          "📖",
+        ) as HTMLButtonElement;
+        loreBtn.addEventListener("click", (ev) => {
+          ev.stopPropagation();
+          options.onOpenLore?.(`lore-ethnicity-${e.id}`);
+        });
+        wrap.appendChild(loreBtn);
+      }
+      egrid.appendChild(wrap);
     }
 
-    // Random name from the heritage's name generator (Rowan, del order 2026-10-03).
+    // Random name from the ethnicity generator (del order 2026-10-03).
     const randomBtn = h(
       "button",
       {
@@ -224,7 +216,7 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
       nextBtn.disabled = !canProceed();
     });
 
-    frag.append(firstInput, lastInput, randomBtn, h("h3", {}, "Gender"), genderRow);
+    frag.append(firstInput, lastInput, randomBtn, h("h3", {}, "Gender"), genderRow, egrid);
 
     // Clan name suggestions based on heritage.
     const clans = clanNamesForEthnicity(ethnicityId);
@@ -252,6 +244,42 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
       }
       frag.appendChild(cgrid);
     }
+    return frag;
+  }
+
+  function appearanceStep(): HTMLElement {
+    const frag = h("div", { class: "maker-step" });
+    const ethnicity = ETHNICITIES.find((e) => e.id === ethnicityId);
+    frag.appendChild(h("h2", { class: "title" }, `Choose your look — ${ethnicity?.name ?? ""}`));
+    frag.appendChild(h("p", { class: "caption" }, "Pick a face for your character."));
+
+    const presets = appearancesForEthnicity(ethnicityId);
+    // Reset to first preset of this ethnicity if current doesn't belong.
+    if (!presets.some((p) => p.id === appearanceId)) {
+      appearanceId = presets[0]?.id ?? "";
+    }
+
+    const grid = h("div", { class: "roles", "data-testid": "appearance-grid" });
+    for (const preset of presets) {
+      const btn = h(
+        "button",
+        {
+          class: `role${appearanceId === preset.id ? " role--selected" : ""}`,
+          "aria-pressed": appearanceId === preset.id ? "true" : "false",
+          "data-testid": `appearance-${preset.id}`,
+          title: preset.description,
+        },
+        h("span", { style: "font-size:2rem" }, preset.icon),
+        h("br"),
+        preset.label,
+      );
+      btn.addEventListener("click", () => {
+        appearanceId = preset.id;
+        render();
+      });
+      grid.appendChild(btn);
+    }
+    frag.appendChild(grid);
     return frag;
   }
 
@@ -297,6 +325,46 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     return frag;
   }
 
+  function cityStep(): HTMLElement {
+    const frag = h("div", { class: "maker-step" });
+    frag.appendChild(h("h2", { class: "title" }, "Where do you start?"));
+    frag.appendChild(h("p", { class: "caption" }, "Your home turf shapes your whole campaign. Each city has real tradeoffs — read them before you commit."));
+
+    const grid = h("div", { class: "roles", "data-testid": "city-grid" });
+    for (const city of START_CITIES) {
+      const selected = startCity === city.slug;
+      const proList = h("ul", { class: "pros" });
+      for (const pro of city.pros) {
+        proList.appendChild(h("li", { title: pro.reason }, `+ ${pro.label}`));
+      }
+      const conList = h("ul", { class: "cons" });
+      for (const con of city.cons) {
+        conList.appendChild(h("li", { title: con.reason }, `- ${con.label}`));
+      }
+      const btn = h(
+        "button",
+        {
+          class: `role city-card${selected ? " role--selected" : ""}`,
+          "aria-pressed": selected ? "true" : "false",
+          "data-testid": `city-${city.slug}`,
+          title: city.description,
+        },
+        h("strong", {}, city.name),
+        h("br"),
+        h("em", { class: "tagline" }, city.tagline),
+        h("p", { class: "caption city-desc" }, city.description),
+        h("div", { class: "city-pros-cons" }, proList, conList),
+      );
+      btn.addEventListener("click", () => {
+        startCity = city.slug;
+        render();
+      });
+      grid.appendChild(btn);
+    }
+    frag.appendChild(grid);
+    return frag;
+  }
+
   function difficultyStep(): HTMLElement {
     const frag = h("div", { class: "maker-step" });
     frag.appendChild(h("h2", { class: "title" }, "How hard should it be?"));
@@ -334,6 +402,55 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
       grid.appendChild(btn);
     }
     frag.appendChild(grid);
+    return frag;
+  }
+
+  function backgroundStep(): HTMLElement {
+    const frag = h("div", { class: "maker-step" });
+    frag.appendChild(h("h2", { class: "title" }, "Your story"));
+    frag.appendChild(h("p", { class: "caption" }, "Your family grants +1 to one attribute, applied on top of your points at review. Each life choice grants skill bonuses and starting cash. Pick the life that made you."));
+
+    for (const category of CHARACTER_STAGES) {
+      frag.appendChild(h("h3", {}, category.question));
+      const grid = h("div", { class: "roles", "data-testid": `bg-${category.id}` });
+      for (const opt of category.options) {
+        const selected = backgroundChoices[category.id] === opt.id;
+        const skillList = h("ul", { class: "pros" });
+        if (category.id === "family") {
+          const fam = familyById(opt.id);
+          if (fam) {
+            skillList.appendChild(h("li", {}, `+${fam.attributeBonus.points} ${attributeLabel(fam.attributeBonus.attribute)}`));
+          }
+        }
+        for (const [skill, bonus] of Object.entries(opt.skills)) {
+          skillList.appendChild(h("li", {}, `+${bonus} ${skill}`));
+        }
+        if (opt.cash !== 0) {
+          skillList.appendChild(
+            h("li", {}, `${opt.cash > 0 ? "+" : ""}$${opt.cash} starting cash`),
+          );
+        }
+        const btn = h(
+          "button",
+          {
+            class: `role${selected ? " role--selected" : ""}`,
+            "aria-pressed": selected ? "true" : "false",
+            "data-testid": `bg-${category.id}-${opt.id}`,
+            title: opt.description,
+          },
+          h("strong", {}, opt.label),
+          h("br"),
+          h("span", { class: "caption" }, opt.description),
+          skillList,
+        );
+        btn.addEventListener("click", () => {
+          backgroundChoices[category.id] = opt.id;
+          render();
+        });
+        grid.appendChild(btn);
+      }
+      frag.appendChild(grid);
+    }
     return frag;
   }
 
@@ -495,21 +612,40 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
     // at derivation time (see attributesWithFamilyBonus).
     const finalAttributes = attributesWithFamilyBonus(attributes, backgroundChoices["family"]);
     const canonicalLevels = startingSkillLevels(finalAttributes, skillFocus, skills);
-    const ethnicity = getEthnicity(ethnicityId);
+    const ethnicity = ETHNICITIES.find((e) => e.id === ethnicityId);
+    const appearance = appearancesForEthnicity(ethnicityId).find((a) => a.id === appearanceId);
     const bracket = AGE_BRACKETS.find((b) => age >= b.min && age <= b.max);
-    const diff = DIFFICULTIES.find((d) => d.id === difficulty);
+    const city = START_CITIES.find((c) => c.slug === startCity);
 
     const card = h("div", { class: "sheet portrait-panel", "data-testid": "char-review" });
+    // Portrait preview — large icon with appearance details.
+    const portrait = h("div", { class: "portrait", style: "text-align:center;padding:16px;background:linear-gradient(135deg,rgb(26,26,46),rgb(22,33,62));border-radius:12px;margin-bottom:16px" });
+    portrait.appendChild(h("div", { style: "font-size:5rem;line-height:1" }, appearance?.icon ?? "🧑"));
+    portrait.appendChild(h("div", { style: "font-size:1.2rem;font-weight:bold;margin-top:8px;color:rgb(255,255,255)" }, `${firstName} ${lastName}`));
+    portrait.appendChild(h("div", { style: "color:rgb(170,170,170);font-size:0.9rem" }, appearance?.label ?? ""));
+    portrait.appendChild(h("div", { style: "color:rgb(136,136,136);font-size:0.8rem;font-style:italic" }, appearance?.description ?? ""));
+    card.appendChild(portrait);
     card.appendChild(h("h3", { style: "text-align:center" }, `${firstName} ${lastName}`));
     card.appendChild(
       h("p", { class: "caption", style: "text-align:center" },
-        `${gender === "male" ? "Male" : "Female"} · ${bracket?.label ?? ""} · ${ethnicity?.name ?? ""}`),
+        `${gender === "male" ? "Male" : "Female"} · ${bracket?.label ?? ""} · ${ethnicity?.name ?? ""} · ${appearance?.label ?? ""}`),
     );
+    const diff = DIFFICULTIES.find((d) => d.id === difficulty);
     card.appendChild(
       h("p", { class: "caption", style: "text-align:center" },
-        `Home: ${options.home.town}, ${options.home.stateName} · Difficulty: ${diff?.label ?? difficulty}`),
+        `Starting city: ${city?.name ?? startCity} · Difficulty: ${diff?.label ?? difficulty}`),
     );
-    card.appendChild(h("p", { class: "caption", style: "text-align:center" }, options.home.reason));
+    if (city) {
+      card.appendChild(h("p", { class: "caption", style: "text-align:center" }, city.tagline));
+      const cityEffects = h("ul", { class: "city-effects" });
+      for (const pro of city.pros) {
+        cityEffects.appendChild(h("li", { class: "pro", title: pro.reason }, `+ ${pro.label}`));
+      }
+      for (const con of city.cons) {
+        cityEffects.appendChild(h("li", { class: "con", title: con.reason }, `- ${con.label}`));
+      }
+      card.appendChild(cityEffects);
+    }
 
     card.appendChild(h("h4", {}, "Attributes"));
     const attrList = h("ul", {});
@@ -573,10 +709,13 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
 
     const body = h("div", { class: "maker-body" });
     if (step === 0) body.appendChild(nameStep());
-    else if (step === 1) body.appendChild(ageStep());
-    else if (step === 2) body.appendChild(difficultyStep());
-    else if (step === 3) body.appendChild(attributesStep());
-    else if (step === 4) body.appendChild(skillsStep());
+    else if (step === 1) body.appendChild(appearanceStep());
+    else if (step === 2) body.appendChild(ageStep());
+    else if (step === 3) body.appendChild(cityStep());
+    else if (step === 4) body.appendChild(difficultyStep());
+    else if (step === 5) body.appendChild(backgroundStep());
+    else if (step === 6) body.appendChild(attributesStep());
+    else if (step === 7) body.appendChild(skillsStep());
     else body.appendChild(reviewStep());
     root.appendChild(body);
 
@@ -608,12 +747,13 @@ export function characterMaker(options: CharacterMakerOptions): HTMLElement {
           firstName: firstName.trim(),
           lastName: lastName.trim(),
           gender,
+          appearanceId,
           ethnicityId,
           backgroundChoices: { ...backgroundChoices },
           attributes: { ...attributes },
           skillFocus: { ...skillFocus },
           startingSkills: skills,
-          startCity: options.home.slug,
+          startCity,
           age,
           difficulty,
           startingCash: cash,

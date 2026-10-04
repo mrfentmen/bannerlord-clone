@@ -12,12 +12,6 @@ import { FRONT_RANGE_ENTRIES } from "./entries7.js";
 import { STATE_ENTRIES } from "./entries8.js";
 import { MORE_CITY_ENTRIES } from "./entries9.js";
 import { PEOPLE_ENTRIES } from "./entries10.js";
-import { STATE_ENTRIES_2 } from "./entries11.js";
-import { STATE_ENTRIES_3 } from "./entries12.js";
-import { STATE_ENTRIES_4 } from "./entries13.js";
-import { MORE_CITY_ENTRIES_2 } from "./entries14.js";
-import { MORE_CITY_ENTRIES_3 } from "./entries15.js";
-import { MORE_CITY_ENTRIES_4 } from "./entries16.js";
 import type { CodexEntry } from "./types.js";
 
 export const ALL_CODEX_ENTRIES: readonly CodexEntry[] = [
@@ -35,12 +29,6 @@ export const ALL_CODEX_ENTRIES: readonly CodexEntry[] = [
   ...STATE_ENTRIES,
   ...MORE_CITY_ENTRIES,
   ...PEOPLE_ENTRIES,
-  ...STATE_ENTRIES_2,
-  ...STATE_ENTRIES_3,
-  ...STATE_ENTRIES_4,
-  ...MORE_CITY_ENTRIES_2,
-  ...MORE_CITY_ENTRIES_3,
-  ...MORE_CITY_ENTRIES_4,
 ];
 
 export const CODEX_ENTRY_COUNT = ALL_CODEX_ENTRIES.length;

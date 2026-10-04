@@ -4,12 +4,12 @@
  * The character maker's attribute and skill steps, and the sheet it hands the
  * campaign.
  *
- * The maker is the second half of creation — the start screen answers heritage,
- * family, upbringing and home first — and the last thing that writes a
- * character, so the two allocation steps and the payload are worth pinning: a
- * step that renders the wrong number of rows, or a finish that quietly drops a
- * field, both fail silently at the start of a campaign rather than in a panel
- * somebody is looking at.
+ * The maker had no tests at all before this. It is the first thing a player sees
+ * after faction select and the last thing that writes a character, so the two
+ * allocation steps and the payload are worth pinning: a step that renders the
+ * wrong number of rows, or a finish that quietly drops a field, both fail
+ * silently at the start of a campaign rather than in a panel somebody is looking
+ * at.
  */
 
 import { beforeEach, describe, expect, it } from "vitest";
@@ -28,19 +28,22 @@ import {
 } from "../../../data/attributes.js";
 import type { GameCharacter } from "../../../data/backgrounds.js";
 
-/** The six steps, in order. The start screen owns heritage, family, upbringing and home. */
+/** The nine steps, in order. */
 const STEPS = [
   "Name",
+  "Appearance",
   "Age",
+  "City",
   "Difficulty",
+  "Background",
   "Attributes",
   "Skills",
   "Review",
 ] as const;
 
-const ATTRIBUTES_STEP = 3;
-const SKILLS_STEP = 4;
-const REVIEW_STEP = 5;
+const ATTRIBUTES_STEP = 6;
+const SKILLS_STEP = 7;
+const REVIEW_STEP = 8;
 
 beforeEach(() => {
   document.body.innerHTML = "";
@@ -52,23 +55,10 @@ interface Maker {
   complete: () => GameCharacter | null;
 }
 
-/** The home a real start-screen resolution hands the maker. */
-const HOME = {
-  slug: "columbus",
-  town: "Columbus",
-  stateName: "Ohio",
-  reason: "Ohio is one of the states where German-American communities are most concentrated, so you start in Columbus, the largest mapped town in your part of the state.",
-};
-
 /** Builds the maker with a name already filled in, so step 0 can be left. */
-function build(
-  options: { bonusPointsTotal?: number; backgrounds?: Record<string, string>; ethnicityId?: string } = {},
-): Maker {
+function build(options: { bonusPointsTotal?: number } = {}): Maker {
   let character: GameCharacter | null = null;
   const root = characterMaker({
-    home: HOME,
-    ...(options.ethnicityId === undefined ? {} : { ethnicityId: options.ethnicityId }),
-    ...(options.backgrounds === undefined ? {} : { backgrounds: options.backgrounds }),
     ...(options.bonusPointsTotal === undefined ? {} : { bonusPointsTotal: options.bonusPointsTotal }),
     onComplete: (c) => {
       character = c;
@@ -117,7 +107,7 @@ describe("character maker steps", () => {
   it("offers attributes and skills as their own steps", () => {
     const { root } = build();
     const labels = [...root.querySelectorAll(".stepbar__step")].map((b) => b.textContent ?? "");
-    expect(labels).toHaveLength(6);
+    expect(labels).toHaveLength(9);
     for (const [i, name] of STEPS.entries()) {
       expect(labels[i], `step ${i}`).toContain(name);
     }
@@ -397,6 +387,7 @@ describe("review and the character the campaign receives", () => {
       "firstName",
       "lastName",
       "gender",
+      "appearanceId",
       "ethnicityId",
       "age",
       "startCity",
@@ -450,12 +441,48 @@ function perksShown(row: string): string {
 
 function focusSum(sheet: GameCharacter): number {
   return Object.values(sheet.skillFocus).reduce((a, b) => a + b, 0);
-}describe("the start screen's answers drive the sheet", () => {
-  it("seeds the family and upbringing choices it is handed", () => {
-    const maker = build({
-      backgrounds: { family: "merchant", childhood: "suburbs", youth: "athlete", training: "boxing", profession: "medic" },
-    });
-    walkTo(maker.root, REVIEW_STEP);
+}
+describe("family stage", () => {
+  const BACKGROUND_STEP = 5;
+
+  it("opens the background step on the family question with six options", () => {
+    const { root } = build();
+    walkTo(root, BACKGROUND_STEP);
+    const grid = q(root, "bg-family");
+    expect(grid.querySelectorAll("button").length).toBe(6);
+    expect(root.textContent).toContain("What family were you born into?");
+  });
+
+  it("defaults to the first family and shows its attribute bonus", () => {
+    const { root } = build();
+    walkTo(root, BACKGROUND_STEP);
+    const badge = q<HTMLButtonElement>(root, "bg-family-badge");
+    expect(badge.getAttribute("aria-pressed")).toBe("true");
+    expect(badge.textContent).toContain("+1");
+    expect(badge.textContent).toContain("Social");
+  });
+
+  it("switches families when another is picked", () => {
+    const { root } = build();
+    walkTo(root, BACKGROUND_STEP);
+    click(root, "bg-family-merchant");
+    expect(q<HTMLButtonElement>(root, "bg-family-merchant").getAttribute("aria-pressed")).toBe("true");
+    expect(q<HTMLButtonElement>(root, "bg-family-badge").getAttribute("aria-pressed")).toBe("false");
+  });
+
+  it("tells the player on the attributes step that the family bonus lands on top", () => {
+    const { root } = build();
+    walkTo(root, ATTRIBUTES_STEP);
+    expect(text(root, "family-attribute-bonus")).toContain("+1");
+    expect(text(root, "family-attribute-bonus")).toContain("Social");
+  });
+
+  it("shows the boosted attribute at review and keeps the stored sheet honest", () => {
+    const maker = build();
+    walkTo(maker.root, BACKGROUND_STEP);
+    click(maker.root, "bg-family-merchant");
+    // walkTo starts from step 0, so step forward from the background step.
+    for (let i = BACKGROUND_STEP; i < REVIEW_STEP; i += 1) click(maker.root, "maker-next");
     // Merchant family: +1 Intelligence on top of the even 5s.
     expect(text(maker.root, "review-attribute-intelligence")).toContain("6 (+1 family)");
     expect(text(maker.root, "review-attribute-social")).not.toContain("(+1 family)");
@@ -464,50 +491,6 @@ function focusSum(sheet: GameCharacter): number {
     // The stored attributes stay the pure 30-point buy; the bonus applies at
     // derivation time. The family choice itself is what the campaign reads.
     expect(sheet.attributes.intelligence).toBe(5);
-    expect(sheet.backgroundChoices).toEqual({
-      family: "merchant",
-      childhood: "suburbs",
-      youth: "athlete",
-      training: "boxing",
-      profession: "medic",
-    });
-  });
-
-  it("falls back to the first option of every stage the start screen did not answer", () => {
-    const maker = build();
-    walkTo(maker.root, ATTRIBUTES_STEP);
-    // The default family still grants its bonus on the attributes step.
-    expect(text(maker.root, "family-attribute-bonus")).toContain("+1");
-    expect(text(maker.root, "family-attribute-bonus")).toContain("Social");
-    click(maker.root, "maker-next");
-    click(maker.root, "maker-next");
-    click(maker.root, "maker-done");
-    const sheet = maker.complete()!;
-    expect(sheet.backgroundChoices).toEqual({
-      family: "badge",
-      childhood: "projects",
-      youth: "athlete",
-      training: "military",
-      profession: "mechanic",
-    });
-  });
-
-  it("lands the character in the home the start screen resolved", () => {
-    const maker = build();
-    walkTo(maker.root, REVIEW_STEP);
-    expect(maker.root.textContent).toContain("Columbus, Ohio");
-    expect(maker.root.textContent).toContain("German-American communities");
-    click(maker.root, "maker-done");
-    const sheet = maker.complete()!;
-    // startCity is the resolver's slug, which is what the simulation
-    // relocates the player by.
-    expect(sheet.startCity).toBe("columbus");
-  });
-
-  it("seeds the heritage it is handed, so clan names and the review agree with the start screen", () => {
-    const { root } = build({ ethnicityId: "korean" });
-    expect(root.textContent).toContain("Heritage: Korean-American");
-    // Clan suggestions follow the seeded heritage.
-    expect(root.querySelector("[data-testid='char-clan-Kim']")).not.toBeNull();
+    expect(sheet.backgroundChoices["family"]).toBe("merchant");
   });
 });

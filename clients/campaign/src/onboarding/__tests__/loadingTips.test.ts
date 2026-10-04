@@ -146,7 +146,7 @@ describe("start-screen loading tip (task 125 wiring)", () => {
     vi.useFakeTimers();
     try {
       const screen = startScreen({
-        settlements: [],
+        sides: [],
         startYear: 2026,
         eraLabel: "test era",
         loading: true,

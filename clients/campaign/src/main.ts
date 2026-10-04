@@ -77,7 +77,7 @@ import { townPanel } from "./ui/panels/TownPanel.js";
 import { whyPanel } from "./ui/panels/WhyPanel.js";
 import type {
   GoodId,
-  NearbyForce,
+  NpcParty,
   SettlementOption,
   SimSnapshot,
   TickUpdate,
@@ -393,7 +393,7 @@ const setBootNote = (text: string): void => {
 // -- 1. skeleton first, then the world ---------------------------------------
 
 const bootScreen = startScreen({
-  settlements: [],
+  sides: [],
   startYear: START_YEAR,
   eraLabel: eraGradeForYear(START_YEAR).years,
   loading: true,
@@ -497,29 +497,22 @@ try {
 }
 
 const selectionScreen = startScreen({
-  settlements: worldData.data.settlements,
+  sides: snapshot.sides,
   startYear: START_YEAR,
   eraLabel: eraGradeForYear(START_YEAR).years,
+  loading: false,
   newGamePlusLines: ngplusRecord ? carryoverLines(ngplusRecord) : undefined,
   onStart: (choice) => {
-    // Character maker goes between the start flow and the campaign mount.
+    // Character maker goes between faction select and campaign mount.
     pendingIronman = choice.ironman === true;
     pendingNewGamePlus = choice.newGamePlus === true && ngplusRecord !== null;
     selectionScreen.replaceWith(
       characterMaker({
-        ethnicityId: choice.ethnicityId,
-        backgrounds: { family: choice.familyId, ...choice.upbringing },
-        home: {
-          slug: choice.startCity,
-          town: choice.homeTown,
-          stateName: choice.homeState,
-          reason: choice.homeReason,
-        },
         bonusPointsTotal:
           pendingNewGamePlus && ngplusRecord ? BONUS_POINTS_TOTAL + ngplusRecord.bonusPoints : undefined,
-        // Rowan (del order 2026-10-03): ethnicity lore deep-links.
+        // Rowan (del order 2026-10-03): ethnicity lore deep-links from the heritage picker.
         onOpenLore: (entryId) => openCodex(entryId),
-        onComplete: async (character) => {
+        onComplete: (character) => {
           document.querySelector(".character-maker")?.remove();
           // New Game+ (task 142): the heir inherits gold and a legacy line.
           // Renown itself is sim-side with no client write path, so it is
@@ -531,37 +524,21 @@ const selectionScreen = startScreen({
             pendingNewGamePlus && ngplusRecord
               ? `${character.biography}\n\n${legacyBiographyLine(ngplusRecord)}`
               : character.biography;
-          // Heritage lands first so the culture's live effects apply from the
-          // first tick; the sheet carries it too, but this is the dedicated
-          // write path (POST /v1/ethnicity).
-          provider.setEthnicity(character.ethnicityId);
           provider.setCharacter({
             firstName: character.firstName,
             lastName: character.lastName,
             gender: character.gender,
-            // No look picker any more: the low-poly models cannot honour a face
-            // choice, so the sheet carries no appearance and the sim keeps its
-            // default model. The wire field stays for the sim's contract.
-            appearanceId: "",
+            appearanceId: character.appearanceId,
             ethnicityId: character.ethnicityId,
             age: character.age,
-            // The resolved home from the start screen: the sim relocates the
-            // player by this slug (campaign.townByRef), which is what puts a
-            // new character in a real town instead of nowhere.
             startCity: character.startCity,
             difficulty: character.difficulty,
             backgroundChoices: character.backgroundChoices,
-            attributes: character.attributes,
-            skillFocus: character.skillFocus,
             startingSkills: character.startingSkills,
             startingCash,
             biography,
           });
-          // The POSTs are fire-and-forget by contract, so the snapshot is
-          // re-read before mounting: the campaign's first paint must show the
-          // character the player just made, not the pre-creation state.
-          await reloadSnapshot();
-          mountCampaign();
+          void reloadSnapshot().then(() => mountCampaign());
           // Seed the clan roster with the player as founding ruler
           // (integration: the laws panel's succession outlook reads this).
           clearClanStore();
@@ -924,18 +901,13 @@ function mountCampaign(): void {
       local: {
         describeEncounter: (attackerId, defenderId) => {
           // Use the actual encountered NPC party if available.
-          const encounterNpc = (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
+          const encounterNpc = (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
           const defender = encounterNpc
             ? {
                 partyId: defenderId,
                 name: encounterNpc.name,
                 troops: encounterNpc.troopCount,
-                // The encounter panel hands back a NearbyForce, whose troop
-                // roster is optional; fall back to the headcount as the power
-                // estimate when no roster rode along.
-                power: encounterNpc.troops
-                  ? encounterNpc.troops.reduce((n, t) => n + t.count * t.tier, 0)
-                  : encounterNpc.troopCount,
+                power: encounterNpc.troops.reduce((n, t) => n + t.count * t.tier, 0),
               }
             : {
                 partyId: defenderId,
@@ -1024,12 +996,12 @@ function mountCampaign(): void {
               console.error("Battle writeback failed:", err);
             });
 
-          const encounterNpc = (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
+          const encounterNpc = (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
           if (won && encounterNpc) {
             void provider
               .defeatNpcParty(encounterNpc.id)
               .then(() => {
-                delete (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
+                delete (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
                 return reloadSnapshot();
               })
               .catch((err) => {
@@ -1043,14 +1015,14 @@ function mountCampaign(): void {
                 prisonersTaken: Math.min(3, Math.round(playerWounded / 2)),
               })
               .then(() => {
-                delete (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
+                delete (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
                 return reloadSnapshot();
               })
               .catch((err) => {
                 console.error("Defeat consequences failed:", err);
               });
           } else if (!won) {
-            delete (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
+            delete (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
           }
         }
       },
@@ -2247,6 +2219,11 @@ function rebuildContext(): void {
           renown: p.renown,
           factionId: p.factionId,
         },
+        onClose: () => {
+          currentPanel = "party";
+          rebuildContext();
+          paint();
+        },
       });
       return;
     }
@@ -2429,11 +2406,11 @@ async function checkForHostiles(): Promise<void> {
 }
 
 /** Handle the player's encounter choice: fight, flee, or dismiss. */
-async function handleEncounterChoice(choice: { action: "fight" | "flee" | "dismiss"; npcParty: NearbyForce }): Promise<void> {
+async function handleEncounterChoice(choice: { action: "fight" | "flee" | "dismiss"; npcParty: NpcParty }): Promise<void> {
   const { npcParty } = choice;
   if (choice.action === "fight") {
     // Store the NPC for the battle's describeEncounter to use.
-    (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc = npcParty;
+    (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc = npcParty;
     console.log(`[encounter] Fighting ${npcParty.name} (${npcParty.troopCount} troops)`);
     // Start the battle: player (attacker) vs the NPC party (defender).
     // The defender party ID is a hash of the NPC ID since battleflow uses numbers.
@@ -2443,7 +2420,7 @@ async function handleEncounterChoice(choice: { action: "fight" | "flee" | "dismi
         await battleUi.attack(0, defenderId); // 0 = player party
       } catch (err) {
         console.error("Failed to start battle:", err);
-        delete (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
+        delete (window as unknown as { __encounterNpc?: NpcParty }).__encounterNpc;
       }
     }
   } else if (choice.action === "flee") {
@@ -2463,7 +2440,7 @@ function hashNpcId(id: string): number {
 }
 
 /** Handle fleeing from an encounter: move the player away, apply consequences. */
-async function handleFlee(npcParty: NearbyForce): Promise<void> {
+async function handleFlee(npcParty: NpcParty): Promise<void> {
   if (!snapshot || !provider) return;
   console.log(`[encounter] Fled from ${npcParty.name}`);
 

@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   BACKGROUNDS,
+  APPEARANCE_PRESETS,
   START_CITIES,
   AGE_BRACKETS,
+  appearancesForEthnicity,
   computeCharacterStats,
 } from "../backgrounds.js";
 
@@ -183,5 +185,30 @@ describe("character stats with age and bonus points", () => {
     const explicit = computeCharacterStats(choices, 30, {});
     expect(withDefaults.skills).toEqual(explicit.skills);
     expect(withDefaults.cash).toBe(explicit.cash);
+  });
+});
+
+describe("appearance presets", () => {
+  it("has 40 presets (4 per ethnicity)", () => {
+    expect(APPEARANCE_PRESETS).toHaveLength(40);
+  });
+
+  it("each ethnicity has 4 presets", () => {
+    const ethnicities = ["italian", "irish", "chinese", "korean", "african",
+      "jamaican", "mexican", "puerto_rican", "german", "russian"];
+    for (const e of ethnicities) {
+      expect(appearancesForEthnicity(e)).toHaveLength(4);
+    }
+  });
+
+  it("each has an icon and ethnicity", () => {
+    for (const p of APPEARANCE_PRESETS) {
+      expect(p.icon.length).toBeGreaterThan(0);
+      expect(p.ethnicityId.length).toBeGreaterThan(0);
+    }
+  });
+
+  it("returns empty for unknown ethnicity", () => {
+    expect(appearancesForEthnicity("nonexistent")).toHaveLength(0);
   });
 });
