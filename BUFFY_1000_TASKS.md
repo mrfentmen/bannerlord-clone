@@ -41,9 +41,9 @@
 15. Deployment time-of-day icon
 16. Deployment music trigger (playMusic on show)
 17. Deployment help tooltip ("Click to place units")
-18. Deployment grid snap toggle
+18. Deployment grid snap toggle ✓
 19. Deployment undo last placement (Ctrl+Z)
-20. Deployment clear all placements button
+20. Deployment clear all placements button ✓
 
 ### Battle HUD (21–50)
 21. HUD top bar (battle name, timer, weather)

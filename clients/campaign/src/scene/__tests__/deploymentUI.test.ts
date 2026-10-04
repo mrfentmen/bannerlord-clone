@@ -533,3 +533,49 @@ describe("help hint (task 17)", () => {
     expect(DEPLOY_HELP).not.toMatch(/keyboard/i);
   });
 });
+
+describe("placement controls (tasks 18, 20)", () => {
+  it("renders no controls when the caller supplies no actions", () => {
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE], () => {});
+
+    expect(document.querySelector(".deploy-controls")?.children).toHaveLength(0);
+    ui.hide();
+  });
+
+  it("toggles grid snap and reports the state it is moving to (task 18)", () => {
+    const seen: boolean[] = [];
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE], () => {}, {}, { onToggleGridSnap: (on) => seen.push(on) });
+
+    const btn = document.querySelector<HTMLButtonElement>(".deploy-snap");
+    expect(btn).not.toBeNull();
+    expect(btn!.getAttribute("aria-pressed")).toBe("false");
+    btn!.click();
+    expect(seen).toEqual([true]);
+    expect(btn!.getAttribute("aria-pressed")).toBe("true");
+    expect(btn!.textContent).toMatch(/on/);
+    btn!.click();
+    expect(seen).toEqual([true, false]);
+    ui.hide();
+  });
+
+  it("renders the toggle in the caller's initial snap state", () => {
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE], () => {}, {}, { onToggleGridSnap: () => {}, gridSnapEnabled: true });
+
+    const btn = document.querySelector<HTMLButtonElement>(".deploy-snap");
+    expect(btn!.getAttribute("aria-pressed")).toBe("true");
+    ui.hide();
+  });
+
+  it("clears every placement through the supplied action (task 20)", () => {
+    let cleared = 0;
+    const ui = new DeploymentUI();
+    ui.show([PLAYER_ZONE], () => {}, {}, { onClearPlacements: () => { cleared++; } });
+
+    document.querySelector<HTMLButtonElement>(".deploy-clear")!.click();
+    expect(cleared).toBe(1);
+    ui.hide();
+  });
+});

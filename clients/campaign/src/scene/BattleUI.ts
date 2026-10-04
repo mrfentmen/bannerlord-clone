@@ -63,6 +63,22 @@ export interface DeploymentInfo {
 }
 
 /**
+ * Scene-side actions the deployment header can trigger (Buffy tasks 18, 20).
+ * Every field is optional: the header renders a control only for the actions it
+ * has been given, so a caller that owns placement differently is not forced to
+ * fake a wiring. The usual wiring is `DeploymentPlacer.setGridSnap` /
+ * `DeploymentPlacer.clearPlacements`.
+ */
+export interface DeploymentActions {
+  /** Flip grid snapping; called with the state the toggle is moving to. */
+  onToggleGridSnap?: (enabled: boolean) => void;
+  /** Remove every placement; the header keeps running afterwards. */
+  onClearPlacements?: () => void;
+  /** Initial snap state, so the toggle renders the truth on first show. */
+  gridSnapEnabled?: boolean;
+}
+
+/**
  * Weather as a glyph and a word. The glyph is decorative and always sits beside a
  * typed label, the same rule the speed dial follows: nothing here is carried by a
  * picture alone.
@@ -162,7 +178,12 @@ export class DeploymentUI {
   private completed = false;
   private countEl: HTMLElement | null = null;
 
-  show(_zones: DeploymentZone[], onComplete: () => void, info: DeploymentInfo = {}): void {
+  show(
+    _zones: DeploymentZone[],
+    onComplete: () => void,
+    info: DeploymentInfo = {},
+    actions: DeploymentActions = {},
+  ): void {
     // show() may be called again on a still-visible overlay; the old interval has to
     // go before a new one starts or the two tick against the same header.
     this.hide();
@@ -210,6 +231,42 @@ export class DeploymentUI {
       ),
     );
 
+    // Placement controls (Buffy tasks 18, 20): rendered only when the caller
+    // supplies the scene-side action, so the header never shows a dead button.
+    // The snap toggle is a real toggle — aria-pressed tracks the state the
+    // placer is moving to, and the label names the state, not the action.
+    const controls = h("div", { class: "deploy-controls" });
+    if (actions.onToggleGridSnap) {
+      let snapOn = actions.gridSnapEnabled ?? false;
+      const snapBtn = h(
+        "button",
+        {
+          type: "button",
+          class: "deploy-snap",
+          "aria-pressed": String(snapOn),
+        },
+        `Grid snap: ${snapOn ? "on" : "off"}`,
+      );
+      snapBtn.addEventListener("click", () => {
+        snapOn = !snapOn;
+        snapBtn.setAttribute("aria-pressed", String(snapOn));
+        snapBtn.textContent = `Grid snap: ${snapOn ? "on" : "off"}`;
+        actions.onToggleGridSnap?.(snapOn);
+      });
+      controls.appendChild(snapBtn);
+    }
+    if (actions.onClearPlacements) {
+      const clearBtn = h(
+        "button",
+        { type: "button", class: "deploy-clear" },
+        "Clear all",
+      );
+      clearBtn.addEventListener("click", () => {
+        actions.onClearPlacements?.();
+      });
+      controls.appendChild(clearBtn);
+    }
+
     const container = h(
       "div",
       {
@@ -232,6 +289,7 @@ export class DeploymentUI {
         ),
         timerEl,
         sides,
+        controls,
       ),
     );
     document.body.appendChild(container);
