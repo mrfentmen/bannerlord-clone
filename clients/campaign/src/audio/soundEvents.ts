@@ -94,6 +94,13 @@ export const SOUND_EVENTS = {
   "ui.click": { id: "sfx-ui-click", volume: 0.5, hook: "Any button or tab. Click." },
   "ui.hover": { id: "sfx-ui-hover", volume: 0.3, hook: "Pointer enters an interactive element." },
   "ui.toggle": { id: "sfx-ui-toggle", volume: 0.5, hook: "Any checkbox or switch." },
+  // Tasks 538/539/540/548: tab switch uses the click at lower volume (a tab
+  // is a button variant); gold gain/loss get distinct coin cues so the
+  // treasury reads by ear; time speed is a UI tick.
+  "ui.tab-switch": { id: "sfx-ui-click", volume: 0.4, hook: "A tab is switched." },
+  "ui.gold-gain": { id: "sfx-foley-coins-pour", volume: 0.55, hook: "Gold is gained." },
+  "ui.gold-loss": { id: "sfx-tavern-coin-purse", volume: 0.5, hook: "Gold is lost." },
+  "ui.time-speed": { id: "sfx-ui-click", volume: 0.4, hook: "Time speed changes." },
   "ui.confirm": { id: "sfx-ui-confirm", volume: 0.55, hook: "An action is accepted." },
   "ui.error": { id: "sfx-ui-error", volume: 0.5, hook: "An action is refused." },
   "ui.back": { id: "sfx-ui-back", volume: 0.45, hook: "Closing a panel or stepping back." },
