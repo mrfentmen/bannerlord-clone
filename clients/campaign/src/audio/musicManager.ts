@@ -14,11 +14,17 @@
 import { getAudioManager } from "./AudioManager.js";
 
 /** Where the player is, for music purposes. */
-export type MusicScene = "menu" | "campaign" | "town" | "battle" | "court";
+export type MusicScene = "menu" | "campaign" | "town" | "battle" | "court" | "faction" | "boss" | "credits";
 
 /** Track pools by scene. IDs are manifest asset IDs (the .mp3 basename). */
 const POOLS: Record<MusicScene, string[]> = {
   menu: ["menu-theme", "the-ice-queens-court", "the-glass-throne", "whisper-network"],
+  faction: [
+    "faction-ironhold", "faction-greenwood", "faction-stormwatch",
+    "faction-emberfall", "faction-highgarden", "faction-nightshade",
+  ],
+  boss: ["boss-battle"],
+  credits: ["credits-theme"],
   campaign: [
     "ambient-exploration", "the-long-march", "songs-of-the-long-road",
     "songs-of-the-caravan", "caravan-dawn", "river-run", "the-deep-road",

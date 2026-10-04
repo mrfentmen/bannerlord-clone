@@ -1,6 +1,6 @@
 {
  "comment": "Runtime id -> web path index for the audio library, generated alongside audio-manifest.json. The manifest carries the attribution ledger; this carries only what the mixer needs to resolve a name to a URL, so boot does not ship 1.3 MB of credit text.",
- "count": 6380,
+ "count": 6388,
  "paths": {
   "ambient-exploration": "/audio/ambient-exploration.mp3",
   "ambient-exploration-stem-pads": "/audio/stems/ambient-exploration/pads.mp3",
@@ -6381,6 +6381,14 @@
   "vox-greet-vincent-whatbrings": "/audio/vox/greet/greet-vincent-whatbrings.mp3",
   "vox-greet-vincent-wherefrom": "/audio/vox/greet/greet-vincent-wherefrom.mp3",
   "vox-greet-vincent-wherelive": "/audio/vox/greet/greet-vincent-wherelive.mp3",
-  "vox-greet-vincent-yourname": "/audio/vox/greet/greet-vincent-yourname.mp3"
+  "vox-greet-vincent-yourname": "/audio/vox/greet/greet-vincent-yourname.mp3",
+  "faction-ironhold": "/audio/faction-ironhold.mp3",
+  "faction-greenwood": "/audio/faction-greenwood.mp3",
+  "faction-stormwatch": "/audio/faction-stormwatch.mp3",
+  "faction-emberfall": "/audio/faction-emberfall.mp3",
+  "faction-highgarden": "/audio/faction-highgarden.mp3",
+  "faction-nightshade": "/audio/faction-nightshade.mp3",
+  "boss-battle": "/audio/boss-battle.mp3",
+  "credits-theme": "/audio/credits-theme.mp3"
  }
 }

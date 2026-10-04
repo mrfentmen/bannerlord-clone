@@ -644,9 +644,9 @@
 564. [x] [Hana] Music: stinger on ambush
 565. [x] [Hana] Music: stinger on discovery
 566. Music: day/night variants
-567. Music: faction themes (6 variants)
-568. Music: boss battle theme
-569. Music: credits theme
+567. [x] [Hana] Music: faction themes (6 variants)
+568. [x] [Hana] Music: boss battle theme
+569. [x] [Hana] Music: credits theme
 570. Music: settings preview button
 
 ### Ambient & Foley (571–590)
