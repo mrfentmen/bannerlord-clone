@@ -9,12 +9,12 @@ export class GameClock {
   time = 0;
   /** Game seconds per real second. */
   timeScale: number;
-  /** Game seconds per full day. Default 1440 (a 24-minute day). */
+  /** Game seconds per full day. Default 86400 (a 24-minute day at 60x). */
   readonly dayLength: number;
 
   constructor(opts: { timeScale?: number; dayLength?: number; startHour?: number } = {}) {
     this.timeScale = opts.timeScale ?? 60;
-    this.dayLength = opts.dayLength ?? 1440;
+    this.dayLength = opts.dayLength ?? 86400;
     this.time = ((opts.startHour ?? 9) / 24) * this.dayLength;
   }
 
