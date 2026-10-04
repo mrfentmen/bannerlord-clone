@@ -107,7 +107,7 @@ W = wired, M = made but unwired (see sections 1-3), N = needs making.
 | Clan tiers, found kingdom | M | 7002ecb4 |
 | Held lords: ransom/release/execute | M | routes mounted live |
 | Armies (create/join/objective) | M | provider only |
-| Sieges (start/assault/lift) + engine park | M | siege routes mounted; engines fixture-only |
+| Sieges (start/assault/lift) + engine park | ~~M~~ DONE 2026-10-04 | engine park wired into the siege section (queue/move/fire-variant through the provider, build order from siege/engines.ts) |
 | Save/load over HTTP | ~~M~~ DONE 2026-10-04 | saves lane was always live (POST /v1/save, /v1/load); the panel's load hook now repaints the app from the restored world instead of throwing "not supported" |
 | Bandits list/camps | M | provider methods exist (getBandits/getBanditCamps); camps UI has no surface and the fixture serves none — waiting on a map layer |
 | Castles as a fief type | N | klass is city/town/village only |

@@ -1516,7 +1516,26 @@ function townNode(town: TownState): Node {
     onSiegeChanged: () => {
       // The handlers above already repaint; this exists for orders that change
       // nothing to repaint (a refused siege keeps the world as it was).
+      void refreshAfterSimOrder();
     },
+    // Engine park: the sim's ledger for one siege, read and driven through the
+    // provider. Queue charges gold and sets the build days; move and fire-variant
+    // are the sim's own bookkeeping.
+    onGetSiegeEngines: (siegeId) => provider.getSiegeEngines(siegeId),
+    onQueueSiegeEngine: (siegeId, typeId) =>
+      provider.queueSiegeEngine(siegeId, typeId).then((r) => {
+        playVerdictSound(true);
+        void refreshAfterSimOrder();
+        return r;
+      }),
+    onMoveSiegeEngine: (siegeId, typeId, to) =>
+      provider.moveSiegeEngine(siegeId, typeId, to).then(() => {
+        void refreshAfterSimOrder();
+      }),
+    onMakeFireVariant: (siegeId, typeId) =>
+      provider.makeFireVariant(siegeId, typeId).then(() => {
+        void refreshAfterSimOrder();
+      }),
     // Economy/crime (bucket 7): fines, crimes, governor, ransom broker.
     // All fixture-served; the live server refuses with its own message.
     onGetOutstandingFine: async () => (snapshot?.fines as Record<string, number> | undefined)?.[town.id] ?? 0,

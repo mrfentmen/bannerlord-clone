@@ -10,6 +10,12 @@ import { h } from "../../dom.js";
 import type { Siege } from "../../../data/types.js";
 import type { TownPanelOptions } from "../TownPanel.js";
 import { type TownSectionSpec } from "../townSections.js";
+import { SIEGE_ENGINE_TYPES, engineType } from "../../../siege/engines.js";
+
+/** The engine's own name, from the build-order module both providers mirror. */
+function engineName(typeId: string): string {
+  return engineType(typeId)?.name ?? typeId;
+}
 
 function siegeCard(siege: Siege, say: (t: string) => void, options: TownPanelOptions): HTMLElement {
   const card = h("div", { "data-testid": "siege-card" });
@@ -56,6 +62,103 @@ function siegeCard(siege: Siege, say: (t: string) => void, options: TownPanelOpt
   });
   actions.append(assault, lift);
   card.append(actions);
+
+  // -- engine park -----------------------------------------------------------
+  // Built only when the caller can serve the park orders. The park is the
+  // sim's ledger read through the caller; the type names and prices are the
+  // client's build-order module, which both providers mirror.
+  if (options.onGetSiegeEngines && options.onQueueSiegeEngine && options.onMoveSiegeEngine) {
+    const parkBox = h("div", { "data-testid": "siege-engine-park", style: "margin-top:var(--space-3)" });
+    parkBox.append(h("p", { class: "label", style: "margin:0 0 var(--space-1)" }, "Engine park"));
+    parkBox.append(h("p", { class: "caption", style: "margin:0" }, "Reading the park..."));
+    card.append(parkBox);
+    void options.onGetSiegeEngines(siege.id).then(
+      (park) => {
+        parkBox.replaceChildren(h("p", { class: "label", style: "margin:0 0 var(--space-1)" }, "Engine park"));
+        if (park.queue.length === 0 && park.reserve.length === 0 && park.deployed.length === 0) {
+          parkBox.append(h("p", { class: "caption", "data-testid": "engine-park-empty", style: "margin:0" },
+            "No engines yet. Order one below and the builders get to work."));
+        } else {
+          for (const q of park.queue) {
+            parkBox.append(h("p", { class: "caption", "data-testid": `engine-queue-${q.typeId}`, style: "margin:0" },
+              `${engineName(q.typeId)}: ${q.daysLeft} day${q.daysLeft === 1 ? "" : "s"} from ready.`));
+          }
+          for (const [key, engines, action, label] of [
+            ["deployed", park.deployed, "reserve" as const, "Pull back to reserve"],
+            ["reserve", park.reserve, "deployed" as const, "Deploy to the lines"],
+          ] as const) {
+            for (const typeId of engines) {
+              const row = h("div", { class: "field-row", "data-testid": `engine-${key}-${typeId}`, style: "gap:var(--space-2);margin:var(--space-1) 0 0" });
+              row.append(h("span", { class: "caption", style: "margin:0" },
+                `${engineName(typeId)} (${key})${park.fireVariants.includes(typeId) ? " \u00b7 fire variant" : ""}`));
+              const moveBtn = h("button", { type: "button", class: "btn btn--small", "data-testid": `engine-move-${typeId}-${key}` }, label);
+              moveBtn.addEventListener("click", () => {
+                moveBtn.disabled = true;
+                void options.onMoveSiegeEngine!(siege.id, typeId, action).then(
+                  () => {
+                    say("The engine moves.");
+                    options.onSiegeChanged?.();
+                  },
+                  (err: unknown) => {
+                    moveBtn.disabled = false;
+                    say(err instanceof Error && err.message ? err.message : "The engine did not move.");
+                  },
+                );
+              });
+              row.append(moveBtn);
+              if (key === "reserve" && options.onMakeFireVariant && !park.fireVariants.includes(typeId)) {
+                const fireBtn = h("button", { type: "button", class: "btn btn--small", "data-testid": `engine-fire-${typeId}` }, "Fire variant");
+                fireBtn.addEventListener("click", () => {
+                  fireBtn.disabled = true;
+                  void options.onMakeFireVariant!(siege.id, typeId).then(
+                    () => {
+                      say("It burns hotter now. So does the risk.");
+                      options.onSiegeChanged?.();
+                    },
+                    (err: unknown) => {
+                      fireBtn.disabled = false;
+                      say(err instanceof Error && err.message ? err.message : "The conversion did not land.");
+                    },
+                  );
+                });
+                row.append(fireBtn);
+              }
+              parkBox.append(row);
+            }
+          }
+        }
+        // The build order: one priced button per engine type.
+        const buildRow = h("div", { class: "field-row", style: "gap:var(--space-2);margin-top:var(--space-2)" });
+        for (const t of SIEGE_ENGINE_TYPES) {
+          const buildBtn = h("button", { type: "button", class: "btn btn--small", "data-testid": `engine-queue-${t.id}` },
+            `Build ${t.name} (${t.cost}g, ${t.buildDays}d)`);
+          buildBtn.addEventListener("click", () => {
+            buildBtn.disabled = true;
+            void options.onQueueSiegeEngine!(siege.id, t.id).then(
+              () => {
+                say("The builders are on it.");
+                options.onSiegeChanged?.();
+              },
+              (err: unknown) => {
+                buildBtn.disabled = false;
+                say(err instanceof Error && err.message ? err.message : "The order did not land.");
+              },
+            );
+          });
+          buildRow.append(buildBtn);
+        }
+        parkBox.append(buildRow);
+      },
+      (err: unknown) => {
+        parkBox.replaceChildren(
+          h("p", { class: "label", style: "margin:0 0 var(--space-1)" }, "Engine park"),
+          h("p", { class: "caption", style: "margin:0" },
+            err instanceof Error && err.message ? err.message : "The park could not be read."),
+        );
+      },
+    );
+  }
+
   return card;
 }
 
@@ -63,8 +166,7 @@ export const townSiegeSectionSpec: TownSectionSpec<void> = {
   id: "siege",
   header: "Siege",
   enterLabel: "Consider a siege",
-  loadingLabel: "Reading the walls...",
-  failureLabel: "The siege could not be read.",
+  loadingLabel: "Reading the walls...",  failureLabel: "The siege could not be read.",
   available: (options) =>
     options.onGetSiege !== undefined && options.onStartSiege !== undefined && options.onAssaultSiege !== undefined && options.onLiftSiege !== undefined,
   render: (list, _view, _rt, options) => {

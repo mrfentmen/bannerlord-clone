@@ -233,6 +233,14 @@ export interface TownPanelOptions {
   onLiftSiege?: (siegeId: string) => Promise<void>;
   /** Called after a siege order changed the world, so the caller repaints. */
   onSiegeChanged?: () => void;
+  /** The siege's engine park (queue, reserve, deployed, fire variants). */
+  onGetSiegeEngines?: (siegeId: string) => Promise<{ queue: { typeId: string; daysLeft: number }[]; reserve: string[]; deployed: string[]; fireVariants: string[] }>;
+  /** Queue an engine for construction; the sim charges gold and sets the days. */
+  onQueueSiegeEngine?: (siegeId: string, typeId: string) => Promise<{ cost: number }>;
+  /** Move an engine between reserve and the siege lines. */
+  onMoveSiegeEngine?: (siegeId: string, typeId: string, to: "reserve" | "deployed") => Promise<void>;
+  /** Mark a reserve engine as a fire variant: double damage, cook-off risk. */
+  onMakeFireVariant?: (siegeId: string, typeId: string) => Promise<void>;
   /** The town's outstanding fine, read through the caller (bucket 7). */
   onGetOutstandingFine?: () => Promise<number>;
   /** Commit a crime in the town. The sim prices it. */

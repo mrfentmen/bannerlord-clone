@@ -166,3 +166,86 @@ describe("town panel siege (tasks 134/426)", () => {
     expect(onSiegeChanged).toHaveBeenCalled();
   });
 });
+
+describe("town panel: siege engine park", () => {
+  const parkHandlers = (park: { queue: { typeId: string; daysLeft: number }[]; reserve: string[]; deployed: string[]; fireVariants: string[] }) => ({
+    onGetSiegeEngines: vi.fn().mockResolvedValue(park),
+    onQueueSiegeEngine: vi.fn().mockResolvedValue({ cost: 200 }),
+    onMoveSiegeEngine: vi.fn().mockResolvedValue(undefined),
+    onMakeFireVariant: vi.fn().mockResolvedValue(undefined),
+  });
+
+  it("the park block appears only when the caller serves the park orders", async () => {
+    const withPark = townPanel(options({ onGetSiege: vi.fn().mockResolvedValue(siege()), onStartSiege: vi.fn(), onAssaultSiege: vi.fn(), onLiftSiege: vi.fn(), ...parkHandlers({ queue: [], reserve: [], deployed: [], fireVariants: [] }) }));
+    await flush();
+    expect(withPark.querySelector('[data-testid="siege-engine-park"]')).not.toBeNull();
+    const noPark = townPanel(options({ onGetSiege: vi.fn().mockResolvedValue(siege()), onStartSiege: vi.fn(), onAssaultSiege: vi.fn(), onLiftSiege: vi.fn() }));
+    await flush();
+    expect(noPark.querySelector('[data-testid="siege-engine-park"]')).toBeNull();
+  });
+
+  it("an empty park says so and offers the build order with the sim's prices", async () => {
+    const root = townPanel(options({ onGetSiege: vi.fn().mockResolvedValue(siege()), onStartSiege: vi.fn(), onAssaultSiege: vi.fn(), onLiftSiege: vi.fn(), ...parkHandlers({ queue: [], reserve: [], deployed: [], fireVariants: [] }) }));
+    await flush();
+    expect(root.querySelector('[data-testid="engine-park-empty"]')?.textContent).toContain("No engines yet");
+    const truck = root.querySelector<HTMLButtonElement>('[data-testid="engine-queue-breaching-truck"]');
+    expect(truck?.textContent).toContain("800g");
+    expect(truck?.textContent).toContain("3d");
+    const ladder = root.querySelector<HTMLButtonElement>('[data-testid="engine-queue-assault-ladder"]');
+    expect(ladder?.textContent).toContain("200g");
+  });
+
+  it("queueing an engine posts the type and prints the verdict", async () => {
+    const handlers = parkHandlers({ queue: [], reserve: [], deployed: [], fireVariants: [] });
+    const onSiegeChanged = vi.fn();
+    const root = townPanel(options({ onGetSiege: vi.fn().mockResolvedValue(siege()), onStartSiege: vi.fn(), onAssaultSiege: vi.fn(), onLiftSiege: vi.fn(), onSiegeChanged, ...handlers }));
+    await flush();
+    (root.querySelector('[data-testid="engine-queue-assault-ladder"]') as HTMLButtonElement).click();
+    await flush();
+    expect(handlers.onQueueSiegeEngine).toHaveBeenCalledWith("siege-1", "assault-ladder");
+    expect(onSiegeChanged).toHaveBeenCalled();
+  });
+
+  it("renders the sim's ledger: queue days, reserve and deployed with moves, fire variants", async () => {
+    const root = townPanel(options({
+      onGetSiege: vi.fn().mockResolvedValue(siege()),
+      onStartSiege: vi.fn(),
+      onAssaultSiege: vi.fn(),
+      onLiftSiege: vi.fn(),
+      ...parkHandlers({
+        queue: [{ typeId: "artillery", daysLeft: 2 }],
+        reserve: ["breaching-truck"],
+        deployed: ["shield-wall"],
+        fireVariants: ["shield-wall"],
+      }),
+    }));
+    await flush();
+    expect(root.querySelector('[data-testid="engine-queue-artillery"]')?.textContent).toContain("2 days from ready");
+    expect(root.querySelector('[data-testid="engine-reserve-breaching-truck"]')?.textContent).toContain("Breaching Truck (reserve)");
+    expect(root.querySelector('[data-testid="engine-deployed-shield-wall"]')?.textContent).toContain("fire variant");
+    // Reserve rows can deploy and convert; deployed rows can pull back.
+    expect(root.querySelector('[data-testid="engine-move-breaching-truck-reserve"]')?.textContent).toContain("Deploy");
+    expect(root.querySelector('[data-testid="engine-fire-breaching-truck"]')).not.toBeNull();
+    expect(root.querySelector('[data-testid="engine-move-shield-wall-deployed"]')?.textContent).toContain("reserve");
+    expect(root.querySelector('[data-testid="engine-fire-shield-wall"]')).toBeNull(); // already a fire variant
+  });
+
+  it("a refused move lands verbatim and re-arms", async () => {
+    const onMoveSiegeEngine = vi.fn().mockRejectedValue(new Error("No breaching-truck in deployed."));
+    const root = townPanel(options({
+      onGetSiege: vi.fn().mockResolvedValue(siege()),
+      onStartSiege: vi.fn(),
+      onAssaultSiege: vi.fn(),
+      onLiftSiege: vi.fn(),
+      onGetSiegeEngines: vi.fn().mockResolvedValue({ queue: [], reserve: [], deployed: ["breaching-truck"], fireVariants: [] }),
+      onQueueSiegeEngine: vi.fn(),
+      onMoveSiegeEngine,
+    }));
+    await flush();
+    (root.querySelector('[data-testid="engine-move-breaching-truck-deployed"]') as HTMLButtonElement).click();
+    await flush();
+    expect(onMoveSiegeEngine).toHaveBeenCalledWith("siege-1", "breaching-truck", "reserve");
+    expect(root.querySelector('[data-testid="siege-message"]')?.textContent).toContain("No breaching-truck in deployed.");
+    expect((root.querySelector('[data-testid="engine-move-breaching-truck-deployed"]') as HTMLButtonElement).disabled).toBe(false);
+  });
+});
