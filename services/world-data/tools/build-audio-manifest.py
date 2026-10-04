@@ -37,6 +37,7 @@ Id derivation is the scheme the rest of `src/audio` already speaks:
     audio/sfx/ambience/town-day.mp3            -> sfx-ambience-town-day
     audio/barks/briggs/charge-1.mp3            -> bark-briggs-charge-1
     audio/vox/grunt-m1.mp3                     -> vox-grunt-m1
+    audio/radio/bed-night-synth.mp3            -> radio-bed-night-synth
 
 A collision between two files that would derive the same id is a hard error, not
 a silent overwrite.
@@ -55,6 +56,9 @@ AUDIO_ROOT = REPO / "clients" / "campaign" / "public" / "audio"
 PUBLIC_MANIFEST = REPO / "clients" / "campaign" / "public" / "audio-manifest.json"
 RUNTIME_INDEX = AUDIO_ROOT / "audio-index.json"
 LEDGER = REPO / "assets" / "audio-manifest.json"
+# Attribution for files ported in from a parked branch, where the ledger row lives in the
+# branch that is not part of main's history. Read after the global ledger, so a path here wins.
+PROVENANCE = REPO / "services" / "world-data" / "data" / "audio-provenance.json"
 
 
 def derive_id(relative: str) -> str:
@@ -71,6 +75,8 @@ def derive_id(relative: str) -> str:
         return "-".join(["bark", *parts[1:]])
     if head == "vox":
         return "-".join(["vox", *parts[1:]])
+    if head == "radio":
+        return "-".join(["radio", *parts[1:]])
     return parts[0]
 
 
@@ -83,19 +89,24 @@ def category_of(relative: str) -> str:
         return "voice-bark"
     if head == "vox":
         return "voice-cry"
+    if head == "radio":
+        return "radio"
     if head == "sfx":
         return f"sfx-{relative.split('/')[1]}"
     return "music"
 
 
 def loop_hint(relative: str) -> bool:
-    """Whether the file is a bed: ambience loops, crowd loops, engine loops.
+    """Whether the file is a bed: ambience loops, crowd loops, engine loops, station beds.
 
     A bed is meant to run under something else for minutes at a time. Music is
     not, even when it was composed as a loop, because the music manager owns when
-    a track hands over to the next one.
+    a track hands over to the next one. A radio bulletin is not a bed either: it
+    is a segment that plays once between songs.
     """
     base = relative.rsplit("/", 1)[-1]
+    if relative.startswith("radio/"):
+        return base.startswith("bed-") or base.startswith("station-")
     return (
         relative.startswith("sfx/ambience/")
         or relative.startswith("sfx/crowd/")
@@ -113,10 +124,22 @@ def sha256_of(path: Path) -> str:
 
 
 def load_ledger() -> dict[str, dict]:
-    if not LEDGER.is_file():
-        return {}
-    document = json.loads(LEDGER.read_text(encoding="utf-8"))
-    return {asset["path"]: asset for asset in document.get("assets", [])}
+    """Attribution by repository path: the global ledger first, then the provenance sidecar."""
+    table: dict[str, dict] = {}
+    if LEDGER.is_file():
+        document = json.loads(LEDGER.read_text(encoding="utf-8"))
+        for asset in document.get("assets", []):
+            table[asset["path"]] = asset
+    if PROVENANCE.is_file():
+        document = json.loads(PROVENANCE.read_text(encoding="utf-8"))
+        for asset in document.get("assets", []):
+            if asset["path"] in table:
+                print(
+                    f"note: {asset['id']} is in both {LEDGER.name} and {PROVENANCE.name}; "
+                    "the sidecar wins"
+                )
+            table[asset["path"]] = asset
+    return table
 
 
 def collect() -> tuple[list[dict], dict[str, str], list[str]]:

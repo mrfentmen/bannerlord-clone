@@ -1,0 +1,160 @@
+{
+  "_comment": [
+    "Provenance for audio that ships in clients/campaign/public/audio but is not yet",
+    "catalogued in assets/audio-manifest.json. That ledger is the credit record of the whole",
+    "library; this file is the same kind of record for files ported in from a parked branch,",
+    "where the entry has to be carried across with the file rather than left behind in the",
+    "branch that is not part of main's history.",
+    "",
+    "services/world-data/tools/build-audio-manifest.py reads this file after the global ledger,",
+    "so a path here wins for attribution and the public manifest can still say who made every",
+    "file it lists. Once assets/audio-manifest.json gains these rows this file can be emptied;",
+    "build-audio-manifest.py reports any file it cannot attribute at all."
+  ],
+  "portedFrom": {
+    "radio-beds-and-bulletins": "origin/worker/hana/radio (assets/audio/tools/radio.py)",
+    "radio-stations": "origin/worker/local/battlesim-assets (public/audio/radio/, radio-manifest.json)"
+  },
+  "assets": [
+    {
+      "id": "radio-bed-country-lope",
+      "path": "clients/campaign/public/audio/radio/bed-country-lope.mp3",
+      "contents": "Loping 96 BPM country station bed with plucked melody, seamless loop",
+      "source": "original procedural content synthesized in-repo via assets/audio/tools/radio.py (numpy DSP music beds + TTS bulletins from world-state data, no samples, no real persons)",
+      "author": "Hana",
+      "licence": "original work created for this project",
+      "date_retrieved": "2026-10-01",
+      "attribution_text": "'radio/bed-country-lope' - original procedural radio content by Hana for the Bannerlord-clone project, 2026-10-01."
+    },
+    {
+      "id": "radio-bed-heartland-rock",
+      "path": "clients/campaign/public/audio/radio/bed-heartland-rock.mp3",
+      "contents": "Driving 126 BPM heartland-rock station bed, seamless loop",
+      "source": "original procedural content synthesized in-repo via assets/audio/tools/radio.py (numpy DSP music beds + TTS bulletins from world-state data, no samples, no real persons)",
+      "author": "Hana",
+      "licence": "original work created for this project",
+      "date_retrieved": "2026-10-01",
+      "attribution_text": "'radio/bed-heartland-rock' - original procedural radio content by Hana for the Bannerlord-clone project, 2026-10-01."
+    },
+    {
+      "id": "radio-bed-night-synth",
+      "path": "clients/campaign/public/audio/radio/bed-night-synth.mp3",
+      "contents": "100 BPM synth night-drive station bed, seamless loop",
+      "source": "original procedural content synthesized in-repo via assets/audio/tools/radio.py (numpy DSP music beds + TTS bulletins from world-state data, no samples, no real persons)",
+      "author": "Hana",
+      "licence": "original work created for this project",
+      "date_retrieved": "2026-10-01",
+      "attribution_text": "'radio/bed-night-synth' - original procedural radio content by Hana for the Bannerlord-clone project, 2026-10-01."
+    },
+    {
+      "id": "radio-broadcast-hour",
+      "path": "clients/campaign/public/audio/radio/broadcast-hour.mp3",
+      "contents": "Assembled broadcast segment: beds, ident, bulletins, static transitions",
+      "source": "original procedural content synthesized in-repo via assets/audio/tools/radio.py (numpy DSP music beds + TTS bulletins from world-state data, no samples, no real persons)",
+      "author": "Hana",
+      "licence": "original work created for this project",
+      "date_retrieved": "2026-10-01",
+      "attribution_text": "'radio/broadcast-hour' - original procedural radio content by Hana for the Bannerlord-clone project, 2026-10-01."
+    },
+    {
+      "id": "radio-bulletin-0",
+      "path": "clients/campaign/public/audio/radio/bulletin-0.mp3",
+      "contents": "News bulletin generated from real world state (settlement simulation data)",
+      "source": "original procedural content synthesized in-repo via assets/audio/tools/radio.py (numpy DSP music beds + TTS bulletins from world-state data, no samples, no real persons)",
+      "author": "Hana",
+      "licence": "original work created for this project",
+      "date_retrieved": "2026-10-01",
+      "attribution_text": "'radio/bulletin-0' - original procedural radio content by Hana for the Bannerlord-clone project, 2026-10-01."
+    },
+    {
+      "id": "radio-bulletin-1",
+      "path": "clients/campaign/public/audio/radio/bulletin-1.mp3",
+      "contents": "News bulletin generated from real world state (settlement simulation data)",
+      "source": "original procedural content synthesized in-repo via assets/audio/tools/radio.py (numpy DSP music beds + TTS bulletins from world-state data, no samples, no real persons)",
+      "author": "Hana",
+      "licence": "original work created for this project",
+      "date_retrieved": "2026-10-01",
+      "attribution_text": "'radio/bulletin-1' - original procedural radio content by Hana for the Bannerlord-clone project, 2026-10-01."
+    },
+    {
+      "id": "radio-bulletin-2",
+      "path": "clients/campaign/public/audio/radio/bulletin-2.mp3",
+      "contents": "News bulletin generated from real world state (settlement simulation data)",
+      "source": "original procedural content synthesized in-repo via assets/audio/tools/radio.py (numpy DSP music beds + TTS bulletins from world-state data, no samples, no real persons)",
+      "author": "Hana",
+      "licence": "original work created for this project",
+      "date_retrieved": "2026-10-01",
+      "attribution_text": "'radio/bulletin-2' - original procedural radio content by Hana for the Bannerlord-clone project, 2026-10-01."
+    },
+    {
+      "id": "radio-bulletin-3",
+      "path": "clients/campaign/public/audio/radio/bulletin-3.mp3",
+      "contents": "News bulletin generated from real world state (settlement simulation data)",
+      "source": "original procedural content synthesized in-repo via assets/audio/tools/radio.py (numpy DSP music beds + TTS bulletins from world-state data, no samples, no real persons)",
+      "author": "Hana",
+      "licence": "original work created for this project",
+      "date_retrieved": "2026-10-01",
+      "attribution_text": "'radio/bulletin-3' - original procedural radio content by Hana for the Bannerlord-clone project, 2026-10-01."
+    },
+    {
+      "id": "radio-bulletin-4",
+      "path": "clients/campaign/public/audio/radio/bulletin-4.mp3",
+      "contents": "News bulletin generated from real world state (settlement simulation data)",
+      "source": "original procedural content synthesized in-repo via assets/audio/tools/radio.py (numpy DSP music beds + TTS bulletins from world-state data, no samples, no real persons)",
+      "author": "Hana",
+      "licence": "original work created for this project",
+      "date_retrieved": "2026-10-01",
+      "attribution_text": "'radio/bulletin-4' - original procedural radio content by Hana for the Bannerlord-clone project, 2026-10-01."
+    },
+    {
+      "id": "radio-bulletin-5",
+      "path": "clients/campaign/public/audio/radio/bulletin-5.mp3",
+      "contents": "News bulletin generated from real world state (settlement simulation data)",
+      "source": "original procedural content synthesized in-repo via assets/audio/tools/radio.py (numpy DSP music beds + TTS bulletins from world-state data, no samples, no real persons)",
+      "author": "Hana",
+      "licence": "original work created for this project",
+      "date_retrieved": "2026-10-01",
+      "attribution_text": "'radio/bulletin-5' - original procedural radio content by Hana for the Bannerlord-clone project, 2026-10-01."
+    },
+    {
+      "id": "radio-ident",
+      "path": "clients/campaign/public/audio/radio/ident.mp3",
+      "contents": "KHRD station ident jingle",
+      "source": "original procedural content synthesized in-repo via assets/audio/tools/radio.py (numpy DSP music beds + TTS bulletins from world-state data, no samples, no real persons)",
+      "author": "Hana",
+      "licence": "original work created for this project",
+      "date_retrieved": "2026-10-01",
+      "attribution_text": "'radio/ident' - original procedural radio content by Hana for the Bannerlord-clone project, 2026-10-01."
+    },
+    {
+      "id": "radio-station-street",
+      "path": "clients/campaign/public/audio/radio/station-street.mp3",
+      "contents": "92 BPM boom-bap loop with street-report chatter accents, 120s seamless loop, -16 LUFS",
+      "source": "original procedural content synthesized on project VM (numpy synthesis) via tools/radio/synth.py, build_street, seed 401",
+      "author": "Milo audio synth",
+      "licence": "CC0",
+      "date_retrieved": "2026-10-03",
+      "attribution_text": "'radio/station-street' (Street Radio) - CC0 procedural radio station, Milo audio synth. No samples and no real persons."
+    },
+    {
+      "id": "radio-station-night",
+      "path": "clients/campaign/public/audio/radio/station-night.mp3",
+      "contents": "Dark ambient late-night electronic bed, 120s seamless loop, -16 LUFS",
+      "source": "original procedural content synthesized on project VM (numpy synthesis) via tools/radio/synth.py, build_night, seed 402",
+      "author": "Milo audio synth",
+      "licence": "CC0",
+      "date_retrieved": "2026-10-03",
+      "attribution_text": "'radio/station-night' (Night Shift) - CC0 procedural radio station, Milo audio synth. No samples and no real persons."
+    },
+    {
+      "id": "radio-station-talk",
+      "path": "clients/campaign/public/audio/radio/station-talk.mp3",
+      "contents": "Talk-radio texture: abstract DJ chatter over lo-fi bed, 150s seamless loop, -16 LUFS",
+      "source": "original procedural content synthesized on project VM (numpy synthesis) via tools/radio/synth.py, build_talk, seed 403",
+      "author": "Milo audio synth",
+      "licence": "CC0",
+      "date_retrieved": "2026-10-03",
+      "attribution_text": "'radio/station-talk' (Corner Talk) - CC0 procedural radio station, Milo audio synth. No samples and no real persons."
+    }
+  ]
+}

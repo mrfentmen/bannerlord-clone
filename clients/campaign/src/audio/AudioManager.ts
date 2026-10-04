@@ -133,6 +133,17 @@ interface Voice {
   gain: GainNode;
 }
 
+/**
+ * A looping cue the caller owns: an engine, a station bed, a crowd. `stop()`
+ * is safe to call twice and safe to call after the context is gone.
+ */
+export interface SfxVoice {
+  /** Ramp this cue to a new level, clamped to 0..1. */
+  setVolume(volume: number): void;
+  /** Ramp out and release. Idempotent. */
+  stop(): void;
+}
+
 export class AudioManager {
   private ctx: AudioContext | null = null;
   private masterGain: GainNode | null = null;
@@ -524,6 +535,67 @@ export class AudioManager {
     source.connect(gain);
     gain.connect(this.sfxGain);
     source.start();
+  }
+
+  /**
+   * A looping cue whose volume the caller keeps moving: a station bed under the
+   * road noise, an engine that follows the throttle, a crowd that follows the
+   * live unit count. `playSfx` fires and forgets, which is right for a gunshot
+   * and wrong for all three of those.
+   *
+   * Returns null when the asset will not load, so a caller can hold off rather
+   * than hold a handle that does nothing. `stop()` is idempotent, because the
+   * event that starts a bed and the event that ends it are not the same code.
+   */
+  async playLoopingSfx(
+    id: SfxId,
+    options: { volume?: number; rate?: number; fadeSeconds?: number } = {},
+  ): Promise<SfxVoice | null> {
+    if (!this.ctx) await this.init();
+    if (!this.ctx || !this.sfxGain) return null;
+    if (!this.buffers.has(id)) await this.preload([id]);
+    const buffer = this.buffers.get(id);
+    if (!buffer) return null;
+
+    const ctx = this.ctx;
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    source.playbackRate.value = options.rate ?? 1.0;
+    const gain = ctx.createGain();
+    const now = ctx.currentTime;
+    const target = clampVolume(options.volume ?? 1);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(target, now + (options.fadeSeconds ?? 0));
+    source.connect(gain);
+    gain.connect(this.sfxGain);
+    source.start();
+
+    let stopped = false;
+    return {
+      setVolume(volume: number): void {
+        if (stopped) return;
+        const at = ctx.currentTime;
+        const level = clampVolume(volume);
+        gain.gain.setValueAtTime(gain.gain.value, at);
+        gain.gain.linearRampToValueAtTime(level, at + (options.fadeSeconds ?? 0));
+      },
+      stop(): void {
+        if (stopped) return;
+        stopped = true;
+        const at = ctx.currentTime;
+        gain.gain.setValueAtTime(gain.gain.value, at);
+        gain.gain.linearRampToValueAtTime(0, at + (options.fadeSeconds ?? 0.5));
+        try {
+          source.stop(at + (options.fadeSeconds ?? 0.5) + 0.05);
+        } catch {
+          try { source.stop(); } catch { /* already stopped */ }
+        }
+        try {
+          gain.disconnect();
+        } catch { /* already detached */ }
+      },
+    };
   }
 
   playFootstep(surface: 'concrete' | 'dirt' | 'grass' = 'dirt'): void {
