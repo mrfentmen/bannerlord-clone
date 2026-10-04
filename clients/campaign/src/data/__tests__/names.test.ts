@@ -70,6 +70,26 @@ describe("name generator", () => {
     expect(["Runner", "Courier", "Messenger"]).toContain(courier.title);
   });
 
+  it("titledName gives soldiers rank titles", () => {
+    const s = titledName("soldier", createNameRng(11));
+    expect(["Sergeant", "Corporal", "Lieutenant", "Captain", "Private", "Veteran"]).toContain(s.title);
+    expect(s.role).toBe("soldier");
+    expect(s.styledName).toBe(`${s.title} ${s.fullName}`);
+  });
+
+  it("each ethnicity has a few hundred names across its pools", () => {
+    // del: a few hundred names per ethnicity so casts stay fresh.
+    const rng = createNameRng(77);
+    for (const id of NAME_ETHNICITY_IDS) {
+      const seen = new Set<string>();
+      for (let i = 0; i < 400; i++) {
+        seen.add(personName(id, rng).fullName);
+      }
+      // 400 draws should yield well over 150 distinct full names per culture.
+      expect(seen.size, `${id} pool too small`).toBeGreaterThan(150);
+    }
+  });
+
   it("titledName accepts an explicit ethnicity", () => {
     const t = titledName("noble", createNameRng(3), "russian");
     expect(t.ethnicityId).toBe("russian");
