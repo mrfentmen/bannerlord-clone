@@ -290,6 +290,9 @@ type Ruler struct {
 	TownID  int
 	PartyID int
 	Age     float64
+	// Heritage is the ruler's ethnic/cultural background. It affects how
+	// quickly sides accept them (never blocks acceptance outright).
+	Heritage string
 	// Tier is the ruler's rank from RULERS.md section 2: 0 side leader,
 	// 1 state governor, 2 lord, 3 local warlord, 4 mercenary captain. It sets
 	// opening influence and caps party size, so a realm has a power structure

@@ -222,3 +222,8 @@ type PlayerCharacter struct {
 	StartingCash      float64            `json:"startingCash"`
 	Biography         string             `json:"biography"`
 }
+
+// JoinSideRequest is a request to join a side/faction.
+type JoinSideRequest struct {
+	SideID int `json:"sideId"`
+}
