@@ -8,6 +8,7 @@ import (
 	"mbclone/simulation/cmd/apiserver/wire"
 	"mbclone/simulation/internal/model"
 	"mbclone/simulation/internal/sim"
+	"mbclone/simulation/internal/systems/quest"
 	"mbclone/simulation/internal/systems/shared"
 )
 
@@ -269,6 +270,18 @@ func (c *Campaign) notableActions(r *model.Ruler, town *model.Town, relation flo
 		recruitReason = fmt.Sprintf("%d willing in %s.", recruits, town.Name)
 	}
 
+	// Quest availability is based on the player's renown.
+	renown := 0.0
+	if pr, ok := c.state.Rulers[c.playerRuler]; ok && pr != nil {
+		renown = pr.Renown
+	}
+	availableQuests := quest.AvailableFor(renown)
+	questOK := len(availableQuests) > 0
+	questReason := "No work available for your renown level."
+	if questOK {
+		questReason = fmt.Sprintf("%d jobs available.", len(availableQuests))
+	}
+
 	return []wire.NotableAction{
 		{
 			ID: "gift", Label: "Give a gift",
@@ -286,10 +299,10 @@ func (c *Campaign) notableActions(r *model.Ruler, town *model.Town, relation flo
 			Available: recruitOK, Reason: recruitReason,
 		},
 		{
-			ID: "ask-quest", Label: "Ask about their business",
-			Detail:    "Not available: this simulation has no issue system yet.",
-			Available: false,
-			Reason:    "There is nothing here to ask for. This simulation has no quests, and would rather say so than make one up.",
+			ID: "ask-quest", Label: "Ask about work",
+			Detail:    "See what jobs they have available.",
+			Available: questOK,
+			Reason:    questReason,
 		},
 	}
 }
