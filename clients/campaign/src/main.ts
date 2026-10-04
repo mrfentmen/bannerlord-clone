@@ -2536,8 +2536,8 @@ function rebuildContext(): void {
         },
         // Troop training/promotion: the sim owns readiness, cost, and refusals;
         // its answer is printed verbatim by the panel.
-        onUpgradeTroops: async (stackId) => {
-          const result = await provider.upgradeTroops({ stackId });
+        onUpgradeTroops: async (stackId, branchId) => {
+          const result = await provider.upgradeTroops(branchId ? { stackId, branchId } : { stackId });
           playVerdictSound(result.upgraded);
           await reloadSnapshot();
           rebuildContext();

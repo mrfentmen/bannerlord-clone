@@ -62,7 +62,7 @@ export interface PartyPanelOptions {
    * happens and what it costs, and its answer — including the reason a promotion
    * was refused — is printed verbatim.
    */
-  onUpgradeTroops?: (stackId: string) => Promise<UpgradeTroopsResult>;
+  onUpgradeTroops?: (stackId: string, branchId?: string) => Promise<UpgradeTroopsResult>;
   /**
    * Toggle forced march (+30% speed, daily morale/food cost). Only drawn when
    * the caller can actually send the order.
@@ -994,6 +994,36 @@ function trainingRow(
           message.textContent =
             `${stack.name} trained up to tier ${result.toTier}. ` +
             `${Math.round(result.xpSpent).toLocaleString("en-US")} XP and ${money(result.goldSpent)} spent.`;
+        } else if (result.branchChoices && result.branchChoices.length > 0) {
+          // The tier forks and none was picked: the sim answers with the
+          // choices instead of a refusal. One button per branch re-posts the
+          // order with the branch id attached.
+          message.textContent = "The path forks. Choose the branch.";
+          const fork = h("div", { class: "field-row", "data-testid": `branch-choices-${stack.id}`, style: "gap:var(--space-2);margin-top:var(--space-2)" });
+          for (const b of result.branchChoices) {
+            const branchBtn = h("button", { type: "button", class: "btn btn--small", "data-testid": `branch-${stack.id}-${b.id}` }, b.name);
+            branchBtn.addEventListener("click", () => {
+              branchBtn.disabled = true;
+              void options.onUpgradeTroops!(stack.id, b.id).then(
+                (r) => {
+                  branchBtn.disabled = false;
+                  if (r.upgraded) {
+                    message.textContent =
+                      `${stack.name} trained up to tier ${r.toTier} (${b.name}). ` +
+                      `${Math.round(r.xpSpent).toLocaleString("en-US")} XP and ${money(r.goldSpent)} spent.`;
+                  } else {
+                    message.textContent = r.reason ?? "The training order was refused.";
+                  }
+                },
+                () => {
+                  branchBtn.disabled = false;
+                  message.textContent = "The training order did not go through.";
+                },
+              );
+            });
+            fork.append(branchBtn);
+          }
+          message.append(fork);
         } else {
           message.textContent = result.reason ?? "The training order was refused.";
         }

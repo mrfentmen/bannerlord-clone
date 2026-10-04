@@ -203,4 +203,48 @@ describe("party ops: prisoner release and execute", () => {
     expect(root.querySelector('[data-testid="party-prisoner-message"]')?.textContent).toContain("Word travels");
     expect((root.querySelector('[data-testid="release-troop-bandit"]') as HTMLButtonElement).disabled).toBe(false);
   });
+
+  it("a branching tier answers with choices and re-posts the order with the branch id", async () => {
+    const p = party();
+    p.troops = [{ id: "s1", name: "Militia", count: 1, wounded: 0, tier: 2, wage: 3, quality: 3, morale: 0.8, xp: 500 }];
+    const onUpgradeTroops = vi.fn()
+      .mockResolvedValueOnce({
+        upgraded: false,
+        stackId: "s1",
+        fromTier: 2,
+        toTier: 2,
+        xpSpent: 0,
+        goldSpent: 0,
+        reason: "Militia stand at a fork: choose their specialty.",
+        branchChoices: [
+          { id: "raider", name: "Raider", role: "Shock infantry — hits harder, breaks lines." },
+          { id: "skirmisher", name: "Skirmisher", role: "Skirmish line — mobility over punch." },
+        ],
+        causedBy: "upgrade-branch-required",
+      })
+      .mockResolvedValueOnce({
+        upgraded: true,
+        stackId: "s1",
+        fromTier: 2,
+        toTier: 3,
+        xpSpent: 120,
+        goldSpent: 120,
+        causedBy: "upgrade-applied",
+      });
+    const root = partyPanel(options({ party: p, onUpgradeTroops }));
+    (root.querySelector('[data-testid="upgrade-s1"]') as HTMLButtonElement).click();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(onUpgradeTroops).toHaveBeenCalledWith("s1");
+    expect(root.querySelector('[data-testid="branch-choices-s1"]')).not.toBeNull();
+    expect(root.textContent).toContain("Raider");
+    expect(root.textContent).toContain("Skirmisher");
+    (root.querySelector('[data-testid="branch-s1-raider"]') as HTMLButtonElement).click();
+    await Promise.resolve();
+    await Promise.resolve();
+    await Promise.resolve();
+    expect(onUpgradeTroops).toHaveBeenCalledWith("s1", "raider");
+    expect(root.textContent).toContain("trained up to tier 3 (Raider)");
+  });
 });
