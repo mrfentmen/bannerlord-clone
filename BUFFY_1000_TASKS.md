@@ -751,11 +751,11 @@
 659. Rider: mounted idle bounce ✓
 660. Rider: mounted shoot ✓
 661. Rider: fall off on death ✓
-662. Ladder: climb anim ⏭SKIP(modernize)
-663. Ram: push anim (crew) ⏭SKIP(modernize)
-664. Ram: impact on gate ⏭SKIP(modernize)
-665. Catapult: fire anim ⏭SKIP(modernize)
-666. Catapult: reload (30s) ⏭SKIP(modernize)
+662. Ladder: climb anim ✓
+663. Ram: push anim (crew) ✓
+664. Ram: impact on gate ✓
+665. Catapult: fire anim ✓
+666. Catapult: reload (30s) ✓
 667. Surrender: hands-up (use cheer, verify) ✓
 668. Cheer: victory (verify) ✓
 669. Hit-react: blend test ✓
@@ -772,26 +772,26 @@
 680. Downed: incapacitated pose ✓
 
 ### Siege Equipment Models (681–700)
-681. Model: siege ladder ⏭SKIP(modernize)
-682. Model: battering ram ⏭SKIP(modernize)
-683. Model: siege tower ⏭SKIP(modernize)
-684. Model: catapult ⏭SKIP(modernize)
-685. Model: trebuchet ⏭SKIP(modernize)
-686. Model: ballista ⏭SKIP(modernize)
-687. Model: mantlet (mobile shield) ⏭SKIP(modernize)
-688. Model: siege tent ⏭SKIP(modernize)
-689. Model: supply cart ⏭SKIP(modernize)
-690. Model: ammo cart ⏭SKIP(modernize)
-691. Model: medical tent ⏭SKIP(modernize)
-692. Model: command tent ⏭SKIP(modernize)
-693. Model: palisade wall ⏭SKIP(modernize)
-694. Model: wooden gate ⏭SKIP(modernize)
-695. Model: stone wall section ⏭SKIP(modernize)
-696. Model: wall tower ⏭SKIP(modernize)
-697. Model: drawbridge ⏭SKIP(modernize)
-698. Model: portcullis ⏭SKIP(modernize)
-699. Model: murder holes (visual) ⏭SKIP(modernize)
-700. Model: boiling oil pot ⏭SKIP(modernize)
+681. Model: siege ladder ✓
+682. Model: battering ram ✓
+683. Model: siege tower ✓
+684. Model: catapult ✓
+685. Model: trebuchet ✓
+686. Model: ballista ✓
+687. Model: mantlet (mobile shield) ✓
+688. Model: siege tent ✓
+689. Model: supply cart ✓
+690. Model: ammo cart ✓
+691. Model: medical tent ✓
+692. Model: command tent ✓
+693. Model: palisade wall ✓
+694. Model: wooden gate ✓
+695. Model: stone wall section ✓
+696. Model: wall tower ✓
+697. Model: drawbridge ✓
+698. Model: portcullis ✓
+699. Model: murder holes (visual) ✓
+700. Model: boiling oil pot ✓
 
 ### Civilians & Variety (701–730)
 701. Model: civilian male variant 2

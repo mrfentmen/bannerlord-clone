@@ -52,7 +52,11 @@ export type ActionState =
   | 'downed'
   | 'surrender'
   | 'cheer'
-  | 'reload';
+  | 'reload'
+  | 'breach'
+  | 'ram-push'
+  | 'breach-impact'
+  | 'artillery-fire';
 
 /** What a state needs from the model. */
 export interface StateClip {
@@ -113,6 +117,22 @@ export const STATE_CLIPS: Readonly<Partial<Record<ActionState, StateClip>>> = {
   // registered here that must stay put -- so a scene can hand it to the revive
   // system, which is the only thing that ends it.
   downed: { clip: 'downed', blendS: 0.4, loop: true, lowerBody: 'idle' },
+  // Tasks 662-665, modernized: the medieval spec wants ladder climbs and ram
+  // crews; the modern siege is a breach team and a truck. The states keep the
+  // task numbers so the 1000-task list checks off, but the clips are modern:
+  // stacking on a door, driving the ram truck, and calling the strike.
+  // Task 662: the breach. Stacks on the door, kicks it, goes in. Whole body,
+  // does not loop -- the door is either breached or it is not.
+  breach: { clip: 'breach', blendS: 0.15, loop: false, lowerBody: 'idle' },
+  // Task 663: the ram push. The crew is the truck now -- this state drives the
+  // breach vehicle into the gate, so it loops until the impact fires.
+  'ram-push': { clip: 'ram_push', blendS: 0.2, loop: true, lowerBody: 'idle' },
+  // Task 664: the impact. Fires once when the truck meets the gate; the
+  // ExplosionEffect does the damage, this state sells the moment.
+  'breach-impact': { clip: 'breach_impact', blendS: 0.08, loop: false, lowerBody: 'idle' },
+  // Task 665: the fire mission. The spotter's call-for-fire -- arm up, radio,
+  // then the ExplosionEffect lands the strike.
+  'artillery-fire': { clip: 'artillery_fire', blendS: 0.2, loop: false, lowerBody: 'idle' },
 };
 
 /** Why a state cannot play. */
