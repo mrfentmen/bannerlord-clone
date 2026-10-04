@@ -196,21 +196,25 @@ type stateTown struct {
 	Name       string  `json:"name"`
 	SideID     int     `json:"side_id"`
 	Population float64 `json:"population"`
-	FoodStock  float64 `json:"food_stock"`
-	FoodDays   float64 `json:"food_days"`
-	Unrest     float64 `json:"unrest"`
-	Loyalty    float64 `json:"loyalty"`
-	Infected   float64 `json:"infected"`
-	Prosperity float64 `json:"prosperity"`
-	Money      float64 `json:"money"`
-	Gold       float64 `json:"gold"`
-	Metal      float64 `json:"metal"`
-	Garrison   float64 `json:"garrison"`
-	RoadSafety float64 `json:"road_safety"`
-	Starving   bool    `json:"starving"`
-	Besieged   bool    `json:"besieged"`
-	Blockade   float64 `json:"blockade"`
-	Holder     int     `json:"holder"`
+	// FoundedPopulation is the settlement's original scale. It is carried
+	// through the round trip because migration reads it to decide how far a
+	// town may fall before it stops being a settlement.
+	FoundedPopulation float64 `json:"founded_population"`
+	FoodStock         float64 `json:"food_stock"`
+	FoodDays          float64 `json:"food_days"`
+	Unrest            float64 `json:"unrest"`
+	Loyalty           float64 `json:"loyalty"`
+	Infected          float64 `json:"infected"`
+	Prosperity        float64 `json:"prosperity"`
+	Money             float64 `json:"money"`
+	Gold              float64 `json:"gold"`
+	Metal             float64 `json:"metal"`
+	Garrison          float64 `json:"garrison"`
+	RoadSafety        float64 `json:"road_safety"`
+	Starving          bool    `json:"starving"`
+	Besieged          bool    `json:"besieged"`
+	Blockade          float64 `json:"blockade"`
+	Holder            int     `json:"holder"`
 }
 
 type stateSide struct {
@@ -312,7 +316,13 @@ func readStateJSON(path string, into *model.State) error {
 	for _, t := range sj.Towns {
 		into.Towns[t.ID] = &model.Town{
 			ID: t.ID, Name: t.Name, SideID: t.SideID, Population: t.Population,
-			FoodStock: t.FoodStock, FoodDays: t.FoodDays, Unrest: t.Unrest,
+			// A state file written before founded_population existed, or by a
+			// hand-built town, leaves this zero. Falling back to the population
+			// the town has now would anchor the migration floor to a number that
+			// shrinks as people leave, so it is left at zero, which the reader
+			// in migration treats as "no scale known".
+			FoundedPopulation: t.FoundedPopulation,
+			FoodStock:         t.FoodStock, FoodDays: t.FoodDays, Unrest: t.Unrest,
 			Loyalty: t.Loyalty, Infected: t.Infected, Prosperity: t.Prosperity,
 			Money: t.Money, Gold: t.Gold, Metal: t.Metal, Garrison: t.Garrison,
 			RoadSafety: t.RoadSafety, IsStarving: t.Starving, IsBesieged: t.Besieged,

@@ -609,8 +609,24 @@ type Migration struct {
 	// FleeInfected is the infection rate that makes people flee a plague.
 	FleeInfected float64
 	// MaxFleeShare is the largest share of a population that can leave per
-	// day, so towns empty over weeks rather than instantly.
+	// day, so towns empty over weeks rather than instantly. It bounds the
+	// outflow as a share of the people still there, which is why flight gets
+	// slower as a town empties rather than staying constant.
 	MaxFleeShare float64
+	// MinSettlementShare is the share of its founding population a settlement
+	// keeps however angry it gets, which is the floor below which flight stops
+	// drawing on a town at all. The people left at that floor are the ones who
+	// could not or would not go: the garrison's households, the old, the poor
+	// with no travel. Without a floor the flight rate is proportional to
+	// population forever, so a town at maximum unrest decays geometrically to
+	// nothing and the game loses its towns.
+	//
+	// It is a share of the founding population rather than a head count
+	// because the world spans three orders of magnitude of settlement size,
+	// from hamlets of a few hundred to cities in the hundreds of thousands. A
+	// fixed head count would either be meaningless for a hamlet or a rounding
+	// error for a city.
+	MinSettlementShare float64
 	// FleeToCapacityShare is the share of arrivals a town can absorb before
 	// crowding bites hard, which is chain 2's trigger.
 	FleeToCapacityShare float64

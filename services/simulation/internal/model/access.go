@@ -217,6 +217,8 @@ func townGet(t *Town, f string) (float64, bool) {
 	switch f {
 	case "population":
 		return t.Population, true
+	case "founded_population":
+		return t.FoundedPopulation, true
 	case "workers":
 		return t.Workers, true
 	case "food_stock":
@@ -401,6 +403,8 @@ func townSet(t *Town, f string, v float64) bool {
 	switch f {
 	case "population":
 		t.Population = v
+	case "founded_population":
+		t.FoundedPopulation = v
 	case "workers":
 		t.Workers = v
 	case "food_stock":

@@ -243,6 +243,7 @@ func (l *loader) load(c *Config) {
 	c.Migrate.FleeStarvationDays = l.f64("migration.flee_starvation_days")
 	c.Migrate.FleeInfected = l.f64("migration.flee_infected")
 	c.Migrate.MaxFleeShare = l.f64("migration.max_flee_share")
+	c.Migrate.MinSettlementShare = l.f64("migration.min_settlement_share")
 	c.Migrate.FleeToCapacityShare = l.f64("migration.flee_to_capacity_share")
 	c.Migrate.CrowdingPerArrival = l.f64("migration.crowding_per_arrival")
 	c.Migrate.CrowdingCap = l.f64("migration.crowding_cap")

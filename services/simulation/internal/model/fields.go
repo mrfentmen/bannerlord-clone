@@ -299,6 +299,11 @@ func init() {
 	register(Field{"arriving_cargo_metal", KindTown, ValueFloat, "metal", false, 0, inf, nil, 0})
 	// Untracked bookkeeping: internal counters no chain depends on.
 	register(Field{"food_days", KindTown, ValueFloat, "days", false, 0, inf, nil, 0})
+	// founded_population is set when the world is built and never changes, so
+	// it is bookkeeping rather than a tracked field: there is no change to log.
+	// It is registered so the migration system can read it through the normal
+	// field accessor rather than reaching into the struct.
+	register(Field{"founded_population", KindTown, ValueFloat, "people", false, 0, inf, nil, 0})
 	register(Field{"starve_days", KindTown, ValueInt, "days", false, 0, inf, nil, 0})
 	register(Field{"death_memory", KindTown, ValueInt, "days", false, 0, inf, nil, 0})
 	register(Field{"food_balance", KindTown, ValueFloat, "person-days/day", false, -inf, inf, nil, 0})

@@ -36,6 +36,13 @@ type flows struct {
 	leaving map[int]float64
 	// arriving is how many people reach each town.
 	arriving map[int]float64
+	// requested is how many people each town was sent before the arrival caps
+	// were applied, which is the denominator for the fraction it accepted.
+	requested map[int]float64
+	// shares is each source's share of its departures sent to each destination.
+	// Pass three needs it to work out how much of a source's people a
+	// destination's cap turned away.
+	shares map[int]map[int]float64
 	// infected is the share of infection the departing people carry, which the
 	// destination adds to its own.
 	infected map[int]float64
@@ -81,9 +88,18 @@ func run(v *sim.View, w *sim.WriteSet) {
 
 		// Movement is published to demography, which owns population. The
 		// migration system never writes population itself.
-		if in != out {
-			w.Add(model.KindTown, id, "net_migration", in-out, read, causes, "people arriving and leaving")
-		}
+		//
+		// This is an absolute write, and that is load-bearing. net_migration is
+		// a flow for one tick, not a running balance, so it has to be replaced
+		// every day rather than added to. Adding to it made the field a
+		// cumulative total that demography then re-applied to population every
+		// day: a town that lost 320 people on one day lost 640 the next, 960
+		// the next, and reached zero population inside a fortnight, while its
+		// neighbours grew by the same accelerating amounts. A set here is safe
+		// because migration is the only writer of the field, and writing it for
+		// every town every tick also clears it for towns that did not move
+		// anyone, so no stale balance survives anywhere.
+		w.Set(model.KindTown, id, "net_migration", in-out, read, causes, "people arriving and leaving")
 
 		// The infection the arrivals bring. This is the mechanism by which a
 		// plague reaches a town that had none, and it is chain 2's second link.
@@ -110,10 +126,12 @@ func run(v *sim.View, w *sim.WriteSet) {
 func decide(v *sim.View) *flows {
 	c := v.Cfg
 	f := &flows{
-		leaving:  map[int]float64{},
-		arriving: map[int]float64{},
-		infected: map[int]float64{},
-		attract:  map[int]float64{},
+		leaving:   map[int]float64{},
+		arriving:  map[int]float64{},
+		requested: map[int]float64{},
+		shares:    map[int]map[int]float64{},
+		infected:  map[int]float64{},
+		attract:   map[int]float64{},
 	}
 	ids := v.State.TownIDs()
 
@@ -124,7 +142,12 @@ func decide(v *sim.View) *flows {
 		// leaving, because it is also the pull used to divide arrivals.
 		f.attract[id] = attractiveness(v, id)
 
-		if t.Population <= 1 {
+		// The floor is a share of the population the settlement was founded
+		// with, so it is the same proportion of a hamlet and of a city and
+		// does not itself shrink as people leave. A town whose founding scale
+		// is unknown has no opinion here and is left to the rate alone.
+		surplus := t.Population - floorOf(v, t)
+		if surplus <= 0 {
 			continue
 		}
 		// People leave for three reasons, each read from shared state, and they
@@ -143,15 +166,29 @@ func decide(v *sim.View) *flows {
 		if pressure <= 0 {
 			continue
 		}
-		// The cap is what makes a town empty over weeks instead of instantly. A
-		// town that empties in a day would produce a famine nobody could watch
-		// happen, and TESTING_AND_BALANCE.md section 4 wants weeks.
-		leaving := t.Population * c.Migrate.MaxFleeShare * shared.Clamp01(pressure)
-		if leaving < 1 && t.Population >= 1000 {
+		f.shares[id] = map[int]float64{}
+		// Flight is drawn from the surplus above the floor, not from the
+		// population. This is the diminishing return the model was missing: the
+		// people who walk away are the ones with the means to walk away, and
+		// each departure leaves behind a town with proportionally fewer of
+		// them, so the daily outflow falls as the town empties instead of
+		// staying at a fixed share forever.
+		//
+		// The outflow per day therefore stays at or below MaxFleeShare of the
+		// people still there, which keeps that constant's documented meaning, and
+		// it reaches zero at the floor. A town at maximum unrest now decays
+		// towards its floor along an exponential with a 1/MaxFleeShare day time
+		// constant and never crosses it, rather than decaying to nothing.
+		leaving := surplus * c.Migrate.MaxFleeShare * shared.Clamp01(pressure)
+		if leaving < 1 && surplus >= c.Starve.TinyTownPopulation {
+			// Below one departure a day the integer population field would round
+			// to nobody and a slow exodus would look like no exodus at all.
+			// Rounding up to one keeps it visible. It can never breach the
+			// floor, because the clamp below holds leaving to the surplus.
 			leaving = 1
 		}
-		if leaving > t.Population-1 {
-			leaving = t.Population - 1
+		if leaving > surplus {
+			leaving = surplus
 		}
 		if leaving <= 0 {
 			continue
@@ -185,6 +222,14 @@ func decide(v *sim.View) *flows {
 			// Nowhere reachable is attractive, so nobody moves. The people stay
 			// and suffer, which is the honest outcome: a region with no good
 			// neighbour nearby has nowhere to flee to.
+			//
+			// The departure has to be withdrawn here, not merely skipped. Pass
+			// one decided how many would leave before any destination was known,
+			// and the commit step subtracts the departure from the source. Leaving
+			// it standing while declining to distribute it destroyed that many
+			// people outright, which in a region where every town is unpleasant
+			// — the case flight is built for — emptied every town in it.
+			delete(f.leaving, src)
 			continue
 		}
 		for _, dst := range ids {
@@ -192,8 +237,11 @@ func decide(v *sim.View) *flows {
 			if w8 <= 0 {
 				continue
 			}
-			incoming := leaving * shared.SafeDiv(w8, totalWeight)
+			share := shared.SafeDiv(w8, totalWeight)
+			incoming := leaving * share
 			f.arriving[dst] += incoming
+			f.requested[dst] += incoming
+			f.shares[src][dst] = share
 		}
 	}
 
@@ -204,6 +252,9 @@ func decide(v *sim.View) *flows {
 	for _, dst := range ids {
 		t := v.State.Towns[dst]
 		if t.Population <= 0 {
+			// A town with nobody in it absorbs nobody. Its arrivals are dropped
+			// rather than taken in, which is the turn-away below.
+			f.arriving[dst] = 0
 			continue
 		}
 		cap := t.Population * c.Migrate.ImmigrantsPerDayCap
@@ -213,7 +264,61 @@ func decide(v *sim.View) *flows {
 			f.arriving[dst] = cap
 		}
 	}
+
+	// --- pass three: hand back the people nobody would take ---
+	// A town that has no room turns refugees away at the gate, and the turned
+	// away never left. The cap above decides how many a destination takes, but
+	// the departure has already been recorded against the source, so the
+	// rejected share has to be returned to it or the region's people are
+	// destroyed by the cap. This is the difference between a town being full
+	// and a town being emptied: full stops the flow, it does not delete it.
+	//
+	// Arrivals are trimmed in proportion across every source that sent to that
+	// destination, so the relative mix of who was willing to move where is
+	// preserved and no source is favoured by being counted first.
+	for _, src := range ids {
+		leaving, ok := f.leaving[src]
+		if !ok || leaving <= 0 {
+			continue
+		}
+		stayed := 0.0
+		for dst, share := range f.shares[src] {
+			accepted := 1.0
+			if f.requested[dst] > 0 {
+				accepted = shared.Clamp01(shared.SafeDiv(f.arriving[dst], f.requested[dst]))
+			}
+			stayed += leaving * share * (1 - accepted)
+		}
+		leaving -= stayed
+		if leaving <= 0 {
+			// Everybody this town offered to send was turned away somewhere, so
+			// in the end nobody left it.
+			delete(f.leaving, src)
+			continue
+		}
+		f.leaving[src] = leaving
+	}
 	return f
+}
+
+// floorOf is the population below which a settlement stops being a settlement.
+//
+// It is a share of the population the settlement was founded with rather than a
+// head count, because the world's settlements span three orders of magnitude
+// and a fixed head count would either stop a hamlet from ever losing anybody or
+// be a rounding error for a city. The founding population does not shrink as
+// people leave, which is the point: a town's walls, fields and warehouses are
+// still standing after most of its residents have gone, so the floor has to be
+// anchored to something that has not shrunk.
+//
+// A settlement whose founding population was never recorded has no scale, so it
+// has no floor: it is governed by the outflow rate alone, which is the old
+// behaviour and is preferable to inventing a scale for it here.
+func floorOf(v *sim.View, t *model.Town) float64 {
+	if t.FoundedPopulation <= 0 {
+		return 0
+	}
+	return t.FoundedPopulation * v.Cfg.Migrate.MinSettlementShare
 }
 
 // attractiveness scores how much a town pulls people, relative to a neutral

@@ -66,6 +66,7 @@ func (c *Config) validate(path string) error {
 		{"siege.wall_level_slowdown", c.Siege.WallLevelSlowdown, 0, 2},
 		{"migration.flee_threshold", c.Migrate.FleeThreshold, 0, 1},
 		{"migration.max_flee_share", c.Migrate.MaxFleeShare, 0, 1},
+		{"migration.min_settlement_share", c.Migrate.MinSettlementShare, 0, 1},
 		{"migration.crowding_base", c.Migrate.CrowdingBase, 0, 1},
 		{"migration.crowding_cap", c.Migrate.CrowdingCap, 0.01, 10},
 		{"security.base_road_safety", c.Security.BaseRoadSafety, 0, 1},

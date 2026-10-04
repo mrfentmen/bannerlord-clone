@@ -42,33 +42,42 @@ type Town struct {
 	Terrain int
 	X, Y    float64
 
-	Population      float64
-	Workers         float64
-	FoodStock       float64
-	FoodProduction  float64
-	FoodDemand      float64
-	MedicineStock   float64
-	Sanitation      float64
-	Infected        float64
-	Crowding        float64
-	Unrest          float64
-	Loyalty         float64
-	Prosperity      float64
-	TaxRate         float64
-	Garrison        float64
-	GarrisonConduct float64
-	GarrisonMorale  float64
-	RoadSafety      float64
-	Money           float64
-	Gold            float64
-	Metal           float64
-	PriceFood       float64
-	PriceMedicine   float64
-	PriceMetal      float64
-	Wages           float64
-	PriceIndex      float64
-	Blockade        float64
-	RecentDeaths    float64
+	Population float64
+	// FoundedPopulation is the population this settlement was built to
+	// support: its size when the world was made. It is the settlement's scale,
+	// and it is deliberately not the same as Population, which shrinks when
+	// people leave. Nothing in the model shrinks, so a town's warehouses,
+	// walls, and fields are all still there after most of its residents have
+	// gone, and a flight model needs that scale to know how many people a
+	// place can lose before it stops being a place. Zero means unknown, and
+	// systems that need a scale treat that as "no opinion".
+	FoundedPopulation float64
+	Workers           float64
+	FoodStock         float64
+	FoodProduction    float64
+	FoodDemand        float64
+	MedicineStock     float64
+	Sanitation        float64
+	Infected          float64
+	Crowding          float64
+	Unrest            float64
+	Loyalty           float64
+	Prosperity        float64
+	TaxRate           float64
+	Garrison          float64
+	GarrisonConduct   float64
+	GarrisonMorale    float64
+	RoadSafety        float64
+	Money             float64
+	Gold              float64
+	Metal             float64
+	PriceFood         float64
+	PriceMedicine     float64
+	PriceMetal        float64
+	Wages             float64
+	PriceIndex        float64
+	Blockade          float64
+	RecentDeaths      float64
 	// DeathsToday accumulates deaths from every cause within a tick. The
 	// demography system resets it and publishes it as RecentDeaths, so several
 	// causes can kill people on the same day without any of them needing to

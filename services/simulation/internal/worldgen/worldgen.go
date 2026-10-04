@@ -288,33 +288,37 @@ func newTown(cfg *config.Config, r *rng.Rng, s Settlement) *model.Town {
 		farmland = r.Range(cfg.Food.FarmlandMin, cfg.Food.FarmlandMax)
 	}
 	t := &model.Town{
-		Name:            s.Name,
-		SideID:          s.SideID,
-		State:           s.State,
-		IsPort:          s.IsPort,
-		X:               s.X,
-		Y:               s.Y,
-		Population:      s.Population,
-		Sanitation:      cfg.World.StartSanitation * r.Range(0.85, 1.1),
-		Prosperity:      shared.Clamp01(cfg.World.StartSanitation + r.Range(-0.1, 0.15)),
-		TaxRate:         cfg.Currency.TaxDefaultRate,
-		StateTaxRate:    cfg.Taxation.StateTaxDefault,
+		Name:       s.Name,
+		SideID:     s.SideID,
+		State:      s.State,
+		IsPort:     s.IsPort,
+		X:          s.X,
+		Y:          s.Y,
+		Population: s.Population,
+		// The settlement's scale is fixed at birth and never shrinks. Migration
+		// reads it to know how far a town may fall before it stops being a
+		// settlement, which it cannot infer from a population that is falling.
+		FoundedPopulation: s.Population,
+		Sanitation:        cfg.World.StartSanitation * r.Range(0.85, 1.1),
+		Prosperity:        shared.Clamp01(cfg.World.StartSanitation + r.Range(-0.1, 0.15)),
+		TaxRate:           cfg.Currency.TaxDefaultRate,
+		StateTaxRate:      cfg.Taxation.StateTaxDefault,
 		// No project under construction at world start; the construction
 		// system publishes caps from the base config on the first tick.
 		ConstructionBuilding: -1,
 		FoodCap:              cfg.Construction.WarehouseBaseCap,
 		GarrisonCap:          cfg.Construction.GarrisonBaseCap,
-		Loyalty:         r.Range(cfg.Council.LoyaltyStartMin, cfg.Council.LoyaltyStartMax),
-		Unrest:          r.Range(0, cfg.World.StartUnrestMax),
-		Holder:          -1,
-		HolderSide:      -1,
-		PriceFood:       cfg.Market.BasePrice,
-		PriceMedicine:   cfg.Market.BasePrice,
-		PriceMetal:      cfg.Market.BasePrice,
-		PriceIndex:      cfg.Market.BasePrice,
-		GarrisonConduct: shared.Clamp01(cfg.Security.StartGarrisonConduct + r.Range(-0.1, 0.05)),
-		GarrisonMorale:  cfg.Upkeep.MoraleCap,
-		FoodYield:       s.Population * cfg.Food.BaseYieldPerWorker * farmland * cfg.Labor.HealthyWorkerShare,
+		Loyalty:              r.Range(cfg.Council.LoyaltyStartMin, cfg.Council.LoyaltyStartMax),
+		Unrest:               r.Range(0, cfg.World.StartUnrestMax),
+		Holder:               -1,
+		HolderSide:           -1,
+		PriceFood:            cfg.Market.BasePrice,
+		PriceMedicine:        cfg.Market.BasePrice,
+		PriceMetal:           cfg.Market.BasePrice,
+		PriceIndex:           cfg.Market.BasePrice,
+		GarrisonConduct:      shared.Clamp01(cfg.Security.StartGarrisonConduct + r.Range(-0.1, 0.05)),
+		GarrisonMorale:       cfg.Upkeep.MoraleCap,
+		FoodYield:            s.Population * cfg.Food.BaseYieldPerWorker * farmland * cfg.Labor.HealthyWorkerShare,
 	}
 	if t.Sanitation > 1 {
 		t.Sanitation = 1
