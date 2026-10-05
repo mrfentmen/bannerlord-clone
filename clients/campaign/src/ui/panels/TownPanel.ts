@@ -265,6 +265,8 @@ export interface TownPanelOptions {
   onTransferToGarrison?: (troopId: string, count: number) => Promise<{ garrison: number; line: string }>;
   /** Wait in this town for whole days; the simulation advances its daily systems (task 132). */
   onWaitDays?: (days: number) => Promise<{ ok: boolean; day: number }>;
+  /** Leave this town: close the town view and return the party to the map (task 133). */
+  onLeaveTown?: () => void;
   /** Called after an economy order changed the world, so the caller repaints. */
   onWorldChanged?: () => void;
   /** Open bounties on the town's board (bandits/bounties contract). */
@@ -676,6 +678,11 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
   const rosterBtn = h("button", { type: "button", class: "btn", "data-testid": "open-roster" }, "Rulers");
   rosterBtn.addEventListener("click", () => options.onRoster());
   actions.append(marketBtn, marchBtn, rosterBtn);
+  if (options.onLeaveTown) {
+    const leaveBtn = h("button", { type: "button", class: "btn", "data-testid": "leave-town" }, "Leave town");
+    leaveBtn.addEventListener("click", () => options.onLeaveTown!());
+    actions.append(leaveBtn);
+  }
   body.appendChild(actions);
 
   // -- recruit ----------------------------------------------------------------

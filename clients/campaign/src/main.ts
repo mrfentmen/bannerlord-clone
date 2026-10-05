@@ -1337,6 +1337,21 @@ function selectSettlement(id: string): void {
   if (place) hud.announcer.textContent = `${place.name} selected.`;
 }
 
+/**
+ * Task 133: leaving a town closes the town view and puts the party back on the map.
+ * Selection is view state — the simulation owns where the party actually stands — so
+ * leaving is a client-side exit: deselect, drop the ambient bed, repaint, announce.
+ */
+function leaveTown(name: string): void {
+  selectedSettlement = null;
+  selectedRuler = null;
+  currentPanel = "none";
+  applySelectionAmbient(getAudioManager(), { townSelected: false });
+  rebuildContext();
+  paint();
+  hud.announcer.textContent = `You leave ${name}.`;
+}
+
 function noSimulationRecordNode(name: string): Node {
   const box = document.createElement("div");
   box.className = "sheet panel";
@@ -1585,6 +1600,7 @@ function townNode(town: TownState): Node {
         void refreshAfterSimOrder();
         return r;
       }),
+    onLeaveTown: () => leaveTown(town.name),
     onGetGovernor: () => provider.getGovernor(town.id),
     onAssignGovernor: (characterId) =>
       provider.assignGovernor(town.id, characterId).then((r) => {

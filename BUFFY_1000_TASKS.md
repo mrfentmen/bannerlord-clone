@@ -168,7 +168,7 @@
 [x] 130. Town panel: talk button per NPC
 131. Town panel: trade caravan option
 132. [x] Town panel: wait here button (pass time)
-133. Town panel: leave town button
+133. [x] Town panel: leave town button
 [x] 134. Town panel: siege option (if at war)
 135. Town panel: raid option (if hostile)
 136. Town panel: town description text
