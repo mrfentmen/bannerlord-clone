@@ -28,6 +28,8 @@ export type InputActionId =
   | "ui.confirm"
   | "ui.settings"
   | "ui.clan"
+  | "ui.party"
+  | "ui.journal"
   | "game.quicksave"
   // -- campaign map ----------------------------------------------------------
   | "map.panUp"
@@ -113,6 +115,12 @@ export const ACTION_DEFS: readonly ActionDef[] = [
   def("ui.clan", "Open clan panel", "interface",
     "Opens the clan panel: family, courtship, clan standing, held lords.",
     [{ key: "l" }], { preventDefault: true }),
+  def("ui.party", "Open party panel", "interface",
+    "Opens the party panel: troops, prisoners, supplies, wages.",
+    [{ key: "p" }], { preventDefault: true }),
+  def("ui.journal", "Open quest journal", "interface",
+    "Opens the quest journal: active, completed and failed quests.",
+    [{ key: "j" }], { preventDefault: true }),
   def("game.quicksave", "Quicksave", "interface",
     "Writes the live campaign to the Quicksave slot. Blocked on Ironman — ironman runs keep only the 5-minute autosave.",
     [{ key: "F5" }], { preventDefault: true }),

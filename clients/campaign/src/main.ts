@@ -1206,11 +1206,23 @@ function bindInputActions(): void {
 
   // Clan panel on L (task 245). The registry has no editable-target guard, so
   // the check lives here: typing an l in a name field must never open a panel.
-  input.on("ui.clan", () => {
+  // Party (P, task 141) and journal (J, task 766) share the guard.
+  const typingInField = (): boolean => {
     const el = document.activeElement;
-    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) return;
-    if (el instanceof HTMLElement && el.isContentEditable) return;
+    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) return true;
+    return el instanceof HTMLElement && el.isContentEditable;
+  };
+  input.on("ui.clan", () => {
+    if (typingInField()) return;
     openPanel("clan");
+  });
+  input.on("ui.party", () => {
+    if (typingInField()) return;
+    openPanel("party");
+  });
+  input.on("ui.journal", () => {
+    if (typingInField()) return;
+    openJournal();
   });
 
   // Touch A behaves like gamepad A: keyboard Enter is left alone — it already

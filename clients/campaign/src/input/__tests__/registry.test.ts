@@ -6,6 +6,7 @@
  */
 
 import { describe, expect, it, vi } from "vitest";
+import { ACTION_DEFS } from "../actions.js";
 import { createInputRegistry } from "../registry.js";
 
 function key(key: string, mods: { ctrl?: boolean; shift?: boolean; alt?: boolean } = {}): KeyboardEvent {
@@ -228,5 +229,19 @@ describe("key release routing", () => {
   it("onRelease with an unknown action id throws fast", () => {
     const input = createInputRegistry();
     expect(() => input.onRelease("nope.notReal", () => {})).toThrow();
+  });
+
+  it("the interface hotkeys ship bound: clan L, party P, journal J (tasks 245, 141, 766)", () => {
+    const byId = new Map(ACTION_DEFS.map((d) => [d.id, d]));
+    expect(byId.get("ui.clan")?.defaultKeys).toEqual([{ key: "l" }]);
+    expect(byId.get("ui.party")?.defaultKeys).toEqual([{ key: "p" }]);
+    expect(byId.get("ui.journal")?.defaultKeys).toEqual([{ key: "j" }]);
+    const input = createInputRegistry();
+    const opened: string[] = [];
+    input.on("ui.party", () => opened.push("party"));
+    input.on("ui.journal", () => opened.push("journal"));
+    input.handleKeyEvent(key("p"));
+    input.handleKeyEvent(key("j"));
+    expect(opened).toEqual(["party", "journal"]);
   });
 });

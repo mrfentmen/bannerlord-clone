@@ -409,13 +409,35 @@ function buildDiplomacyPanel(options: DiplomacyPanelOptions, notice: string | nu
     if (options.onDeclareWar) {
       const enemyInput = h("input", { class: "field__input", "data-testid": "simwar-enemy-input", placeholder: "faction id to attack", "aria-label": "Faction id to declare war on" });
       const declareBtn = h("button", { type: "button", class: "btn", "data-testid": "simwar-declare" }, "Declare war");
+      // Task 207. War is irreversible (the refusal line says so), so the first
+      // click only arms the button: the label changes to "Confirm" and the
+      // second click within the armed state is what sends the order. Typing a
+      // new enemy id disarms it again.
+      let armedEnemy = "";
       declareBtn.addEventListener("click", () => {
         const enemy = enemyInput.value.trim();
         if (!enemy) return;
+        if (armedEnemy && armedEnemy !== enemy) {
+          // The field changed under an armed button: disarm. The click that
+          // follows arms the new id on its own terms.
+          armedEnemy = "";
+          declareBtn.textContent = "Declare war";
+          declareBtn.removeAttribute("aria-label");
+          return;
+        }
+        if (!armedEnemy) {
+          armedEnemy = enemy;
+          declareBtn.textContent = "Confirm";
+          declareBtn.setAttribute("aria-label", `Confirm declaring war on ${enemy}. There is no undoing it.`);
+          return;
+        }
+        armedEnemy = "";
         declareBtn.disabled = true;
         void options.onDeclareWar!(enemy).then(
           () => {
             declareBtn.disabled = false;
+            declareBtn.textContent = "Declare war";
+            declareBtn.removeAttribute("aria-label");
             enemyInput.value = "";
             rerender("War is declared. There is no undoing it.");
             options.onWorldChanged?.();

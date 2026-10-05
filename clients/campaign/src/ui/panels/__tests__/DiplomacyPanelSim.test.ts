@@ -66,12 +66,32 @@ describe("diplomacy panel: the simulation's wars, defection, mercenary refusals"
     document.body.appendChild(diplomacyPanel({ currentSeason: 12, simWars: [], onDeclareWar }));
     const input = document.querySelector<HTMLInputElement>('[data-testid="simwar-enemy-input"]')!;
     input.value = "f-east";
-    document.querySelector<HTMLButtonElement>('[data-testid="simwar-declare"]')!.click();
+    const declare = document.querySelector<HTMLButtonElement>('[data-testid="simwar-declare"]')!;
+    // Task 207: the first click arms the confirm, the second sends the order.
+    declare.click();
+    expect(onDeclareWar).not.toHaveBeenCalled();
+    expect(declare.textContent).toBe("Confirm");
+    declare.click();
     await tick();
     expect(onDeclareWar).toHaveBeenCalledWith("f-east");
     // The panel re-rendered on the replacement node: a fresh input, empty.
     expect(document.querySelector<HTMLInputElement>('[data-testid="simwar-enemy-input"]')!.value).toBe("");
     expect(document.body.textContent).toContain("War is declared.");
+    document.body.innerHTML = "";
+  });
+
+  it("typing a different enemy id disarms the war confirm", () => {
+    const onDeclareWar = vi.fn().mockResolvedValue({ warId: "war-9" });
+    document.body.appendChild(diplomacyPanel({ currentSeason: 12, simWars: [], onDeclareWar }));
+    const input = document.querySelector<HTMLInputElement>('[data-testid="simwar-enemy-input"]')!;
+    input.value = "f-east";
+    const declare = document.querySelector<HTMLButtonElement>('[data-testid="simwar-declare"]')!;
+    declare.click();
+    expect(declare.textContent).toBe("Confirm");
+    input.value = "f-west";
+    declare.click();
+    expect(onDeclareWar).not.toHaveBeenCalled();
+    expect(declare.textContent).toBe("Declare war");
     document.body.innerHTML = "";
   });
 
