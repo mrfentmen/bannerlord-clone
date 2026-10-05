@@ -48,6 +48,7 @@ caller at all — need provider methods + wire validators + UI, not just a butto
 - Held-lord ops: POST /v1/lords/{name}/{ransom,release,execute}, GET heir
 - Siege engine park: GET/POST /v1/sieges/{id}/engines/*, assault, lift, town siege start
 - ~~Tavern dice~~ DONE: provider posts the live route and the tavern dice section is wired via the pipeline
+- Interface hotkeys: party (P, task 141) and journal (J, task 766) — DONE, registry actions + main.ts handlers with the typing guard (2026-10-04)
 - Party template refit route; companion role assignment; character kill
 - Pause/resume, step-days, health check
 

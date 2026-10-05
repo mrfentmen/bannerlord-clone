@@ -136,20 +136,20 @@
 ## B. Campaign Map UI (101–250)
 
 ### Town Panels (101–140)
-101. Town panel: name header with faction banner
-102. Town panel: population display
-103. Town panel: prosperity bar
-104. Town panel: food stores display
+101. [x] Town panel: name header with faction banner
+102. [x] Town panel: population display
+103. [x] Town panel: prosperity bar
+104. [x] Town panel: food stores display
 105. [x] Town panel: garrison list (unit types + counts — donate via transfer-to-garrison)
-106. Town panel: recruit button per unit type
-107. Town panel: recruit cost display
+106. [x] Town panel: recruit button per unit type
+107. [x] Town panel: recruit cost display
 108. Town panel: recruit time display
-109. Town panel: market tab
-110. Town panel: market goods list (name, price, quantity)
-111. Town panel: buy button per good
-112. Town panel: sell button per good
-113. Town panel: player inventory display
-114. Town panel: player gold display
+109. [x] Town panel: market tab
+110. [x] Town panel: market goods list (name, price, quantity)
+111. [x] Town panel: buy button per good
+112. [x] Town panel: sell button per good
+113. [x] Town panel: player inventory display
+114. [x] Town panel: player gold display
 115. [x] Town panel: tavern tab
 116. [x] Town panel: tavern recruitable NPCs list
 117. [x] Town panel: tavern hire button
@@ -172,53 +172,53 @@
 [x] 134. Town panel: siege option (if at war)
 135. Town panel: raid option (if hostile)
 136. Town panel: town description text
-137. Town panel: town image/banner
-138. Town panel: recent events list
-139. Town panel: construction queue (if player-owned)
-140. Town panel: tax rate slider (if player-owned)
+137. [x] Town panel: town image/banner
+138. [x] Town panel: recent events list
+139. [x] Town panel: construction queue (if player-owned)
+140. [x] Town panel: tax rate slider (if player-owned)
 
 ### Party Management (141–170)
 141. Party panel: open via P key
-142. Party panel: troop list grouped by type
-143. Party panel: troop count per type
-144. Party panel: troop wage per type
-145. Party panel: total daily wages
-146. Party panel: troop upgrade button (when XP sufficient)
-147. Party panel: upgrade path display
+142. [x] Party panel: troop list grouped by type
+143. [x] Party panel: troop count per type
+144. [x] Party panel: troop wage per type
+145. [x] Party panel: total daily wages
+146. [x] Party panel: troop upgrade button (when XP sufficient)
+147. [x] Party panel: upgrade path display
 148. Party panel: dismiss troop button
 149. Party panel: troop health/morale indicators
-150. Party panel: prisoner list
-151. Party panel: prisoner recruit button
-152. Party panel: prisoner ransom button
+150. [x] Party panel: prisoner list
+151. [x] Party panel: prisoner recruit button
+152. [x] Party panel: prisoner ransom button
 153. [x] Party panel: prisoner release button (execute too — sim charges renown)
 154. Party panel: companion list
 155. Party panel: companion stats display
 156. Party panel: companion equipment slots
-157. Party panel: companion assign role dropdown
-158. Party panel: party speed display
-159. Party panel: party morale display
-160. Party panel: food consumption rate
-161. Party panel: days of food remaining
+157. [x] Party panel: companion assign role dropdown
+158. [x] Party panel: party speed display
+159. [x] Party panel: party morale display
+160. [x] Party panel: food consumption rate
+161. [x] Party panel: days of food remaining
 162. Party panel: inventory tab
 163. Party panel: inventory grid
 164. Party panel: item tooltip on hover
 165. Party panel: equip item button
 166. Party panel: drop item button
 167. Party panel: sort inventory button
-168. Party panel: party gold display
+168. [x] Party panel: party gold display
 169. Party panel: rename party button
-170. Party panel: close button
+170. [x] Party panel: close button
 
 ### Map & Navigation (171–200)
-171. Map: zoom in/out buttons
-172. Map: zoom via mouse wheel
-173. Map: pan via drag
-174. Map: pan via arrow keys / WASD
+171. [x] Map: zoom in/out buttons
+172. [x] Map: zoom via mouse wheel
+173. [x] Map: pan via drag
+174. [x] Map: pan via arrow keys / WASD
 175. Map: click to set destination
 176. Map: right-click to cancel movement
-177. Map: party marker (player icon)
+177. [x] Map: party marker (player icon)
 178. Map: party movement trail
-179. Map: town markers (clickable)
+179. [x] Map: town markers (clickable)
 180. Map: town marker tooltip (name, faction)
 181. Map: village markers
 182. Map: enemy party markers (red)
@@ -237,20 +237,20 @@
 195. Map: faction territory overlay toggle
 196. Map: trade route overlay toggle
 197. Map: minimap (corner)
-198. Map: coordinates display on hover
-199. Map: terrain tooltip (plains/forest/etc.)
-200. Map: "center on party" button (Space)
+198. [x] Map: coordinates display on hover
+199. [x] Map: terrain tooltip (plains/forest/etc.)
+200. [x] Map: "center on party" button (Space)
 
 ### Diplomacy & Factions (201–230)
 201. Diplomacy panel: open via D key
-202. Diplomacy: faction list with relation bars
-203. Diplomacy: relation value display (-100 to +100)
-204. Diplomacy: at-war indicator (red)
+202. [x] Diplomacy: faction list with relation bars
+203. [x] Diplomacy: relation value display (-100 to +100)
+204. [x] Diplomacy: at-war indicator (red)
 205. Diplomacy: allied indicator (green)
 206. Diplomacy: truce indicator (yellow)
-207. Diplomacy: declare war button (with confirm)
-208. Diplomacy: propose peace button
-209. Diplomacy: peace cost display
+207. [x] Diplomacy: declare war button (with confirm)
+208. [x] Diplomacy: propose peace button
+209. [x] Diplomacy: peace cost display
 210. Diplomacy: propose alliance button
 211. Diplomacy: alliance requirements display
 212. Diplomacy: break alliance button (with reputation hit warning)
@@ -267,9 +267,9 @@
 223. Diplomacy: faction at-war-with list
 224. Diplomacy: player reputation display
 225. Diplomacy: reputation effects tooltip
-226. Diplomacy: war weariness indicator
-227. Diplomacy: war score display
-228. Diplomacy: peace treaty terms UI
+226. [x] Diplomacy: war weariness indicator
+227. [x] Diplomacy: war score display
+228. [x] Diplomacy: peace treaty terms UI
 229. Diplomacy: close button
 230. Diplomacy: help tooltip
 
@@ -852,22 +852,22 @@
 ## G. Campaign Systems (751–850)
 
 ### Quests (751–780)
-751. Quest: data structure
-752. Quest: accept from NPC
+751. [x] Quest: data structure
+752. [x] Quest: accept from NPC
 753. Quest: track/untrack
-754. Quest: objective progress (3/5)
+754. [x] Quest: objective progress (3/5)
 755. Quest: turn in
 756. Quest: rewards (gold/XP/item)
-757. Quest: abandon
-758. Quest: fail conditions
+757. [x] Quest: abandon
+758. [x] Quest: fail conditions
 759. Quest types: kill X enemies
 760. Quest types: collect X items
 761. Quest types: deliver
 762. Quest types: escort
-763. Quest types: bounty
+763. [x] Quest types: bounty
 764. Quest: main story (10 quests)
 765. Quest: side quests (procedural)
-766. Quest: quest log UI (J key)
+766. [x] Quest: quest log UI (J key)
 767. Quest: map markers
 768. Quest: giver indicator (!)
 769. Quest: turn-in indicator (?)
@@ -884,20 +884,20 @@
 780. Quest: survive waves
 
 ### Economy (781–800)
-781. Good: data structure
+781. [x] Good: data structure
 782. Good: price by supply/demand
-783. Good: price varies by town
-784. Market: buy/sell UI
-785. Market: price history
-786. Caravan: form (buy animals)
+783. [x] Good: price varies by town
+784. [x] Market: buy/sell UI
+785. [x] Market: price history
+786. [x] Caravan: form (buy animals)
 787. Caravan: set route
 788. Caravan: auto-trade
 789. Caravan: ambush event
-790. Workshop: buy/produce/profit
+790. [x] Workshop: buy/produce/profit
 791. Tax: from owned fiefs
-792. Wages: daily troop cost
+792. [x] Wages: daily troop cost
 793. Wages: desertion if unpaid
-794. Food: consumption
+794. [x] Food: consumption
 795. Food: starvation effects
 796. Food: foraging
 797. Trade: profit tracking
@@ -907,22 +907,22 @@
 
 ### Clan & Kingdom (801–830)
 801. Clan: banner editor
-802. Clan: tier progression
-803. Clan: renown gain
+802. [x] Clan: tier progression
+803. [x] Clan: renown gain
 804. Kingdom: join as vassal
 805. Kingdom: create own
 806. Kingdom: laws (3 policies)
 807. Kingdom: grant fief
 808. Kingdom: vassal management
-809. Marriage: propose
-810. Marriage: spouse joins clan
+809. [x] Marriage: propose
+810. [x] Marriage: spouse joins clan
 811. Children: born/grow up
 812. Death: old age/battle
 813. Death: heir takes over
 814. Death: game over if no heir
 815. Succession: designate heir
-816. Clan: member list
-817. Clan: fief list
+816. [x] Clan: member list
+817. [x] Clan: fief list
 818. Kingdom: war/peace votes
 819. Kingdom: ruler decisions
 820. Reputation: gain/loss
