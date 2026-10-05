@@ -47,7 +47,7 @@ caller at all — need provider methods + wire validators + UI, not just a butto
 - Prisoner per-troop ops: POST /v1/prisoners/{id}/{ransom,recruit,release,execute} — DONE, all four wired (release/execute as party-panel buttons, task 153)
 - Held-lord ops: POST /v1/lords/{name}/{ransom,release,execute}, GET heir
 - Siege engine park: GET/POST /v1/sieges/{id}/engines/*, assault, lift, town siege start
-- Tavern dice: POST /v1/towns/{id}/tavern/dice (UI now exists via the pipeline; provider still fixture-only)
+- ~~Tavern dice~~ DONE: provider posts the live route and the tavern dice section is wired via the pipeline
 - Party template refit route; companion role assignment; character kill
 - Pause/resume, step-days, health check
 
