@@ -25,17 +25,17 @@ route. UI is the only missing half.
 | Economy/crime | barterDeal, commitCrime, payFine, persuade, assignGovernor, getGovernor, sellPrisonersToBroker | Market / town / prisoner UI | 04bc30ec, 4bea7fc8 |
 | Troops | upgradeTroops, awardBattleXp, applyBattleResult (verify battle-overlay path first) | PartyPanel | battle-xp routes mounted |
 
-## 2. Client system modules nothing imports (12)
+## 2. Client system modules nothing imports (re-audited 2026-10-04)
 
-Real implementations, zero consumers outside their own directory and tests.
-Each needs either a UI caller or an owner's decision that the provider method
-above already covers it:
-
-economy/workshopChains, troop/branches, siege/engines, tavern/games,
-party/templates, campaign/smithingStamina (fixture uses it; UI reads snapshot
-only), court/influence, economy/mercenary, economy/governors,
-economy/craftingOrders, economy/barter, clan/defection, campaign/quests,
-clan/tiers.
+Re-audit verdicts: siege/engines (engine park UI, 5925f320),
+troop/branches (training fork, c4d3621b), party/templates, tavern/games,
+court/influence (realm influence, 7a11cf56), campaign/smithingStamina and
+clan/tiers (fixture-backed reads) now have consumers. Still zero-consumer:
+economy/mercenary and diplomacy/barter (the fixture providers own the
+logic they re-implement), economy/workshopChains (a read-model the market
+panel has not taken), campaign/quests and economy/governors (the modules
+do not exist — the fixture implements quests and governors inline; the
+backlog rows above describe the UI gap, not a module gap).
 
 ## 3. Server routes the client never references (36)
 
