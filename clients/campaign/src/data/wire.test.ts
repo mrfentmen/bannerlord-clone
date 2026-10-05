@@ -28,6 +28,8 @@ import {
   schemaVersionProblem,
   skipToArrivalProblem,
   snapshotProblem,
+  stepDaysRequestProblem,
+  stepDaysResultProblem,
   tavernCompanionListProblem,
   smithingStaminaReplyProblem,
   talkResultProblem,
@@ -715,5 +717,33 @@ describe("the smithing stamina reply is checked before the bench trusts it", () 
 
   it("refuses a reply that is not an object", () => {
     expect(smithingStaminaReplyProblem([84, 100])).toMatch(/not a JSON object/);
+  });
+});
+
+describe("a wait order is checked before the world gives up a day", () => {
+  // Task 132. Waiting is the one order that gives the simulation permission to
+  // run every daily system at once, so the count is checked like a payment.
+  it("accepts whole days inside the month cap", () => {
+    expect(stepDaysRequestProblem({ days: 1 })).toBeNull();
+    expect(stepDaysRequestProblem({ days: 7 })).toBeNull();
+    expect(stepDaysRequestProblem({ days: 30 })).toBeNull();
+  });
+
+  it("refuses zero, negative, fractional and missing counts", () => {
+    expect(stepDaysRequestProblem({ days: 0 })).toMatch(/whole number/);
+    expect(stepDaysRequestProblem({ days: -3 })).toMatch(/whole number/);
+    expect(stepDaysRequestProblem({ days: 1.5 })).toMatch(/whole number/);
+    expect(stepDaysRequestProblem({ days: Number.NaN })).toMatch(/whole number/);
+  });
+
+  it("refuses a month or more, because travel is how distance is crossed", () => {
+    expect(stepDaysRequestProblem({ days: 31 })).toMatch(/march instead/);
+  });
+
+  it("accepts the reply shape and refuses one without its day", () => {
+    expect(stepDaysResultProblem({ ok: true, day: 7 })).toBeNull();
+    expect(stepDaysResultProblem({ ok: true })).toMatch(/no day/);
+    expect(stepDaysResultProblem({ ok: true, day: "later" })).toMatch(/no day/);
+    expect(stepDaysResultProblem("day 7")).toMatch(/not a JSON object/);
   });
 });

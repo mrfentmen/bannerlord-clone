@@ -62,6 +62,8 @@ import type {
   RulerState,
   SimSnapshot,
   SimulationProvider,
+  StepDaysRequest,
+  StepDaysResult,
   TalkToNotableResult,
   TickUpdate,
   TownState,
@@ -418,6 +420,7 @@ export function createFixtureSimulationProvider(options: { seed?: number } = {})
     restoreSnapshot: async (snapshot) => state.restoreSnapshot(snapshot),
     getNearbyHostiles: async (rangeKm) => state.getNearbyHostiles(rangeKm),
     upgradeTroops: async (request) => state.upgradeTroops(request),
+    stepDays: async (request) => state.stepDays(request),
     setTaxRate: async (townId, rate) => state.setTaxRate(townId, rate),
     setStateTaxRate: async (st, rate) => state.setStateTaxRate(st, rate),
     startConstruction: async (townId, buildingId) => state.startConstruction(townId, buildingId),
@@ -5119,6 +5122,18 @@ class FixtureState {
     } else {
       this.#party.prisoners.push({ troopId, name, count, tier, conformity });
     }
+  }
+
+  /**
+   * Wait in place for whole days (task 132). The fixture runs its own daily
+   * tick once per requested day — the same `#step()` the wall clock uses — so
+   * waiting and letting time pass are one system, not two.
+   */
+  async stepDays(request: StepDaysRequest): Promise<StepDaysResult> {
+    for (let i = 0; i < request.days; i += 1) {
+      this.#step();
+    }
+    return { ok: true, day: this.#day };
   }
 
   /**

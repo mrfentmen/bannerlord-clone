@@ -44,9 +44,11 @@ import type {
   RecruitRequest,
   RecruitResult,
   SimSnapshot,
-  TavernCompanion,
   SimulationProvider,
   TalkToNotableResult,
+  TavernCompanion,
+  StepDaysRequest,
+  StepDaysResult,
   TaxOrderResult,
   TickUpdate,
   TimeScaleResult,
@@ -75,6 +77,8 @@ import {
   SNAPSHOT_SCHEMA_MAX,
   SNAPSHOT_SCHEMA_MIN,
   snapshotProblem,
+  stepDaysRequestProblem,
+  stepDaysResultProblem,
   talkResultProblem,
   taxResultProblem,
   tickFrameProblem,
@@ -1148,6 +1152,17 @@ export class HttpSimulationProvider implements SimulationProvider {
       request,
       "The promotion did not go through.",
       upgradeResultProblem,
+    );
+  }
+
+  /** Wait in place for whole days; the simulation runs its daily systems (task 132). */
+  async stepDays(request: StepDaysRequest): Promise<StepDaysResult> {
+    requireRequest(stepDaysRequestProblem(request), "wait order", "The wait could not be written down.");
+    return this.#post<StepDaysResult>(
+      "/v1/step-days",
+      request,
+      "The days would not pass.",
+      stepDaysResultProblem,
     );
   }
 

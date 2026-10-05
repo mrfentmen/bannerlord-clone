@@ -1580,6 +1580,11 @@ function townNode(town: TownState): Node {
         void refreshAfterSimOrder();
         return r;
       }),
+    onWaitDays: (days) =>
+      provider.stepDays({ days }).then((r) => {
+        void refreshAfterSimOrder();
+        return r;
+      }),
     onGetGovernor: () => provider.getGovernor(town.id),
     onAssignGovernor: (characterId) =>
       provider.assignGovernor(town.id, characterId).then((r) => {

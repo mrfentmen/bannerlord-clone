@@ -44,6 +44,8 @@ import type {
   RecruitRequest,
   RecruitResult,
   SimSnapshot,
+  StepDaysRequest,
+  StepDaysResult,
   TalkToNotableResult,
   TavernCompanion,
   TradeRequest,
@@ -426,6 +428,25 @@ export function upgradeRequestProblem(request: UpgradeTroopsRequest): string | n
 }
 
 /**
+ * A wait order (task 132). The count must be whole days the client is willing
+ * to sit still for; anything past a month is refused so travel stays the way
+ * distance is crossed, not waiting.
+ */
+export function stepDaysRequestProblem(request: StepDaysRequest): string | null {
+  if (!Number.isInteger(request.days) || request.days < 1) return "days must be a whole number of at least 1";
+  if (request.days > 30) return "days must be 30 or fewer; march instead";
+  return null;
+}
+
+/** The reply is `{ ok, day }`; the panel prints the day it landed on. */
+export function stepDaysResultProblem(raw: unknown): string | null {
+  if (!isRecord(raw)) return "the reply is not a JSON object";
+  if (!isBoolean(raw.ok)) return "ok is not true or false";
+  if (!isFiniteNumber(raw.day)) return "the reply has no day";
+  return null;
+}
+
+/**
  * A promotion, and the tiers it moved between.
  *
  * `fromTier` and `toTier` are both required rather than inferred from a `upgraded` flag,
@@ -659,7 +680,9 @@ const _tavern: (raw: unknown) => TavernCompanion[] | null = (raw) =>
   tavernCompanionListProblem(raw) === null ? (raw as TavernCompanion[]) : null;
 const _smithStamina: (raw: unknown) => { stamina: number; max: number } | null = (raw) =>
   smithingStaminaProblem(raw) === null ? (raw as { stamina: number; max: number }) : null;
-void [_snapshot, _trade, _recruit, _talk, _relation, _awards, _upgrade, _construction, _plan, _chain, _forces, _tavern, _smithStamina];
+const _stepDays: (raw: unknown) => StepDaysResult | null = (raw) =>
+  stepDaysResultProblem(raw) === null ? (raw as StepDaysResult) : null;
+void [_snapshot, _trade, _recruit, _talk, _relation, _awards, _upgrade, _construction, _plan, _chain, _forces, _tavern, _smithStamina, _stepDays];
 
 /** Re-exported so a payload with a `{ x, z }` shape is checked the same way everywhere. */
 export { pointProblem };

@@ -263,6 +263,8 @@ export interface TownPanelOptions {
   partyTroops?: { id: string; name: string; count: number }[];
   /** Leave party troops as the town's garrison. The sim owns the rules. */
   onTransferToGarrison?: (troopId: string, count: number) => Promise<{ garrison: number; line: string }>;
+  /** Wait in this town for whole days; the simulation advances its daily systems (task 132). */
+  onWaitDays?: (days: number) => Promise<{ ok: boolean; day: number }>;
   /** Called after an economy order changed the world, so the caller repaints. */
   onWorldChanged?: () => void;
   /** Open bounties on the town's board (bandits/bounties contract). */
@@ -681,6 +683,11 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
     body.appendChild(recruitSection(town, options));
   }
 
+  // -- wait here (task 132) ---------------------------------------------------
+  if (options.onWaitDays) {
+    body.appendChild(waitSection(options));
+  }
+
   // -- notables (task 129) ----------------------------------------------------
   body.appendChild(notablesSection(town));
 
@@ -1077,6 +1084,49 @@ function projectRow(town: TownState, b: BuildingInfo, options: TownPanelOptions)
  * Who is willing to sign on here. The list comes from the simulation; the panel
  * sends the order and shows the simulation's answer verbatim.
  */
+/**
+ * Wait here for a few whole days (task 132). The panel sends a count; the
+ * simulation advances its clock and its daily systems, and the caller repaints
+ * from the fresh snapshot. The panel prints nothing about what changed — it
+ * does not know — it only says the days were served, and the rest of the
+ * panel tells the player what moved.
+ */
+function waitSection(options: TownPanelOptions): HTMLElement {
+  const wrap = h("section", { "data-testid": "wait-section" });
+  wrap.appendChild(sectionHeader("Wait here"));
+
+  const message = h("p", { class: "caption", "data-testid": "town-wait-message", role: "status", style: "margin:0 0 var(--space-3)" });
+  message.style.display = "none";
+  wrap.appendChild(message);
+
+  const { field: daysField, input: daysInput } = numberField("wait-days", "Days", 1, {
+    min: 1,
+    max: 7,
+    step: 1,
+  });
+  const wait = h("button", { type: "button", class: "btn", "data-testid": "town-wait" }, "Wait");
+  wait.addEventListener("click", () => {
+    if (wait.disabled) return;
+    const days = Math.max(1, Math.min(7, Math.floor(Number(daysInput.value) || 1)));
+    wait.disabled = true;
+    void options.onWaitDays!(days).then(
+      () => {
+        wait.disabled = false;
+        message.style.display = "";
+        message.textContent = `${days} day${days === 1 ? "" : "s"} pass. The figures above are the town as it stands now.`;
+      },
+      (err) => {
+        wait.disabled = false;
+        message.style.display = "";
+        message.textContent =
+          err instanceof SimulationUnavailableError ? err.playerMessage : "The days would not pass.";
+      },
+    );
+  });
+  wrap.appendChild(h("div", { class: "field-row" }, daysField, wait));
+  return wrap;
+}
+
 function recruitSection(town: TownState, options: TownPanelOptions): HTMLElement {
   const wrap = h("section", { "data-testid": "recruit-section" });
   wrap.appendChild(sectionHeader("Recruit"));

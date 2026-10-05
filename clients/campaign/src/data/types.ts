@@ -443,6 +443,17 @@ export interface UpgradeTroopsRequest {
   branchId?: string;
 }
 
+export interface StepDaysRequest {
+  /** Whole days to wait in place. The simulation runs its daily systems for each. */
+  days: number;
+}
+
+export interface StepDaysResult {
+  ok: boolean;
+  /** The simulation's day counter after the wait. */
+  day: number;
+}
+
 export interface UpgradeTroopsResult {
   upgraded: boolean;
   stackId: string;
@@ -1462,6 +1473,8 @@ export interface SimulationProvider {
   /** Leave party troops as a held town's garrison. The player's clan must hold the town. */
   transferToGarrison(townId: string, troopId: string, count: number): Promise<{ garrison: number; line: string }>;
   getGovernor(townId: string): Promise<{ name: string; line: string } | null>;
+  /** Wait in place for whole days; the simulation advances its daily systems (task 132). */
+  stepDays(request: StepDaysRequest): Promise<StepDaysResult>;
   /** Value a barter offer against a demand. */
   barterDeal(offer: { gold: number; goods: Record<string, number>; prisoners: number; dailyTribute: number; tributeDays: number }, demandValue: number): Promise<{ accepted: boolean; gap: number; line: string }>;
   /** A clan walks away from its kingdom. */
