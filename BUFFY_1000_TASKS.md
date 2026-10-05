@@ -167,7 +167,7 @@
 [x] 129. Town panel: notable NPCs list
 [x] 130. Town panel: talk button per NPC
 131. Town panel: trade caravan option
-132. Town panel: wait here button (pass time)
+132. [x] Town panel: wait here button (pass time)
 133. Town panel: leave town button
 [x] 134. Town panel: siege option (if at war)
 135. Town panel: raid option (if hostile)
@@ -230,8 +230,8 @@
 188. Map: quest markers (exclamation)
 189. Map: tracked quest path highlight
 190. Map: day/night indicator
-191. Map: date display (Day 47, Spring)
-192. Map: speed control (pause/1x/2x/4x)
+191. [x] Map: date display (Day 47, Spring)
+192. [x] Map: speed control (pause/1x/2x/4x)
 193. Map: pause on event toggle
 194. Map: fog of war toggle
 195. Map: faction territory overlay toggle

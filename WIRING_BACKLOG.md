@@ -50,7 +50,7 @@ caller at all — need provider methods + wire validators + UI, not just a butto
 - ~~Tavern dice~~ DONE: provider posts the live route and the tavern dice section is wired via the pipeline
 - Interface hotkeys: party (P, task 141) and journal (J, task 766) — DONE, registry actions + main.ts handlers with the typing guard (2026-10-04)
 - Party template refit route; companion role assignment; character kill
-- Pause/resume, step-days, health check
+- ~~Step-days~~ DONE: POST /v1/step-days wired as the town panel wait-here control (task 132); fixture runs its daily tick per waited day. Pause/resume and health check remain
 
 ## 4. Sound events nothing fires (45 of 73; was 49)
 
