@@ -1,0 +1,27 @@
+{
+  "Kansas City, MO": {
+    "fetched": 25,
+    "skipped": 0,
+    "failures": []
+  },
+  "St. Louis, MO": {
+    "fetched": 25,
+    "skipped": 0,
+    "failures": []
+  },
+  "Wichita, KS": {
+    "fetched": 25,
+    "skipped": 0,
+    "failures": []
+  },
+  "Des Moines, IA": {
+    "fetched": 25,
+    "skipped": 0,
+    "failures": []
+  },
+  "Oklahoma City, OK": {
+    "fetched": 25,
+    "skipped": 0,
+    "failures": []
+  }
+}
