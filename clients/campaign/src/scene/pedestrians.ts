@@ -18,6 +18,7 @@ import {
   SceneLoader,
   TransformNode,
 } from "@babylonjs/core";
+import { playbackRateFor } from "../animations/Locomotion.js";
 
 interface StreetPoint {
   x: number;
@@ -140,10 +141,19 @@ function setMoving(ped: Pedestrian, moving: boolean): void {
   for (const g of ped.walk) g.stop();
   ped.idle?.stop();
   if (moving) {
-    ped.walk[0]!.play(true);
+    playPedestrianWalk(ped.walk[0]!, ped.speed);
   } else {
     ped.idle?.play(true);
   }
+}
+
+/** Start a pedestrian walk cycle at the rate that matches its movement speed. */
+export function playPedestrianWalk(
+  animation: { speedRatio: number; play(loop?: boolean): unknown },
+  speedMps: number,
+): void {
+  animation.speedRatio = playbackRateFor(speedMps);
+  animation.play(true);
 }
 
 function placeOnStreet(ped: Pedestrian): void {

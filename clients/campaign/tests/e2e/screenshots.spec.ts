@@ -26,7 +26,8 @@ async function start(page: Page): Promise<void> {
   await expect(page.getByTestId("char-first-name")).toBeVisible({ timeout: 30_000 });
   await page.getByTestId("char-first-name").fill("Dax");
   await page.getByTestId("char-last-name").fill("Rurik");
-  for (let i = 0; i < 7; i += 1) await page.getByTestId("maker-next").click();
+  for (let i = 0; i < 8; i += 1) await page.getByTestId("maker-next").click();
+  await expect(page.getByTestId("maker-step-8")).toHaveClass(/stepbar__step--current/);
   await page.getByTestId("maker-done").click();
   await expect(page.getByTestId("town-panel")).toBeVisible({ timeout: 60_000 });
 }

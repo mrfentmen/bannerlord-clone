@@ -4,7 +4,7 @@
 # Build: docker build -f services/simulation/Dockerfile -t bannerlord-apiserver .
 # Run:   docker run -p 8080:8080 bannerlord-apiserver
 
-FROM golang:1.23-alpine AS builder
+FROM golang:1.24-alpine AS builder
 
 WORKDIR /src/services/simulation
 
@@ -27,8 +27,9 @@ WORKDIR /app
 # Binary
 COPY --from=builder /apiserver /app/apiserver
 
-# Default config (overridable via -config flag or volume mount)
+# Default config and real settlement feed (overridable via -config/-settlements).
 COPY services/simulation/config/ /app/config/
+COPY services/simulation/data/sim-feed/ /app/data/sim-feed/
 
 EXPOSE 8080
 

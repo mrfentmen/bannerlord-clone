@@ -28,6 +28,7 @@
 //	-cors-origin     Access-Control-Allow-Origin value (default *)
 //	-player-ruler    simulation id of the ruler to play; 0 picks one
 //	-player-town     simulation id of the town to play in; 0 uses the ruler's
+//	-settlements     settlement feed JSON (default shipped feed; "-" uses a synthetic map)
 //
 // A container platform needs to listen on all interfaces, so a deployed instance
 // passes -addr 0.0.0.0:8080.
@@ -49,7 +50,9 @@ import (
 	"mbclone/simulation/cmd/apiserver/api"
 	"mbclone/simulation/cmd/apiserver/campaign"
 	"mbclone/simulation/internal/config"
+	"mbclone/simulation/internal/simfeed"
 	"mbclone/simulation/internal/simrun"
+	"mbclone/simulation/internal/worldgen"
 )
 
 func main() {
@@ -72,6 +75,7 @@ func run() error {
 		corsOrigin    = flag.String("cors-origin", "*", "Access-Control-Allow-Origin value")
 		playerRuler   = flag.Int("player-ruler", 0, "simulation id of the ruler to play; 0 picks one")
 		playerTown    = flag.Int("player-town", 0, "simulation id of the town to play in; 0 uses the ruler's")
+		settlements   = flag.String("settlements", "", "settlement feed JSON (default shipped feed; \"-\" uses a synthetic map)")
 		showOrder     = flag.Bool("print-system-order", false, "print the system order and exit")
 	)
 	flag.Parse()
@@ -92,8 +96,14 @@ func run() error {
 		return err
 	}
 
+	settlementData, err := loadSettlements(*settlements)
+	if err != nil {
+		return err
+	}
+
 	opts := campaign.Options{
 		Seed:                 *seed,
+		Settlements:          settlementData,
 		StartYear:            *startYear,
 		DaysPerRealSecond:    *timeScale,
 		TickIntervalMillis:   *tickMillis,
@@ -169,6 +179,18 @@ func run() error {
 // directory, which inside a container is not the source directory. So a relative
 // path is resolved against the executable's directory and its parent, which is
 // where a Docker image puts the balance file.
+func loadSettlements(path string) ([]worldgen.Settlement, error) {
+	if path == "-" {
+		return nil, nil
+	}
+	resolved := simfeed.ResolvePath(path)
+	feed, err := simfeed.Load(resolved)
+	if err != nil {
+		return nil, fmt.Errorf("loading settlements: %w", err)
+	}
+	return feed.Settlements, nil
+}
+
 func loadConfig(path, snapshotDir string) (*config.Config, error) {
 	if path == "" {
 		path = filepath.Join("config", "balance.toml")

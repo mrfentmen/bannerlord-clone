@@ -134,8 +134,9 @@ export interface WorldSettlementFile {
  */
 export interface SettlementIndex {
   byId: Map<string, WorldSettlement>;
-  byName: Map<string, WorldSettlement>;
-  resolve(idOrName: string): WorldSettlement | undefined;
+  /** `null` marks a name shared by more than one place. */
+  byName: Map<string, WorldSettlement | null>;
+  resolve(idOrName: string, state?: string | null): WorldSettlement | undefined;
   all(): WorldSettlement[];
 }
 

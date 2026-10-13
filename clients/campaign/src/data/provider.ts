@@ -51,6 +51,7 @@ import type {
   UpgradeTroopsResult,
   WhyChain,
 } from "./types.js";
+import { isBoolean, isRecord } from "./checks.js";
 import { servesOrder as serverServesOrder, type UnservedOrder } from "./unserved.js";
 import { createFixtureSimulationProvider } from "./fixture/index.js";
 import {
@@ -443,12 +444,36 @@ export class HttpSimulationProvider implements SimulationProvider {
     );
   }
 
-  setEthnicity(ethnicityId: string): void {
-    void this.#post<{ accepted: true }>("/v1/ethnicity", { ethnicityId }, "The heritage did not take.");
+  async setEthnicity(ethnicityId: string): Promise<void> {
+    const result = await this.#post<{ accepted: boolean; reason?: string }>(
+      "/v1/ethnicity",
+      { ethnicityId },
+      "The heritage did not take.",
+      acceptedResultProblem,
+    );
+    if (!result.accepted) {
+      throw new SimulationUnavailableError(
+        result.reason ?? "The heritage did not take.",
+        "POST /v1/ethnicity returned accepted=false.",
+        false,
+      );
+    }
   }
 
-  setCharacter(character: PlayerCharacter): void {
-    void this.#post<{ accepted: true }>("/v1/character", character, "The character did not take.");
+  async setCharacter(character: PlayerCharacter): Promise<void> {
+    const result = await this.#post<{ accepted: boolean; reason?: string }>(
+      "/v1/character",
+      character,
+      "The character did not take.",
+      acceptedResultProblem,
+    );
+    if (!result.accepted) {
+      throw new SimulationUnavailableError(
+        result.reason ?? "The character did not take.",
+        "POST /v1/character returned accepted=false.",
+        false,
+      );
+    }
   }
 
   async awardBattleXp(input: BattleXpInput): Promise<BattleXpAward[]> {
@@ -1090,6 +1115,14 @@ export class HttpSimulationProvider implements SimulationProvider {
 
 // -- payload validation ------------------------------------------------------
 //
+
+function acceptedResultProblem(raw: unknown): string | null {
+  if (!isRecord(raw)) return "the reply is not a JSON object";
+  if (!isBoolean(raw.accepted)) return "accepted is not true or false";
+  if (!raw.accepted && typeof raw.reason !== "string") return "a refused reply has no reason";
+  return null;
+}
+
 // CONSTITUTION.md section 1.3: every external call is untrusted. A bare
 // `await response.json() as SimSnapshot` is an unchecked promise to the rest of the
 // client that the server sent exactly the shape it was asked for, and the failure mode

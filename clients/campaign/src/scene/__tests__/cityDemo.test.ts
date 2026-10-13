@@ -7,8 +7,36 @@
  * and out-of-range values clamp.
  */
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { CROWD_DEFAULT, CROWD_MAX, CROWD_MIN, parseCrowdParam } from "../cityDemo.js";
+import { playPedestrianWalk } from "../pedestrians.js";
+import { AUTHORED_WALK_SPEED } from "../../animations/Locomotion.js";
+
+describe("playPedestrianWalk", () => {
+  it("sets a playback rate from movement speed before starting the looping clip", () => {
+    const animation = {
+      speedRatio: 1,
+      play: vi.fn(),
+    };
+
+    playPedestrianWalk(animation, AUTHORED_WALK_SPEED * 1.5);
+
+    expect(animation.speedRatio).toBeCloseTo(1.5);
+    expect(animation.play).toHaveBeenCalledWith(true);
+  });
+
+  it("does not speed a stationary walk cycle", () => {
+    const animation = {
+      speedRatio: 1,
+      play: vi.fn(),
+    };
+
+    playPedestrianWalk(animation, 0);
+
+    expect(animation.speedRatio).toBe(0);
+    expect(animation.play).toHaveBeenCalledWith(true);
+  });
+});
 
 describe("parseCrowdParam", () => {
   it("defaults when the param is missing or empty", () => {

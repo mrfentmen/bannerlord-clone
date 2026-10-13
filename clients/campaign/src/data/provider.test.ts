@@ -812,6 +812,43 @@ describe("orders are posted to the route the server mounts", () => {
     expect(urls).toEqual(["http://sim.invalid/v1/companions/char-9/hire"]);
   });
 
+  it("waits for the character API reply and rejects a refusal with its player reason", async () => {
+    const requests: { url: string; method?: string | undefined; body?: unknown }[] = [];
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      requests.push({
+        url: String(input),
+        method: init?.method,
+        body: init?.body ? JSON.parse(String(init.body)) : undefined,
+      });
+      return jsonResponse({ accepted: false, reason: "This character cannot join that campaign." });
+    });
+    const provider = providerWith(fetchImpl as unknown as typeof fetch);
+    const character = {
+      firstName: "Wren",
+      lastName: "Calloway",
+      gender: "female" as const,
+      appearanceId: "african-1",
+      ethnicityId: "african",
+      age: 31,
+      startCity: "manhattan-sample",
+      difficulty: "normal",
+      backgroundChoices: {},
+      startingSkills: {},
+      startingCash: 850,
+      biography: "A character biography.",
+    };
+
+    const failure = await provider.setCharacter(character).then(
+      () => null,
+      (err: unknown) => err,
+    );
+    expect(requests).toEqual([
+      { url: "http://sim.invalid/v1/character", method: "POST", body: character },
+    ]);
+    expect(failure).toBeInstanceOf(SimulationUnavailableError);
+    expect((failure as SimulationUnavailableError).playerMessage).toBe("This character cannot join that campaign.");
+  });
+
   it("lays a siege on the town the path names, with the force that is doing it", async () => {
     const sent: { url: string; body: unknown }[] = [];
     const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {

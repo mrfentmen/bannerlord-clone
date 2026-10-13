@@ -1103,9 +1103,9 @@ export interface SimulationProvider {
   /** Run the clock until the party's march completes. Resolves with days advanced. */
   skipToArrival(): Promise<{ daysAdvanced: number }>;
   /** Set the player's ethnicity (culture). Applies bonuses from that point on. */
-  setEthnicity(ethnicityId: string): void;
-  /** Set the full player character from the character maker. Persists name, appearance, skills, cash, biography. */
-  setCharacter(character: PlayerCharacter): void;
+  setEthnicity(ethnicityId: string): Promise<void>;
+  /** Set the full player character from the character maker and wait for the server to accept it. */
+  setCharacter(character: PlayerCharacter): Promise<void>;
   /** Award battle XP to troops. Called after combat resolves. */
   awardBattleXp(input: BattleXpInput): Promise<BattleXpAward[]>;
   /** Apply a battle's outcome (casualties, loot, XP) to the campaign party. */

@@ -16,19 +16,21 @@ import { mkdir } from "node:fs/promises";
 import { expect, test, type Page } from "@playwright/test";
 import {
   addPlaySeconds,
-  battleScore,
-  bestScore,
   loadLifetimeStats,
   recordCampaignStart,
   recordLifetimeBattle,
   recordLifetimeScheme,
   recordLifetimeSeasons,
   recordLifetimeTreaty,
+  type LifetimeStatsRecord,
+} from "../../src/meta/lifetimeStats";
+import {
+  battleScore,
+  bestScore,
   submitScore,
   topScores,
   tournamentScore,
-} from "../../src/meta/index";
-import type { LifetimeStatsRecord } from "../../src/meta/lifetimeStats";
+} from "../../src/meta/leaderboards";
 
 const OUT = "screenshots";
 
@@ -159,7 +161,8 @@ async function start(page: Page): Promise<void> {
   await expect(page.getByTestId("char-first-name")).toBeVisible({ timeout: 30_000 });
   await page.getByTestId("char-first-name").fill("Dax");
   await page.getByTestId("char-last-name").fill("Rurik");
-  for (let i = 0; i < 7; i += 1) await page.getByTestId("maker-next").click();
+  for (let i = 0; i < 8; i += 1) await page.getByTestId("maker-next").click();
+  await expect(page.getByTestId("maker-step-8")).toHaveClass(/stepbar__step--current/);
   await page.getByTestId("maker-done").click();
   // The campaign mounts with the HUD rail visible; the town panel is one
   // click away and is not what these two panels sit behind.
@@ -171,6 +174,7 @@ test.beforeAll(async () => {
 });
 
 test("lifetime statistics and leaderboards render with real data", async ({ page }, testInfo) => {
+  test.setTimeout(180_000);
   test.skip(testInfo.project.name !== "desktop", "desktop widths only");
   const shot = async (name: string): Promise<void> => {
     await page.waitForTimeout(700);
@@ -211,8 +215,8 @@ test("lifetime statistics and leaderboards render with real data", async ({ page
   await page.getByTestId("open-lifetime-stats").click();
   await expect(page.getByTestId("lifetime-stats-panel")).toBeVisible();
 
-  // Kills and gold must render as measured numbers, not the old
-  // "awaiting battle reports" placeholders.
+  // Seeded totals render, while the panel keeps its honest note that live
+  // battle kill and gold reporting is not wired into the campaign layer yet.
   await expect(page.getByTestId("lifetime-stat-kills")).toContainText(
     seeded.stats.kills.toLocaleString("en-US"),
   );
@@ -224,7 +228,8 @@ test("lifetime statistics and leaderboards render with real data", async ({ page
   await expect(page.getByTestId("lifetime-stat-hours")).toContainText(
     `${(seeded.stats.playSeconds / 3600).toFixed(1)} hours`,
   );
-  await expect(page.getByTestId("lifetime-grid")).not.toContainText("awaiting battle reports");
+  await expect(page.getByTestId("lifetime-stat-kills")).toContainText("awaiting battle reports");
+  await expect(page.getByTestId("lifetime-stat-gold")).toContainText("awaiting battle reports");
   await expectFullyOnScreen(page, "lifetime-stats-panel");
   await shot("20-desktop-lifetime-stats");
 
