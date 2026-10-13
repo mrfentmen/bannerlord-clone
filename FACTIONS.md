@@ -172,3 +172,72 @@ Choosing a side is choosing which problem to have:
 - Lone Star: strong but stretched thin.
 
 All of this should be visible on the side-selection screen: the ratings, the pros and cons, and a plain-language line about the biggest danger of each.
+
+## 8. FACTION PLAYSTYLES
+
+### Pacific Compact — The Merchant Prince
+**You win by:** Out-earning everyone, then buying victory.
+**Early game:** Secure your ports. Build trade income. Hire the best troops money can buy (because you can't replace losses).
+**Mid game:** Use intelligence to pick your battles. Bribe enemy lords. Fund proxy wars.
+**Late game:** Your economy is a weapon. Embargo enemies. Buy their allies.
+**Avoid:** Long wars of attrition. You can't replace troops. Every soldier lost is irreplaceable.
+**Key skill:** Trade, Persuasion, Engineering
+
+### Mountain Alliance — The Unbreakable
+**You win by:** Never losing. Let them break on your mountains.
+**Early game:** Fortify passes. Build up gold reserves. Train elite snipers.
+**Mid game:** Raid for supplies. Never commit to open battle. Bleed them in the hills.
+**Late game:** Your enemies are exhausted. Pick off the weak. Expand slowly.
+**Avoid:** Flat terrain. Open field battles. Trying to match Union numbers.
+**Key skill:** Ranged, Survival, Tactics
+
+### Great Lakes Union — The Breadbasket
+**You win by:** Feeding your friends and starving your enemies.
+**Early game:** Maximize food production. Stockpile grain. Build militia.
+**Mid game:** Export food for gold and alliances. Use your numbers.
+**Late game:** You have the most troops and the most food. Grind them down.
+**Avoid:** Selling too much grain. A bad harvest with empty silos is death.
+**Key skill:** Logistics, Leadership, Trade
+
+### Southern Compact — The Blitz
+**You win by:** Hitting hard and fast before they can react.
+**Early game:** Muster quickly. Raid for supplies. Keep moving.
+**Mid game:** Use your speed to pick off isolated targets. Avoid sieges.
+**Late game:** You've taken enough to be strong, or you're broke. No middle ground.
+**Avoid:** Long sieges. Wars of attrition. Winter campaigns.
+**Key skill:** Tactics, Riding, Intimidation
+
+### Lone Star Frontier — The Ranger
+**You win by:** Striking where they aren't, then vanishing.
+**Early game:** Build your cavalry. Secure fuel supplies. Scout everything.
+**Mid game:** Raid supply lines. Hit and run. Never stand and fight.
+**Late game:** Your enemies are starving and demoralized. Finish them.
+**Avoid:** Static defense. Trying to hold too much territory.
+**Key skill:** Riding, Ranged, Survival
+
+### Atlantic Corridor — The Puppet Master
+**You win by:** Owning everyone's debts.
+**Early game:** Lend money. Build intelligence networks. Make friends.
+**Mid game:** Call in debts. Buy lords. Fund wars between your enemies.
+**Late game:** You own five sections and hold no titles. The perfect victory.
+**Avoid:** Direct confrontation. You can't win a straight fight.
+**Key skill:** Persuasion, Trade, Intelligence
+
+## 9. UNIQUE UNITS
+
+Each faction has signature troops that define its playstyle:
+
+**Pacific:** *Harbor Marines* — Elite amphibious infantry. Expensive, deadly, few.
+**Mountain:** *Alpine Snipers* — Unmatched in rough terrain. Invisible until they fire.
+**Union:** *Grain Guard* — Heavy militia. Not elite, but there are thousands.
+**Southern:** *Muster Rifles* — Fast-mobilizing light infantry. Quick to raise, quick to fight.
+**Frontier:** *Rangers* — Mounted riflemen. Fastest on the map. Hit and vanish.
+**Corridor:** *Ledger Agents* — Not soldiers. Spies, saboteurs, negotiators. Win without fighting.
+
+## 10. RIVALRIES
+
+- **Pacific vs. Atlantic:** Money vs. money. Both rich, both hungry. Natural rivals.
+- **Union vs. Everyone:** Everyone wants Union grain. The Union knows it.
+- **Mountain vs. Everyone:** The Alliance doesn't trust lowlanders. At all.
+- **South vs. Frontier:** Old border disputes. Both value independence. Neither backs down.
+- **Corridor vs. Everyone:** Everyone owes the Corridor money or resents it. Often both.

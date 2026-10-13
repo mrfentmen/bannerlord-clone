@@ -1,0 +1,26 @@
+/* Buffy task 71: the formation preview ghost.
+   Faint outlined dots on the field — visible enough to aim a formation, quiet
+   enough not to be mistaken for real troops. No animation: the ghost has to
+   track the pointer with no lag. */
+
+.cmd-ghost {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cmd-ghost[hidden] {
+  display: none;
+}
+
+.cmd-ghost__slot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  box-sizing: border-box;
+  border: 1px dashed var(--accent-primary);
+  border-radius: 50%;
+  background: var(--paper-0);
+  opacity: 0.55;
+  transform: translate(-50%, -50%);
+}

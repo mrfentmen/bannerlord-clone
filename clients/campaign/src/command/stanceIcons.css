@@ -1,0 +1,45 @@
+/* Buffy task 73: stance icons floating over the selected units.
+   Each stance has its own outline (filled triangle, filled square, open circle)
+   as well as its own fill, so the three are distinguishable without colour.
+   No animation — the icons track units that are already moving. */
+
+.cmd-stance-icons {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cmd-stance-icons[hidden] {
+  display: none;
+}
+
+.cmd-stance-icon {
+  position: absolute;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: var(--radius-1);
+  transform: translate(-50%, -50%);
+  font-size: 11px;
+  line-height: 1;
+}
+
+.cmd-stance-icon--aggressive {
+  border: 1px solid var(--status-critical);
+  background: var(--status-critical-fill);
+  color: var(--status-critical-ink);
+}
+
+.cmd-stance-icon--defensive {
+  border: 1px solid var(--status-info);
+  background: var(--status-info-fill);
+  color: var(--status-info-ink);
+}
+
+.cmd-stance-icon--passive {
+  border: 1px solid var(--ink-500);
+  background: var(--paper-0);
+  color: var(--ink-700);
+}

@@ -1,0 +1,51 @@
+/* Task 21: the HUD top bar. One strip, three fields, no colour of its own —
+   the sheet, paper and ink tokens do the work. Sits at the top of the battle
+   screen and never animates, so there is nothing here to switch off under
+   reduced motion. Type sizes are literals because tokens.css exports sizes and
+   weights as design tokens for TS, not as CSS custom properties. */
+
+.hud-topbar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  padding: var(--space-2) var(--space-4);
+  background: var(--paper-0);
+  border-bottom: 1px solid var(--ink-700);
+  box-shadow: var(--sheet-1);
+}
+
+.hud-topbar__name {
+  margin: 0;
+  font-size: 20px;
+  line-height: 26px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--ink-900);
+}
+
+.hud-topbar__weather {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 2px var(--space-2);
+  border: 1px solid var(--ink-700);
+  border-radius: var(--radius-2);
+  background: var(--paper-0);
+  color: var(--ink-700);
+}
+
+.hud-topbar__weather-glyph {
+  font-size: 15px;
+  line-height: 22px;
+}
+
+.hud-topbar__weather-label {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+}

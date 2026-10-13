@@ -36,6 +36,21 @@ export function isString(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
 }
 
+/**
+ * A string of any length, including an empty one.
+ *
+ * `isString` refuses an empty string because an empty id or label is a missing one. That
+ * is right for a name and wrong for a field whose job is to be able to hold nothing: the
+ * campaign server's `wire.TradeResult.CausedBy` carries no `omitempty`, so a refused
+ * trade sends `"causedBy": ""`. The key is present and the value is empty, because the
+ * refusal wrote no row. Checking that with `isString` refused the server's own refusals,
+ * which cost the player every sentence `campaign/trade.go` writes — "Golden has 480 to
+ * sell, not 5000" and the rest — and replaced them with a complaint about the payload.
+ */
+export function isText(value: unknown): value is string {
+  return typeof value === "string";
+}
+
 export function isArray(value: unknown): value is unknown[] {
   return Array.isArray(value);
 }

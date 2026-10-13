@@ -1,0 +1,48 @@
+/* Task 28: the pause button. Quiet chrome, matched to the minimap toggle so the
+   two controls in the same corner look like the same family. The held state is
+   carried by the token ink as well as by the word and the glyph, so it survives
+   a glance and not only a read.
+
+   Static — the state change is an attribute swap, not an animation. */
+
+.hud-pause-wrap {
+  display: inline-flex;
+}
+
+.hud-pause {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 4px var(--space-2);
+  border: 1px solid var(--ink-700);
+  border-radius: var(--radius-2);
+  background: var(--paper-0);
+  color: var(--ink-900);
+  cursor: pointer;
+}
+
+.hud-pause:hover {
+  background: var(--paper-100);
+}
+
+.hud-pause:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.hud-pause__glyph {
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--ink-700);
+}
+
+.hud-pause[aria-pressed="true"] {
+  border-color: var(--status-warning-mark);
+  color: var(--status-warning-mark);
+}
+
+.hud-pause__label {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+}

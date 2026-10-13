@@ -1,0 +1,54 @@
+/* Task 24-25: the two morale bars. A track with a fill, the figure printed
+   beside it. The fill uses the side's own accent token so the two bars are
+   distinguishable without relying on position, and the printed percentage is
+   what actually carries the value — the bar is the glance, the number is the
+   fact.
+
+   Static — nothing animates, so there is nothing to disable under reduced
+   motion. */
+
+.hud-morale {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.hud-morale__label {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--ink-700);
+}
+
+.hud-morale__track {
+  width: 120px;
+  height: 10px;
+  border: 1px solid var(--ink-700);
+  border-radius: var(--radius-2);
+  background: var(--paper-200);
+  overflow: hidden;
+}
+
+.hud-morale__fill {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--accent-primary);
+}
+
+.hud-morale--enemy .hud-morale__fill {
+  background: var(--status-critical-mark);
+}
+
+.hud-morale__value {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--ink-900);
+}
+
+/* Before the source reports there is nothing to fill, and the dimmed track says
+   "not known yet" where a full bar would claim the army is at full strength. */
+.hud-morale__track[data-live="false"] {
+  opacity: 0.6;
+}

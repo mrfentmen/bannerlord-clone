@@ -115,6 +115,79 @@ def test_the_deployed_region_counts_are_the_v1_counts():
     assert len(network["rail"]) == 4_653
 
 
+@requires_client
+def test_the_deployed_travel_edges_are_sound():
+    """The one enrichment the deploy has to carry, actually checked.
+
+    `travelEdges` is the settlement-to-settlement edge list the client pathfinds on, and it
+    is the only field in these three files the wire build does not produce. That makes it
+    the field most likely to rot unnoticed, and it has rotted unnoticed before: it is
+    absent from `exports/wire/network.json` entirely, so the only copy in the repository is
+    the deployed one, and regenerating it means
+    `tools/build-travel-graph.py` -> `tools/build-wire-travel-edges.py`, neither of which
+    could run as recently as this file was written.
+
+    What matters here is not the count - it is whatever the current build produced - but
+    that every edge is usable: both ends name a settlement that exists, and the edge
+    charges a positive time and a positive distance. A travel graph whose edges are free
+    still pathfinds; it just reaches whatever is nearest and calls the trip free. That is
+    exactly what the committed `routes` export produced while it was missing
+    `travel_hours`, and nothing failed while it was wrong.
+    """
+    network = client_file("network.json")
+    edges = network.get("travelEdges")
+    assert edges, (
+        "the deployed network.json has no travelEdges, so the client cannot pathfind "
+        "between settlements. Build them with `python tools/build-travel-graph.py` then "
+        "`python tools/build-wire-travel-edges.py`, then deploy."
+    )
+    meta = network.get("travelEdgesMeta")
+    assert meta is not None, "travelEdges is present but travelEdgesMeta is not, so the count cannot be checked"
+    assert meta["count"] == len(edges), f"travelEdgesMeta claims {meta['count']} edges, the array holds {len(edges)}"
+
+    ids = {s["osmId"] for s in client_file("settlements.json")["settlements"]}
+    dangling = [e for e in edges if e["from"] not in ids or e["to"] not in ids]
+    assert not dangling, (
+        f"{len(dangling)} travel edges name a settlement that is not in settlements.json, "
+        f"starting with {dangling[0]['from']} -> {dangling[0]['to']}. The client resolves an "
+        "edge's ends through the settlement index, so these are edges it cannot follow."
+    )
+    assert meta["matched_settlements"] == len(ids), (
+        f"{len(ids)} settlements are deployed but travelEdgesMeta matched "
+        f"{meta['matched_settlements']} of them, so some settlements have no edges at all"
+    )
+
+    free = [e for e in edges if not e["minutes"] > 0]
+    assert not free, (
+        f"{len(free)} travel edges charge zero minutes, starting with "
+        f"{free[0]['from']} -> {free[0]['to']}. Minutes are the sum of member segment travel "
+        "hours; zero means the reader defaulted a missing `travel_hours`, not that the road "
+        "is free."
+    )
+    stationary = [e for e in edges if not e["length_km"] > 0]
+    assert not stationary, f"{len(stationary)} travel edges have zero length, starting with {stationary[0]}"
+
+
+@requires_client
+def test_the_deployed_travel_edges_are_the_only_enrichment_the_wire_build_is_missing():
+    """Pin the gap, so it is a known debt rather than a surprise.
+
+    `deploy.CARRIED` exists because the wire build does not produce `wire_version` or the
+    travel edges, and the deploy tool copies them across from the file it replaces. That
+    works, but it means the authoritative build at `exports/wire/` cannot produce the
+    deployed `network.json` on its own: a fresh clone plus `worlddata wire` plus a deploy
+    keeps the edges only for as long as the client's copy of them survives.
+    """
+    assert "travelEdges" in deploy.CARRIED["network.json"], (
+        "the deploy tool no longer lists travelEdges as a carried key, but the wire build "
+        "still does not produce it, so a deploy would drop the client's only copy"
+    )
+    assert "travelEdges" not in wire_file("network.json"), (
+        "the wire build now produces travelEdges, so they no longer need carrying. Drop them "
+        "from deploy.CARRIED and let a missing key be reported instead of carried forward."
+    )
+
+
 # ---------------------------------------------------------------------------
 # The deploy tool's own decisions
 # ---------------------------------------------------------------------------

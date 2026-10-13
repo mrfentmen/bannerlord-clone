@@ -109,3 +109,11 @@ func (r *Rng) Chance(p float64) bool {
 	}
 	return r.Float64() < p
 }
+
+// State returns the generator's internal state. It exists for save/load:
+// capturing the state lets a saved game resume the exact random stream.
+// Systems must never use this to fork streams; use Derive for that.
+func (r *Rng) State() uint64 { return r.state }
+
+// SetState restores a state previously captured with State.
+func (r *Rng) SetState(s uint64) { r.state = s }

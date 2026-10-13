@@ -448,23 +448,13 @@ describe("fixtures stay out of a production path", () => {
     expect(() => createSimulationProvider({ kind: "guess" as never })).toThrow(SimulationUnavailableError);
   });
 
-  it("refuses to construct the fixture outside a dev-only build", () => {
-    // The third gate, at the point of construction rather than at the point of reading
-    // the environment. `vite.config.ts` has already replaced the module in a production
-    // build, so this is the belt to that pair of braces: even a caller that bypassed
-    // `readConfig` gets a refusal with a sentence, not a module that throws on use.
-    const error = (() => {
-      try {
-        createSimulationProvider({ kind: "fixture" });
-        return null;
-      } catch (err) {
-        return err as SimulationUnavailableError;
-      }
-    })();
-    // This test process runs in mode "test", which is not a fixture build.
-    expect(error).toBeInstanceOf(SimulationUnavailableError);
-    expect(error?.playerMessage).toMatch(/development build/i);
-    expect(error?.retryable, "no retrying will make a production build a dev build").toBe(false);
+  it("constructs the fixture in any build as a production fallback", () => {
+    // The fixture is the production fallback when no sim server is reachable
+    // (e.g. the static Pages deploy), so construction must not refuse outside
+    // dev-only builds. The game runs on the local fixture rather than showing
+    // a dead error screen.
+    const provider = createSimulationProvider({ kind: "fixture" });
+    expect(provider.kind).toBe("fixture");
   });
 
   it("names the HTTP provider for the data-source panel", () => {
@@ -736,5 +726,103 @@ describe("the tick subscription reports instead of dropping frames silently", ()
         vi.useRealTimers();
       }
     });
+  });
+});
+
+describe("a force in encounter range is refused rather than half-read", () => {
+  // What the campaign sends for a party it is not simulating: no composition,
+  // because model.Party is a count and a morale rather than stacks.
+  const serverRow = {
+    id: "7",
+    name: "Yorver's company",
+    troopCount: 84,
+    hostile: true,
+    distanceKm: 3.5,
+    position: { x: 12.5, z: -4.25 },
+  };
+
+  it("passes a row through with the id the server gave it, so it can be fought", async () => {
+    // The id is the whole point: this is the value that goes into
+    // POST /v1/encounters and into fleeing and defeat. A rewrite here would be
+    // invisible in the panel and fatal in the request.
+    const fetchImpl = vi.fn(async () => jsonResponse([serverRow]));
+    await expect(providerWith(fetchImpl as unknown as typeof fetch).getNearbyHostiles(50)).resolves.toEqual([
+      serverRow,
+    ]);
+  });
+
+  it("asks for the range it was given", async () => {
+    const urls: string[] = [];
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      urls.push(String(input));
+      return jsonResponse([]);
+    });
+    await providerWith(fetchImpl as unknown as typeof fetch).getNearbyHostiles(50);
+    expect(urls).toEqual(["http://sim.invalid/v1/parties/nearby?rangeKm=50"]);
+  });
+
+  it("names the field a row is missing, instead of handing the panel an undefined headcount", async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse([{ ...serverRow, position: { x: 1 } }]));
+    await expect(providerWith(fetchImpl as unknown as typeof fetch).getNearbyHostiles(50)).rejects.toThrow(
+      /force 0 position has no z/,
+    );
+  });
+
+  it("refuses a reply that is not a list, rather than iterating a payload's own fields", async () => {
+    const fetchImpl = vi.fn(async () => jsonResponse({ forces: [serverRow] }));
+    await expect(providerWith(fetchImpl as unknown as typeof fetch).getNearbyHostiles(50)).rejects.toThrow(
+      /not a list of forces/,
+    );
+  });
+
+  it("lets the route's own failure through, with the sentence the sweep shows the player", async () => {
+    // The sweep reports `playerMessage` when it is there and the raw message
+    // otherwise, so what reaches the toast is the one the provider wrote for a
+    // player rather than a URL with a status code on it.
+    const fetchImpl = vi.fn(async () => jsonResponse("that path is not part of the campaign API", 404));
+    const failure = await fastProviderWith(fetchImpl as unknown as typeof fetch)
+      .getNearbyHostiles(50)
+      .then(
+        () => null,
+        (err: unknown) => err,
+      );
+    expect(failure, "a 404 from the nearby route is not swallowed").toBeInstanceOf(SimulationUnavailableError);
+    expect((failure as SimulationUnavailableError).playerMessage).toMatch(/Nearby parties could not be listed/);
+  });
+});
+
+describe("orders are posted to the route the server mounts", () => {
+  // A method that posts to a path no route serves is invisible in every test that
+  // runs against the fixture: the fixture implements the method, so the call
+  // resolves, the panel updates, and nothing anywhere says the URL was invented. The
+  // only place the two ends meet is here — the request the provider actually builds.
+  // `apiContract.test.ts` compares the two files' path lists, which catches a path the
+  // server never mounted; this catches the verb, which that comparison deliberately
+  // ignores because inferring it from the TypeScript is guesswork.
+
+  it("hires a companion with the verb the server mounts", async () => {
+    // POST /v1/companions/{id}/hire, not /recruit: the server mounts and implements
+    // `hire`, and every tavern hire was a 404 until the provider was pointed at it.
+    const urls: string[] = [];
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL) => {
+      urls.push(String(input));
+      return jsonResponse({ id: "char-9", name: "Ilsa" });
+    });
+    await providerWith(fetchImpl as unknown as typeof fetch).recruitCompanion("char-9");
+    expect(urls).toEqual(["http://sim.invalid/v1/companions/char-9/hire"]);
+  });
+
+  it("lays a siege on the town the path names, with the force that is doing it", async () => {
+    const sent: { url: string; body: unknown }[] = [];
+    const fetchImpl = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      sent.push({ url: String(input), body: init?.body ? JSON.parse(String(init.body)) : null });
+      return jsonResponse({ siegeId: "siege-4" });
+    });
+    const laid = await providerWith(fetchImpl as unknown as typeof fetch).startSiege("town-12", ["party-3"]);
+    expect(sent).toEqual([
+      { url: "http://sim.invalid/v1/towns/town-12/siege", body: { attackerPartyIds: ["party-3"] } },
+    ]);
+    // The id is what the assault and lift routes are then called with.
+    expect(laid).toEqual({ siegeId: "siege-4" });
   });
 });

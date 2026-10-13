@@ -90,6 +90,9 @@ type World struct {
 	MedicinePerCapita float64
 	// GarrisonPerCapita seeds the peacetime garrison, which sets road safety.
 	GarrisonPerCapita float64
+	// MilitiaPerCapita seeds the starting militia: the able-bodied volunteers
+	// a town can raise on day one, before any Watch building exists.
+	MilitiaPerCapita float64
 	// RouteDensity is the average number of connections per town, building a
 	// sparse graph of real places rather than a full mesh.
 	RouteDensity float64

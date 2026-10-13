@@ -76,4 +76,31 @@ describe("service worker (task 28)", () => {
     expect(sw).toContain("/assets/");
     expect(sw).toContain("caches.match");
   });
+
+  it("serves the app shell only for navigations, so a missing data file is not a corrupt one", () => {
+    // The world data is fetched network-first, so an offline player with a cache from
+    // before a deployment reaches the fallback path for a file that cache never held.
+    // Answering that with `/index.html` returns `200 OK` and an HTML body, and every
+    // JSON reader in the app reports it as a damaged file - so a player with no signal
+    // is told the world survey is corrupt rather than that they are offline. The shell
+    // is for navigations; anything else gets a 503 that says what happened.
+    expect(sw).toContain("cachedOrShell");
+    expect(sw).toMatch(/request\.mode === "navigate"/);
+    expect(sw).toContain("503");
+    // And the fallback must not be inlined into the fetch handler any more, where it
+    // would apply to every request including data.
+    const handler = sw.slice(sw.indexOf('addEventListener("fetch"'));
+    expect(
+      handler.slice(0, handler.indexOf("function cachedOrShell")),
+      "the fetch handler still answers a cache miss with the shell",
+    ).not.toContain('caches.match("/index.html")');
+  });
+
+  it("does not precache world data, so a bad file cannot fail the install", () => {
+    // `cache.addAll` is atomic: one 404 in the list rejects the whole install and the
+    // game stops being installable. World data is large, region-specific and deployed
+    // by the pipeline, so it must stay out of the shell list.
+    const shell = sw.slice(sw.indexOf("const SHELL"), sw.indexOf("];", sw.indexOf("const SHELL")));
+    expect(shell).not.toContain("/world/");
+  });
 });

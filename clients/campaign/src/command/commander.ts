@@ -3,8 +3,10 @@
  * command radial, wired to the input registry and a CommandSurface.
  *
  * Gesture summary:
- * - click a unit: select it (Shift+click toggles into the selection)
+ * - click a unit: select it (Shift+click toggles, Ctrl/Cmd+click adds)
+ * - double-click a unit: select every unit of that kind (task 66)
  * - drag a box: select every live unit inside
+ * - right-click the field: move the selected units there (task 51)
  * - Shift+click empty ground: queue a waypoint for the selected units
  * - Alt+click: drop a ping marker (visible 5 s, edge arrow when off-screen)
  * - hold the command-menu key (Space): radial opens at the pointer; flick toward
@@ -12,7 +14,12 @@
  *   holdToggles accessibility setting, press once to open and press again to
  *   confirm — no holding required)
  * - 1-9: recall control group; Ctrl+1-9: assign the current selection
+ * - selected units carry a ring on the field, repainted as the camera moves
  * - F1-F4 (or f/g/h/r): attack/follow/hold/retreat the selected units at the pointer
+ * - A: attack-move — the next click on the field advances the selection there
+ * - C: charge — run at the pointer and engage
+ * - S: spread out — loosen the selection's front
+ * - Shift+G: form up — close ranks on the spot
  * - T: rally-point mode — next click plants the flag for reinforcements
  * - X: retreat horn — every live unit routs to the map edge
  * - the select-all action grabs every live unit
@@ -26,7 +33,22 @@ import { createRadialMenu, type RadialMenu } from "./radial.js";
 import { createMarkers, type Markers } from "./markers.js";
 import { showOrderDelay, type OrderDelayHandle } from "./orderDelay.js";
 import { createSelectionPanel, type SelectionPanel } from "./selectionPanel.js";
-import type { CommandSurface, Order, OrderKind } from "./types.js";
+import { createOrderPanel, type OrderPanel } from "./orderPanel.js";
+import { createSelectionRings, type SelectionRings } from "./selectionRings.js";
+import { createGroupIndicators, type GroupIndicators } from "./groupIndicators.js";
+import { createFormationSelector, type FormationSelector } from "./formation.js";
+import { createFormationGhost } from "./formationGhost.js";
+import { createStanceSelector, type StanceSelector } from "./stance.js";
+import { createStanceIcons } from "./stanceIcons.js";
+import { createFireModeToggle, type FireModeToggle } from "./fireMode.js";
+import type {
+  CommandSurface,
+  FireMode,
+  FormationKind,
+  Order,
+  OrderKind,
+  StanceKind,
+} from "./types.js";
 
 export interface Commander {
   selection: SelectionModel;
@@ -50,8 +72,89 @@ export interface CommanderEvents {
 const RADIAL_ORDERS: OrderKind[] = ["attack", "follow", "hold", "retreat"];
 const DRAG_THRESHOLD_PX = 6;
 const CLICK_RADIUS_PX = 24;
+/** Task 66: two clicks on a unit this close together, this fast, are a double-click. */
+const DOUBLE_CLICK_MS = 400;
+const DOUBLE_CLICK_SLOP_PX = 24;
 
 const registeredControlGroups = new WeakSet<InputRegistry>();
+const registeredBattleOrders = new WeakSet<InputRegistry>();
+
+/**
+ * Task 52: attack-move is a mode, not an instant order — press A, then click
+ * the field. Task 54: charge is an instant order aimed at the pointer. Both
+ * actions are registered here (as the control groups are) rather than in the
+ * catalog, because the catalog owns what exists at boot.
+ */
+function ensureAttackMoveAction(registry: InputRegistry): void {
+  if (registeredBattleOrders.has(registry)) return;
+  registeredBattleOrders.add(registry);
+  if (!registry.actions().some((a) => a.id === "battle.holdFire")) {
+    registry.registerAction({
+      id: "battle.holdFire",
+      label: "Order: hold fire",
+      description: "Selected units never start a fight; they wait for a target.",
+      category: "battle-command",
+      defaultKeys: [{ key: "F7" }],
+      preventDefault: true,
+    });
+  }
+  if (!registry.actions().some((a) => a.id === "battle.fireAtWill")) {
+    registry.registerAction({
+      id: "battle.fireAtWill",
+      label: "Order: fire at will",
+      description: "Selected units shoot anything in reach without waiting to be told.",
+      category: "battle-command",
+      // The F row is the order row and it was only full to F5 (quicksave).
+      defaultKeys: [{ key: "F6" }],
+      preventDefault: true,
+    });
+  }
+  if (!registry.actions().some((a) => a.id === "battle.orderFormUp")) {
+    registry.registerAction({
+      id: "battle.orderFormUp",
+      label: "Order: form up",
+      description: "Selected units close ranks on the spot they hold.",
+      category: "battle-command",
+      // Shift+G: plain "g" is battle.orderFollow (task 56), and one letter cannot
+      // mean two orders. The order panel (task 59) shows this chord, so the
+      // doubling-up is discoverable rather than a hidden key.
+      defaultKeys: [{ key: "g", shift: true }],
+      preventDefault: true,
+    });
+  }
+  if (!registry.actions().some((a) => a.id === "battle.orderSpread")) {
+    registry.registerAction({
+      id: "battle.orderSpread",
+      label: "Order: spread out",
+      description: "Selected units loosen up and hold a wider front.",
+      category: "battle-command",
+      // Plain "s": the map's pan-south chord is the same letter, but that handler
+      // is guarded by "a settlement is selected", so the two never both fire.
+      defaultKeys: [{ key: "s" }],
+      preventDefault: true,
+    });
+  }
+  if (!registry.actions().some((a) => a.id === "battle.orderCharge")) {
+    registry.registerAction({
+      id: "battle.orderCharge",
+      label: "Order: charge",
+      description: "Selected units run at the target and engage at a charge.",
+      category: "battle-command",
+      defaultKeys: [{ key: "c" }],
+      preventDefault: true,
+    });
+  }
+  if (registry.actions().some((a) => a.id === "battle.orderAttackMove")) return;
+  registry.registerAction({
+    id: "battle.orderAttackMove",
+    label: "Order: attack-move",
+    description: "Advance to the clicked spot, engaging anything on the way.",
+    category: "battle-command",
+    // Plain "a"; select-all keeps Ctrl+A, so the two never meet.
+    defaultKeys: [{ key: "a" }],
+    preventDefault: true,
+  });
+}
 
 function ensureControlGroupActions(registry: InputRegistry): void {
   if (registeredControlGroups.has(registry)) return;
@@ -79,17 +182,83 @@ export function createCommander(
   events: CommanderEvents = {},
 ): Commander {
   ensureControlGroupActions(registry);
+  ensureAttackMoveAction(registry);
   const selection = createSelection();
   const offs: Array<() => void> = [];
   let radial: RadialMenu | null = null;
   let lastPointer = { x: window.innerWidth / 2, y: window.innerHeight / 2 };
   let marquee: HTMLElement | null = null;
   let dragStart: { x: number; y: number } | null = null;
+  /** Task 66: the last unit clicked, so the next click on it can be a double. */
+  let lastClick: { id: string; x: number; y: number; at: number } | null = null;
 
   const overlay = surface.overlay();
   const markers: Markers = createMarkers(overlay);
   const panel: SelectionPanel = createSelectionPanel();
   overlay.appendChild(panel.root);
+  // Task 59: the order row lives in the same overlay, under the selection panel.
+  const orderPanel: OrderPanel = createOrderPanel({ registry });
+  overlay.appendChild(orderPanel.root);
+  // Task 65: a ring on the field under each selected unit. Painted from the
+  // same live-unit lookup the panel reads, so both agree on who is selected.
+  const rings: SelectionRings = createSelectionRings(surface);
+  overlay.appendChild(rings.root);
+  // Task 69: the control group chips, bottom left. Membership is read from the
+  // selection model on every repaint, never cached here.
+  const groupIndicators: GroupIndicators = createGroupIndicators({
+    registry,
+    members: (group) => selection.group(group),
+  });
+  overlay.appendChild(groupIndicators.root);
+  /** Task 70: the shape the player wants the group to hold, or null for none. */
+  let formation: FormationKind | null = null;
+  const formationSelector: FormationSelector = createFormationSelector({
+    onPick: (picked) => {
+      formation = picked;
+      refreshGhost();
+    },
+  });
+  // Mounted in the order row's slot so the command widgets stack together.
+  orderPanel.slot.appendChild(formationSelector.root);
+  /** Task 72: the posture the player wants the group to fight in, or null. */
+  let stance: StanceKind | null = null;
+  const stanceSelector: StanceSelector = createStanceSelector({
+    onPick: (picked) => {
+      stance = picked;
+      updatePanel(); // task 73: the icons follow the pick at once
+    },
+  });
+  orderPanel.slot.appendChild(stanceSelector.root);
+  // Task 73: the chosen stance shown over each selected unit.
+  const stanceIcons = createStanceIcons(surface);
+  overlay.appendChild(stanceIcons.root);
+  /** Task 74: the fire mode last asked for, or null when none was. */
+  let fireMode: FireMode | null = null;
+  const fireToggle: FireModeToggle = createFireModeToggle({
+    registry,
+    onPress: (mode) => {
+      fireMode = mode;
+    },
+  });
+  orderPanel.slot.appendChild(fireToggle.root);
+  // Task 71: the ghost that previews the shape under the pointer.
+  const ghost = createFormationGhost(surface);
+  overlay.appendChild(ghost.root);
+
+  /**
+   * Task 71: preview the formation under the pointer. Nothing to preview until
+   * a shape is chosen and units are selected, so the ghost stays hidden — and an
+   * empty selection is not a formation of zero, it is no order at all.
+   */
+  function refreshGhost(): void {
+    const count = selection.selected().length;
+    if (!formation || count === 0) {
+      ghost.hide();
+      return;
+    }
+    const at = surface.screenToField(lastPointer.x, lastPointer.y);
+    ghost.show(formation, count, at);
+  }
   const delays: OrderDelayHandle[] = [];
   /** Task 47: the last order issued to each unit — the panel's "stance". */
   const lastOrder = new Map<string, OrderKind>();
@@ -97,6 +266,8 @@ export function createCommander(
   let waypointQueue: { x: number; z: number }[] = [];
   /** Task 45: the next field click plants the rally flag. */
   let placingRally = false;
+  /** Task 52: the next field click issues an attack-move to that spot. */
+  let placingAttackMove = false;
   const modeHint = h("div", { class: "cmd-modehint", "data-testid": "cmd-modehint" });
   modeHint.hidden = true;
   overlay.appendChild(modeHint);
@@ -113,19 +284,38 @@ export function createCommander(
 
   function updatePanel(): void {
     const { byId } = liveUnits();
+    const selected = selection.selected();
+    const selectedUnits = selected.flatMap((id) => {
+      const u = byId.get(id);
+      return u ? [u] : [];
+    });
     panel.update(
-      selection.selected().flatMap((id) => {
+      selected.flatMap((id) => {
         const u = byId.get(id);
         if (!u) return [];
         const lo = lastOrder.get(id);
         return [{ id: u.id, label: u.label, kind: u.kind, count: u.count, ...(lo ? { lastOrder: lo } : {}) }];
       }),
     );
+    rings.update(selectedUnits);
+    // Task 73: one stance icon per selected unit.
+    stanceIcons.update(selectedUnits, stance);
+    // Task 69: the chips follow assign and recall.
+    groupIndicators.update();
+    // Task 71: the ghost follows the selection and the pointer.
+    refreshGhost();
   }
 
   /** Every order goes through here: sim gets it, the panel learns the stance,
    *  and the courier runs the delay visualization. */
   function issue(order: Order): void {
+    // Task 70: a chosen shape rides on the order. Absent means the player asked
+    // for no particular formation, so the order says nothing about shape.
+    if (formation && order.formation === undefined) order.formation = formation;
+    // Task 72: same rule for the posture — absent means the player never chose.
+    if (stance && order.stance === undefined) order.stance = stance;
+    // Task 74: and for the fire mode. Absent leaves it to the sim.
+    if (fireMode && order.fireMode === undefined) order.fireMode = fireMode;
     surface.issueOrder(order);
     for (const id of order.unitIds) lastOrder.set(id, order.kind);
     const { byId } = liveUnits();
@@ -158,8 +348,14 @@ export function createCommander(
     markers.clearWaypoints();
   }
 
-  function cancelRallyMode(): void {
+  /**
+   * Leave whichever click-to-place mode is armed (rally, attack-move). One
+   * function for both, so Esc, a second press of the mode key, and a
+   * right-click all end the mode the same way.
+   */
+  function cancelOrderMode(): void {
     placingRally = false;
+    placingAttackMove = false;
     setModeHint(null);
   }
 
@@ -193,6 +389,9 @@ export function createCommander(
   // -- pointer tracking --------------------------------------------------------
   const onPointerMove = (ev: PointerEvent): void => {
     lastPointer = { x: ev.clientX, y: ev.clientY };
+    // Task 65: rings are pinned to projected unit positions, so they follow the
+    // camera — every drag repaints them at the new screen position.
+    updatePanel();
     if (dragStart && marquee) {
       const x = Math.min(dragStart.x, ev.clientX);
       const y = Math.min(dragStart.y, ev.clientY);
@@ -210,8 +409,26 @@ export function createCommander(
     dragStart = { x: ev.clientX, y: ev.clientY };
   };
 
+  /**
+   * Task 51: right-click on the field moves the selected units there. Right-click
+   * on one of your own units is ignored — the drag gesture owns the left button,
+   * so nothing else is listening for it.
+   */
+  const onContextMenu = (ev: MouseEvent): void => {
+    ev.preventDefault();
+    if (radial || placingRally) return;
+    const unitIds = selection.selected();
+    if (unitIds.length === 0) return;
+    const field = surface.screenToField(ev.clientX, ev.clientY);
+    cancelOrderMode(); // a right-click is an order, so it ends any pending mode
+    clearWaypoints();
+    issue({ kind: "move", unitIds, target: field, at: Date.now() });
+  };
+
   const onPointerUp = (ev: PointerEvent): void => {
-    if (!dragStart || ev.button !== 0) return;
+    if (ev.button !== 0) return;
+    // Right-click orders a move; it never ends a selection drag.
+    if (!dragStart) return;
     const start = dragStart;
     dragStart = null;
 
@@ -220,7 +437,7 @@ export function createCommander(
       const field = surface.screenToField(ev.clientX, ev.clientY);
       markers.setRallyPoint(ev.clientX, ev.clientY);
       const unitIds = selection.selected();
-      cancelRallyMode();
+      cancelOrderMode();
       if (unitIds.length > 0) issue({ kind: "rally", unitIds, target: field, at: Date.now() });
       return;
     }
@@ -228,6 +445,18 @@ export function createCommander(
     // Task 44: Alt+click pings without touching the selection.
     if (ev.altKey) {
       markers.ping(ev.clientX, ev.clientY);
+      return;
+    }
+
+    // Task 52: attack-move mode — the next click on the field engages towards it.
+    if (placingAttackMove) {
+      const field = surface.screenToField(ev.clientX, ev.clientY);
+      const unitIds = selection.selected();
+      cancelOrderMode();
+      if (unitIds.length > 0) {
+        clearWaypoints();
+        issue({ kind: "attack-move", unitIds, target: field, at: Date.now() });
+      }
       return;
     }
 
@@ -263,10 +492,28 @@ export function createCommander(
         }
         return;
       }
+      lastClick = null; // ground has no kind to spread out to
       selection.clear();
       return;
     }
+    // Task 66: a second click on the same unit takes every unit of that kind.
+    const now = Date.now();
+    const doubleClick =
+      lastClick !== null &&
+      lastClick.id === best &&
+      now - lastClick.at <= DOUBLE_CLICK_MS &&
+      Math.hypot(lastClick.x - ev.clientX, lastClick.y - ev.clientY) <= DOUBLE_CLICK_SLOP_PX;
+    lastClick = doubleClick ? null : { id: best, x: ev.clientX, y: ev.clientY, at: now };
+    if (doubleClick) {
+      const unit = surface.units().find((u) => u.id === best);
+      if (unit) selection.selectAllOfKind(surface.units(), unit.kind);
+      events.onSelect?.();
+      return;
+    }
     if (ev.shiftKey) selection.toggle(best);
+    // Task 67: Ctrl+click (Cmd on macOS) adds without the toggle — clicking an
+    // already-selected unit keeps it selected instead of dropping it.
+    else if (ev.ctrlKey || ev.metaKey) selection.add(best);
     else selection.select([best]);
   };
 
@@ -348,6 +595,8 @@ export function createCommander(
           events.onSelect?.();
           maybeFocusGroup(n);
         }
+        // Task 69: assigning or recalling changes what the chips should say.
+        groupIndicators.update();
       }),
     );
   }
@@ -366,6 +615,44 @@ export function createCommander(
   offs.push(registry.on("battle.orderFollow", () => orderSelection("follow", true)));
   offs.push(registry.on("battle.orderHold", () => orderSelection("hold", false)));
   offs.push(registry.on("battle.orderRetreat", () => orderSelection("retreat", false)));
+  // Task 54: charge aims at the pointer, like attack — a charge with no enemy in
+  // front of it is still a charge, so no extra mode and no click.
+  offs.push(registry.on("battle.orderCharge", () => orderSelection("charge", true)));
+  // Tasks 57-58: spread out and form up are pointerless orders about the shape
+  // of the selection, wherever it happens to be standing.
+  offs.push(registry.on("battle.orderSpread", () => orderSelection("spread", false)));
+  offs.push(registry.on("battle.orderFormUp", () => orderSelection("form-up", false)));
+
+  // -- fire modes (tasks 74-75) ----------------------------------------------------
+  // Both are pointerless: they say how the group fights, not where to go, so
+  // they ride on an attack order aimed at the pointer rather than moving anyone.
+  offs.push(
+    registry.on("battle.fireAtWill", () => {
+      fireMode = "at-will";
+      fireToggle.set("at-will");
+      orderSelection("attack", true);
+    }),
+  );
+  offs.push(
+    registry.on("battle.holdFire", () => {
+      fireMode = "hold-fire";
+      fireToggle.set("hold-fire");
+      orderSelection("hold", false);
+    }),
+  );
+
+  // -- attack-move (task 52): A arms the mode, the next field click issues it --
+  offs.push(
+    registry.on("battle.orderAttackMove", () => {
+      if (placingAttackMove) {
+        cancelOrderMode();
+        return;
+      }
+      if (selection.selected().length === 0) return;
+      placingAttackMove = true;
+      setModeHint("Attack-move: click the field to advance and engage. Esc cancels.");
+    }),
+  );
 
   // -- ping (task 44): the Alt+q chord drops one at the pointer ------------------
   offs.push(
@@ -378,7 +665,7 @@ export function createCommander(
   offs.push(
     registry.on("battle.setRallyPoint", () => {
       if (placingRally) {
-        cancelRallyMode();
+        cancelOrderMode();
         return;
       }
       if (selection.selected().length === 0) return;
@@ -406,8 +693,8 @@ export function createCommander(
   // Esc cancels rally mode and drops queued waypoints.
   const onKeyDown = (ev: KeyboardEvent): void => {
     if (ev.key !== "Escape") return;
-    if (placingRally) {
-      cancelRallyMode();
+    if (placingRally || placingAttackMove) {
+      cancelOrderMode();
       ev.stopPropagation();
     } else if (waypointQueue.length > 0) {
       clearWaypoints();
@@ -417,6 +704,7 @@ export function createCommander(
 
   // -- surface events ------------------------------------------------------------
   overlay.addEventListener("pointerdown", onPointerDown);
+  overlay.addEventListener("contextmenu", onContextMenu);
   window.addEventListener("pointermove", onPointerMove);
   window.addEventListener("pointermove", beginMarquee);
   window.addEventListener("pointerup", onPointerUp);
@@ -436,6 +724,9 @@ export function createCommander(
   offs.push(
     selection.onChanged(() => {
       clearWaypoints();
+      // Task 59: with nothing selected there is nothing to order, so the row
+      // is hidden and its buttons disabled.
+      orderPanel.setEnabled(selection.selected().length > 0);
       updatePanel();
     }),
   );
@@ -446,6 +737,7 @@ export function createCommander(
     destroy() {
       for (const off of offs) off();
       overlay.removeEventListener("pointerdown", onPointerDown);
+      overlay.removeEventListener("contextmenu", onContextMenu);
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointermove", beginMarquee);
       window.removeEventListener("pointerup", onPointerUp);
@@ -455,6 +747,14 @@ export function createCommander(
       for (const d of delays) d.destroy();
       markers.destroy();
       panel.destroy();
+      orderPanel.destroy();
+      rings.destroy();
+      groupIndicators.destroy();
+      formationSelector.destroy();
+      stanceSelector.destroy();
+      ghost.destroy();
+      stanceIcons.destroy();
+      fireToggle.destroy();
       modeHint.remove();
     },
   };

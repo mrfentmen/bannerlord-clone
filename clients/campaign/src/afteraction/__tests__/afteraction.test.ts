@@ -6,6 +6,7 @@
 
 import { beforeEach, describe, expect, it } from "vitest";
 import {
+  battleReportJson,
   battleSummaryText,
   buildReport,
   casualtyBreakdown,
@@ -13,6 +14,7 @@ import {
   createReportScreen,
   createWarStats,
   defeatScreen,
+  downloadBattleJson,
   REPLAY_SPEEDS,
   victoryScreen,
   type AfterActionData,
@@ -163,5 +165,43 @@ describe("shareable summary (task 75)", () => {
     expect(text).toContain("VICTORY — Test Field");
     expect(text).toContain("MVP: infantry (50 kills)");
     expect(text).toContain("Captured: Enemy captain");
+  });
+});
+
+describe("JSON export (task 87)", () => {
+  it("serializes the same report the text card prints", () => {
+    const report = buildReport(DATA, KILLS);
+    const json = battleReportJson(report);
+    const parsed = JSON.parse(json) as Record<string, unknown>;
+    // The numbers agree: what the JSON carries is what the card showed.
+    expect(parsed["playerWon"]).toBe(true);
+    expect(parsed["battleLabel"]).toBe("Test Field");
+    expect(parsed["playerKills"]).toBe(report.playerKills);
+    expect(parsed["durationS"]).toBe(report.durationS);
+    expect(battleSummaryText(report)).toContain("VICTORY — Test Field");
+  });
+
+  it("downloads as battle-report.json", () => {
+    const clicks: string[] = [];
+    const origCreate = document.createElement.bind(document);
+    const origObjectURL = URL.createObjectURL.bind(URL);
+    (URL as unknown as { createObjectURL: () => string }).createObjectURL = () => "blob:fake";
+    const createStub = (tag: string): HTMLElement => {
+      const el = origCreate(tag);
+      if (tag === "a") {
+        el.click = () => {
+          clicks.push((el as HTMLAnchorElement).download);
+        };
+      }
+      return el;
+    };
+    (document as unknown as { createElement: typeof createStub }).createElement = createStub;
+    try {
+      downloadBattleJson(buildReport(DATA, KILLS));
+      expect(clicks).toContain("battle-report.json");
+    } finally {
+      (document as unknown as { createElement: typeof origCreate }).createElement = origCreate;
+      (URL as unknown as { createObjectURL: typeof origObjectURL }).createObjectURL = origObjectURL;
+    }
   });
 });

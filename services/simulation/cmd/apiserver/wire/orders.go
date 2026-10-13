@@ -17,9 +17,9 @@ type TradeRequest struct {
 // TradeResult is the answer to a trade. Accepted false with a Reason is a
 // refusal the player can read, not a transport failure, so it arrives as 200.
 type TradeResult struct {
-	Accepted bool   `json:"accepted"`
-	Side     string `json:"side"`
-	GoodName string `json:"goodName,omitempty"`
+	Accepted  bool    `json:"accepted"`
+	Side      string  `json:"side"`
+	GoodName  string  `json:"goodName,omitempty"`
 	UnitPrice float64 `json:"unitPrice"`
 	Quantity  float64 `json:"quantity"`
 	Total     float64 `json:"total"`
@@ -43,8 +43,8 @@ type RecruitRequest struct {
 
 // RecruitResult is the answer to a hire.
 type RecruitResult struct {
-	Accepted  bool   `json:"accepted"`
-	UnitName  string `json:"unitName"`
+	Accepted  bool    `json:"accepted"`
+	UnitName  string  `json:"unitName"`
 	Quantity  float64 `json:"quantity"`
 	TotalCost float64 `json:"totalCost"`
 	// NewCount is how many of this unit the party holds after the hire.
@@ -64,9 +64,9 @@ type TalkRequest struct {
 
 // TalkToNotableResult is a notable's dialogue and the actions open to the player.
 type TalkToNotableResult struct {
-	NotableID string         `json:"notableId"`
-	Name      string         `json:"name"`
-	Dialogue  []string       `json:"dialogue"`
+	NotableID string          `json:"notableId"`
+	Name      string          `json:"name"`
+	Dialogue  []string        `json:"dialogue"`
 	Actions   []NotableAction `json:"actions"`
 }
 
@@ -91,9 +91,9 @@ type ImproveRelationResult struct {
 
 // BattleXpInput is the aftermath of a battle. Losers learn too, at half rate.
 type BattleXpInput struct {
-	Won            bool     `json:"won"`
-	EnemyStrength  float64  `json:"enemyStrength"`
-	StackIDs       []string `json:"stackIds,omitempty"`
+	Won           bool     `json:"won"`
+	EnemyStrength float64  `json:"enemyStrength"`
+	StackIDs      []string `json:"stackIds,omitempty"`
 }
 
 // BattleXpAward is XP banked into one stack.
@@ -121,7 +121,7 @@ type UpgradeTroopsResult struct {
 
 // MarchRequest is a march order, or the same order asked about as a plan.
 type MarchRequest struct {
-	PartyID               string `json:"partyId"`
+	PartyID                 string `json:"partyId"`
 	DestinationSettlementID string `json:"destinationSettlementId"`
 	// Departure is "now" or "hold".
 	Departure string `json:"departure"`
@@ -131,9 +131,9 @@ type MarchRequest struct {
 // section 9 for exactly which constants it uses and why the march system, not
 // this, is the authority.
 type MarchPlan struct {
-	PartyID                string `json:"partyId"`
+	PartyID                 string `json:"partyId"`
 	DestinationSettlementID string `json:"destinationSettlementId"`
-	DestinationName        string `json:"destinationName"`
+	DestinationName         string `json:"destinationName"`
 	// Route is the path through surveyed roads, for drawing on the map.
 	Route []Point `json:"route"`
 	// DistanceKm converts the model's leagues.
@@ -197,7 +197,7 @@ type StateTaxRequest struct {
 
 // ConstructRequest queues a settlement project.
 type ConstructRequest struct {
-	TownID    string `json:"townId"`
+	TownID     string `json:"townId"`
 	BuildingID string `json:"buildingId"`
 }
 
@@ -208,17 +208,106 @@ type EthnicityRequest struct {
 
 // PlayerCharacter is the whole sheet from the character maker, posted verbatim.
 type PlayerCharacter struct {
-	FirstName      string             `json:"firstName"`
-	LastName       string             `json:"lastName"`
-	Gender         string             `json:"gender"`
-	AppearanceID   string             `json:"appearanceId"`
-	EthnicityID    string             `json:"ethnicityId"`
-	Age            float64            `json:"age"`
-	StartCity      string             `json:"startCity"`
-	Difficulty     string             `json:"difficulty"`
+	FirstName         string            `json:"firstName"`
+	LastName          string            `json:"lastName"`
+	Gender            string            `json:"gender"`
+	AppearanceID      string            `json:"appearanceId"`
+	EthnicityID       string            `json:"ethnicityId"`
+	Age               float64           `json:"age"`
+	StartCity         string            `json:"startCity"`
+	Difficulty        string            `json:"difficulty"`
 	BackgroundChoices map[string]string `json:"backgroundChoices"`
-	BonusPoints    map[string]float64 `json:"bonusPoints"`
+	// Attributes is the six-attribute sheet the character maker allocates, and
+	// SkillFocus the focus points it spends on individual skills. Both are the
+	// CHARACTER.md record; they are kept as maps rather than validated against the
+	// catalog here because the catalog is world data the simulation does not read,
+	// and a character the client may legitimately change the shape of should not be
+	// rejected over a skill id the simulation has no opinion about.
+	Attributes map[string]float64 `json:"attributes,omitempty"`
+	SkillFocus map[string]float64 `json:"skillFocus,omitempty"`
+	// BonusPoints is the character maker's pre-attribute focus pool, kept so an
+	// older client still posts a sheet this accepts.
+	BonusPoints    map[string]float64 `json:"bonusPoints,omitempty"`
 	StartingSkills map[string]float64 `json:"startingSkills"`
 	StartingCash   float64            `json:"startingCash"`
 	Biography      string             `json:"biography"`
+}
+
+// BattleResultInput is the legacy battle outcome (casualties as a single number).
+type BattleResultInput struct {
+	Won               bool     `json:"won"`
+	PlayerLosses      float64  `json:"playerLosses"`
+	Loot              float64  `json:"loot"`
+	EnemyStrength     float64  `json:"enemyStrength"`
+	PrisonersCaptured []PrisonerInput `json:"prisonersCaptured,omitempty"`
+}
+
+// PrisonerInput is a captured enemy troop type.
+type PrisonerInput struct {
+	TroopID string  `json:"troopId"`
+	Name    string  `json:"name"`
+	Count   float64 `json:"count"`
+	Tier    float64 `json:"tier"`
+}
+
+// BattleParticipantResult is one side's authoritative outcome.
+type BattleParticipantResult struct {
+	PartyID         string  `json:"partyId"`
+	Name            string  `json:"name"`
+	IsPlayer        bool    `json:"isPlayer"`
+	InitialTroops   float64 `json:"initialTroops"`
+	SurvivingTroops float64 `json:"survivingTroops"`
+	Killed          float64 `json:"killed"`
+	Wounded         float64 `json:"wounded"`
+	PrisonersTaken  float64 `json:"prisonersTaken"`
+	PrisonersLost   float64 `json:"prisonersLost"`
+	Retreated       bool    `json:"retreated"`
+}
+
+// BattleResult is the authoritative battle outcome.
+type BattleResult struct {
+	BattleID string                  `json:"battleId"`
+	Winner   string                  `json:"winner"`
+	Attacker BattleParticipantResult `json:"attacker"`
+	Defender BattleParticipantResult `json:"defender"`
+	Loot     float64                 `json:"loot"`
+	Ticks    float64                 `json:"ticks"`
+}
+
+// BattleResultOutcome is what the campaign returns after applying a battle.
+type BattleResultOutcome struct {
+	TroopsRemaining float64          `json:"troopsRemaining"`
+	Money           float64          `json:"money"`
+	XPAwards        []BattleXpAward  `json:"xpAwards"`
+	Prisoners       []PrisonerState  `json:"prisoners"`
+}
+
+// PrisonerState is a held prisoner type.
+type PrisonerState struct {
+	TroopID string  `json:"troopId"`
+	Name    string  `json:"name"`
+	Count   float64 `json:"count"`
+	Tier    float64 `json:"tier"`
+}
+
+// NearbyParty is an NPC party within encounter range.
+//
+// The client's NpcParty interface has position as a required field, and the
+// encounter flow reads it: it draws the force on the map and works out which
+// way to run. A route that left position off would have the client computing a
+// direction out of undefined, which is a NaN carried into the flee order rather
+// than an error the player could see. So it is here, and always.
+//
+// Destination and SpeedKmPerDay are declared as null/absent rather than zero,
+// because a stationary party and a party whose route has not been worked out are
+// different facts and the client's type says so.
+type NearbyParty struct {
+	ID         string  `json:"id"`
+	Name       string  `json:"name"`
+	TroopCount float64 `json:"troopCount"`
+	Hostile    bool    `json:"hostile"`
+	DistanceKm float64 `json:"distanceKm"`
+	// Position is where the party is now, in the same map units as the
+	// player's own position.
+	Position Point `json:"position"`
 }

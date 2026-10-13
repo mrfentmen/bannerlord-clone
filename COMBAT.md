@@ -114,3 +114,70 @@ Per SPEC.md section 5.1 and 10: 300 units at 60 fps and 1,000 units at 30 fps on
 - Keyboard and mouse first, rebindable.
 - Gamepad support later.
 - Camera: shoulder, over-the-shoulder aim, and a tactical overhead view for issuing orders.
+
+## 15. UNIT TYPES IN DETAIL
+
+### Infantry
+- **Militia:** Cheap, numerous, fragile. Good for garrisons, bad for open battle.
+- **Riflemen:** Standard line infantry. Reliable, versatile.
+- **Heavy Infantry:** Armored, slow, deadly in melee. Breaks lines.
+- **Marksmen:** Long-range precision. Fragile up close.
+- **Medics:** Heal wounded. No combat value, immense strategic value.
+- **Engineers:** Build, repair, demolish. Essential for sieges.
+
+### Cavalry
+- **Scouts:** Fast, light, excellent vision. Die if caught.
+- **Mounted Rifles:** Frontier specialty. Shoot from horseback, vanish.
+- **Heavy Cavalry:** Shock troops. Devastating charge, vulnerable if stopped.
+
+### Support
+- **Supply Trucks:** Carry ammo, food, medicine. Unarmed. Protect them.
+- **Artillery:** Long-range firepower. Slow, fragile, game-changing.
+- **Command:** Officers boost nearby troops. Kill them and units rout.
+
+## 16. MORALE SYSTEM
+
+Units don't fight to the last man. They break.
+
+**Morale factors:**
+- Casualties (friends dying hurts)
+- Leadership (officers nearby help)
+- Winning/losing (momentum matters)
+- Supply (hungry troops don't fight)
+- Terrain (defending home ground helps)
+- Reputation (elite units hold longer)
+
+**Breakpoints:**
+- **Steady (>70):** Fight normally
+- **Shaken (40-70):** Reduced accuracy, may waver
+- **Breaking (20-40):** Likely to rout if pressed
+- **Routed (<20):** Flee. Can be rallied by officers.
+
+## 17. TERRAIN EFFECTS
+
+- **High ground:** +25% ranged accuracy, +15% melee defense
+- **Forest:** -30% visibility, +20% ambush chance
+- **Urban:** -50% vehicle speed, +30% infantry defense
+- **Mud:** -40% movement, vehicles bogged down
+- **Night:** -40% accuracy, +50% stealth
+
+## 18. FORMATIONS
+
+- **Line:** Balanced. Good all-around.
+- **Column:** Fast movement. Vulnerable to flanking.
+- **Wedge:** Breakthrough. Devastating charge, weak flanks.
+- **Square:** Anti-cavalry. Immobile but solid.
+- **Skirmish:** Spread out. Hard to hit, hard to command.
+- **Shield Wall:** Maximum defense. Very slow.
+
+## 19. COMMAND & CONTROL
+
+Orders take time to propagate. Distance, terrain, and chaos cause delays.
+
+- **Instant:** Units within shouting distance of player character
+- **Fast (5s):** Via runners, within line of sight
+- **Slow (15s):** Via radio, anywhere on battlefield
+- **Delayed (30s+):** If command structure disrupted
+
+This is why officers matter. Kill the officers, and the enemy army becomes
+a mob.

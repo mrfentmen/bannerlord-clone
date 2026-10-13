@@ -11,6 +11,9 @@
  * - flavor text for the character story
  */
 
+import type { AttributeId, SkillId } from "./attributes.js";
+import { FAMILY_CATEGORY } from "./families.js";
+
 /** A single background choice (childhood, youth, training, etc.). */
 export interface BackgroundOption {
   id: string;
@@ -191,6 +194,15 @@ export const BACKGROUNDS: BackgroundCategory[] = [
   },
 ];
 
+/**
+ * Every stage of character creation in order, Bannerlord-style: the family
+ * you were born into first, then the four life stages. The maker renders
+ * these, and `computeCharacterStats` / `scenarioForBackgrounds` read them.
+ * `BACKGROUNDS` stays exported unchanged for anything that only wants the
+ * life stages.
+ */
+export const CHARACTER_STAGES: BackgroundCategory[] = [FAMILY_CATEGORY, ...BACKGROUNDS];
+
 /** Appearance presets — face/body options for the character portrait. */
 export interface AppearancePreset {
   id: string;
@@ -272,15 +284,28 @@ export interface GameCharacter {
   appearanceId: string;
   ethnicityId: string;
   backgroundChoices: Record<string, string>; // categoryId -> optionId
-  /** Player-allocated bonus points: skill -> points. */
-  bonusPoints: Record<string, number>;
+  /**
+   * The six attributes as the player allocated them (`src/data/attributes.ts`).
+   *
+   * These, plus `skillFocus`, are the record CHARACTER.md describes; they are not
+   * derived from the background sheet, which cannot express six attributes because
+   * it was written before the client had any.
+   */
+  attributes: Record<AttributeId, number>;
+  /** Focus points the player spent on individual skills: skill id -> points. */
+  skillFocus: Record<SkillId, number>;
   /** Starting city slug. */
   startCity: string;
   /** Character age. */
   age: number;
   /** Difficulty id. */
   difficulty: string;
-  /** Computed starting skills from backgrounds + ethnicity + bonus points. */
+  /**
+   * The nine broad skills the background and age sheets speak in: base 1 plus what
+   * the choices granted. The canonical eighteen are derived from this plus the
+   * attributes by `startingSkillLevels`; the two are kept side by side because the
+   * clan roster and the simulation's `ClanMember.skills` are on this sheet's scale.
+   */
   startingSkills: Record<string, number>;
   startingCash: number;
   biography: string;
@@ -434,7 +459,7 @@ export const STARTING_SCENARIOS: StartingScenario[] = [
     id: "debt-collector",
     title: "The Debt",
     description: "You owe money to the wrong people. They found you.",
-    triggers: ["street", "hustler", "dropout"],
+    triggers: ["street", "hustler"],
     objective: "Pay off $2,000 or deal with the collector",
     reward: "Clear your name, gain street rep",
   },
@@ -442,7 +467,7 @@ export const STARTING_SCENARIOS: StartingScenario[] = [
     id: "family-business",
     title: "Family Business",
     description: "Your family's shop is failing. You're the only hope.",
-    triggers: ["suburbs", "small-business", "college"],
+    triggers: ["suburbs", "merchant", "trade"],
     objective: "Earn $5,000 to save the shop",
     reward: "Family workshop, +trade skill",
   },
@@ -450,7 +475,7 @@ export const STARTING_SCENARIOS: StartingScenario[] = [
     id: "military-call",
     title: "Old Unit",
     description: "Your old CO calls. He needs people he can trust.",
-    triggers: ["military", "cop", "athlete"],
+    triggers: ["military", "cop", "athlete", "badge"],
     objective: "Complete 3 missions for the unit",
     reward: "Military contacts, combat gear",
   },
@@ -458,7 +483,7 @@ export const STARTING_SCENARIOS: StartingScenario[] = [
     id: "church-mission",
     title: "Community Call",
     description: "The neighborhood church needs protection from gangs.",
-    triggers: ["church", "projects", "organizer"],
+    triggers: ["projects"],
     objective: "Drive out the gang threat",
     reward: "Community loyalty, recruitment bonus",
   },
@@ -466,7 +491,7 @@ export const STARTING_SCENARIOS: StartingScenario[] = [
     id: "farm-crisis",
     title: "The Farm",
     description: "Drought hit. The family farm is dying.",
-    triggers: ["rural", "farmhand"],
+    triggers: ["rural", "farm", "outdoors"],
     objective: "Find water or new income for the farm",
     reward: "Land, +survival skill",
   },
@@ -640,7 +665,7 @@ export function computeCharacterStats(
   let cash = 0;
   const storyParts: string[] = [];
 
-  for (const category of BACKGROUNDS) {
+  for (const category of CHARACTER_STAGES) {
     const optionId = backgroundChoices[category.id];
     const option = category.options.find((o) => o.id === optionId);
     if (!option) continue;

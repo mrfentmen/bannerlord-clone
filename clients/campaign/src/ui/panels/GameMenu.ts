@@ -36,6 +36,8 @@ export interface GameMenuOptions {
   onSaveAndQuit?: () => void | Promise<void>;
   /** Quit to the title screen. The button asks twice: it arms, then fires. */
   onQuitToTitle: () => void;
+  /** Open the retirement flow (two-step inside the retire panel). */
+  onRetire?: () => void;
   /** The menu closed (resume, the close button, or Escape). */
   onClose: () => void;
 }
@@ -105,6 +107,8 @@ export function gameMenuPanel(options: GameMenuOptions): GameMenuHandle {
     saveQuit = btn;
   }
 
+  const retire = entry("Retire ruler", "game-menu-retire", () => options.onRetire?.(), "btn btn--quiet");
+
   const quit = h(
     "button",
     { type: "button", class: "btn btn--danger game-menu__btn", "data-testid": "game-menu-quit" },
@@ -131,6 +135,7 @@ export function gameMenuPanel(options: GameMenuOptions): GameMenuHandle {
       settings,
       controls,
       ...(saveQuit ? [saveQuit] : []),
+      ...(options.onRetire ? [retire] : []),
       quit,
     ),
   );

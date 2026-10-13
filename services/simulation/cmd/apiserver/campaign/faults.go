@@ -40,10 +40,20 @@ type Fault struct {
 	Code    string
 	Message string
 	Reason  string
+
+	// cause is a sentinel this fault also answers to. A caller that wants to know
+	// *which* condition produced the fault -- "was this the save-busy guard, or
+	// some other conflict?" -- tests errors.Is against the sentinel rather than
+	// matching on the message. Rendering the fault never shows it.
+	cause error
 }
 
 // Error implements error. The message is the developer-facing sentence.
 func (f *Fault) Error() string { return f.Code + ": " + f.Message }
+
+// Unwrap lets errors.Is reach the sentinel behind a fault, so a guard can be
+// identified without being reimplemented at every call site.
+func (f *Fault) Unwrap() error { return f.cause }
 
 // Status returns the HTTP status for this fault.
 func (f *Fault) Status() int {
@@ -73,6 +83,14 @@ func conflictf(reason, format string, args ...any) *Fault {
 		Message: fmt.Sprintf(format, args...),
 		Reason:  reason,
 	}
+}
+
+// wrappingConflictf is conflictf with a sentinel underneath it, for a guard whose
+// callers need to tell that guard apart from other conflicts.
+func wrappingConflictf(cause error, reason, format string, args ...any) *Fault {
+	f := conflictf(reason, format, args...)
+	f.cause = cause
+	return f
 }
 
 func unprocessablef(reason, format string, args ...any) *Fault {

@@ -19,7 +19,7 @@ export interface KeyBinding {
   alt?: boolean;
 }
 
-export type ActionCategory = "interface" | "campaign-map" | "battle-command";
+export type ActionCategory = "interface" | "campaign-map" | "battle-command" | "player";
 
 /** The ids the catalog declares at boot. Modules add more at runtime. */
 export type InputActionId =
@@ -27,6 +27,9 @@ export type InputActionId =
   | "ui.cancel"
   | "ui.confirm"
   | "ui.settings"
+  | "ui.clan"
+  | "ui.party"
+  | "ui.journal"
   | "game.quicksave"
   // -- campaign map ----------------------------------------------------------
   | "map.panUp"
@@ -46,7 +49,17 @@ export type InputActionId =
   | "battle.selectAll"
   | "battle.ping"
   | "battle.setRallyPoint"
-  | "battle.retreatHorn";
+  | "battle.retreatHorn"
+  // -- player character (walk/drive mode) ------------------------------------
+  | "player.moveForward"
+  | "player.moveBack"
+  | "player.moveLeft"
+  | "player.moveRight"
+  | "player.jump"
+  | "player.sprint"
+  | "player.crouch"
+  | "player.togglePerspective"
+  | "player.interact";
 
 export interface ActionDef {
   /**
@@ -99,6 +112,15 @@ export const ACTION_DEFS: readonly ActionDef[] = [
   def("ui.settings", "Open settings", "interface",
     "Opens the settings panel. Unbound by default — assign a key in the keybinding editor.",
     []),
+  def("ui.clan", "Open clan panel", "interface",
+    "Opens the clan panel: family, courtship, clan standing, held lords.",
+    [{ key: "l" }], { preventDefault: true }),
+  def("ui.party", "Open party panel", "interface",
+    "Opens the party panel: troops, prisoners, supplies, wages.",
+    [{ key: "p" }], { preventDefault: true }),
+  def("ui.journal", "Open quest journal", "interface",
+    "Opens the quest journal: active, completed and failed quests.",
+    [{ key: "j" }], { preventDefault: true }),
   def("game.quicksave", "Quicksave", "interface",
     "Writes the live campaign to the Quicksave slot. Blocked on Ironman — ironman runs keep only the 5-minute autosave.",
     [{ key: "F5" }], { preventDefault: true }),
@@ -149,6 +171,30 @@ export const ACTION_DEFS: readonly ActionDef[] = [
     "Selects every unit under your command.", [{ key: "a", ctrl: true }]),
   def("battle.ping", "Ping the map", "battle-command",
     "Drops a visible marker where you point.", [{ key: "q", alt: true }]),
+
+  def("player.moveForward", "Move forward", "player",
+    "Walk forward, relative to the camera. Active only in walk mode.",
+    [{ key: "w" }, { key: "W" }, { key: "ArrowUp" }], { preventDefault: true }),
+  def("player.moveBack", "Move back", "player",
+    "Walk backward, relative to the camera. Active only in walk mode.",
+    [{ key: "s" }, { key: "S" }, { key: "ArrowDown" }], { preventDefault: true }),
+  def("player.moveLeft", "Strafe left", "player",
+    "Strafe left, relative to the camera. Active only in walk mode.",
+    [{ key: "a" }, { key: "A" }, { key: "ArrowLeft" }], { preventDefault: true }),
+  def("player.moveRight", "Strafe right", "player",
+    "Strafe right, relative to the camera. Active only in walk mode.",
+    [{ key: "d" }, { key: "D" }, { key: "ArrowRight" }], { preventDefault: true }),
+  def("player.jump", "Jump", "player",
+    "Jump. Active only in walk mode.", [{ key: " " }], { preventDefault: true }),
+  def("player.sprint", "Sprint (hold)", "player",
+    "Hold to sprint. Active only in walk mode.", [{ key: "Shift" }]),
+  def("player.crouch", "Crouch (hold)", "player",
+    "Hold to crouch. Active only in walk mode.", [{ key: "c" }, { key: "C" }, { key: "Control" }]),
+  def("player.togglePerspective", "Toggle first/third person", "player",
+    "Switches between first-person and third-person camera. Active only in walk mode.",
+    [{ key: "v" }, { key: "V" }]),
+  def("player.interact", "Enter / exit vehicle", "player",
+    "Gets in the nearby car, or gets out while driving.", [{ key: "e" }, { key: "E" }]),
 ];
 
 /** Look up a catalog entry by id. Throws for unknown ids: a typo'd action id is a

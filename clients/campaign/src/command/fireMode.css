@@ -1,0 +1,34 @@
+/* Buffy task 75: the fire-mode row, below the stance row in the order toolbar.
+   Same sheet/ink family as the other command rows; the pressed mode carries the
+   accent fill. No animation, so reduced-motion has nothing to switch off. */
+
+.cmd-fire {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.cmd-fire__mode {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--ink-500);
+  border-radius: var(--radius-1);
+  background: var(--paper-0);
+  color: var(--ink-900);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.cmd-fire__mode:hover {
+  background: var(--paper-200);
+}
+
+.cmd-fire__mode:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
+.cmd-fire__mode.is-active,
+.cmd-fire__mode[aria-pressed="true"] {
+  border-color: var(--accent-primary-deep);
+  background: var(--accent-primary);
+  color: var(--accent-primary-ink);
+}

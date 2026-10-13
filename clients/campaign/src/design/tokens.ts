@@ -76,6 +76,16 @@ export const accent = {
 } as const;
 
 /**
+ * Battle side colours for the 3D scene minimap (BattleUI.ts).
+ * High-visibility blue vs red for player vs enemy units.
+ * These are scene visualization colours, not UI chrome.
+ */
+export const battleSide = {
+  player: "#4a9eff",
+  enemy: "#ff4a4a",
+} as const;
+
+/**
  * Subtitle bar colours (task 21). Captions sit over the 3D scene rather than
  * over paper, so they need scene-proof colours: white text and a gold speaker
  * name on translucent or solid black. Functional, not decorative — and the
@@ -187,6 +197,7 @@ export const tokens = {
   ink,
   status,
   accent,
+  battleSide,
   unitKind,
   type,
   font,

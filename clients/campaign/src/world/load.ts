@@ -8,8 +8,10 @@
  */
 
 import type {
+  BoundariesFile,
   Heightfield,
   NetworkFile,
+  PlaceBoundary,
   RegionFile,
   RoadClass,
   RoadWay,
@@ -21,6 +23,7 @@ import type {
 } from "./types.js";
 import { metresPerDegreeLat, metresPerDegreeLon, type Projection } from "./types.js";
 import { terrainBands, tokens, type TownClassName } from "../design/tokens.js";
+import { BUILD_HASH } from "../buildHash.js";
 
 /** An error the UI can show a player, with a way to recover (CONSTITUTION.md §1.3). */
 export class WorldDataError extends Error {
@@ -45,10 +48,78 @@ export class WorldDataError extends Error {
   }
 }
 
+/**
+ * The highest `wire_version` this client knows how to read.
+ *
+ * Bumped when `src/world/types.ts` changes shape - a field renamed, a nesting level
+ * added - so a redeploy of newer world data is refused rather than half-read. It is the
+ * client-side twin of `CACHE_FORMAT_VERSION` in `services/world-data`, which guards the
+ * same thing for the pipeline's own stage cache: both exist because the failure they
+ * prevent is silent. A stale route cache or an unrecognised wire revision does not
+ * throw; it produces a map with pieces quietly missing.
+ *
+ * Currently 2, the version the shipped Ohio River Valley files carry.
+ */
+export const SUPPORTED_WIRE_VERSION = 2;
+
+/**
+ * Add the build hash to a world-data URL so the browser's HTTP cache cannot serve a
+ * file from a previous deployment.
+ *
+ * The world files are static and keep their names across redeploys, so nothing about
+ * the request changes when their contents do. Without this, a player who loaded the
+ * map once and came back after a new deployment could get yesterday's `region.json`
+ * out of the cache inside today's bundle - and the failure is invisible, because the
+ * JSON is still perfectly valid, it just describes the wrong region. That is the
+ * failure `loadRegion.test.ts` was written for, arriving through the cache instead of
+ * through a stale file on disk.
+ *
+ * Keyed on the build hash rather than the clock so the 154 boot tiles and the four
+ * wire files are still cached for the length of a session - a reload does not refetch
+ * 8 MB of terrain - and are refetched exactly once per deployment.
+ *
+ * The hash is a query parameter, not a path segment: these files are served from
+ * `public/world/`, and a path that does not exist would 404 rather than serve the file.
+ */
+export function cacheBust(url: string): string {
+  const separator = url.includes("?") ? "&" : "?";
+  return `${url}${separator}b=${encodeURIComponent(BUILD_HASH)}`;
+}
+
+/**
+ * Refuse a wire file whose `wire_version` this client does not know.
+ *
+ * Only files that carry the stamp are checked. `region.json` and `boundaries.json` ship
+ * without one today, and a stamp that is absent is an honest "this file is unversioned",
+ * not a claim to be validated.
+ *
+ * A stamp from the future is the dangerous direction and is refused: the client cannot
+ * know which fields were renamed, so it cannot read the file, and reading it anyway
+ * yields a map missing whatever changed. An older stamp is refused too, for the
+ * opposite reason - the deploy tool carries this field forward across redeploys
+ * specifically so it does not silently regress, so an older number on disk means a file
+ * was replaced by something that bypassed that.
+ *
+ * CONSTITUTION.md section 1.3: loud, with a way to recover, never a silent fallback.
+ */
+function validateWireVersion(name: string, file: { wire_version?: number }): void {
+  const stamp = file.wire_version;
+  if (stamp === undefined) return;
+  if (stamp === SUPPORTED_WIRE_VERSION) return;
+  throw new WorldDataError(
+    "decode",
+    `The world survey data is a different version than this game understands, so the map cannot be drawn. Update the game, or re-fetch the world data.`,
+    `${name}.json carries wire_version ${stamp}; this client reads up to ${SUPPORTED_WIRE_VERSION}. ` +
+      `Deploy with services/world-data/tools/deploy-wire-to-client.py so the version is carried forward, ` +
+      `or bump SUPPORTED_WIRE_VERSION in src/world/load.ts if this client really does read it.`,
+    false,
+  );
+}
+
 async function getJson<T>(url: string, what: string): Promise<T> {
   let response: Response;
   try {
-    response = await fetch(url);
+    response = await fetch(cacheBust(url));
   } catch (err) {
     // A network-level failure. Thrown by fetch before any status code exists.
     throw new WorldDataError(
@@ -72,6 +143,45 @@ async function getJson<T>(url: string, what: string): Promise<T> {
     throw new WorldDataError(
       "decode",
       `The world survey file for ${what} is damaged. Fetch the world data again.`,
+      `JSON.parse of ${url} threw: ${String(err)}`,
+    );
+  }
+}
+
+/**
+ * Fetch a file the client can do without.
+ *
+ * Returns `null` for a 404 and throws for everything else. The distinction is the point:
+ * `boundaries.json` is a separate wire build that a region may legitimately predate, and
+ * a client that treated its absence as a failure could not load the region at all. A 500,
+ * a truncated response or unparseable bytes is a different thing — the file was meant to be
+ * there and is not readable — and CONSTITUTION.md section 1.3 says that has to be loud.
+ */
+async function getOptionalJson<T>(url: string, what: string): Promise<T | null> {
+  let response: Response;
+  try {
+    response = await fetch(cacheBust(url));
+  } catch (err) {
+    throw new WorldDataError(
+      "network",
+      `The world survey could not be reached. Check the connection and try again.`,
+      `fetch(${url}) threw for ${what}: ${String(err)}`,
+    );
+  }
+  if (response.status === 404) return null;
+  if (!response.ok) {
+    throw new WorldDataError(
+      "network",
+      `The world survey returned an error loading the ${what} file.`,
+      `GET ${url} -> HTTP ${response.status} ${response.statusText}`,
+    );
+  }
+  try {
+    return (await response.json()) as T;
+  } catch (err) {
+    throw new WorldDataError(
+      "decode",
+      `The ${what} file is damaged. Fetch the world data again.`,
       `JSON.parse of ${url} threw: ${String(err)}`,
     );
   }
@@ -125,7 +235,7 @@ export async function loadHeightfield(
 
   let loaded = 0;
   for (const tile of tiles) {
-    const url = new URL(tile.path, new URL(baseUrl, location.href)).href;
+    const url = cacheBust(new URL(tile.path, new URL(baseUrl, location.href)).href);
     let bitmap: ImageBitmap;
     try {
       const response = await fetch(url);
@@ -267,6 +377,175 @@ export function bandFor(elevationMetres: number): (typeof terrainBands)[number] 
   return terrainBands[terrainBands.length - 1]!;
 }
 
+/**
+ * Turn the wire's boundary outlines into world-space polygons.
+ *
+ * Every check that matters happens here rather than at the point of drawing, because a
+ * tessellator handed a ring with a `NaN` in it produces an empty mesh and no message, and
+ * a mesh that is missing a town's outline looks exactly like a town that has none.
+ *
+ * Three things are refused outright rather than skipped:
+ *
+ *  - a boundary naming a settlement that `settlements.json` does not carry. That is what a
+ *    half-completed region change looks like: the two files deployed from different
+ *    regions, each internally valid, which is exactly the failure this whole loader exists
+ *    to make loud.
+ *  - a ring that is not closed. An unclosed ring is a corrupt read, and drawing it leaves a
+ *    gap the client cannot explain.
+ *  - a ring with fewer than four points, which cannot enclose any area.
+ *
+ * A multipolygon place keeps all its polygons. Taking only the largest would silently
+ * delete real land — Columbus is 29 polygons, and 26 of them are the slivers
+ * `to_multipolygon` kept rather than discard.
+ */
+export function projectBoundaries(
+  file: BoundariesFile,
+  settlements: WorldSettlement[],
+  projection: Projection,
+): PlaceBoundary[] {
+  if (!Array.isArray(file.boundaries)) {
+    throw new WorldDataError(
+      "decode",
+      "The settlement outlines in the world survey are damaged.",
+      "boundaries.json has no boundaries array",
+      false,
+    );
+  }
+  const known = new Set(settlements.map((s) => s.id));
+  const byId = new Map(settlements.map((s) => [s.id, s]));
+  const seen = new Set<string>();
+  const out: PlaceBoundary[] = [];
+
+  for (const entry of file.boundaries) {
+    if (typeof entry?.placeKey !== "string" || !known.has(entry.placeKey)) {
+      throw new WorldDataError(
+        "decode",
+        "The world survey's town outlines and its town list disagree, so the map cannot be drawn.",
+        `boundaries.json names place key ${JSON.stringify(entry?.placeKey)}, which is not among the ` +
+          `${known.size} settlements in settlements.json`,
+        false,
+      );
+    }
+    if (seen.has(entry.placeKey)) {
+      throw new WorldDataError(
+        "decode",
+        "The world survey lists the same town outline twice.",
+        `boundaries.json has two entries for place key ${entry.placeKey}`,
+        false,
+      );
+    }
+    seen.add(entry.placeKey);
+
+    const centroid = entry.centroid;
+    if (
+      !centroid ||
+      !Number.isFinite(centroid.lat) ||
+      !Number.isFinite(centroid.lon)
+    ) {
+      throw new WorldDataError(
+        "decode",
+        `${entry.name || entry.placeKey} has no usable position in the survey.`,
+        `boundaries.json ${entry.placeKey} centroid is ${JSON.stringify(centroid)}`,
+        false,
+      );
+    }
+    if (!Array.isArray(entry.polygons) || entry.polygons.length === 0) {
+      throw new WorldDataError(
+        "decode",
+        `${entry.name || entry.placeKey} has no outline in the survey.`,
+        `boundaries.json ${entry.placeKey} has ${Array.isArray(entry.polygons) ? 0 : "no"} polygons`,
+        false,
+      );
+    }
+
+    const polygons: WorldPoint[][][] = [];
+    let vertexCount = 0;
+    for (const polygon of entry.polygons) {
+      if (!Array.isArray(polygon) || polygon.length === 0) {
+        throw new WorldDataError(
+          "decode",
+          `${entry.name || entry.placeKey} has an outline with no shape in it.`,
+          `boundaries.json ${entry.placeKey} has an empty polygon`,
+          false,
+        );
+      }
+      const rings: WorldPoint[][] = [];
+      for (const ring of polygon) {
+        if (!Array.isArray(ring) || ring.length < 4) {
+          throw new WorldDataError(
+            "decode",
+            `Part of ${entry.name || entry.placeKey}'s outline is too short to be a shape.`,
+            `boundaries.json ${entry.placeKey} has a ring of ` +
+              `${Array.isArray(ring) ? ring.length : "no"} points`,
+            false,
+          );
+        }
+        const points: WorldPoint[] = [];
+        for (const point of ring) {
+          if (!Array.isArray(point) || !Number.isFinite(point[0]) || !Number.isFinite(point[1])) {
+            throw new WorldDataError(
+              "decode",
+              `Part of ${entry.name || entry.placeKey}'s outline has no usable position.`,
+              `boundaries.json ${entry.placeKey} has a malformed point ${JSON.stringify(point)}`,
+              false,
+            );
+          }
+          points.push(projection.toWorld(point[0], point[1]));
+        }
+        const first = points[0]!;
+        const last = points[points.length - 1]!;
+        if (first.x !== last.x || first.z !== last.z) {
+          throw new WorldDataError(
+            "decode",
+            `Part of ${entry.name || entry.placeKey}'s outline does not close.`,
+            `boundaries.json ${entry.placeKey} has a ring ending at ` +
+              `[${last.x.toFixed(3)}, ${last.z.toFixed(3)}] that starts at ` +
+              `[${first.x.toFixed(3)}, ${first.z.toFixed(3)}]`,
+            false,
+          );
+        }
+        rings.push(points);
+        vertexCount += points.length;
+      }
+      polygons.push(rings);
+    }
+
+    const settlement = byId.get(entry.placeKey)!;
+    out.push({
+      settlementId: entry.placeKey,
+      name: typeof entry.name === "string" && entry.name ? entry.name : settlement.name,
+      displayName:
+        typeof entry.displayName === "string" && entry.displayName
+          ? entry.displayName
+          : settlement.name,
+      sizeClass: typeof entry.sizeClass === "string" ? entry.sizeClass : null,
+      lsadCode: typeof entry.lsadCode === "string" ? entry.lsadCode : null,
+      landAreaKm2: Number.isFinite(entry.landAreaKm2) ? entry.landAreaKm2 : null,
+      centroid: projection.toWorld(centroid.lat, centroid.lon),
+      polygonCount: polygons.length,
+      vertexCount,
+      polygons,
+    });
+  }
+
+  return out;
+}
+
+/**
+ * Settlements in the region that carry no outline.
+ *
+ * Reported rather than hidden. A settlement with no boundary is a real gap in the survey,
+ * and the honest presentation is the count and the names, not a circle drawn where the
+ * outline should be.
+ */
+export function settlementsWithoutBoundaries(
+  settlements: WorldSettlement[],
+  boundaries: PlaceBoundary[],
+): WorldSettlement[] {
+  const covered = new Set(boundaries.map((b) => b.settlementId));
+  return settlements.filter((s) => !covered.has(s.id));
+}
+
 function toRoadClass(highway: string): RoadClass | null {
   if (highway === "motorway" || highway === "trunk" || highway === "primary" || highway === "secondary") {
     return highway;
@@ -287,12 +566,25 @@ export async function loadWorldData(options: LoadOptions): Promise<WorldData> {
   const base = baseUrl.endsWith("/") ? baseUrl : `${baseUrl}/`;
   const root = new URL(base, location.href).href;
 
-  onStage?.("survey", 0, 3);
-  const [region, settlementFile, network] = await Promise.all([
+  onStage?.("survey", 0, 4);
+  const [region, settlementFile, network, boundaryFile] = await Promise.all([
+    // `getJson` and `getOptionalJson` add the cache-busting build hash themselves, so
+    // every world URL in this module goes through exactly one code path for it.
     getJson<RegionFile>(`${root}region.json`, "region"),
     getJson<SettlementsFile>(`${root}settlements.json`, "settlements"),
     getJson<NetworkFile>(`${root}network.json`, "road network"),
+    // Optional, so a 404 resolves to null rather than failing the whole load. See
+    // `getOptionalJson`.
+    getOptionalJson<BoundariesFile>(`${root}boundaries.json`, "town outlines"),
   ]);
+
+  // Format first, then shape: a file from a newer wire revision may be shaped nothing
+  // like what the validators below expect, and reporting "broken elevation format" for
+  // a rename would send whoever is reading the log after the wrong problem entirely.
+  validateWireVersion("region", region);
+  validateWireVersion("settlements", settlementFile);
+  validateWireVersion("network", network);
+  if (boundaryFile) validateWireVersion("boundaries", boundaryFile);
 
   validateRegion(region);
   validateSettlements(settlementFile);
@@ -335,6 +627,12 @@ export async function loadWorldData(options: LoadOptions): Promise<WorldData> {
     });
   }
 
+  // Projected only once the projection exists, which needs the heightfield: the outlines
+  // are rings in lat/lon and every point in them has to go through `toWorld`.
+  const boundaries = boundaryFile
+    ? projectBoundaries(boundaryFile, settlements, makeProjection(region, heightfield))
+    : [];
+
   return {
     region,
     settlements,
@@ -344,8 +642,14 @@ export async function loadWorldData(options: LoadOptions): Promise<WorldData> {
       name: r.name,
       coords: r.coords,
     })),
+    boundaries,
     heightfield,
-    provenance: { elevation: "aws-terrarium", network: "openstreetmap", population: "us-census" },
+    provenance: {
+      elevation: "aws-terrarium",
+      network: "openstreetmap",
+      population: "us-census",
+      boundaries: "us-census",
+    },
   };
 }
 

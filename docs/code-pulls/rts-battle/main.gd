@@ -1,0 +1,273 @@
+extends Node2D
+## Main scene controller.
+## This is the entry point for the game.
+
+const PLAYER_TEAM_ID: int = 1
+const DRAG_THRESHOLD: float = 4.0
+const DOUBLE_TAP_THRESHOLD: float = 0.3
+const UNIT_COLLISION_MASK: int = 1
+const BIOMASS_NODE_COLLISION_MASK: int = 4
+
+var _is_select_pressed: bool = false
+var _select_press_position: Vector2 = Vector2.ZERO
+var _is_dragging: bool = false
+var _attack_move_pending: bool = false
+var _rally_set_pending: bool = false
+var _last_recall_group: int = -1
+var _last_recall_time: float = 0.0
+var _player_mother: MotherUnit = null
+
+@onready var _camera: Camera2D = $Camera2D
+@onready var _selection_box: SelectionBox = $UI/SelectionBox
+@onready var _minimap: Minimap = $UI/Minimap
+@onready var _spawn_panel: SpawnPanel = $UI/SpawnPanel
+
+
+func _ready() -> void:
+	print("Swarm Dominion initialized")
+	_load_map("res://data/map_definitions/test_arena.json")
+	_minimap.set_camera(_camera)
+	_spawn_panel.rally_set_requested.connect(_on_rally_set_requested)
+	_spawn_panel.rally_clear_requested.connect(_issue_clear_rally)
+
+
+func _load_map(path: String) -> void:
+	var definition := MapDefinition.from_file(path)
+	if definition == null:
+		push_warning("Main: failed to load map '%s'" % path)
+		return
+	var loaded := MapLoader.populate(definition, self)
+	_player_mother = _find_player_mother(loaded["mothers"])
+	_apply_camera_bounds(definition.bounds)
+
+
+func _find_player_mother(mothers: Array) -> MotherUnit:
+	for m in mothers:
+		if m is MotherUnit and m.team_id == PLAYER_TEAM_ID:
+			return m
+	return null
+
+
+func _apply_camera_bounds(bounds: Rect2) -> void:
+	if not bounds.has_area():
+		return
+	_camera.limit_left = int(bounds.position.x)
+	_camera.limit_top = int(bounds.position.y)
+	_camera.limit_right = int(bounds.position.x + bounds.size.x)
+	_camera.limit_bottom = int(bounds.position.y + bounds.size.y)
+
+
+func _unhandled_input(event: InputEvent) -> void:
+	# is_action rather than a hardcoded button so `select` is genuinely rebindable —
+	# docs/CONTROLS.md advertises the action name as the thing you would rebind.
+	if event is InputEventMouseButton and event.is_action("select"):
+		if event.pressed:
+			_begin_select(event.position)
+		else:
+			_end_select(event.position)
+	elif event is InputEventMouseMotion and _is_select_pressed:
+		_update_drag(event.position)
+	elif event.is_action_pressed("attack_move"):
+		_attack_move_pending = true
+	elif event.is_action_pressed("clear_rally"):
+		_issue_clear_rally()
+	elif event.is_action_pressed("set_rally", false, true):
+		# exact_match: Godot matches actions loosely by default, so a Shift+R event
+		# also satisfies the unmodified set_rally binding. Without this, clearing a
+		# rally would re-arm placement in the same keypress.
+		_arm_rally_from_hotkey()
+	elif event is InputEventKey and event.pressed and not event.echo:
+		var key: int = event.keycode
+		if key >= KEY_1 and key <= KEY_5:
+			var group_index: int = key - KEY_1
+			if event.ctrl_pressed:
+				SelectionManager.assign_group(group_index)
+			else:
+				_recall_group(group_index)
+		elif key == KEY_B:
+			# TEMP (SPI-1422): debug spawn from the player Mother; replaced by
+			# the spawn button in SPI-1423.
+			if is_instance_valid(_player_mother):
+				_player_mother.spawn_unit()
+	elif event.is_action_pressed("command"):
+		_handle_command()
+
+
+func _begin_select(screen_pos: Vector2) -> void:
+	_is_select_pressed = true
+	_select_press_position = screen_pos
+	_is_dragging = false
+
+
+func _update_drag(screen_pos: Vector2) -> void:
+	if not _is_dragging:
+		if _select_press_position.distance_to(screen_pos) >= DRAG_THRESHOLD:
+			_is_dragging = true
+			_selection_box.begin(_select_press_position)
+	if _is_dragging:
+		_selection_box.update_end(screen_pos)
+
+
+func _end_select(_screen_pos: Vector2) -> void:
+	if not _is_select_pressed:
+		return
+	_is_select_pressed = false
+
+	if _is_dragging:
+		_finish_drag_select()
+	else:
+		_handle_click_select()
+
+	_is_dragging = false
+
+
+func _finish_drag_select() -> void:
+	var rect := _selection_box.finish()
+	var selected: Array[UnitBase] = []
+	var canvas_transform := get_viewport().get_canvas_transform()
+	for node in get_tree().get_nodes_in_group("units"):
+		var unit := node as UnitBase
+		if unit == null or unit.team_id != PLAYER_TEAM_ID:
+			continue
+		var unit_screen_pos := canvas_transform * unit.global_position
+		if rect.has_point(unit_screen_pos):
+			selected.append(unit)
+	SelectionManager.select_units(selected)
+
+
+func _handle_click_select() -> void:
+	if _rally_set_pending:
+		_rally_set_pending = false
+		_issue_set_rally(get_global_mouse_position())
+		return
+	if _attack_move_pending:
+		_attack_move_pending = false
+		_issue_attack_move()
+		return
+	var click_pos := get_global_mouse_position()
+	var space_state := get_world_2d().direct_space_state
+	var params := PhysicsPointQueryParameters2D.new()
+	params.position = click_pos
+	params.collision_mask = UNIT_COLLISION_MASK
+	var results := space_state.intersect_point(params)
+
+	for result in results:
+		var collider = result["collider"]
+		if collider is UnitBase and collider.team_id == PLAYER_TEAM_ID:
+			SelectionManager.select_unit(collider)
+			return
+
+	SelectionManager.deselect_all()
+
+
+func _issue_attack_move() -> void:
+	var click_pos := get_global_mouse_position()
+	var selected := SelectionManager.get_selected_units()
+	for unit in selected:
+		if is_instance_valid(unit):
+			unit.attack_move_to(click_pos)
+
+
+func _on_rally_set_requested() -> void:
+	_rally_set_pending = true
+
+
+func _arm_rally_from_hotkey() -> void:
+	for unit in SelectionManager.get_selected_units():
+		if is_instance_valid(unit) and unit is MotherUnit and unit.team_id == PLAYER_TEAM_ID:
+			_rally_set_pending = true
+			return
+
+
+func _issue_set_rally(pos: Vector2) -> void:
+	for unit in SelectionManager.get_selected_units():
+		if is_instance_valid(unit) and unit is MotherUnit and unit.team_id == PLAYER_TEAM_ID:
+			unit.set_rally_point(pos)
+
+
+## Reverts every selected player Mother to the default rally (SPI-1453). Disarms any
+## pending placement first: a player who armed placement and then asked to clear
+## would otherwise set a fresh rally on their next left-click, undoing the clear.
+func _issue_clear_rally() -> void:
+	_rally_set_pending = false
+	for unit in SelectionManager.get_selected_units():
+		if is_instance_valid(unit) and unit is MotherUnit and unit.team_id == PLAYER_TEAM_ID:
+			unit.clear_rally()
+
+
+func _recall_group(index: int) -> void:
+	var now := Time.get_ticks_msec() / 1000.0
+	if index == _last_recall_group and (now - _last_recall_time) < DOUBLE_TAP_THRESHOLD:
+		var center := SelectionManager.get_group_center(index)
+		if center != Vector2.ZERO:
+			_camera.global_position = center
+			_camera.reset_smoothing()
+	_last_recall_group = index
+	_last_recall_time = now
+	SelectionManager.recall_group(index)
+
+
+func _handle_command() -> void:
+	var selected := SelectionManager.get_selected_units()
+	if selected.is_empty():
+		return
+	_dispatch_command_at(get_global_mouse_position(), selected)
+
+
+func _dispatch_command_at(click_pos: Vector2, selected: Array[UnitBase]) -> void:
+	var enemy := _get_enemy_at_position(click_pos)
+	if enemy != null:
+		_issue_engage(enemy, selected)
+		return
+	# Only non-depleted nodes reach here (see _get_biomass_node_at_position),
+	# so a right-click on a depleted node falls through to the move fallback below.
+	var node := _get_biomass_node_at_position(click_pos)
+	if node != null:
+		for unit in selected:
+			if is_instance_valid(unit):
+				unit.harvest_at(node)
+		return
+	for unit in selected:
+		if is_instance_valid(unit):
+			unit.move_to(click_pos)
+
+
+func _get_enemy_at_position(pos: Vector2) -> UnitBase:
+	var space_state := get_world_2d().direct_space_state
+	var params := PhysicsPointQueryParameters2D.new()
+	params.position = pos
+	params.collision_mask = UNIT_COLLISION_MASK
+	var results := space_state.intersect_point(params)
+	for result in results:
+		var collider = result["collider"]
+		if collider is UnitBase and collider.team_id != PLAYER_TEAM_ID and not collider._is_dead:
+			return collider
+	return null
+
+
+func _get_biomass_node_at_position(pos: Vector2) -> BiomassNode:
+	# BIOMASS_NODE_COLLISION_MASK targets the biomass-node physics layer (layer 3).
+	var space_state := get_world_2d().direct_space_state
+	var params := PhysicsPointQueryParameters2D.new()
+	params.position = pos
+	params.collision_mask = BIOMASS_NODE_COLLISION_MASK
+	var results := space_state.intersect_point(params)
+	for result in results:
+		var collider = result["collider"]
+		if collider is BiomassNode and not collider.is_depleted():
+			return collider
+	return null
+
+
+func _issue_engage(target: UnitBase, selected: Array[UnitBase]) -> void:
+	var valid_units: Array[UnitBase] = []
+	for unit in selected:
+		if is_instance_valid(unit) and not unit._is_dead:
+			valid_units.append(unit)
+	var count := valid_units.size()
+	if count == 0:
+		return
+	for i in range(count):
+		var angle := (float(i) / count) * TAU
+		var offset := Vector2(cos(angle), sin(angle)) * (valid_units[i].attack_range * 0.6)
+		valid_units[i].engage_unit(target, offset)

@@ -17,6 +17,7 @@
  */
 
 import "@babylonjs/loaders";
+import { LoadTimer } from "../models/LoadTiming.js";
 import {
   SceneLoader,
   TransformNode,
@@ -127,23 +128,32 @@ export class ModelLibrary {
   constructor(
     private readonly scene: Scene,
     private readonly baseUrl: string = MODELS_BASE_URL,
+    private readonly loadTimer: LoadTimer = new LoadTimer(),
   ) {}
 
   container(entry: ModelEntry): Promise<AssetContainer> {
     let pending = this.cache.get(entry.name);
     if (!pending) {
-      pending = SceneLoader.LoadAssetContainerAsync(this.baseUrl, entry.file, this.scene).then(
-        (c) => {
-          // The template must not render; instances are spawned from it.
-          c.removeAllFromScene();
-          if (entry.rotateX) {
-            for (const root of c.rootNodes) {
-              if (root instanceof TransformNode) root.rotation.x += entry.rotateX;
+      const timedLoad = this.loadTimer.begin(entry.name);
+      pending = Promise.resolve()
+        .then(() => SceneLoader.LoadAssetContainerAsync(this.baseUrl, entry.file, this.scene))
+        .then(
+          (c) => {
+            timedLoad.end();
+            // The template must not render; instances are spawned from it.
+            c.removeAllFromScene();
+            if (entry.rotateX) {
+              for (const root of c.rootNodes) {
+                if (root instanceof TransformNode) root.rotation.x += entry.rotateX;
+              }
             }
-          }
-          return c;
-        },
-      );
+            return c;
+          },
+          (error: unknown) => {
+            timedLoad.end();
+            throw error;
+          },
+        );
       pending.catch(() => {
         this.cache.delete(entry.name);
       });

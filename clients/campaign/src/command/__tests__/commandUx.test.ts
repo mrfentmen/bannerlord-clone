@@ -1,7 +1,7 @@
 /**
- * Commander UX batch (MASTER_PLAN tasks 40, 43-48): quick order hotkeys,
- * waypoint queue, ping, rally point, order-delay courier, stance panel,
- * retreat horn.
+ * Commander UX batch (MASTER_PLAN tasks 40, 43-48; Buffy tasks 51-52, 54, 57-58): quick
+ * order hotkeys, waypoint queue, ping, rally point, order-delay courier,
+ * stance panel, retreat horn, right-click move, attack-move mode, charge, spread out, form up.
  *
  * @vitest-environment jsdom
  */
@@ -134,6 +134,143 @@ describe("command UX batch (tasks 40, 43-48)", () => {
       expect(commander.selection.selected()).toEqual([]);
       vi.advanceTimersByTime(5000);
       expect(document.querySelector('[data-testid="cmd-ping"]')).toBeNull();
+    } finally {
+      commander.destroy();
+    }
+  });
+
+  it("task 52: A arms attack-move and the next field click issues it", () => {
+    const surface = fakeSurface();
+    const commander = createCommander(surface);
+    try {
+      input.dispatch("battle.selectAll", "keyboard");
+      input.handleKeyEvent(new KeyboardEvent("keydown", { key: "a" }));
+      const hint = document.querySelector('[data-testid="cmd-modehint"]') as HTMLElement;
+      expect(hint.hidden).toBe(false);
+      expect(hint.textContent).toContain("Attack-move");
+
+      clickAt(surface, 620, 480);
+
+      const orders = surface.orders.filter((o) => o.kind === "attack-move");
+      expect(orders).toHaveLength(1);
+      expect(orders[0]!.target).toEqual({ x: 620, z: 480 });
+      expect(orders[0]!.unitIds).toEqual(["a", "b", "c"]);
+      // The mode is spent, and the hint goes with it.
+      expect(hint.hidden).toBe(true);
+      clickAt(surface, 620, 480);
+      expect(surface.orders.filter((o) => o.kind === "attack-move")).toHaveLength(1);
+    } finally {
+      commander.destroy();
+    }
+  });
+
+  it("task 52: attack-move mode does not arm with an empty selection, and Esc cancels it", () => {
+    const surface = fakeSurface();
+    const commander = createCommander(surface);
+    try {
+      input.handleKeyEvent(new KeyboardEvent("keydown", { key: "a" }));
+      expect((document.querySelector('[data-testid="cmd-modehint"]') as HTMLElement).hidden).toBe(true);
+      clickAt(surface, 300, 300);
+      expect(surface.orders).toHaveLength(0);
+
+      input.dispatch("battle.selectAll", "keyboard");
+      input.handleKeyEvent(new KeyboardEvent("keydown", { key: "a" }));
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+      expect((document.querySelector('[data-testid="cmd-modehint"]') as HTMLElement).hidden).toBe(true);
+      clickAt(surface, 300, 300);
+      expect(surface.orders).toHaveLength(0);
+    } finally {
+      commander.destroy();
+    }
+  });
+
+  it("task 52: pressing A twice cancels the mode without ordering", () => {
+    const surface = fakeSurface();
+    const commander = createCommander(surface);
+    try {
+      input.dispatch("battle.selectAll", "keyboard");
+      input.dispatch("battle.orderAttackMove", "keyboard");
+      input.dispatch("battle.orderAttackMove", "keyboard");
+      clickAt(surface, 300, 300);
+      expect(surface.orders).toHaveLength(0);
+    } finally {
+      commander.destroy();
+    }
+  });
+
+  it("task 54: C charges at the pointer", () => {
+    const surface = fakeSurface();
+    const commander = createCommander(surface);
+    try {
+      input.dispatch("battle.selectAll", "keyboard");
+      pointer(window, "pointermove", { clientX: 540, clientY: 260 });
+      input.handleKeyEvent(new KeyboardEvent("keydown", { key: "c" }));
+
+      expect(surface.orders).toHaveLength(1);
+      expect(surface.orders[0]).toMatchObject({
+        kind: "charge",
+        unitIds: ["a", "b", "c"],
+        target: { x: 540, z: 260 },
+      });
+    } finally {
+      commander.destroy();
+    }
+  });
+
+  it("task 54: charge with nothing selected orders nobody", () => {
+    const surface = fakeSurface();
+    const commander = createCommander(surface);
+    try {
+      input.handleKeyEvent(new KeyboardEvent("keydown", { key: "c" }));
+      expect(surface.orders).toHaveLength(0);
+    } finally {
+      commander.destroy();
+    }
+  });
+
+  it("task 57: S spreads the selection out, wherever it is standing", () => {
+    const surface = fakeSurface();
+    const commander = createCommander(surface);
+    try {
+      pointer(window, "pointermove", { clientX: 900, clientY: 900 });
+      clickAt(surface, 100, 100); // select A only
+      input.handleKeyEvent(new KeyboardEvent("keydown", { key: "s" }));
+
+      expect(surface.orders).toHaveLength(1);
+      expect(surface.orders[0]).toMatchObject({ kind: "spread", unitIds: ["a"] });
+      // Pointerless: where the cursor happens to be is irrelevant.
+      expect(surface.orders[0]!.target).toBeUndefined();
+      // The panel reads the new order as a stance.
+      expect(document.querySelector('[data-testid="cmd-panel"]')!.textContent).toContain("spreading out");
+    } finally {
+      commander.destroy();
+    }
+  });
+
+  it("task 58: Shift+G forms the selection up", () => {
+    const surface = fakeSurface();
+    const commander = createCommander(surface);
+    try {
+      clickAt(surface, 300, 100); // select B only
+      input.handleKeyEvent(new KeyboardEvent("keydown", { key: "G", shiftKey: true }));
+
+      expect(surface.orders).toHaveLength(1);
+      expect(surface.orders[0]).toMatchObject({ kind: "form-up", unitIds: ["b"] });
+      expect(surface.orders[0]!.target).toBeUndefined();
+    } finally {
+      commander.destroy();
+    }
+  });
+
+  it("task 58: form up never steals plain G, which is follow (task 56)", () => {
+    const surface = fakeSurface();
+    const commander = createCommander(surface);
+    try {
+      clickAt(surface, 300, 100);
+      pointer(window, "pointermove", { clientX: 700, clientY: 700 });
+      input.handleKeyEvent(new KeyboardEvent("keydown", { key: "g" }));
+
+      expect(surface.orders.map((o) => o.kind)).toEqual(["follow"]);
     } finally {
       commander.destroy();
     }

@@ -8,7 +8,7 @@
 
 import { describe, expect, it, afterEach } from "vitest";
 import { routePanel, type RoutePanelOptions } from "../routePanel.js";
-import { createRouteRegistry, type FoundInput } from "../routeRegistry.js";
+import { createRouteRegistry, type FoundInput, type WeekLedger } from "../routeRegistry.js";
 import type { GoodId } from "../../data/types.js";
 
 function fakeStorage(): Pick<Storage, "getItem" | "setItem" | "removeItem"> {
@@ -131,5 +131,44 @@ describe("routePanel", () => {
     const { handle, host } = open();
     handle.dispose();
     expect(host.querySelector("canvas")).toBeNull();
+  });
+
+  it("ranks caravans by profit per day, best first (integration)", () => {
+    const { handle, registry } = open();
+    const mkInput = (name: string): FoundInput => ({
+      name,
+      stops: [
+        { settlementId: "a", name: "Alpha" },
+        { settlementId: "b", name: "Beta" },
+      ],
+      goodId: "textiles" as GoodId,
+      goodName: "Textiles",
+      units: 10,
+      guards: 2,
+    });
+    const slow = registry.found(mkInput("Slow Haul"), 0, { distanceKm: () => 80, kmPerDay: 40 });
+    const fast = registry.found(mkInput("Fast Haul"), 0, { distanceKm: () => 80, kmPerDay: 40 });
+    // Two settled weeks each; Fast earns more per day.
+    const wk = (weekStartDay: number, profit: number): WeekLedger => ({
+      weekStartDay,
+      weekEndDay: weekStartDay + 7,
+      legsCompleted: 1,
+      revenue: profit,
+      costOfGoods: 0,
+      guardWages: 0,
+      distanceCost: 0,
+      profit,
+      dataMissing: false,
+      notes: [],
+    });
+    slow.weeks.push(wk(0, 70), wk(7, 70));
+    fast.weeks.push(wk(0, 700), wk(7, 700));
+    handle.refresh();
+
+    const ranking = handle.root.querySelector('[data-testid="routes-ranking"]')!;
+    const items = [...ranking.querySelectorAll("li")].map((li) => li.textContent ?? "");
+    expect(items[0]).toContain("Fast Haul");
+    expect(items[1]).toContain("Slow Haul");
+    expect(items[0]).toContain("#1");
   });
 });

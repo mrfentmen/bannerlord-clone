@@ -19,14 +19,14 @@ import (
 // two units on offer. Naming them anything else would be inventing a roster the
 // simulation does not have.
 const (
-	unitMilitia = "militia"
+	unitMilitia  = "militia"
 	unitGarrison = "garrison"
 )
 
 // recruitUnit describes one unit type a town offers.
 type recruitUnit struct {
-	ID   string
-	Name string
+	ID    string
+	Name  string
 	Blurb string
 	// Available is how many the town can part with right now.
 	Available float64

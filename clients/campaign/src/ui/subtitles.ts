@@ -12,6 +12,7 @@
  * Hidden with the `hidden` attribute when no line is showing.
  */
 import { h } from "./dom.js";
+import { getAudioManager } from "../audio/AudioManager.js";
 import { settings } from "../settings/index.js";
 import type { SubtitleBackground, SubtitleSize } from "../settings/schema.js";
 
@@ -71,14 +72,17 @@ export function createSubtitleBar(): SubtitleBar {
       speakerEl.textContent = speaker;
       textEl.textContent = text;
       root.hidden = false;
+      getAudioManager().setDialogueDucked(true);
     },
     hide(): void {
       root.hidden = true;
       speakerEl.textContent = "";
       textEl.textContent = "";
+      getAudioManager().setDialogueDucked(false);
     },
     destroy(): void {
       off();
+      getAudioManager().setDialogueDucked(false);
       root.remove();
     },
   };

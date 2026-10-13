@@ -1,0 +1,29 @@
+/* Task 46: HUD hit marker. One small ✕ per damage tick, positioned from the
+   projected field coordinate. JS adds .is-visible on the next frame so the
+   fade-in runs, and removes the node after 250 ms. */
+.fb-hitmarker-layer {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
+
+.fb-hitmarker {
+  position: fixed;
+  translate: -50% -50%;
+  font-size: 14px;
+  line-height: 1;
+  font-weight: 700;
+  color: var(--paper);
+  text-shadow: 0 1px 2px var(--ink-900);
+  opacity: 1;
+  transition: opacity 200ms ease-out;
+}
+
+.fb-hitmarker.is-visible {
+  opacity: 0.85;
+}
+
+.fb-hitmarker[data-crit="true"] {
+  font-size: 20px;
+  color: var(--status-warning-mark);
+}

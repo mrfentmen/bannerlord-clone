@@ -21,11 +21,19 @@
  * that re-renders the same missing data would be a lie told to the player.
  */
 
-import { h, numberField, sectionHeader, button } from "../dom.js";
+import { button, h, numberField, sectionHeader } from "../dom.js";
 import { emptyState, errorState, panel, statusChip, dataTable, type Column } from "../kit.js";
 import { marketSkeletonBody } from "./skeletons.js";
 import { asBottomSheet, stackable } from "./narrow.js";
 import type { MarketGood, MarketState, PartyState, SimulationProvider, TradeResult } from "../../data/types.js";
+import {
+  cancelPriceAlert,
+  checkPriceAlerts,
+  pendingPriceAlerts,
+  priceAlertLine,
+  setPriceAlert,
+} from "../../economy/priceAlerts.js";
+import { analyzeSmugglingRun, planSmuggling } from "../../economy/smuggling.js";
 import { SimulationUnavailableError } from "../../data/provider.js";
 
 /** The sell-side empty copy, verbatim from ART_DIRECTION.md section 10.2. */
@@ -95,12 +103,8 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
   let party: PartyState = copyParty(options.party);
   let purse = options.money;
   let busy = false;
-  // The day the prices on screen belong to. A trade is priced against this, because the
-  // simulation refuses an order bought against a day the world has left
-  // (`validateOrderDay` answers 409). The panel therefore tracks the day itself rather
-  // than reading `options.day` every time: the caller hands it a snapshot's day when the
-  // panel is built, and the clock keeps running after that.
-  let day = options.day;
+  /** The day the prices on screen belong to. Updated by reload(). */
+  let currentDay = options.day;
   // A panel asked for a market it does not have is, by definition, about to go and
   // get one, so the first frame is the skeleton rather than a complaint about data
   // that was never on its way.
@@ -116,34 +120,39 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
     return party.goods.find((g) => g.goodId === goodId)?.quantity ?? 0;
   }
 
-  /** How much one order is worth at the price on screen. Shown before committing to it. */
-  function orderValue(good: MarketGood): number {
-    return good.price * quantity;
+  /**
+   * The price one order is placed against, which is a multiplier and not a sum of money.
+   *
+   * A good's price is the market's multiplier near one (a market holding its normal
+   * stock trades at about 1, and scarcity moves it from there — the same rule
+   * `priceFor` writes down in the fixture provider). The coin figure is
+   * `price * unitCost`, and `unitCost` is server config — `market.base_price`, or
+   * `campaign.medicine_unit_price` for medicine — which the snapshot never sends. So
+   * the client cannot multiply its way to the cost of an order, and a figure it made
+   * up would sit under the Buy button wearing the costume of a quote. The price is
+   * therefore reported as the multiplier it is, and the real total is read out of the
+   * TradeResult the simulation sends back.
+   */
+  function orderPrice(good: MarketGood): string {
+    return good.price.toFixed(2);
   }
 
   /**
    * Ask the simulation for the market again. This is a real request, which is why the
    * retry button is honest: it can succeed where the last one failed.
-   *
-   * `quiet` keeps the table on screen for the length of the request, for the calls that
-   * are made because something went wrong rather than because there is nothing to show:
-   * a skeleton over a market the player was just reading is a worse answer than a table
-   * whose numbers are one request old.
    */
-  async function reload(quiet = false): Promise<void> {
+  async function reload(): Promise<void> {
     const token = ++loadToken;
     failure = null;
-    if (!quiet) {
-      loading = true;
-      render();
-    }
+    loading = true;
+    render();
     try {
       const snapshot = await options.provider.getSnapshot();
       if (token !== loadToken) return; // A newer request already answered.
       market = copyMarket(snapshot.markets[options.townId] ?? null);
       party = copyParty(snapshot.party);
       purse = snapshot.player.resources.money;
-      day = snapshot.day;
+      currentDay = snapshot.day;
       if (!market) {
         failure = `The market at ${options.townName} did not load. The snapshot carries no market record for this town.`;
         failureDetail = `getSnapshot returned no entry for ${options.townId}.`;
@@ -174,7 +183,7 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
         goodId: good.goodId,
         side,
         quantity,
-        expectedDay: day,
+        expectedDay: currentDay,
       });
       if (result.accepted) {
         applyTrade(good, side, result);
@@ -196,33 +205,22 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
       const message =
         err instanceof SimulationUnavailableError ? err.playerMessage : "The trade could not be completed.";
       const detail = err instanceof SimulationUnavailableError ? err.developerDetail : String(err);
+      if (err instanceof SimulationUnavailableError && !err.retryable) {
+        // A 409: the world moved on while the panel was open. The refused order
+        // is not re-sent, but the prices on screen are stale, so re-read them.
+        lastMessage = { tone: "critical", text: `${message} The market was read again.` };
+        options.onError?.(`${message} :: ${detail}`);
+        busy = false;
+        render();
+        await reload();
+        return;
+      }
       lastMessage = { tone: "critical", text: message };
       options.onError?.(`${message} :: ${detail}`);
-      if (isStaleOrder(err)) {
-        // The world moved on: these prices belong to a day that has passed. The
-        // simulation's sentence is shown as it was written, and the market is read again
-        // so the numbers on screen match the world that refused the order. The order
-        // itself is not repeated — a refusal is a refusal, and resending a buy on the
-        // player's behalf is not this panel's decision to make.
-        lastMessage = { tone: "critical", text: `${message} The prices below have been read again.` };
-        void reload(true);
-      }
     } finally {
       busy = false;
       render();
     }
-  }
-
-  /**
-   * Whether the simulation refused the order because the world moved on.
-   *
-   * The provider marks a 409 — a conflict with a reason — as not retryable, which is
-   * exactly this case and nothing else on this route. The stale day is the reason the
-   * panel reads the market again; a network failure, which is retryable, is left to the
-   * player's own retry because a re-read would fail the same way.
-   */
-  function isStaleOrder(err: unknown): boolean {
-    return err instanceof SimulationUnavailableError && !err.retryable;
   }
 
   /**
@@ -236,10 +234,17 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
     if (!market) return;
     const row = market.goods.find((g) => g.goodId === good.goodId);
     if (row) {
-      row.previousPrice = result.unitPrice;
+      // Both numbers here are multipliers, which is the only reason the trend arrow
+      // means anything afterwards. The price already on screen is what the order was
+      // placed against, and marketPriceAfter is the multiplier the market actually
+      // settled on once the tick committed. unitPrice is deliberately not used: it is
+      // coins per unit, so writing it into previousPrice would have the arrow
+      // comparing a coin figure against a multiplier and reading every trade
+      // backwards.
+      row.previousPrice = row.price;
       row.price = result.marketPriceAfter;
       row.stock = side === "buy" ? row.stock - result.quantity : row.stock + result.quantity;
-      row.history = [...row.history, { day, price: result.marketPriceAfter }].slice(-HISTORY_POINTS);
+      row.history = [...row.history, { day: currentDay, price: result.marketPriceAfter }].slice(-HISTORY_POINTS);
     }
     const held = party.goods.find((g) => g.goodId === good.goodId);
     if (held) held.quantity = result.partyQuantity;
@@ -278,6 +283,23 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
         ),
       );
     }
+
+    // -- freshness: which day the prices belong to ---------------------------
+    // The clock runs while the panel is open. Prices are read on a day, and a
+    // trade priced against a day the world has left is refused, so the panel
+    // names the day its prices belong to and offers a re-read.
+    body.appendChild(
+      h(
+        "div",
+        { class: "field-row", style: "margin-bottom:var(--space-3);align-items:center" },
+        h(
+          "p",
+          { class: "caption", "data-testid": "market-freshness", style: "margin:0;flex:1" },
+          `Prices from day ${currentDay}.`,
+        ),
+        button("Refresh prices", () => void reload(), { testId: "market-refresh" }),
+      ),
+    );
 
     if (!market) {
       // Nothing to show and nothing to complain about: the request is still in flight.
@@ -318,28 +340,8 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
         { class: "field-row", style: "margin-bottom:var(--space-3)" },
         qty.field,
         h("p", { class: "caption", style: "margin:0 0 0;flex:1 1 var(--space-7)" },
-          `Purse ${money(purse)}. Prices move when you trade, so the figure you see is the figure before.`),
+          `Purse ${money(purse)}. Prices move when you trade, so the figure you see is the figure before. What an order costs in coin is the simulation's to say, and it says so when the trade lands.`),
       ),
-    );
-
-    // -- when these prices were read ------------------------------------------
-    // The clock keeps running while this panel is open, so the numbers on screen belong
-    // to a day rather than to now. Saying which day is the difference between a price
-    // the player is looking at and a price they think is live, and the button is a real
-    // read of the simulation, so it can succeed where the last one did not.
-    body.appendChild(
-      h(
-        "p",
-        { class: "caption", "data-testid": "market-freshness" },
-        `Prices read on day ${day}.`,
-      ),
-    );
-    body.appendChild(
-      button("Read the prices again", () => void reload(), {
-        variant: "quiet",
-        testId: "market-refresh",
-        disabled: busy,
-      }),
     );
 
     // -- the prices ----------------------------------------------------------
@@ -356,7 +358,14 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
       },
       { header: "History", numeric: true, render: (g) => sparkline(g) },
       { header: "Stock", numeric: true, testId: "market-stock", render: (g) => String(g.stock) },
-      { header: "Demand", numeric: true, testId: "market-demand", render: (g) => String(g.demand) },
+      {
+        header: "Demand",
+        numeric: true,
+        testId: "market-demand",
+        // Demand moves the price; showing it beside stock is what makes "prices
+        // respond to real supply and demand" visible instead of asserted.
+        render: (g) => String(g.demand),
+      },
       { header: "Held", numeric: true, testId: "market-held", render: (g) => String(heldOf(g.goodId)) },
       { header: "Trade", numeric: true, render: (g) => actionsFor(g) },
     ];
@@ -368,6 +377,7 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
       ),
     );
 
+    // -- price alerts (solo task 73): live prices checked on every render ----
     // -- what the caravan is carrying -----------------------------------------
     body.appendChild(sectionHeader("Caravan hold"));
     const held = party.goods.filter((g) => g.quantity > 0);
@@ -401,6 +411,86 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
         ),
       );
     }
+
+    body.appendChild(sectionHeader("Price alerts"));
+    const priceOf = (good: string, _settlementId: string): number | null =>
+      goods.find((g) => g.goodId === good)?.price ?? null;
+    const fired = checkPriceAlerts(priceOf);
+    for (const alert of fired) {
+      body.appendChild(
+        h("p", { class: "caption", "data-testid": `alert-fired-${alert.id}`, role: "status" },
+          `🔔 ${priceAlertLine(alert)}`),
+      );
+    }
+    const pending = pendingPriceAlerts();
+    if (pending.length === 0 && fired.length === 0) {
+      body.appendChild(
+        emptyState("No price alerts", "Set an alert below and this panel will ring it when the price crosses."),
+      );
+    } else {
+      for (const alert of pending) {
+        body.appendChild(
+          h("div", { class: "form-row", "data-testid": `alert-row-${alert.id}` },
+            h("span", { class: "caption" }, priceAlertLine(alert)),
+            button("Cancel", () => { cancelPriceAlert(alert.id); render(); }, { variant: "quiet", testId: `alert-cancel-${alert.id}` }),
+          ),
+        );
+      }
+    }
+    const goodSelect = h(
+      "select",
+      { "aria-label": "Alert good", "data-testid": "alert-good" },
+      ...goods.map((g) => h("option", { value: g.goodId }, g.name)),
+    ) as HTMLSelectElement;
+    const dirSelect = h(
+      "select",
+      { "aria-label": "Alert direction", "data-testid": "alert-direction" },
+      h("option", { value: "below" }, "falls to / below"),
+      h("option", { value: "above" }, "rises to / above"),
+    ) as HTMLSelectElement;
+    const { field: targetField, input: targetInput } = numberField("alert-target", "Target price", quantity, { min: 1 });
+    body.appendChild(
+      h("div", { class: "form-row" }, goodSelect, dirSelect, targetField,
+        button("Set alert", () => {
+          const target = Number(targetInput.value);
+          if (!Number.isFinite(target) || target <= 0) return;
+          try {
+            setPriceAlert(goodSelect.value, options.townId, options.townName, target, dirSelect.value as "above" | "below");
+          } catch {
+            return;
+          }
+          render();
+        }, { testId: "alert-set" }),
+      ),
+    );
+
+    // -- smuggling preview (solo task 75): risk analysis before the run ----
+    body.appendChild(sectionHeader("Smuggling preview"));
+    const smugGood = h(
+      "select",
+      { "aria-label": "Smuggling good", "data-testid": "smuggle-good" },
+      ...goods.map((g) => h("option", { value: g.goodId }, g.name)),
+    ) as HTMLSelectElement;
+    const { field: smugVolumeField, input: smugVolume } = numberField("smuggle-volume", "Volume", 50, { min: 1 });
+    const { field: smugHeatField, input: smugHeat } = numberField("smuggle-heat", "Watch heat 0-100", 30, { min: 0, max: 100 });
+    const smugLine = h("p", { class: "caption", "data-testid": "smuggle-analysis", role: "status" },
+      "Pick a good, volume, and watch heat for the risk read.");
+    const smugBtn = button("Analyze run", () => {
+      const volume = Number(smugVolume.value);
+      const heat = Number(smugHeat.value);
+      if (!Number.isFinite(volume) || volume <= 0 || !Number.isFinite(heat)) return;
+      const plan = planSmuggling(smugGood.value, volume, heat);
+      const analysis = analyzeSmugglingRun(plan);
+      smugLine.textContent = analysis.line;
+    }, { testId: "smuggle-analyze" });
+    body.appendChild(
+      h("div", { class: "form-row" }, smugGood, smugVolumeField, smugHeatField, smugBtn),
+    );
+    body.appendChild(smugLine);
+    body.appendChild(
+      h("p", { class: "caption" },
+        "A planning read only — runs are resolved by the campaign layer, not this panel."),
+    );
 
     // -- the honest note about where prices come from -------------------------
     body.appendChild(sectionHeader("What moved"));
@@ -436,13 +526,18 @@ export function marketPanel(options: MarketPanelOptions): MarketPanelHandle {
    * order, and the size is the decision the player is making.
    */
   function labelOrder(good: MarketGood, button: HTMLElement, side: "buy" | "sell"): void {
-    const value = money(orderValue(good));
     const verb = side === "buy" ? "Buy" : "Sell";
-    button.setAttribute("aria-label", `${verb} ${quantity} ${good.name} for ${value} at ${good.price.toFixed(2)} each`);
+    // A button reading "Buy" tells a screen reader nothing about the size of the order,
+    // so the quantity and the price it goes against are named. The coin total is not:
+    // it is the simulation's figure and it arrives with the answer.
+    button.setAttribute(
+      "aria-label",
+      `${verb} ${quantity} ${good.name} at a price of ${orderPrice(good)} each; the simulation sets the coin cost`,
+    );
     if (side === "sell" && heldOf(good.goodId) < 1) {
       button.setAttribute("title", "The caravan is holding none of this. Buy some before selling it.");
     } else {
-      button.setAttribute("title", `${verb} ${quantity} for ${value}.`);
+      button.setAttribute("title", `${verb} ${quantity} ${good.name} at a price of ${orderPrice(good)} each.`);
     }
   }
 

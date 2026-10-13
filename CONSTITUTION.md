@@ -83,19 +83,20 @@ Colours, spacing, and type come from the locked direction in `ART_AND_AUDIO.md`.
 
 ## 4. THE TECH STACK IS LOCKED
 
-> **Provenance note for agents:** every other section of this file is cross-referenced by number from the other docs. Section 4 is the one section never cited by number, and `README.md` points at this file for the "locked" tech stack — so this section is reconstructed and its contents come from `README.md`, `SPEC.md` sections 1 and 9, and `RISKS.md` row 6. Treat the conflict below as genuinely open, not as settled.
+> **Provenance note for agents:** every other section of this file is cross-referenced by number from the other docs. Section 4 is the one section never cited by number, and `README.md` points at this file for the "locked" tech stack — so this section is reconstructed and its contents come from `README.md`, `SPEC.md` sections 1 and 9, and `RISKS.md` row 6. The conflict recorded below was resolved 2026-10-02 — see section 4.1.
 
 The stack as stated across the docs:
 
 - **Rendering:** Babylon.js (browser, WebGL/WebGPU)
 - **Backend:** Go
-- **Database:** Postgres
-- **Deployment:** built locally, deployed via Cloudflare
+- **Database:** none — the simulation has no database; world persistence is Durable Objects and player saves live in the browser (IndexedDB). Postgres was dropped 2026-10-02.
+- **Deployment:** built locally, deployed via Cloudflare — Pages (client), one Worker (single domain), Containers (Go sim), Durable Objects (persistence)
 - **3D assets:** free models, tracked per `ASSETS.md`
 - **World data:** real public datasets, never hand-typed
 
-### 4.1 OPEN CONFLICT — resolve before Phase 2
-**Go does not run natively on Cloudflare Workers or Pages.** Verified against current Cloudflare documentation:
+### 4.1 RESOLVED 2026-10-02 — Cloudflare only
+**Resolution:** everything runs on Cloudflare — Pages serves the client, one Worker routes the single domain, the Go simulation runs in Containers, and Durable Objects hold world persistence. **Postgres is dropped**; world saves live in the browser (IndexedDB). Logged in `CHANGELOG.md` under **Decisions**, 2026-10-02.
+Kept for the record — why no single Cloudflare product fit the stack as written:
 
 | Claim | Reality |
 |---|---|
@@ -110,12 +111,12 @@ The three live options are the ones already listed in `SPEC.md` section 9:
 2. **Go server on a VPS or container** with Postgres, fronted by Cloudflare. Matches this stack as written. Costs a server and requires it to be running.
 3. **Hybrid:** browser simulation first, the same Go code reused server-side later. Keeps both doors open; slowest to set up.
 
-**Do not settle this silently.** Option 1 and option 3 require an explicit amendment to this section, logged in `CHANGELOG.md` under **Decisions**.
+**Settled openly:** this amendment is logged in `CHANGELOG.md` under **Decisions** (2026-10-02) with the reason, and `SPEC.md` section 9 plus `README.md` were updated in the same change.
 
 ### 4.2 Stack decisions need a reason on record
 Any change to the stack above — including a new dependency, a new hosted service, or a language swap — is logged in `CHANGELOG.md` under **Decisions** with the date and the reason. Check whether the repo already does a thing before adding a library that does it again.
 
-**Enforcement:** `RISKS.md` row 6 tracks this as an open risk with "decide in Phase 0" as the mitigation.
+**Enforcement:** `RISKS.md` row 6 tracked this as an open risk with "decide in Phase 0" as the mitigation; resolved 2026-10-02 (see 4.1).
 
 ---
 

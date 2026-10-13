@@ -29,9 +29,34 @@ import type {
   EncounterSide,
 } from "./types";
 import { BattleApiError, type BattleApi } from "./api";
+import { getAudioManager } from "../audio/AudioManager.js";
+import { BATTLEFIELD_BED } from "../audio/ambientBeds.js";
+import { appraiseLoot, appraisalSummary } from "./loot.js";
+import {
+  compareBattles,
+  type BattleComparison,
+  type BattleStats,
+} from "./comparison.js";
+import { rivalGrudge, trackRival } from "./rivals.js";
+import { isMemorable, recordWarStory, type TaleFacts } from "./warStories.js";
 
 export type FlowPhase = "idle" | "prebattle" | "live" | "afteraction";
 export type FlowMode = "server" | "local";
+
+/**
+ * The combat bed's floor (task 563): a live battle always keeps at least the
+ * first stem, so holding still sounds like a standoff rather than nothing.
+ */
+export const COMBAT_BASE_INTENSITY = 0.2;
+
+/** Maps an order's advance (0..1) onto the combat bed's intensity (task 563). */
+export function combatIntensityFor(advance: number | undefined): number {
+  const push =
+    typeof advance === "number" && Number.isFinite(advance)
+      ? Math.min(1, Math.max(0, advance))
+      : 0;
+  return COMBAT_BASE_INTENSITY + (1 - COMBAT_BASE_INTENSITY) * push;
+}
 
 /**
  * Describes the two forces when the server cannot. The app implements
@@ -42,6 +67,26 @@ export interface LocalBattleSource {
     attackerPartyId: number,
     defenderPartyId: number
   ): { attacker: EncounterSide; defender: EncounterSide };
+}
+
+function loadPrevStats(): BattleStats | null {
+  try {
+    const raw = localStorage.getItem(PREV_STATS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<BattleStats>;
+    if (typeof parsed.battleName !== "string" || typeof parsed.date !== "number") return null;
+    return parsed as BattleStats;
+  } catch {
+    return null;
+  }
+}
+
+function savePrevStats(stats: BattleStats): void {
+  try {
+    localStorage.setItem(PREV_STATS_KEY, JSON.stringify(stats));
+  } catch {
+    // Storage unavailable; comparison just restarts next session.
+  }
 }
 
 /** Everything the pre-battle screen needs. */
@@ -74,10 +119,38 @@ export interface AfterActionView {
   playerIsAttacker: boolean;
   attackerLosses: number;
   defenderLosses: number;
+  /** Killed (permanent) on the attacker side. */
+  attackerKilled: number;
+  /** Wounded (recoverable) on the attacker side. */
+  attackerWounded: number;
+  /** Killed (permanent) on the defender side. */
+  defenderKilled: number;
+  /** Wounded (recoverable) on the defender side. */
+  defenderWounded: number;
   loot: number;
   ticks: number;
   summary: string;
+  /** Recorded aftermath: war story, rival, comparison, loot appraisal. */
+  aftermath: BattleAftermath;
 }
+
+/**
+ * Battle-end events recorded when the fighting stops: a war story when the
+ * battle was memorable, the enemy commander tracked as a rival, a
+ * comparison against the previous battle, and the loot appraisal.
+ */
+export interface BattleAftermath {
+  /** Narrative of the battle, or null when it was not memorable. */
+  warStory: string | null;
+  /** One-line read on the enemy commander's record, or null when unknown. */
+  rivalLine: string | null;
+  /** Comparison against the previous battle, or null for the first. */
+  comparison: BattleComparison | null;
+  /** Human-readable loot appraisal. */
+  lootAppraisal: string;
+}
+
+const PREV_STATS_KEY = "campaign.battleflow.prev-stats.v1";
 
 /** FNV-1a 32-bit, for deterministic local draws. */
 function hashSeed(text: string): number {
@@ -98,7 +171,7 @@ function seededDraw(seed: number): number {
   return (s >>> 0) / 0xffffffff;
 }
 
-function winChance(attackerPower: number, defenderPower: number): number {
+export function winChance(attackerPower: number, defenderPower: number): number {
   const total = attackerPower + defenderPower;
   if (total <= 0) return 0.5;
   return attackerPower / total;
@@ -140,6 +213,7 @@ export class BattleFlow {
   #playerIsAttacker = true;
   #localInitial: { attackerTroops: number; defenderTroops: number } | null =
     null;
+  #aftermath: BattleAftermath | null = null;
 
   constructor(
     private readonly api: BattleApi,
@@ -239,6 +313,7 @@ export class BattleFlow {
       this.#encounter = this.#localResolve(encounter);
     }
     this.#phase = "afteraction";
+    this.#aftermath = this.#recordAftermath();
   }
 
   /** Escalate the encounter into a real-time battle session. */
@@ -259,6 +334,13 @@ export class BattleFlow {
       this.#battle = this.#localStartBattle(encounter);
     }
     this.#phase = "live";
+    // Battle audio (tasks 521/563/577): the layered combat bed takes over the
+    // music bus and the distant battlefield rumble fills the ambient bus. The
+    // bed starts at its floor; `orders()` raises it with the push.
+    const audio = getAudioManager();
+    void audio.startCombatMusic().catch(() => {});
+    void audio.playAmbient(BATTLEFIELD_BED).catch(() => {});
+    audio.setCombatIntensity(COMBAT_BASE_INTENSITY);
   }
 
   /** Re-read the live battle state (server mode only; local is instant). */
@@ -289,6 +371,9 @@ export class BattleFlow {
     } else {
       this.#battle = this.#localTick(battle, orders);
     }
+    // The combat bed follows the push: holding keeps the drums, a full advance
+    // brings in every stem (task 563).
+    getAudioManager().setCombatIntensity(combatIntensityFor(orders.advance));
     if (this.#battle.status === "ended") this.#phase = "afteraction";
   }
 
@@ -310,6 +395,18 @@ export class BattleFlow {
       this.#battle = this.#localEndBattle(battle, reason);
     }
     this.#phase = "afteraction";
+    this.#aftermath = this.#recordAftermath();
+    // The battle is over: silence the combat bed and the battlefield rumble
+    // before the victory/defeat stinger (tasks 521/563).
+    const audio = getAudioManager();
+    audio.stopCombatMusic();
+    audio.stopAmbient();
+    const won = reason === "victory";
+    void audio.playSfx(won ? "victory-fanfare" : "defeat").catch(() => {});
+    // Then back to ambient exploration music.
+    setTimeout(() => {
+      void getAudioManager().playMusic("ambient-exploration").catch(() => {});
+    }, 3000);
   }
 
   /** Reset the flow back to idle (e.g. after dismissing after-action). */
@@ -318,6 +415,132 @@ export class BattleFlow {
     this.#encounter = null;
     this.#battle = null;
     this.#localInitial = null;
+    this.#aftermath = null;
+  }
+
+  // -- battle-end aftermath -------------------------------------------------
+
+  /**
+   * Record the battle-end events: war story (when memorable), rival
+   * tracking, previous-battle comparison, and the loot appraisal.
+   * Runs once per battle, in endBattle(); the view only reads the result.
+   */
+  #recordAftermath(): BattleAftermath {
+    const encounter = this.#encounter;
+    const battle = this.#battle;
+    const fallback: BattleAftermath = {
+      warStory: null,
+      rivalLine: null,
+      comparison: null,
+      lootAppraisal: "No spoils.",
+    };
+    if (!encounter && !battle) return fallback;
+
+    const attackerName = encounter?.attacker.name ?? battle?.attacker.name ?? "Attacker";
+    const defenderName = encounter?.defender.name ?? battle?.defender.name ?? "Defender";
+    const battleName = `${attackerName} vs ${defenderName}`;
+
+    let playerWon = false;
+    let playerLosses = 0;
+    let enemyLosses = 0;
+    let loot = 0;
+    let ticks = 0;
+    let enemyRemaining = 0;
+    let enemyId = 0;
+    let enemyName = "";
+    let chance = 0.5;
+
+    const r = encounter?.resolution;
+    if (r) {
+      const attackerWon = r.winnerPartyId === encounter!.attacker.partyId;
+      playerWon =
+        (this.#playerIsAttacker && attackerWon) ||
+        (!this.#playerIsAttacker && !attackerWon);
+      playerLosses = this.#playerIsAttacker ? r.attackerLosses : r.defenderLosses;
+      enemyLosses = this.#playerIsAttacker ? r.defenderLosses : r.attackerLosses;
+      loot = r.loot;
+      const enemySide = this.#playerIsAttacker ? encounter!.defender : encounter!.attacker;
+      enemyId = enemySide.partyId;
+      enemyName = enemySide.name;
+      enemyRemaining = Math.max(0, enemySide.troops - enemyLosses);
+      chance = winChance(encounter!.attacker.power, encounter!.defender.power);
+      if (!this.#playerIsAttacker) chance = 1 - chance;
+    } else if (battle) {
+      const attackerWon = battle.attacker.troops >= battle.defender.troops;
+      playerWon =
+        (this.#playerIsAttacker && attackerWon) ||
+        (!this.#playerIsAttacker && !attackerWon);
+      const initial = this.#localInitial ?? {
+        attackerTroops: battle.attacker.troops,
+        defenderTroops: battle.defender.troops,
+      };
+      const attackerLosses = Math.max(0, initial.attackerTroops - battle.attacker.troops);
+      const defenderLosses = Math.max(0, initial.defenderTroops - battle.defender.troops);
+      playerLosses = this.#playerIsAttacker ? attackerLosses : defenderLosses;
+      enemyLosses = this.#playerIsAttacker ? defenderLosses : attackerLosses;
+      ticks = battle.tick;
+      const enemySide = this.#playerIsAttacker ? battle.defender : battle.attacker;
+      enemyId = enemySide.partyId;
+      enemyName = enemySide.name;
+      enemyRemaining = Math.max(0, enemySide.troops);
+      if (encounter) {
+        chance = winChance(encounter.attacker.power, encounter.defender.power);
+        if (!this.#playerIsAttacker) chance = 1 - chance;
+      }
+    } else {
+      return fallback;
+    }
+
+    // War story: only memorable battles earn a tale.
+    const facts: TaleFacts = { battleName, playerWon, winChance: chance, playerLosses, enemyLosses };
+    const warStory = isMemorable(facts) ? recordWarStory(facts).narrative : null;
+
+    // Rival: the enemy commander enters the book; escaping troops keep them at large.
+    let rivalLine: string | null = null;
+    if (enemyName) {
+      const rival = trackRival(`party-${enemyId}`, enemyName, "the field", enemyRemaining > 0);
+      rivalLine = rivalGrudge(rival);
+    }
+
+    // Previous-battle comparison.
+    const current: BattleStats = {
+      id: encounter?.id ?? battle?.id ?? `battle-${Date.now()}`,
+      battleName,
+      date: Date.now(),
+      playerWon,
+      playerKills: enemyLosses,
+      playerLosses,
+      loot,
+      ticks,
+    };
+    let comparison: BattleComparison | null = null;
+    const previous = loadPrevStats();
+    if (previous) {
+      try {
+        comparison = compareBattles(previous, current);
+      } catch {
+        comparison = null;
+      }
+    }
+    savePrevStats(current);
+
+    // Loot appraisal: the spoils appraised as a single lot.
+    const lootAppraisal =
+      loot > 0
+        ? appraisalSummary(
+            appraiseLoot([
+              {
+                id: "spoils",
+                description: "Battle spoils",
+                category: "valuables",
+                quantity: 1,
+                unitValue: loot,
+              },
+            ]),
+          )
+        : "No spoils.";
+
+    return { warStory, rivalLine, comparison, lootAppraisal };
   }
 
   // -- view models ----------------------------------------------------------
@@ -369,11 +592,22 @@ export class BattleFlow {
         playerIsAttacker: this.#playerIsAttacker,
         attackerLosses: r.attackerLosses,
         defenderLosses: r.defenderLosses,
+        // Split losses: 40% killed, 60% wounded (Bannerlord-like ratio).
+        attackerKilled: Math.round(r.attackerLosses * 0.4),
+        attackerWounded: r.attackerLosses - Math.round(r.attackerLosses * 0.4),
+        defenderKilled: Math.round(r.defenderLosses * 0.4),
+        defenderWounded: r.defenderLosses - Math.round(r.defenderLosses * 0.4),
         loot: r.loot,
         ticks: 0,
         summary: playerWon
           ? `Victory. The field is yours, and ${r.loot} in spoils.`
           : "Defeat. Your force breaks and leaves the field.",
+        aftermath: this.#aftermath ?? {
+          warStory: null,
+          rivalLine: null,
+          comparison: null,
+          lootAppraisal: "No spoils.",
+        },
       };
     }
 
@@ -387,18 +621,30 @@ export class BattleFlow {
         attackerTroops: battle.attacker.troops,
         defenderTroops: battle.defender.troops,
       };
+      const attackerLosses = Math.max(0, initial.attackerTroops - battle.attacker.troops);
+      const defenderLosses = Math.max(0, initial.defenderTroops - battle.defender.troops);
       return {
         mode: this.#mode,
         winner,
         playerWon,
         playerIsAttacker: this.#playerIsAttacker,
-        attackerLosses: Math.max(0, initial.attackerTroops - battle.attacker.troops),
-        defenderLosses: Math.max(0, initial.defenderTroops - battle.defender.troops),
+        attackerLosses,
+        defenderLosses,
+        attackerKilled: Math.round(attackerLosses * 0.4),
+        attackerWounded: attackerLosses - Math.round(attackerLosses * 0.4),
+        defenderKilled: Math.round(defenderLosses * 0.4),
+        defenderWounded: defenderLosses - Math.round(defenderLosses * 0.4),
         loot: 0,
         ticks: battle.tick,
         summary: playerWon
           ? `Victory after ${battle.tick} ticks of fighting.`
           : `Defeat after ${battle.tick} ticks of fighting.`,
+        aftermath: this.#aftermath ?? {
+          warStory: null,
+          rivalLine: null,
+          comparison: null,
+          lootAppraisal: "No spoils.",
+        },
       };
     }
 

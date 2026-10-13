@@ -10,6 +10,7 @@
  */
 
 import { h } from "../dom.js";
+import { getAudioManager } from "../../audio/AudioManager.js";
 import { panel } from "../kit.js";
 import { difficultySection } from "./DifficultyPanel.js";
 import {
@@ -174,6 +175,12 @@ const CONTROLS: ControlDef[] = [
     kind: { type: "toggle" },
   },
   {
+    key: "ragdollEnabled", tab: "graphics", label: "Ragdoll physics",
+    hint: "Dead soldiers collapse with Havok ragdoll physics. Turn off for a performance boost on low-end machines. Applies immediately.",
+    keywords: ["ragdoll", "physics", "death", "corpse", "havok"],
+    kind: { type: "toggle" },
+  },
+  {
     key: "vignetteEnabled", tab: "graphics", label: "Vignette",
     hint: "Darkened frame corners from the look grade. Applies immediately.",
     keywords: ["vignette", "corners", "post", "fx"],
@@ -195,6 +202,12 @@ const CONTROLS: ControlDef[] = [
     key: "damageVignetteEnabled", tab: "graphics", label: "Damage vignette",
     hint: "Red edge flash when you take damage, plus the low-health vignette near death. Turn off for a calmer screen. Never flashes under reduced motion. Applies to battles started after the change.",
     keywords: ["damage", "vignette", "flash", "hit", "health", "low"],
+    kind: { type: "toggle" },
+  },
+  {
+    key: "audioMuted", tab: "audio", label: "Mute all audio",
+    hint: "Silence music, effects, and ambience without changing their levels.",
+    keywords: ["mute", "muted", "silence", "audio"],
     kind: { type: "toggle" },
   },
   {
@@ -344,13 +357,28 @@ export function settingsPanel(options: SettingsPanelOptions): HTMLElement {
   const snapshot: Settings = { ...settings.get() };
   let tab: TabId = "graphics";
   let query = "";
+  let previewing = false;
+  let closed = false;
+  let previewRequest = 0;
+
+  const stopPreview = (): void => {
+    previewRequest++;
+    getAudioManager().stopMusicPreview();
+    previewing = false;
+  };
+  const close = (): void => {
+    if (closed) return;
+    closed = true;
+    stopPreview();
+    options.onClose();
+  };
 
   const { root, body } = panel({
     title: "Settings",
     testId: "settings-panel",
     onClose: () => {
-      // ✕ keeps the live-applied changes.
-      options.onClose();
+      // ✕ keeps the live-applied changes and ends any music preview.
+      close();
     },
   });
   root.setAttribute("role", "dialog");
@@ -568,6 +596,50 @@ export function settingsPanel(options: SettingsPanelOptions): HTMLElement {
       }
       rowsEl.appendChild(difficultySection());
     }
+    if (query === "" && tab === "audio") {
+      const previewButton = h(
+        "button",
+        {
+          type: "button",
+          class: "btn btn--quiet",
+          "data-testid": "settings-music-preview",
+          "aria-pressed": previewing ? "true" : "false",
+        },
+        previewing ? "Stop music preview" : "Preview menu music",
+      );
+      previewButton.addEventListener("click", () => {
+        if (previewing) {
+          stopPreview();
+          renderRows();
+          return;
+        }
+        previewButton.disabled = true;
+        const request = ++previewRequest;
+        void getAudioManager().previewMusic("menu-theme").then((started) => {
+          if (closed || request !== previewRequest) {
+            if (started) getAudioManager().stopMusicPreview();
+            return;
+          }
+          if (started) previewing = true;
+          renderRows();
+        }).catch(() => {
+          if (!closed && request === previewRequest) previewButton.disabled = false;
+        });
+      });
+      rowsEl.append(
+        h(
+          "div",
+          { class: "settings__row", "data-testid": "settings-music-preview-row" },
+          h(
+            "div",
+            { class: "settings__label" },
+            h("span", { class: "settings__name" }, "Music preview"),
+            h("div", { class: "settings__hint" }, "Preview the menu theme. Closing Settings restores the music that was playing."),
+          ),
+          h("div", { class: "settings__control" }, previewButton),
+        ),
+      );
+    }
   }
 
   function renderTabs(): void {
@@ -585,6 +657,7 @@ export function settingsPanel(options: SettingsPanelOptions): HTMLElement {
         t.label,
       );
       btn.addEventListener("click", () => {
+        if (tab === "audio" && t.id !== "audio") stopPreview();
         tab = t.id;
         renderTabs();
         renderRows();
@@ -596,6 +669,7 @@ export function settingsPanel(options: SettingsPanelOptions): HTMLElement {
 
   searchInput.addEventListener("input", () => {
     query = (searchInput as HTMLInputElement).value.trim().toLowerCase();
+    if (query !== "") stopPreview();
     renderTabs();
     renderRows();
   });
@@ -618,17 +692,17 @@ export function settingsPanel(options: SettingsPanelOptions): HTMLElement {
 
   cancelBtn.addEventListener("click", () => {
     settings.set({ ...snapshot }); // revert everything, live
-    options.onClose();
+    close();
   });
   saveBtn.addEventListener("click", () => {
-    options.onClose(); // already persisted + applied live
+    close(); // already persisted + applied live
   });
 
   root.addEventListener("keydown", (ev) => {
     if (ev.key === "Escape") {
       ev.stopPropagation();
       settings.set({ ...snapshot });
-      options.onClose();
+      close();
     }
   });
 

@@ -1,0 +1,302 @@
+/**
+ * After-action report content styles (afteraction/reportScreen.ts).
+ *
+ * The report's base classes live in the shared stylesheet, which this lane does
+ * not edit; everything added after task 76 is styled here instead. Values come
+ * from src/design/tokens.css only — no invented colours, fonts, or spacing.
+ */
+
+.afteraction-exchange {
+  margin: 8px 0 0;
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  color: var(--ink-700);
+}
+/* The MVP highlight (task 79): the leader first, the rest of the field under it. */
+.afteraction-mvp {
+  margin: var(--space-2) 0 0;
+  padding: var(--space-2);
+  border-left: 3px solid var(--accent-primary);
+  background: var(--paper-0);
+}
+
+.afteraction-mvp__name {
+  margin: 0;
+  font-weight: 700;
+}
+
+.afteraction-mvp__line {
+  margin: 0;
+  color: var(--ink-700);
+}
+
+.afteraction-mvp-board {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-5);
+  color: var(--ink-500);
+  font-size: 0.9rem;
+}
+
+.afteraction-mvp-row--leader {
+  color: var(--ink-900);
+  font-weight: 600;
+}
+
+/* Level-up notification (task 83). */
+.aa-levelups {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--paper-300);
+  border-left: 3px solid var(--accent-primary);
+  background: var(--paper-0);
+}
+
+.aa-levelups[hidden] { display: none; }
+
+.aa-levelups__title {
+  margin: 0 0 var(--space-1);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-500);
+}
+
+.aa-levelups__list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.aa-levelups__row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.aa-levelups__name { font-weight: 600; }
+.aa-levelups__rank { color: var(--accent-primary); font-weight: 600; }
+.aa-levelups__xp { margin-left: auto; color: var(--ink-500); }
+
+/* Wounded list (task 84). */
+.aa-wounded {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--paper-300);
+  background: var(--paper-0);
+}
+
+.aa-wounded[hidden] { display: none; }
+
+.aa-wounded__title {
+  margin: 0 0 var(--space-1);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-500);
+}
+
+.aa-wounded__list {
+  list-style: none;
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.aa-wounded__row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.aa-wounded__name { font-weight: 600; }
+.aa-wounded__kind { color: var(--ink-500); font-size: 0.85rem; }
+.aa-wounded__count { margin-left: auto; }
+
+.aa-wounded__line {
+  margin: 0;
+  color: var(--ink-700);
+  font-size: 0.85rem;
+}
+
+/* Captured equipment list (task 85). */
+.aa-equipment {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--paper-300);
+  background: var(--paper-0);
+}
+
+.aa-equipment[hidden] { display: none; }
+
+.aa-equipment__title {
+  margin: 0 0 var(--space-2);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-500);
+}
+
+.aa-equipment__list,
+.aa-equipment__items {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.aa-equipment__group + .aa-equipment__group { margin-top: var(--space-2); }
+
+.aa-equipment__category {
+  margin: 0 0 var(--space-1);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+
+.aa-equipment__item {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.aa-equipment__qty { margin-left: auto; color: var(--ink-700); }
+.aa-equipment__value { color: var(--ink-500); }
+
+.aa-equipment__line {
+  margin: var(--space-2) 0 0;
+  color: var(--ink-700);
+  font-size: 0.85rem;
+}
+
+/* Rematch control (task 89). */
+.afteraction-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.aa-rematch-row {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.aa-rematch-hint {
+  margin: 0;
+  color: var(--ink-500);
+  font-size: 0.85rem;
+}
+
+/* Battle rating (task 90). */
+.afteraction-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.afteraction-rating {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--paper-300);
+  border-radius: 4px;
+  background: var(--paper-0);
+}
+
+.afteraction-rating__grade {
+  font-family: var(--font-mono);
+  font-size: 1.4rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.afteraction-rating__basis {
+  color: var(--ink-500);
+  font-size: 0.85rem;
+}
+
+/* The grade is a shape and a word as well as a colour: a stamp that only tinted
+   the border would be invisible to a player who cannot see the tint. */
+.afteraction-rating[data-grade="S"],
+.afteraction-rating[data-grade="A"] { border-left: 3px solid var(--status-good-mark); }
+.afteraction-rating[data-grade="B"],
+.afteraction-rating[data-grade="C"] { border-left: 3px solid var(--status-warning-mark); }
+.afteraction-rating[data-grade="D"] { border-left: 3px solid var(--status-critical-mark); }
+
+/* Enemy commander notice (tasks 93-94). */
+.aa-commander {
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--paper-300);
+  border-left: 3px solid var(--accent-primary);
+  background: var(--paper-0);
+}
+
+.aa-commander[hidden] { display: none; }
+
+.aa-commander__title {
+  margin: 0 0 var(--space-1);
+  font-size: 0.8rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--ink-500);
+}
+
+.aa-commander__name {
+  margin: 0;
+  font-weight: 700;
+}
+
+.aa-commander__line {
+  margin: 0;
+  color: var(--ink-700);
+  font-size: 0.85rem;
+}
+
+/* A commander who got away is a different notice from one who was taken: the
+   border says which, and the heading spells it out in words. */
+.aa-commander[data-kind="escaped"] { border-left-color: var(--status-warning-mark); }
+
+/* Outcome notices (tasks 95-97): bonuses first, the warning last. */
+.aa-outcomes {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.aa-outcomes[hidden] { display: none; }
+
+.aa-outcome {
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--status-good-mark);
+  background: var(--paper-0);
+}
+
+.aa-outcome[data-kind="pyrrhic"] { border-left-color: var(--status-warning-mark); }
+
+.aa-outcome__label {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 0.8rem;
+}
+
+.aa-outcome__line {
+  margin: 0;
+  color: var(--ink-700);
+}
+
+/* The place the field was (task 99). */
+.afteraction-site {
+  margin: var(--space-1) 0 0;
+  color: var(--ink-500);
+  font-size: 0.85rem;
+}
+
+.afteraction-site[hidden] { display: none; }

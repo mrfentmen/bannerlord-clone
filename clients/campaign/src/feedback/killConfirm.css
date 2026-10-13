@@ -1,0 +1,34 @@
+/* Task 47: kill confirm. A centred skull, one element per kill, removed by
+   the component after 700 ms. The pop is scale-only, and both the component
+   (no `is-pop` under reduced motion) and the global switch below drop it. */
+.fb-killconfirm-layer {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  pointer-events: none;
+}
+
+.fb-killconfirm {
+  font-size: 44px;
+  line-height: 1;
+  color: var(--status-critical-mark);
+  text-shadow: 0 1px 3px var(--ink-900);
+  opacity: 0.95;
+  transform: scale(0.6);
+  transition: transform 120ms ease-out;
+}
+
+.fb-killconfirm.is-pop {
+  transform: scale(1);
+  animation: fb-killconfirm-pop 180ms ease-out;
+}
+
+@keyframes fb-killconfirm-pop {
+  0% {
+    transform: scale(0.4);
+  }
+  100% {
+    transform: scale(1);
+  }
+}

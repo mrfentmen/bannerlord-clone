@@ -109,3 +109,72 @@ characters: id, name, birth_year, sex, faction_id, role, attributes jsonb, focus
 ```
 
 Skill, perk, and attribute definitions live in data files, not code, so balance changes never need a rebuild.
+
+---
+
+## Character Creation In Detail
+
+### Step 1: Origin Story
+Pick where you came from. This determines starting skills and equipment.
+
+**Farmhand** (Great Lakes)
+- +10 Endurance, +15 Logistics
+- Starts with: pitchfork, work boots, 50 money
+- "You know how to work. Now learn how to fight."
+
+**Street Rat** (Atlantic Corridor)
+- +10 Agility, +15 Streetwise
+- Starts with: knife, lockpicks, 30 money
+- "The city taught you to survive. The road will teach you the rest."
+
+**Ranch Hand** (Lone Star)
+- +10 Riding, +15 Survival
+- Starts with: horse, lasso, 40 money
+- "You can ride anything. Can you lead men?"
+
+**Mine Worker** (Mountain Alliance)
+- +10 Strength, +15 Engineering
+- Starts with: pickaxe, helmet lamp, 45 money
+- "The mountains made you hard. The world will test it."
+
+**Dock Worker** (Pacific Compact)
+- +10 Strength, +15 Trade
+- Starts with: cargo hook, 60 money
+- "You've loaded ships. Now you'll load rifles."
+
+**Militia Recruit** (Southern Compact)
+- +10 Ranged, +15 Tactics
+- Starts with: old rifle, uniform, 35 money
+- "You know how to march. Now learn why."
+
+### Step 2: Attributes
+Distribute 30 points across 6 attributes (min 3, max 8 each):
+- Strength, Agility, Endurance, Intellect, Charisma, Luck
+
+### Step 3: Appearance
+- Face, hair, skin tone, scars, tattoos
+- Purely cosmetic, but NPCs react to scars ("You've seen war") and
+  tattoos (faction-specific ink earns respect/fear)
+
+### Step 4: Name and Backstory
+- First name, last name, nickname (optional)
+- Write a backstory (or pick from templates). Affects starting relations.
+
+## Aging and Death
+
+- Characters age 1 year per 84 days (4 seasons × 21 days)
+- Old age reduces physical attributes, increases mental ones
+- Death is permanent. No resurrection.
+- **Heirs:** Designate an heir. If you die, you continue as the heir
+  (with some skill loss, but your holdings intact).
+- No heir? Game over. Your faction fractures. Your story ends.
+
+## Reputation
+
+Tracked per faction and per town:
+- **Honorable:** Keep promises, show mercy, protect the weak
+- **Ruthless:** Break deals, execute prisoners, raid villages
+- **Cunning:** Win through trickery, espionage, manipulation
+- **Generous:** Share loot, feed the hungry, pay well
+
+Reputation affects prices, recruitment, diplomacy, and quest availability.

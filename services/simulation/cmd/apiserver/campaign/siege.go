@@ -73,26 +73,37 @@ func (c *Campaign) toWireSiege(s *model.Siege) *wire.Siege {
 	}
 }
 
-// StartSiege creates a siege of townId by attackerPartyId.
+// StartSiege creates a siege of townId by attackerPartyID.
+//
+// Every refusal is a Fault, not a bare error, because these are the answers a player
+// reads: "too few men at the walls" and "that town is already under siege" are the
+// two most common reasons a siege does not happen, and a bare error crosses the HTTP
+// boundary as a 500 whose reason reads "the world simulation could not answer that",
+// which tells the player nothing about whose walls are too thin.
 func (c *Campaign) StartSiege(ctx context.Context, attackerPartyID, townID int) (*wire.Siege, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	p := c.state.Parties[attackerPartyID]
 	if p == nil {
-		return nil, fmt.Errorf("attacker party %d not found", attackerPartyID)
+		return nil, notFoundf("attacker party %d not found", attackerPartyID)
 	}
 	t := c.state.Towns[townID]
 	if t == nil {
-		return nil, fmt.Errorf("town %d not found", townID)
+		return nil, notFoundf("town %d not found", townID)
 	}
 	if p.Troops < c.cfg.Siege.MinTroopsToBesiege {
-		return nil, fmt.Errorf("party has insufficient troops to besiege (need %.0f)", c.cfg.Siege.MinTroopsToBesiege)
+		return nil, unprocessablef(
+			fmt.Sprintf("%s has too few men to lay a siege. %.0f are needed at the walls.",
+				p.Name, c.cfg.Siege.MinTroopsToBesiege),
+			"party has insufficient troops to besiege (need %.0f)", c.cfg.Siege.MinTroopsToBesiege)
 	}
 	for _, sid := range c.state.SiegeIDs() {
 		s := c.state.Sieges[sid]
 		if s.TownID == townID && s.Outcome == model.SiegeOngoing {
-			return nil, fmt.Errorf("town %d is already under siege", townID)
+			return nil, conflictf(
+				fmt.Sprintf("%s is already under siege.", t.Name),
+				"town %d is already under siege", townID)
 		}
 	}
 

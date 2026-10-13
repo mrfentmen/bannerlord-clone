@@ -22,11 +22,16 @@ import {
   improveRelationResultProblem,
   marchCommitProblem,
   marchPlanProblem,
+  nearbyForceListProblem,
   recruitRequestProblem,
   recruitResultProblem,
   schemaVersionProblem,
   skipToArrivalProblem,
   snapshotProblem,
+  stepDaysRequestProblem,
+  stepDaysResultProblem,
+  tavernCompanionListProblem,
+  smithingStaminaReplyProblem,
   talkResultProblem,
   taxResultProblem,
   timeScaleProblem,
@@ -176,6 +181,108 @@ describe("a trade is checked on the way out and on the way back", () => {
 
   it("accepts a refusal that explains itself", () => {
     expect(tradeResultProblem({ ...accepted, accepted: false, reason: "Only 4 grain in store." })).toBeNull();
+  });
+});
+
+/**
+ * `causedBy` is set only for an order the simulation carried out.
+ *
+ * `TradeResult.CausedBy`, `RecruitResult.CausedBy`, `ImproveRelationResult.CausedBy` and
+ * `UpgradeTroopsResult.CausedBy` all carry no `omitempty`, and every one of them is
+ * assigned inside an `if accepted` in the campaign layer. So a refusal sends the key
+ * present and empty, and a refusal is the one reply of the four that carries the sentence
+ * the player needs.
+ *
+ * These all failed once. Validated with the non-empty-string check used everywhere else in
+ * this file, the empty `causedBy` made each refusal unreadable, and the player's screen
+ * said the simulation had sent an answer this client cannot read — discarding the reason
+ * and reporting a transport problem where the simulation had answered perfectly well.
+ * That is the failure `apiContract.test.ts` exists to prevent, arriving through a field
+ * rather than a route: nothing 404s, every test that uses the fixture passes, and the
+ * game still cannot show a single refusal.
+ *
+ * No test caught it because the fixture never sends the empty string the server sends. A
+ * refused trade comes back from `fixtureProvider` tagged `"trade-rejected"`, a refused
+ * hire `"recruit-rejected"`, a refused promotion `"upgrade-rejected"` — the fixture
+ * invents a marker row, so `causedBy` is always populated and the check always passed.
+ * The refusals below are written the way the server writes them, which is the only way
+ * the difference shows up.
+ */
+describe("a refused order carries an empty causedBy, which is an answer and not a fault", () => {
+  it("accepts a refused trade", () => {
+    expect(
+      tradeResultProblem({
+        accepted: false,
+        side: "buy",
+        unitPrice: 12.5,
+        quantity: 10,
+        total: 125,
+        partyQuantity: 0,
+        marketPriceAfter: 1,
+        reason: "Golden has 480 to sell, not 5000.",
+        causedBy: "",
+      }),
+    ).toBeNull();
+  });
+
+  it("accepts a refused hire", () => {
+    expect(
+      recruitResultProblem({
+        accepted: false,
+        unitName: "Militia",
+        quantity: 5,
+        totalCost: 500,
+        newCount: 0,
+        reason: "That unit cannot be raised here.",
+        causedBy: "",
+      }),
+    ).toBeNull();
+  });
+
+  it("accepts a refused gift", () => {
+    expect(
+      improveRelationResultProblem({
+        accepted: false,
+        notableId: "ruler1",
+        name: "Lady Wray",
+        relationBefore: 10,
+        relationAfter: 10,
+        summary: "Nothing changed.",
+        reason: "She will not accept that.",
+        causedBy: "",
+      }),
+    ).toBeNull();
+  });
+
+  it("accepts a refused promotion", () => {
+    expect(
+      upgradeResultProblem({
+        upgraded: false,
+        stackId: "s1",
+        fromTier: 1,
+        toTier: 1,
+        xpSpent: 0,
+        goldSpent: 0,
+        reason: "No experience to spend.",
+        causedBy: "",
+      }),
+    ).toBeNull();
+  });
+
+  it("still refuses a reply with no causedBy key at all", () => {
+    // The fix is `isText`, which allows an empty string but not a missing key. A reply
+    // from something that is not the campaign server has no business answering for it.
+    const { causedBy: _dropped, ...withoutRow } = {
+      accepted: true,
+      side: "buy",
+      unitPrice: 12.5,
+      quantity: 10,
+      total: 125,
+      partyQuantity: 10,
+      marketPriceAfter: 13,
+      causedBy: "c-1",
+    };
+    expect(tradeResultProblem(withoutRow)).toMatch(/causedBy/);
   });
 });
 
@@ -475,5 +582,168 @@ describe("a cause chain is checked before the Why panel walks it", () => {
 
   it("refuses a broken related row too, which the panel prints under its own heading", () => {
     expect(whyChainProblem({ entityId: "x", field: "y", rows: [row], related: [{ ...row, system: 7 }] })).toMatch(/related row 0/);
+  });
+});
+describe("a force in encounter range is checked before the panel is raised from it", () => {
+  // Exactly what GET /v1/parties/nearby sends: the server tracks a party it is
+  // not simulating as a count and a morale, so it sends no composition, and
+  // `troops` is genuinely absent rather than filled in with a stand-in.
+  const serverRow = {
+    id: "7",
+    name: "Yorver's company",
+    troopCount: 84,
+    hostile: true,
+    distanceKm: 3.5,
+    position: { x: 12.5, z: -4.25 },
+  };
+
+  it("accepts a row carrying the fields the encounter flow reads", () => {
+    expect(nearbyForceListProblem([serverRow])).toBeNull();
+  });
+
+  it("accepts the fixture's richer rows, which carry a composition and an id that is not a number", () => {
+    expect(
+      nearbyForceListProblem([
+        {
+          ...serverRow,
+          id: "bandit-1",
+          kind: "bandit",
+          factionId: "side-2",
+          troops: [{ name: "Bandit", count: 40, tier: 2 }],
+          destination: null,
+          speedKmPerDay: 0,
+        },
+      ]),
+    ).toBeNull();
+  });
+
+  it("refuses a reply that is not a list, rather than iterating its fields", () => {
+    expect(nearbyForceListProblem({ forces: [serverRow] })).toMatch(/not a list of forces/);
+  });
+
+  it("names the force and the field when the row cannot be read", () => {
+    expect(nearbyForceListProblem([{ ...serverRow, id: undefined }])).toMatch(/force 0 has no id/);
+  });
+
+  // An empty id is a missing one wearing a disguise: it would go into the
+  // encounter request as a party the server cannot find.
+  it("refuses an empty id, which is how a missing id usually arrives", () => {
+    expect(nearbyForceListProblem([{ ...serverRow, id: "" }])).toMatch(/has no id/);
+  });
+
+  it("refuses a headcount that is not a number, which would print as NaN fighters", () => {
+    expect(nearbyForceListProblem([{ ...serverRow, troopCount: null }])).toMatch(/has no troopCount/);
+  });
+
+  // The flee path subtracts this position from the player's own, so a missing
+  // axis is a NaN direction arriving at the server rather than an error.
+  it("refuses a position with no x or no z, which is where the flee vector comes from", () => {
+    expect(nearbyForceListProblem([{ ...serverRow, position: { x: 1 } }])).toMatch(/position has no z/);
+    expect(nearbyForceListProblem([{ ...serverRow, position: { z: 1 } }])).toMatch(/position has no x/);
+  });
+
+  it("refuses a hostile flag that is not a boolean, so a force is not read as neutral by accident", () => {
+    expect(nearbyForceListProblem([{ ...serverRow, hostile: "yes" }])).toMatch(/has no hostile/);
+  });
+
+  it("allows a distance to be absent, because nothing in the encounter flow reads it", () => {
+    const { distanceKm: _omitted, ...withoutDistance } = serverRow;
+    expect(nearbyForceListProblem([withoutDistance])).toBeNull();
+  });
+
+  it("refuses a distance that is present and not a number", () => {
+    expect(nearbyForceListProblem([{ ...serverRow, distanceKm: "3.5" }])).toMatch(/distanceKm/);
+  });
+});
+
+describe("a tavern roster is checked before the panel seats anyone", () => {
+  // The shape the Go server sends for `GET /v1/towns/{id}/tavern/companions`
+  // (campaign.CompanionView). Every field the tavern section reads is present.
+  const serverRow = {
+    id: "chen_wei",
+    name: "Chen Wei",
+    backstory: "ER trauma surgeon. Now stitches people in a panel van for cash.",
+    traits: ["loyal", "cautious"],
+    skills: { medic: 90, quartermaster: 35, fighter: 20 },
+    wageDaily: 22,
+    recruitKind: "gold",
+    recruitValue: 700,
+    hired: false,
+    xp: 0,
+    available: true,
+  };
+
+  it("accepts a row carrying the fields the tavern section reads", () => {
+    expect(tavernCompanionListProblem([serverRow])).toBeNull();
+  });
+
+  it("refuses a row with no wage, because the hire button prices the daily bill from it", () => {
+    const { wageDaily: _omitted, ...withoutWage } = serverRow;
+    expect(tavernCompanionListProblem([withoutWage])).toMatch(/has no wageDaily/);
+  });
+
+  it("refuses a recruit kind the hire flow does not implement", () => {
+    expect(tavernCompanionListProblem([{ ...serverRow, recruitKind: "fame" }])).toMatch(/has no recruitKind/);
+  });
+
+  it("refuses a skills map that is not a map of numbers", () => {
+    expect(tavernCompanionListProblem([{ ...serverRow, skills: { medic: "ninety" } }])).toMatch(/has no skills/);
+  });
+
+  it("refuses a reply that is not a list", () => {
+    expect(tavernCompanionListProblem({ companions: [] })).toMatch(/not a list/);
+  });
+});
+
+describe("the smithing stamina reply is checked before the bench trusts it", () => {
+  // The shape `GET /v1/smithing/stamina` returns. The bench prints the pair
+  // directly, so a missing or garbage field would read as `undefined/undefined`.
+  it("accepts the shape the smithy section prints", () => {
+    expect(smithingStaminaReplyProblem({ stamina: 84, max: 100 })).toBeNull();
+  });
+
+  it("refuses a reply with no max, because the bench prints the pair", () => {
+    expect(smithingStaminaReplyProblem({ stamina: 84 })).toMatch(/has no max/);
+  });
+
+  it("refuses a max that is not a positive number", () => {
+    expect(smithingStaminaReplyProblem({ stamina: 84, max: 0 })).toMatch(/has no max/);
+    expect(smithingStaminaReplyProblem({ stamina: 84, max: "full" })).toMatch(/has no max/);
+  });
+
+  it("refuses a negative stamina, which no honest bench reports", () => {
+    expect(smithingStaminaReplyProblem({ stamina: -1, max: 100 })).toMatch(/has no stamina/);
+  });
+
+  it("refuses a reply that is not an object", () => {
+    expect(smithingStaminaReplyProblem([84, 100])).toMatch(/not a JSON object/);
+  });
+});
+
+describe("a wait order is checked before the world gives up a day", () => {
+  // Task 132. Waiting is the one order that gives the simulation permission to
+  // run every daily system at once, so the count is checked like a payment.
+  it("accepts whole days inside the month cap", () => {
+    expect(stepDaysRequestProblem({ days: 1 })).toBeNull();
+    expect(stepDaysRequestProblem({ days: 7 })).toBeNull();
+    expect(stepDaysRequestProblem({ days: 30 })).toBeNull();
+  });
+
+  it("refuses zero, negative, fractional and missing counts", () => {
+    expect(stepDaysRequestProblem({ days: 0 })).toMatch(/whole number/);
+    expect(stepDaysRequestProblem({ days: -3 })).toMatch(/whole number/);
+    expect(stepDaysRequestProblem({ days: 1.5 })).toMatch(/whole number/);
+    expect(stepDaysRequestProblem({ days: Number.NaN })).toMatch(/whole number/);
+  });
+
+  it("refuses a month or more, because travel is how distance is crossed", () => {
+    expect(stepDaysRequestProblem({ days: 31 })).toMatch(/march instead/);
+  });
+
+  it("accepts the reply shape and refuses one without its day", () => {
+    expect(stepDaysResultProblem({ ok: true, day: 7 })).toBeNull();
+    expect(stepDaysResultProblem({ ok: true })).toMatch(/no day/);
+    expect(stepDaysResultProblem({ ok: true, day: "later" })).toMatch(/no day/);
+    expect(stepDaysResultProblem("day 7")).toMatch(/not a JSON object/);
   });
 });

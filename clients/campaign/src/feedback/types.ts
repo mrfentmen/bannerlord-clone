@@ -67,6 +67,13 @@ export interface TrackedUnit {
   x: number;
   z: number;
   alive: boolean;
+  /**
+   * Current/maximum health. Both are optional: a source that does not track
+   * health simply draws no bar for that unit rather than inventing one
+   * (task 36).
+   */
+  hp?: number;
+  maxHp?: number;
 }
 
 export type Unsubscribe = () => void;

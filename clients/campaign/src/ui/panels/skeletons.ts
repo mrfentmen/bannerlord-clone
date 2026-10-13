@@ -89,8 +89,8 @@ function tableStub(columns: number, rows: number): HTMLElement {
 
 // -- town ---------------------------------------------------------------------
 
-/** The seven sections of the town panel, plus the header block and the three actions. */
-export const TOWN_SECTIONS = 9;
+/** The sections of the town panel, plus the header block and the three actions. */
+export const TOWN_SECTIONS = 25;
 
 /**
  * `town-skeleton`. Food, health, sanitation and housing, unrest and loyalty, taxes,
@@ -120,6 +120,36 @@ export function townSkeletonBody(): HTMLElement {
   root.appendChild(section([...rows(1), ...gauges(2)]));
   // Money: money, gold and metal.
   root.appendChild(section(rows(3)));
+  // Workshops: the owned list, then the buy button.
+  root.appendChild(section([...rows(2), block(STUB)]));
+  // Trade agreement: the three term fields and the propose button.
+  root.appendChild(section([...rows(3), block(STUB)]));
+  // Recent events: the event list.
+  root.appendChild(section(rows(3)));
+  // Notable residents: the roster the town knows.
+  root.appendChild(section(rows(3)));
+  // Establishments: tavern, dice, smithy — the simulated facilities.
+  root.appendChild(section(rows(2)));
+  root.appendChild(section(rows(2)));
+  root.appendChild(section(rows(3)));
+  // Notices of work: the quest offers and carried quests.
+  root.appendChild(section(rows(3)));
+  // Street talk: the notables' conversations (doorless, one card each).
+  root.appendChild(section(rows(2)));
+  // Siege: the town's siege state, or the besiege button.
+  root.appendChild(section(rows(2)));
+  // Under the law: the fine ledger and the crime buttons.
+  root.appendChild(section(rows(2)));
+  // Governor: who governs here, and the appointment.
+  root.appendChild(section(rows(2)));
+  // Ransom broker: the party's prisoners, priced by the broker.
+  root.appendChild(section(rows(2)));
+  // Bounty board: the towns' posted rewards on bandit parties.
+  root.appendChild(section(rows(2)));
+  // Garrison: leave troops in a held town.
+  root.appendChild(section(rows(2)));
+  // Building owners (Rowan): the named proprietors.
+  root.appendChild(section(rows(2)));
   // The three actions, in the order the real panel puts them in.
   root.appendChild(
     h(
@@ -150,6 +180,10 @@ export function marketSkeletonBody(): HTMLElement {
   root.appendChild(section([tableStub(4, 2)]));
   // The sell-side stub: what the caravan is carrying.
   root.appendChild(section([block(ROW), block(ROW)]));
+  // Price alerts: the fired-alert lines and the set-alert form.
+  root.appendChild(section([block(ROW), block(ROW)]));
+  // Smuggling preview: the good/volume/heat form and the analysis line.
+  root.appendChild(section([block(ROW), block(ROW)]));
   // The closing note under "What moved".
   root.appendChild(section(rows(1)));
   return root;
@@ -162,10 +196,10 @@ export function marketSkeleton(title = "Market"): HTMLElement {
 // -- party --------------------------------------------------------------------
 
 /**
- * `party-skeleton`. Shortages, supplies, condition and wages, roles, troops, goods:
- * six sections, in the order the real panel puts them, with the same gauges, rows and
- * table stubs. The shortages section is drawn whether or not anything is short, which
- * is why the real panel draws it either way too.
+ * `party-skeleton`. Shortages, supplies, condition and wages, roles, troops,
+ * prisoners, goods: seven sections, in the order the real panel puts them, with
+ * the same gauges, rows and table stubs. The shortages section is drawn whether
+ * or not anything is short, which is why the real panel draws it either way too.
  */
 export function partySkeletonBody(): HTMLElement {
   const root = region(PARTY_SHAPE, "party-skeleton", "Reading the party roll.");
@@ -182,8 +216,12 @@ export function partySkeletonBody(): HTMLElement {
   root.appendChild(section(rows(4)));
   // Troops: a header row and three unit rows of five columns.
   root.appendChild(section([tableStub(5, 3)]));
+  // Prisoners: a header row and two prisoner rows of three columns.
+  root.appendChild(section([tableStub(3, 2)]));
   // Goods: a header row and two goods rows of three columns.
   root.appendChild(section([tableStub(3, 2)]));
+  // Split party: the name field, stack checkboxes and the confirm button.
+  root.appendChild(section([...rows(3), block(STUB)]));
   return root;
 }
 

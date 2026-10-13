@@ -1,0 +1,280 @@
+/**
+ * @vitest-environment jsdom
+ */
+import { beforeEach, describe, expect, it } from "vitest";
+import { diplomacyPanel } from "../DiplomacyPanel.js";
+import { adjustRelation, relationWith } from "../../../diplomacy/relationNotifications.js";
+import { relationBand } from "../../../diplomacy/notables.js";
+import { declareWarGoal, WAR_GOAL_DESCRIPTIONS } from "../../../diplomacy/warGoals.js";
+import { markTerm, signTreaty } from "../../../diplomacy/treaties.js";
+
+beforeEach(() => {
+  localStorage.clear();
+  document.body.innerHTML = "";
+});
+
+const GLU = { id: "great-lakes-union", name: "Great Lakes Union" };
+const PC = { id: "pacific-compact", name: "Pacific Compact" };
+
+function panel(factions?: { id: string; name: string }[]): void {
+  document.body.appendChild(diplomacyPanel({ currentSeason: 12, ...(factions ? { factions } : {}) }));
+}
+
+function row(id: string): HTMLElement {
+  return document.body.querySelector<HTMLElement>(`[data-testid="faction-${id}"]`)!;
+}
+
+function fill(id: string): string {
+  return document.body.querySelector(`[data-testid="faction-fill-${id}"]`)!.getAttribute("style")!;
+}
+
+describe("diplomacy faction list (task 202)", () => {
+  it("draws no faction list when the caller supplies no roster", () => {
+    panel();
+    // The diplomacy layer holds no roster of its own; inventing neighbours would be a
+    // map made of guesses.
+    expect(document.body.querySelector('[data-testid="diplomacy-factions"]')).toBeNull();
+  });
+
+  it("says so plainly when the roster it was handed is empty", () => {
+    panel([]);
+    const section = document.body.querySelector('[data-testid="diplomacy-factions"]')!;
+    expect(section.querySelector('[data-testid="empty-state"]')).not.toBeNull();
+    expect(section.textContent).toContain("No factions to report");
+  });
+
+  it("lists every faction the caller supplied, by name", () => {
+    panel([GLU, PC]);
+    expect(row(GLU.id).textContent).toContain("Great Lakes Union");
+    expect(row(PC.id).textContent).toContain("Pacific Compact");
+  });
+
+  it("keeps the caller's order rather than re-sorting the list", () => {
+    panel([PC, GLU]);
+    const ids = [...document.body.querySelectorAll(".faction")].map((el) =>
+      el.getAttribute("data-testid"),
+    );
+    expect(ids).toEqual(["faction-pacific-compact", "faction-great-lakes-union"]);
+  });
+
+  it("reads each standing from the relation store the change feed writes", () => {
+    adjustRelation(GLU.id, GLU.name, -40, "raided their farms", 12);
+    panel([GLU, PC]);
+    // The same function the change feed below the list uses, so the two cannot drift.
+    expect(row(GLU.id).textContent).toContain(String(relationWith(GLU.id)));
+  });
+
+  it("shows 0 for a faction it has never heard of", () => {
+    panel([GLU]);
+    expect(relationWith(GLU.id)).toBe(0);
+    expect(row(GLU.id).getAttribute("data-band")).toBe("neutral");
+  });
+
+  it("marks the band with the shared relationBand definition", () => {
+    adjustRelation(GLU.id, GLU.name, -60, "raided their farms", 12);
+    adjustRelation(PC.id, PC.name, 85, "returned hostages", 12);
+    panel([GLU, PC]);
+    expect(row(GLU.id).getAttribute("data-band")).toBe(relationBand(-60));
+    expect(row(PC.id).getAttribute("data-band")).toBe(relationBand(85));
+  });
+
+  it("gives every row a labelled list item and a named group", () => {
+    panel([GLU]);
+    expect(document.body.querySelector('[data-testid="diplomacy-factions"]')!.querySelector("ul")).not.toBeNull();
+    expect(row(GLU.id).querySelector('[role="meter"]')!.getAttribute("aria-label")).toBe(
+      "Standing with Great Lakes Union",
+    );
+  });
+
+  it("does not disturb the power board, the wars or the relation feed", () => {
+    panel([GLU]);
+    expect(document.body.textContent).toContain("No declared wars");
+    expect(document.body.textContent).toContain("No changes recorded");
+    expect(document.body.querySelector('[data-testid="diplomacy-reputation"]')).not.toBeNull();
+  });
+});
+
+describe("diplomacy relation value (task 203)", () => {
+  it("prints the value with its sign, so +5 never reads as 5", () => {
+    adjustRelation(PC.id, PC.name, 35, "returned hostages", 12);
+    adjustRelation(GLU.id, GLU.name, -20, "closed the border", 12);
+    panel([PC, GLU]);
+    expect(row(PC.id).querySelector(".mono")!.textContent).toContain("+35");
+    expect(row(GLU.id).querySelector(".mono")!.textContent).toContain("-20");
+  });
+
+  it("exposes the whole -100..100 scale as a meter", () => {
+    adjustRelation(PC.id, PC.name, 35, "returned hostages", 12);
+    panel([PC]);
+    const meter = row(PC.id).querySelector('[role="meter"]')!;
+    expect(meter.getAttribute("aria-valuemin")).toBe("-100");
+    expect(meter.getAttribute("aria-valuemax")).toBe("100");
+    expect(meter.getAttribute("aria-valuenow")).toBe("35");
+    expect(meter.getAttribute("aria-valuetext")).toContain("+35");
+  });
+
+  it("spells the number out in the accessible text as well as the bar", () => {
+    adjustRelation(GLU.id, GLU.name, -60, "raided their farms", 12);
+    panel([GLU]);
+    expect(row(GLU.id).querySelector('[role="meter"]')!.getAttribute("aria-valuetext")).toBe(
+      "-60, Hostile",
+    );
+  });
+
+  it("grows the fill from the centre toward a positive relation", () => {
+    adjustRelation(PC.id, PC.name, 40, "returned hostages", 12);
+    panel([PC]);
+    const style = fill(PC.id);
+    expect(style).toContain("left:50%");
+    expect(style).toContain("width:20%");
+  });
+
+  it("grows the fill back from the centre toward a negative one", () => {
+    adjustRelation(GLU.id, GLU.name, -40, "closed the border", 12);
+    panel([GLU]);
+    const style = fill(GLU.id);
+    // -40 of a 200-wide scale is 20%, ending at the centre line.
+    expect(style).toContain("left:30%");
+    expect(style).toContain("width:20%");
+  });
+
+  it("draws no fill at all at exactly zero", () => {
+    panel([GLU]);
+    expect(fill(GLU.id)).toContain("width:0%");
+  });
+
+  it("marks the direction, so colour is never the only signal", () => {
+    adjustRelation(GLU.id, GLU.name, -40, "closed the border", 12);
+    adjustRelation(PC.id, PC.name, 40, "returned hostages", 12);
+    panel([GLU, PC]);
+    expect(row(GLU.id).getAttribute("data-direction")).toBe("down");
+    expect(row(PC.id).getAttribute("data-direction")).toBe("up");
+  });
+
+  it("says what the scale is, so the number means something", () => {
+    panel([GLU]);
+    const section = document.body.querySelector('[data-testid="diplomacy-factions"]')!;
+    expect(section.textContent).toContain("-100 against you to +100 for you");
+  });
+
+  it("clamps a stored relation to the scale it claims", () => {
+    // relationWith clamps on write, so the bar can never be asked to draw past the end.
+    adjustRelation(PC.id, PC.name, 500, "a very large favour", 12);
+    panel([PC]);
+    expect(relationWith(PC.id)).toBe(100);
+    expect(fill(PC.id)).toContain("width:50%");
+  });
+});
+describe("diplomacy at-war indicator (task 204)", () => {
+  const AT_WAR = {
+    enemyId: GLU.id,
+    enemyName: GLU.name,
+    goal: "conquest",
+    weariness: 8,
+    seasonDeclared: 12,
+  } as const;
+
+  it("says nothing about war when the faction is not at war", () => {
+    panel([GLU, PC]);
+    expect(row(GLU.id).querySelector('[data-testid="faction-at-war-great-lakes-union"]')).toBeNull();
+    expect(row(GLU.id).getAttribute("data-at-war")).toBe("false");
+  });
+
+  it("states the war in words, not only in a colour", () => {
+    declareWarGoal(GLU.id, GLU.name, AT_WAR.goal, AT_WAR.seasonDeclared);
+    panel([GLU]);
+    const line = row(GLU.id).querySelector('[data-testid="faction-at-war-great-lakes-union"]')!;
+    expect(line.textContent).toContain("At war");
+    expect(line.textContent).toContain("conquest");
+  });
+
+  it("quotes the goal's own description rather than repeating the slug", () => {
+    declareWarGoal(GLU.id, GLU.name, AT_WAR.goal, AT_WAR.seasonDeclared);
+    panel([GLU]);
+    const line = row(GLU.id).querySelector('[data-testid="faction-at-war-great-lakes-union"]')!;
+    expect(line.textContent).toContain(WAR_GOAL_DESCRIPTIONS.conquest);
+  });
+
+  it("marks only the faction actually at war", () => {
+    declareWarGoal(GLU.id, GLU.name, AT_WAR.goal, AT_WAR.seasonDeclared);
+    panel([GLU, PC]);
+    expect(row(GLU.id).getAttribute("data-at-war")).toBe("true");
+    expect(row(PC.id).getAttribute("data-at-war")).toBe("false");
+  });
+
+  it("agrees with the war-goal table, because both read activeWars", () => {
+    declareWarGoal(GLU.id, GLU.name, AT_WAR.goal, AT_WAR.seasonDeclared);
+    panel([GLU, PC]);
+    const table = document.body.querySelector('[data-testid="diplomacy-wars"]')!;
+    expect(table.textContent).toContain(GLU.name);
+    expect(row(GLU.id).textContent).toContain("At war");
+    // One war declared, one row flagged: the list cannot invent a second.
+    expect(document.body.querySelectorAll('.faction[data-at-war="true"]')).toHaveLength(1);
+  });
+
+  it("keeps the relation bar readable while a war is on", () => {
+    declareWarGoal(GLU.id, GLU.name, AT_WAR.goal, AT_WAR.seasonDeclared);
+    panel([GLU]);
+    expect(row(GLU.id).querySelector('[role="meter"]')).not.toBeNull();
+    expect(row(GLU.id).querySelector(".mono")!.textContent).toContain("Neutral");
+  });
+});
+
+describe("diplomacy treaty indicator (task 205)", () => {
+  it("says nothing about treaties when none is signed with the faction", () => {
+    panel([GLU]);
+    expect(row(GLU.id).querySelector('[data-testid="faction-treaty-great-lakes-union"]')).toBeNull();
+  });
+
+  it("names the treaty and reports it as holding", () => {
+    signTreaty("Non-aggression", GLU.id, GLU.name, 12, [{ text: "No raids", party: "them" }]);
+    panel([GLU]);
+    const line = row(GLU.id).querySelector('[data-testid="faction-treaty-great-lakes-union"]')!;
+    expect(line.textContent).toContain("Non-aggression");
+    expect(line.textContent).toContain("holding");
+  });
+
+  it("says so when a term has been broken rather than claiming the treaty holds", () => {
+    const treaty = signTreaty("Non-aggression", GLU.id, GLU.name, 12, [{ text: "No raids", party: "them" }]);
+    markTerm(treaty.id, treaty.terms[0]!.id, false);
+    panel([GLU]);
+    const line = row(GLU.id).querySelector('[data-testid="faction-treaty-great-lakes-union"]')!;
+    expect(line.textContent).toContain("strained");
+    expect(line.textContent).toContain("1 term broken");
+    expect(line.textContent).not.toContain("holding)");
+  });
+
+  it("uses the singular for one broken term", () => {
+    const treaty = signTreaty("Trade pact", PC.id, PC.name, 12, [{ text: "Open the border", party: "them" }]);
+    markTerm(treaty.id, treaty.terms[0]!.id, false);
+    panel([PC]);
+    expect(row(PC.id).querySelector('[data-testid="faction-treaty-pacific-compact"]')!.textContent).toContain(
+      "1 term broken",
+    );
+  });
+
+  it("lists every treaty with that faction, not only the first", () => {
+    signTreaty("Non-aggression", GLU.id, GLU.name, 12, [{ text: "No raids", party: "them" }]);
+    signTreaty("Trade pact", GLU.id, GLU.name, 13, [{ text: "Open the border", party: "them" }]);
+    panel([GLU]);
+    const line = row(GLU.id).querySelector('[data-testid="faction-treaty-great-lakes-union"]')!;
+    expect(line.textContent).toContain("Non-aggression");
+    expect(line.textContent).toContain("Trade pact");
+  });
+
+  it("does not put one faction's treaty on another's row", () => {
+    signTreaty("Non-aggression", GLU.id, GLU.name, 12, [{ text: "No raids", party: "them" }]);
+    panel([GLU, PC]);
+    expect(row(GLU.id).querySelector('[data-testid="faction-treaty-great-lakes-union"]')).not.toBeNull();
+    expect(row(PC.id).querySelector('[data-testid="faction-treaty-pacific-compact"]')).toBeNull();
+  });
+
+  it("agrees with the treaties table, because both read treatyCompliance", () => {
+    const treaty = signTreaty("Non-aggression", GLU.id, GLU.name, 12, [{ text: "No raids", party: "them" }]);
+    markTerm(treaty.id, treaty.terms[0]!.id, false);
+    panel([GLU]);
+    const table = document.body.querySelector('[data-testid="diplomacy-treaties"]')!;
+    expect(table.textContent).toContain("Under strain");
+    expect(row(GLU.id).textContent).toContain("strained");
+  });
+});

@@ -464,11 +464,52 @@ describe("the party rail", () => {
   it("shows the party, its grain in days, and the panels it can open", () => {
     const rail = hudAt().querySelector("[data-testid='party-rail']")!;
     expect(rail.textContent).toContain(snapshot.player.characterName);
-    for (const id of ["open-party", "open-march", "open-ledger", "open-roster", "open-data-source"]) {
+    for (const id of ["open-party", "open-character", "open-march", "open-ledger", "open-roster", "open-data-source"]) {
       const btn = hudAt().querySelector(`[data-testid='${id}']`);
       expect(btn, `the rail is missing ${id}`).not.toBeNull();
       expect(btn!.getAttribute("aria-label")?.length ?? (btn!.textContent ?? "").length).toBeGreaterThan(0);
     }
+  });
+
+  it("shows wounded troops summed across stacks", () => {
+    const withWounded: SimSnapshot = {
+      ...snapshot,
+      party: {
+        ...snapshot.party,
+        troops: snapshot.party.troops.map((t, i) => ({ ...t, wounded: i === 0 ? 3 : i === 1 ? 2 : 0 })),
+      },
+    };
+    const rail = hudAt({ snapshot: withWounded }).querySelector("[data-testid='party-rail']")!;
+    const wounded = rail.querySelector("[data-testid='rail-wounded']")!;
+    expect(wounded.textContent).toBe("5");
+  });
+
+  it("shows prisoners summed across captured stacks", () => {
+    const withPrisoners: SimSnapshot = {
+      ...snapshot,
+      party: {
+        ...snapshot.party,
+        prisoners: [
+          { troopId: "t-bandit", name: "Bandit", count: 4, tier: 1 },
+          { troopId: "t-raider", name: "Raider", count: 7, tier: 2 },
+        ],
+      },
+    };
+    const rail = hudAt({ snapshot: withPrisoners }).querySelector("[data-testid='party-rail']")!;
+    const prisoners = rail.querySelector("[data-testid='rail-prisoners']")!;
+    expect(prisoners.textContent).toBe("11");
+  });
+
+  it("shows zero wounded and zero prisoners when there are none", () => {
+    const rail = hudAt().querySelector("[data-testid='party-rail']")!;
+    expect(rail.querySelector("[data-testid='rail-wounded']")!.textContent).toBe("0");
+    expect(rail.querySelector("[data-testid='rail-prisoners']")!.textContent).toBe("0");
+  });
+
+  it("shows the party's movement speed from the snapshot", () => {
+    const rail = hudAt().querySelector("[data-testid='party-rail']")!;
+    const speed = rail.querySelector("[data-testid='rail-speed']")!;
+    expect(speed.textContent).toBe(`${snapshot.party.speedKmPerDay.toFixed(1)} km/d`);
   });
 
   it("gives every rail control an accessible name", () => {

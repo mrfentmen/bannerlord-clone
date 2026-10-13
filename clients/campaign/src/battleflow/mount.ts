@@ -37,6 +37,21 @@ import {
 } from "../ui/kit.js";
 import { BattleApiError, createHttpBattleApi, type BattleApi } from "./api";
 import { encounterBanner, type EncounterBannerHandle } from "./encounterBanner";
+import { createBattleAnnouncer, type BattleAnnouncer } from "./announcer";
+import { scoutEnemy } from "./scouting";
+import { previewAutoResolve } from "./autoresolvePreview";
+import {
+  clearBattleTutorial,
+  completeStep,
+  currentStep,
+  loadBattleTutorial,
+  saveBattleTutorial,
+  skipStep,
+  startBattleTutorial,
+  tutorialProgress,
+  type TutorialAction,
+} from "../onboarding/battleTutorial.js";
+import { weatherFor } from "./weather";
 import {
   BattleFlow,
   type AfterActionView,
@@ -90,6 +105,8 @@ export interface BattleMount {
   readonly poller: EncounterPoller;
   /** The "Hostile force encountered!" banner the poller offers encounters through. */
   readonly banner: EncounterBannerHandle;
+  /** Screen-reader announcer for battle events (solo task 18). */
+  readonly announcer: BattleAnnouncer;
   /** Adopt a server encounter (from the banner) and show pre-battle. */
   adoptEncounter(encounter: Encounter): void;
   /** Arrange an encounter by hand and show pre-battle. */
@@ -153,6 +170,11 @@ export function mountBattleUi(options: BattleMountOptions): BattleMount {
   });
   into.appendChild(banner.root);
 
+  // Screen-reader battle announcements (solo task 18): the region lives
+  // outside the overlay so re-renders never wipe it.
+  const announcer = createBattleAnnouncer();
+  into.appendChild(announcer.region);
+
   const poller = new EncounterPoller(api, options.playerPartyId, {
     // An encounter is offered, not thrown onto the screen: the player is in the middle
     // of a campaign and a fight they did not start deserves a word before it takes the
@@ -207,6 +229,7 @@ export function mountBattleUi(options: BattleMountOptions): BattleMount {
     busy = false;
     const done = flow.afterActionView();
     if (done && flow.phase === "afteraction") {
+      announcer.result(done.playerWon ? "victory" : "defeat");
       options.onBattleEvent?.(done.playerWon ? "victory" : "defeat", done);
     }
     render();
@@ -299,7 +322,69 @@ export function mountBattleUi(options: BattleMountOptions): BattleMount {
     body.appendChild(
       h("p", { class: "caption", "data-testid": "battle-assessment" }, view.assessment),
     );
+    // Scouting report (solo task 21): enemy composition estimate before deployment.
+    const enemy = view.playerIsAttacker ? view.encounter.defender : view.encounter.attacker;
+    const report = scoutEnemy(enemy.troops, enemy.power);
+    const scoutList = h("ul", { class: "scout__list", "data-testid": "scout-list" });
+    for (const est of report.estimates) {
+      scoutList.appendChild(
+        h(
+          "li",
+          { "data-testid": `scout-${est.kind}` },
+          `${est.kind}: ~${est.count} (${Math.round(est.share * 100)}%)`,
+        ),
+      );
+    }
+    body.appendChild(
+      h(
+        "section",
+        { "data-testid": "scout-report", "aria-label": "Scouting report" },
+        h("h3", {}, "Scouting report"),
+        h("p", { class: "caption" }, report.summary + "."),
+        scoutList,
+        h("p", { class: "caption" }, report.note),
+      ),
+    );
+    // Weather (solo task 30): active modifiers listed pre-battle.
+    const weather = weatherFor(view.encounter.id);
+    const weatherSection = h(
+      "section",
+      { "data-testid": "weather-panel", "aria-label": "Weather" },
+      h("h3", {}, `Weather: ${weather.label}`),
+      h("p", { class: "caption" }, weather.description),
+    );
+    if (weather.modifiers.length > 0) {
+      const modList = h("ul", { class: "weather__list" });
+      for (const mod of weather.modifiers) {
+        modList.appendChild(h("li", { "data-testid": `weather-mod-${mod.target}` }, mod.effect));
+      }
+      weatherSection.appendChild(modList);
+    }
+    body.appendChild(weatherSection);
     const actions = h("div", { class: "battle__actions" });
+    const ongoing = loadBattleTutorial();
+    if (!ongoing || ongoing.done) {
+      actions.append(
+        button(
+          ongoing && ongoing.done ? "Replay battle tutorial" : "Battle tutorial",
+          () => {
+            clearBattleTutorial();
+            saveBattleTutorial(startBattleTutorial());
+            render();
+          },
+          { variant: "quiet", testId: "battle-tutorial-start" },
+        ),
+      );
+    }
+    // Auto-resolve preview (solo task 28): estimated losses before choosing.
+    const preview = previewAutoResolve(view.encounter, view.playerIsAttacker);
+    actions.append(
+      h(
+        "p",
+        { class: "caption", "data-testid": "battle-autoresolve-preview" },
+        `${preview.summary}. ${preview.note}`,
+      ),
+    );
     actions.append(
       button("Fight the battle", () => void run(() => flow.escalate()), {
         variant: "primary",
@@ -319,6 +404,53 @@ export function mountBattleUi(options: BattleMountOptions): BattleMount {
     return root;
   }
 
+  /**
+   * Battle-command tutorial integration (solo task 91).
+   *
+   * The tutorial was written for unit-level orders in the 3D scene; this UI
+   * issues formation-level orders, so the two order steps complete on their
+   * closest analogues (Advance ~= move order, Focus fire ~= attack order).
+   * Camera steps belong to the 3D scene and are skipped from here.
+   */
+  const TUTORIAL_ORDER_MAP: Record<string, TutorialAction> = {
+    advance: "issue-move-order",
+    focusfire: "issue-attack-order",
+  };
+
+  function reportTutorialOrder(orderId: string): void {
+    const action = TUTORIAL_ORDER_MAP[orderId];
+    if (!action) return;
+    const tutorial = loadBattleTutorial();
+    if (!tutorial || tutorial.done) return;
+    const next = completeStep(tutorial, action);
+    if (next !== tutorial) saveBattleTutorial(next);
+  }
+
+  function tutorialBanner(): HTMLElement | null {
+    const tutorial = loadBattleTutorial();
+    if (!tutorial || tutorial.done) return null;
+    const step = currentStep(tutorial);
+    if (!step) return null;
+    const pct = Math.round(tutorialProgress(tutorial) * 100);
+    const banner = h(
+      "div",
+      { class: "tutorial-banner", "data-testid": "battle-tutorial" },
+      h("p", { class: "label", "data-testid": "battle-tutorial-step" },
+        `Tutorial ${pct}% — ${step.title}`),
+      h("p", { class: "caption" }, step.instruction),
+    );
+    const skip = button("Skip step", () => {
+      saveBattleTutorial(skipStep(loadBattleTutorial() ?? tutorial));
+      render();
+    }, { variant: "quiet", testId: "battle-tutorial-skip" });
+    const end = button("End tutorial", () => {
+      clearBattleTutorial();
+      render();
+    }, { variant: "quiet", testId: "battle-tutorial-end" });
+    banner.append(h("div", { class: "row-actions" }, skip, end));
+    return banner;
+  }
+
   function liveScreen(view: LiveBattleView): HTMLElement {
     const { root, body } = panel({
       title: `Battle — tick ${view.battle.tick}`,
@@ -326,6 +458,8 @@ export function mountBattleUi(options: BattleMountOptions): BattleMount {
     });
     body.appendChild(modeChip(view.mode));
     if (view.mode === "local") body.appendChild(localNote());
+    const tut = tutorialBanner();
+    if (tut) body.appendChild(tut);
     body.appendChild(
       dataTable(
         "Forces",
@@ -353,6 +487,7 @@ export function mountBattleUi(options: BattleMountOptions): BattleMount {
         () =>
           void run(async () => {
             await flow.orders(def.orders);
+            reportTutorialOrder(def.id);
             options.onBattleEvent?.("order");
           }),
         {
@@ -407,6 +542,29 @@ export function mountBattleUi(options: BattleMountOptions): BattleMount {
     body.appendChild(row("Defender losses", String(view.defenderLosses), { mono: true }));
     if (view.loot > 0) body.appendChild(row("Loot", String(view.loot), { mono: true }));
     if (view.ticks > 0) body.appendChild(row("Battle ticks", String(view.ticks), { mono: true }));
+    const { aftermath } = view;
+    if (aftermath.lootAppraisal !== "No spoils.") {
+      body.appendChild(row("Appraisal", aftermath.lootAppraisal, { mono: true }));
+    }
+    if (aftermath.warStory) {
+      body.appendChild(
+        h("p", { class: "caption", "data-testid": "battle-warstory" }, aftermath.warStory),
+      );
+    }
+    if (aftermath.rivalLine) {
+      body.appendChild(
+        h("p", { class: "caption", "data-testid": "battle-rival" }, aftermath.rivalLine),
+      );
+    }
+    if (aftermath.comparison) {
+      const cmp = aftermath.comparison;
+      body.appendChild(
+        h("p", { class: "caption", "data-testid": "battle-comparison" }, cmp.verdict),
+      );
+      for (const d of cmp.deltas) {
+        body.appendChild(row(d.metric, d.line, { mono: true }));
+      }
+    }
     const actions = h("div", { class: "battle__actions" });
     actions.append(
       button("Return to campaign", dismiss, {
@@ -449,10 +607,11 @@ export function mountBattleUi(options: BattleMountOptions): BattleMount {
   function destroy(): void {
     poller.stop();
     banner.destroy();
+    announcer.region.remove();
     overlay.remove();
   }
 
   if (options.pollEncounters !== false) poller.start();
 
-  return { root: overlay, flow, poller, banner, adoptEncounter, attack, destroy };
+  return { root: overlay, flow, poller, banner, announcer, adoptEncounter, attack, destroy };
 }

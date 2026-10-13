@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math"
+	"sync"
 )
 
 // Prisoner system: after a win, some enemy survivors become prisoners.
@@ -51,11 +52,20 @@ func newPrisonerState() *prisonerState {
 	return &prisonerState{byID: make(map[string]*Prisoner)}
 }
 
+var (
+	prisonerStatesMu sync.Mutex
+	prisonerStates   = map[*Campaign]*prisonerState{}
+)
+
 func (c *Campaign) ensurePrisoners() *prisonerState {
-	if c.prisoners == nil {
-		c.prisoners = newPrisonerState()
+	prisonerStatesMu.Lock()
+	defer prisonerStatesMu.Unlock()
+	ps, ok := prisonerStates[c]
+	if !ok {
+		ps = newPrisonerState()
+		prisonerStates[c] = ps
 	}
-	return c.prisoners
+	return ps
 }
 
 func (c *Campaign) captureFromBattleLocked(loserPartyID, loserStartTroops, loserLosses int, winnerIsPlayer, mercy bool) []PrisonerView {
@@ -72,7 +82,8 @@ func (c *Campaign) captureFromBattleLocked(loserPartyID, loserStartTroops, loser
 	if mercy {
 		rate = 0.45
 	}
-	if cs := c.companions; cs != nil {
+	cs := c.ensureCompanions()
+	{
 		for _, id := range cs.hired {
 			comp := cs.byID[id]
 			if comp != nil && comp.Role == RoleScout && !comp.Dead {

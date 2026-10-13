@@ -79,6 +79,56 @@ function town(opts: { loading?: boolean; town?: TownState | null } = {}): HTMLEl
     onOpenMarket: noop,
     onMarchHere: noop,
     onRoster: noop,
+    workshops: [],
+    onBuyWorkshop: async () => ({ workshopId: "w-test" }),
+    // The real app wires these (tasks 115-121); the skeleton mirrors the
+    // live panel, so the harness passes the same handlers.
+    onLoadTavern: async () => [],
+    onHireCompanion: async () => undefined,
+    onLoadSmithy: async () => ({ recipes: [], orders: [], stamina: { stamina: 100, max: 100 } }),
+    onForgeItem: async () => ({ name: "test" }),
+    onSmeltArms: async () => ({ metal: 2 }),
+    onFulfillOrder: async () => ({ reward: 0, line: "" }),
+    onPlayDice: async () => ({ won: false, payout: 0, line: "" }),
+    onLoadQuests: async () => ({ offers: [], active: [] }),
+    onAcceptQuest: async () => ({ questId: "q-test" }),
+    onAbandonQuest: async () => undefined,
+    onNotableTalk: async () => ({
+      notableId: "n-test",
+      name: "Test notable",
+      dialogue: ["Talk."],
+      actions: [{ id: "gift", label: "Offer a gift (50 gold)", detail: "Gold opens doors.", available: true }],
+    }),
+    onNotableImprove: async () => ({
+      accepted: true,
+      notableId: "n-test",
+      name: "Test notable",
+      relationBefore: 0,
+      relationAfter: 10,
+      summary: "Relation rose.",
+      causedBy: "test",
+    }),
+    onGetSiege: async () => null,
+    onStartSiege: async () => ({ siegeId: "s-test" }),
+    onAssaultSiege: async () => ({ victory: true, casualties: 0 }),
+    onLiftSiege: async () => undefined,
+    onSiegeChanged: () => undefined,
+    onGetOutstandingFine: async () => 0,
+    onCommitCrime: async () => ({ fine: 200 }),
+    onPayFine: async () => ({ paid: 0 }),
+    // The skeleton mirrors the panel's MAXIMUM configuration: every gated
+    // section on, so the count test compares the full shapes.
+    heldByPlayer: true,
+    onGetGovernor: async () => null,
+    onAssignGovernor: async () => ({ line: "" }),
+    governorCandidates: [{ id: "c-test", name: "Test companion" }],
+    prisoners: [{ troopId: "troop-test", name: "Bandits", count: 1, tier: 1 }],
+    onSellPrisonersToBroker: async () => ({ gold: 0, line: "" }),
+    partyTroops: [{ id: "troop-test", name: "Militia", count: 5 }],
+    onTransferToGarrison: async () => ({ garrison: 5, line: "" }),
+    onWorldChanged: () => undefined,
+    onGetBounties: async () => [],
+    onClaimBounty: async () => ({ claimed: true as const, reward: 0 }),
   });
 }
 
@@ -88,6 +138,7 @@ function party(opts: { loading?: boolean; party?: PartyState | null } = {}): HTM
     previous: null,
     loading: opts.loading ?? false,
     onWhy: noop,
+    onSplitParty: async () => ({ partyId: "p-test" }),
   });
 }
 
@@ -145,16 +196,17 @@ describe("named skeletons, not spinners (CONSTITUTION.md 3.2)", () => {
   it("gives the party panel a party-skeleton with the live panel's sections", () => {
     const live = party();
     const sk = partySkeletonBody();
-    // Shortages, supplies, condition and wages, roles, troops, goods. Six either way:
-    // the shortages section is drawn whether or not anything is short, so a party that
-    // is short and one that is not are the same height.
-    expect(live.querySelectorAll(".panel__section").length).toBe(6);
-    expect(sk.querySelectorAll(".skeleton__section").length).toBe(6);
+    // Shortages, supplies, condition and wages, roles, troops, prisoners, goods,
+    // split party. Eight either way: the shortages section is drawn whether or
+    // not anything is short, so a party that is short and one that is not are
+    // the same height.
+    expect(live.querySelectorAll(".panel__section").length).toBe(8);
+    expect(sk.querySelectorAll(".skeleton__section").length).toBe(8);
     // Three supply gauges and two condition gauges, as the live panel draws them.
     expect(sk.querySelectorAll(".skeleton__gauge").length).toBe(5);
-    // And the same two table stubs, with the same column counts.
-    expect(sk.querySelectorAll(".skeleton__table").length).toBe(2);
-    expect(sk.querySelectorAll(".skeleton__tr").length).toBe(5);
+    // And the same three table stubs, with the same column counts.
+    expect(sk.querySelectorAll(".skeleton__table").length).toBe(3);
+    expect(sk.querySelectorAll(".skeleton__tr").length).toBe(7);
   });
 
   it("gives the market a market-skeleton with a two-row table stub (ART_DIRECTION 11)", () => {
@@ -162,7 +214,7 @@ describe("named skeletons, not spinners (CONSTITUTION.md 3.2)", () => {
     const sk = marketSkeletonBody();
     expect(sk.querySelectorAll(".skeleton__section").length).toBe(live.querySelectorAll(".panel__section").length);
     expect(sk.querySelectorAll(".skeleton__tr").length).toBe(2);
-    expect(live.querySelectorAll(".panel__section").length).toBe(3);
+    expect(live.querySelectorAll(".panel__section").length).toBe(5);
     expect(sk.getAttribute("aria-busy")).toBe("true");
   });
 
@@ -445,7 +497,15 @@ describe("the market panel", () => {
     expect(buy.getAttribute("aria-label")).toMatch(/^Buy 40 /);
     // The same node is still in the document, so the field keeps the keyboard focus.
     expect(handle.root.contains(input)).toBe(true);
-    expect(buy.getAttribute("aria-label")).toMatch(/\$[\d,]+/);
+    // The label names the price as the multiplier it is. It carries no coin total
+    // because unitCost is server config (`market.base_price`,
+    // `campaign.medicine_unit_price`) that the snapshot never sends, so the client
+    // cannot multiply its way to the cost of an order; the simulation says so when
+    // the trade lands. `marketPanel.test.ts` pins the same rule from the other side.
+    const label = buy.getAttribute("aria-label") ?? "";
+    expect(label).toMatch(/^Buy 40 Grain at a price of [\d.]+ each/);
+    expect(label).not.toMatch(/\$/);
+    expect(label).toMatch(/simulation sets the coin cost/i);
   });
 
   it("gives every cell the heading of its column, so the narrow layout can stack it", () => {
@@ -534,7 +594,7 @@ describe("the party panel", () => {
     expect(panel.querySelector("[data-testid='party-warnings']")).toBeNull();
     expect(visibleText(panel.querySelector("[data-testid='party-warnings-clear']")!)).toMatch(/nothing short/i);
     // Same height either way, which is the point of keeping the section.
-    expect(panel.querySelectorAll(".panel__section").length).toBe(6);
+    expect(panel.querySelectorAll(".panel__section").length).toBe(8);
   });
 
   it("says so when wages are owed, and stamps it", () => {

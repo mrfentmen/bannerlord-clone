@@ -1,0 +1,20 @@
+/* Task 38: HUD battle timer. A quiet mono readout in the top bar family —
+   same sheet/ink tokens as the rest of the HUD, no animation, so nothing to
+   switch off under reduced motion. */
+.battle-timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 8px;
+  border: 1px solid var(--ink-700);
+  border-radius: 4px;
+  background: var(--paper-0);
+  color: var(--ink-900);
+}
+
+.battle-timer__value {
+  font-size: 14px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.04em;
+}

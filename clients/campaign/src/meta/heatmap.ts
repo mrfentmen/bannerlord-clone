@@ -18,7 +18,10 @@ export interface BattleSite {
 /** History cap: 2000 sites is plenty for the 500+ density acceptance. */
 export const MAX_BATTLE_SITES = 2000;
 
-const STORAGE_KEY = "fentmen.battleSites.v1";
+/** Storage key for the persisted battle-site history. Exported so the
+ * per-campaign reset (meta/campaignReset.ts) can clear it by name. */
+export const HEATMAP_STORAGE_KEY = "fentmen.battleSites.v1";
+const STORAGE_KEY = HEATMAP_STORAGE_KEY;
 
 function sanitizeSite(site: BattleSite): BattleSite {
   return {

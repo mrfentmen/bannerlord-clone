@@ -22,7 +22,23 @@ import { h, row, sectionHeader } from "../dom.js";
 import { emptyState, errorState, gauge, panel, stamp, statusChip, dataTable, type Column, type StatusKind } from "../kit.js";
 import { partySkeleton } from "./skeletons.js";
 import { asBottomSheet, stackable } from "./narrow.js";
-import type { PartyState, ResourceWarning, TroopStack } from "../../data/types.js";
+import type {
+  PartyRole,
+  PartyState,
+  ResourceWarning,
+  TroopStack,
+  UpgradeTroopsResult,
+} from "../../data/types.js";
+import { troopTier, TROOP_TIERS } from "../../data/types.js";
+import { SimulationUnavailableError } from "../../data/provider.js";
+import { SMITHING_RECIPES } from "../../campaign/fieldSystems.js";
+import {
+  soundForcedMarch,
+  soundSmelt,
+  soundForge,
+  soundOrderFulfilled,
+  soundPrisonBreak,
+} from "../../audio/gameSounds.js";
 
 /** The empty-wagon copy, verbatim from ART_DIRECTION.md section 10.2. */
 const NOTHING_TO_HAUL = "Caravan holds no goods. Buy something in a market before hauling.";
@@ -38,6 +54,87 @@ export interface PartyPanelOptions {
    * alongside the ones this panel derives from its own figures.
    */
   warnings?: ResourceWarning[];
+  /**
+   * Promote one troop stack a tier. Task 146.
+   *
+   * The panel decides whether the button is live from the stack's own XP bank and
+   * the tier ladder in `data/types.ts`; the simulation owns whether the promotion
+   * happens and what it costs, and its answer — including the reason a promotion
+   * was refused — is printed verbatim.
+   */
+  onUpgradeTroops?: (stackId: string, branchId?: string) => Promise<UpgradeTroopsResult>;
+  /**
+   * Toggle forced march (+30% speed, daily morale/food cost). Only drawn when
+   * the caller can actually send the order.
+   */
+  onToggleForcedMarch?: (active: boolean) => Promise<void>;
+  /**
+   * Smelt captured arms into metal. Only drawn when the caller can send it.
+   */
+  onSmeltArms?: (quantity: number) => Promise<{ metal: number }>;
+  /**
+   * Forge a bench recipe. Only drawn when the caller can send it.
+   */
+  onForgeItem?: (recipeId: string) => Promise<{ name: string }>;
+  /**
+   * Attempt a prison break against a holder. Only drawn when the caller can
+   * send it and the party has imprisoned troops.
+   */
+  onPrisonBreak?: (holderId: string, teamSize: number) => Promise<{ success: boolean; freed: number; wounded: number; caught: boolean }>;
+  /** Open crafting orders. Only drawn with the bench. */
+  craftingOrders?: { id: string; patron: string; patronTitle: string; recipeId: string; recipeName: string; daysLeft: number; reward: number }[];
+  /** Fulfill a crafting order. Only drawn when the caller can send it. */
+  onFulfillOrder?: (orderId: string) => Promise<{ reward: number; line: string }>;
+  /**
+   * Ransom prisoners for gold. The panel sends the troop id and count; the
+   * simulation owns the price and the result. Only drawn when the caller can
+   * actually send the order.
+   */
+  onRansomPrisoners?: (troopId: string, count: number) => Promise<{ gold: number }>;
+  /**
+   * Recruit prisoners into the party. The panel sends the troop id and count;
+   * the simulation owns the cost and the result. Only drawn when the caller can
+   * actually send the order.
+   */
+  onRecruitPrisoners?: (troopId: string, count: number) => Promise<void>;
+  /**
+   * Set a prisoner stack free. The simulation pays renown for the mercy and
+   * answers with its own line. Only drawn when the caller can actually send
+   * the order.
+   */
+  onReleasePrisoner?: (troopId: string) => Promise<{ line: string }>;
+  /**
+   * Execute a prisoner stack. The simulation charges renown and answers with
+   * its own line; the panel asks twice because this cannot be undone. Only
+   * drawn when the caller can actually send the order.
+   */
+  onExecutePrisoner?: (troopId: string) => Promise<{ line: string }>;
+  /**
+   * Split troops off into a new party. The panel sends the stacks and the new
+   * party's name; the simulation owns whether the split happens. Only drawn
+   * when the caller can actually send the order.
+   */
+  onSplitParty?: ((input: { troopIds: { stackId: string; count: number }[]; name: string }) => Promise<{ partyId: string }>) | undefined;
+  /**
+   * Merge a detached party back into this one. Only drawn when the caller can
+   * send it and the party lists detached parties.
+   */
+  onMergeParty?: (partyId: string) => Promise<void>;
+  /** Parties the player detached via split and can merge back. */
+  detachedParties?: { id: string; name: string; troopCount: number }[];
+  /**
+   * Assign a companion to a party role (or clear the role with null). Rejects
+   * with the simulation's own reason.
+   */
+  onAssignRole?: (charId: string, role: PartyRole | null) => Promise<void>;
+  /** Companion candidates for role assignment. */
+  companionCandidates?: { id: string; name: string; skills: Record<string, number> }[];
+  /** Save the party's current composition as a named template. */
+  onSaveTemplate?: (name: string) => Promise<{ templateId: string; summary: string }>;
+  /** Saved templates. Only drawn with the pair of handlers. */
+  partyTemplates?: { id: string; name: string; summary: string }[];
+  /** Ask the simulation what a refit toward a template would order. */
+  onRefitTemplate?: (templateId: string) => Promise<{ orders: { action: string; tier: number; branch: string | null; count: number }[] }>;
   /** The party roll is still being read. `party-skeleton` goes up first. */
   loading?: boolean;
   testId?: string;
@@ -191,8 +288,211 @@ export function partyPanel(options: PartyPanelOptions): HTMLElement {
       row("Daily rations", `${dailyFood.toFixed(1)} person-days`, { mono: true, testId: "party-daily-rations" }),
       row("Purse", money(party.money), { mono: true, testId: "party-purse" }),
       row("March speed", `${party.speedKmPerDay.toFixed(0)} km/day`, { mono: true, testId: "party-speed" }),
+      // Forced march toggle: Bannerlord's push-harder button.
+      ...(options.onToggleForcedMarch
+        ? [
+            h(
+              "div",
+              { class: "row", "data-testid": "party-forced-march-row" },
+              h("span", { class: "row__label label" }, "Forced march"),
+              h(
+                "span",
+                { class: "row__value" },
+                h(
+                  "button",
+                  {
+                    class: "btn",
+                    "data-testid": "party-forced-march-toggle",
+                    "aria-pressed": String(party.forcedMarch ?? false),
+                    onclick: async () => {
+                      const next = !(party.forcedMarch ?? false);
+                      soundForcedMarch(next);
+                      await options.onToggleForcedMarch?.(next);
+                    },
+                  },
+                  party.forcedMarch ? "On (+30%, costs morale)" : "Off",
+                ),
+              ),
+            ),
+          ]
+        : []),
+      // Bannerlord-style speed breakdown: each factor that moved the number,
+      // with the reason. Only rendered when the provider supplies it.
+      ...(party.speedFactors && party.speedFactors.length > 0
+        ? [
+            h(
+              "div",
+              { class: "row", "data-testid": "party-speed-factors" },
+              h("span", { class: "row__label label" }, "Speed factors"),
+              h(
+                "span",
+                { class: "row__value" },
+                ...party.speedFactors.map((f) =>
+                  h(
+                    "div",
+                    { class: "data", title: f.detail },
+                    `${f.name} ${f.mult >= 1 ? "+" : ""}${((f.mult - 1) * 100).toFixed(0)}%`,
+                  ),
+                ),
+              ),
+            ),
+          ]
+        : []),
     ),
   );
+
+  // -- smithing ---------------------------------------------------------------
+  // Bannerlord's workshop bench: smelt captured arms for metal, forge recipes.
+  if (options.onSmeltArms || options.onForgeItem) {
+    body.appendChild(sectionHeader("Workshop bench"));
+    const bench = h("div", { class: "ledger__list" });
+    const arms = party.goods.find((g) => g.goodId === "arms");
+    bench.appendChild(
+      row(
+        "Arms stock",
+        `${arms?.quantity ?? 0} (${party.metal} metal)`,
+        { mono: true, testId: "party-arms-stock" },
+      ),
+    );
+    if (options.onSmeltArms && (arms?.quantity ?? 0) > 0) {
+      bench.appendChild(
+        h(
+          "div",
+          { class: "row" },
+          h("span", { class: "row__label label" }, "Smelt"),
+          h(
+            "span",
+            { class: "row__value" },
+            h(
+              "button",
+              {
+                class: "btn",
+                "data-testid": "party-smelt-arms",
+                onclick: async () => {
+                  soundSmelt();
+                  await options.onSmeltArms?.(Math.min(10, arms?.quantity ?? 0));
+                },
+              },
+              `Smelt 10 arms → 20 metal`,
+            ),
+          ),
+        ),
+      );
+    }
+    for (const recipe of SMITHING_RECIPES) {
+      const canAfford =
+        party.metal >= recipe.metal &&
+        (party.goods.find((g) => g.goodId === "fuel")?.quantity ?? 0) >= recipe.fuel;
+      bench.appendChild(
+        h(
+          "div",
+          { class: "row" },
+          h("span", { class: "row__label label" }, recipe.name),
+          h(
+            "span",
+            { class: "row__value" },
+            options.onForgeItem
+              ? h(
+                  "button",
+                  {
+                    class: "btn",
+                    "data-testid": `party-forge-${recipe.id}`,
+                    disabled: canAfford ? undefined : "disabled",
+                    title: `${recipe.metal} metal, ${recipe.fuel} fuel`,
+                    onclick: async () => {
+                      const result = await options.onForgeItem?.(recipe.id);
+                      if (result) {
+                        const quality = result.name.split(" ")[0]?.toLowerCase() ?? "";
+                        soundForge(quality);
+                      }
+                    },
+                  },
+                  `Forge (${recipe.metal}M ${recipe.fuel}F)`,
+                )
+              : h("span", { class: "data" }, `${recipe.metal} metal, ${recipe.fuel} fuel`),
+          ),
+        ),
+      );
+    }
+    if ((party.crafted ?? []).length > 0) {
+      bench.appendChild(
+        row(
+          "Stockpile",
+          party.crafted!.map((c) => `${c.name} ×${c.count}`).join(", "),
+          { testId: "party-crafted" },
+        ),
+      );
+    }
+    // Crafting orders: nobles want forged pieces. Bannerlord's smithy loop.
+    for (const order of options.craftingOrders ?? []) {
+      const hasPiece = (party.crafted ?? []).some((c) => c.recipeId === order.recipeId && c.count > 0);
+      bench.appendChild(
+        h(
+          "div",
+          { class: "row" },
+          h("span", { class: "row__label label" }, `Order: ${order.recipeName}`),
+          h(
+            "span",
+            { class: "row__value" },
+            h("span", { class: "caption" }, `${order.patron} (${order.patronTitle}) — ${order.reward}g, ${order.daysLeft}d left. `),
+            options.onFulfillOrder
+              ? h(
+                  "button",
+                  {
+                    class: "btn",
+                    "data-testid": `party-fulfill-${order.id}`,
+                    disabled: hasPiece ? undefined : "disabled",
+                    title: hasPiece ? "Deliver the forged piece" : `Forge a ${order.recipeName} first`,
+                    onclick: async () => {
+                      await options.onFulfillOrder?.(order.id);
+                      soundOrderFulfilled();
+                    },
+                  },
+                  "Deliver",
+                )
+              : null,
+          ),
+        ),
+      );
+    }
+    body.appendChild(bench);
+  }
+
+  // -- imprisoned --------------------------------------------------------------
+  // Bannerlord's roguery: troops captured by enemies can be broken out.
+  if ((party.imprisoned ?? []).length > 0) {
+    body.appendChild(sectionHeader("Imprisoned"));
+    const held = h("div", { class: "ledger__list" });
+    for (const entry of party.imprisoned!) {
+      held.appendChild(
+        h(
+          "div",
+          { class: "row" },
+          h("span", { class: "row__label label" }, `${entry.count} held by ${entry.holderName}`),
+          h(
+            "span",
+            { class: "row__value" },
+            options.onPrisonBreak
+              ? h(
+                  "button",
+                  {
+                    class: "btn",
+                    "data-testid": `party-break-${entry.holderId}`,
+                    title: "Roguery: sneak a team in. Small teams are sneakier.",
+                    onclick: async () => {
+                      const result = await options.onPrisonBreak?.(entry.holderId, 4);
+                      if (result) soundPrisonBreak(result.success);
+                    },
+                  },
+                  "Break them out",
+                )
+              : h("span", { class: "caption" }, "No team available."),
+          ),
+        ),
+      );
+    }
+    body.appendChild(held);
+  }
 
   // -- roles -----------------------------------------------------------------
   body.appendChild(sectionHeader("Roles"));
@@ -213,6 +513,138 @@ export function partyPanel(options: PartyPanelOptions): HTMLElement {
   }
   body.appendChild(roles);
 
+  // -- detached parties (merge back) -----------------------------------------
+  if (options.onMergeParty && (options.detachedParties ?? []).length > 0) {
+    body.appendChild(sectionHeader("Detached parties"));
+    const list = h("div", { class: "ledger__list" });
+    for (const dp of options.detachedParties!) {
+      const mergeBtn = h(
+        "button",
+        { class: "btn", "data-testid": `party-merge-${dp.id}`, "aria-label": `Merge ${dp.name} back into the party` },
+        "Merge back",
+      );
+      mergeBtn.addEventListener("click", () => {
+        mergeBtn.disabled = true;
+        void options.onMergeParty!(dp.id).catch((err: unknown) => {
+          mergeBtn.disabled = false;
+          console.error(err instanceof Error ? err.message : "The merge refused.");
+        });
+      });
+      list.appendChild(
+        row(`${dp.name} — ${dp.troopCount} troops`, mergeBtn),
+      );
+    }
+    body.appendChild(list);
+  }
+
+  // -- role assignment -------------------------------------------------------
+  if (options.onAssignRole && (options.companionCandidates ?? []).length > 0) {
+    body.appendChild(sectionHeader("Assign roles"));
+    const assign = h("div", { class: "ledger__list", "data-testid": "party-assign-roles" });
+    const ROLES: { role: PartyRole; label: string; skill: string }[] = [
+      { role: "quartermaster", label: "Quartermaster", skill: "steward" },
+      { role: "surgeon", label: "Surgeon", skill: "medicine" },
+      { role: "scout", label: "Scout", skill: "scouting" },
+      { role: "engineer", label: "Engineer", skill: "engineering" },
+    ];
+    for (const { role, label, skill } of ROLES) {
+      const select = h(
+        "select",
+        { class: "btn", "data-testid": `party-role-${role}`, "aria-label": `${label}: choose a companion` },
+        h("option", { value: "" }, "Nobody"),
+        ...options.companionCandidates!.map((c) => h("option", { value: c.id }, `${c.name} (${skill} ${Math.round(c.skills[skill] ?? 0)})`)),
+      );
+      select.value = party.roles[role] ?? "";
+      select.addEventListener("change", () => {
+        const selected = select.value;
+        const current = party.roles[role];
+        // Clearing sends the currently-assigned companion with a null role;
+        // picking sends the chosen companion with the role.
+        const p = selected === "" && current ? options.onAssignRole!(current, null) : options.onAssignRole!(selected, role);
+        void p.catch((err: unknown) => {
+          console.error(err instanceof Error ? err.message : "The assignment refused.");
+        });
+      });
+      assign.appendChild(row(`${label} (${skill})`, select));
+    }
+    body.appendChild(assign);
+  }
+
+  // -- templates -------------------------------------------------------------
+  if (options.onSaveTemplate && options.onRefitTemplate) {
+    body.appendChild(sectionHeader("Party templates"));
+    const nameInput = h("input", {
+      class: "caption",
+      "data-testid": "party-template-name",
+      type: "text",
+      placeholder: "Name this template...",
+      "aria-label": "Template name",
+      style: "margin-right:var(--space-2)",
+    });
+    const templateMsg = h("p", { class: "caption", "data-testid": "party-template-message", role: "status", style: "margin:0 0 var(--space-3)" });
+    templateMsg.style.display = "none";
+    const saveBtn = h("button", { class: "btn", "data-testid": "party-template-save" }, "Save current as template");
+    saveBtn.addEventListener("click", () => {
+      const name = (nameInput as HTMLInputElement).value.trim() || `Template ${new Date().toLocaleDateString("en-US")}`;
+      saveBtn.disabled = true;
+      void options.onSaveTemplate!(name)
+        .then((t) => {
+          saveBtn.disabled = false;
+          (nameInput as HTMLInputElement).value = "";
+          templateMsg.style.display = "";
+          templateMsg.textContent = `Saved. ${t.summary}`;
+        })
+        .catch((err: unknown) => {
+          saveBtn.disabled = false;
+          templateMsg.style.display = "";
+          templateMsg.textContent = err instanceof Error ? err.message : "The template refused.";
+        });
+    });
+    body.appendChild(h("div", { class: "field-row", style: "margin-bottom:var(--space-3)" }, nameInput, saveBtn));
+    body.appendChild(templateMsg);
+
+    if ((options.partyTemplates ?? []).length > 0) {
+      const list = h("div", { class: "ledger__list" });
+      for (const t of options.partyTemplates!) {
+        const refitBtn = h(
+          "button",
+          { class: "btn", "data-testid": `party-refit-${t.id}`, "aria-label": `Refit the party toward ${t.name}` },
+          "Refit toward",
+        );
+        refitBtn.addEventListener("click", () => {
+          refitBtn.disabled = true;
+          void options.onRefitTemplate!(t.id)
+            .then((r) => {
+              refitBtn.disabled = false;
+              const buys = r.orders.filter((o) => o.action === "recruit").reduce((n, o) => n + o.count, 0);
+              const dismiss = r.orders.filter((o) => o.action === "dismiss").reduce((n, o) => n + o.count, 0);
+              templateMsg.style.display = "";
+              templateMsg.textContent = `${t.name}: recruit ${buys} and dismiss ${dismiss} to match.`;
+            })
+            .catch((err: unknown) => {
+              refitBtn.disabled = false;
+              templateMsg.style.display = "";
+              templateMsg.textContent = err instanceof Error ? err.message : "The refit refused.";
+            });
+        });
+        list.appendChild(
+          row(
+            t.name,
+            h(
+              "div",
+              { style: "display:flex;align-items:center;gap:var(--space-2)" },
+              h("span", { class: "caption" }, t.summary),
+              refitBtn,
+            ),
+          ),
+        );
+      }
+      body.appendChild(list);
+    } else {
+      body.appendChild(h("p", { class: "caption", style: "margin:0" }, "No templates saved yet."));
+    }
+  }
+
   // -- troops ----------------------------------------------------------------
   body.appendChild(sectionHeader("Troops"));
   if (party.troops.length === 0) {
@@ -226,11 +658,189 @@ export function partyPanel(options: PartyPanelOptions): HTMLElement {
     const columns: Column<TroopStack>[] = [
       { header: "Unit", render: (t) => h("span", { class: "label" }, t.name) },
       { header: "Count", numeric: true, testId: "troop-count", render: (t) => String(t.count) },
+      { header: "Wounded", numeric: true, testId: "troop-wounded", render: (t) => String(t.wounded) },
       { header: "Quality", numeric: true, testId: "troop-quality", render: (t) => `${t.quality}/5` },
       { header: "Morale", numeric: true, testId: "troop-morale", render: (t) => t.morale.toFixed(2) },
       { header: "Wage a day", numeric: true, testId: "troop-wage", render: (t) => rate(t.count * t.wage) },
     ];
     body.appendChild(stackable(dataTable("Party troops", columns, party.troops, "party-troops")));
+  }
+
+  // -- training (tasks 146, 147) ---------------------------------------------
+  // Only drawn when the caller can actually send the order: a training section
+  // whose button does nothing is worse than no training section, because it tells
+  // the player their troops can be trained when no order can leave the panel.
+  if (options.onUpgradeTroops) {
+    body.appendChild(trainingSection(party, options));
+  }
+
+  // -- prisoners -------------------------------------------------------------
+  body.appendChild(sectionHeader("Prisoners"));
+  if (party.prisoners.length === 0) {
+    body.appendChild(emptyState("No prisoners.", "Take captives in battle to ransom or recruit them."));
+  } else {
+    // One status line for the whole table: release refusals, the execute
+    // confirm, and the sim's own verdicts land here.
+    const prisonerMsg = h("p", { class: "caption", "data-testid": "party-prisoner-message", role: "status", style: "margin:var(--space-2) 0 0" });
+    const say = (text: string) => {
+      prisonerMsg.textContent = text;
+    };
+    const prisonerColumns: Column<{ troopId: string; name: string; count: number; tier: number }>[] = [
+      { header: "Unit", render: (p) => h("span", { class: "label" }, p.name) },
+      { header: "Count", numeric: true, testId: "prisoner-count", render: (p) => String(p.count) },
+      { header: "Tier", numeric: true, testId: "prisoner-tier", render: (p) => String(p.tier) },
+    ];
+    // The actions column only appears when the caller can actually send the orders.
+    // A ransom button that does nothing is worse than no ransom button.
+    if (options.onRansomPrisoners || options.onRecruitPrisoners || options.onReleasePrisoner || options.onExecutePrisoner) {
+      prisonerColumns.push({
+        header: "Actions",
+        render: (p) => {
+          const wrap = h("span", { class: "row__actions" });
+          if (options.onRansomPrisoners) {
+            const ransomBtn = h(
+              "button",
+              { type: "button", class: "btn btn--small", "data-testid": `ransom-${p.troopId}` },
+              "Ransom",
+            );
+            ransomBtn.addEventListener("click", () => {
+              ransomBtn.setAttribute("disabled", "");
+              void options.onRansomPrisoners!(p.troopId, p.count).finally(() => {
+                ransomBtn.removeAttribute("disabled");
+              });
+            });
+            wrap.appendChild(ransomBtn);
+          }
+          if (options.onRecruitPrisoners) {
+            const recruitBtn = h(
+              "button",
+              { type: "button", class: "btn btn--small", "data-testid": `recruit-${p.troopId}` },
+              "Recruit",
+            );
+            recruitBtn.addEventListener("click", () => {
+              recruitBtn.setAttribute("disabled", "");
+              void options.onRecruitPrisoners!(p.troopId, p.count).finally(() => {
+                recruitBtn.removeAttribute("disabled");
+              });
+            });
+            wrap.appendChild(recruitBtn);
+          }
+          if (options.onReleasePrisoner) {
+            const releaseBtn = h(
+              "button",
+              { type: "button", class: "btn btn--small", "data-testid": `release-${p.troopId}`, "aria-label": `Release ${p.name}` },
+              "Release",
+            );
+            releaseBtn.addEventListener("click", () => {
+              releaseBtn.setAttribute("disabled", "");
+              void options.onReleasePrisoner!(p.troopId)
+                .then((r) => {
+                  say(r.line);
+                })
+                .catch((err: unknown) => {
+                  say(err instanceof Error && err.message ? err.message : "The release did not land.");
+                })
+                .finally(() => {
+                  releaseBtn.removeAttribute("disabled");
+                });
+            });
+            wrap.appendChild(releaseBtn);
+          }
+          if (options.onExecutePrisoner) {
+            const executeBtn = h(
+              "button",
+              { type: "button", class: "btn btn--small", "data-testid": `execute-${p.troopId}`, "aria-label": `Execute ${p.name}` },
+              "Execute",
+            );
+            executeBtn.addEventListener("click", () => {
+              // Two presses: the first only arms the confirm. Executing cannot
+              // be undone, so a fat finger must not be a death sentence.
+              if (executeBtn.textContent !== "Confirm") {
+                executeBtn.textContent = "Confirm";
+                say(`Executing ${p.name} cannot be undone. Press again.`);
+                return;
+              }
+              executeBtn.setAttribute("disabled", "");
+              void options.onExecutePrisoner!(p.troopId)
+                .then((r) => {
+                  executeBtn.textContent = "Execute";
+                  say(r.line);
+                })
+                .catch((err: unknown) => {
+                  executeBtn.textContent = "Execute";
+                  say(err instanceof Error && err.message ? err.message : "The execution did not land.");
+                })
+                .finally(() => {
+                  executeBtn.removeAttribute("disabled");
+                });
+            });
+            wrap.appendChild(executeBtn);
+          }
+          return wrap;
+        },
+      });
+    }
+    body.appendChild(stackable(dataTable("Prisoners held", prisonerColumns, party.prisoners, "party-prisoners")));
+    body.appendChild(prisonerMsg);
+  }
+
+  // -- split party ------------------------------------------------------------
+  // Send troops off under a new banner. The form collects which stacks go and
+  // the new party's name; the simulation owns whether the split happens.
+  // Only drawn when the caller can actually send the order.
+  if (options.onSplitParty && party.troops.length > 0) {
+    body.appendChild(sectionHeader("Split party"));
+    const nameInput = h("input", {
+      type: "text",
+      class: "field__input",
+      placeholder: "New party name",
+      "data-testid": "split-party-name",
+      "aria-label": "New party name",
+    });
+    const checks: { stackId: string; input: HTMLInputElement }[] = [];
+    const list = h("div", { class: "stack" });
+    for (const stack of party.troops) {
+      const check = h("input", {
+        type: "checkbox",
+        "data-testid": `split-${stack.id}`,
+        "aria-label": `Send ${stack.count} ${stack.name} to the new party`,
+      }) as HTMLInputElement;
+      checks.push({ stackId: stack.id, input: check });
+      list.appendChild(
+        h("label", { class: "row" },
+          check,
+          h("span", { class: "label" }, `${stack.count} ${stack.name}`),
+        ),
+      );
+    }
+    const splitBtn = h("button", { type: "button", class: "btn", "data-testid": "split-party-confirm" }, "Split off new party");
+    const message = h("p", { class: "caption", role: "status", style: "display:none" });
+    splitBtn.addEventListener("click", () => {
+      const chosen = checks.filter((c) => c.input.checked).map((c) => {
+        const stack = party.troops.find((s) => s.id === c.stackId)!;
+        return { stackId: c.stackId, count: stack.count };
+      });
+      const name = (nameInput as HTMLInputElement).value.trim();
+      if (chosen.length === 0 || name.length === 0) {
+        message.style.display = "";
+        message.textContent = "Choose at least one stack and name the new party.";
+        return;
+      }
+      splitBtn.setAttribute("disabled", "");
+      void options.onSplitParty!({ troopIds: chosen, name }).then(
+        () => {
+          splitBtn.removeAttribute("disabled");
+          message.style.display = "";
+          message.textContent = `${name} marches under its own banner now.`;
+        },
+        (err) => {
+          splitBtn.removeAttribute("disabled");
+          message.style.display = "";
+          message.textContent = err instanceof SimulationUnavailableError ? err.playerMessage : "The split did not go through.";
+        },
+      );
+    });
+    body.appendChild(h("div", { class: "stack" }, nameInput, list, splitBtn, message));
   }
 
   // -- goods -----------------------------------------------------------------
@@ -256,6 +866,178 @@ export function partyPanel(options: PartyPanelOptions): HTMLElement {
   }
 
   return root;
+}
+
+/**
+ * Training: what each stack has banked, what the next tier costs in experience,
+ * and the button that sends the order. Tasks 146 and 147.
+ *
+ * Two rules shape this. The panel reads the ladder from `troopTier` — the same
+ * `TROOP_TIERS` table the simulation walks — so the XP a stack is shown as needing
+ * is the XP the simulation will ask for, not a number typed here. And the panel
+ * never decides the promotion: the button sends a stack id and the simulation's
+ * answer is printed verbatim, refusal included, because "you cannot afford that" and
+ * "they have not trained long enough" are different problems with different answers.
+ *
+ * A stack at the top of the ladder has no next tier, so it gets a line saying so
+ * rather than a disabled button and a blank cost.
+ */
+function trainingSection(party: PartyState, options: PartyPanelOptions): HTMLElement {
+  const wrap = h("section", { "data-testid": "party-training" });
+  wrap.appendChild(sectionHeader("Training"));
+
+  const stackable_ = party.troops.filter((t) => t.count > 0);
+  if (stackable_.length === 0) {
+    wrap.appendChild(emptyState("No troops to train.", "A party with nobody in it has nothing to train."));
+    return wrap;
+  }
+
+  const message = h("p", {
+    class: "caption",
+    "data-testid": "party-training-message",
+    role: "status",
+    style: "margin:var(--space-2) 0 0",
+  });
+  message.style.display = "none";
+
+  for (const stack of stackable_) {
+    wrap.appendChild(trainingRow(stack, options, message));
+  }
+  wrap.appendChild(message);
+  return wrap;
+}
+
+function trainingRow(
+  stack: TroopStack,
+  options: PartyPanelOptions,
+  message: HTMLElement,
+): HTMLElement {
+  const tier = troopTier(stack.tier);
+  const next = tier.tier >= TROOP_TIERS.length ? null : troopTier(tier.tier + 1);
+  // XP thresholds are per soldier, and the threshold belongs to the tier being
+  // left: a stack of N at tier 2 needs `troopTier(2).xpToNext * N` banked to become
+  // tier 3. That is the arithmetic the simulation runs, so the button unlocks at
+  // exactly the point the order will be accepted rather than a tier early or late.
+  const needed = next && tier.xpToNext !== null ? tier.xpToNext * stack.count : 0;
+  const ready = next !== null && tier.xpToNext !== null && stack.xp >= needed;
+
+  const row = h("div", {
+    class: "training-row",
+    "data-testid": `training-${stack.id}`,
+    "data-ready": String(ready),
+  });
+
+  const head = h("div", { class: "field-row", style: "justify-content:space-between;align-items:baseline;gap:var(--space-2)" });
+  head.append(
+    h("strong", { class: "label" }, stack.name),
+    h(
+      "span",
+      { class: "mono caption", "data-testid": `training-tier-${stack.id}` },
+      next ? `Tier ${tier.tier} ${tier.name} → ${next.name}` : `Tier ${tier.tier} ${tier.name} — top of the ladder`,
+    ),
+  );
+  row.appendChild(head);
+
+  if (!next) {
+    row.appendChild(
+      h("p", { class: "caption", style: "margin:var(--space-1) 0 0" },
+        "There is nothing above this tier. Only time or numbers will change it."),
+    );
+    return row;
+  }
+
+  // The path, not just the price: what the promotion makes them better at and what
+  // it adds to the wage bill, both straight off the tier table.
+  row.appendChild(
+    h(
+      "p",
+      { class: "caption", style: "margin:var(--space-1) 0 0", "data-testid": `training-path-${stack.id}` },
+      `${next.name}: ×${next.combatMultiplier.toFixed(1)} in a line fight, ` +
+        `×${next.wageMultiplier.toFixed(1)} on the wage bill.`,
+    ),
+  );
+
+  const bar = gauge({
+    label: "Experience banked",
+    value: needed > 0 ? Math.min(1, stack.xp / needed) : 0,
+    format: () => `${Math.round(stack.xp).toLocaleString("en-US")} / ${Math.round(needed).toLocaleString("en-US")} XP`,
+    thresholds: { warningBelow: 0.5, goodAbove: 1 },
+    testId: `training-xp-${stack.id}`,
+  });
+  row.appendChild(bar);
+
+  const foot = h("div", { class: "field-row", style: "justify-content:space-between;align-items:center;gap:var(--space-2)" });
+  foot.appendChild(
+    h("span", { class: "caption" },
+      ready
+        ? "Trained out. The order goes to the simulation."
+        : `${Math.max(0, Math.round(needed - stack.xp)).toLocaleString("en-US")} XP short for ${next.name}.`),
+  );
+
+  const btn = h("button", {
+    type: "button",
+    class: "btn",
+    "data-testid": `upgrade-${stack.id}`,
+    ...(ready ? {} : { disabled: "true" }),
+    "aria-label": ready
+      ? `Train ${stack.name} up to ${next.name}`
+      : `${stack.name} cannot be trained to ${next.name} yet`,
+  }, ready ? `Train to ${next.name}` : "Not ready");
+  btn.addEventListener("click", () => {
+    if (btn.disabled) return;
+    btn.disabled = true;
+    void options.onUpgradeTroops!(stack.id).then(
+      (result) => {
+        btn.disabled = false;
+        message.style.display = "";
+        if (result.upgraded) {
+          message.textContent =
+            `${stack.name} trained up to tier ${result.toTier}. ` +
+            `${Math.round(result.xpSpent).toLocaleString("en-US")} XP and ${money(result.goldSpent)} spent.`;
+        } else if (result.branchChoices && result.branchChoices.length > 0) {
+          // The tier forks and none was picked: the sim answers with the
+          // choices instead of a refusal. One button per branch re-posts the
+          // order with the branch id attached.
+          message.textContent = "The path forks. Choose the branch.";
+          const fork = h("div", { class: "field-row", "data-testid": `branch-choices-${stack.id}`, style: "gap:var(--space-2);margin-top:var(--space-2)" });
+          for (const b of result.branchChoices) {
+            const branchBtn = h("button", { type: "button", class: "btn btn--small", "data-testid": `branch-${stack.id}-${b.id}` }, b.name);
+            branchBtn.addEventListener("click", () => {
+              branchBtn.disabled = true;
+              void options.onUpgradeTroops!(stack.id, b.id).then(
+                (r) => {
+                  branchBtn.disabled = false;
+                  if (r.upgraded) {
+                    message.textContent =
+                      `${stack.name} trained up to tier ${r.toTier} (${b.name}). ` +
+                      `${Math.round(r.xpSpent).toLocaleString("en-US")} XP and ${money(r.goldSpent)} spent.`;
+                  } else {
+                    message.textContent = r.reason ?? "The training order was refused.";
+                  }
+                },
+                () => {
+                  branchBtn.disabled = false;
+                  message.textContent = "The training order did not go through.";
+                },
+              );
+            });
+            fork.append(branchBtn);
+          }
+          message.append(fork);
+        } else {
+          message.textContent = result.reason ?? "The training order was refused.";
+        }
+      },
+      () => {
+        btn.disabled = false;
+        message.style.display = "";
+        message.textContent = "The training order did not go through.";
+      },
+    );
+  });
+  foot.appendChild(btn);
+  row.appendChild(foot);
+  return row;
 }
 
 /** Nothing under command. The roster is the way out of the state, so it is offered. */

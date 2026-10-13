@@ -1,0 +1,73 @@
+/* Task 29-30: the confirmation dialog behind the surrender and retreat buttons.
+   A sheet over a dimmed field. The confirm action is marked with the critical
+   status token rather than with the primary accent, because agreeing is the one
+   button here that cannot be undone.
+
+   Static — nothing fades in, so there is nothing to disable under reduced
+   motion. */
+
+.hud-confirm {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink-900);
+}
+
+.hud-confirm__panel {
+  max-width: 420px;
+  padding: var(--space-5);
+  border: 1px solid var(--ink-700);
+  border-radius: var(--radius-2);
+  background: var(--paper-100);
+  box-shadow: var(--sheet-2);
+  color: var(--ink-900);
+}
+
+.hud-confirm__title {
+  margin: 0 0 var(--space-2);
+  font-size: 20px;
+  line-height: 26px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.hud-confirm__body {
+  margin: 0 0 var(--space-4);
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--ink-700);
+}
+
+.hud-confirm__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+
+.hud-confirm__btn {
+  padding: 6px var(--space-3);
+  border: 1px solid var(--ink-700);
+  border-radius: var(--radius-2);
+  background: var(--paper-0);
+  color: var(--ink-900);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+}
+
+.hud-confirm__btn:hover {
+  background: var(--paper-200);
+}
+
+.hud-confirm__btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.hud-confirm__btn--confirm {
+  border-color: var(--status-critical-mark);
+  color: var(--status-critical-mark);
+}

@@ -15,9 +15,19 @@ import {
 } from "../../achievements/index.js";
 import { emptyState, panel } from "../kit.js";
 import { h } from "../dom.js";
+import {
+  rarityTier,
+  type UnlockRates,
+} from "../../meta/achievementRarity.js";
 
 export interface AchievementsPanelOptions {
   store: AchievementStore;
+  /**
+   * Community unlock rates (achievement id -> 0..1). When supplied, the
+   * list sorts rarest-first and each row shows its rarity tier; without
+   * rates the panel keeps definition order and shows no tiers.
+   */
+  unlockRates?: UnlockRates;
   onClose?: () => void;
   testId?: string;
 }
@@ -90,12 +100,21 @@ export function achievementsPanel(options: AchievementsPanelOptions): HTMLElemen
   makeTab(stateBtns, stateTabs, "Locked", "achievements-state-locked", () => { state = "locked"; });
 
   function visible(): AchievementProgress[] {
-    return options.store.allProgress().filter((p) => {
+    const rows = options.store.allProgress().filter((p) => {
       if (category !== "all" && p.def.category !== category) return false;
       if (state === "unlocked" && !p.unlocked) return false;
       if (state === "locked" && p.unlocked) return false;
       return true;
     });
+    // Rarest-first when community rates are available (solo task 98).
+    const rates = options.unlockRates;
+    if (rates) {
+      const rank = new Map(
+        Object.entries(rates).map(([id, rate]) => [id, rate] as const),
+      );
+      rows.sort((a, b) => (rank.get(a.def.id) ?? 1) - (rank.get(b.def.id) ?? 1));
+    }
+    return rows;
   }
 
   function render(): void {
@@ -109,9 +128,11 @@ export function achievementsPanel(options: AchievementsPanelOptions): HTMLElemen
       list.append(emptyState("Nothing here yet.", "Locked achievements appear as you play."));
       return;
     }
+    const rates = options.unlockRates;
     for (const p of rows) {
       const masked = !p.unlocked && p.def.hidden === true;
       const title = masked ? "???" : p.def.title;
+      const tier = rates && !masked ? rarityTier(rates[p.def.id] ?? 1) : null;
       const desc = masked ? "A secret. Keep playing." : p.def.description;
       const pct = Math.round((p.current / p.def.count) * 100);
       const bar = h(
@@ -127,6 +148,7 @@ export function achievementsPanel(options: AchievementsPanelOptions): HTMLElemen
           { class: "achieve__row-head" },
           h("span", { class: "achieve__title" }, title),
           h("span", { class: "achieve__points" }, `${p.def.points} pts`),
+          ...(tier ? [h("span", { class: "achieve__rarity", "data-testid": `achievement-rarity-${p.def.id}` }, tier)] : []),
         ),
         h("p", { class: "achieve__desc" }, desc),
         bar,

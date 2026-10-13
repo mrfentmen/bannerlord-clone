@@ -90,6 +90,25 @@ describe("keybinding editor", () => {
     expect(warn2?.textContent).toContain("Confirm");
   });
 
+
+  it("offers a swap that exchanges the conflicting chords", () => {
+    document.body.appendChild(keybindingEditor({ onClose: () => {} }));
+    // Confirm was Enter; rebind it onto F, which "Order: attack" owns.
+    chip("ui.confirm").click();
+    press("f");
+    expect(chip("ui.confirm").textContent).toBe("F");
+    const swap = document.querySelector(
+      '[data-testid="binding-ui.confirm-swap-battle.orderAttack"]',
+    );
+    expect(swap).not.toBeNull();
+    (swap as HTMLButtonElement).click();
+    // Confirm keeps F; Order: attack takes Confirm's old chord (Enter).
+    expect(input.bindingFor("ui.confirm").map((c) => c.key)).toEqual(["f"]);
+    expect(input.bindingFor("battle.orderAttack").map((c) => c.key)).toEqual(["Enter", "F1"]);
+    // The conflict warning is gone.
+    expect(document.querySelector('[data-testid="binding-ui.confirm-conflict"]')).toBeNull();
+  });
+
   it("reset restores one action to its defaults", () => {
     document.body.appendChild(keybindingEditor({ onClose: () => {} }));
     chip("ui.confirm").click();

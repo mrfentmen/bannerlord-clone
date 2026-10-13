@@ -29,6 +29,35 @@ export interface Wardrobe {
   equip(slot: Cosmetic["slot"], id: string): void;
   victoryPose(): string | null;
   setVictoryPose(id: string): void;
+  /** The custom war-paint design (presets apply here, one click). */
+  warPaint(): WarPaintDesign;
+  setWarPaint(design: WarPaintDesign): void;
+}
+
+const WARDROBE_KEY = "campaign.wardrobe.v1";
+
+interface WardrobeSnapshot {
+  unlocked: string[];
+  equipped: Record<string, string | null>;
+  pose: string | null;
+  design: WarPaintDesign;
+}
+
+function loadWardrobe(): WardrobeSnapshot | null {
+  try {
+    const raw = localStorage.getItem(WARDROBE_KEY);
+    if (!raw) return null;
+    const v = JSON.parse(raw) as Partial<WardrobeSnapshot>;
+    if (!Array.isArray(v.unlocked)) return null;
+    return {
+      unlocked: v.unlocked.filter((id): id is string => typeof id === "string"),
+      equipped: v.equipped ?? {},
+      pose: typeof v.pose === "string" ? v.pose : null,
+      design: v.design ?? createWarPaintDesign(),
+    };
+  } catch {
+    return null;
+  }
 }
 
 export type WarPaintLayer = "base" | "marking" | "accent";
@@ -69,16 +98,38 @@ export function setWarPaintLayer(
 }
 
 export function createWardrobe(): Wardrobe {
-  const unlockedSet = new Set<string>();
-  const equippedMap = new Map<Cosmetic["slot"], string>();
-  let pose: string | null = null;
+  const saved = loadWardrobe();
+  const unlockedSet = new Set<string>(saved?.unlocked ?? []);
+  const equippedMap = new Map<Cosmetic["slot"], string>(
+    Object.entries(saved?.equipped ?? {}).filter(([, v]) => typeof v === "string") as [Cosmetic["slot"], string][],
+  );
+  let pose: string | null = saved?.pose ?? null;
+  let design: WarPaintDesign = saved?.design ?? createWarPaintDesign();
   const known = (id: string) =>
     COSMETICS.some((c) => c.id === id) || VICTORY_POSES.some((p) => p.id === id);
+  function persist(): void {
+    try {
+      const snapshot: WardrobeSnapshot = {
+        unlocked: [...unlockedSet],
+        equipped: {
+          "war-paint": equippedMap.get("war-paint") ?? null,
+          "armor-trim": equippedMap.get("armor-trim") ?? null,
+          cloak: equippedMap.get("cloak") ?? null,
+        },
+        pose,
+        design,
+      };
+      localStorage.setItem(WARDROBE_KEY, JSON.stringify(snapshot));
+    } catch {
+      // Session-only wardrobe.
+    }
+  }
   return {
     unlocked: () => [...unlockedSet],
     unlock(id) {
       if (!known(id)) throw new Error(`unknown cosmetic: ${id}`);
       unlockedSet.add(id);
+      persist();
     },
     equipped: () => ({
       "war-paint": equippedMap.get("war-paint") ?? null,
@@ -90,12 +141,22 @@ export function createWardrobe(): Wardrobe {
       if (!item || item.slot !== slot) throw new Error(`no ${slot} cosmetic ${id}`);
       if (!unlockedSet.has(id)) throw new Error(`${item.name} is not unlocked yet`);
       equippedMap.set(slot, id);
+      persist();
     },
     victoryPose: () => pose,
     setVictoryPose(id) {
       if (!VICTORY_POSES.some((p) => p.id === id)) throw new Error(`unknown pose: ${id}`);
       if (!unlockedSet.has(id)) throw new Error("pose is not unlocked yet");
       pose = id;
+      persist();
+    },
+    warPaint: () => ({ layers: { ...design.layers }, opacity: { ...design.opacity } }),
+    setWarPaint(next) {
+      design = {
+        layers: { ...next.layers },
+        opacity: { ...next.opacity },
+      };
+      persist();
     },
   };
 }

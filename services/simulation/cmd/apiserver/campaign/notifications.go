@@ -82,13 +82,13 @@ func (c *Campaign) notificationFrom(r cause.Row, priority string) wire.Notificat
 	day := r.Tick % 365
 
 	return wire.Notification{
-		ID:        RowID(r.ID),
-		Day:       day,
-		Priority:  priority,
-		Text:      text,
-		EntityID:  &ent,
-		Field:     &fieldName,
-		CausedBy:  RowID(r.ID),
+		ID:       RowID(r.ID),
+		Day:      day,
+		Priority: priority,
+		Text:     text,
+		EntityID: &ent,
+		Field:    &fieldName,
+		CausedBy: RowID(r.ID),
 	}
 }
 

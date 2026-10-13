@@ -27,6 +27,7 @@ func (l *loader) load(c *Config) {
 	c.World.StartSanitation = l.f64("world.start_sanitation")
 	c.World.MedicinePerCapita = l.f64("world.medicine_per_capita")
 	c.World.GarrisonPerCapita = l.f64("world.garrison_per_capita")
+	c.World.MilitiaPerCapita = l.f64("world.militia_per_capita")
 	c.World.RouteDensity = l.f64("world.route_density")
 	c.World.PortFraction = l.f64("world.port_fraction")
 	c.World.TerrainSpeed = l.f64("world.terrain_speed")

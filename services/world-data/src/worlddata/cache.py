@@ -62,6 +62,26 @@ CACHE_FORMAT_VERSION = 8
 # is a file this module did not write, whatever it happens to unpickle to.
 _RECORD_KEYS = ("stamp", "stage", "result")
 
+# Everything `pickle.load` raises for a file it cannot turn back into the record
+# this module writes. Declared once and used by both readers below, because the two
+# used to differ and the difference was a crash: `cached()` did not list ValueError,
+# while `_read()` did. A cache file whose first two bytes name a pickle protocol the
+# running interpreter does not implement raises `ValueError: unsupported pickle
+# protocol: N` rather than UnpicklingError, so a cache written by a newer Python -
+# pickle protocol 6 became the default in CPython 3.14, and this pipeline records the
+# interpreter version in every manifest - took the whole run down instead of
+# recomputing the two most expensive stages it exists to protect. ValueError is also
+# what a cache file that is not a pickle at all can raise from some code paths.
+_UNREADABLE: tuple[type[BaseException], ...] = (
+    OSError,
+    pickle.UnpicklingError,
+    EOFError,
+    AttributeError,
+    ImportError,
+    IndexError,
+    ValueError,
+)
+
 
 def fingerprint(
     config_file: Path,
@@ -118,7 +138,7 @@ def _read(path: Path) -> dict[str, Any] | None:
     try:
         with path.open("rb") as handle:
             payload = pickle.load(handle)
-    except (OSError, pickle.UnpicklingError, EOFError, AttributeError, ImportError, IndexError, ValueError):
+    except _UNREADABLE:
         return None
     if not isinstance(payload, dict) or any(key not in payload for key in _RECORD_KEYS):
         return None
@@ -174,7 +194,7 @@ def cached(
         try:
             with path.open("rb") as handle:
                 payload = pickle.load(handle)
-        except (OSError, pickle.UnpicklingError, EOFError, AttributeError, ImportError, IndexError) as exc:
+        except _UNREADABLE as exc:
             reason = f"could not be read ({type(exc).__name__}: {exc})"
         else:
             if not isinstance(payload, dict) or any(key not in payload for key in _RECORD_KEYS):

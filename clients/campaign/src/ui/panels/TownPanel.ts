@@ -18,12 +18,83 @@
  * recorded rather than filled with a placeholder.
  */
 
-import { h, numberField, row, sectionHeader } from "../dom.js";
+import { button, h, numberField, row, sectionHeader } from "../dom.js";
 import { emptyState, errorState, gauge, panel, statusChip, type StatusKind } from "../kit.js";
 import { townSkeleton } from "./skeletons.js";
 import { asBottomSheet } from "./narrow.js";
-import type { BuildingInfo, ConstructionResult, RecruitableUnit, RecruitResult, TownState } from "../../data/types.js";
+import type { BuildingInfo, ConstructionResult, RecruitableUnit, RecruitResult, TavernCompanion, TownState, Workshop } from "../../data/types.js";
 import { SimulationUnavailableError } from "../../data/provider.js";
+import { simulateTaxPolicy } from "../../economy/taxSimulator.js";
+import { answerProposal, proposeTradeDeal } from "../../economy/tradeDeals.js";
+import { PLAYABLE_SIDE_IDS, factionPalette, type FactionSwatch } from "../../design/factions.js";
+import { relationBand } from "../../diplomacy/notables.js";
+import type { NotableType, Notification } from "../../data/types.js";
+import { BANNER_COLORS } from "../../clan/bannerPalette.js";
+import type { ColorblindMode } from "../../settings/schema.js";
+import { notablesForCity } from "../../data/notables/index.js";
+import { buildingOwnersForCity } from "../../data/buildingOwners.js";
+import { townSectionFromSpec } from "./townSections.js";
+import { TOWN_SECTIONS } from "./sections/index.js";
+import { greetNpc, voiceForNpc } from "../../audio/greetDialogue.js";
+import "./townPanel.css";
+
+/** One bench recipe at the smithy (tasks 119–121). Shape owned by the simulation. */
+export interface SmithyRecipe {
+  id: string;
+  name: string;
+  metal: number;
+  fuel: number;
+  result: string;
+}
+
+/** An open noble order waiting for a forged piece. Shape owned by the simulation. */
+export interface SmithyOrder {
+  id: string;
+  patron: string;
+  patronTitle: string;
+  recipeId: string;
+  recipeName: string;
+  daysLeft: number;
+  reward: number;
+}
+
+/** What stepping inside the smithy shows: the bench, the orders, the smith's stamina. */
+export interface SmithyView {
+  recipes: SmithyRecipe[];
+  orders: SmithyOrder[];
+  stamina: { stamina: number; max: number };
+}
+
+/**
+ * Map a settlement id to its codex lore entry, if one exists.
+ * (Rowan, del order 2026-10-03): wires city lore into town panels.
+ */
+function settlementLoreEntry(settlementId: string): string | null {
+  const map: Record<string, string> = {
+    // Front Range (fixture towns) — entries in codex/entries7.ts
+    denver: "lore-city-denver",
+    boulder: "lore-city-boulder",
+    golden: "lore-city-golden",
+    // National cities — entries in codex/entries6.ts and entries9.ts
+    "new-york": "lore-city-new-york",
+    "los-angeles": "lore-city-los-angeles",
+    houston: "lore-city-houston",
+    miami: "lore-city-miami",
+    chicago: "lore-city-chicago",
+    seattle: "lore-city-seattle",
+    atlanta: "lore-city-atlanta",
+    dallas: "lore-city-dallas",
+    phoenix: "lore-city-phoenix",
+    "san-francisco": "lore-city-san-francisco",
+    boston: "lore-city-boston",
+    philadelphia: "lore-city-philadelphia",
+    "new-orleans": "lore-city-new-orleans",
+    detroit: "lore-city-detroit",
+    nashville: "lore-city-nashville",
+    "las-vegas": "lore-city-las-vegas",
+  };
+  return map[settlementId] ?? null;
+}
 
 export interface TownPanelOptions {
   /**
@@ -37,6 +108,8 @@ export interface TownPanelOptions {
   onOpenMarket: () => void;
   onMarchHere: () => void;
   onRoster: () => void;
+  /** Open a codex lore entry (e.g. city lore from the town header). */
+  onOpenLore?: (entryId: string) => void;
   /**
    * Set the town's tax rate. The panel sends the order; the simulation clamps
    * and applies it. Resolves when the order is accepted.
@@ -56,8 +129,150 @@ export interface TownPanelOptions {
   onRecruit?: (unitId: string, quantity: number) => Promise<RecruitResult>;
   /** The player's purse, for the hiring cost labels. */
   purse?: number;
+  /**
+   * The campaign's notification feed, as the caller holds it.
+   *
+   * The town panel does not poll for it and does not filter it beyond `entityId`:
+   * whatever the caller passes is what this town did. Omitted, the section is not
+   * drawn at all rather than drawn empty — see task 138.
+   */
+  notifications?: Notification[];
+  /**
+   * The faction that holds this town, by display name ("Pacific Compact").
+   *
+   * The simulation does not put a faction on `TownState`, so the header banner is
+   * drawn only when the caller supplies this. Omitted, the header shows the town
+   * name and the holder and nothing else — see task 101.
+   */
+  holderFaction?: string;
   /** The day the player is looking at, sent with the hire order. */
   day?: number;
+  /**
+   * The player's workshops in this town. Omitted, the section is not drawn —
+   * a workshop list the player cannot act on is worse than no list.
+   */
+  workshops?: Workshop[];
+  /**
+   * Buy a workshop of the given type in this town. The panel sends the type;
+   * the simulation owns the price and the result.
+   */
+  onBuyWorkshop?: (type: string) => Promise<{ workshopId: string }>;
+  /**
+   * Sell a workshop by id. The panel sends the id; the simulation owns the
+   * price and the result.
+   */
+  onSellWorkshop?: (workshopId: string) => Promise<void>;
+  /**
+   * Hire militia for the town's garrison. The panel sends the count; the
+   * simulation owns the cost and the result. Only drawn when the caller can
+   * actually send the order.
+   */
+  onRecruitMilitia?: (count: number) => Promise<void>;
+  /**
+   * Read the tavern roster (tasks 115–117). Only drawn when the caller can
+   * actually read it; the section fetches on demand, when the player steps
+   * inside, not on every panel render.
+   */
+  onLoadTavern?: () => Promise<TavernCompanion[]>;
+  /**
+   * Hire a tavern companion. Resolves when the simulation accepts the order;
+   * rejects with the simulation's own reason when it refuses (short purse,
+   * not enough renown, no battle wins yet).
+   */
+  onHireCompanion?: (companionId: string) => Promise<void>;
+  /**
+   * Read the smithy bench (tasks 119–121): recipes, open noble orders and the
+   * smith's stamina. Fetched on demand, when the player steps inside, not on
+   * every panel render. Rejects with the simulation's own reason when the
+   * bench cannot be read.
+   */
+  onLoadSmithy?: () => Promise<SmithyView>;
+  /**
+   * Forge a recipe. Rejects with the simulation's own reason (short metal,
+   * no fuel, a tired smith).
+   */
+  onForgeItem?: (recipeId: string) => Promise<{ name: string }>;
+  /** Smelt one arms into metal. Rejects with the simulation's own reason. */
+  onSmeltArms?: (quantity: number) => Promise<{ metal: number }>;
+  /** Deliver a forged piece against a noble order. Rejects with the simulation's own reason. */
+  onFulfillOrder?: (orderId: string) => Promise<{ reward: number; line: string }>;
+  /**
+   * Play tavern dice (task block 6b7229ff): stake gold, best of three takes
+   * the pot. Rejects with the simulation's own reason (short purse, no game
+   * tonight).
+   */
+  onPlayDice?: (stake: number) => Promise<{ won: boolean; payout: number; line: string }>;
+  /**
+   * Read the town's quest board (tasks 125-126): offers the notables posted,
+   * plus the quests the party carries. Fetched on demand.
+   */
+  onLoadQuests?: () => Promise<import("./sections/townQuests.js").TownQuestsView>;
+  /** Accept a quest offer. Rejects with the simulation's own reason. */
+  onAcceptQuest?: (templateId: string) => Promise<{ questId: string }>;
+  /** Abandon a carried quest. Rejects with the simulation's own reason. */
+  onAbandonQuest?: (questId: string) => Promise<void>;
+  /**
+   * Open a conversation with a notable (tasks 129-133). The simulation writes
+   * every line and lists which actions it currently serves. Rejects with its
+   * own reason (unknown notable, wrong town).
+   */
+  onNotableTalk?: (notableId: string) => Promise<import("../../data/types.js").TalkToNotableResult>;
+  /**
+   * Perform a real relation action on a notable (gift with its gold cost, or
+   * favor). Rejects with the simulation's own reason; a soft refusal (insulting
+   * gift, short purse) resolves with `accepted: false` and its summary.
+   */
+  onNotableImprove?: (request: import("../../data/types.js").ImproveRelationRequest) => Promise<import("../../data/types.js").ImproveRelationResult>;
+  /** Read the town's live siege, or null when the town is not besieged. */
+  onGetSiege?: (townId: string) => Promise<import("../../data/types.js").Siege | null>;
+  /** Lay siege to the town with the player's party. The sim owns every gate. */
+  onStartSiege?: (townId: string) => Promise<{ siegeId: string }>;
+  /** Order an assault on the town's siege. The sim decides victory. */
+  onAssaultSiege?: (siegeId: string) => Promise<{ victory: boolean; casualties: number }>;
+  /** Lift the town's siege (attackers withdraw). */
+  onLiftSiege?: (siegeId: string) => Promise<void>;
+  /** Called after a siege order changed the world, so the caller repaints. */
+  onSiegeChanged?: () => void;
+  /** The siege's engine park (queue, reserve, deployed, fire variants). */
+  onGetSiegeEngines?: (siegeId: string) => Promise<{ queue: { typeId: string; daysLeft: number }[]; reserve: string[]; deployed: string[]; fireVariants: string[] }>;
+  /** Queue an engine for construction; the sim charges gold and sets the days. */
+  onQueueSiegeEngine?: (siegeId: string, typeId: string) => Promise<{ cost: number }>;
+  /** Move an engine between reserve and the siege lines. */
+  onMoveSiegeEngine?: (siegeId: string, typeId: string, to: "reserve" | "deployed") => Promise<void>;
+  /** Mark a reserve engine as a fire variant: double damage, cook-off risk. */
+  onMakeFireVariant?: (siegeId: string, typeId: string) => Promise<void>;
+  /** The town's outstanding fine, read through the caller (bucket 7). */
+  onGetOutstandingFine?: () => Promise<number>;
+  /** Commit a crime in the town. The sim prices it. */
+  onCommitCrime?: (kind: "theft" | "assault" | "smuggling") => Promise<{ fine: number }>;
+  /** Pay off the town's fines. */
+  onPayFine?: () => Promise<{ paid: number }>;
+  /** True when the player's clan holds this town (gates the governor section). */
+  heldByPlayer?: boolean;
+  /** Read the town's current governor, or null. */
+  onGetGovernor?: () => Promise<{ name: string; line: string } | null>;
+  /** Appoint a companion governor. */
+  onAssignGovernor?: (characterId: string) => Promise<{ line: string }>;
+  /** Companions eligible to govern, as the caller holds them. */
+  governorCandidates?: { id: string; name: string }[];
+  /** The party's prisoners, for the ransom broker. */
+  prisoners?: { troopId: string; name: string; count: number; tier: number }[];
+  /** Sell prisoners to the town's ransom broker. */
+  onSellPrisonersToBroker?: (troopId: string, count: number) => Promise<{ gold: number; line: string }>;
+  /** The party's troop stacks, for garrison duty (held towns only). */
+  partyTroops?: { id: string; name: string; count: number }[];
+  /** Leave party troops as the town's garrison. The sim owns the rules. */
+  onTransferToGarrison?: (troopId: string, count: number) => Promise<{ garrison: number; line: string }>;
+  /** Wait in this town for whole days; the simulation advances its daily systems (task 132). */
+  onWaitDays?: (days: number) => Promise<{ ok: boolean; day: number }>;
+  /** Leave this town: close the town view and return the party to the map (task 133). */
+  onLeaveTown?: () => void;
+  /** Called after an economy order changed the world, so the caller repaints. */
+  onWorldChanged?: () => void;
+  /** Open bounties on the town's board (bandits/bounties contract). */
+  onGetBounties?: () => Promise<import("../../data/types.js").BountyOffer[]>;
+  /** Claim a bounty; the sim pays only when the target party is destroyed. */
+  onClaimBounty?: (bountyId: string) => Promise<{ claimed: true; reward: number }>;
   /**
    * The survey is still being read. Renders `town-skeleton`, which mirrors this
    * panel's sections, so the context region does not change height when the town
@@ -100,11 +315,36 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
   const daysToEmpty = foodBalance < 0 ? daysOfFood / ((-foodBalance) / demand) : null;
   const loyaltyDays = town.loyalty < 0.2 ? 12 : null;
 
-  // -- population and workers ------------------------------------------------
+  // -- the town header: name, then who holds it and under whose banner -------
+  // Task 101. `TownState` carries `holderName` (a person) but no faction field, so
+  // the banner can only be drawn when the caller supplies the holding faction by
+  // name. Without one the header says who holds the town and stops, rather than
+  // guessing a side from the holder's name or the state's code — a banner is a
+  // claim about who controls a place, and an invented one is a lie about the map.
+  //
+  // Rowan (del order 2026-10-03): lore button deep-links to the codex when a
+  // lore entry exists for this settlement.
+  const loreEntryId = settlementLoreEntry(town.settlementId);
+  const headerActions = h("div", { style: "display:flex;gap:var(--space-1)" });
+  if (loreEntryId && options.onOpenLore) {
+    const loreBtn = h(
+      "button",
+      {
+        type: "button",
+        class: "btn btn--quiet btn--xs",
+        "data-testid": "town-lore",
+        title: `Read the lore of ${town.name}`,
+      },
+      "📖 Lore",
+    ) as HTMLButtonElement;
+    loreBtn.addEventListener("click", () => options.onOpenLore?.(loreEntryId));
+    headerActions.appendChild(loreBtn);
+  }
   body.appendChild(
     h(
       "div",
       { class: "field-row", style: "margin-bottom:var(--space-3)" },
+      holderBanner(options.holderFaction),
       h(
         "div",
         { style: "flex:1 1 auto;min-width:0" },
@@ -112,6 +352,7 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
         h("p", { class: "caption", style: "margin:0" }, `A ${town.klass} on the surveyed road network`),
       ),
       statusChip(unrestKind(town.unrest), `Unrest ${town.unrest.toFixed(2)}`, { testId: "town-unrest-chip" }),
+      headerActions,
     ),
   );
   body.appendChild(
@@ -297,6 +538,18 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
       }),
     ),
   );
+  // Militia recruitment: the order goes to the simulation, which owns the cost
+  // and the result. The button only appears when the caller can send the order.
+  if (options.onRecruitMilitia !== undefined) {
+    const qty = numberField("militia-qty", "Militia to hire", 10, { min: 1, max: 100 });
+    const hireBtn = h("button", { type: "button", class: "btn btn--small", "data-testid": "hire-militia" }, "Hire militia");
+    hireBtn.addEventListener("click", () => {
+      const n = Math.max(1, Math.floor(Number(qty.input.value) || 1));
+      hireBtn.setAttribute("disabled", "");
+      void options.onRecruitMilitia!(n).finally(() => hireBtn.removeAttribute("disabled"));
+    });
+    body.appendChild(h("div", { style: "margin-top:var(--space-2)" }, qty.field, hireBtn));
+  }
 
   // -- money ----------------------------------------------------------------
   body.appendChild(sectionHeader("Money", whyButton("money", () => options.onWhy("money"))));
@@ -310,6 +563,112 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
     ),
   );
 
+  // -- workshops ------------------------------------------------------------
+  // Player-owned businesses in this town. The list and the buy/sell orders come
+  // from the caller; a workshop section the player cannot act on is worse than
+  // no section, because it tells them they own businesses they cannot touch.
+  if (options.workshops !== undefined || options.onBuyWorkshop !== undefined) {
+    body.appendChild(sectionHeader("Workshops"));
+    const owned = (options.workshops ?? []).filter((w) => w.townId === town.id);
+    if (owned.length === 0) {
+      body.appendChild(emptyState("No workshops here.", "Buy a business to earn daily income from this town."));
+    } else {
+      const list = h("div", { class: "ledger__list" });
+      for (const w of owned) {
+        const sellBtn =
+          options.onSellWorkshop !== undefined
+            ? (() => {
+                const btn = h("button", { type: "button", class: "btn btn--small", "data-testid": `sell-workshop-${w.id}` }, "Sell");
+                btn.addEventListener("click", () => {
+                  btn.setAttribute("disabled", "");
+                  void options.onSellWorkshop!(w.id).finally(() => btn.removeAttribute("disabled"));
+                });
+                return btn;
+              })()
+            : null;
+        list.appendChild(
+          row(
+            w.name,
+            h(
+              "span",
+              { class: "data" },
+              `$${Math.round(w.dailyIncome).toLocaleString("en-US")}/day`,
+              sellBtn ? h("span", { style: "margin-left:var(--space-2)" }, sellBtn) : null,
+            ),
+            { testId: `workshop-${w.id}` },
+          ),
+        );
+      }
+      body.appendChild(list);
+    }
+    if (options.onBuyWorkshop !== undefined) {
+      const typeSelect = h("select", {
+        class: "field__input",
+        "data-testid": "buy-workshop-type",
+        "aria-label": "Workshop type",
+      }) as HTMLSelectElement;
+      for (const [value, label] of [
+        ["smithy", "Smithy"],
+        ["brewery", "Brewery"],
+        ["weavery", "Weavery"],
+        ["tannery", "Tannery"],
+        ["press", "Press"],
+      ]) {
+        const opt = h("option", { value }, label) as HTMLOptionElement;
+        typeSelect.appendChild(opt);
+      }
+      const buyBtn = h("button", { type: "button", class: "btn", "data-testid": "buy-workshop" }, "Buy a workshop");
+      buyBtn.addEventListener("click", () => {
+        buyBtn.setAttribute("disabled", "");
+        void options.onBuyWorkshop!(typeSelect.value).finally(() => buyBtn.removeAttribute("disabled"));
+      });
+      body.appendChild(h("div", { style: "margin-top:var(--space-2)" }, typeSelect, buyBtn));
+    }
+  }
+
+  // -- trade agreement (solo task 76): propose a deal, the town answers ---
+  body.appendChild(sectionHeader("Trade agreement"));
+  const { field: dealOfferField, input: dealOffer } = numberField("deal-offer", "Up-front offer", 0, { min: 0 });
+  const { field: dealDiscountField, input: dealDiscount } = numberField("deal-discount", "Discount on your goods (0-50)", 0, { min: 0, max: 50 });
+  const { field: dealTariffField, input: dealTariff } = numberField("deal-tariff", "Tariff relief asked (0-50)", 0, { min: 0, max: 50 });
+  const dealPriority = h("input", {
+    type: "checkbox",
+    id: "deal-priority",
+    "aria-label": "Priority market access",
+    "data-testid": "deal-priority",
+  }) as HTMLInputElement;
+  const dealResult = h("p", { class: "caption", "data-testid": "deal-result", role: "status" },
+    "Propose terms; the town answers accept, counter, or refuse.");
+  const dealBtn = button("Propose deal", () => {
+    const offer = Number(dealOffer.value);
+    const discount = Number(dealDiscount.value);
+    const tariffAsk = Number(dealTariff.value);
+    if (!Number.isFinite(offer) || offer < 0 || !Number.isFinite(discount) || discount < 0 || discount > 50 ||
+        !Number.isFinite(tariffAsk) || tariffAsk < 0 || tariffAsk > 50) {
+      dealResult.textContent = "Terms out of range.";
+      return;
+    }
+    try {
+      const proposal = proposeTradeDeal(
+        town.id, town.name, town.loyalty, offer, discount, tariffAsk, dealPriority.checked,
+      );
+      const answer = answerProposal(proposal, (options.day ?? 0) >>> 0);
+      dealResult.textContent = answer.line;
+    } catch (e) {
+      dealResult.textContent = e instanceof Error ? e.message : "The deal fell through.";
+    }
+  }, { testId: "deal-propose" });
+  body.appendChild(
+    h("div", { class: "form-row" }, dealOfferField, dealDiscountField, dealTariffField,
+      h("label", { for: "deal-priority" }, "Priority access", dealPriority)),
+  );
+  body.appendChild(dealBtn);
+  body.appendChild(dealResult);
+  body.appendChild(
+    h("p", { class: "caption" },
+      `Standing here is the town's loyalty (${Math.round(town.loyalty)}); the deal is binding once the town answers.`),
+  );
+
   // -- actions: the market link, the march, the rulers ----------------------
   const actions = h("div", { class: "field-row", style: "margin-top:var(--space-4)" });
   const marketBtn = h("button", { type: "button", class: "btn btn--primary", "data-testid": "open-market" }, "Open the market");
@@ -319,6 +678,11 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
   const rosterBtn = h("button", { type: "button", class: "btn", "data-testid": "open-roster" }, "Rulers");
   rosterBtn.addEventListener("click", () => options.onRoster());
   actions.append(marketBtn, marchBtn, rosterBtn);
+  if (options.onLeaveTown) {
+    const leaveBtn = h("button", { type: "button", class: "btn", "data-testid": "leave-town" }, "Leave town");
+    leaveBtn.addEventListener("click", () => options.onLeaveTown!());
+    actions.append(leaveBtn);
+  }
   body.appendChild(actions);
 
   // -- recruit ----------------------------------------------------------------
@@ -326,7 +690,257 @@ export function townPanel(options: TownPanelOptions): HTMLElement {
     body.appendChild(recruitSection(town, options));
   }
 
+  // -- wait here (task 132) ---------------------------------------------------
+  if (options.onWaitDays) {
+    body.appendChild(waitSection(options));
+  }
+
+  // -- notables (task 129) ----------------------------------------------------
+  body.appendChild(notablesSection(town));
+
+  // Rowan (del order 2026-10-04): city notables with portraits and lore.
+  // These are the 12 hand-written NPCs per city from the name generator.
+  const cityNotables = notablesForCity(town.settlementId);
+  if (cityNotables.length > 0) {
+    body.appendChild(cityNotablesSection(cityNotables));
+  }
+
+  // Rowan (del order 2026-10-04): named building owners (taverns, workshops, etc.)
+  const buildingOwners = buildingOwnersForCity(town.settlementId);
+  if (buildingOwners.length > 0) {
+    body.appendChild(buildingOwnersSection(buildingOwners));
+  }
+
+  // -- simulated town facilities (tavern, dice, smithy, ...) --------------------
+  // The town-sections pipeline: each registered spec renders itself when the
+  // caller passed the handlers that make it real. A new facility is a spec
+  // file in sections/ plus a handler here — the panel needs nothing else.
+  for (const spec of TOWN_SECTIONS) {
+    const section = townSectionFromSpec(spec, options);
+    if (section) body.appendChild(section);
+  }
+
+  // -- what happened here (task 138) ------------------------------------------
+  const events = eventsSection(town, options);
+  if (events) body.appendChild(events);
+
   return root;
+}
+
+/**
+ * Recent events in this town. Task 138.
+ *
+ * The entries are the campaign's own `Notification` records, filtered to this town
+ * by `entityId` and newest first. The panel writes nothing of its own — it prints
+ * the simulation's sentence and the day it happened on, and offers a "Why"
+ * affordance for any entry that names a field, which goes to the same
+ * `onWhy` handler the rest of the panel uses. Priority is carried by the status
+ * chip's glyph and word as well as its colour, so a critical notice does not
+ * depend on hue (ART_DIRECTION.md 5.3).
+ *
+ * Without a feed the section is not drawn. An empty list is a different claim — it
+ * says nothing has happened, which is only true when the caller actually looked —
+ * so the panel distinguishes "no feed" from "a feed with nothing in it".
+ */
+function eventsSection(town: TownState, options: TownPanelOptions): HTMLElement | null {
+  if (options.notifications === undefined) return null;
+  const mine = options.notifications
+    .filter((n) => n.entityId === town.id)
+    .sort((a, b) => b.day - a.day)
+    .slice(0, RECENT_EVENT_LIMIT);
+
+  const wrap = h("section", { "data-testid": "town-events" });
+  wrap.appendChild(sectionHeader("Recent events"));
+
+  if (mine.length === 0) {
+    wrap.appendChild(
+      emptyState(
+        "Nothing has changed here.",
+        "No recorded events for this town. Watch the unrest and supply figures above for what is building up.",
+      ),
+    );
+    return wrap;
+  }
+
+  const list = h("ol", { class: "event-list" });
+  for (const notice of mine) {
+    const item = h("li", {
+      class: "event",
+      "data-testid": `town-event-${notice.id}`,
+      "data-priority": notice.priority,
+    });
+    item.appendChild(
+      h(
+        "div",
+        { class: "field-row", style: "gap:var(--space-2);align-items:flex-start" },
+        statusChip(EVENT_PRIORITY_KIND[notice.priority], notice.text, {
+          testId: `town-event-chip-${notice.id}`,
+        }),
+        h("span", { class: "event__day mono caption", "data-testid": `town-event-day-${notice.id}` }, `Day ${notice.day}`),
+      ),
+    );
+    const field = notice.field;
+    if (field) {
+      item.appendChild(whyButton(field, () => options.onWhy(field)));
+    }
+    list.appendChild(item);
+  }
+  wrap.appendChild(list);
+  return wrap;
+}
+
+/**
+ * Who is worth knowing in this town. Task 129.
+ *
+ * `town.notables` is in the simulation contract and this is the first thing that
+ * draws it: a per-settlement roster with the two numbers that gate anything — the
+ * notable's power, which unlocks recruits, and their standing with you, which
+ * unlocks prices and work. Both come from the simulation; the panel prints them and
+ * nothing else. The band a relation falls into is `relationBand` from
+ * `src/diplomacy/notables.ts`, shared with the rest of the client rather than
+ * re-decided here, so a notable reads the same in this panel and anywhere else.
+ *
+ * A town with no notables gets the empty state, not a fabricated list.
+ */
+function notablesSection(town: TownState): HTMLElement {
+  const wrap = h("section", { "data-testid": "town-notables" });
+  wrap.appendChild(sectionHeader("Notable residents"));
+
+  // `notables` is non-optional on `TownState`, but it is not in every payload the
+  // client is handed: a town record from a simulation that predates the field
+  // arrives without the key. A missing roster and an empty roster make the same
+  // claim — nobody here — so both take the empty state rather than throwing on
+  // `undefined.length`.
+  const notables = town.notables ?? [];
+
+  if (notables.length === 0) {
+    wrap.appendChild(
+      emptyState(
+        "Nobody here is worth knowing yet.",
+        "No notable residents are recorded in this town. Work and prices stay locked until one is.",
+      ),
+    );
+    return wrap;
+  }
+
+  const list = h("ul", { class: "notable-list" });
+  for (const notable of notables) {
+    const band = relationBand(notable.relation);
+    const item = h("li", {
+      class: "notable",
+      "data-testid": `town-notable-${notable.id}`,
+      "data-band": band,
+    });
+    item.append(
+      h(
+        "div",
+        { class: "field-row", style: "justify-content:space-between;align-items:baseline;gap:var(--space-2)" },
+        h("strong", { class: "label" }, notable.name),
+        h("span", { class: "notable__type caption" }, NOTABLE_TYPE_LABEL[notable.type]),
+      ),
+      h("p", { class: "caption", style: "margin:var(--space-1) 0 0" }, notable.blurb),
+      h(
+        "div",
+        { class: "field-row", style: "gap:var(--space-3);margin-top:var(--space-2)" },
+        h(
+          "span",
+          { class: "row__value data", "data-testid": `town-notable-power-${notable.id}` },
+          `Power ${Math.round(notable.power)}`,
+        ),
+        h(
+          "span",
+          { class: "row__value data", "data-testid": `town-notable-relation-${notable.id}` },
+          `${RELATION_BAND_LABEL[band]} (${signed(notable.relation)})`,
+        ),
+      ),
+    );
+    list.appendChild(item);
+  }
+  wrap.appendChild(list);
+  wrap.appendChild(
+    h(
+      "p",
+      { class: "caption", style: "margin:var(--space-2) 0 0" },
+      "Power decides who will sign on for you. Standing decides what they will tell you.",
+    ),
+  );
+  return wrap;
+}
+
+/**
+ * City notables with portraits and lore (del order 2026-10-04).
+ * The 12 hand-written NPCs per city from the name generator, with AI-generated
+ * portraits and 2-sentence lore. These supplement the sim's notables.
+ */
+function cityNotablesSection(notables: import("../../data/notables/index.js").CityNotable[]): HTMLElement {
+  const wrap = h("section", { "data-testid": "town-city-notables" });
+  wrap.appendChild(sectionHeader("City notables"));
+
+  const grid = h("div", { class: "city-notables-grid", style: "display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:var(--space-3)" });
+  for (const notable of notables) {
+    // Portrait key is like "german-male-middle"; we have 18 base portraits (ethnicity-gender).
+    const baseKey = notable.portraitKey.split("-").slice(0, 2).join("-");
+    const portraitUrl = `/portraits/portrait-${baseKey}.webp`;
+
+    const card = h("div", {
+      class: "city-notable-card",
+      "data-testid": `city-notable-${notable.id}`,
+      style: "border:1px solid var(--border);border-radius:var(--radius);padding:var(--space-2);background:var(--surface);cursor:pointer",
+    });
+    // Greet when the player clicks a notable to talk.
+    card.addEventListener("click", () => {
+      greetNpc(voiceForNpc(notable.id));
+    });
+    card.append(
+      h("img", {
+        src: portraitUrl,
+        alt: `Portrait of ${notable.name}`,
+        style: "width:64px;height:64px;border-radius:50%;object-fit:cover;float:left;margin-right:var(--space-2)",
+        "data-testid": `city-notable-portrait-${notable.id}`,
+      }),
+      h("div", {},
+        h("strong", { class: "label" }, notable.name),
+        h("div", { class: "caption" }, `${notable.title} • Power ${notable.power}`),
+      ),
+      h("p", { class: "caption", style: "margin:var(--space-2) 0 0;clear:both" }, notable.lore),
+    );
+    grid.appendChild(card);
+  }
+  wrap.appendChild(grid);
+  return wrap;
+}
+
+/**
+ * Building owners section (del order 2026-10-04).
+ * Named proprietors for taverns, workshops, markets, stables, smithies.
+ */
+function buildingOwnersSection(owners: import("../../data/buildingOwners.js").BuildingOwner[]): HTMLElement {
+  const wrap = h("section", { "data-testid": "town-building-owners" });
+  wrap.appendChild(sectionHeader("Establishments"));
+
+  const list = h("ul", { class: "building-list" });
+  for (const owner of owners) {
+    const portraitUrl = `/portraits/portrait-${owner.portraitKey}.webp`;
+    const item = h("li", {
+      class: "building",
+      "data-testid": `building-${owner.id}`,
+      style: "display:flex;gap:var(--space-2);align-items:center;margin-bottom:var(--space-2)",
+    });
+    item.append(
+      h("img", {
+        src: portraitUrl,
+        alt: `Portrait of ${owner.ownerName}`,
+        style: "width:48px;height:48px;border-radius:50%;object-fit:cover",
+      }),
+      h("div", {},
+        h("strong", { class: "label" }, owner.buildingName),
+        h("div", { class: "caption" }, `${owner.ownerName} — ${owner.ownerTitle}`),
+      ),
+    );
+    list.appendChild(item);
+  }
+  wrap.appendChild(list);
+  return wrap;
 }
 
 /**
@@ -352,11 +966,22 @@ function taxSection(town: TownState, options: TownPanelOptions): HTMLElement {
     taxStepper(statePct, 0, 15, 1, (next) => options.onSetStateTaxRate?.(next / 100), "state-tax"),
   );
 
+  // What-if preview from the tax simulator (solo task 77): the simulator's
+  // estimate at the current rate and one step up, before anything is applied.
+  const pop = town.population ?? 0;
+  const here = simulateTaxPolicy(town.taxRate, town.taxRate, town.prosperity, pop);
+  const lines = [h("p", { class: "caption", "data-testid": "tax-sim-current" }, `Simulator estimate at ${townPct}%: ${here.line}`)];
+  if (townPct + 5 <= 50) {
+    const up = simulateTaxPolicy(town.taxRate, town.taxRate + 0.05, town.prosperity, pop);
+    lines.push(h("p", { class: "caption", "data-testid": "tax-sim-up" }, `One step up (${townPct + 5}%): ${up.line}`));
+  }
+
   wrap.append(
     townRow,
     stateRow,
     h("p", { class: "caption", style: "margin:var(--space-1) 0 0" },
       "High town taxes feed unrest and cost loyalty. The state cut goes to the controlling faction's treasury."),
+    ...lines,
   );
   return wrap;
 }
@@ -466,6 +1091,49 @@ function projectRow(town: TownState, b: BuildingInfo, options: TownPanelOptions)
  * Who is willing to sign on here. The list comes from the simulation; the panel
  * sends the order and shows the simulation's answer verbatim.
  */
+/**
+ * Wait here for a few whole days (task 132). The panel sends a count; the
+ * simulation advances its clock and its daily systems, and the caller repaints
+ * from the fresh snapshot. The panel prints nothing about what changed — it
+ * does not know — it only says the days were served, and the rest of the
+ * panel tells the player what moved.
+ */
+function waitSection(options: TownPanelOptions): HTMLElement {
+  const wrap = h("section", { "data-testid": "wait-section" });
+  wrap.appendChild(sectionHeader("Wait here"));
+
+  const message = h("p", { class: "caption", "data-testid": "town-wait-message", role: "status", style: "margin:0 0 var(--space-3)" });
+  message.style.display = "none";
+  wrap.appendChild(message);
+
+  const { field: daysField, input: daysInput } = numberField("wait-days", "Days", 1, {
+    min: 1,
+    max: 7,
+    step: 1,
+  });
+  const wait = h("button", { type: "button", class: "btn", "data-testid": "town-wait" }, "Wait");
+  wait.addEventListener("click", () => {
+    if (wait.disabled) return;
+    const days = Math.max(1, Math.min(7, Math.floor(Number(daysInput.value) || 1)));
+    wait.disabled = true;
+    void options.onWaitDays!(days).then(
+      () => {
+        wait.disabled = false;
+        message.style.display = "";
+        message.textContent = `${days} day${days === 1 ? "" : "s"} pass. The figures above are the town as it stands now.`;
+      },
+      (err) => {
+        wait.disabled = false;
+        message.style.display = "";
+        message.textContent =
+          err instanceof SimulationUnavailableError ? err.playerMessage : "The days would not pass.";
+      },
+    );
+  });
+  wrap.appendChild(h("div", { class: "field-row" }, daysField, wait));
+  return wrap;
+}
+
 function recruitSection(town: TownState, options: TownPanelOptions): HTMLElement {
   const wrap = h("section", { "data-testid": "recruit-section" });
   wrap.appendChild(sectionHeader("Recruit"));
@@ -566,6 +1234,13 @@ function recruitRow(
 }
 
 /**
+ * The tavern (tasks 115–117): recruitable NPCs, hire button, and what each one
+ * wants before they follow the player. The roster is fetched when the player
+ * steps inside, not on every panel render, so a town panel costs one request
+ * no matter how often it repaints. Task 118 (rumors) is not drawn: the
+ * simulation publishes no rumor field, and the panel does not invent one.
+ */
+/**
  * Nothing is selected. `ART_DIRECTION.md` section 10.2 gives the wording, and the
  * roster is offered as the way out of the state, because an empty panel that only
  * explains itself is a dead end.
@@ -585,6 +1260,104 @@ function townPanelEmpty(options: TownPanelOptions): HTMLElement {
     h("div", { style: "margin-top:var(--space-2)" }, emptyState(NO_TOWN_HEADLINE, NO_TOWN_DETAIL, roster)),
   );
   return root;
+}
+
+/**
+ * The holding faction's banner, or nothing at all (task 101).
+ *
+ * The cloth comes from the locked faction palette in whichever colour-blind mode
+ * the app is running, and the ink from the same swatch, so the pairing is one the
+ * palette has already checked rather than one chosen here. A name that is not a
+ * playable side — a local clan holding one town — takes a stable pick from the
+ * locked clan-banner palette, so the same name is always the same cloth.
+ *
+ * The banner carries the identity and the name carries the information: the name
+ * sits on the panel's own ground, not on the cloth, because no contrast test has
+ * verified an arbitrary ink-over-arbitrary-cloth pairing. When no faction name is
+ * supplied at all, nothing is returned and the header keeps its two caption lines.
+ */
+function holderBanner(factionName: string | undefined): HTMLElement | null {
+  const name = factionName?.trim();
+  if (!name) return null;
+  const swatch = bannerSwatch(name);
+  return h(
+    "div",
+    { class: "town-banner", "data-testid": "town-banner", role: "img", "aria-label": `Held by ${name}` },
+    h("span", {
+      class: "town-banner__field",
+      "aria-hidden": "true",
+      "data-faction": name,
+      style: `background:${swatch.color}`,
+    }),
+    h("span", { class: "town-banner__name" }, name),
+  );
+}
+
+/** The cloth and ink a faction name wears. Both come from a locked palette. */
+function bannerSwatch(name: string): FactionSwatch {
+  const slug = name
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  const side = PLAYABLE_SIDE_IDS.find((id) => id === slug);
+  if (side) return factionPalette(activeColorblindMode())[side];
+  // Not a playable side: the same stable pick the battle deployment banner makes,
+  // so a clan's cloth is the same cloth wherever it is shown.
+  let hash = 0;
+  for (const char of name) hash = (hash * 31 + (char.codePointAt(0) ?? 0)) % BANNER_COLORS.length;
+  const color = BANNER_COLORS[hash] ?? BANNER_COLORS[0];
+  return { color, ink: color };
+}
+
+/** The four notable roles, in the product's words rather than the type ids. */
+const NOTABLE_TYPE_LABEL: Record<NotableType, string> = {
+  merchant: "Merchant",
+  "gang-leader": "Organised crime",
+  veteran: "Veteran",
+  "community-leader": "Community organiser",
+};
+
+/**
+ * The band a relation falls into, printed as a word.
+ *
+ * The bands themselves come from `relationBand`, which is the client's shared
+ * definition; this is only the wording, so a relation reads as a judgement the
+ * player can act on rather than a bare -40.
+ */
+const RELATION_BAND_LABEL: Record<ReturnType<typeof relationBand>, string> = {
+  hostile: "Hostile",
+  cold: "Cold",
+  neutral: "Neutral",
+  warm: "Warm",
+  allied: "Allied",
+};
+
+/** A signed number, with the sign explicit so +5 never reads as 5. */
+function signed(value: number): string {
+  return value > 0 ? `+${Math.round(value)}` : String(Math.round(value));
+}
+
+/**
+ * How many events the panel prints.
+ *
+ * A town that has been busy is not more useful past a screenful, and an unbounded
+ * feed would push the sections below it — the notables roster, the actions — off
+ * the bottom of the panel entirely.
+ */
+const RECENT_EVENT_LIMIT = 8;
+
+/** Notification priority mapped onto the client's four status kinds. */
+const EVENT_PRIORITY_KIND: Record<Notification["priority"], StatusKind> = {
+  critical: "critical",
+  important: "warning",
+  informational: "info",
+};
+
+/** The colour-blind mode the app is running in, which `main.ts` records on the root. */
+function activeColorblindMode(): ColorblindMode {
+  const mode = document.documentElement.getAttribute("data-colorblind-mode");
+  return mode === "deuteranopia" || mode === "protanopia" || mode === "tritanopia" ? mode : "off";
 }
 
 /** A "why" affordance on a section header, so the panel is traceable at every level. */

@@ -57,9 +57,9 @@ type LedgerLine struct {
 
 // Ledger is the running book for the player.
 type Ledger struct {
-	Day       int               `json:"day"`
-	Income    []LedgerLine      `json:"income"`
-	Expenses  []LedgerLine      `json:"expenses"`
+	Day       int                `json:"day"`
+	Income    []LedgerLine       `json:"income"`
+	Expenses  []LedgerLine       `json:"expenses"`
 	NetPerDay map[string]float64 `json:"netPerDay"`
 }
 
@@ -113,7 +113,7 @@ type RecruitableUnit struct {
 	// simulation has no levy fee; a soldier's cost is his wage.
 	HireCost float64 `json:"hireCost"`
 	// Available is how many are willing to sign on here right now.
-	Available int `json:"available"`
+	Available int    `json:"available"`
 	Blurb     string `json:"blurb"`
 }
 
@@ -184,10 +184,10 @@ type TownState struct {
 	HolderCulture string `json:"holderCulture"`
 	// Rebellious is true when loyalty collapsed below a quarter and the town
 	// has stopped paying taxes.
-	Rebellious bool  `json:"rebellious"`
-	UnderSiege *bool `json:"underSiege,omitempty"`
-	Prosperity float64 `json:"prosperity"`
-	TaxRate    float64 `json:"taxRate"`
+	Rebellious   bool    `json:"rebellious"`
+	UnderSiege   *bool   `json:"underSiege,omitempty"`
+	Prosperity   float64 `json:"prosperity"`
+	TaxRate      float64 `json:"taxRate"`
 	StateTaxRate float64 `json:"stateTaxRate"`
 	State        string  `json:"state"`
 
@@ -197,9 +197,9 @@ type TownState struct {
 	// ConstructionBuilding is nil when no project is running.
 	ConstructionBuilding *string `json:"constructionBuilding"`
 	ConstructionDaysLeft float64 `json:"constructionDaysLeft"`
-	Garrison            float64 `json:"garrison"`
-	GarrisonConduct     float64 `json:"garrisonConduct"`
-	RoadSafety          float64 `json:"roadSafety"`
+	Garrison             float64 `json:"garrison"`
+	GarrisonConduct      float64 `json:"garrisonConduct"`
+	RoadSafety           float64 `json:"roadSafety"`
 	// InformationTrust has no source in model.Town, so it is always zero.
 	InformationTrust float64 `json:"informationTrust"`
 
@@ -234,6 +234,6 @@ type MarketGood struct {
 
 // MarketState is a town's whole market.
 type MarketState struct {
-	TownID string      `json:"townId"`
+	TownID string       `json:"townId"`
 	Goods  []MarketGood `json:"goods"`
 }

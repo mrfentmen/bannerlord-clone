@@ -19,6 +19,9 @@ export const GOOD_COLORS: Record<GoodId, string> = {
   textiles: "#7f6fd1",
   tools: "#4fa3a5",
   lumber: "#7a5c3e",
+  beer: "#e8b93c",
+  cloth: "#b48ce0",
+  leather: "#8a5a2b",
 };
 
 /** Fallback for goods the palette does not know yet: parchment. */

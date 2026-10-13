@@ -16,11 +16,11 @@ import (
 // settlement with the client's own published numbers so the marker it draws and the
 // class it reports cannot disagree.
 const (
-	cityPopulation    = 100_000.0
-	townPopulation    = 25_000.0
-	townClassCity     = "city"
-	townClassTown     = "town"
-	townClassVillage  = "village"
+	cityPopulation   = 100_000.0
+	townPopulation   = 25_000.0
+	townClassCity    = "city"
+	townClassTown    = "town"
+	townClassVillage = "village"
 )
 
 // townClass is the client's class key for a settlement of this population.
@@ -48,9 +48,10 @@ func (c *Campaign) Snapshot(ctx context.Context) (wire.SimSnapshot, error) {
 
 func (c *Campaign) snapshotLocked() wire.SimSnapshot {
 	snap := wire.SimSnapshot{
-		Day:     c.state.Tick,
-		Year:    int(c.state.Year),
-		EraTier: c.eraTier(),
+		SchemaVersion: wire.SnapshotSchemaVersion,
+		Day:           c.state.Tick,
+		Year:          int(c.state.Year),
+		EraTier:       c.eraTier(),
 
 		Party:         c.partyStateLocked(),
 		Player:        c.playerStateLocked(),
@@ -223,40 +224,40 @@ func (c *Campaign) townsLocked(s *model.State) []wire.TownState {
 func (c *Campaign) townStateLocked(t *model.Town) wire.TownState {
 	pop := t.Population
 	out := wire.TownState{
-		ID:                      EntityID(model.KindTown, t.ID),
-		SettlementID:            Slug(t.Name),
-		Name:                    t.Name,
-		Klass:                   townClass(pop),
-		HolderName:              c.state.Name(model.KindRuler, t.Holder),
-		Population:              &pop,
-		Workers:                 round2(t.Workers),
-		FoodStock:               round2(t.FoodStock),
-		FoodProduction:          round2(t.FoodProduction),
-		FoodDemand:              round2(t.FoodDemand),
-		MedicineStock:           round2(t.MedicineStock),
-		Sanitation:              round3(t.Sanitation),
-		Infected:                round3(t.Infected),
-		Crowding:                round3(t.Crowding),
-		Unrest:                  round3(t.Unrest),
-		Loyalty:                 round3(t.Loyalty),
-		Security:                round3(t.RoadSafety),
-		Rebellious:              t.Loyalty < 0.25,
-		UnderSiege:              &t.IsBesieged,
-		Prosperity:              round3(t.Prosperity),
-		TaxRate:                 round3(t.TaxRate),
-		StateTaxRate:            round3(t.StateTaxRate),
-		State:                   t.State,
-		Buildings:               c.buildingInfos(t),
-		ConstructionDaysLeft:    round2(t.ConstructionDaysLeft),
-		Garrison:                round2(t.Garrison),
-		GarrisonConduct:         round3(t.GarrisonConduct),
-		RoadSafety:              round3(t.RoadSafety),
-		Money:                   round2(t.Money),
-		Gold:                    round2(t.Gold),
-		Metal:                   round2(t.Metal),
-		UpdatedTick:             c.townUpdatedTick(t),
-		Recruitable:             c.recruitableUnits(t),
-		Notables:                c.notablesOfTown(t),
+		ID:                   EntityID(model.KindTown, t.ID),
+		SettlementID:         Slug(t.Name),
+		Name:                 t.Name,
+		Klass:                townClass(pop),
+		HolderName:           c.state.Name(model.KindRuler, t.Holder),
+		Population:           &pop,
+		Workers:              round2(t.Workers),
+		FoodStock:            round2(t.FoodStock),
+		FoodProduction:       round2(t.FoodProduction),
+		FoodDemand:           round2(t.FoodDemand),
+		MedicineStock:        round2(t.MedicineStock),
+		Sanitation:           round3(t.Sanitation),
+		Infected:             round3(t.Infected),
+		Crowding:             round3(t.Crowding),
+		Unrest:               round3(t.Unrest),
+		Loyalty:              round3(t.Loyalty),
+		Security:             round3(t.RoadSafety),
+		Rebellious:           t.Loyalty < 0.25,
+		UnderSiege:           &t.IsBesieged,
+		Prosperity:           round3(t.Prosperity),
+		TaxRate:              round3(t.TaxRate),
+		StateTaxRate:         round3(t.StateTaxRate),
+		State:                t.State,
+		Buildings:            c.buildingInfos(t),
+		ConstructionDaysLeft: round2(t.ConstructionDaysLeft),
+		Garrison:             round2(t.Garrison),
+		GarrisonConduct:      round3(t.GarrisonConduct),
+		RoadSafety:           round3(t.RoadSafety),
+		Money:                round2(t.Money),
+		Gold:                 round2(t.Gold),
+		Metal:                round2(t.Metal),
+		UpdatedTick:          c.townUpdatedTick(t),
+		Recruitable:          c.recruitableUnits(t),
+		Notables:             c.notablesOfTown(t),
 	}
 	if t.Holder >= 0 {
 		id := EntityID(model.KindRuler, t.Holder)
@@ -856,4 +857,47 @@ func ambitionNames(a model.Ambition) []string {
 	default:
 		return []string{}
 	}
+}
+
+// RestoreSnapshot restores the campaign state from a snapshot. This is used
+// when the client loads a save: the snapshot (stored in the client's IndexedDB)
+// becomes the live simulation state.
+func (c *Campaign) RestoreSnapshot(ctx context.Context, snap wire.SimSnapshot) (any, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	// Validate schema version
+	if snap.SchemaVersion != wire.SnapshotSchemaVersion {
+		return nil, unprocessablef("Snapshot schema version is not supported.",
+			"schema version %d, expected %d", snap.SchemaVersion, wire.SnapshotSchemaVersion)
+	}
+
+	// Restore time
+	c.state.Tick = snap.Day
+	c.state.Year = float64(snap.Year)
+
+	// Restore player party
+	if p := c.state.Parties[c.party]; p != nil {
+		p.X = snap.Party.Position.X
+		p.Y = snap.Party.Position.Z
+		p.Money = snap.Party.Money
+		p.Morale = snap.Party.Morale
+		p.Fatigue = snap.Party.Fatigue
+		p.Food = snap.Party.Food
+		p.Medicine = snap.Party.Medicine
+		p.Metal = snap.Party.Metal
+		p.WagesOwed = snap.Party.WagesOwed
+		// Troops: sum the stacks
+		var totalTroops float64
+		for _, s := range snap.Party.Troops {
+			totalTroops += float64(s.Count)
+		}
+		p.Troops = totalTroops
+	}
+
+	// Note: full town/market/ruler restoration is not yet implemented.
+	// The snapshot contains them, but the model's internal town state
+	// (garrisons, loyalty, etc.) requires deeper integration.
+
+	return wire.Accepted{Accepted: true}, nil
 }

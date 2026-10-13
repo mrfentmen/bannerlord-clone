@@ -1,0 +1,37 @@
+/* Task 40: the settings gear. One icon-only control, so the accessible name
+   comes from the button's own aria-label rather than from the glyph — a gear is
+   a picture of a setting, not the word for it.
+
+   Static — nothing animates. */
+
+.hud-settings-wrap {
+  display: inline-flex;
+}
+
+.hud-settings {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--ink-700);
+  border-radius: var(--radius-2);
+  background: var(--paper-0);
+  color: var(--ink-700);
+  cursor: pointer;
+}
+
+.hud-settings:hover {
+  background: var(--paper-100);
+}
+
+.hud-settings:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.hud-settings__glyph {
+  font-size: 15px;
+  line-height: 22px;
+}

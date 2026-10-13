@@ -87,6 +87,28 @@ func (s *Server) postEncounterResolve(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// postEncounterFlee breaks off an encounter without fighting it.
+func (s *Server) postEncounterFlee(w http.ResponseWriter, r *http.Request) {
+	var req wire.FleeRequest
+	if !s.decode(w, r, &req) {
+		return
+	}
+	s.order(w, r, func() (any, error) {
+		return s.camp.FleeFromEncounter(r.Context(), req)
+	})
+}
+
+// postEncounterDefeat records the consequences of losing an encounter.
+func (s *Server) postEncounterDefeat(w http.ResponseWriter, r *http.Request) {
+	var req wire.PlayerDefeatRequest
+	if !s.decode(w, r, &req) {
+		return
+	}
+	s.order(w, r, func() (any, error) {
+		return s.camp.ApplyPlayerDefeat(r.Context(), req)
+	})
+}
+
 // -- battles ----------------------------------------------------------------
 
 func (s *Server) postBattle(w http.ResponseWriter, r *http.Request) {

@@ -45,6 +45,7 @@ export interface HudOptions {
   onOpenPhotoMode?: () => void;
   /** Opens the screenshot gallery (MASTER_PLAN task 130). Optional: the button hides without it. */
   onOpenGallery?: () => void;
+  onOpenWarPaint?: () => void;
   /** Opens the clan chronicle. Optional: the button hides without it. */
   onOpenChronicle?: () => void;
   /** Opens the campaign timeline (MASTER_PLAN task 139). Optional: the button hides without it. */
@@ -59,6 +60,9 @@ export interface HudOptions {
   onOpenMemorial?: () => void;
   /** Opens the clan laws panel. Optional: the button hides without it. */
   onOpenClanLaws?: () => void;
+  onOpenSpymaster?: () => void;
+  onOpenDiplomacy?: () => void;
+  onOpenLoans?: () => void;
   /** Opens the legacy (New Game+) panel. Optional: the button hides without it. */
   onOpenLegacy?: () => void;
   /** Expands the quest tracker card (MASTER_PLAN task 115). Optional: the button hides without it. */
@@ -83,7 +87,7 @@ export interface HudOptions {
   ironmanActive?: () => boolean;
 }
 
-export type HudPanel = "town" | "market" | "party" | "march" | "ledger" | "roster" | "why" | "none";
+export type HudPanel = "town" | "market" | "party" | "march" | "ledger" | "roster" | "clan" | "why" | "character" | "none";
 
 /** Which detent of the time dial is live. Used by the pointer and the tick scale. */
 export type TimePositionId = "paused" | "normal" | "fast" | "very-fast";
@@ -428,6 +432,8 @@ export function createHud(options: HudOptions): HudHandle {
   function renderLeft(state: HudState): HTMLElement {
     const { snapshot } = state;
     const headcount = snapshot.party.troops.reduce((a: number, t: { count: number }) => a + t.count, 0);
+    const wounded = snapshot.party.troops.reduce((a: number, t: { wounded: number }) => a + t.wounded, 0);
+    const prisonerCount = snapshot.party.prisoners.reduce((a: number, p: { count: number }) => a + p.count, 0);
     const rail = h("div", { class: "rail" });
 
     const card = h("div", { class: "sheet rail__card", "data-testid": "party-rail" });
@@ -438,6 +444,9 @@ export function createHud(options: HudOptions): HudHandle {
         "div",
         {},
         h("div", { class: "row" }, h("span", { class: "row__label label" }, "Troops"), h("span", { class: "row__value data" }, String(headcount))),
+        h("div", { class: "row" }, h("span", { class: "row__label label" }, "Wounded"), h("span", { class: "row__value data", "data-testid": "rail-wounded" }, String(wounded))),
+        h("div", { class: "row" }, h("span", { class: "row__label label" }, "Prisoners"), h("span", { class: "row__value data", "data-testid": "rail-prisoners" }, String(prisonerCount))),
+        h("div", { class: "row" }, h("span", { class: "row__label label" }, "Speed"), h("span", { class: "row__value data", "data-testid": "rail-speed" }, `${snapshot.party.speedKmPerDay.toFixed(1)} km/d`)),
         h("div", { class: "row" }, h("span", { class: "row__label label" }, "Grain"), h("span", { class: "row__value data", "data-testid": "rail-food" }, `${state.partyDaysOfFood.toFixed(1)} d`)),
         h("div", { class: "row" }, h("span", { class: "row__label label" }, "Morale"), h("span", { class: "row__value data" }, snapshot.party.morale.toFixed(2))),
         h("div", { class: "row" }, h("span", { class: "row__label label" }, "Ammo"), h("span", { class: "row__value data" }, String(Math.round(snapshot.party.metal)))),
@@ -448,6 +457,8 @@ export function createHud(options: HudOptions): HudHandle {
     const buttons = h("div", { class: "stack" });
     for (const [id, label, testId] of [
       ["party", "Party", "open-party"],
+      ["character", "Character", "open-character"],
+      ["clan", "Clan", "open-clan"],
       ["march", "March", "open-march"],
       ["ledger", "Ledger", "open-ledger"],
       ["roster", "Rulers", "open-roster"],
@@ -566,6 +577,12 @@ export function createHud(options: HudOptions): HudHandle {
       rail.appendChild(galleryBtn);
     }
 
+    if (options.onOpenWarPaint) {
+      const paintBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-warpaint" }, "War paint");
+      paintBtn.addEventListener("click", () => options.onOpenWarPaint?.());
+      rail.appendChild(paintBtn);
+    }
+
     if (options.onOpenHeatmap) {
       const heatmapBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-heatmap" }, "Battle heatmap");
       heatmapBtn.addEventListener("click", () => options.onOpenHeatmap?.());
@@ -588,6 +605,24 @@ export function createHud(options: HudOptions): HudHandle {
       const lawsBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-clan-laws" }, "Clan laws");
       lawsBtn.addEventListener("click", () => options.onOpenClanLaws?.());
       rail.appendChild(lawsBtn);
+    }
+
+    if (options.onOpenSpymaster) {
+      const spyBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-spymaster" }, "Spymaster");
+      spyBtn.addEventListener("click", () => options.onOpenSpymaster?.());
+      rail.appendChild(spyBtn);
+    }
+
+    if (options.onOpenDiplomacy) {
+      const dipBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-diplomacy" }, "Diplomacy");
+      dipBtn.addEventListener("click", () => options.onOpenDiplomacy?.());
+      rail.appendChild(dipBtn);
+    }
+
+    if (options.onOpenLoans) {
+      const loanBtn = h("button", { type: "button", class: "btn btn--quiet", "data-testid": "open-loans" }, "Loans");
+      loanBtn.addEventListener("click", () => options.onOpenLoans?.());
+      rail.appendChild(loanBtn);
     }
 
     if (options.onOpenLegacy) {
@@ -763,12 +798,8 @@ export function dataSourcePanel(options: {
     dataRow("Retrieved", options.retrieved, "data"),
     dataRow("Detail", options.summary, "caption"),
     dataRow("Elevation", "NASA SRTM and USGS via AWS Open Data, terrarium tiles", "caption"),
-    // Not OpenStreetMap: road, rail, and settlement geometry in the deployed world
-    // data is U.S. Census TIGER/Line, which is a US Government work in the public
-    // domain and carries no ODbL attribution requirement. See
-    // `public/world/DATA-MANIFEST.md` section 2.2.
-    dataRow("Roads, rail, and towns", "US Census Bureau, TIGER/Line — public domain", "caption"),
-    dataRow("Populations", "US Census Bureau, Vintage 2023 sub-county estimates", "caption"),
+    dataRow("Roads and towns", "OpenStreetMap, ODbL 1.0", "caption"),
+    dataRow("Populations", "US Census Bureau, Vintage 2024 sub-county estimates", "caption"),
   );
   body.appendChild(mapList);
 

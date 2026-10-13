@@ -27,10 +27,13 @@ import { dataTable, emptyState, errorState, panel, statusChip, type Column, type
 import { asBottomSheet } from "./narrow.js";
 import { ledgerSkeletonBody } from "./panel-skeletons.js";
 import type { Ledger as LedgerState, LedgerLine, ResourceId, ResourceWarning } from "../../data/types.js";
+import { forecastTreasury } from "../../economy/treasuryForecast.js";
 
 export interface LedgerPanelOptions {
   ledger: LedgerState;
   warnings: ResourceWarning[];
+  /** Player's money balance, for the 30-day treasury forecast. */
+  treasuryBalance?: number;
   onWhy?: (entityId: string, field: string) => void;
   onClose?: () => void;
   /**
@@ -70,6 +73,26 @@ export function ledgerPanel(options: LedgerPanelOptions): HTMLElement {
 
   // -- income and expense lines ---------------------------------------------
   body.appendChild(linesBlock(options.ledger));
+
+  // -- 30-day treasury forecast (solo task 78) --------------------------------
+  if (options.treasuryBalance !== undefined) {
+    const forecast = forecastTreasury(
+      options.treasuryBalance,
+      options.ledger.income
+        .filter((l) => l.resource === "money")
+        .map((l) => ({ name: l.label, perDay: l.perDay })),
+      options.ledger.expenses
+        .filter((l) => l.resource === "money")
+        .map((l) => ({ name: l.label, perDay: Math.abs(l.perDay) })),
+    );
+    body.appendChild(sectionHeader("Treasury forecast — 30 days"));
+    body.appendChild(
+      h("pre", { class: "caption mono", "data-testid": "treasury-chart" }, forecast.chart),
+    );
+    body.appendChild(
+      h("p", { class: "caption", "data-testid": "treasury-forecast" }, forecast.line),
+    );
+  }
 
   return root;
 }

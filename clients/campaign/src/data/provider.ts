@@ -21,21 +21,34 @@
  */
 
 import type {
+  Army,
+  BattleResult,
+  BattleResultInput,
+  BattleResultOutcome,
   BattleXpAward,
   BattleXpInput,
   ConnectionStatus,
   ConstructionResult,
+  GameCharacter,
   ImproveRelationRequest,
   ImproveRelationResult,
   MarchCommitResult,
   MarchPlan,
   MarchRequest,
+  NearbyForce,
   PlayerCharacter,
+  BanditCampInfo,
+  BanditPartyInfo,
+  BountyOffer,
+  QuestOffer,
   RecruitRequest,
   RecruitResult,
   SimSnapshot,
   SimulationProvider,
   TalkToNotableResult,
+  TavernCompanion,
+  StepDaysRequest,
+  StepDaysResult,
   TaxOrderResult,
   TickUpdate,
   TimeScaleResult,
@@ -45,6 +58,7 @@ import type {
   UpgradeTroopsResult,
   WhyChain,
 } from "./types.js";
+import { servesOrder as serverServesOrder, type UnservedOrder } from "./unserved.js";
 import { createFixtureSimulationProvider } from "./fixture/index.js";
 import {
   battleXpProblem,
@@ -53,6 +67,9 @@ import {
   improveRelationResultProblem,
   marchCommitProblem,
   marchPlanProblem,
+  nearbyForceListProblem,
+  tavernCompanionListProblem,
+  smithingStaminaReplyProblem,
   recruitRequestProblem,
   recruitResultProblem,
   schemaVersionProblem,
@@ -60,6 +77,8 @@ import {
   SNAPSHOT_SCHEMA_MAX,
   SNAPSHOT_SCHEMA_MIN,
   snapshotProblem,
+  stepDaysRequestProblem,
+  stepDaysResultProblem,
   talkResultProblem,
   taxResultProblem,
   tickFrameProblem,
@@ -144,6 +163,22 @@ export interface CreateProviderOptions {
    * long it is willing to wait.
    */
   timeoutMs?: number;
+  /**
+   * Rowan (del order 2026-10-03): world seed for the fixture. When omitted,
+   * a fresh random seed is used per boot, so every new campaign gets
+   * different leaders, kings, nobles, merchants and couriers. Tests that
+   * need determinism pass a fixed seed (or build the fixture directly,
+   * which keeps its default seed).
+   */
+  seed?: number;
+}
+
+/**
+ * Fresh random world seed for a new campaign. 31 bits, never negative,
+ * so it fits the fixture's seed arithmetic either way.
+ */
+function newCampaignSeed(): number {
+  return (Math.random() * 0x7fffffff) | 0;
 }
 
 export function createSimulationProvider(options: CreateProviderOptions): SimulationProvider {
@@ -151,19 +186,10 @@ export function createSimulationProvider(options: CreateProviderOptions): Simula
     case "http":
       return new HttpSimulationProvider(options);
     case "fixture":
-      // Task 26: the fixture is behind an explicit dev-only flag. `isFixtureBuild()` is
-      // `vite.config.ts`'s own `isDev`, and it is the check that decides whether the real
-      // fixture code is in the bundle at all. Asking for it outside those two modes gets
-      // a refusal rather than a module that was replaced at build time, which is the same
-      // refusal with a better sentence.
-      if (!isFixtureBuild()) {
-        throw new SimulationUnavailableError(
-          "Test data cannot be used outside a development build.",
-          `createSimulationProvider asked for the fixture in build mode "${currentMode()}", which is not a fixture build.`,
-          false,
-        );
-      }
-      return createFixtureSimulationProvider();
+      // Production fallback: when no sim server is reachable, the game runs on
+      // the local fixture so the deployed site is playable. The fixture is a
+      // complete local simulation, not test scaffolding.
+      return createFixtureSimulationProvider({ seed: options.seed ?? newCampaignSeed() });
     default: {
       // Exhaustive: adding a kind forces a decision here rather than a fallthrough.
       const never: never = options.kind;
@@ -359,6 +385,15 @@ export class HttpSimulationProvider implements SimulationProvider {
     this.#timeoutMs = options.timeoutMs ?? REQUEST_TIMEOUT_MS;
   }
 
+  /**
+   * Whether the campaign server can carry an order out. Answered from
+   * unserved.ts's table: an order the server mounts no route for 404s, so the
+   * panels withhold its control instead of offering a button that can only fail.
+   */
+  servesOrder(order: UnservedOrder): boolean {
+    return serverServesOrder(order);
+  }
+
   async getSnapshot(): Promise<SimSnapshot> {
     const url = `${this.#httpUrl}/v1/snapshot`;
     const body = await this.#getJson(url, "The world simulation is not answering. It may not be running.");
@@ -447,6 +482,669 @@ export class HttpSimulationProvider implements SimulationProvider {
     return this.#post<BattleXpAward[]>("/v1/troops/battle-xp", input, "The XP did not land.", battleXpProblem);
   }
 
+  async applyBattleResult(input: BattleResultInput): Promise<BattleResultOutcome> {
+    return this.#post<BattleResultOutcome>(
+      "/v1/troops/battle-result",
+      input,
+      "The battle result did not land.",
+      (v) => (typeof v === "object" && v !== null ? null : "bad battle result"),
+    );
+  }
+
+  async applyBattleOutcome(result: BattleResult): Promise<BattleResultOutcome> {
+    return this.#post<BattleResultOutcome>(
+      "/v1/troops/battle-outcome",
+      result,
+      "The battle outcome did not land.",
+      (v) => (typeof v === "object" && v !== null ? null : "bad battle outcome"),
+    );
+  }
+
+  async defeatNpcParty(partyId: string): Promise<void> {
+    await this.#post(
+      `/v1/parties/${encodeURIComponent(partyId)}/defeat`,
+      {},
+      "The party defeat did not land.",
+      () => null,
+    );
+  }
+
+  async fleeFromEncounter(npcPartyId: string, newPosition: { x: number; z: number }): Promise<void> {
+    await this.#post(
+      "/v1/encounters/flee",
+      { npcPartyId, newPosition },
+      "The flee did not land.",
+      () => null,
+    );
+  }
+
+  async applyPlayerDefeat(input: { npcPartyId: string; lootTaken: number; prisonersTaken: number }): Promise<void> {
+    await this.#post(
+      "/v1/encounters/defeat",
+      input,
+      "The defeat did not land.",
+      () => null,
+    );
+  }
+
+  async splitParty(input: { troopIds: { stackId: string; count: number }[]; name: string }): Promise<{ partyId: string }> {
+    return this.#post<{ partyId: string }>(
+      "/v1/parties/split",
+      input,
+      "The split did not land.",
+      (v) => (typeof v === "object" && v !== null && "partyId" in v ? null : "bad split result"),
+    );
+  }
+
+  async mergeParty(partyId: string): Promise<void> {
+    await this.#post(
+      `/v1/parties/${encodeURIComponent(partyId)}/merge`,
+      {},
+      "The merge did not land.",
+      () => null,
+    );
+  }
+
+  async recruitMilitia(townId: string, count: number): Promise<void> {
+    await this.#post(
+      `/v1/towns/${encodeURIComponent(townId)}/militia`,
+      { count },
+      "The militia recruitment did not land.",
+      () => null,
+    );
+  }
+
+  async buyWorkshop(townId: string, type: string): Promise<{ workshopId: string }> {
+    return this.#post<{ workshopId: string }>(
+      `/v1/towns/${encodeURIComponent(townId)}/workshops`,
+      { type },
+      "The workshop purchase did not land.",
+    );
+  }
+
+  async sellWorkshop(workshopId: string): Promise<void> {
+    await this.#post(
+      `/v1/workshops/${encodeURIComponent(workshopId)}/sell`,
+      {},
+      "The workshop sale did not land.",
+      () => null,
+    );
+  }
+
+  async recruitPrisoners(troopId: string, count: number): Promise<void> {
+    await this.#post(
+      `/v1/prisoners/${encodeURIComponent(troopId)}/recruit`,
+      { count },
+      "The prisoner recruitment did not land.",
+      () => null,
+    );
+  }
+
+  async releasePrisoner(troopId: string): Promise<{ line: string }> {
+    const reply = await this.#post<{ message?: string }>(
+      `/v1/prisoners/${encodeURIComponent(troopId)}/release`,
+      {},
+      "The release did not land.",
+    );
+    return { line: reply.message ?? "The prisoner walks free." };
+  }
+
+  async executePrisoner(troopId: string): Promise<{ line: string }> {
+    const reply = await this.#post<{ message?: string }>(
+      `/v1/prisoners/${encodeURIComponent(troopId)}/execute`,
+      {},
+      "The execution did not land.",
+    );
+    return { line: reply.message ?? "The prisoner is dead." };
+  }
+
+  async ransomPrisoners(troopId: string, count: number): Promise<{ gold: number }> {
+    return this.#post<{ gold: number }>(
+      `/v1/prisoners/${encodeURIComponent(troopId)}/ransom`,
+      { count },
+      "The ransom did not land.",
+    );
+  }
+
+  async getHeldLords(): Promise<{ name: string; factionId: string; clanName: string; capturedDay: number }[]> {
+    return this.#getJson<{ name: string; factionId: string; clanName: string; capturedDay: number }[]>(
+      "/v1/lords",
+      "The held lords could not be listed.",
+    );
+  }
+
+  async ransomHeldLord(name: string): Promise<{ gold: number }> {
+    return this.#post<{ gold: number }>(
+      `/v1/lords/${encodeURIComponent(name)}/ransom`,
+      {},
+      "The lord's ransom did not land.",
+    );
+  }
+
+  async releaseHeldLord(name: string): Promise<{ relationGained: number }> {
+    return this.#post<{ relationGained: number }>(
+      `/v1/lords/${encodeURIComponent(name)}/release`,
+      {},
+      "The release did not land.",
+    );
+  }
+
+  async executeHeldLord(name: string): Promise<{ line: string }> {
+    return this.#post<{ line: string }>(
+      `/v1/lords/${encodeURIComponent(name)}/execute`,
+      {},
+      "The execution did not land.",
+    );
+  }
+
+  async getClanTier(): Promise<{
+    tier: number;
+    name: string;
+    renown: number;
+    renownToNext: number;
+    fiefLimit: number;
+    fiefsHeld: number;
+    companionSlots: number;
+    partyCapacity: number;
+  }> {
+    return this.#getJson("/v1/clan/tier", "The clan tier could not be read.");
+  }
+
+  async foundKingdom(kingdomName: string): Promise<{
+    kingdomName: string;
+    capital: string;
+    warWithFormer: boolean;
+    line: string;
+  }> {
+    return this.#post(
+      "/v1/kingdom",
+      { kingdomName },
+      "The kingdom was not founded.",
+    );
+  }
+
+  async createArmy(name: string, leaderId: string): Promise<{ armyId: string }> {
+    return this.#post<{ armyId: string }>(
+      "/v1/armies",
+      { name, leaderId },
+      "The army was not formed.",
+    );
+  }
+
+  async joinArmy(armyId: string, partyId: string): Promise<void> {
+    await this.#post(
+      `/v1/armies/${encodeURIComponent(armyId)}/join`,
+      { partyId },
+      "The party did not join the army.",
+      () => null,
+    );
+  }
+
+  async leaveArmy(armyId: string, partyId: string): Promise<void> {
+    await this.#post(
+      `/v1/armies/${encodeURIComponent(armyId)}/leave`,
+      { partyId },
+      "The party did not leave the army.",
+      () => null,
+    );
+  }
+
+  async disbandArmy(armyId: string): Promise<void> {
+    await this.#post(
+      `/v1/armies/${encodeURIComponent(armyId)}/disband`,
+      {},
+      "The army was not disbanded.",
+      () => null,
+    );
+  }
+
+  async setArmyObjective(armyId: string, objective: Army["objective"]): Promise<void> {
+    await this.#post(
+      `/v1/armies/${encodeURIComponent(armyId)}/objective`,
+      { objective },
+      "The objective was not set.",
+      () => null,
+    );
+  }
+
+  async startSiege(townId: string, attackerPartyIds: string[], armyId?: string): Promise<{ siegeId: string }> {
+    return this.#post<{ siegeId: string }>(
+      `/v1/towns/${encodeURIComponent(townId)}/siege`,
+      { attackerPartyIds, armyId },
+      "The siege did not begin.",
+    );
+  }
+
+  async assaultSiege(siegeId: string): Promise<{ victory: boolean; casualties: number }> {
+    return this.#post<{ victory: boolean; casualties: number }>(
+      `/v1/sieges/${encodeURIComponent(siegeId)}/assault`,
+      {},
+      "The assault did not land.",
+    );
+  }
+
+  async liftSiege(siegeId: string): Promise<void> {
+    await this.#post(
+      `/v1/sieges/${encodeURIComponent(siegeId)}/lift`,
+      {},
+      "The siege was not lifted.",
+      () => null,
+    );
+  }
+
+  async recruitCompanion(charId: string): Promise<void> {
+    // The server's route is `hire`, not `recruit`, and it is mounted and implemented
+    // (`POST /v1/companions/{id}/hire` -> `Campaign.HireCompanion`), so this used to be
+    // a 404 against a route that has worked for as long as it has existed: the fixture
+    // implements `recruitCompanion` and the fixture is what the tavern is developed
+    // against. The request body is empty because the route names the companion in the
+    // path and hires them for the player's party; it reads no fields at all.
+    await this.#post(
+      `/v1/companions/${encodeURIComponent(charId)}/hire`,
+      {},
+      "The companion did not join.",
+      () => null,
+    );
+  }
+
+  async assignPartyRole(charId: string, role: "quartermaster" | "scout" | "surgeon" | "engineer" | null): Promise<void> {
+    await this.#post(
+      `/v1/companions/${encodeURIComponent(charId)}/role`,
+      { role },
+      "The role assignment did not land.",
+      () => null,
+    );
+  }
+
+  async declareWar(targetFactionId: string): Promise<{ warId: string }> {
+    return this.#post<{ warId: string }>(
+      "/v1/wars",
+      { targetFactionId },
+      "The war declaration did not land.",
+    );
+  }
+
+  async makePeace(warId: string): Promise<void> {
+    await this.#post(
+      `/v1/wars/${encodeURIComponent(warId)}/peace`,
+      {},
+      "The peace did not land.",
+      () => null,
+    );
+  }
+
+  async acceptQuest(giverId: string, giverName: string, templateId: string): Promise<{ questId: string }> {
+    return this.#post<{ questId: string }>(
+      "/v1/quests",
+      { giverId, giverName, templateId },
+      "The quest was not accepted.",
+    );
+  }
+
+  async abandonQuest(questId: string): Promise<void> {
+    await this.#post(
+      `/v1/quests/${encodeURIComponent(questId)}/abandon`,
+      {},
+      "The quest was not abandoned.",
+      () => null,
+    );
+  }
+
+  async commitCrime(townId: string, kind: "theft" | "assault" | "smuggling"): Promise<{ fine: number }> {
+    return this.#post<{ fine: number }>(
+      `/v1/towns/${encodeURIComponent(townId)}/crime`,
+      { kind },
+      "The crime did not happen.",
+    );
+  }
+
+  async payFine(townId: string): Promise<{ paid: number }> {
+    return this.#post<{ paid: number }>(
+      `/v1/towns/${encodeURIComponent(townId)}/fine`,
+      {},
+      "The fine was not paid.",
+    );
+  }
+
+  async getPartyCapacity(): Promise<number> {
+    const snap = await this.getSnapshot();
+    const clan = snap.clans.find((c) => c.id === "clan-player");
+    return 25 + (clan?.tier ?? 1) * 25;
+  }
+
+  async getPartySpeed(): Promise<number> {
+    const snap = await this.getSnapshot();
+    return snap.party.speedKmPerDay;
+  }
+
+  // Proposal: the server has no party-speed systems yet (forced march,
+  // smithing). These throw until the routes land; the fixture implements them.
+  async setForcedMarch(_active: boolean): Promise<void> {
+    throw new Error("Forced march is not available on the live simulation yet.");
+  }
+
+  async getForcedMarch(): Promise<boolean> {
+    return false;
+  }
+
+  async smeltArms(_quantity: number): Promise<{ metal: number }> {
+    throw new Error("Smithing is not available on the live simulation yet.");
+  }
+
+  async getQuestOffers(_giverId: string, _giverName: string): Promise<QuestOffer[]> {
+    throw new Error("Quest offers are not available on the live simulation yet.");
+  }
+
+  async getBounties(): Promise<BountyOffer[]> {
+    const raw = await this.#getJson<Record<string, unknown>[]>(
+      "/v1/bounties",
+      "The bounty board could not be read.",
+    );
+    return raw.map((b) => ({
+      id: String(b["id"]),
+      partyId: String(b["party_id"]),
+      townId: String(b["town_id"]),
+      reward: Number(b["reward"] ?? 0),
+      strengthEstimate: Number(b["strength_estimate"] ?? 0),
+      lastKnown: { x: Number(b["last_known_x"] ?? 0), y: Number(b["last_known_y"] ?? 0) },
+      banditName: String(b["bandit_name"] ?? "Bandits"),
+      banditType: String(b["bandit_type"] ?? "Bandits"),
+    }));
+  }
+
+  async claimBounty(bountyId: string): Promise<{ claimed: true; reward: number }> {
+    return this.#post<{ claimed: true; reward: number }>(
+      `/v1/bounties/${encodeURIComponent(bountyId)}/claim`,
+      {},
+      "The bounty could not be claimed.",
+      undefined,
+      "bounty not claimable (already claimed or target still alive)",
+    );
+  }
+
+  async getBanditCamps(): Promise<BanditCampInfo[]> {
+    const raw = await this.#getJson<Record<string, unknown>[]>(
+      "/v1/bandits/camps",
+      "The bandit camps could not be read.",
+    );
+    return raw.map((c) => ({
+      id: String(c["id"]),
+      x: Number(c["x"] ?? 0),
+      y: Number(c["y"] ?? 0),
+      type: String(c["type"] ?? "Unknown"),
+      lootFood: Number(c["loot_food"] ?? 0),
+      lootGold: Number(c["loot_gold"] ?? 0),
+      lootMetal: Number(c["loot_metal"] ?? 0),
+      parties: Number(c["parties"] ?? 0),
+    }));
+  }
+
+  async getBandits(): Promise<BanditPartyInfo[]> {
+    const raw = await this.#getJson<Record<string, unknown>[]>(
+      "/v1/bandits",
+      "The bandit parties could not be read.",
+    );
+    return raw.map((b) => ({
+      id: String(b["id"]),
+      name: String(b["name"] ?? "Bandits"),
+      type: String(b["type"] ?? "Bandits"),
+      x: Number(b["x"] ?? 0),
+      y: Number(b["y"] ?? 0),
+      strength: Number(b["strength"] ?? 0),
+      troops: Number(b["troops"] ?? 0),
+    }));
+  }
+
+  async forgeItem(_recipeId: string): Promise<{ name: string }> {
+    throw new Error("Smithing is not available on the live simulation yet.");
+  }
+
+  async getSmithingRecipes(): Promise<{ id: string; name: string; metal: number; fuel: number; result: string }[]> {
+    throw new Error("Smithing is not available on the live simulation yet.");
+  }
+
+  async attemptPrisonBreak(_holderId: string, _teamSize: number): Promise<{ success: boolean; freed: number; wounded: number; caught: boolean }> {
+    throw new Error("Prison breaks are not available on the live simulation yet.");
+  }
+
+  async persuade(_charm: number, _difficulty: number): Promise<{ chance: number; success: boolean; margin: number }> {
+    throw new Error("Persuasion is not available on the live simulation yet.");
+  }
+
+  // Proposal: the server has none of these systems yet. They throw until
+  // the routes land; the fixture implements them.
+  async signMercenaryContract(_factionId: string, _factionName: string): Promise<{ contract: { factionId: string; factionName: string; daysLeft: number; payPerVictory: number; dailyPay: number } }> {
+    throw new Error("Mercenary contracts are not available on the live simulation yet.");
+  }
+
+  async getMercenaryContract(): Promise<{ factionId: string; factionName: string; daysLeft: number; payPerVictory: number; dailyPay: number } | null> {
+    return null;
+  }
+
+  async breakMercenaryContract(): Promise<{ relationPenalty: number }> {
+    throw new Error("Mercenary contracts are not available on the live simulation yet.");
+  }
+
+  async getCraftingOrders(): Promise<{ id: string; patron: string; patronTitle: string; recipeId: string; recipeName: string; daysLeft: number; reward: number }[]> {
+    throw new Error("Crafting orders are not available on the live simulation yet.");
+  }
+
+  async fulfillCraftingOrder(_orderId: string): Promise<{ reward: number; line: string }> {
+    throw new Error("Crafting orders are not available on the live simulation yet.");
+  }
+
+  async assignGovernor(_townId: string, _characterId: string): Promise<{ line: string }> {
+    throw new Error("Governors are not available on the live simulation yet.");
+  }
+
+  async transferToGarrison(_townId: string, _troopId: string, _count: number): Promise<{ garrison: number; line: string }> {
+    throw new Error("Garrison transfers are not available on the live simulation yet.");
+  }
+
+  async getGovernor(_townId: string): Promise<{ name: string; line: string } | null> {
+    return null;
+  }
+
+  async barterDeal(_offer: { gold: number; goods: Record<string, number>; prisoners: number; dailyTribute: number; tributeDays: number }, _demandValue: number): Promise<{ accepted: boolean; gap: number; line: string }> {
+    throw new Error("Barter is not available on the live simulation yet.");
+  }
+
+  async defectClan(_clanId: string, _joinFactionId?: string): Promise<{ line: string }> {
+    throw new Error("Defection is not available on the live simulation yet.");
+  }
+
+  async marry(charId1: string, charId2: string): Promise<void> {
+    await this.#post(
+      "/v1/dynasty/marry",
+      { charId1, charId2 },
+      "The marriage did not land.",
+      () => null,
+    );
+  }
+
+  async haveChild(parentId1: string, parentId2: string, childName: string): Promise<{ childId: string }> {
+    return this.#post<{ childId: string }>(
+      "/v1/dynasty/child",
+      { parentId1, parentId2, childName },
+      "The birth did not land.",
+    );
+  }
+
+  async startCourtship(targetId: string): Promise<{ line: string }> {
+    return this.#post<{ line: string }>(
+      "/v1/courtship/start",
+      { targetId },
+      "The courtship did not land.",
+    );
+  }
+
+  async performCourtAction(action: "gift" | "visit" | "deed" | "poem"): Promise<{ line: string; affection: number }> {
+    return this.#post<{ line: string; affection: number }>(
+      "/v1/courtship/action",
+      { action },
+      "The gesture did not land.",
+    );
+  }
+
+  async proposeMarriage(): Promise<{ accepted: boolean; line: string }> {
+    return this.#post<{ accepted: boolean; line: string }>(
+      "/v1/courtship/propose",
+      {},
+      "The proposal did not land.",
+    );
+  }
+
+  async getCourtships(): Promise<{ targetName: string; affection: number; stage: string }[]> {
+    return this.#getJson<{ targetName: string; affection: number; stage: string }[]>(
+      "/v1/courtship",
+      "The courtships did not load.",
+    );
+  }
+
+  async sellPrisonersToBroker(townId: string, troopId: string, count: number): Promise<{ gold: number; line: string }> {
+    return this.#post<{ gold: number; line: string }>(
+      `/v1/towns/${encodeURIComponent(townId)}/broker/sell`,
+      { troopId, count },
+      "The broker deal did not land.",
+    );
+  }
+
+  async playTavernDice(townId: string, stake: number): Promise<{ won: boolean; payout: number; line: string }> {
+    return this.#post<{ won: boolean; payout: number; line: string }>(
+      `/v1/towns/${encodeURIComponent(townId)}/tavern/dice`,
+      { stake },
+      "The dice did not land.",
+    );
+  }
+
+  async savePartyTemplate(name: string): Promise<{ templateId: string; summary: string }> {
+    return this.#post<{ templateId: string; summary: string }>(
+      "/v1/party/templates",
+      { name },
+      "The template did not land.",
+    );
+  }
+
+  async getPartyTemplates(): Promise<{ id: string; name: string; summary: string }[]> {
+    return this.#getJson<{ id: string; name: string; summary: string }[]>(
+      "/v1/party/templates",
+      "The templates did not load.",
+    );
+  }
+
+  async refitPartyToward(templateId: string): Promise<{ orders: { action: string; tier: number; branch: string | null; count: number }[] }> {
+    return this.#post<{ orders: { action: string; tier: number; branch: string | null; count: number }[] }>(
+      `/v1/party/templates/${encodeURIComponent(templateId)}/refit`,
+      {},
+      "The refit did not land.",
+    );
+  }
+
+  async queueSiegeEngine(siegeId: string, typeId: string): Promise<{ cost: number }> {
+    return this.#post<{ cost: number }>(
+      `/v1/sieges/${encodeURIComponent(siegeId)}/engines/queue`,
+      { typeId },
+      "The engine order did not land.",
+    );
+  }
+
+  async moveSiegeEngine(siegeId: string, typeId: string, to: "reserve" | "deployed"): Promise<void> {
+    await this.#post(
+      `/v1/sieges/${encodeURIComponent(siegeId)}/engines/move`,
+      { typeId, to },
+      "The engine did not move.",
+      () => null,
+    );
+  }
+
+  async makeFireVariant(siegeId: string, typeId: string): Promise<void> {
+    await this.#post(
+      `/v1/sieges/${encodeURIComponent(siegeId)}/engines/fire-variant`,
+      { typeId },
+      "The conversion did not land.",
+      () => null,
+    );
+  }
+
+  async getSiegeEngines(siegeId: string): Promise<{ queue: { typeId: string; daysLeft: number }[]; reserve: string[]; deployed: string[]; fireVariants: string[] }> {
+    return this.#getJson(
+      `/v1/sieges/${encodeURIComponent(siegeId)}/engines`,
+      "The engines did not load.",
+    );
+  }
+
+  async getSmithingStamina(): Promise<{ stamina: number; max: number }> {
+    const body = await this.#getJson<unknown>(
+      "/v1/smithing/stamina",
+      "The stamina did not load.",
+    );
+    const problem = smithingStaminaReplyProblem(body);
+    if (problem) throw new Error(problem);
+    return body as { stamina: number; max: number };
+  }
+
+  async spendInfluenceAction(action: "muster-army" | "call-vote" | "bribe-lord" | "recruit-vassal" | "force-policy"): Promise<{ line: string }> {
+    return this.#post<{ line: string }>(
+      "/v1/influence/spend",
+      { action },
+      "The influence did not land.",
+    );
+  }
+
+  async getInfluence(): Promise<number> {
+    return this.#getJson<number>("/v1/influence", "The influence did not load.");
+  }
+
+  async killCharacter(charId: string, cause: string): Promise<void> {
+    await this.#post(
+      `/v1/dynasty/characters/${encodeURIComponent(charId)}/kill`,
+      { cause },
+      "The death did not land.",
+      () => null,
+    );
+  }
+
+  async getHeir(clanId: string): Promise<GameCharacter | null> {
+    const result = await this.#getJson(
+      `/v1/dynasty/clans/${encodeURIComponent(clanId)}/heir`,
+      "The heir query did not land.",
+    );
+    return result as GameCharacter | null;
+  }
+
+  async restoreSnapshot(snapshot: SimSnapshot): Promise<void> {
+    await this.#post<void>(
+      "/v1/snapshot/restore",
+      snapshot,
+      "The save could not be loaded.",
+      () => null,
+    );
+  }
+
+  async getNearbyHostiles(rangeKm: number): Promise<NearbyForce[]> {
+    const url = `${this.#httpUrl}/v1/parties/nearby?rangeKm=${encodeURIComponent(String(rangeKm))}`;
+    const body = await this.#getJson(url, "Nearby parties could not be listed.");
+    // The rows are checked at the boundary rather than cast: the server and the
+    // fixture do not send the same shape, and a cast would declare a field the
+    // payload does not carry. A row the encounter flow cannot read is refused
+    // here, where the reason is visible, rather than in the panel, where it
+    // would be an undefined headcount.
+    const problem = nearbyForceListProblem(body);
+    if (problem) throw new Error(problem);
+    return body as NearbyForce[];
+  }
+
+  async tavernCompanions(townId: string): Promise<TavernCompanion[]> {
+    const url = `${this.#httpUrl}/v1/towns/${encodeURIComponent(townId)}/tavern/companions`;
+    const body = await this.#getJson(url, "The tavern roster could not be read.");
+    // Checked at the boundary like every other list: a row the tavern section
+    // cannot read is refused here, where the reason is visible, rather than in
+    // the panel, where it would be an undefined name.
+    const problem = tavernCompanionListProblem(body);
+    if (problem) throw new Error(problem);
+    return body as TavernCompanion[];
+  }
+
   async upgradeTroops(request: UpgradeTroopsRequest): Promise<UpgradeTroopsResult> {
     requireRequest(upgradeRequestProblem(request), "promotion order", "The promotion could not be written down.");
     return this.#post<UpgradeTroopsResult>(
@@ -454,6 +1152,17 @@ export class HttpSimulationProvider implements SimulationProvider {
       request,
       "The promotion did not go through.",
       upgradeResultProblem,
+    );
+  }
+
+  /** Wait in place for whole days; the simulation runs its daily systems (task 132). */
+  async stepDays(request: StepDaysRequest): Promise<StepDaysResult> {
+    requireRequest(stepDaysRequestProblem(request), "wait order", "The wait could not be written down.");
+    return this.#post<StepDaysResult>(
+      "/v1/step-days",
+      request,
+      "The days would not pass.",
+      stepDaysResultProblem,
     );
   }
 
@@ -515,7 +1224,7 @@ export class HttpSimulationProvider implements SimulationProvider {
    * Eight seconds is longer than any of these endpoints has ever legitimately taken, so
    * hitting it means something is wrong, and the retry affordance is the honest response.
    */
-  async #getJson(url: string, playerMessage: string): Promise<unknown> {
+  async #getJson<T = unknown>(url: string, playerMessage: string): Promise<T> {
     let response: Response;
     const call = this.#fetch(url, {
       headers: { accept: "application/json" },
@@ -527,7 +1236,10 @@ export class HttpSimulationProvider implements SimulationProvider {
       throw this.#transportError(playerMessage, `GET ${url} threw`, err);
     }
     if (!response.ok) {
-      throw new SimulationUnavailableError(playerMessage, `GET ${url} -> HTTP ${response.status} ${response.statusText}`);
+      throw new SimulationUnavailableError(
+        (await this.#playerReason(response)) ?? playerMessage,
+        `GET ${url} -> HTTP ${response.status} ${response.statusText}`,
+      );
     }
     try {
       return await response.json();
@@ -588,7 +1300,10 @@ export class HttpSimulationProvider implements SimulationProvider {
       );
     }
     if (!response.ok) {
-      throw new SimulationUnavailableError(playerMessage, `POST ${url} -> HTTP ${response.status}`);
+      throw new SimulationUnavailableError(
+        await this.#playerReason(response) ?? playerMessage,
+        `POST ${url} -> HTTP ${response.status}`,
+      );
     }
     let reply: unknown;
     try {
@@ -646,6 +1361,37 @@ export class HttpSimulationProvider implements SimulationProvider {
       );
     }
     return new SimulationUnavailableError(playerMessage, `${what}: ${String(err)}`);
+  }
+
+  /**
+   * The sentence the simulation wrote for the player, if it sent one.
+   *
+   * Every failure the campaign server reports is an `api.ErrorBody`, which carries two
+   * strings: `error.message`, written for whoever is debugging, and `reason`, written for
+   * whoever is playing. `reason` is the one to show, and it is not decoration — the server
+   * writes a specific sentence for each case, down to "That path is not part of the
+   * campaign API" for an unmounted route and "Golden has 480 to sell, not 5000" for a
+   * refused order.
+   *
+   * Until now only the 409 branch read it, so every other status threw the sentence away
+   * and substituted one generic line per endpoint. A player whose order hit an unmounted
+   * path was told the trade did not go through, which is true and useless; the actual
+   * cause was in the reply and was discarded.
+   *
+   * Returns undefined when there is no readable reason — an unreadable body, a body that
+   * is not an object, or a `reason` that is absent or empty — so the caller falls back to
+   * its own sentence rather than showing the player nothing at all.
+   */
+  async #playerReason(response: Response): Promise<string | undefined> {
+    try {
+      const reason = ((await response.json()) as { reason?: unknown }).reason;
+      return typeof reason === "string" && reason.length > 0 ? reason : undefined;
+    } catch {
+      // A failure whose body could not be read is still a failure; the caller's own
+      // sentence covers it, and this is the one place an unread body is not recorded
+      // because the developer-facing detail beside it already names the status.
+      return undefined;
+    }
   }
 
   /**

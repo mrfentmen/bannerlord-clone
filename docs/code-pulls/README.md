@@ -1,0 +1,169 @@
+# Code pulls — reusable game systems from the awesome-ai-games sweep
+
+Pulled 2026-10-03 from AI-built open-source 3D games
+(AgentsLoop/awesome-opus-5.5-games list). These are **systems**, not art:
+vehicle physics, deterministic sim architecture, city simulation design,
+game AI, strategy models, battle AI, dialogue, roguelike algorithms.
+Staged here for porting into the bannerlord-clone; nothing is wired in yet.
+
+## Systems (round 1)
+
+### 1. vehicle-physics/ — arcade vehicle physics + racing AI (MIT, code included)
+From `bridge-mind/turbo-kart-rally` (three.js kart racer, quality 9.3/10).
+Full working arcade vehicle model: grip-based turning, drift with
+mini-turbo boost, hop, boost pads, wall collision, offroad slowdown,
+slope gravity. Plus `AIDriver`: personality-driven racing AI.
+**Use for:** driving model for cars/trucks, AI drivers for
+traffic/chase sequences. See `vehicle-physics/NOTES.md`.
+
+### 2. deterministic-sim/ — fixed-tick authoritative sim pattern (design notes only)
+From `amsminn/gpt-6-astra-smash-karts` (Next.js + TS vehicular combat).
+30 Hz fixed-tick `GameRoom` fully separated from the renderer:
+sanitized inputs, serial-numbered snapshots, bot players as
+first-class citizens.
+**Use for:** reference when hardening the Go sim's tick/input/snapshot
+design. See `deterministic-sim/NOTES.md`.
+
+### 3. city-sim/ — tile city simulation design (design notes only)
+From `codersusu/game-city-skylines` ("SEABRIGHT", Unity C# city builder,
+quality 9/10). Tile-grid city sim: zoning, economy, happiness, traffic
+flow, power; presentation split into instanced traffic/pedestrians.
+**Use for:** town economy/traffic design reference.
+See `city-sim/NOTES.md`.
+
+## Systems (round 2)
+
+### 4. mcts-ai/ — parallel Monte Carlo Tree Search library (MIT, code included)
+From `patricker/treant` (Rust). Lock-free, parallel MCTS: implement
+`GameState` + `Evaluator` traits, get UCT/AlphaGo tree policies,
+transposition tables, and `playout_parallel_for(duration, threads)`.
+**Use for:** campaign-map faction AI — the endgame for strategic
+decision-making. Seeded RNG option fits our determinism requirements.
+See `mcts-ai/NOTES.md`.
+
+### 5. strategy-core/ — strategy game data model + turn resolution (MIT, code included)
+From `zhubby/Shogun` (Rust/Bevy Three Kingdoms strategy). `GameState`
+with factions, cities, officers, roads, army movements, diplomacy,
+technologies, events; `resolve_command_batch` turn resolution;
+`AiProvider` snapshot boundary for AI.
+**Use for:** closest structural relative to our campaign layer —
+field coverage, batch-resolve pattern, AI seam. See
+`strategy-core/NOTES.md`.
+
+### 6. rts-battle/ — RTS unit AI state machine (MIT, code included)
+From `johnburbridge/swarm-dominion` (Godot 4 RTS, alien factions).
+Unit command states (move / attack-move / engage / harvest), target
+acquisition, damage/death, spawner units, event bus, data-driven maps.
+**Use for:** battle-scene unit AI — `unit_base.gd` is essentially the
+spec for our battle-unit brain. See `rts-battle/NOTES.md`.
+
+### 7. roguelike/ — complete roguelike algorithms (MIT, code included)
+From `joozio/dungeon-of-opus` (TypeScript, single 1,667-line file).
+Room-and-corridor dungeon gen, Bresenham line-of-sight + fog of war,
+7 enemy types, items, XP/leveling, ASCII minimap — all pure functions.
+**Use for:** hideout/dungeon interiors, scouting visibility, stealth.
+See `roguelike/NOTES.md`.
+
+### 8. strategy-ai/ — game-AI toolkit: alpha-beta to ISMCTS (design notes only)
+From `Toribash67/sengoku_jidai` (TypeScript strategy). Layered bots
+(random → greedy → alpha-beta → information-set MCTS), determinization
+for hidden info, weighted evaluation, exact combat-odds distributions,
+worker-based search.
+**Use for:** faction AI blueprint; `determinize` + ISMCTS is how our
+campaign AI reasons about unseen enemy armies. See
+`strategy-ai/NOTES.md`.
+
+### 9. dialogue-graph/ — immutable dialogue graph model (design notes only)
+From `YuutaTsubasa/ProjectRondo` (C#). Conversations as immutable
+graph data: nodes + exits-as-discriminated-union
+(linear/branch/end), session walker, validation tests.
+**Use for:** our dialogue system — conversations as JSON data files,
+small client walker. See `dialogue-graph/NOTES.md`.
+
+### 10. siege-combat/ — pure-function ranged combat (design notes only)
+From `Jaxsbr/toy-box-siege` (TypeScript, 159 lines + tests).
+Cooldown-gated shooters, projectile integration, AoE damage,
+knockback, wall blocking — all pure functions over flat data.
+**Use for:** siege combat spec; port the shape into Go with the tests.
+See `siege-combat/NOTES.md`.
+
+## Systems (round 3)
+
+### 11. fps-controller/ — FPS player controller + weapons (MIT, code included)
+From `bridge-mind/claude-opus-5.5-zombies-game` (three.js browser FPS).
+Full controller: yaw/pitch look, crouch, sprint, jump/fall, head-bob,
+recoil accumulation/recovery, ADS transition — plus vitals, input
+class, and a complete weapon system (state machine, viewmodel,
+grenades). Framework-free logic; ports to Babylon directly.
+**Use for:** the missing FPS controller; adapt for TPS with a
+chase camera. See `fps-controller/NOTES.md`.
+
+### 12. babylon-controller/ — Babylon-native character controllers (Apache-2.0 + MIT, code included)
+Found by code-hunt agent 3. `ssatguru/BabylonJS-CharacterController`
+(Apache-2.0): complete kinematic TPS/FPS controller — slope limits,
+step offset, elastic camera with collision, third→first-person radius
+blend, animation blending. Missing only head-bob + crouch, which are
+taken from `crazyramirez/BJS_Character_Controller_V2` (MIT) —
+the only Babylon controller with real head-bob (lines 3618-3636).
+**Use for:** build on ssatguru, not the three.js controller — the
+engine calls are already Babylon and it solves the annoying parts
+(camera collision, TPS↔FPS blend). Bike-physics findings in
+`babylon-controller/NOTES.md`: no JS/TS motorcycle impl clears the
+bar; port cannon-es `RaycastVehicle` + arcade assists instead —
+Babylon 8 ships no vehicle physics at all.
+See `babylon-controller/NOTES.md` and
+`~/workspace/agent-outputs/babylon-controller-finds.md`.
+
+### 13. turf-territory/ — gang turf rules engine + territory growth (MIT, code included)
+Found by code-hunt agent 2. `inkwave` (MIT): `src/game/zones.js`
+(425 lines) — a complete, renderer-free zone-control rules engine:
+coverage-threshold flips (take at 80%, neutralize at 40%),
+hold-countdown scoring, penalty locks, objective rotation,
+overtime — ~90% copy-paste for Babylon. Adapt "ink coverage" to
+crew presence / tag coverage; countdown becomes per-block income.
+`ZONES-config.js` is the full tunable block (balance as data, not
+code). `BorderGrowth.ts` (`OpenCiv`, MIT): cost-curved slow
+territory creep (ports verbatim) — compose with inkwave: creep for
+influence, threshold capture for takeover. **Property honest
+picture:** no permissively-licensed repo does buyable property +
+stash end-to-end (the whole FiveM/ESX ecosystem is GPL-3.0,
+rejected). Best split: `threejs-sims-house-builder` (MIT, safehouse
+interiors), `business-tycoon` (MIT, premises economy), `isometric-city`
+(MIT, land value + taxation). The purchase layer (~50 lines) must be
+written. See `turf-territory/NOTES.md` and
+`~/workspace/agent-outputs/territory-property-finds.md`.
+
+### 14. crime-systems/ — wanted/heat + heist framework (MIT, code included)
+Found by code-hunt agent 1. `bridge-mind/leonida` (MIT): a complete
+browser GTA in TypeScript whose wanted core has **zero engine imports**.
+`wanted/machine.ts` (313 lines) — pure state machine: `responding`
+(cops go to the crime scene, not the player) / `active` (LOS stamped)
+/ `searching` (growing search circle from `lastSeenPos` — losing the
+cops is a circle you must escape, not a timer). Witness gating,
+hot scenes, same-level witness checks, heat meter feeding cop
+accuracy. `police/` — CopBrain FSM, cruiser pursuit over a road
+graph, helicopter, roadblocks, arrest/bail. `missions/` — data-driven
+sequential-objective framework; `m8_theScore.ts` is a genuine heist
+(approach → breach → loot grab → `setLevel(5)` → timed getaway).
+**Caveat:** README says "non-commercial fan project" despite the MIT
+LICENSE — get maintainer clarification before shipping commercial.
+**Bounty hunting: empty result** — nothing permissively licensed
+exists; build from the mission framework + `timed()` + yuka memory
+(see NOTES). Also in the agent report: yuka AI primitives (MIT),
+Babylon-native pursuit demo (MIT), minimal wanted loop (MIT),
+ink for heist planning (MIT). See `crime-systems/NOTES.md` and
+`~/workspace/agent-outputs/crime-systems-finds.md`.
+
+## License status
+
+- Code copied (OSI license positively identified, license file kept):
+  `vehicle-physics` (MIT), `mcts-ai` (MIT), `strategy-core` (MIT),
+  `rts-battle` (MIT), `roguelike` (MIT), `fps-controller` (MIT),
+  `babylon-controller` (Apache-2.0 + MIT), `turf-territory` (MIT),
+  `crime-systems` (MIT).
+  Keep copyright notices on redistribution.
+- Design notes only (no license detected — reimplement, don't copy):
+  `deterministic-sim`, `city-sim`, `strategy-ai`, `dialogue-graph`,
+  `siege-combat`.
+
+Full per-system license notes in `LICENSES.md`.

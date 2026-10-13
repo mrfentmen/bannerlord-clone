@@ -1,0 +1,283 @@
+/**
+ * UnitBrain tests — the state machine from `unit_base.gd`, driven with fake
+ * soldiers (no Scene needed). Verifies: acquire → engage → attack → die,
+ * command transitions, retargeting, and that the loop's end condition is
+ * reachable.
+ */
+import { describe, expect, it } from "vitest";
+import { Vector3 } from "@babylonjs/core";
+import { INFANTRY_STATS, UnitBrain, type SoldierLike } from "../battleUnit.js";
+
+function fakeSoldier(x = 0, z = 0, health = 100): SoldierLike & { health: number } {
+  const s = {
+    root: { position: new Vector3(x, 0, z), rotation: { y: 0 } },
+    health,
+    get alive() {
+      return this.health > 0;
+    },
+    damage(amount: number) {
+      this.health = Math.max(0, this.health - amount);
+    },
+  };
+  return s;
+}
+
+const dt = 1 / 60;
+
+describe("UnitBrain", () => {
+  it("idles with no enemies around", () => {
+    const brain = new UnitBrain(fakeSoldier(), 0);
+    brain.update(dt, []);
+    expect(brain.state).toBe("idle");
+  });
+
+  it("acquires an enemy in range and engages", () => {
+    const brain = new UnitBrain(fakeSoldier(0, 0), 0);
+    const enemy = new UnitBrain(fakeSoldier(10, 0), 1);
+    brain.update(dt, [enemy]);
+    expect(brain.state).toBe("engaging");
+  });
+
+  it("ignores enemies outside acquire range and same-team units", () => {
+    const brain = new UnitBrain(fakeSoldier(0, 0), 0);
+    const far = new UnitBrain(fakeSoldier(500, 0), 1);
+    const friend = new UnitBrain(fakeSoldier(5, 0), 0);
+    brain.update(dt, [far, friend]);
+    expect(brain.state).toBe("idle");
+  });
+
+  it("walks a move order to completion", () => {
+    const brain = new UnitBrain(fakeSoldier(0, 0), 0);
+    brain.commandMoveTo(new Vector3(10, 0, 0));
+    expect(brain.state).toBe("moving");
+    for (let i = 0; i < 600 && brain.state === "moving"; i++) brain.update(dt, []);
+    expect(brain.state).toBe("idle");
+    expect(brain.position.x).toBeCloseTo(10, 0);
+  });
+
+  it("attack-move interrupts for a spotted enemy, then attacks in range", () => {
+    const brain = new UnitBrain(fakeSoldier(0, 0), 0);
+    const enemy = new UnitBrain(fakeSoldier(15, 0), 1);
+    brain.commandAttackMove(new Vector3(100, 0, 0));
+    brain.update(dt, [enemy]);
+    expect(brain.state).toBe("engaging");
+    // let it close and fight
+    for (let i = 0; i < 1200 && enemy.alive; i++) {
+      brain.update(dt, [enemy]);
+      enemy.update(dt, [brain]);
+    }
+    expect(brain.state).toBe("attacking");
+    expect(enemy.alive).toBe(false);
+  });
+
+  it("deals damage on the attack cooldown and kills", () => {
+    const stats = { ...INFANTRY_STATS, damage: 50, attackCooldown: 0.1 };
+    const brain = new UnitBrain(fakeSoldier(0, 0), 0, stats);
+    const enemySoldier = fakeSoldier(1, 0, 100);
+    const enemy = new UnitBrain(enemySoldier, 1, stats);
+    brain.commandEngage(enemy);
+    for (let i = 0; i < 600 && enemy.alive; i++) {
+      brain.update(dt, [enemy]);
+      enemy.update(dt, [brain]);
+    }
+    expect(enemy.alive).toBe(false);
+    expect(enemy.state).toBe("dead");
+    expect(enemySoldier.health).toBe(0);
+  });
+
+  it("retargets when its mark dies mid-engage", () => {
+    const brain = new UnitBrain(fakeSoldier(0, 0), 0);
+    const dying = new UnitBrain(fakeSoldier(5, 0, 1), 1);
+    const other = new UnitBrain(fakeSoldier(8, 0), 1);
+    // kill the first mark outright
+    dying.soldier.damage(1000);
+    brain.commandEngage(dying);
+    brain.update(dt, [dying, other]);
+    // should not be stuck engaging a corpse
+    expect(brain.state === "engaging" || brain.state === "attacking").toBe(true);
+  });
+
+  it("a dead brain stays dead and never acts", () => {
+    const soldier = fakeSoldier(0, 0, 10);
+    const brain = new UnitBrain(soldier, 0);
+    const enemy = new UnitBrain(fakeSoldier(5, 0), 1);
+    soldier.damage(1000);
+    brain.update(dt, [enemy]);
+    expect(brain.state).toBe("dead");
+    const pos = brain.position.clone();
+    brain.update(dt, [enemy]);
+    expect(brain.position.equals(pos)).toBe(true);
+  });
+
+  it("full skirmish: two brains fight until one dies", () => {
+    const stats = { ...INFANTRY_STATS, damage: 25, attackCooldown: 0.2, moveSpeed: 6 };
+    const a = new UnitBrain(fakeSoldier(-10, 0), 0, stats);
+    const b = new UnitBrain(fakeSoldier(10, 0), 1, stats);
+    a.commandAttackMove(new Vector3(10, 0, 0));
+    b.commandAttackMove(new Vector3(-10, 0, 0));
+    let frames = 0;
+    while (a.alive && b.alive && frames < 3600) {
+      a.update(dt, [b]);
+      b.update(dt, [a]);
+      frames++;
+    }
+    expect(a.alive !== b.alive).toBe(true);
+    expect(frames).toBeLessThan(3600);
+  });
+});
+
+describe("UnitBrain hold", () => {
+  it("stands ground: no chase when the enemy is in acquire range but out of reach", () => {
+    const brain = new UnitBrain(fakeSoldier(0, 0), 0);
+    const enemy = new UnitBrain(fakeSoldier(10, 0), 1);
+    brain.commandHold();
+    expect(brain.isHolding).toBe(true);
+    for (let i = 0; i < 60; i++) brain.update(dt, [enemy]);
+    expect(brain.state).toBe("idle");
+    // Never moved toward the enemy.
+    expect(brain.position.x).toBeCloseTo(0, 6);
+    expect(brain.position.z).toBeCloseTo(0, 6);
+  });
+
+  it("strikes an enemy that steps into attack range while holding", () => {
+    const holder = fakeSoldier(0, 0);
+    const brain = new UnitBrain(holder, 0);
+    const enemySoldier = fakeSoldier(1, 0);
+    const enemy = new UnitBrain(enemySoldier, 1);
+    brain.commandHold();
+    brain.update(dt, [enemy]);
+    expect(brain.state).toBe("attacking");
+    const hpBefore = enemySoldier.health;
+    for (let i = 0; i < 120; i++) brain.update(dt, [enemy]);
+    expect(enemySoldier.health).toBeLessThan(hpBefore);
+    // Still on the line, never chased.
+    expect(brain.position.x).toBeCloseTo(0, 6);
+  });
+
+  it("drops back to the line instead of pursuing a retreating target", () => {
+    const brain = new UnitBrain(fakeSoldier(0, 0), 0);
+    const enemySoldier = fakeSoldier(1, 0);
+    const enemy = new UnitBrain(enemySoldier, 1);
+    brain.commandHold();
+    brain.update(dt, [enemy]);
+    expect(brain.state).toBe("attacking");
+    // Enemy retreats out of reach.
+    enemySoldier.root.position.set(30, 0, 0);
+    for (let i = 0; i < 30; i++) brain.update(dt, [enemy]);
+    expect(brain.state).toBe("idle");
+    expect(brain.position.x).toBeCloseTo(0, 6);
+  });
+
+  it("a move order clears the hold", () => {
+    const brain = new UnitBrain(fakeSoldier(0, 0), 0);
+    brain.commandHold();
+    expect(brain.isHolding).toBe(true);
+    brain.commandMoveTo(new Vector3(50, 0, 50));
+    expect(brain.isHolding).toBe(false);
+    expect(brain.state).toBe("moving");
+  });
+});
+
+describe("UnitBrain new behaviors (tasks 257, 289, 295)", () => {
+  it("charges at 1.6x speed and the charge ends with the first strike", () => {
+    const walker = new UnitBrain(fakeSoldier(0, 0), 0);
+    const charger = new UnitBrain(fakeSoldier(0, 0), 0);
+    walker.commandMoveTo(new Vector3(100, 0, 0));
+    charger.commandCharge(new Vector3(100, 0, 0));
+    expect(charger.isCharging).toBe(true);
+    for (let i = 0; i < 60; i++) {
+      walker.update(dt, []);
+      charger.update(dt, []);
+    }
+    // The charger covered 1.6x the walker's ground in the same time.
+    expect(charger.position.x).toBeCloseTo(walker.position.x * 1.6, 0);
+
+    // First strike ends the charge.
+    const enemySoldier = fakeSoldier(4, 0, 1000);
+    const enemy = new UnitBrain(enemySoldier, 1);
+    charger.commandCharge(new Vector3(4, 0, 0));
+    for (let i = 0; i < 600 && charger.isCharging; i++) charger.update(dt, [enemy]);
+    expect(charger.isCharging).toBe(false);
+  });
+
+  it("a new order cancels the charge", () => {
+    const brain = new UnitBrain(fakeSoldier(0, 0), 0);
+    brain.commandCharge(new Vector3(50, 0, 0));
+    expect(brain.isCharging).toBe(true);
+    brain.commandHold();
+    expect(brain.isCharging).toBe(false);
+  });
+
+  it("strikes from behind hit 1.5x, from the side 1.25x, from the front 1x", () => {
+    // Victim faces +z (rotation.y = 0 → forward (0,0,1)... soldier faces atan2(dx,dz)).
+    const victimSoldier = fakeSoldier(0, 10, 1000);
+    const victim = new UnitBrain(victimSoldier, 1);
+    victimSoldier.root.rotation.y = 0; // facing +z, away from an attacker at -z... set explicitly below
+
+    const striker = (x: number, z: number): UnitBrain => {
+      const b = new UnitBrain(fakeSoldier(x, z), 0);
+      // Teleport into range and force the strike by direct call path:
+      b.commandEngage(victim);
+      return b;
+    };
+
+    // Attacker directly behind the victim: victim faces +z, attacker at -z.
+    victimSoldier.root.rotation.y = 0;
+    let behind = striker(0, 0);
+    expect(behind.flankMultiplier(victim)).toBe(1.5);
+
+    // Attacker to the side.
+    let side = striker(10, 10);
+    expect(side.flankMultiplier(victim)).toBe(1.25);
+
+    // Attacker in front.
+    let front = striker(0, 20);
+    expect(front.flankMultiplier(victim)).toBe(1);
+  });
+
+  it("applies the flank multiplier to the damage dealt", () => {
+    const victimSoldier = fakeSoldier(0, 0, 1000);
+    const victim = new UnitBrain(victimSoldier, 1);
+    victimSoldier.root.rotation.y = 0; // facing +z
+    const attacker = new UnitBrain(fakeSoldier(0, -1.5), 0);
+    attacker.commandEngage(victim);
+    // In range: strike on the first attacking tick.
+    for (let i = 0; i < 120 && victimSoldier.health === 1000; i++) attacker.update(dt, [victim]);
+    // 12 base * 1.5 rear = 18.
+    expect(victimSoldier.health).toBe(1000 - 18);
+  });
+
+  it("sidesteps when stuck without making progress", () => {
+    const soldier = fakeSoldier(0, 0);
+    const brain = new UnitBrain(soldier, 0);
+    // Jam the soldier: damage() irrelevant — freeze position by pinning it.
+    const target = new Vector3(100, 0, 0);
+    brain.commandMoveTo(target);
+    // Simulate a wall: every update, put the soldier back where it was.
+    for (let i = 0; i < 200; i++) {
+      brain.update(dt, []);
+      soldier.root.position.set(0, 0, 0);
+    }
+    // The brain gave up pushing and sidestepped its target off the straight line.
+    const t = (brain as unknown as { moveTarget: Vector3 | null }).moveTarget;
+    expect(t).not.toBeNull();
+    expect(Math.abs(t!.z)).toBeGreaterThan(0.5);
+  });
+});
+
+describe("UnitBrain idle look-around (task 251)", () => {
+  it("turns its gaze while idling, never its position", () => {
+    const soldier = fakeSoldier(0, 0);
+    const brain = new UnitBrain(soldier, 0);
+    const yaw0 = soldier.root.rotation.y;
+    let turned = false;
+    for (let i = 0; i < 600; i++) {
+      brain.update(dt, []);
+      if (soldier.root.rotation.y !== yaw0) turned = true;
+    }
+    expect(turned).toBe(true);
+    expect(brain.state).toBe("idle");
+    expect(soldier.root.position.x).toBe(0);
+    expect(soldier.root.position.z).toBe(0);
+  });
+});

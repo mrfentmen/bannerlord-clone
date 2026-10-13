@@ -1,0 +1,27 @@
+/* Task 48: HUD combo counter. Top-centre, clear of the centred kill-confirm
+   skull and of the kill feed. Static — the count itself is the feedback, so
+   there is nothing to animate and no reduced-motion branch to keep. */
+.fb-combo-layer {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 88px;
+  pointer-events: none;
+}
+
+.fb-combo {
+  padding: 2px 10px;
+  border: 1px solid var(--status-warning-mark);
+  border-radius: 4px;
+  background: var(--ink-800);
+  color: var(--status-warning-mark);
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.fb-combo[hidden] {
+  display: none;
+}

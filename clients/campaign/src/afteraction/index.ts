@@ -4,6 +4,20 @@
 
 export * from "./types.js";
 export * from "./casualties.js";
+export * from "./killDeath.js";
+export * from "./mvpHighlight.js";
+export * from "./levelUp.js";
+export * from "./wounded.js";
+export * from "./equipment.js";
+export * from "./rematch.js";
+export * from "./rating.js";
+export * from "./achievementToast.js";
+export * from "./commanderEvents.js";
+export * from "./heroicVictory.js";
+export * from "./pyrrhicVictory.js";
+export * from "./flawlessVictory.js";
+export * from "./outcomeNotices.js";
+export * from "./siteContext.js";
 export * from "./report.js";
 export * from "./endScreens.js";
 export * from "./loot.js";
@@ -16,4 +30,6 @@ export * from "./memorial.js";
 export { memorialPanel, type MemorialPanelOptions, type MemorialPanelHandle } from "./memorialPanel.js";
 export * from "./replay.js";
 export * from "./share.js";
-export { createReportScreen } from "./reportScreen.js";
+export { createReportScreen, type ReportScreenOptions } from "./reportScreen.js";
+export * from "./unitXp.js";
+export { replayTimeline, type ReplayTimelineOptions } from "./replayTimeline.js";

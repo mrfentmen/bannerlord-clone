@@ -27,6 +27,12 @@ import { installInstallPrompt } from "./ui/installPrompt.js";
 import { installUpdateNotifier } from "./ui/updateNotifier.js";
 import { installPerfOverlay, setPerfStatsProvider } from "./ui/perfOverlay.js";
 import { BUILD_HASH } from "./buildHash.js";
+import { getAudioManager } from "./audio/AudioManager.js";
+import { applyAudioSettings } from "./audio/applySettings.js";
+import { installUiSounds, playVerdictSound } from "./audio/uiSounds.js";
+import { soundBirth, soundDefection, soundGovernorAssigned, soundTroopsFreed } from "./audio/gameSounds.js";
+import { playNoticeCue } from "./audio/noticePop.js";
+import { applySelectionAmbient } from "./audio/selectionAmbient.js";
 
 // Task 25/26: the error boundary, console tail, and bug reporter are imported
 // here but installed after the canvas handles exist (see below).
@@ -61,6 +67,8 @@ import { marketPanel } from "./ui/panels/MarketPanel.js";
 import { settingsPanel } from "./ui/panels/SettingsPanel.js";
 import { gameMenuPanel } from "./ui/panels/GameMenu.js";
 import { partyPanel } from "./ui/panels/PartyPanel.js";
+import { characterPanel } from "./ui/panels/CharacterPanel.js";
+import { clanPanel } from "./ui/panels/ClanPanel.js";
 import { marchPlanner } from "./ui/panels/MarchPlanner.js";
 import { ledgerPanel } from "./ui/panels/LedgerPanel.js";
 import { rulerCard, rulerRoster } from "./ui/panels/RulerPanel.js";
@@ -71,6 +79,7 @@ import { townPanel } from "./ui/panels/TownPanel.js";
 import { whyPanel } from "./ui/panels/WhyPanel.js";
 import type {
   GoodId,
+  NearbyForce,
   SettlementOption,
   SimSnapshot,
   TickUpdate,
@@ -89,13 +98,17 @@ import {
 } from "./questTracker/index.js";
 import type { TrackerPositionSource } from "./questTracker/index.js";
 import { questJournalPanel } from "./ui/panels/QuestJournal.js";
+import { spymasterPanel } from "./ui/panels/SpymasterPanel.js";
+import { diplomacyPanel } from "./ui/panels/DiplomacyPanel.js";
+import { loansPanel } from "./ui/panels/LoansPanel.js";
 import { createAchievementStore } from "./achievements/index.js";
 import { achievementsPanel } from "./ui/panels/Achievements.js";
 import { mountBattleUi, type BattleMount } from "./battleflow/mount.js";
 import { createGalleryStore, createPhotoMode, galleryPanel, mountPhotoModeBar, type PhotoModeBarHandle } from "./expression/index.js";
+import { warPaintPanel } from "./ui/panels/WarPaintPanel.js";
 import { chroniclePanel, seasonForDay } from "./expression/chroniclePanel.js";
 import { createMemorial, memorialPanel } from "./afteraction/index.js";
-import { lawsPanel, DEFAULT_LAWS, type ClanLaws } from "./clan/index.js";
+import { lawsPanel, DEFAULT_LAWS, clearClanStore, loadClanStore, setRuler, upsertMember, type ClanLaws } from "./clan/index.js";
 import type { ChronicleEvent, Oath } from "./expression/chronicle.js";
 import {
   boundsForWorld,
@@ -111,12 +124,9 @@ import { lifetimeStatsPanel } from "./meta/lifetimeStatsPanel.js";
 import { leaderboardsPanel } from "./meta/leaderboardsPanel.js";
 import {
   addPlaySeconds,
-  battleReportFromAfterAction,
   recordCampaignStart,
   recordLifetimeBattle,
-  type AfterActionLike,
 } from "./meta/lifetimeStats.js";
-import { battleScore, submitScore } from "./meta/leaderboards.js";
 import { makeWorldProjector } from "./meta/heatmapProjector.js";
 import {
   clearIronmanRun,
@@ -143,8 +153,6 @@ import {
   type SettlementChoice,
 } from "./economy/routePanel.js";
 import { saveLoadPanel } from "./saves/mount.js";
-import { SaveManager, SaveUiError } from "./saves/screens.js";
-import { performQuicksave } from "./saves/quicksave.js";
 import { ALL_CODEX_ENTRIES, CODEX_CATEGORIES } from "./codex/index.js";
 import { toast } from "./ui/kit.js";
 import { settings, type Settings } from "./settings/index.js";
@@ -182,6 +190,25 @@ installOfflineIndicator();
 
 // Task 29: polls /build.json and offers a reload when a newer deployment lands.
 installUpdateNotifier();
+
+// Audio: initialize the AudioManager and load the manifest. Music starts on
+// first user interaction (browser autoplay policy); the boot screen's Start
+// button triggers menu-theme.
+{
+  const audio = getAudioManager();
+  void audio.init().then(() => audio.loadManifest("/audio-manifest.json")).catch(() => {
+    // Audio is enhancement, not requirement; the game boots fine silent.
+  });
+  // Task 561: the volume sliders apply at boot and on every change. The mixer
+  // remembers levels set before the context exists, so this is safe to run
+  // while the async audio boot is still in flight.
+  const applyVolumeSettings = (): void => applyAudioSettings(audio, settings.get());
+  applyVolumeSettings();
+  settings.subscribe(applyVolumeSettings);
+  // Global UI sounds (tasks 531/535): click for any button, toggle for any
+  // checkbox, delegated from the app root.
+  installUiSounds(app);
+}
 
 // Task 30: FPS / frame-time / draw-call overlay; `?perf=1` shows it at boot.
 installPerfOverlay();
@@ -297,8 +324,8 @@ function applySettingsLive(): void {  const s = settings.get();
   applyReduceMotion(s.reduceMotion);
   applyFactionPalette(s.colorblindMode);
   applyHighContrast(s.highContrast);
-  // Audio levels are stored and validated here; the audio pipeline (Hana's lane)
-  // subscribes to the store and applies them.
+  // Audio levels are applied by the audio pipeline's own store subscription
+  // (applyAudioSettings, wired in the audio boot block).
   if (scene) {
     scene.engine.setHardwareScalingLevel(s.renderScale);
     scene.setMaxFps(s.maxFps);
@@ -329,6 +356,9 @@ const provider = providerFromConfig(config);
 let snapshot: SimSnapshot | null = null;
 let previous: SimSnapshot | null = null;
 let scene: SceneHandle | null = null;
+// Saved party templates (bucket 1): the panel reads this list; the cache
+// refreshes with every snapshot reload so a freshly saved template appears.
+let partyTemplatesCache: { id: string; name: string; summary: string }[] = [];
 // -- New Game+ (MASTER_PLAN task 142) ----------------------------------------
 // The banked legacy, read once at boot. Applied to the heir's character when
 // a New Game+ campaign mounts, then consumed — a cancelled character maker
@@ -374,6 +404,8 @@ const bootScreen = startScreen({
   onStart: () => {
     bootScreen.remove();
     recordCampaignStart();
+    // First user gesture: safe to start audio. Menu theme for faction select.
+    void getAudioManager().playMusic("menu-theme").catch(() => {});
     mountCampaign();
   },
 });
@@ -482,6 +514,8 @@ const selectionScreen = startScreen({
       characterMaker({
         bonusPointsTotal:
           pendingNewGamePlus && ngplusRecord ? BONUS_POINTS_TOTAL + ngplusRecord.bonusPoints : undefined,
+        // Rowan (del order 2026-10-03): ethnicity lore deep-links from the heritage picker.
+        onOpenLore: (entryId) => openCodex(entryId),
         onComplete: (character) => {
           document.querySelector(".character-maker")?.remove();
           // New Game+ (task 142): the heir inherits gold and a legacy line.
@@ -504,12 +538,24 @@ const selectionScreen = startScreen({
             startCity: character.startCity,
             difficulty: character.difficulty,
             backgroundChoices: character.backgroundChoices,
-            bonusPoints: character.bonusPoints,
             startingSkills: character.startingSkills,
             startingCash,
             biography,
           });
           void reloadSnapshot().then(() => mountCampaign());
+          // Seed the clan roster with the player as founding ruler
+          // (integration: the laws panel's succession outlook reads this).
+          clearClanStore();
+          const founder = upsertMember({
+            id: "player",
+            name: `${character.firstName} ${character.lastName}`.trim(),
+            gender: character.gender === "female" ? "f" : "m",
+            birthYear: START_YEAR - character.age,
+            traits: [],
+            skills: character.startingSkills,
+          });
+          void founder;
+          setRuler("player");
         },
         onCancel: () => location.reload(),
       }),
@@ -526,6 +572,9 @@ const hud = createHud({
   onTimeScale: (s) => {
     timeScale = s;
     provider.setTimeScale(s);
+    // Tasks 548/549: the time dial is a switch — every detent, including
+    // the pause detent, gets the toggle tick.
+    getAudioManager().playUiSound("toggle");
     paint();
   },
   onSkipToArrival: () => void skipToArrival(),
@@ -539,6 +588,7 @@ const hud = createHud({
   onOpenAchievements: () => openAchievements(),
   onOpenPhotoMode: () => enterPhotoMode(),
   onOpenGallery: () => openGallery(),
+  onOpenWarPaint: () => openWarPaint(),
   onOpenChronicle: () => openChronicle(),
   onOpenTimeline: () => openTimeline(),
   onOpenLifetimeStats: () => openLifetimeStats(),
@@ -546,6 +596,9 @@ const hud = createHud({
   onOpenHeatmap: () => toggleHeatmap(),
   onOpenMemorial: () => openMemorial(),
   onOpenClanLaws: () => openClanLaws(),
+  onOpenSpymaster: () => openSpymaster(),
+  onOpenDiplomacy: () => openDiplomacy(),
+  onOpenLoans: () => openLoans(),
   onOpenLegacy: () => openLegacyPanel(),
   onOpenQuestTracker: () => openQuestTracker(),
   onOpenTradeRoutes: () => toggleTradeRoutes(),
@@ -813,6 +866,9 @@ function enterPhotoMode(): void {
 function mountCampaign(): void {
   if (!snapshot) return;
 
+  // Campaign map music: ambient exploration bed, loops seamlessly.
+  void getAudioManager().playMusic("ambient-exploration").catch(() => {});
+
   // -- Ironman (MASTER_PLAN task 143) --------------------------------------
   // The run starts with the campaign, on the sim's own day. A fresh
   // non-ironman campaign retires any stale record so a crashed ironman run
@@ -823,7 +879,6 @@ function mountCampaign(): void {
     clearIronmanRun();
   }
   pendingIronman = false;
-  startAutosaveTimer();
 
   // -- New Game+ (MASTER_PLAN task 142) --------------------------------------
   // The legacy is spent only now that the heir's campaign actually mounts.
@@ -848,29 +903,44 @@ function mountCampaign(): void {
       apiBaseUrl: config.simulationHttpUrl,
       playerPartyId: battlePartyId,
       local: {
-        describeEncounter: (attackerId, defenderId) => ({
-          attacker: {
-            partyId: attackerId,
-            name: party.name,
-            troops: troopCount,
-            power: troopPower,
-          },
-          defender: {
-            partyId: defenderId,
-            name: "Raider band",
-            troops: Math.max(10, Math.round(troopCount * 0.8)),
-            power: Math.max(10, Math.round(troopPower * 0.8)),
-          },
-        }),
+        describeEncounter: (attackerId, defenderId) => {
+          // Use the actual encountered NPC party if available.
+          const encounterNpc = (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
+          const defender = encounterNpc
+            ? {
+                partyId: defenderId,
+                name: encounterNpc.name,
+                troops: encounterNpc.troopCount,
+                power: "troops" in encounterNpc
+                  ? encounterNpc.troops.reduce((n, t) => n + t.count * t.tier, 0)
+                  : encounterNpc.troopCount,
+              }
+            : {
+                partyId: defenderId,
+                name: "Raider band",
+                troops: Math.max(10, Math.round(troopCount * 0.8)),
+                power: Math.max(10, Math.round(troopPower * 0.8)),
+              };
+          return {
+            attacker: {
+              partyId: attackerId,
+              name: party.name,
+              troops: troopCount,
+              power: troopPower,
+            },
+            defender,
+          };
+        },
       },
       pollEncounters: battlePartyId >= 0,
       onBattleEvent: (event, view) => {
+        const won = event === "victory";
         if (event === "victory") {
           haptics?.play("confirm");
           achievements.record("battle-won");
           recordDeed("battle", "Won a battle.");
           recordHeatSite(true);
-          recordBattleOutcome(true, view, party.name);
+          recordLifetimeBattle({ won: true });
           lifetimeStatsRefresh?.();
           sessionBattlesWon += 1;
         } else if (event === "defeat") {
@@ -878,15 +948,97 @@ function mountCampaign(): void {
           achievements.record("battle-lost");
           recordDeed("battle", "Lost a battle.");
           recordHeatSite(false);
-          recordBattleOutcome(false, view, party.name);
+          recordLifetimeBattle({ won: false });
           lifetimeStatsRefresh?.();
         } else {
           haptics?.play("order");
+          return;
+        }
+
+        // -- Battle writeback: apply the authoritative battle outcome.
+        if (view) {
+          const playerKilled = view.playerIsAttacker ? view.attackerKilled : view.defenderKilled;
+          const playerWounded = view.playerIsAttacker ? view.attackerWounded : view.defenderWounded;
+          const enemyKilled = view.playerIsAttacker ? view.defenderKilled : view.attackerKilled;
+          const enemyWounded = view.playerIsAttacker ? view.defenderWounded : view.attackerWounded;
+          const playerLosses = view.playerIsAttacker ? view.attackerLosses : view.defenderLosses;
+          const enemyLosses = view.playerIsAttacker ? view.defenderLosses : view.attackerLosses;
+          const playerInitial = playerLosses + (snapshot?.party.troops.reduce((a, t) => a + t.count + t.wounded, 0) ?? 0);
+          const enemyInitial = enemyLosses * 2;
+
+          void provider
+            .applyBattleOutcome({
+              battleId: `battle-${Date.now()}`,
+              winner: view.winner,
+              attacker: {
+                partyId: view.playerIsAttacker ? "party-player" : "npc-enemy",
+                name: view.playerIsAttacker ? "Player Party" : "Enemy",
+                isPlayer: view.playerIsAttacker,
+                initialTroops: view.playerIsAttacker ? playerInitial : enemyInitial,
+                survivingTroops: view.playerIsAttacker ? playerInitial - playerLosses : enemyInitial - enemyLosses,
+                killed: view.playerIsAttacker ? playerKilled : enemyKilled,
+                wounded: view.playerIsAttacker ? playerWounded : enemyWounded,
+                prisonersTaken: 0,
+                prisonersLost: 0,
+                retreated: false,
+              },
+              defender: {
+                partyId: view.playerIsAttacker ? "npc-enemy" : "party-player",
+                name: view.playerIsAttacker ? "Enemy" : "Player Party",
+                isPlayer: !view.playerIsAttacker,
+                initialTroops: view.playerIsAttacker ? enemyInitial : playerInitial,
+                survivingTroops: view.playerIsAttacker ? enemyInitial - enemyLosses : playerInitial - playerLosses,
+                killed: view.playerIsAttacker ? enemyKilled : playerKilled,
+                wounded: view.playerIsAttacker ? enemyWounded : playerWounded,
+                prisonersTaken: 0,
+                prisonersLost: 0,
+                retreated: false,
+              },
+              loot: Math.round(view.loot),
+              ticks: view.ticks,
+            })
+            .then(() => reloadSnapshot())
+            .catch((err) => {
+              console.error("Battle writeback failed:", err);
+            });
+
+          const encounterNpc = (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
+          if (won && encounterNpc) {
+            void provider
+              .defeatNpcParty(encounterNpc.id)
+              .then(() => {
+                delete (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
+                return reloadSnapshot();
+              })
+              .catch((err) => {
+                console.error("NPC defeat failed:", err);
+              });
+          } else if (!won && encounterNpc) {
+            void provider
+              .applyPlayerDefeat({
+                npcPartyId: encounterNpc.id,
+                lootTaken: Math.round(view.loot),
+                prisonersTaken: Math.min(3, Math.round(playerWounded / 2)),
+              })
+              .then(() => {
+                delete (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
+                return reloadSnapshot();
+              })
+              .catch((err) => {
+                console.error("Defeat consequences failed:", err);
+              });
+          } else if (!won) {
+            delete (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
+          }
         }
       },
       onDone: () => {
         // The overlay persists (hidden) and the poller keeps adopting future
-        // encounters; just refresh the campaign state underneath.
+        // encounters; just refresh the campaign state underneath. The battle
+        // owned the ambient bus while active, so return it to the selected town.
+        if (selectedSettlement) {
+          applySelectionAmbient(getAudioManager(), { townSelected: townFor(selectedSettlement) !== undefined });
+        }
         void reloadSnapshot();
       },
     });
@@ -913,11 +1065,16 @@ function mountCampaign(): void {
       if (!snapshot) return;
       previous = snapshot;
       snapshot = applyTick(snapshot, update);
+      // Tasks 545/546: a notice that just landed pops; a critical one alerts.
+      playNoticeCue(previous.notifications, snapshot.notifications);
       if (currentPanel === "town" || currentPanel === "party" || currentPanel === "ledger") {
         rebuildContext();
       }
       syncParty();
       paint();
+      // Encounter check: warn when hostile NPC parties get close.
+      // Throttled to every 5 ticks to avoid spam; tracks seen parties.
+      void checkForHostiles();
     },
     (status) => {
       connectionState = status.state === "connected" ? "connected" : status.state === "degraded" ? "degraded" : "reconnecting";
@@ -1047,33 +1204,25 @@ function bindInputActions(): void {
 
   input.on("ui.settings", () => openSettings());
 
-  // -- Quicksave (Rowan) ------------------------------------------------------
-  // F5 writes the live campaign into the dedicated Quicksave slot — the fast
-  // path before a risky engagement. `performQuicksave` owns the rules (no
-  // campaign yet, ironman refusal, store failure); this handler only says
-  // them in plain language. preventDefault on the action def keeps the
-  // browser from reloading the tab on F5.
-  input.on("game.quicksave", () => {
-    void performQuicksave({
-      store: sharedSaveManager(),
-      currentSnapshot: () => snapshot,
-      ironman: () => manualSaveBlocked(ironman),
-    }).then((res) => {
-      if (res.ok) {
-        toast(`Quicksaved — Day ${res.day}.`);
-        return;
-      }
-      if (res.reason === "no-campaign") {
-        toast("Nothing to save yet.");
-        return;
-      }
-      if (res.reason === "ironman") {
-        toast("Quicksave is off on Ironman — your run keeps the 5-minute autosave.");
-        return;
-      }
-      console.warn("Quicksave failed");
-      toast("Quicksave failed — the save did not go through. Try Save / Load instead.");
-    });
+  // Clan panel on L (task 245). The registry has no editable-target guard, so
+  // the check lives here: typing an l in a name field must never open a panel.
+  // Party (P, task 141) and journal (J, task 766) share the guard.
+  const typingInField = (): boolean => {
+    const el = document.activeElement;
+    if (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement) return true;
+    return el instanceof HTMLElement && el.isContentEditable;
+  };
+  input.on("ui.clan", () => {
+    if (typingInField()) return;
+    openPanel("clan");
+  });
+  input.on("ui.party", () => {
+    if (typingInField()) return;
+    openPanel("party");
+  });
+  input.on("ui.journal", () => {
+    if (typingInField()) return;
+    openJournal();
   });
 
   // Touch A behaves like gamepad A: keyboard Enter is left alone — it already
@@ -1179,10 +1328,28 @@ function selectSettlement(id: string): void {
     scene.focus(p.x, p.z, klass === "city" ? 20_000 : klass === "town" ? 13_000 : 7_500);
   }
   currentPanel = town ? "town" : "none";
+  // Task 571: a selected town is the existing place-entry signal. The sim has
+  // day-count but no hour/weather feed, so use only the real daytime bed here.
+  applySelectionAmbient(getAudioManager(), { townSelected: town !== undefined });
   contextNode = town ? townNode(town) : noSimulationRecordNode(place?.name ?? id);
   syncParty();
   paint();
   if (place) hud.announcer.textContent = `${place.name} selected.`;
+}
+
+/**
+ * Task 133: leaving a town closes the town view and puts the party back on the map.
+ * Selection is view state — the simulation owns where the party actually stands — so
+ * leaving is a client-side exit: deselect, drop the ambient bed, repaint, announce.
+ */
+function leaveTown(name: string): void {
+  selectedSettlement = null;
+  selectedRuler = null;
+  currentPanel = "none";
+  applySelectionAmbient(getAudioManager(), { townSelected: false });
+  rebuildContext();
+  paint();
+  hud.announcer.textContent = `You leave ${name}.`;
 }
 
 function noSimulationRecordNode(name: string): Node {
@@ -1213,8 +1380,262 @@ function townNode(town: TownState): Node {
     onOpenMarket: () => openPanel("market"),
     onMarchHere: () => openPanel("march"),
     onRoster: () => openPanel("roster"),
+    // Rowan (del order 2026-10-03): city lore deep-links from town panels.
+    onOpenLore: (entryId) => openCodex(entryId),
     purse: snapshot?.player.resources.money ?? 0,
     day: snapshot?.day ?? 0,
+    workshops: snapshot?.workshops ?? [],
+    onBuyWorkshop: async (type) => {
+      if (!snapshot) throw new Error("No snapshot to buy a workshop against.");
+      const result = await provider.buyWorkshop(town.id, type);
+      playVerdictSound(true);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+      return result;
+    },
+    onSellWorkshop: async (workshopId) => {
+      if (!snapshot) throw new Error("No snapshot to sell a workshop against.");
+      await provider.sellWorkshop(workshopId);
+      playVerdictSound(true);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+    },
+    // Tasks 115–117: the tavern tab. The panel fetches the roster on demand
+    // (when the player steps inside) and sends the hire order; the simulation
+    // owns the price, the roster, and the refusal.
+    onLoadTavern: () => provider.tavernCompanions(town.id),
+    onHireCompanion: async (companionId) => {
+      if (!snapshot) throw new Error("No snapshot to hire a companion against.");
+      await provider.recruitCompanion(companionId);
+      playVerdictSound(true);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+    },
+    // Tasks 119–121: the smithy tab. The bench (recipes, noble orders, stamina)
+    // is fetched on demand; the simulation owns the forge, the crucible, and
+    // every refusal.
+    onLoadSmithy: async () => {
+      const [recipes, orders, stamina] = await Promise.all([
+        provider.getSmithingRecipes(),
+        provider.getCraftingOrders(),
+        provider.getSmithingStamina(),
+      ]);
+      return { recipes, orders, stamina };
+    },
+    onForgeItem: async (recipeId) => {
+      if (!snapshot) throw new Error("No snapshot to forge against.");
+      const result = await provider.forgeItem(recipeId);
+      playVerdictSound(true);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+      return result;
+    },
+    onSmeltArms: async (quantity) => {
+      if (!snapshot) throw new Error("No snapshot to smelt against.");
+      const result = await provider.smeltArms(quantity);
+      playVerdictSound(true);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+      return result;
+    },
+    onFulfillOrder: async (orderId) => {
+      if (!snapshot) throw new Error("No snapshot to deliver against.");
+      const result = await provider.fulfillCraftingOrder(orderId);
+      playVerdictSound(true);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+      return result;
+    },
+    // Tavern dice: the simulation owns the odds, the purse, and the telling.
+    onPlayDice: async (stake) => {
+      if (!snapshot) throw new Error("No snapshot to play dice against.");
+      const result = await provider.playTavernDice(town.id, stake);
+      playVerdictSound(result.won);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+      return result;
+    },
+    // Quests (tasks 125-126): offers from the town's notables, plus the
+    // quests the party carries. The sim owns objectives, deadlines, rewards.
+    onLoadQuests: async () => {
+      const notable = (town.notables ?? [])[0];
+      const giverName = notable ? notable.name : `the people of ${town.name}`;
+      const giverId = notable ? notable.id : `town-${town.id}`;
+      const offers = await provider.getQuestOffers(giverId, giverName).catch(() => []);
+      const active = (snapshot?.quests ?? []).filter((q) => q.status === "active");
+      return { offers, active };
+    },
+    onAcceptQuest: async (templateId) => {
+      const notable = (town.notables ?? [])[0];
+      const giverName = notable ? notable.name : `the people of ${town.name}`;
+      const giverId = notable ? notable.id : `town-${town.id}`;
+      const result = await provider.acceptQuest(giverId, giverName, templateId);
+      playVerdictSound(true);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+      return result;
+    },
+    onAbandonQuest: async (questId) => {
+      await provider.abandonQuest(questId);
+      playVerdictSound(false);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+    },
+    // Notables (tasks 129-133): the sim writes the lines and gates the actions;
+    // gift and favor are real routes (/v1/notables/talk, /v1/notables/relation).
+    onNotableTalk: (notableId) => provider.talkToNotable(town.settlementId, notableId),
+    onNotableImprove: async (request) => {
+      const result = await provider.improveRelation(request);
+      playVerdictSound(result.accepted);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+      return result;
+    },
+    // Sieges (tasks 134/426): the snapshot carries the town's siege; the sim
+    // owns every gate (at war, already besieged, breach needed for assault).
+    onGetSiege: async (townId) => (snapshot?.sieges ?? []).find((s) => s.townId === townId) ?? null,
+    onStartSiege: async (townId) => {
+      if (!snapshot) throw new Error("No snapshot to besiege against.");
+      const result = await provider.startSiege(townId, [snapshot.party.id]);
+      playVerdictSound(true);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+      return result;
+    },
+    onAssaultSiege: async (siegeId) => {
+      const result = await provider.assaultSiege(siegeId);
+      playVerdictSound(result.victory);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+      return result;
+    },
+    onLiftSiege: async (siegeId) => {
+      await provider.liftSiege(siegeId);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+    },
+    onSiegeChanged: () => {
+      // The handlers above already repaint; this exists for orders that change
+      // nothing to repaint (a refused siege keeps the world as it was).
+      void refreshAfterSimOrder();
+    },
+    // Engine park: the sim's ledger for one siege, read and driven through the
+    // provider. Queue charges gold and sets the build days; move and fire-variant
+    // are the sim's own bookkeeping.
+    onGetSiegeEngines: (siegeId) => provider.getSiegeEngines(siegeId),
+    onQueueSiegeEngine: (siegeId, typeId) =>
+      provider.queueSiegeEngine(siegeId, typeId).then((r) => {
+        playVerdictSound(true);
+        void refreshAfterSimOrder();
+        return r;
+      }),
+    onMoveSiegeEngine: (siegeId, typeId, to) =>
+      provider.moveSiegeEngine(siegeId, typeId, to).then(() => {
+        void refreshAfterSimOrder();
+      }),
+    onMakeFireVariant: (siegeId, typeId) =>
+      provider.makeFireVariant(siegeId, typeId).then(() => {
+        void refreshAfterSimOrder();
+      }),
+    // Economy/crime (bucket 7): fines, crimes, governor, ransom broker.
+    // All fixture-served; the live server refuses with its own message.
+    onGetOutstandingFine: async () => (snapshot?.fines as Record<string, number> | undefined)?.[town.id] ?? 0,
+    onCommitCrime: (kind) =>
+      provider.commitCrime(town.id, kind).then((r) => {
+        playVerdictSound(false);
+        void refreshAfterSimOrder();
+        return r;
+      }),
+    onPayFine: () =>
+      provider.payFine(town.id).then((r) => {
+        playVerdictSound(true);
+        void refreshAfterSimOrder();
+        return r;
+      }),
+    ...(snapshot
+      ? {
+          heldByPlayer:
+            snapshot.clans.find((c) => c.id === "clan-player")?.fiefIds.includes(town.settlementId) === true,
+          governorCandidates: snapshot.characters
+            .filter((c) => c.role === "companion" && c.clanId === "clan-player" && c.alive)
+            .map((c) => ({ id: c.id, name: c.name })),
+          prisoners: snapshot.party.prisoners,
+          partyTroops: snapshot.party.troops.map((t) => ({ id: t.id, name: t.name, count: t.count })),
+        }
+      : {}),
+    onTransferToGarrison: (troopId, count) =>
+      provider.transferToGarrison(town.id, troopId, count).then((r) => {
+        playVerdictSound(true);
+        void refreshAfterSimOrder();
+        return r;
+      }),
+    onWaitDays: (days) =>
+      provider.stepDays({ days }).then((r) => {
+        void refreshAfterSimOrder();
+        return r;
+      }),
+    onLeaveTown: () => leaveTown(town.name),
+    onGetGovernor: () => provider.getGovernor(town.id),
+    onAssignGovernor: (characterId) =>
+      provider.assignGovernor(town.id, characterId).then((r) => {
+        playVerdictSound(true);
+        soundGovernorAssigned();
+        void refreshAfterSimOrder();
+        return r;
+      }),
+    onSellPrisonersToBroker: (troopId, count) =>
+      provider.sellPrisonersToBroker(town.id, troopId, count).then((r) => {
+        playVerdictSound(true);
+        void refreshAfterSimOrder();
+        return r;
+      }),
+    onWorldChanged: () => {
+      void refreshAfterSimOrder();
+    },
+    // Bounty board (bandits/bounties contract): the sim pays only when the
+    // party is destroyed; a live target refuses verbatim.
+    onGetBounties: () => provider.getBounties(),
+    onClaimBounty: (bountyId) =>
+      provider.claimBounty(bountyId).then((r) => {
+        playVerdictSound(true);
+        void refreshAfterSimOrder();
+        return r;
+      }),
+    onRecruitMilitia: async (count) => {
+      if (!snapshot) throw new Error("No snapshot to recruit militia against.");
+      await provider.recruitMilitia(town.id, count);
+      playVerdictSound(true);
+      previous = snapshot;
+      snapshot = await provider.getSnapshot();
+      rebuildContext();
+      paint();
+    },
     onRecruit: async (unitId, quantity) => {
       if (!snapshot) throw new Error("No snapshot to recruit against.");
       const result = await provider.recruit({
@@ -1224,6 +1645,8 @@ function townNode(town: TownState): Node {
         quantity,
         expectedDay: snapshot.day,
       });
+      // Tasks 533/534: the recruit order answers with a chime or a buzz.
+      playVerdictSound(result.accepted);
       if (result.accepted) {
         previous = snapshot;
         snapshot = await provider.getSnapshot();
@@ -1344,29 +1767,6 @@ function openGameMenu(): void {
       handle.close();
       openControls();
     },
-    onSaveAndQuit: () => {
-      if (!snapshot) {
-        toast("Nothing to save yet.");
-        return;
-      }
-      const snap = snapshot;
-      void sharedSaveManager()
-        .autosave(snap)
-        .then(
-          () => {
-            toast("Progress saved.");
-            location.reload();
-          },
-          (err) => {
-            console.warn("Save & quit failed:", err);
-            toast(
-              "The save did not go through — quitting now would lose progress " +
-                "since the last save. Try Save / Load instead.",
-              6000,
-            );
-          },
-        );
-    },
     onQuitToTitle: () => location.reload(),
     onClose: () => {
       gameMenu = null;
@@ -1381,40 +1781,6 @@ function openGameMenu(): void {
   paint();
 }
 
-// -- Autosave (Rowan) ----------------------------------------------------------
-// PAX's SaveManager documents autosave() as "called on a timer by the game
-// loop", but no timer ever called it: a crash, a closed tab, or the pause
-// menu's quit-to-title silently discarded everything since the last manual
-// save, and ironman mode's "one autosave" promise was never written. This is
-// the game loop's end of that contract: every five minutes, while a campaign
-// is mounted and the page is visible, the live snapshot goes to the autosave
-// slot. Failures stay quiet (console only) so a broken store never spams the
-// player; the manual Save / Load path is untouched.
-const AUTOSAVE_INTERVAL_MS = 5 * 60 * 1000;
-let autosaveTimerStarted = false;
-let autosaveManager: SaveManager | null = null;
-
-function sharedSaveManager(): SaveManager {
-  if (!autosaveManager) autosaveManager = new SaveManager();
-  return autosaveManager;
-}
-
-function startAutosaveTimer(): void {
-  if (autosaveTimerStarted) return;
-  autosaveTimerStarted = true;
-  window.setInterval(() => {
-    if (!snapshot) return;
-    if (document.visibilityState !== "visible") return;
-    const snap = snapshot;
-    void sharedSaveManager()
-      .autosave(snap)
-      .then(
-        () => toast("Autosaved."),
-        (err) => console.warn("Autosave failed:", err),
-      );
-  }, AUTOSAVE_INTERVAL_MS);
-}
-
 function openSaveLoad(): void {
   currentPanel = "none";
   const { root } = saveLoadPanel({
@@ -1423,10 +1789,16 @@ function openSaveLoad(): void {
       if (!snapshot) throw new Error("No snapshot to save yet.");
       return snapshot;
     },
-    onLoad: () => {
-      // No provider-level snapshot restore exists yet (PAX's data lane);
-      // fail in plain language rather than faking a load.
-      throw new SaveUiError("Loading a save back into the running game is not supported yet.");
+    onLoad: async () => {
+      // The saves layer has already restored the world on the server
+      // (POST /v1/load); this is the after-hook. Drop the cached snapshot,
+      // pull the restored world, and repaint from it.
+      if (!provider) return;
+      const restored = await provider.getSnapshot();
+      previous = snapshot;
+      snapshot = restored;
+      rebuildContext();
+      paint();
     },
     onClose: () => {
       currentPanel = "none";
@@ -1467,6 +1839,10 @@ let timelineRefresh: (() => void) | null = null;
 function openLifetimeStats(): void {
   currentPanel = "none";
   const { root, refresh } = lifetimeStatsPanel({
+    ...(snapshot?.player.characterName ? { playerName: snapshot.player.characterName } : {}),
+    ...(snapshot?.player.factionId ? { clanName: snapshot.player.factionId } : {}),
+    achievementsUnlocked: achievements.unlockedCount(),
+    achievementsTotal: achievements.allProgress().length,
     onClose: () => {
       currentPanel = "none";
       contextNode = null;
@@ -1493,33 +1869,6 @@ function openLeaderboards(): void {
   });
   contextNode = root;
   paint();
-}
-
-/**
- * Fold a finished campaign-map battle into both meta stores.
- *
- * MASTER_PLAN 138: the after-action view reports both sides' losses and the
- * loot taken, so kills and gold are measured rather than left at zero. The
- * battle still counts as fought even if the view is absent (a defeat with no
- * view, or a future battle layer that omits it) — only the unmeasured parts
- * are dropped.
- *
- * MASTER_PLAN 141: every campaign-map bout is a quick battle, so it lands on
- * the quick-battle board, which otherwise had no producer at all.
- */
-function recordBattleOutcome(
-  won: boolean,
-  view: AfterActionLike | undefined,
-  playerName: string,
-): void {
-  const report = view ? battleReportFromAfterAction(view) : null;
-  recordLifetimeBattle(report ?? { won });
-  if (!report) return;
-  submitScore("quick-battle", {
-    name: playerName || "Commander",
-    score: battleScore(report.kills ?? 0, report.losses ?? 0, won),
-    detail: `${report.kills ?? 0} kills · ${won ? "victory" : "defeat"}`,
-  });
 }
 
 let playTimerStarted = false;
@@ -1605,9 +1954,11 @@ function openClanLaws(): void {
       clanLaws = { ...DEFAULT_LAWS };
       persistClanLaws();
     },
-    // No clan roster source yet (the family tree, task 76, records members);
-    // the panel shows the honest empty state until one exists.
-    roster: () => null,
+    roster: () => {
+      const store = loadClanStore();
+      if (store.members.length === 0) return null;
+      return { members: store.members, rulerId: store.rulerId ?? store.members[0]!.id };
+    },
     holdings: () => world?.data.settlements.map((s) => s.name) ?? [],
     onClose: () => {
       currentPanel = "none";
@@ -1616,6 +1967,111 @@ function openClanLaws(): void {
     },
   });
   contextNode = root;
+  paint();
+}
+
+function openSpymaster(): void {
+  currentPanel = "none";
+  const postNames: Record<string, string> = {};
+  for (const s of world?.data.settlements ?? []) {
+    if (s.id && s.name) postNames[s.id] = s.name;
+  }
+  contextNode = spymasterPanel({
+    currentDay: snapshot?.day ?? 0,
+    postNames,
+    onClose: () => {
+      currentPanel = "none";
+      contextNode = null;
+      paint();
+    },
+  });
+  paint();
+}
+
+function openLoans(): void {
+  currentPanel = "none";
+  contextNode = loansPanel({
+    onClose: () => {
+      currentPanel = "none";
+      contextNode = null;
+      paint();
+    },
+  });
+  paint();
+}
+
+async function openDiplomacy(): Promise<void> {
+  currentPanel = "none";
+  const factions = [...new Map((snapshot?.rulers ?? []).map((r) => [r.factionId, { id: r.factionId, name: r.factionName }])).values()]
+    .filter((f) => f.id !== snapshot?.player.factionId);
+  // The active contract is the provider's state (fixture models it; the live
+  // sim has no mercenary routes and answers null), never a hardcoded null —
+  // a signed contract that renders as no contract would offer "Sign on" again.
+  const mercenaryContract = await provider.getMercenaryContract().catch(() => null);
+  contextNode = diplomacyPanel({
+    currentSeason: seasonForDay(snapshot?.day ?? 0),
+    factions,
+    // Bucket 6: the simulation's own wars, mercenary contracts, defection.
+    // No war/mercenary routes on the live server yet, so there the orders fail
+    // with the transport's own message; the fixture serves them all.
+    simWars: snapshot?.wars ?? [],
+    ...(snapshot ? { playerFactionId: snapshot.player.factionId } : {}),
+    onDeclareWar: (targetFactionId) => {
+      if (!snapshot) throw new Error("No snapshot to declare war against.");
+      return provider.declareWar(targetFactionId).then((r) => {
+        playVerdictSound(true);
+        void refreshAfterSimOrder();
+        return r;
+      });
+    },
+    onMakePeace: (warId) =>
+      provider.makePeace(warId).then(() => {
+        void refreshAfterSimOrder();
+      }),        onDefectClan: (joinFactionId) =>
+          provider.defectClan("clan-player", joinFactionId).then((r) => {
+            soundDefection();
+            void refreshAfterSimOrder();
+            return r;
+          }),
+    // Realm influence: the snapshot's own balance, spent through the sim's
+    // POST /v1/influence/spend. Buttons the balance cannot afford stay off.
+    ...(snapshot && snapshot.player.influence !== undefined
+      ? {
+          influenceBalance: snapshot.player.influence,
+          onSpendInfluence: (action: "muster-army" | "call-vote" | "bribe-lord" | "recruit-vassal" | "force-policy") =>
+            provider.spendInfluenceAction(action).then((r) => {
+              void refreshAfterSimOrder();
+              return r;
+            }),
+        }
+      : {}),
+    mercenaryContract,
+    onSignMercenary: async (factionId, factionName) => {
+      await provider.signMercenaryContract(factionId, factionName);
+      void refreshAfterSimOrder();
+    },
+    onBreakMercenary: async () => {
+      await provider.breakMercenaryContract();
+      void refreshAfterSimOrder();
+    },
+    mercenaryFactions: factions,
+    onWorldChanged: () => {
+      void refreshAfterSimOrder();
+    },
+    onClose: () => {
+      currentPanel = "none";
+      contextNode = null;
+      paint();
+    },
+  });
+  paint();
+}
+
+/** Re-read the snapshot after a diplomacy order moved the world. */
+async function refreshAfterSimOrder(): Promise<void> {
+  previous = snapshot;
+  snapshot = await provider.getSnapshot();
+  rebuildContext();
   paint();
 }
 
@@ -1723,6 +2179,18 @@ function openQuestTracker(): void {
 // In-session capture list. Photo mode feeds it through the bar's onCapture
 // hook; the HUD rail "Gallery" button opens the browser panel.
 const gallery = createGalleryStore();
+
+function openWarPaint(): void {
+  currentPanel = "none";
+  contextNode = warPaintPanel({
+    onClose: () => {
+      currentPanel = "none";
+      contextNode = null;
+      paint();
+    },
+  });
+  paint();
+}
 
 function openGallery(): void {
   currentPanel = "none";
@@ -1912,10 +2380,12 @@ function openJournal(): void {
   paint();
 }
 
-function openCodex(): void {
+function openCodex(initialEntryId?: string): void {
   achievements.record("codex.opened");
   currentPanel = "none";
   contextNode = codexPanel({
+    // Rowan (del order 2026-10-03): deep-link to a lore entry when opened from a lore button.
+    initialEntryId,
     onEntryRead: (entry) => {
       achievements.record("codex.entry_read", { category: entry.category });
       codexRead.add(entry.id);
@@ -1942,6 +2412,15 @@ async function reloadSnapshot(): Promise<void> {
   try {
     previous = snapshot;
     snapshot = await provider.getSnapshot();
+    // Keep the party-template list fresh for the party panel's cache read.
+    void provider
+      .getPartyTemplates()
+      .then((templates) => {
+        partyTemplatesCache = templates;
+      })
+      .catch(() => {
+        /* templates stay as they were; the panel still renders */
+      });
     currentPanel = "none";
     contextNode = null;
     paint();
@@ -1996,6 +2475,108 @@ function rebuildContext(): void {
         party: snap.party,
         previous: previous?.party ?? null,
         onWhy: (field) => openWhy(snap.party.id, field),
+        onRansomPrisoners: async (troopId, count) => {
+          const result = await provider.ransomPrisoners(troopId, count);
+          playVerdictSound(true);
+          await reloadSnapshot();
+          rebuildContext();
+          paint();
+          return result;
+        },
+        onRecruitPrisoners: async (troopId, count) => {
+          await provider.recruitPrisoners(troopId, count);
+          playVerdictSound(true);
+          await reloadSnapshot();
+          rebuildContext();
+          paint();
+        },
+        onReleasePrisoner: async (troopId) => {
+          const result = await provider.releasePrisoner(troopId);
+          playVerdictSound(true);
+          await reloadSnapshot();
+          rebuildContext();
+          paint();
+          return result;
+        },
+        onExecutePrisoner: async (troopId) => {
+          const result = await provider.executePrisoner(troopId);
+          await reloadSnapshot();
+          rebuildContext();
+          paint();
+          return result;
+        },
+        onSplitParty: async (input) => {
+          const result = await provider.splitParty(input);
+          playVerdictSound(true);
+          await reloadSnapshot();
+          rebuildContext();
+          paint();
+          return result;
+        },
+        // Forced march (re-wire; the original wiring was lost in the 9fb5b0d4 restore).
+        onToggleForcedMarch: async (active) => {
+          await provider.setForcedMarch(active);
+          await reloadSnapshot();
+          rebuildContext();
+          paint();
+        },
+        // Prison breaks: roguery against the holder, sim owns the odds.
+        onPrisonBreak: async (holderId, teamSize) => {
+          const result = await provider.attemptPrisonBreak(holderId, teamSize);
+          playVerdictSound(result.success);
+          if (result.freed > 0) soundTroopsFreed();
+          await reloadSnapshot();
+          rebuildContext();
+          paint();
+          return result;
+        },
+        // Merge a detached party back into the main one.
+        onMergeParty: async (partyId) => {
+          await provider.mergeParty(partyId);
+          playVerdictSound(true);
+          await reloadSnapshot();
+          rebuildContext();
+          paint();
+        },
+        detachedParties: snap.npcParties
+          ?.filter((p) => p.kind === "militia" && p.factionId === snap.player.factionId && p.id.startsWith("detached-"))
+          .map((p) => ({ id: p.id, name: p.name, troopCount: p.troopCount })),
+        // Companion role assignment; the sim validates the skill fit.
+        onAssignRole: async (charId, role) => {
+          await provider.assignPartyRole(charId, role);
+          playVerdictSound(true);
+          await reloadSnapshot();
+          rebuildContext();
+          paint();
+        },
+        companionCandidates: snap.characters
+          .filter((c) => c.role === "companion" && c.clanId === "clan-player" && c.alive)
+          .map((c) => ({ id: c.id, name: c.name, skills: c.skills ?? {} })),
+        // Party templates: save the current composition, refit toward a saved one.
+        onSaveTemplate: async (name) => {
+          const result = await provider.savePartyTemplate(name);
+          playVerdictSound(true);
+          await reloadSnapshot();
+          rebuildContext();
+          paint();
+          return result;
+        },
+        partyTemplates: partyTemplatesCache,
+        onRefitTemplate: async (templateId) => {
+          const result = await provider.refitPartyToward(templateId);
+          playVerdictSound(true);
+          return result;
+        },
+        // Troop training/promotion: the sim owns readiness, cost, and refusals;
+        // its answer is printed verbatim by the panel.
+        onUpgradeTroops: async (stackId, branchId) => {
+          const result = await provider.upgradeTroops(branchId ? { stackId, branchId } : { stackId });
+          playVerdictSound(result.upgraded);
+          await reloadSnapshot();
+          rebuildContext();
+          paint();
+          return result;
+        },
       });
       return;
     case "march":
@@ -2015,6 +2596,7 @@ function rebuildContext(): void {
       contextNode = ledgerPanel({
         ledger: snap.ledger,
         warnings: snap.warnings,
+        treasuryBalance: snap.player.resources.money,
         onWhy: (entityId, field) => openWhy(entityId, field),
       });
       return;
@@ -2041,6 +2623,75 @@ function rebuildContext(): void {
           rebuildContext();
           paint();
         },
+      });
+      return;
+    }
+    case "character": {
+      const p = snap.player;
+      contextNode = characterPanel({
+        character: {
+          characterName: p.characterName,
+          age: p.age,
+          ethnicityId: p.ethnicityId,
+          biography: p.biography,
+          attributes: p.attributes,
+          skills: p.skills,
+          influence: p.influence,
+          renown: p.renown,
+          factionId: p.factionId,
+        },
+      });
+      return;
+    }
+    case "clan": {
+      if (!snapshot) return;
+      const snap = snapshot;
+      contextNode = clanPanel({
+        snapshot: snap,
+        playerId: "char-player",
+        clanId: "clan-player",
+        onChanged: () => {
+          // Only world-changing successes call this; the chime marks them.
+          playVerdictSound(true);
+          void provider
+            .getSnapshot()
+            .then((fresh) => {
+              previous = snapshot;
+              snapshot = fresh;
+              rebuildContext();
+              paint();
+            })
+            .catch(() => undefined);
+        },
+        onGetClanTier: () => provider.getClanTier(),
+        onGetHeir: () => provider.getHeir("clan-player"),
+        onMarry: (a, b) => provider.marry(a, b),
+        onHaveChild: (p1, p2, name) =>
+          provider.haveChild(p1, p2, name).then((r) => {
+            soundBirth();
+            return r;
+          }),
+        onStartCourtship: (targetId) => provider.startCourtship(targetId),
+        onPerformCourtAction: (action) => provider.performCourtAction(action),
+        onProposeMarriage: () => provider.proposeMarriage(),
+        onGetCourtships: () => provider.getCourtships(),
+        onGetHeldLords: () => provider.getHeldLords(),
+        onRansomHeldLord: (name) => provider.ransomHeldLord(name),
+        onReleaseHeldLord: (name) => provider.releaseHeldLord(name),
+        onExecuteHeldLord: (name) => provider.executeHeldLord(name),
+        onFoundKingdom: (name) => provider.foundKingdom(name),
+        onCreateArmy: (name) => provider.createArmy(name, "char-player"),
+        onJoinArmy: (armyId) => {
+          if (!snapshot) throw new Error("No snapshot to join an army with.");
+          return provider.joinArmy(armyId, snapshot.party.id);
+        },
+        onLeaveArmy: (armyId) => {
+          if (!snapshot) throw new Error("No snapshot to leave an army with.");
+          return provider.leaveArmy(armyId, snapshot.party.id);
+        },
+        onDisbandArmy: (armyId) => provider.disbandArmy(armyId),
+        onSetArmyObjective: (armyId, townId) =>
+          provider.setArmyObjective(armyId, { kind: "town", townId }),
       });
       return;
     }
@@ -2099,6 +2750,8 @@ function marketNode(townId: string, townName: string): Node {
               `${money(result.total)}. The price here is now ${result.marketPriceAfter.toFixed(2)}.`,
           }
         : { tone: "critical", text: result.reason ?? "The trade was refused." };
+      // Tasks 533/534: the trade answers with a chime or a buzz.
+      playVerdictSound(result.accepted);
       void refreshAfterTrade(townId);
     },
     onError: (m) => console.error(m),
@@ -2171,6 +2824,114 @@ function destinationsFor(): SettlementOption[] {
  * the real road nodes so the marker follows the road rather than flying across country.
  * It never invents arrival or cost; those come from the March and Supply systems.
  */
+/** Track hostile parties we've already warned about, to avoid spam. */
+const warnedHostiles = new Set<string>();
+const activeEncounters = new Set<string>();
+let hostileCheckTick = 0;
+
+/**
+ * Check for hostile NPC parties near the player. Shows a notification when
+ * a new hostile enters range. Called on tick, throttled to every 5 ticks.
+ */
+async function checkForHostiles(): Promise<void> {
+  if (!snapshot || !provider) return;
+  hostileCheckTick++;
+  if (hostileCheckTick % 5 !== 0) return;
+
+  try {
+    const hostiles = await provider.getNearbyHostiles(50); // 50km encounter range
+    for (const h of hostiles) {
+      if (!warnedHostiles.has(h.id) && !activeEncounters.has(h.id)) {
+        warnedHostiles.add(h.id);
+        activeEncounters.add(h.id);
+        // Show the encounter panel: fight, flee, or dismiss.
+        const playerTroops = snapshot.party.troops.reduce((n, s) => n + s.count, 0);
+        // Get the full NPC party data for the encounter.
+        const npcParties = snapshot.npcParties ?? [];
+        const npc = npcParties.find((p) => p.id === h.id);
+        if (npc) {
+          const { encounterPanel } = await import("./ui/panels/EncounterPanel.js");
+          const panel = encounterPanel({
+            npc,
+            playerTroops,
+            onChoice: (choice) => {
+              activeEncounters.delete(h.id);
+              handleEncounterChoice(choice);
+            },
+          });
+          document.body.appendChild(panel);
+        }
+      }
+    }
+    // Clean up warnings for parties that are no longer near
+    const nearIds = new Set(hostiles.map((h) => h.id));
+    for (const id of warnedHostiles) {
+      if (!nearIds.has(id)) warnedHostiles.delete(id);
+    }
+  } catch {
+    // Silently ignore - the provider may not support this yet
+  }
+}
+
+/** Handle the player's encounter choice: fight, flee, or dismiss. */
+async function handleEncounterChoice(choice: { action: "fight" | "flee" | "dismiss"; npcParty: NearbyForce }): Promise<void> {
+  const { npcParty } = choice;
+  if (choice.action === "fight") {
+    // Store the NPC for the battle's describeEncounter to use.
+    (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc = npcParty;
+    console.log(`[encounter] Fighting ${npcParty.name} (${npcParty.troopCount} troops)`);
+    // Start the battle: player (attacker) vs the NPC party (defender).
+    // The defender party ID is a hash of the NPC ID since battleflow uses numbers.
+    if (battleUi && snapshot) {
+      const defenderId = hashNpcId(npcParty.id);
+      try {
+        await battleUi.attack(0, defenderId); // 0 = player party
+      } catch (err) {
+        console.error("Failed to start battle:", err);
+        delete (window as unknown as { __encounterNpc?: NearbyForce }).__encounterNpc;
+      }
+    }
+  } else if (choice.action === "flee") {
+    await handleFlee(npcParty);
+  } else {
+    console.log(`[encounter] Dismissed encounter with ${npcParty.name}`);
+  }
+}
+
+/** Hash an NPC string ID to a numeric battle party ID. */
+function hashNpcId(id: string): number {
+  let hash = 0;
+  for (let i = 0; i < id.length; i++) {
+    hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
+  }
+  return Math.abs(hash) + 1000; // offset to avoid colliding with player ID 0
+}
+
+/** Handle fleeing from an encounter: move the player away, apply consequences. */
+async function handleFlee(npcParty: NearbyForce): Promise<void> {
+  if (!snapshot || !provider) return;
+  console.log(`[encounter] Fled from ${npcParty.name}`);
+
+  // Move the player away from the NPC: displace along the vector from NPC to player.
+  // Use a deterministic 60km escape (beyond the 50km encounter range).
+  const player = snapshot.party;
+  const dx = player.position.x - npcParty.position.x;
+  const dz = player.position.z - npcParty.position.z;
+  const dist = Math.sqrt(dx * dx + dz * dz) || 1;
+  const escapeDist = 60; // km, beyond encounter range
+  const newX = player.position.x + (dx / dist) * escapeDist;
+  const newZ = player.position.z + (dz / dist) * escapeDist;
+
+  // Update player position via the provider (moveParty if available, else direct).
+  // For the fixture, we update through a dedicated method.
+  try {
+    await provider.fleeFromEncounter(npcParty.id, { x: newX, z: newZ });
+    await reloadSnapshot();
+  } catch (err) {
+    console.error("Flee failed:", err);
+  }
+}
+
 function syncParty(): void {
   if (!scene || !snapshot || !world) return;
 

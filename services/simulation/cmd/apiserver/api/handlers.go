@@ -1,6 +1,9 @@
 package api
 
 import (
+	"errors"
+	"fmt"
+	"io"
 	"net/http"
 
 	"mbclone/simulation/cmd/apiserver/campaign"
@@ -20,6 +23,14 @@ func (s *Server) getSnapshot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.writeJSON(w, http.StatusOK, snap)
+}
+
+func (s *Server) postSnapshotRestore(w http.ResponseWriter, r *http.Request) {
+	var snap wire.SimSnapshot
+	if !s.decode(w, r, &snap) {
+		return
+	}
+	s.order(w, r, func() (any, error) { return s.camp.RestoreSnapshot(r.Context(), snap) })
 }
 
 func (s *Server) getWhy(w http.ResponseWriter, r *http.Request) {
@@ -177,6 +188,38 @@ func (s *Server) postBattleXp(w http.ResponseWriter, r *http.Request) {
 	s.order(w, r, func() (any, error) { return s.camp.AwardBattleXp(r.Context(), in) })
 }
 
+func (s *Server) postBattleResult(w http.ResponseWriter, r *http.Request) {
+	var in wire.BattleResultInput
+	if !s.decode(w, r, &in) {
+		return
+	}
+	s.order(w, r, func() (any, error) { return s.camp.ApplyBattleResult(r.Context(), in) })
+}
+
+func (s *Server) postBattleOutcome(w http.ResponseWriter, r *http.Request) {
+	var in wire.BattleResult
+	if !s.decode(w, r, &in) {
+		return
+	}
+	s.order(w, r, func() (any, error) { return s.camp.ApplyBattleOutcome(r.Context(), in) })
+}
+
+func (s *Server) getNearbyParties(w http.ResponseWriter, r *http.Request) {
+	rangeKm := 50.0
+	if v := r.URL.Query().Get("rangeKm"); v != "" {
+		var parsed float64
+		if _, err := fmt.Sscanf(v, "%f", &parsed); err == nil && parsed > 0 {
+			rangeKm = parsed
+		}
+	}
+	s.order(w, r, func() (any, error) { return s.camp.NearbyParties(r.Context(), rangeKm) })
+}
+
+func (s *Server) postDefeatParty(w http.ResponseWriter, r *http.Request) {
+	partyID := r.PathValue("id")
+	s.order(w, r, func() (any, error) { return s.camp.DefeatParty(r.Context(), partyID) })
+}
+
 func (s *Server) postUpgrade(w http.ResponseWriter, r *http.Request) {
 	var req wire.UpgradeTroopsRequest
 	if !s.decode(w, r, &req) {
@@ -237,3 +280,66 @@ func (s *Server) postMarchCommit(w http.ResponseWriter, r *http.Request) {
 	s.order(w, r, func() (any, error) { return s.camp.CommitMarch(ctx, req) })
 }
 
+// maxLoadBytes caps what POST /v1/load will read into memory. It is far above any
+// real save, which runs to a few megabytes, and far below anything that would
+// take the process down.
+const maxLoadBytes = 256 << 20
+
+// postSave writes the whole campaign to the response body as one JSON save
+// file. The client stores it wherever the player keeps saves.
+func (s *Server) postSave(w http.ResponseWriter, r *http.Request) {
+	data, err := s.camp.Save()
+	if err != nil {
+		s.writeFault(w, err)
+		return
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Disposition", `attachment; filename="mbclone-save.json"`)
+	w.WriteHeader(http.StatusOK)
+	w.Write(data)
+}
+
+// postLoad restores the campaign from a save file posted in the request body.
+func (s *Server) postLoad(w http.ResponseWriter, r *http.Request) {
+	data, err := io.ReadAll(http.MaxBytesReader(w, r.Body, maxLoadBytes))
+	if err != nil {
+		// A body past the cap is the player handing over something enormous --
+		// a video, a disk image, a save from a much larger world. That is a bad
+		// request, and saying so is the difference between the player checking
+		// their Downloads folder and the player filing a server bug.
+		var tooBig *http.MaxBytesError
+		if errors.As(err, &tooBig) {
+			s.writeFault(w, &campaign.Fault{
+				Code:    campaign.CodeBadRequest,
+				Message: fmt.Sprintf("load body exceeds the %d MiB cap", maxLoadBytes>>20),
+				Reason:  "That file is too large to be a save game.",
+			})
+			return
+		}
+		s.writeFault(w, err)
+		return
+	}
+	if err := s.camp.Load(data); err != nil {
+		s.writeFault(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"ok": true, "day": s.camp.TickNumber()})
+}
+
+// postStepDays advances the world exactly the requested number of days and
+// returns the new day. Unlike the wall clock it is deterministic: the same
+// count from the same save always lands on the same world.
+func (s *Server) postStepDays(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Days int `json:"days"`
+	}
+	if !s.decode(w, r, &req) {
+		return
+	}
+	day, err := s.camp.StepDays(req.Days)
+	if err != nil {
+		s.writeFault(w, err)
+		return
+	}
+	s.writeJSON(w, http.StatusOK, map[string]any{"ok": true, "day": day})
+}

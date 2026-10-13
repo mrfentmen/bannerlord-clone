@@ -1,0 +1,32 @@
+/* Task 29: the surrender button. Deliberately quiet rather than shouty: it sits
+   in the HUD's control cluster, and a battle-ending action that looks like an
+   emergency gets pressed in an emergency. The critical status token on the border
+   is the only thing marking it, so it is findable without being the loudest
+   thing on screen.
+
+   Static — nothing animates. */
+
+.hud-surrender-wrap {
+  display: inline-flex;
+}
+
+.hud-surrender {
+  padding: 4px var(--space-2);
+  border: 1px solid var(--status-critical-mark);
+  border-radius: var(--radius-2);
+  background: var(--paper-0);
+  color: var(--status-critical-mark);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+}
+
+.hud-surrender:hover {
+  background: var(--paper-200);
+}
+
+.hud-surrender:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}

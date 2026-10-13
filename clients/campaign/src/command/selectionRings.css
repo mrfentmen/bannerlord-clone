@@ -1,0 +1,19 @@
+/* Buffy task 65: selection rings drawn over the battlefield.
+   A thin accent ring per selected unit, centred on the projected position.
+   No animation and no transition: a ring that faded in would lag the cursor. */
+
+.cmd-rings {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.cmd-ring {
+  position: absolute;
+  box-sizing: border-box;
+  border: 2px solid var(--accent-primary);
+  border-radius: 50%;
+  transform: translate(-50%, -50%);
+  /* The interior stays clear so the unit underneath is still readable. */
+  background: transparent;
+}

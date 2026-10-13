@@ -80,12 +80,46 @@ export function routePanel(options: RoutePanelOptions): RoutePanelHandle {
   });
 
   const listSection = h("section", { class: "routes__list", "aria-label": "Your caravans" });
+  const rankSection = h("section", { class: "routes__rank", "aria-label": "Route ranking" });
   const formSection = h("section", { class: "routes__found", "aria-label": "Found a caravan" });
-  body.append(listSection, formSection);
+  body.append(listSection, rankSection, formSection);
+
+  // -- Route ranking (solo task 72): best profit per day first ---------------
+  function renderRanking(): void {
+    rankSection.replaceChildren();
+    const caravans = options.caravans().filter((c) => c.weeks.length > 0);
+    if (caravans.length === 0) return;
+    const ranked = caravans
+      .map((c) => {
+        const days = c.weeks.length * 7;
+        const profit = totalProfit(c);
+        return { caravan: c, profitPerDay: days > 0 ? profit / days : 0 };
+      })
+      .sort((a, b) => b.profitPerDay - a.profitPerDay);
+    rankSection.appendChild(h("h3", { class: "routes__rank-title" }, "Route ranking"));
+    const list = h("ol", { class: "routes__rank-list", "data-testid": "routes-ranking" });
+    for (const [i, r] of ranked.entries()) {
+      list.appendChild(
+        h(
+          "li",
+          { class: "routes__rank-item" },
+          h("span", { class: "routes__rank-pos" }, `#${i + 1} `),
+          h("span", { class: "routes__rank-name" }, r.caravan.name),
+          h(
+            "span",
+            { class: `routes__profit ${profitClass(r.profitPerDay)}` },
+            `${money(r.profitPerDay)}/day`,
+          ),
+        ),
+      );
+    }
+    rankSection.appendChild(list);
+  }
 
   // -- Caravan list ----------------------------------------------------------
   function renderList(): void {
     listSection.replaceChildren();
+    renderRanking();
     const caravans = options.caravans();
     if (caravans.length === 0) {
       listSection.appendChild(

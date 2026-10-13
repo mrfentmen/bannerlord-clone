@@ -1,0 +1,34 @@
+/* Buffy task 70: the formation row, above the order toolbar.
+   Same sheet/ink family as the rest of the command overlay, with the pressed
+   choice in the accent fill so the current shape is unmistakable. */
+
+.cmd-formation {
+  display: flex;
+  gap: var(--space-1);
+}
+
+.cmd-formation__choice {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--ink-500);
+  border-radius: var(--radius-1);
+  background: var(--paper-0);
+  color: var(--ink-900);
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.cmd-formation__choice:hover {
+  background: var(--paper-200);
+}
+
+.cmd-formation__choice:focus-visible {
+  outline: 2px solid var(--accent-primary);
+  outline-offset: 1px;
+}
+
+.cmd-formation__choice.is-active,
+.cmd-formation__choice[aria-pressed="true"] {
+  border-color: var(--accent-primary-deep);
+  background: var(--accent-primary);
+  color: var(--accent-primary-ink);
+}

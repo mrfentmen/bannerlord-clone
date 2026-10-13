@@ -127,6 +127,13 @@ export function startScreen(options: StartScreenOptions): HTMLElement {
           `Starting in ${options.startYear}, the ${options.eraLabel}. Everything below is computed from real data about ` +
             "these states, not from a difficulty setting. Choose the problem you want to have.",
         ),
+        h(
+          "p",
+          { class: "lede start__prologue" },
+          "Twenty years after the Unraveling, six factions divide the country and every road has a toll. " +
+            "You are a captain with a company, a past of your own choosing, and bills to pay. The Rook Company " +
+            "runs the Front Range convoys \u2014 for now, they are the competition.",
+        ),
       ),
     );
     inner.appendChild(stepBar());

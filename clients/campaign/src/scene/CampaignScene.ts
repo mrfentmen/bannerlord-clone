@@ -38,8 +38,14 @@ import { TownLodController } from "./townLod.js";
 import { shadowConfigFor } from "../design/shadows.js";
 import { AmbientParticles, ParticleDensityManager } from "./particles.js";
 import { PARTICLE_DENSITY_DEFAULT } from "../design/particles.js";
+import { getAudioManager } from "../audio/AudioManager.js";
+import { ZoomTick } from "../audio/zoomTick.js";
 import { mapColor, tokens } from "../design/tokens.js";
 import { attachMapGestures } from "../input/touch/gestures.js";
+import { applyMouseCameraBindings, loadMouseCameraBindings } from "../input/mouseBindings.js";
+import { PlayerController } from "./PlayerController.js";
+import { VehicleController } from "./VehicleController.js";
+import type { InputRegistry } from "../input/registry.js";
 import { resolveGrade, type QualityLevel } from "../design/grade.js";
 import {
   DEFAULT_GRAIN_INTENSITY,
@@ -88,6 +94,12 @@ export interface SceneOptions {
   year: number;
   quality: QualityLevel;
   onSelect: (settlementId: string) => void;
+  /**
+   * Walk mode (Pax brief #1): when provided, the scene builds a
+   * `PlayerController` and exposes it on the handle as `player`, with
+   * `enterWalkMode`/`exitWalkMode`. Omit to keep the map camera only.
+   */
+  input?: InputRegistry;
   /** Engine creation options from settings (tasks 8/12): need a reload. */
   antialias?: boolean;
   powerPreference?: WebGLPowerPreference;
@@ -176,6 +188,25 @@ export interface SceneHandle {
   /** One line about what the map is showing, for the data-source panel. */
   summary(): string;
   towns: TownCluster[];
+  /**
+   * Walk mode (Pax brief #1). Null until the input registry is passed in
+   * `SceneOptions.input`. `enterWalkMode` switches the active camera to the
+   * player controller and starts WASD+mouse walking; `exitWalkMode` restores
+   * the map camera. Buffy: pass `input` in the options and call these from UI.
+   */
+  readonly player: PlayerController | null;
+  enterWalkMode(x: number, z: number): void;
+  exitWalkMode(): void;
+  readonly walkMode: boolean;
+  /**
+   * Drive mode (Pax brief #2). One car spawns near the player on
+   * `enterDriveMode`; E (player.interact) toggles between walking and
+   * driving while walk mode is active.
+   */
+  readonly vehicle: VehicleController | null;
+  enterDriveMode(): void;
+  exitDriveMode(): void;
+  readonly driveMode: boolean;
 }
 
 /** Per-frame camera deltas for the twin-stick driver (task 2). */
@@ -226,10 +257,20 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
   camera.lowerBetaLimit = 0.2;
   camera.wheelDeltaPercentage = 0.02;
   camera.panningSensibility = 28;
+  const zoomTick = new ZoomTick(() => getAudioManager().playUiSound("hover"));
+  // The wheel changes `camera.radius` inside Babylon, so observe its input on
+  // the canvas. The touch gesture calls the same cooldown after pinch zoom.
+  const onWheel = (event: WheelEvent): void => {
+    if (event.deltaY !== 0) zoomTick.input();
+  };
+  canvas.addEventListener("wheel", onWheel, { passive: true });
   camera.inertia = 0.82;
   camera.minZ = 20;
   camera.maxZ = 260_000;
   camera.attachControl(canvas, true);
+
+  // Mouse-button remapping (Rowan solo task 13): which button pans vs orbits.
+  applyMouseCameraBindings(camera, loadMouseCameraBindings());
 
   // Touch gestures (MASTER_PLAN task 4): one-finger drag pans the map,
   // two-finger pinch zooms and twists to rotate. Babylon's own one-finger
@@ -261,6 +302,9 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       const lo = camera.lowerRadiusLimit ?? 900;
       const hi = camera.upperRadiusLimit ?? 95_000;
       camera.radius = Math.min(hi, Math.max(lo, camera.radius * factor));
+    },
+    onZoomInput() {
+      zoomTick.input();
     },
     rotateBy(dAlpha) {
       // Increasing alpha orbits the camera clockwise (viewed from above),
@@ -458,6 +502,55 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
     if (typeof id === "string") options.onSelect(id);
   });
 
+  // -- player controller (Pax brief #1: walk) --------------------------------
+  // Built when the input registry is provided. The controller is inert until
+  // `enterWalkMode`; its action handlers are gated on the active flag, so the
+  // map keeps WASD until walk mode starts.
+  const player = options.input
+    ? new PlayerController({
+        scene,
+        input: options.input,
+        canvas,
+        start: new Vector3(projection.width / 2, 0, projection.depth / 2),
+        groundHeight: (x, z) => projection.heightAt(x, z) * VERTICAL_SCALE,
+      })
+    : null;
+
+  // -- vehicle (Pax brief #2: drive) ------------------------------------------
+  // One car, spawned on demand near the player. E toggles walk<->drive.
+  const vehicle = options.input
+    ? new VehicleController({
+        scene,
+        input: options.input,
+        start: new Vector3(projection.width / 2, 0, projection.depth / 2),
+        groundHeight: (x, z) => projection.heightAt(x, z) * VERTICAL_SCALE,
+      })
+    : null;
+  if (options.input && player !== null && vehicle !== null) {
+    const p = player;
+    const v = vehicle;
+    options.input.on("player.interact", () => {
+      if (!p.isActive) return;
+      if (v.isActive) {
+        // Get out: back to walking, player placed beside the car.
+        v.setActive(false);
+        p.reposition(
+          v.position.x + 2.2,
+          v.position.y,
+          v.position.z,
+        );
+        p.setActive(true);
+        scene.activeCamera = p.camera;
+      } else {
+        // Get in: the car pulls up beside the player.
+        v.reposition(p.position.x + 3, p.position.z, 0);
+        p.setActive(false);
+        v.setActive(true);
+        scene.activeCamera = v.camera;
+      }
+    }, { when: () => p.isActive || v.isActive });
+  }
+
   // Frame cap (settings maxFps, task 12): skip renders that arrive too soon.
   let maxFps = options.maxFps ?? 0;
   let lastFrameAt = 0;
@@ -468,8 +561,11 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
       if (now - lastFrameAt < 1000 / maxFps) return;
       lastFrameAt = now;
     }
+    const dt = engine.getDeltaTime() / 1000;
     if (grain) grain.tick(engine.getDeltaTime());
     ambient.update();
+    if (player !== null && player.isActive) player.update(dt);
+    if (vehicle !== null && vehicle.isActive) vehicle.update(dt);
     townLod.update(camera.target);
     sizePartyPin(pin, camera.radius, engine.getRenderHeight());
     scene.render();
@@ -482,10 +578,55 @@ export function createCampaignScene(options: SceneOptions): SceneHandle {
     scene,
     engine,
     towns,
+    player,
+    get walkMode(): boolean {
+      return player !== null && player.isActive;
+    },
+    vehicle,
+    get driveMode(): boolean {
+      return vehicle !== null && vehicle.isActive;
+    },
+    enterDriveMode(): void {
+      if (player === null || vehicle === null || !player.isActive) return;
+      vehicle.reposition(player.position.x + 3, player.position.z, 0);
+      player.setActive(false);
+      camera.detachControl();
+      vehicle.setActive(true);
+      scene.activeCamera = vehicle.camera;
+    },
+    exitDriveMode(): void {
+      if (player === null || vehicle === null || !vehicle.isActive) return;
+      const vp = vehicle.position;
+      vehicle.setActive(false);
+      player.reposition(vp.x + 2.2, vp.y, vp.z);
+      player.setActive(true);
+      scene.activeCamera = player.camera;
+    },
+    enterWalkMode(x: number, z: number): void {
+      if (player === null) return;
+      // Drop the player at the party's map position, on the ground.
+      const groundY = projection.heightAt(x, z) * VERTICAL_SCALE;
+      player.reposition(x, groundY, z);
+      player.setActive(true);
+      // Park the map camera: detach its canvas inputs so drags don't orbit
+      // the camera we aren't looking through.
+      camera.detachControl();
+      scene.activeCamera = player.camera;
+    },
+    exitWalkMode(): void {
+      if (player === null) return;
+      if (vehicle !== null && vehicle.isActive) vehicle.setActive(false);
+      player.setActive(false);
+      scene.activeCamera = camera;
+      camera.attachControl(canvas, true);
+    },
     dispose() {
       window.removeEventListener("resize", onResize);
+      canvas.removeEventListener("wheel", onWheel);
       engine.stopRenderLoop();
       mapGestures.dispose();
+      player?.dispose();
+      vehicle?.dispose();
       shadowGen?.dispose();
       grain?.dispose();
       particleManager.dispose();

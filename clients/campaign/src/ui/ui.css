@@ -1795,6 +1795,192 @@ html[data-reduce-motion] *::after {
   .deploy__card { flex: none; }
 }
 
+/* ---------- battle deployment overlay (tasks 6-17) ----------------------------
+   A header strip over the 3D battlefield: title, instruction, the deployment
+   countdown, and the control that ends the phase. It sits over the scene rather
+   than over paper, so it takes its colours from the scene-proof tokens the same
+   way the minimap and the subtitle bar do. */
+
+.battle-deployment {
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 95;
+  display: flex;
+  justify-content: center;
+  padding: var(--space-3);
+  pointer-events: none;
+}
+
+.deployment-header {
+  pointer-events: auto;
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas:
+    "info   info"
+    "title  timer"
+    "sides  sides";
+  align-items: center;
+  gap: var(--space-1) var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  background: var(--ink-900);
+  color: var(--paper-0);
+  border-radius: 4px;
+  box-shadow: var(--sheet-2);
+}
+
+.deployment-title { grid-area: title; }
+
+/* The site strip: banner, terrain, weather, clock. One row, right-aligned so it
+   reads as metadata about the ground rather than as more instructions. */
+.deploy-info {
+  grid-area: info;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+  min-height: 0;
+}
+
+.deploy-info:empty { display: none; }
+
+.deploy-banner {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+/* A pennant of the faction's cloth. It is identity, not information: the name
+   beside it is what the player reads, which is why no text sits on the cloth. */
+.deploy-banner__field {
+  width: 28px;
+  height: 16px;
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 8px 100%, 0 calc(100% - 8px));
+  outline: 1px solid var(--paper-300);
+}
+
+.deploy-banner__name {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+/* The ground the fight is on. Same strip as the banner, quieter: the terrain is
+   context, not the thing the player is here to act on. */
+.deploy-terrain {
+  font-size: 0.85rem;
+  opacity: 0.85;
+}
+
+.deploy-banner + .deploy-terrain {
+  padding-left: var(--space-2);
+  border-left: 1px solid var(--ink-500);
+}
+
+/* Weather and the clock of day: a glyph the eye reads first, the word beside it
+   that does the actual work. */
+.deploy-weather,
+.deploy-time {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-size: 0.85rem;
+}
+
+.deploy-weather__glyph,
+.deploy-time__glyph {
+  font-size: 1rem;
+  line-height: 1;
+}
+
+/* The help note. Always visible rather than a hover title: a title attribute is
+   unreachable by keyboard, and the player needs to know what the click does before
+   they click. Italic marks it as an aside to the instruction above it. */
+.deploy-help {
+  margin-top: var(--space-1);
+  font-size: 0.8rem;
+  font-style: italic;
+  opacity: 0.75;
+}
+
+.deployment-header h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+
+.deployment-header p {
+  margin: 0;
+  font-size: 0.85rem;
+  opacity: 0.8;
+}
+
+/* The count is data, and it is the one line in the header that changes while the
+   player works, so it is mono like the clock and given its own row. */
+.deploy-count {
+  font-family: var(--font-mono);
+  font-size: 0.9rem;
+  opacity: 1;
+}
+
+.deploy-count:empty { display: none; }
+
+/* The countdown is data, so it is mono and tabular: the digits do not reflow the
+   header as they change, which a proportional face would do once a second. */
+.deploy-timer {
+  grid-area: timer;
+  align-self: center;
+  min-width: 4ch;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-size: 1.5rem;
+  font-variant-numeric: tabular-nums;
+}
+
+/* One slot per side. The enemy slot is a state, not a control, so it sits in the
+   same place and takes the same width as the player's button. */
+.deploy-sides {
+  grid-area: sides;
+  display: flex;
+  align-items: stretch;
+  gap: var(--space-2);
+}
+
+.deploy-side {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.deploy-side__label {
+  font-size: 0.75rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 0.7;
+}
+
+.deploy-ready {
+  padding: var(--space-1) var(--space-3);
+  background: var(--accent-primary);
+  color: var(--accent-primary-ink);
+  border: 1px solid var(--accent-primary-deep);
+  border-radius: 4px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button.deploy-ready:focus-visible { outline: 2px solid var(--focus-ring); outline-offset: 2px; }
+
+/* The AI's readiness is reported, not requested: a status chip, not a button. */
+.deploy-ready--ai {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  background: var(--status-good-fill);
+  color: var(--status-good-ink);
+  cursor: default;
+}
+
+.deploy-ready__glyph { font-size: 0.7em; }
+
 /* -- quest journal ------------------------------------------------------------ */
 .journal__filters {
   display: flex;

@@ -1,0 +1,30 @@
+/* Task 30: the retreat button. Sits beside the surrender button and is marked
+   with the warning token rather than the critical one: retreating is a cost,
+   surrendering is a loss, and the two controls should not look equally final.
+
+   Static — nothing animates. */
+
+.hud-retreat-wrap {
+  display: inline-flex;
+}
+
+.hud-retreat {
+  padding: 4px var(--space-2);
+  border: 1px solid var(--status-warning-mark);
+  border-radius: var(--radius-2);
+  background: var(--paper-0);
+  color: var(--status-warning-mark);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+}
+
+.hud-retreat:hover {
+  background: var(--paper-200);
+}
+
+.hud-retreat:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}

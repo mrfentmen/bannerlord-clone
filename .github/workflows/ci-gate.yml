@@ -1,0 +1,43 @@
+name: ci-gate
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install world-data deps
+        run: pip install "./services/world-data[dev,parquet]"
+
+      - name: World-data pytest
+        run: cd services/world-data && python3 -m pytest -q
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: clients/campaign/package-lock.json
+
+      - name: Install client deps
+        run: npm ci --prefix clients/campaign
+
+      - name: Client vitest
+        run: npm test --prefix clients/campaign -- --maxWorkers=2
+
+      - name: Client typecheck
+        run: npm run typecheck --prefix clients/campaign
+
+      - name: Client build
+        run: npm run build --prefix clients/campaign

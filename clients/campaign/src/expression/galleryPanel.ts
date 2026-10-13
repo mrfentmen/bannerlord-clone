@@ -12,6 +12,7 @@ import "./gallery.css";
 import { announce, button, clear, h, liveRegion } from "../ui/dom.js";
 import { emptyState, panel } from "../ui/kit.js";
 import type { GalleryStore } from "./gallery.js";
+import { PHOTO_FILTERS, PHOTO_FILTER_LABELS, photoFilterCss, type PhotoFilter } from "./photoFilters.js";
 
 export interface GalleryPanelOptions {
   store: GalleryStore;
@@ -76,9 +77,19 @@ export function galleryPanel(options: GalleryPanelOptions): HTMLElement {
       clear(viewer);
       grid.hidden = false;
     }, { testId: "gallery-viewer-close" });
+    // Photo filters (solo task 95): CSS chains the capture view applies.
+    const filterSelect = h(
+      "select",
+      { "aria-label": "Photo filter", "data-testid": "gallery-filter" },
+      ...PHOTO_FILTERS.map((f) => h("option", { value: f }, PHOTO_FILTER_LABELS[f])),
+    ) as HTMLSelectElement;
+    filterSelect.addEventListener("change", () => {
+      img.style.filter = photoFilterCss(filterSelect.value as PhotoFilter);
+    });
     viewer.append(
       img,
       h("p", { class: "caption" }, `${capture.label} · ${new Date(capture.capturedAt).toLocaleString()}`),
+      h("div", { class: "gallery__viewer-actions" }, filterSelect),
       h("div", { class: "gallery__viewer-actions" }, button("Share", () => shareCapture(id), { testId: `gallery-share-${id}` }), close),
     );
     grid.hidden = true;

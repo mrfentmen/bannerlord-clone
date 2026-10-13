@@ -1,0 +1,38 @@
+/* Task 23: the enemy's living troop count. The same widget as the player's
+   readout — one label, one number, one unknown state — so it repeats the shape
+   deliberately rather than for convenience; a commander compares the two counts
+   and they have to be comparable at a glance. Only the frame colour differs,
+   and it comes from the critical status token, never from a literal.
+
+   Static — a number that changes is not an animation, so there is nothing here
+   to disable under reduced motion. */
+
+.hud-enemy-troops {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  padding: 2px var(--space-2);
+  border: 1px solid var(--status-critical-mark);
+  border-radius: var(--radius-2);
+  background: var(--paper-0);
+}
+
+.hud-enemy-troops__label {
+  font-size: 13px;
+  line-height: 18px;
+  font-weight: 600;
+  color: var(--ink-700);
+}
+
+.hud-enemy-troops__value {
+  font-size: 15px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--ink-900);
+}
+
+/* Before the source reports there is no count to show, and a dash says that
+   where a zero would claim the enemy is already destroyed. */
+.hud-enemy-troops[data-live="false"] .hud-enemy-troops__value {
+  color: var(--ink-500);
+}
